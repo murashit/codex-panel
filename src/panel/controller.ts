@@ -117,7 +117,8 @@ export class PanelController {
         "mcp progress",
       );
     } else if (method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed") {
-      this.state.displayItems = upsertDisplayItem(this.state.displayItems, createAutoReviewResultItem(params));
+      const reviewItem = createAutoReviewResultItem(params);
+      this.state.displayItems = upsertDisplayItem(removeUnstructuredAutoReviewWarnings(this.state.displayItems), reviewItem);
     } else if (method === "thread/started") {
       if (params.thread) {
         if (!this.state.activeThreadId || this.state.activeThreadId === params.thread.id) {
@@ -143,7 +144,10 @@ export class PanelController {
     } else if (method === "thread/compacted") {
       this.addSystemMessage("Context compacted.");
     } else if (method === "guardianWarning") {
-      this.state.displayItems.push(createReviewResultItem(params.message));
+      const item = createReviewResultItem(params.message);
+      if (!isUnstructuredAutoReviewWarning(item) || !hasStructuredAutoReviewResult(this.state.displayItems, this.state.activeTurnId)) {
+        this.state.displayItems = upsertDisplayItem(this.state.displayItems, item);
+      }
     } else if (method === "model/rerouted" || method === "deprecationNotice") {
       this.addSystemMessage(`${method}: ${jsonPreview(params)}`);
     } else if (method === "mcpServer/startupStatus/updated") {
@@ -379,6 +383,28 @@ function messageTurnId(message: ServerNotification | ServerRequest): string | nu
 function approvalTurnId(approval: PendingApproval): string | undefined {
   const params = approval.params as { turnId?: unknown };
   return typeof params.turnId === "string" ? params.turnId : undefined;
+}
+
+function removeUnstructuredAutoReviewWarnings(items: DisplayItem[]): DisplayItem[] {
+  return items.filter((item) => !isUnstructuredAutoReviewWarning(item));
+}
+
+function hasStructuredAutoReviewResult(items: DisplayItem[], activeTurnId: string | null): boolean {
+  return items.some(
+    (item) =>
+      item.kind === "reviewResult" &&
+      Boolean(item.turnId) &&
+      (!activeTurnId || item.turnId === activeTurnId) &&
+      isAutoReviewText(item.text),
+  );
+}
+
+function isUnstructuredAutoReviewWarning(item: DisplayItem): boolean {
+  return item.kind === "reviewResult" && !item.turnId && isAutoReviewText(item.text);
+}
+
+function isAutoReviewText(text: string): boolean {
+  return /^Auto-review\b/i.test(text.trim());
 }
 
 function isUserMessage(item: DisplayItem): item is MessageDisplayItem & { role: "user" } {

@@ -603,6 +603,69 @@ describe("PanelController", () => {
       rows: expect.arrayContaining([{ key: "status", value: "approved" }]),
     });
   });
+
+  it("replaces guardian auto-review warnings when structured auto-review notifications arrive", () => {
+    const state = createPanelState();
+    state.activeThreadId = "thread-active";
+    state.activeTurnId = "turn-active";
+    const controller = controllerForState(state);
+
+    controller.handleNotification({
+      method: "guardianWarning",
+      params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
+    } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
+    controller.handleNotification({
+      method: "item/autoApprovalReview/completed",
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        startedAtMs: 1,
+        completedAtMs: 2,
+        reviewId: "review-1",
+        targetItemId: "cmd-1",
+        decisionSource: "agent",
+        review: { status: "approved", riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
+        action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
+      },
+    } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
+
+    expect(state.displayItems).toHaveLength(1);
+    expect(state.displayItems[0]).toMatchObject({
+      id: "review-review-1",
+      kind: "reviewResult",
+      text: "Auto-review approved: npm test",
+      turnId: "turn-active",
+    });
+  });
+
+  it("ignores guardian auto-review warnings after structured auto-review notifications", () => {
+    const state = createPanelState();
+    state.activeThreadId = "thread-active";
+    state.activeTurnId = "turn-active";
+    const controller = controllerForState(state);
+
+    controller.handleNotification({
+      method: "item/autoApprovalReview/completed",
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        startedAtMs: 1,
+        completedAtMs: 2,
+        reviewId: "review-1",
+        targetItemId: "cmd-1",
+        decisionSource: "agent",
+        review: { status: "approved", riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
+        action: { type: "command", source: "shell", command: "npm test", cwd: "/vault" },
+      },
+    } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
+    controller.handleNotification({
+      method: "guardianWarning",
+      params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
+    } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
+
+    expect(state.displayItems).toHaveLength(1);
+    expect(state.displayItems[0]).toMatchObject({ id: "review-review-1" });
+  });
 });
 
 function supportedApprovalRequests(): ServerRequest[] {
