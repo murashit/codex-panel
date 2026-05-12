@@ -27,7 +27,6 @@
   --codex-panel-toolbar-button-gap: var(--size-2-1, 2px);
   --codex-panel-message-padding-y: var(--size-4-3, 12px);
   --codex-panel-composer-padding-y: var(--size-4-2, 8px);
-  --codex-panel-composer-padding-bottom: calc(var(--font-text-size, 16px) * 2);
   --codex-panel-section-padding: var(--codex-panel-edge-padding-x);
   --codex-panel-section-gap: var(--size-4-2, 8px);
   --codex-panel-item-gap: var(--size-2-3, 6px);
@@ -1329,7 +1328,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--codex-panel-section-gap);
-  padding: var(--codex-panel-composer-padding-y) var(--codex-panel-edge-padding-x) var(--codex-panel-composer-padding-bottom);
+  padding: var(--codex-panel-composer-padding-y) var(--codex-panel-edge-padding-x);
   border-top: 1px solid var(--background-modifier-border);
 }
 

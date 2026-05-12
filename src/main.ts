@@ -85,7 +85,7 @@ export default class CodexPanelPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexPanelView(leaf, this));
 
-    this.addRibbonIcon("terminal", "Open panel", () => {
+    this.addRibbonIcon("bot-message-square", "Open panel", () => {
       void this.activateView();
     });
 
@@ -242,7 +242,7 @@ class CodexPanelView extends ItemView {
   }
 
   getIcon(): string {
-    return "terminal";
+    return "bot-message-square";
   }
 
   refreshSettings(): void {

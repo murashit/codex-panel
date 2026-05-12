@@ -3,7 +3,7 @@
   "name": "Codex Panel",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "Run Codex from an Obsidian side panel.",
+  "description": "Run Codex from a side panel.",
   "author": "murashit",
   "isDesktopOnly": true
 }
