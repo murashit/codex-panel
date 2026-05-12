@@ -1,0 +1,40 @@
+{
+  "name": "codex-panel",
+  "version": "0.1.0",
+  "description": "Obsidian side panel for Codex app-server.",
+  "main": "main.js",
+  "author": "murashit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/murashit/codex-panel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/murashit/codex-panel/issues"
+  },
+  "homepage": "https://github.com/murashit/codex-panel#readme",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "build:prod": "node esbuild.config.mjs --production",
+    "dev": "node esbuild.config.mjs --watch",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"*.{json,mjs,md,css}\" \"!src/generated/**\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"*.{json,mjs,md,css}\" \"!src/generated/**\"",
+    "generate:app-server-types": "codex app-server generate-ts --experimental --out src/generated/app-server",
+    "lint": "eslint src tests --max-warnings=0",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "npm run typecheck && npm run test && npm run lint && npm run format:check && npm run build:prod"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
+    "@typescript-eslint/parser": "^8.59.2",
+    "esbuild": "^0.25.0",
+    "eslint": "^10.3.0",
+    "jsdom": "^29.1.1",
+    "obsidian": "^1.12.3",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  }
+}
