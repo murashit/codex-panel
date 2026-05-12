@@ -65,7 +65,6 @@ export interface ToolbarActions {
   toggleFast: () => void;
   toggleRuntime: () => void;
   connect: () => void;
-  openCodexConfigFolder: () => void;
   refreshThreads: () => void;
   resumeThread: (threadId: string) => void;
   archiveThread: (threadId: string) => void;
@@ -218,10 +217,6 @@ function renderStatusPanel(parent: HTMLElement, model: ToolbarViewModel, actions
   createToolbarPanelItem(statusItems, model.connectLabel, { onClick: actions.connect, className: "codex-panel__status-panel-item" });
   createToolbarPanelItem(statusItems, "Refresh thread list", {
     onClick: actions.refreshThreads,
-    className: "codex-panel__status-panel-item",
-  });
-  createToolbarPanelItem(statusItems, "Open Codex config folder", {
-    onClick: actions.openCodexConfigFolder,
     className: "codex-panel__status-panel-item",
   });
   renderRateLimitPanel(parent, model.rateLimit);

@@ -781,7 +781,6 @@ describe("view renderers", () => {
 
   it("renders connection diagnostics in the status menu", () => {
     const parent = document.createElement("div");
-    const openCodexConfigFolder = vi.fn();
 
     renderToolbar(
       parent,
@@ -793,12 +792,9 @@ describe("view renderers", () => {
           { label: "compatibility", value: "model/list failed", level: "error" },
         ],
       }),
-      toolbarActions({ openCodexConfigFolder }),
+      toolbarActions(),
     );
 
-    parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")[2]?.click();
-    expect(openCodexConfigFolder).toHaveBeenCalled();
-    expect(parent.textContent).toContain("Open Codex config folder");
     expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection diagnostics");
     expect(parent.textContent).toContain("Effective Codex config");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
@@ -1139,7 +1135,6 @@ function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> 
     toggleFast: vi.fn(),
     toggleRuntime: vi.fn(),
     connect: vi.fn(),
-    openCodexConfigFolder: vi.fn(),
     refreshThreads: vi.fn(),
     resumeThread: vi.fn(),
     archiveThread: vi.fn(),

@@ -36,7 +36,6 @@ export class StdioAppServerTransport implements AppServerTransport {
     this.process = spawn(this.codexPath, ["app-server"], {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
-      env: process.env,
     });
 
     this.process.once("error", (error) => {

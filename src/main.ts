@@ -1,6 +1,4 @@
-import { ItemView, MarkdownRenderer, Notice, Platform, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
-import { existsSync } from "fs";
-import { join } from "path";
+import { ItemView, MarkdownRenderer, Notice, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "./app-server/client";
 import { ConnectionManager, StaleConnectionError } from "./app-server/connection-manager";
@@ -57,7 +55,6 @@ import { CodexPanelSettingTab } from "./settings-tab";
 import { clearActiveThreadState, clearConnectionScopedState, createPanelState, type PanelState } from "./state/panel-state";
 import { userInputDraftKey, userInputOtherDraftKey } from "./panel/request-state";
 import { getThreadTitle } from "./threads";
-import { errorMessage } from "./utils";
 import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
 import {
   renderComposerShell,
@@ -661,7 +658,6 @@ class CodexPanelView extends ItemView {
       toggleFast: () => this.toggleFastMode(),
       toggleRuntime: () => this.toggleRuntimePicker("model"),
       connect: () => void this.reconnectFromToolbar(),
-      openCodexConfigFolder: () => void this.openCodexConfigFolder(),
       refreshThreads: () => {
         this.state.openDetails.delete("status-panel");
         void this.refreshThreads();
@@ -678,30 +674,6 @@ class CodexPanelView extends ItemView {
       cancelRenameThread: (threadId) => this.threadRename.cancel(threadId),
       autoNameThread: (threadId) => void this.threadRename.autoNameDraft(threadId),
     });
-  }
-
-  private async openCodexConfigFolder(): Promise<void> {
-    if (!Platform.isDesktopApp) {
-      new Notice("Opening .codex requires Obsidian desktop.");
-      return;
-    }
-
-    try {
-      const { shell } = await import("electron");
-      if (!shell) throw new Error("Electron shell is not available.");
-
-      const vaultCodexPath = join(this.plugin.vaultPath, ".codex");
-      const targetPath = existsSync(vaultCodexPath)
-        ? vaultCodexPath
-        : (this.state.initializeResponse?.codexHome ?? join(process.env.HOME ?? "", ".codex"));
-      const message = await shell.openPath(targetPath);
-      if (message) throw new Error(message);
-      if (targetPath !== vaultCodexPath) {
-        new Notice("Vault .codex folder not found. Opened Codex home instead.");
-      }
-    } catch (error) {
-      new Notice(`Could not open Codex config folder: ${errorMessage(error)}`);
-    }
   }
 
   private toolbarViewModel(): ToolbarViewModel {
