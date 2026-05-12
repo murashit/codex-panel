@@ -1,6 +1,7 @@
 export type ClassifiedAppServerLog = { kind: "plain"; text: string } | { kind: "error"; text: string } | null;
 
-const ANSI_PATTERN = new RegExp("\\u001B\\[[0-?]*[ -/]*[@-~]", "g");
+const ESCAPE_CHARACTER = String.fromCharCode(27);
+const ANSI_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-?]*[ -/]*[@-~]`, "g");
 
 export function classifyAppServerLog(message: string): ClassifiedAppServerLog {
   const normalized = stripAnsi(message).trimEnd();
