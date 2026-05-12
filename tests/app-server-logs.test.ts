@@ -27,6 +27,21 @@ describe("app-server log classification", () => {
     });
   });
 
+  it("renders structured JSON log fields without object stringification", () => {
+    expect(
+      classifyAppServerLog(
+        JSON.stringify({
+          level: "ERROR",
+          fields: { message: { error: "boom" } },
+          target: { crate: "codex" },
+        }),
+      ),
+    ).toEqual({
+      kind: "error",
+      text: '{"error":"boom"}',
+    });
+  });
+
   it("suppresses structured apply_patch router verification logs", () => {
     expect(
       classifyAppServerLog(

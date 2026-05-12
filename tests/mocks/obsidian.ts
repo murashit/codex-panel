@@ -11,6 +11,7 @@ declare global {
     createEl<K extends keyof HTMLElementTagNameMap>(tag: K, options?: ElementOptions): HTMLElementTagNameMap[K];
     createSpan(options?: ElementOptions): HTMLSpanElement;
     empty(): void;
+    setCssProps(props: Record<string, string>): void;
     setAttr(name: string, value: string): void;
   }
 }
@@ -233,6 +234,14 @@ function ensureElementHelpers(): void {
   if (!HTMLElement.prototype.setAttr) {
     HTMLElement.prototype.setAttr = function setAttr(name: string, value: string): void {
       this.setAttribute(name, value);
+    };
+  }
+
+  if (!HTMLElement.prototype.setCssProps) {
+    HTMLElement.prototype.setCssProps = function setCssProps(props: Record<string, string>): void {
+      for (const [key, value] of Object.entries(props)) {
+        this.style.setProperty(key, value);
+      }
     };
   }
 

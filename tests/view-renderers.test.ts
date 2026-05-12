@@ -28,6 +28,7 @@ declare global {
     createSpan(options?: { cls?: string; text?: string; attr?: Record<string, string> }): HTMLSpanElement;
     empty(): void;
     hide(): void;
+    setCssProps(props: Record<string, string>): void;
     setAttr(name: string, value: string): void;
     show(): void;
   }
@@ -74,6 +75,11 @@ beforeEach(() => {
   };
   HTMLElement.prototype.setAttr = function setAttr(this: HTMLElement, name: string, value: string): void {
     this.setAttribute(name, value);
+  };
+  HTMLElement.prototype.setCssProps = function setCssProps(this: HTMLElement, props: Record<string, string>): void {
+    for (const [key, value] of Object.entries(props)) {
+      this.style.setProperty(key, value);
+    }
   };
   HTMLElement.prototype.scrollIntoView = vi.fn();
   globalThis.createDiv = ((options: { cls?: string; text?: string; attr?: Record<string, string> } = {}) =>

@@ -345,7 +345,7 @@ function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, ac
     }
   };
   window.setTimeout(() => {
-    if (document.activeElement !== input) {
+    if (input.ownerDocument.activeElement !== input) {
       input.focus();
       input.select();
     }

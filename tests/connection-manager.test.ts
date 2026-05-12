@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../src/app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../src/app-server/connection-manager";
@@ -38,6 +38,13 @@ class SilentTransport implements AppServerTransport {
 }
 
 describe("ConnectionManager", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", {
+      clearTimeout,
+      setTimeout,
+    });
+  });
+
   it("disconnects clients whose initialization fails", async () => {
     let transport!: SilentTransport;
     const manager = new ConnectionManager(

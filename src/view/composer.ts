@@ -105,10 +105,12 @@ export function syncComposerHeight(composer: HTMLTextAreaElement | null): void {
   const style = getComputedStyle(composer);
   const minHeight = parseCssPixels(style.minHeight, 76);
   const maxHeight = composerMaxHeight(style.maxHeight);
-  composer.style.height = "auto";
+  composer.setCssProps({ height: "auto" });
   const nextHeight = Math.min(Math.max(composer.scrollHeight, minHeight), maxHeight);
-  composer.style.height = `${nextHeight}px`;
-  composer.style.overflowY = composer.scrollHeight > maxHeight ? "auto" : "hidden";
+  composer.setCssProps({
+    height: `${nextHeight}px`,
+    "overflow-y": composer.scrollHeight > maxHeight ? "auto" : "hidden",
+  });
 }
 
 function parseCssPixels(value: string, fallback: number): number {

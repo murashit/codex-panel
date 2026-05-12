@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../src/app-server/client";
 import type { AppServerTransport, AppServerTransportHandlers } from "../src/app-server/transport";
@@ -57,6 +57,13 @@ async function connectedClient(): Promise<{ client: AppServerClient; transport: 
 }
 
 describe("AppServerClient", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", {
+      clearTimeout,
+      setTimeout,
+    });
+  });
+
   it("routes responses, notifications, and server requests", async () => {
     let transport: FakeTransport;
     const getTransport = () => transport;

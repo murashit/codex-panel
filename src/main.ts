@@ -71,10 +71,6 @@ import { renderPendingRequestMessage } from "./view/pending-request-message";
 import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "./view/scroll";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "./view/toolbar";
 
-interface ElectronShell {
-  openPath(path: string): Promise<string>;
-}
-
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
   vaultPath = "";
@@ -90,13 +86,13 @@ export default class CodexPanelPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "open-codex-panel",
+      id: "open-panel",
       name: "Open panel",
       callback: () => void this.activateView(),
     });
 
     this.addCommand({
-      id: "new-codex-chat",
+      id: "new-chat",
       name: "New chat",
       callback: async () => {
         const view = await this.activateView();
@@ -134,7 +130,7 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    const data = await this.loadData();
+    const data: unknown = await this.loadData();
     this.settings = normalizeSettings(data);
     if (!settingsMatchNormalizedData(data, this.settings)) {
       await this.saveSettings();
@@ -255,7 +251,7 @@ class CodexPanelView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.registerNoteIndexInvalidation();
-    this.registerDomEvent(document, "pointerdown", (event) => this.closeToolbarPanelOnOutsidePointer(event));
+    this.registerDomEvent(activeDocument, "pointerdown", (event) => this.closeToolbarPanelOnOutsidePointer(event));
     this.render();
     await this.ensureConnected();
   }
@@ -691,7 +687,7 @@ class CodexPanelView extends ItemView {
     }
 
     try {
-      const shell = (require("electron") as { shell?: ElectronShell }).shell;
+      const { shell } = await import("electron");
       if (!shell) throw new Error("Electron shell is not available.");
 
       const vaultCodexPath = join(this.plugin.vaultPath, ".codex");
@@ -910,7 +906,7 @@ class CodexPanelView extends ItemView {
     return [
       `Model: ${currentModel(snapshot, config) ?? "(from default)"}`,
       `Override: ${runtimeOverrideLabel(this.state.requestedModel)}`,
-      `Provider: ${config.model_provider ?? "(from default)"}`,
+      `Provider: ${statusValue(config.model_provider, "(from default)")}`,
       `Effort: ${currentReasoningEffort(snapshot, config) ?? "(from default)"}`,
       `Mode: ${this.collaborationModeLabel()}`,
       `Service tier: ${serviceTierLabel(snapshot, config)}`,
@@ -1035,7 +1031,7 @@ class CodexPanelView extends ItemView {
       workspaceRoot: this.state.activeThreadCwd ?? this.plugin.vaultPath,
       openDetails: this.state.openDetails,
       onDetailsToggle: () => {
-        requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
           this.state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
         });
       },
@@ -1075,7 +1071,7 @@ class CodexPanelView extends ItemView {
       }
     }
 
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       if (shouldScrollToBottom) {
         messagesEl.scrollTop = bottomScrollTop(messagesEl);
       } else {
@@ -1121,7 +1117,7 @@ class CodexPanelView extends ItemView {
     if (!this.state.messagesPinnedToBottom) return;
     const messagesEl = parent.closest<HTMLElement>(".codex-panel__messages");
     if (!messagesEl) return;
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       if (!this.state.messagesPinnedToBottom) return;
       messagesEl.scrollTop = bottomScrollTop(messagesEl);
       this.state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
@@ -1321,5 +1317,20 @@ class CodexPanelView extends ItemView {
     this.registerEvent(this.app.vault.on("delete", invalidate));
     this.registerEvent(this.app.vault.on("rename", invalidate));
     this.registerEvent(this.app.vault.on("modify", invalidate));
+  }
+}
+
+function statusValue(value: unknown, fallback: string): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+  if (value === null || value === undefined) return fallback;
+  return jsonPreview(value, fallback);
+}
+
+function jsonPreview(value: unknown, fallback: string): string {
+  try {
+    return JSON.stringify(value) ?? fallback;
+  } catch {
+    return fallback;
   }
 }

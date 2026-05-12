@@ -337,7 +337,7 @@ export class AppServerClient {
   private request<M extends TypedClientRequestMethod>(method: M, params: ClientRequestParams<M>): Promise<ClientResponseByMethod[M]> {
     const id = this.nextId++;
     const promise = new Promise<ClientResponseByMethod[M]>((resolve, reject) => {
-      const timeout = globalThis.setTimeout(() => {
+      const timeout = window.setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`Codex app-server request timed out: ${method}`));
       }, this.requestTimeoutMs);
@@ -354,7 +354,7 @@ export class AppServerClient {
     } catch (error) {
       const pending = this.pending.get(id);
       if (pending) {
-        globalThis.clearTimeout(pending.timeout);
+        window.clearTimeout(pending.timeout);
         this.pending.delete(id);
       }
       throw error;
@@ -396,7 +396,7 @@ export class AppServerClient {
         this.handlers.onLog(`Orphan app-server response: ${JSON.stringify(message)}`);
         return;
       }
-      globalThis.clearTimeout(pending.timeout);
+      window.clearTimeout(pending.timeout);
       this.pending.delete(message.id);
       if ("error" in message && message.error) {
         pending.reject(new Error(message.error.message || "Codex app-server request failed."));
@@ -413,7 +413,7 @@ export class AppServerClient {
 
   private rejectAll(error: Error): void {
     for (const pending of this.pending.values()) {
-      globalThis.clearTimeout(pending.timeout);
+      window.clearTimeout(pending.timeout);
       pending.reject(error);
     }
     this.pending.clear();

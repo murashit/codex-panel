@@ -26,5 +26,5 @@ export interface PendingRequest {
   method: ClientRequestMethod;
   reject: (reason: Error) => void;
   resolve: (value: unknown) => void;
-  timeout: ReturnType<typeof setTimeout>;
+  timeout: ReturnType<Window["setTimeout"]>;
 }

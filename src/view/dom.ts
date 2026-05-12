@@ -8,11 +8,12 @@ export function shortSignature(value: string): string {
 
 export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openLink: (target: string) => void): void {
   const wikilinkPattern = /\[\[([^\]\n]+?)\]\]/g;
+  const doc = parent.ownerDocument;
   let lastIndex = 0;
   for (const match of text.matchAll(wikilinkPattern)) {
     const index = match.index ?? 0;
     if (index > lastIndex) {
-      parent.appendChild(document.createTextNode(text.slice(lastIndex, index)));
+      parent.appendChild(doc.createTextNode(text.slice(lastIndex, index)));
     }
 
     const rawLink = match[1] ?? "";
@@ -21,7 +22,7 @@ export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openL
     const label = (separator === -1 ? rawLink : rawLink.slice(separator + 1)).trim() || target;
 
     if (target.length === 0) {
-      parent.appendChild(document.createTextNode(match[0]));
+      parent.appendChild(doc.createTextNode(match[0]));
     } else {
       const link = parent.createEl("a", {
         cls: "internal-link codex-panel__wikilink",
@@ -40,6 +41,6 @@ export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openL
   }
 
   if (lastIndex < text.length) {
-    parent.appendChild(document.createTextNode(text.slice(lastIndex)));
+    parent.appendChild(doc.createTextNode(text.slice(lastIndex)));
   }
 }
