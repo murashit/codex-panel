@@ -141,7 +141,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setClass("codex-panel-settings__dynamic-section-heading")
       .setHeading()
       .setName("Archived thread list")
-      .setDesc("Restore archived Codex threads to Chat History when they are needed again.");
+      .setDesc("Restore archived Codex threads to chat history when they are needed again.");
 
     if (this.archivedThreadsLoading) {
       archivedSection.createEl("p", {

@@ -386,7 +386,7 @@ export class AppServerClient {
     }
 
     if ("id" in message && "method" in message) {
-      this.handlers.onServerRequest(message as ServerRequest);
+      this.handlers.onServerRequest(message);
       return;
     }
 
@@ -407,7 +407,7 @@ export class AppServerClient {
     }
 
     if ("method" in message) {
-      this.handlers.onNotification(message as ServerNotification);
+      this.handlers.onNotification(message);
     }
   }
 

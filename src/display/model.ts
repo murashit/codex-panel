@@ -636,7 +636,7 @@ export function appendToolOutput(
   if (index !== -1) {
     return items.map((item, itemIndex) =>
       itemIndex === index && (item.kind === "tool" || item.kind === "hook" || item.kind === "reasoning")
-        ? ({ ...item, output: `${item.output ?? ""}${delta}` } as DisplayItem)
+        ? { ...item, output: `${item.output ?? ""}${delta}` }
         : item,
     );
   }
@@ -667,7 +667,7 @@ export function appendItemOutput(
   if (index !== -1) {
     return items.map((item, itemIndex) =>
       itemIndex === index && (item.kind === "command" || item.kind === "fileChange")
-        ? ({ ...item, output: `${item.output ?? ""}${delta}` } as DisplayItem)
+        ? { ...item, output: `${item.output ?? ""}${delta}` }
         : item,
     );
   }

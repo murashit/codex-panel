@@ -19,10 +19,7 @@ export function executionState(item: DisplayItem): ExecutionState {
 export function classifyExecutionState(input: { exitCode?: number; status?: unknown }): ExecutionState {
   if (typeof input.exitCode === "number" && input.exitCode !== 0) return "failed";
 
-  const statusText = [input.status]
-    .filter((value) => value !== null && value !== undefined)
-    .join(" ")
-    .toLowerCase();
+  const statusText = typeof input.status === "string" ? input.status.toLowerCase() : "";
 
   if (/(fail|error|errored|notfound|not_found|missing|denied|declin|cancel|reject|aborted)/.test(statusText)) return "failed";
   if (/(running|in[_ -]?progress|queued|pending|started)/.test(statusText)) return "running";
