@@ -1,7 +1,12 @@
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { Thread } from "../generated/app-server/v2/Thread";
+import { getThreadTitle } from "../threads";
 import { modelOverrideMessage, parseModelOverride, parseReasoningEffortOverride, reasoningEffortOverrideMessage } from "./runtime-settings";
 
 export const SLASH_COMMANDS = [
+  { command: "/new", detail: "Start a new Codex thread, optionally sending a message." },
+  { command: "/resume", detail: "Resume a recent Codex thread." },
+  { command: "/fork", detail: "Fork the active Codex thread." },
   { command: "/compact", detail: "Compact the current conversation context." },
   { command: "/fast", detail: "Toggle fast service tier for subsequent turns." },
   { command: "/plan", detail: "Toggle Plan mode, optionally sending a message." },
@@ -22,6 +27,10 @@ export function slashCommandHelpLines(): string[] {
 
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;
+  listedThreads: Thread[];
+  startNewThread: () => Promise<void>;
+  resumeThread: (threadId: string) => Promise<void>;
+  forkThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
   toggleFastMode: () => void;
   toggleCollaborationMode: () => void;
@@ -44,6 +53,35 @@ export async function executeSlashCommand(
   args: string,
   context: SlashCommandExecutionContext,
 ): Promise<SlashCommandExecutionResult | void> {
+  if (command === "new") {
+    await context.startNewThread();
+    if (args) return { sendText: args };
+    return;
+  }
+
+  if (command === "resume") {
+    const thread = resolveThreadArgument(args, context.listedThreads);
+    if (!thread.ok) {
+      context.addSystemMessage(thread.message);
+      return;
+    }
+    await context.resumeThread(thread.thread.id);
+    return;
+  }
+
+  if (command === "fork") {
+    if (args) {
+      context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
+      return;
+    }
+    if (!context.activeThreadId) {
+      context.addSystemMessage("No active thread to fork.");
+      return;
+    }
+    await context.forkThread(context.activeThreadId);
+    return;
+  }
+
   if (command === "compact") {
     if (!context.activeThreadId) {
       context.addSystemMessage("No active thread to compact.");
@@ -114,4 +152,25 @@ export async function executeSlashCommand(
   if (args) {
     context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
   }
+}
+
+type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: string };
+
+export function resolveThreadArgument(args: string, threads: Thread[]): ThreadResolution {
+  const query = args.trim();
+  if (!query) {
+    const thread = threads[0];
+    return thread ? { ok: true, thread } : { ok: false, message: "No recent threads to resume." };
+  }
+
+  const idMatches = threads.filter((thread) => thread.id === query || thread.id.startsWith(query));
+  if (idMatches.length === 1) return { ok: true, thread: idMatches[0] };
+  if (idMatches.length > 1) return { ok: false, message: `Multiple matching threads: ${idMatches.map((thread) => thread.id).join(", ")}` };
+
+  const titleQuery = query.toLowerCase();
+  const titleMatches = threads.filter((thread) => getThreadTitle(thread).toLowerCase().includes(titleQuery));
+  if (titleMatches.length === 1) return { ok: true, thread: titleMatches[0] };
+  if (titleMatches.length > 1) return { ok: false, message: `Multiple matching threads: ${titleMatches.map(getThreadTitle).join(", ")}` };
+
+  return { ok: false, message: `No matching thread: ${query}` };
 }

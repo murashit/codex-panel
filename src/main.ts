@@ -511,6 +511,10 @@ class CodexPanelView extends ItemView {
     if (!this.client) return;
     return runSlashCommand(command, args, {
       activeThreadId: this.state.activeThreadId,
+      listedThreads: this.state.listedThreads,
+      startNewThread: () => this.startNewThread(),
+      resumeThread: (threadId) => this.resumeThread(threadId),
+      forkThread: (threadId) => this.forkThread(threadId),
       compactThread: async (threadId) => {
         await this.client?.compactThread(threadId);
       },
@@ -977,6 +981,39 @@ class CodexPanelView extends ItemView {
     }
   }
 
+  private async forkThread(threadId: string): Promise<void> {
+    if (this.state.busy) {
+      this.addSystemMessage("Finish or interrupt the current turn before forking threads.");
+      return;
+    }
+    await this.ensureConnected();
+    if (!this.client) return;
+
+    try {
+      const response = await this.client.forkThread(threadId, this.plugin.vaultPath);
+      this.state.activeThreadId = response.thread.id;
+      this.state.activeThreadCwd = response.cwd ?? response.thread.cwd ?? this.plugin.vaultPath;
+      this.state.activeTurnId = null;
+      this.state.activeModel = response.model ?? null;
+      this.state.activeServiceTier = response.serviceTier ?? null;
+      this.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
+      this.state.tokenUsage = null;
+      this.state.displayItems = [];
+      this.state.historyCursor = null;
+      this.threadRename.resetThreadTurnPresence(false);
+      this.forceMessagesToBottom();
+      await this.refreshThreads();
+      await this.history.loadLatest(response.thread.id);
+      if (this.state.displayItems.length === 0) {
+        this.state.displayItems.push(this.systemItem(`Forked thread ${response.thread.id}`));
+        this.forceMessagesToBottom();
+      }
+      this.render();
+    } catch (error) {
+      this.addSystemMessage(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   private forceMessagesToBottom(): void {
     this.state.messagesPinnedToBottom = true;
     this.forceScrollMessagesToBottomOnNextRender = true;
@@ -1202,7 +1239,12 @@ class CodexPanelView extends ItemView {
 
     const cursor = this.composer.selectionStart;
     const beforeCursor = this.composer.value.slice(0, cursor);
-    const suggestions = activeComposerSuggestions(beforeCursor, this.noteCandidates(), this.state.availableSkills);
+    const suggestions = activeComposerSuggestions(
+      beforeCursor,
+      this.noteCandidates(),
+      this.state.availableSkills,
+      this.state.listedThreads,
+    );
 
     this.state.composerSuggestions = suggestions;
     if (this.state.composerSuggestSelected >= this.state.composerSuggestions.length) {

@@ -1,5 +1,8 @@
 import type { SkillMetadata } from "../generated/app-server/v2/SkillMetadata";
+import type { Thread } from "../generated/app-server/v2/Thread";
 import { SLASH_COMMANDS, type SlashCommandName } from "../panel/slash-commands";
+import { getThreadTitle } from "../threads";
+import { shortThreadId } from "../utils";
 
 export interface ComposerSuggestion {
   display: string;
@@ -23,9 +26,15 @@ export function parseSlashCommand(text: string): { command: SlashCommandName; ar
   return { command, args: match[2]?.trim() ?? "" };
 }
 
-export function activeComposerSuggestions(beforeCursor: string, notes: NoteCandidate[], skills: SkillMetadata[]): ComposerSuggestion[] {
+export function activeComposerSuggestions(
+  beforeCursor: string,
+  notes: NoteCandidate[],
+  skills: SkillMetadata[],
+  threads: Thread[] = [],
+): ComposerSuggestion[] {
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
+    activeThreadResumeSuggestions(beforeCursor, threads) ??
     activeSlashCommandSuggestions(beforeCursor) ??
     activeSkillSuggestions(beforeCursor, skills) ??
     []
@@ -114,6 +123,32 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
       display: item.command,
       detail: item.detail,
       replacement: item.command,
+      start,
+      appendSpaceOnInsert: true,
+    }));
+}
+
+export function activeThreadResumeSuggestions(beforeCursor: string, threads: Thread[]): ComposerSuggestion[] | null {
+  const match = beforeCursor.match(/(?:^|\n)\/resume\s+([^\n]{0,120})$/);
+  if (!match || match.index === undefined) return null;
+
+  const query = (match[1] ?? "").trim().toLowerCase();
+  const start = beforeCursor.length - (match[1]?.length ?? 0);
+  return threads
+    .map((thread, index) => {
+      const title = getThreadTitle(thread);
+      const id = thread.id.toLowerCase();
+      const normalizedTitle = title.toLowerCase();
+      const score = query.length === 0 ? 2 : id.startsWith(query) ? 0 : normalizedTitle.includes(query) ? 1 : id.includes(query) ? 2 : -1;
+      return { thread, title, score, index };
+    })
+    .filter((item) => item.score !== -1)
+    .sort((a, b) => a.score - b.score || a.index - b.index || a.title.localeCompare(b.title))
+    .slice(0, 8)
+    .map(({ thread, title }) => ({
+      display: title,
+      detail: shortThreadId(thread.id),
+      replacement: thread.id,
       start,
       appendSpaceOnInsert: true,
     }));

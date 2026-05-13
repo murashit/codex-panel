@@ -332,32 +332,41 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 3, result: { thread: { id: "thread-1", title: null }, cwd: "/vault" } });
     await resuming;
 
-    const skills = client.listSkills("/vault");
+    const forking = client.forkThread("thread-1", "/vault");
     expect(transport.sent[4]).toMatchObject({
       id: 4,
+      method: "thread/fork",
+      params: { threadId: "thread-1", cwd: "/vault", excludeTurns: true, persistExtendedHistory: false },
+    });
+    transport.emitLine({ id: 4, result: { thread: { id: "thread-2", title: null }, cwd: "/vault" } });
+    await forking;
+
+    const skills = client.listSkills("/vault");
+    expect(transport.sent[5]).toMatchObject({
+      id: 5,
       method: "skills/list",
       params: { cwds: ["/vault"], forceReload: false },
     });
-    expect((transport.sent[4] as { params?: Record<string, unknown> }).params?.perCwdExtraUserRoots).toBeUndefined();
-    transport.emitLine({ id: 4, result: { data: [] } });
+    expect((transport.sent[5] as { params?: Record<string, unknown> }).params?.perCwdExtraUserRoots).toBeUndefined();
+    transport.emitLine({ id: 5, result: { data: [] } });
     await skills;
 
     const turns = client.threadTurnsList("thread-1", "cursor-1", 10);
-    expect(transport.sent[5]).toMatchObject({
-      id: 5,
-      method: "thread/turns/list",
-      params: { threadId: "thread-1", cursor: "cursor-1", limit: 10, sortDirection: "desc", itemsView: "full" },
-    });
-    transport.emitLine({ id: 5, result: { data: [], nextCursor: null } });
-    await turns;
-
-    const firstTurn = client.threadTurnsList("thread-1", null, 1, "asc");
     expect(transport.sent[6]).toMatchObject({
       id: 6,
       method: "thread/turns/list",
-      params: { threadId: "thread-1", cursor: null, limit: 1, sortDirection: "asc", itemsView: "full" },
+      params: { threadId: "thread-1", cursor: "cursor-1", limit: 10, sortDirection: "desc", itemsView: "full" },
     });
     transport.emitLine({ id: 6, result: { data: [], nextCursor: null } });
+    await turns;
+
+    const firstTurn = client.threadTurnsList("thread-1", null, 1, "asc");
+    expect(transport.sent[7]).toMatchObject({
+      id: 7,
+      method: "thread/turns/list",
+      params: { threadId: "thread-1", cursor: null, limit: 1, sortDirection: "asc", itemsView: "full" },
+    });
+    transport.emitLine({ id: 7, result: { data: [], nextCursor: null } });
     await firstTurn;
   });
 

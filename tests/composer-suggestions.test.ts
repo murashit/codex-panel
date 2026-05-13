@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { Thread } from "../src/generated/app-server/v2/Thread";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -8,6 +9,31 @@ import {
   nextComposerSuggestionIndex,
   parseSlashCommand,
 } from "../src/composer/suggestions";
+
+function thread(overrides: Partial<Thread> = {}): Thread {
+  return {
+    id: "019abcde-0000-7000-8000-000000000001",
+    sessionId: "session-1",
+    forkedFromId: null,
+    preview: "Preview",
+    ephemeral: false,
+    modelProvider: "openai",
+    createdAt: 1,
+    updatedAt: 1,
+    status: "idle",
+    path: null,
+    cwd: "/vault",
+    cliVersion: "0.130.0",
+    source: "appServer",
+    threadSource: null,
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: null,
+    turns: [],
+    ...overrides,
+  } as Thread;
+}
 
 describe("composer suggestions", () => {
   const notes = [
@@ -18,6 +44,9 @@ describe("composer suggestions", () => {
 
   it("parses supported slash commands only", () => {
     expect(parseSlashCommand("/status")).toEqual({ command: "status", args: "" });
+    expect(parseSlashCommand("/new")).toEqual({ command: "new", args: "" });
+    expect(parseSlashCommand("/resume thread-1")).toEqual({ command: "resume", args: "thread-1" });
+    expect(parseSlashCommand("/fork")).toEqual({ command: "fork", args: "" });
     expect(parseSlashCommand("/doctor")).toEqual({ command: "doctor", args: "" });
     expect(parseSlashCommand("/fast now")).toEqual({ command: "fast", args: "now" });
     expect(parseSlashCommand("/plan")).toEqual({ command: "plan", args: "" });
@@ -42,6 +71,37 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/eff", notes, [])[0]?.replacement).toBe("/effort");
     expect(activeComposerSuggestions("/sta", notes, [])[0]?.replacement).toBe("/status");
     expect(activeComposerSuggestions("/doc", notes, [])[0]?.replacement).toBe("/doctor");
+  });
+
+  it("suggests recent threads for /resume arguments", () => {
+    const threads = [
+      thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Codex Panel実装" }),
+      thread({ id: "019abcde-0000-7000-8000-000000000002", name: "別件" }),
+    ];
+
+    const suggestions = activeComposerSuggestions("/resume codex", notes, [], threads);
+
+    expect(suggestions[0]).toMatchObject({
+      display: "Codex Panel実装",
+      detail: "019abcde",
+      replacement: "019abcde-0000-7000-8000-000000000001",
+      appendSpaceOnInsert: true,
+    });
+    expect(applyComposerSuggestionInsertion("/resume codex", 13, suggestions[0])).toEqual({
+      value: "/resume 019abcde-0000-7000-8000-000000000001 ",
+      cursor: 45,
+    });
+  });
+
+  it("does not suggest threads for /fork arguments", () => {
+    const suggestions = activeComposerSuggestions(
+      "/fork codex",
+      notes,
+      [],
+      [thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Codex Panel実装" })],
+    );
+
+    expect(suggestions).toEqual([]);
   });
 
   it("adds a trailing space for slash command and skill insertions only", () => {

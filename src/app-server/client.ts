@@ -10,6 +10,7 @@ import type { HooksListResponse } from "../generated/app-server/v2/HooksListResp
 import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
 import type { SkillsListResponse } from "../generated/app-server/v2/SkillsListResponse";
 import type { ThreadArchiveResponse } from "../generated/app-server/v2/ThreadArchiveResponse";
+import type { ThreadForkResponse } from "../generated/app-server/v2/ThreadForkResponse";
 import type { ThreadListResponse } from "../generated/app-server/v2/ThreadListResponse";
 import type { ThreadResumeResponse } from "../generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadSetNameResponse } from "../generated/app-server/v2/ThreadSetNameResponse";
@@ -47,6 +48,7 @@ interface ClientResponseByMethod {
   "hooks/list": HooksListResponse;
   "thread/start": ThreadStartResponse;
   "thread/resume": ThreadResumeResponse;
+  "thread/fork": ThreadForkResponse;
   "thread/list": ThreadListResponse;
   "thread/archive": ThreadArchiveResponse;
   "thread/unarchive": ThreadUnarchiveResponse;
@@ -186,6 +188,15 @@ export class AppServerClient {
 
   resumeThread(threadId: string, cwd: string): Promise<ThreadResumeResponse> {
     return this.request("thread/resume", {
+      threadId,
+      cwd,
+      excludeTurns: true,
+      persistExtendedHistory: false,
+    });
+  }
+
+  forkThread(threadId: string, cwd: string): Promise<ThreadForkResponse> {
+    return this.request("thread/fork", {
       threadId,
       cwd,
       excludeTurns: true,

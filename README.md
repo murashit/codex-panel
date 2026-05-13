@@ -28,8 +28,8 @@ The plugin depends on the experimental `codex app-server` API. Later Codex CLI r
 https://github.com/murashit/codex-panel
 ```
 
-4. Enable `Codex Panel` from Obsidian's Community plugins list.
-5. Open the panel from the ribbon or command palette.
+1. Enable `Codex Panel` from Obsidian's Community plugins list.
+2. Open the panel from the ribbon or command palette.
 
 ### Manual
 
@@ -72,6 +72,9 @@ The status dot in the panel opens connection controls, diagnostics, usage limits
 
 ## Slash Commands
 
+- `/new`: start a new Codex thread. Add text after the command to start the new thread and send that text immediately.
+- `/resume`: resume a recent Codex thread. Add a thread ID or use composer suggestions after `/resume` to choose a thread.
+- `/fork`: fork the active Codex thread.
 - `/compact`: request context compaction for the active thread.
 - `/fast`: toggle fast service tier for subsequent turns.
 - `/plan`: toggle Plan mode for subsequent turns. Add text after the command to toggle mode and send that text immediately, for example `/plan OK, implement it`.
