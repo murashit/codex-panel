@@ -4,6 +4,7 @@ import type { Thread } from "../src/generated/app-server/v2/Thread";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
+  composerSuggestionSignature,
   composerSuggestionNavigationDirection,
   findWikiLinkSuggestions,
   nextComposerSuggestionIndex,
@@ -71,6 +72,8 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/eff", notes, [])[0]?.replacement).toBe("/effort");
     expect(activeComposerSuggestions("/sta", notes, [])[0]?.replacement).toBe("/status");
     expect(activeComposerSuggestions("/doc", notes, [])[0]?.replacement).toBe("/doctor");
+    expect(activeComposerSuggestions("/status", notes, [])).toEqual([]);
+    expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
   });
 
   it("suggests recent threads for /resume arguments", () => {
@@ -91,6 +94,10 @@ describe("composer suggestions", () => {
       value: "/resume 019abcde-0000-7000-8000-000000000001 ",
       cursor: 45,
     });
+    expect(activeComposerSuggestions("/resume ", notes, [], threads)).toHaveLength(2);
+    expect(activeComposerSuggestions("/resume", notes, [], threads)).toEqual([]);
+    expect(activeComposerSuggestions("/resume 019abcde-0000-7000-8000-000000000001", notes, [], threads)).toEqual([]);
+    expect(activeComposerSuggestions("/resume 019abcde-0000-7000-8000-000000000001 ", notes, [], threads)).toEqual([]);
   });
 
   it("does not suggest threads for /fork arguments", () => {
@@ -125,6 +132,17 @@ describe("composer suggestions", () => {
     expect(applyComposerSuggestionInsertion("/sta", 4, slash)).toEqual({ value: "/status ", cursor: 8 });
     expect(applyComposerSuggestionInsertion("/sta then", 4, slash)).toEqual({ value: "/status then", cursor: 7 });
     expect(applyComposerSuggestionInsertion("[[bet", 5, wikilink)).toEqual({ value: "[[Beta Note]]", cursor: 13 });
+    expect(
+      activeComposerSuggestions("$obsidian-dataview-read", notes, [
+        {
+          name: "obsidian-dataview-read",
+          description: "Read Dataview results",
+          path: "/vault/___/skills/obsidian-dataview-read/SKILL.md",
+          scope: "local",
+          enabled: true,
+        } as never,
+      ]),
+    ).toEqual([]);
   });
 
   it("maps arrow keys and Ctrl+n/p to suggestion navigation", () => {
@@ -135,5 +153,13 @@ describe("composer suggestions", () => {
     expect(composerSuggestionNavigationDirection({ key: "Enter", ctrlKey: true, metaKey: false, altKey: false })).toBeNull();
     expect(nextComposerSuggestionIndex(0, 3, -1)).toBe(2);
     expect(nextComposerSuggestionIndex(2, 3, 1)).toBe(0);
+  });
+
+  it("uses value and cursor as the dismissed suggestion signature", () => {
+    const dismissed = composerSuggestionSignature("/sta", 4);
+
+    expect(composerSuggestionSignature("/sta", 4)).toBe(dismissed);
+    expect(composerSuggestionSignature("/sta", 3)).not.toBe(dismissed);
+    expect(composerSuggestionSignature("/stat", 5)).not.toBe(dismissed);
   });
 });

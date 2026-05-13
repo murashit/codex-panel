@@ -8,12 +8,16 @@ export interface CodexPanelSettings {
   codexPath: string;
   threadNamingModel: string | null;
   threadNamingEffort: ReasoningEffort | null;
+  sendShortcut: SendShortcut;
 }
+
+export type SendShortcut = "enter" | "mod-enter";
 
 export const DEFAULT_SETTINGS: CodexPanelSettings = {
   codexPath: DEFAULT_CODEX_PATH,
   threadNamingModel: null,
   threadNamingEffort: null,
+  sendShortcut: "enter",
 };
 
 export function normalizeSettings(data: unknown): CodexPanelSettings {
@@ -22,16 +26,18 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
     codexPath: stringOrDefault(record.codexPath, DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH,
     threadNamingModel: threadNamingModelOrDefault(record.threadNamingModel),
     threadNamingEffort: reasoningEffortOrDefault(record.threadNamingEffort),
+    sendShortcut: sendShortcutOrDefault(record.sendShortcut),
   };
 }
 
 export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelSettings): boolean {
   const record = asRecord(data);
   return (
-    Object.keys(record).length === 3 &&
+    Object.keys(record).length === 4 &&
     record.codexPath === settings.codexPath &&
     record.threadNamingModel === settings.threadNamingModel &&
-    record.threadNamingEffort === settings.threadNamingEffort
+    record.threadNamingEffort === settings.threadNamingEffort &&
+    record.sendShortcut === settings.sendShortcut
   );
 }
 
@@ -51,6 +57,10 @@ function threadNamingModelOrDefault(value: unknown): string | null {
 
 function reasoningEffortOrDefault(value: unknown): ReasoningEffort | null {
   return normalizeReasoningEffort(value) ?? DEFAULT_SETTINGS.threadNamingEffort;
+}
+
+function sendShortcutOrDefault(value: unknown): SendShortcut {
+  return value === "mod-enter" ? "mod-enter" : DEFAULT_SETTINGS.sendShortcut;
 }
 
 export function getVaultPath(app: App): string {

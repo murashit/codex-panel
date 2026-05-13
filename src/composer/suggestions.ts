@@ -67,6 +67,10 @@ export function nextComposerSuggestionIndex(current: number, length: number, dir
   return (current + direction + length) % length;
 }
 
+export function composerSuggestionSignature(value: string, cursor: number): string {
+  return `${value}\u0000${cursor}`;
+}
+
 export function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandidate[]): ComposerSuggestion[] | null {
   const start = beforeCursor.lastIndexOf("[[");
   if (start === -1) return null;
@@ -116,6 +120,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
   if (!match || match.index === undefined) return null;
 
   const query = match[1].toLowerCase();
+  if (SLASH_COMMANDS.some((item) => item.command.toLowerCase() === query)) return null;
   const start = match.index + match[0].lastIndexOf("/");
   return SLASH_COMMANDS.filter((item) => item.command.toLowerCase().startsWith(query))
     .slice(0, 8)
@@ -132,8 +137,11 @@ export function activeThreadResumeSuggestions(beforeCursor: string, threads: Thr
   const match = beforeCursor.match(/(?:^|\n)\/resume\s+([^\n]{0,120})$/);
   if (!match || match.index === undefined) return null;
 
-  const query = (match[1] ?? "").trim().toLowerCase();
-  const start = beforeCursor.length - (match[1]?.length ?? 0);
+  const rawQuery = match[1] ?? "";
+  const query = rawQuery.trim().toLowerCase();
+  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  if (threads.some((thread) => thread.id.toLowerCase() === query)) return null;
+  const start = beforeCursor.length - rawQuery.length;
   return threads
     .map((thread, index) => {
       const title = getThreadTitle(thread);
@@ -160,6 +168,7 @@ export function activeSkillSuggestions(beforeCursor: string, skills: SkillMetada
 
   const prefix = match[1] ?? "";
   const query = (match[2] ?? "").toLowerCase();
+  if (skills.some((skill) => skill.name.toLowerCase() === query)) return null;
   const start = match.index + prefix.length;
   return skills
     .filter((skill) => skill.name.toLowerCase().includes(query))

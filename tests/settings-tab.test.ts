@@ -93,10 +93,28 @@ describe("settings tab", () => {
       "General",
       "Settings data",
       "Codex executable",
+      "Send shortcut",
       "Thread naming model",
       "Hook status",
       "Archived thread list",
     ]);
+  });
+
+  it("saves the send shortcut setting and warns about Obsidian hotkeys", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const shortcut = tab.containerEl.querySelector<HTMLSelectElement>('select[aria-label="Send shortcut"]');
+    if (!shortcut) throw new Error("Missing send shortcut dropdown");
+
+    shortcut.value = "mod-enter";
+    shortcut.dispatchEvent(new shortcut.ownerDocument.defaultView!.Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(settingDesc(tab, "Send shortcut")).toContain("Obsidian Hotkeys");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__section-status")?.textContent ?? "").not.toContain("Obsidian Hotkeys");
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
@@ -259,7 +277,7 @@ function settingsClient(options: { models?: Model[]; hooks?: HookMetadata[]; hoo
   };
 }
 
-function newSettingsTab(): CodexPanelSettingTab {
+function newSettingsTab(options: { saveSettings?: () => Promise<void>; sendShortcut?: "enter" | "mod-enter" } = {}): CodexPanelSettingTab {
   return new CodexPanelSettingTab(
     {} as never,
     {
@@ -267,9 +285,10 @@ function newSettingsTab(): CodexPanelSettingTab {
         codexPath: "codex",
         threadNamingModel: null,
         threadNamingEffort: null,
+        sendShortcut: options.sendShortcut ?? "enter",
       },
       vaultPath: "/vault",
-      saveSettings: vi.fn().mockResolvedValue(undefined),
+      saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
       refreshOpenThreadLists: vi.fn(),
     } as never,
   );
@@ -295,6 +314,13 @@ function settingNames(tab: CodexPanelSettingTab): string[] {
     }
     return [];
   });
+}
+
+function settingDesc(tab: CodexPanelSettingTab, name: string): string {
+  const setting = Array.from(tab.containerEl.querySelectorAll(".setting-item")).find(
+    (element) => element.querySelector(".setting-item-name")?.textContent === name,
+  );
+  return setting?.querySelector(".setting-item-description")?.textContent ?? "";
 }
 
 function buttonTexts(tab: CodexPanelSettingTab): string[] {

@@ -50,6 +50,7 @@ export interface PanelState {
   reportedLogs: Set<string>;
   composerSuggestSelected: number;
   composerSuggestions: ComposerSuggestion[];
+  composerSuggestionsDismissedSignature: string | null;
   messagesPinnedToBottom: boolean;
   openDetails: Set<string>;
 }
@@ -89,6 +90,7 @@ export function createPanelState(): PanelState {
     reportedLogs: new Set(),
     composerSuggestSelected: 0,
     composerSuggestions: [],
+    composerSuggestionsDismissedSignature: null,
     messagesPinnedToBottom: true,
     openDetails: new Set(),
   };

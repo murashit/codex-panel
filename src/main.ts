@@ -6,12 +6,14 @@ import type { ApprovalAction, PendingApproval } from "./approvals/model";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
+  composerSuggestionSignature,
   composerSuggestionNavigationDirection,
   nextComposerSuggestionIndex,
   parseSlashCommand,
   type ComposerSuggestion,
   type NoteCandidate,
 } from "./composer/suggestions";
+import { isComposerSendKey } from "./composer/keys";
 import { userInputWithWikiLinkMentions } from "./composer/wikilink-context";
 import { VIEW_TYPE_CODEX_PANEL } from "./constants";
 import { createSystemItem } from "./display/model";
@@ -505,6 +507,15 @@ class CodexPanelView extends ItemView {
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  private async submitComposerAction(): Promise<void> {
+    const draft = this.composer?.value.trim() ?? this.state.composerDraft.trim();
+    if (this.state.busy && this.state.activeThreadId && this.state.activeTurnId && draft.length === 0) {
+      await this.interruptTurn();
+      return;
+    }
+    await this.sendMessage();
   }
 
   private async executeSlashCommand(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | void> {
@@ -1161,6 +1172,7 @@ class CodexPanelView extends ItemView {
     const elements = renderComposerShell(parent, this.viewId, this.state.composerDraft, this.state.busy, {
       onInput: () => {
         this.state.composerDraft = this.composer?.value ?? "";
+        this.state.composerSuggestionsDismissedSignature = null;
         this.updateComposerSuggestions();
         this.syncComposerControls();
       },
@@ -1169,20 +1181,13 @@ class CodexPanelView extends ItemView {
         if (this.handleComposerSuggestionKeydown(event)) {
           return;
         }
-        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        if (isComposerSendKey(event, this.plugin.settings.sendShortcut)) {
           event.preventDefault();
-          void this.sendMessage();
+          void this.submitComposerAction();
         }
       },
       onNewThread: () => void this.startNewThread(),
-      onSendOrInterrupt: () => {
-        const draft = this.composer?.value.trim() ?? this.state.composerDraft.trim();
-        if (this.state.busy && this.state.activeThreadId && this.state.activeTurnId && draft.length === 0) {
-          void this.interruptTurn();
-        } else {
-          void this.sendMessage();
-        }
-      },
+      onSendOrInterrupt: () => void this.submitComposerAction(),
       onSuggestionHover: (index) => {
         if (this.state.composerSuggestSelected === index) return;
         this.state.composerSuggestSelected = index;
@@ -1201,6 +1206,7 @@ class CodexPanelView extends ItemView {
   }
 
   private handleComposerSuggestionKeydown(event: KeyboardEvent): boolean {
+    if (event.isComposing) return false;
     if (this.state.composerSuggestions.length === 0) return false;
 
     const direction = composerSuggestionNavigationDirection(event);
@@ -1224,7 +1230,7 @@ class CodexPanelView extends ItemView {
 
     if (event.key === "Escape") {
       event.preventDefault();
-      this.clearComposerSuggestions();
+      this.dismissComposerSuggestions();
       return true;
     }
 
@@ -1238,6 +1244,12 @@ class CodexPanelView extends ItemView {
     }
 
     const cursor = this.composer.selectionStart;
+    const signature = this.composerSuggestionSignature();
+    if (this.state.composerSuggestionsDismissedSignature === signature) {
+      this.state.composerSuggestions = [];
+      this.renderComposerSuggestions();
+      return;
+    }
     const beforeCursor = this.composer.value.slice(0, cursor);
     const suggestions = activeComposerSuggestions(
       beforeCursor,
@@ -1293,6 +1305,16 @@ class CodexPanelView extends ItemView {
     this.composer?.removeAttribute("aria-activedescendant");
     this.composerSuggestEl?.empty();
     this.composerSuggestEl?.hide();
+  }
+
+  private dismissComposerSuggestions(): void {
+    this.state.composerSuggestionsDismissedSignature = this.composerSuggestionSignature();
+    this.clearComposerSuggestions();
+  }
+
+  private composerSuggestionSignature(): string | null {
+    if (!this.composer) return null;
+    return composerSuggestionSignature(this.composer.value, this.composer.selectionStart);
   }
 
   private noteCandidates(): NoteCandidate[] {

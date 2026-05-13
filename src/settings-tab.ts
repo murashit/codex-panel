@@ -14,6 +14,10 @@ import { archivedThreadDisplayTitle, fullThreadTitle } from "./threads";
 import { errorMessage, shortThreadId } from "./utils";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";
+const SEND_SHORTCUT_LABELS = {
+  enter: "Enter",
+  "mod-enter": "Cmd/Ctrl+Enter",
+} as const;
 
 export class CodexPanelSettingTab extends PluginSettingTab {
   private settingsDataAutoLoadStarted = false;
@@ -50,7 +54,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setHeading()
       .setName("General")
       .setDesc(
-        "This plugin stores only panel metadata, the app-server launch command, and optional automatic thread naming runtime overrides. Sandbox, approvals, MCP, and normal chat runtime policy are resolved from Codex config for the current vault.",
+        "This plugin stores only panel metadata, the app-server launch command, composer send shortcut, and optional automatic thread naming runtime overrides. Sandbox, approvals, MCP, and normal chat runtime policy are resolved from Codex config for the current vault.",
       );
 
     new Setting(configSection)
@@ -74,6 +78,22 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             this.plugin.settings.codexPath = value.trim() || DEFAULT_CODEX_PATH;
             await this.plugin.saveSettings();
           });
+      });
+
+    new Setting(configSection)
+      .setName("Send shortcut")
+      .setDesc(
+        "Choose how the composer sends messages. With Enter selected, use Shift+Enter for a newline. If Cmd/Ctrl+Enter is assigned in Obsidian Hotkeys, Obsidian may handle it before Codex Panel. Remove that assignment in Settings > Hotkeys if sending does not work.",
+      )
+      .addDropdown((dropdown) => {
+        dropdown.selectEl.ariaLabel = "Send shortcut";
+        dropdown.addOption("enter", SEND_SHORTCUT_LABELS.enter);
+        dropdown.addOption("mod-enter", SEND_SHORTCUT_LABELS["mod-enter"]);
+        dropdown.setValue(this.plugin.settings.sendShortcut).onChange(async (value) => {
+          this.plugin.settings.sendShortcut = value === "mod-enter" ? "mod-enter" : "enter";
+          await this.plugin.saveSettings();
+          this.display();
+        });
       });
 
     new Setting(configSection)

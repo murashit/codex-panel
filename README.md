@@ -56,6 +56,8 @@ Open the command palette and run:
 
 If Obsidian cannot find `codex`, open the plugin settings and set `Codex executable` to an absolute path such as `/opt/homebrew/bin/codex`.
 
+The composer sends with `Enter` by default. Use `Shift+Enter` for a newline, or change the send shortcut to `Cmd/Ctrl+Enter` in the plugin settings. If `Cmd/Ctrl+Enter` is already assigned in Obsidian's Hotkeys settings, Obsidian may handle it before Codex Panel; remove that hotkey assignment if sending does not work.
+
 The status dot in the panel opens connection controls, diagnostics, usage limits, and the effective Codex config for the current vault. The effective config view is diagnostic only; it does not save settings.
 
 ## Features

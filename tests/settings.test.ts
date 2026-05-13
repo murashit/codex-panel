@@ -14,12 +14,14 @@ describe("settings", () => {
         codexPath: "/usr/local/bin/codex",
         threadNamingModel: "gpt-5.4-mini",
         threadNamingEffort: "low",
+        sendShortcut: "mod-enter",
         extraPanelState: { threadId: "thread-1" },
       }),
     ).toEqual({
       codexPath: "/usr/local/bin/codex",
       threadNamingModel: "gpt-5.4-mini",
       threadNamingEffort: "low",
+      sendShortcut: "mod-enter",
     });
   });
 
@@ -32,6 +34,7 @@ describe("settings", () => {
       codexPath: "/usr/local/bin/codex",
       threadNamingModel: "gpt-5.4-mini",
       threadNamingEffort: "low",
+      sendShortcut: "mod-enter",
     });
     expect(settingsMatchNormalizedData({ ...settings }, settings)).toBe(true);
     expect(settingsMatchNormalizedData({ ...settings, extraPanelState: {} }, settings)).toBe(false);
@@ -47,6 +50,11 @@ describe("settings", () => {
       threadNamingModel: DEFAULT_SETTINGS.threadNamingModel,
       threadNamingEffort: DEFAULT_SETTINGS.threadNamingEffort,
     });
+  });
+
+  it("normalizes the send shortcut", () => {
+    expect(normalizeSettings({ sendShortcut: "mod-enter" }).sendShortcut).toBe("mod-enter");
+    expect(normalizeSettings({ sendShortcut: "invalid" }).sendShortcut).toBe(DEFAULT_SETTINGS.sendShortcut);
   });
 
   it("requires a desktop filesystem vault path", () => {
