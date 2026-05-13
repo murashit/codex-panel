@@ -31,6 +31,7 @@
     "@typescript-eslint/parser": "^8.59.2",
     "esbuild": "^0.25.0",
     "eslint": "^10.3.0",
+    "eslint-plugin-obsidianmd": "^0.3.0",
     "jsdom": "^29.1.1",
     "obsidian": "^1.12.3",
     "prettier": "^3.8.3",

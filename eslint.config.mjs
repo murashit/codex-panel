@@ -1,10 +1,17 @@
 import tsParser from "@typescript-eslint/parser";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
+import obsidianmd from "eslint-plugin-obsidianmd";
+
+const sourceFiles = ["src/**/*.ts", "src/**/*.tsx"];
 
 export default [
   {
     ignores: ["main.js", "node_modules/**", "src/generated/**"],
   },
+  ...obsidianmd.configs.recommended.map((config) => ({
+    ...config,
+    basePath: "src",
+  })),
   {
     files: ["src/**/*.ts", "tests/**/*.ts"],
     languageOptions: {
@@ -33,6 +40,21 @@ export default [
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    files: sourceFiles,
+    plugins: {
+      obsidianmd,
+    },
+    rules: {
+      "obsidianmd/ui/sentence-case": [
+        "error",
+        {
+          acronyms: ["MCP"],
+          brands: ["Codex"],
+        },
+      ],
     },
   },
 ];
