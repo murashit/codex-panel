@@ -91,6 +91,12 @@ export default class CodexPanelPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "open-new-panel",
+      name: "Open new panel",
+      callback: () => void this.activateNewView(),
+    });
+
+    this.addCommand({
       id: "new-chat",
       name: "New chat",
       callback: async () => {
@@ -110,6 +116,23 @@ export default class CodexPanelPlugin extends Plugin {
     await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
     await this.app.workspace.revealLeaf(leaf);
     return leaf.view as CodexPanelView;
+  }
+
+  async activateNewView(): Promise<CodexPanelView> {
+    const leaf = this.createRightSidebarTab();
+    if (!leaf) throw new Error("Could not create a right sidebar leaf.");
+
+    await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
+    await this.app.workspace.revealLeaf(leaf);
+    return leaf.view as CodexPanelView;
+  }
+
+  private createRightSidebarTab(): WorkspaceLeaf | null {
+    const { workspace } = this.app;
+    const existing = workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL).find((leaf) => leaf.getRoot() === workspace.rightSplit);
+    if (!existing) return workspace.getRightLeaf(false);
+
+    return workspace.createLeafInParent(existing.parent, Number.MAX_SAFE_INTEGER);
   }
 
   refreshOpenViews(): void {

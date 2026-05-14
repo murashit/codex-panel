@@ -31,9 +31,10 @@ You can also open the plugin page directly: <https://community.obsidian.md/plugi
 Open the command palette and run:
 
 - `Codex Panel: Open panel`
+- `Codex Panel: Open new panel`
 - `Codex Panel: New chat`
 
-You can also open the panel from the ribbon icon.
+`Open panel` and the ribbon icon reveal the first existing Codex panel when one is already open. Use `Open new panel` to add another Codex tab in the right sidebar so separate threads can run side by side.
 
 If Obsidian cannot find `codex`, open `Settings` > `Codex Panel` and set `Codex executable` to an absolute path such as `/opt/homebrew/bin/codex`.
 
@@ -43,6 +44,8 @@ The composer sends with `Enter` by default. Use `Shift+Enter` for a newline, or 
 
 Codex Panel launches a local Codex app-server process for the current vault. The vault root becomes Codex's working directory, so Codex sees the same project or notes folder that Obsidian has open.
 
+Each open Codex panel owns its own app-server connection, active thread, pending approvals, Plan mode questions, and composer draft. Thread history is shared through Codex for the same vault.
+
 The plugin does not duplicate Codex's configuration UI. To change model defaults, sandboxing, approval policy, MCP servers, hooks, or network behavior, configure Codex itself. The panel can show the effective config for the current vault as a diagnostic view, but it does not save those settings.
 
 Obsidian wikilinks in sent messages are lightly bridged to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are not expanded, and note bodies are not automatically attached by the panel.
@@ -50,6 +53,7 @@ Obsidian wikilinks in sent messages are lightly bridged to Codex file mentions w
 ## Features
 
 - Start, resume, rename, fork, compact, and archive Codex threads from Obsidian.
+- Open multiple right-sidebar Codex panels for separate active threads.
 - Stream user, assistant, reasoning, command, tool, hook, and file-change events.
 - Respond to command, file, permission, and Plan mode approval requests.
 - Toggle Plan mode, fast mode, model override, and reasoning effort override for subsequent turns.
