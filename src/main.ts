@@ -1414,10 +1414,7 @@ function upsertThread(threads: Thread[], thread: Thread): Thread[] {
 }
 
 function usageLimitStatusLines(limit: RateLimitSummary): string[] {
-  return [
-    `Usage limits: ${limit.title}`,
-    ...limit.rows.map((row) => `- ${row.label}: ${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`),
-  ];
+  return ["Usage limits", ...limit.rows.map((row) => `${row.label}: ${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`)];
 }
 
 function jsonPreview(value: unknown, fallback: string): string {
