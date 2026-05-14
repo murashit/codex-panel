@@ -1,6 +1,6 @@
 {
   "name": "codex-panel",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Obsidian side panel for Codex app-server.",
   "main": "main.js",
   "author": "murashit",
