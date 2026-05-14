@@ -113,14 +113,14 @@ The generation script uses `codex app-server generate-ts --experimental` because
 
 GitHub Releases attach only `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. `LICENSE` and `NOTICE` are kept in the repository and source archives for license distribution.
 
-Create a release by bumping `package.json`, `package-lock.json`, `manifest.json`, and `versions.json`, committing with `Bump version to X.Y.Z`, then pushing the matching tag:
+Create a release by bumping `package.json`, `package-lock.json`, `manifest.json`, and `versions.json`, optionally adding hand-written notes at `.github/release-notes/X.Y.Z.md`, committing with `Bump version to X.Y.Z`, then pushing the matching tag:
 
 ```sh
 git tag X.Y.Z
 git push origin main X.Y.Z
 ```
 
-The release workflow runs `npm run check`, attaches the install assets, and generates GitHub artifact attestations for them. Review the generated GitHub release notes after the workflow finishes and edit them when a release needs hand-written notes.
+The release workflow runs `npm run check`, attaches the install assets, and generates GitHub artifact attestations for them. If `.github/release-notes/X.Y.Z.md` exists, the workflow uses it as the GitHub release body; otherwise it falls back to GitHub-generated notes.
 
 ## License
 

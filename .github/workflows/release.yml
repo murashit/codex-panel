@@ -60,8 +60,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          NOTES_ARGS=(--generate-notes)
+          NOTES_FILE=".github/release-notes/$TAG.md"
+          if [ -f "$NOTES_FILE" ]; then
+            NOTES_ARGS=(--notes-file "$NOTES_FILE")
+          fi
+
           gh release create "$TAG" \
             main.js manifest.json styles.css \
             --title "$TAG" \
-            --generate-notes \
+            "${NOTES_ARGS[@]}" \
             --verify-tag
