@@ -44,7 +44,9 @@ The composer sends with `Enter` by default. Use `Shift+Enter` for a newline, or 
 
 Codex Panel launches a local Codex app-server process for the current vault. The vault root becomes Codex's working directory, so Codex sees the same project or notes folder that Obsidian has open.
 
-Each open Codex panel owns its own app-server connection, active thread, pending approvals, Plan mode questions, and composer draft. Thread history is shared through Codex for the same vault.
+Each open Codex panel owns its own app-server connection, active thread, pending approvals, Plan mode questions, and composer draft. Thread history is shared through Codex for the same vault, and panel tabs use the active thread title or shortened thread id when available.
+
+Forking a thread opens the fork in a new right-sidebar Codex panel so the source thread remains visible. If the source thread has a custom name, the fork inherits that name.
 
 The plugin does not duplicate Codex's configuration UI. To change model defaults, sandboxing, approval policy, MCP servers, hooks, or network behavior, configure Codex itself. The panel can show the effective config for the current vault as a diagnostic view, but it does not save those settings.
 

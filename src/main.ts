@@ -19,6 +19,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "./constants";
 import { createSystemItem } from "./display/model";
 import type { DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "./generated/app-server/ReasoningEffort";
+import type { Thread } from "./generated/app-server/v2/Thread";
 import type { UserInput } from "./generated/app-server/v2/UserInput";
 import type { ServiceTier } from "./app-server/service-tier";
 import {
@@ -56,7 +57,7 @@ import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormali
 import { CodexPanelSettingTab } from "./settings-tab";
 import { clearActiveThreadState, clearConnectionScopedState, createPanelState, type PanelState } from "./state/panel-state";
 import { userInputDraftKey, userInputOtherDraftKey } from "./panel/request-state";
-import { getThreadTitle } from "./threads";
+import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName } from "./threads";
 import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
 import {
   renderComposerShell,
@@ -125,6 +126,12 @@ export default class CodexPanelPlugin extends Plugin {
     await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
     await this.app.workspace.revealLeaf(leaf);
     return leaf.view as CodexPanelView;
+  }
+
+  async openThreadInNewView(threadId: string): Promise<CodexPanelView> {
+    const view = await this.activateNewView();
+    await view.openThread(threadId);
+    return view;
   }
 
   private createRightSidebarTab(): WorkspaceLeaf | null {
@@ -256,7 +263,7 @@ class CodexPanelView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Codex";
+    return codexPanelDisplayTitle(this.state.activeThreadId, this.state.listedThreads);
   }
 
   getIcon(): string {
@@ -269,6 +276,10 @@ class CodexPanelView extends ItemView {
 
   refreshThreadList(): void {
     void this.refreshThreads();
+  }
+
+  async openThread(threadId: string): Promise<void> {
+    await this.resumeThread(threadId);
   }
 
   async onOpen(): Promise<void> {
@@ -311,6 +322,7 @@ class CodexPanelView extends ItemView {
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
       await this.session.refreshSessionMetadata();
       await this.session.refreshThreadList();
+      this.refreshTabHeader();
       this.setStatus("Connected.");
     } catch (error) {
       if (error instanceof StaleConnectionError) return;
@@ -334,6 +346,7 @@ class CodexPanelView extends ItemView {
       this.state.displayItems = [this.systemItem(`Started thread ${response.thread.id}`)];
       this.forceMessagesToBottom();
       await this.refreshThreads();
+      this.refreshTabHeader();
       this.render();
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -346,6 +359,7 @@ class CodexPanelView extends ItemView {
     try {
       await this.session.refreshThreadList();
       await this.session.refreshSessionMetadata();
+      this.refreshTabHeader();
       this.render();
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -371,7 +385,9 @@ class CodexPanelView extends ItemView {
       this.state.tokenUsage = null;
       this.state.displayItems = [];
       this.state.historyCursor = null;
+      this.state.listedThreads = upsertThread(this.state.listedThreads, response.thread);
       this.threadRename.resetThreadTurnPresence(false);
+      this.refreshTabHeader();
       this.forceMessagesToBottom();
       await this.history.loadLatest(response.thread.id);
       if (this.state.displayItems.length === 0) {
@@ -381,6 +397,18 @@ class CodexPanelView extends ItemView {
       }
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private refreshTabHeader(): void {
+    const leaf = this.leaf as WorkspaceLeaf & {
+      updateHeader?: () => void;
+      updateDisplay?: () => void;
+    };
+    if (typeof leaf.updateHeader === "function") {
+      leaf.updateHeader();
+    } else if (typeof leaf.updateDisplay === "function") {
+      leaf.updateDisplay();
     }
   }
 
@@ -424,6 +452,7 @@ class CodexPanelView extends ItemView {
       if (!this.state.activeThreadId) {
         const threadResponse = await this.session.startThread();
         if (!threadResponse) return;
+        this.refreshTabHeader();
         this.threadRename.resetThreadTurnPresence(false);
       }
 
@@ -1024,25 +1053,24 @@ class CodexPanelView extends ItemView {
     if (!this.client) return;
 
     try {
+      const sourceName = inheritedForkThreadName(threadId, this.state.listedThreads);
       const response = await this.client.forkThread(threadId, this.plugin.vaultPath);
-      this.state.activeThreadId = response.thread.id;
-      this.state.activeThreadCwd = response.cwd ?? response.thread.cwd ?? this.plugin.vaultPath;
-      this.state.activeTurnId = null;
-      this.state.activeModel = response.model ?? null;
-      this.state.activeServiceTier = response.serviceTier ?? null;
-      this.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
-      this.state.tokenUsage = null;
-      this.state.displayItems = [];
-      this.state.historyCursor = null;
-      this.threadRename.resetThreadTurnPresence(false);
-      this.forceMessagesToBottom();
-      await this.refreshThreads();
-      await this.history.loadLatest(response.thread.id);
-      if (this.state.displayItems.length === 0) {
-        this.state.displayItems.push(this.systemItem(`Forked thread ${response.thread.id}`));
-        this.forceMessagesToBottom();
+      const forkedThreadId = response.thread.id;
+      if (sourceName) {
+        try {
+          await this.client.setThreadName(forkedThreadId, sourceName);
+          this.plugin.refreshOpenThreadLists();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
+        }
       }
-      this.render();
+      try {
+        await this.plugin.openThreadInNewView(forkedThreadId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in a new panel: ${message}`);
+      }
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -1384,6 +1412,12 @@ function statusValue(value: unknown, fallback: string): string {
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
   if (value === null || value === undefined) return fallback;
   return jsonPreview(value, fallback);
+}
+
+function upsertThread(threads: Thread[], thread: Thread): Thread[] {
+  const index = threads.findIndex((item) => item.id === thread.id);
+  if (index === -1) return [thread, ...threads];
+  return threads.map((item, itemIndex) => (itemIndex === index ? { ...item, ...thread } : item));
 }
 
 function jsonPreview(value: unknown, fallback: string): string {
