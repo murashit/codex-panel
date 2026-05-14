@@ -98,8 +98,6 @@ Run `npm run format` after edits and before `npm run check` so Prettier-only iss
 
 `main.js`, `data.json`, and `node_modules/` are ignored by Git. `main.js` is still the file Obsidian loads, so run `npm run build` or `npm run build:prod` after source changes.
 
-GitHub Releases attach only `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. `LICENSE` and `NOTICE` are kept in the repository and source archives for license distribution.
-
 The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI:
 
 ```sh
@@ -108,6 +106,19 @@ npm run check
 ```
 
 The generation script uses `codex app-server generate-ts --experimental` because the panel depends on experimental app-server fields such as collaboration mode and generated v2 types.
+
+## Release
+
+GitHub Releases attach only `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. `LICENSE` and `NOTICE` are kept in the repository and source archives for license distribution.
+
+Create a release by bumping `package.json`, `package-lock.json`, `manifest.json`, and `versions.json`, committing with `Bump version to X.Y.Z`, then pushing the matching tag:
+
+```sh
+git tag X.Y.Z
+git push origin main X.Y.Z
+```
+
+The release workflow runs `npm run check`, attaches the install assets, and generates GitHub artifact attestations for them. Review the generated GitHub release notes after the workflow finishes and edit them when a release needs hand-written notes.
 
 ## License
 

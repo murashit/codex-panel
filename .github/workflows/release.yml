@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check release version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          MANIFEST_VERSION="$(node -p "require('./manifest.json').version")"
+
+          if [ "$PACKAGE_VERSION" != "$TAG" ]; then
+            echo "package.json version $PACKAGE_VERSION does not match tag $TAG" >&2
+            exit 1
+          fi
+
+          if [ "$MANIFEST_VERSION" != "$TAG" ]; then
+            echo "manifest.json version $MANIFEST_VERSION does not match tag $TAG" >&2
+            exit 1
+          fi
+
+      - name: Run checks and build
+        run: npm run check
+
+      - name: Generate artifact attestations
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            main.js manifest.json styles.css \
+            --title "$TAG" \
+            --generate-notes \
+            --verify-tag
