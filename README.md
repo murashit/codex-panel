@@ -98,7 +98,7 @@ Run `npm run format` after edits and before `npm run check` so Prettier-only iss
 
 `main.js`, `data.json`, and `node_modules/` are ignored by Git. `main.js` is still the file Obsidian loads, so run `npm run build` or `npm run build:prod` after source changes.
 
-GitHub Releases attach `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. They also attach `LICENSE` and `NOTICE` for license distribution.
+GitHub Releases attach only `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. `LICENSE` and `NOTICE` are kept in the repository and source archives for license distribution.
 
 The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI:
 
