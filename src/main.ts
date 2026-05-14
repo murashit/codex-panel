@@ -29,13 +29,12 @@ import {
 } from "./panel/collaboration-mode";
 import { PanelController } from "./panel/controller";
 import { connectionDiagnosticLines, connectionDiagnosticRows } from "./panel/diagnostics";
-import { contextSummary, effectiveConfigSections, rateLimitSummary } from "./panel/runtime-view";
+import { contextSummary, effectiveConfigSections, rateLimitSummary, type RateLimitSummary } from "./panel/runtime-view";
 import {
   configRecord,
   currentModel,
   currentReasoningEffort,
   currentServiceTier,
-  fastModeLabel,
   commitRuntimeOverride,
   resetRuntimeOverride,
   requestedOrConfiguredServiceTier,
@@ -924,18 +923,12 @@ class CodexPanelView extends ItemView {
   private statusSummaryLines(): string[] {
     const snapshot = this.runtimeSnapshot();
     const context = contextSummary(snapshot);
-    const config = configRecord(this.state.effectiveConfig);
-    const model = currentModel(snapshot, config) ?? "(from default)";
-    const effort = currentReasoningEffort(snapshot, config);
+    const limit = rateLimitSummary(snapshot);
     return [
       "Session status",
-      `Status: ${this.state.status}`,
-      `Thread: ${this.state.activeThreadId ?? "(none)"}`,
-      `Turn: ${this.state.activeTurnId ?? "(none)"}`,
-      `Mode: ${this.collaborationModeLabel()}`,
-      `Runtime: ${model}${effort ? ` ${effort}` : ""}, fast ${fastModeLabel(snapshot, config)}`,
-      `Connection: ${this.connection.isConnected() ? "connected" : "offline"}`,
+      `Session: ${this.state.activeThreadId ?? "(none)"}`,
       context ? context.title : "Context: not available",
+      ...(limit ? usageLimitStatusLines(limit) : ["Usage limits: not available"]),
     ];
   }
 
@@ -1418,6 +1411,13 @@ function upsertThread(threads: Thread[], thread: Thread): Thread[] {
   const index = threads.findIndex((item) => item.id === thread.id);
   if (index === -1) return [thread, ...threads];
   return threads.map((item, itemIndex) => (itemIndex === index ? { ...item, ...thread } : item));
+}
+
+function usageLimitStatusLines(limit: RateLimitSummary): string[] {
+  return [
+    `Usage limits: ${limit.title}`,
+    ...limit.rows.map((row) => `- ${row.label}: ${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`),
+  ];
 }
 
 function jsonPreview(value: unknown, fallback: string): string {

@@ -148,4 +148,13 @@ describe("slash commands", () => {
       "/plan - Toggle Plan mode, optionally sending a message.",
     );
   });
+
+  it("documents status and doctor as separate commands", () => {
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/status"))).toBe(
+      "/status - Show current session, context, and usage limits.",
+    );
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/doctor"))).toBe(
+      "/doctor - Show Codex CLI and app-server connection diagnostics.",
+    );
+  });
 });
