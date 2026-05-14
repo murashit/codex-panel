@@ -1,98 +1,85 @@
 # Codex Panel
 
-Codex Panel is a desktop-only Obsidian plugin that opens a right-sidebar panel for Codex. It starts `codex app-server` locally over stdio and uses the current vault root as the Codex working directory.
+Codex Panel is a desktop-only Obsidian plugin that opens Codex in the right sidebar.
 
-The plugin does not manage Codex runtime policy itself. Model, reasoning effort, sandbox, approvals, network access, MCP, hooks, and related behavior are resolved by Codex for the vault root, including a vault-local `.codex/config.toml` when present.
+It starts `codex app-server` locally, talks to it over stdio, and uses the current vault root as the Codex working directory. The panel is intentionally thin: model selection, reasoning effort, sandbox, approvals, network access, MCP, hooks, and other runtime behavior are resolved by Codex for the vault root, including a vault-local `.codex/config.toml` when present.
 
-## Status
-
-Codex Panel is currently distributed as a beta plugin for BRAT/manual installation. It is developed and tested with Codex CLI 0.130.0.
-
-The plugin depends on the experimental `codex app-server` API. Later Codex CLI releases may require regenerated app-server bindings or compatibility fixes.
+Use it when you want Codex available next to your notes without leaving Obsidian.
 
 ## Requirements
 
-- Obsidian desktop app.
+- Obsidian desktop app 1.12.0 or newer.
 - Codex CLI installed, authenticated, and available as `codex`, or a custom executable path configured in the plugin settings.
 - A vault where Codex is allowed to work according to your Codex CLI configuration.
 
+Codex Panel does not support Obsidian mobile.
+
 ## Installation
 
-### BRAT
+Install Codex Panel from Obsidian's Community plugins browser:
 
-1. Install and enable the BRAT plugin in Obsidian.
-2. In BRAT, choose `Add Beta plugin`.
-3. Enter the repository URL:
+1. Open `Settings`.
+2. Go to `Community plugins`.
+3. Select `Browse`.
+4. Search for `Codex Panel`.
+5. Install and enable the plugin.
 
-```text
-https://github.com/murashit/codex-panel
-```
+You can also open the plugin page directly: <https://community.obsidian.md/plugins/codex-panel>.
 
-1. Enable `Codex Panel` from Obsidian's Community plugins list.
-2. Open the panel from the ribbon or command palette.
-
-### Manual
-
-Download the release assets and place them in:
-
-```text
-<vault>/.obsidian/plugins/codex-panel/
-```
-
-Required release assets:
-
-- `main.js`
-- `manifest.json`
-- `styles.css`
-
-Then reload Obsidian and enable `Codex Panel` from Community plugins.
-
-## Getting Started
+## First Use
 
 Open the command palette and run:
 
 - `Codex Panel: Open panel`
 - `Codex Panel: New chat`
 
-If Obsidian cannot find `codex`, open the plugin settings and set `Codex executable` to an absolute path such as `/opt/homebrew/bin/codex`.
+You can also open the panel from the ribbon icon.
+
+If Obsidian cannot find `codex`, open `Settings` > `Codex Panel` and set `Codex executable` to an absolute path such as `/opt/homebrew/bin/codex`.
 
 The composer sends with `Enter` by default. Use `Shift+Enter` for a newline, or change the send shortcut to `Cmd/Ctrl+Enter` in the plugin settings. If `Cmd/Ctrl+Enter` is already assigned in Obsidian's Hotkeys settings, Obsidian may handle it before Codex Panel; remove that hotkey assignment if sending does not work.
 
-The status dot in the panel opens connection controls, diagnostics, usage limits, and the effective Codex config for the current vault. The effective config view is diagnostic only; it does not save settings.
+## How It Works
+
+Codex Panel launches a local Codex app-server process for the current vault. The vault root becomes Codex's working directory, so Codex sees the same project or notes folder that Obsidian has open.
+
+The plugin does not duplicate Codex's configuration UI. To change model defaults, sandboxing, approval policy, MCP servers, hooks, or network behavior, configure Codex itself. The panel can show the effective config for the current vault as a diagnostic view, but it does not save those settings.
+
+Obsidian wikilinks in sent messages are lightly bridged to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are not expanded, and note bodies are not automatically attached by the panel.
 
 ## Features
 
-- Start, resume, rename, and archive Codex threads from Obsidian.
+- Start, resume, rename, fork, compact, and archive Codex threads from Obsidian.
 - Stream user, assistant, reasoning, command, tool, hook, and file-change events.
 - Respond to command, file, permission, and Plan mode approval requests.
 - Toggle Plan mode, fast mode, model override, and reasoning effort override for subsequent turns.
 - Send steering messages during a running turn, or interrupt the turn when the composer is empty.
-- Show recent chat history, paged older turns, context usage, connection diagnostics, and effective config.
+- Show recent chat history, paged older turns, context usage, connection diagnostics, usage limits, and effective config.
 - Inspect and manage discovered Codex hooks, including enabled state, trust status, and current hash.
-- Complete vault wikilinks, slash commands, and enabled Codex skills in the composer.
+- Complete vault wikilinks, slash commands, and enabled Codex skills in the composer, with inline suggestions.
 - Resolve Obsidian wikilinks in sent messages into Codex file mentions when the target exists.
 
-## Slash Commands
+## Settings and Diagnostics
 
-- `/new`: start a new Codex thread. Add text after the command to start the new thread and send that text immediately.
-- `/resume`: resume a recent Codex thread. Add a thread ID or use composer suggestions after `/resume` to choose a thread.
-- `/fork`: fork the active Codex thread.
-- `/compact`: request context compaction for the active thread.
-- `/fast`: toggle fast service tier for subsequent turns.
-- `/plan`: toggle Plan mode for subsequent turns. Add text after the command to toggle mode and send that text immediately, for example `/plan OK, implement it`.
-- `/status`: show current connection, thread, runtime, and context status.
-- `/doctor`: show connection diagnostics.
-- `/model`: show, set, or clear model override.
-- `/effort`: show, set, or clear reasoning effort override.
-- `/help`: list slash commands.
+Codex Panel stores only panel-specific settings in Obsidian plugin data:
+
+- Codex executable path.
+- Composer send shortcut.
+- Optional model and reasoning effort overrides for automatic thread naming.
+
+The status dot in the panel opens connection controls, diagnostics, usage limits, and the effective Codex config for the current vault. The settings tab also includes dynamic sections for archived threads and hook status; those are loaded from Codex app-server when needed.
 
 ## Privacy and Security
 
-Codex Panel does not make its own network requests. It exchanges data with the configured `codex app-server` process over stdio. Messages, steering input, approvals, resolved file mentions, thread history requests, hook status requests, effective config requests, and archived-thread management requests are sent to Codex app-server and then handled according to the user's Codex CLI configuration, authentication, model provider, sandbox, approval, MCP, hook, and network settings.
+Codex Panel does not make its own network requests. It exchanges data with the configured `codex app-server` process over stdio. Messages, steering input, approvals, resolved file mentions, thread history requests, hook status requests, effective config requests, and archived-thread management requests are sent to Codex app-server and then handled according to your Codex CLI configuration, authentication, model provider, sandbox, approval, MCP, hook, and network settings.
 
-The plugin stores only panel settings in Obsidian plugin data: the Codex executable path and optional automatic thread naming model/effort overrides. It does not store API keys.
+The plugin does not store API keys.
 
-Obsidian wikilinks in sent messages are resolved into structured file mentions only when the target file exists. The visible message text is preserved, unresolved wikilinks are not expanded, and note bodies are not automatically attached by the panel.
+## Compatibility
+
+Codex Panel depends on the experimental `codex app-server` API. Later Codex CLI releases may require regenerated app-server bindings or compatibility fixes.
+
+The current release is developed and tested with Codex CLI 0.130.0.
 
 ## Development
 
