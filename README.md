@@ -98,6 +98,8 @@ Run `npm run format` after edits and before `npm run check` so Prettier-only iss
 
 `main.js`, `data.json`, and `node_modules/` are ignored by Git. `main.js` is still the file Obsidian loads, so run `npm run build` or `npm run build:prod` after source changes.
 
+GitHub Releases attach `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. They also attach `LICENSE` and `NOTICE` for license distribution.
+
 The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI:
 
 ```sh
@@ -106,3 +108,9 @@ npm run check
 ```
 
 The generation script uses `codex app-server generate-ts --experimental` because the panel depends on experimental app-server fields such as collaboration mode and generated v2 types.
+
+## License
+
+Codex Panel is licensed under the Apache License 2.0. See `LICENSE`.
+
+The generated TypeScript bindings under `src/generated/app-server/` are generated from OpenAI Codex CLI app-server types. See `NOTICE` for upstream attribution.

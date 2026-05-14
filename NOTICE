@@ -1,0 +1,19 @@
+Codex Panel
+Copyright (c) 2026 murashit
+
+Codex Panel is licensed under the Apache License, Version 2.0.
+
+This repository includes TypeScript app-server bindings under
+src/generated/app-server/ generated from OpenAI Codex CLI.
+
+OpenAI Codex is licensed under the Apache License, Version 2.0.
+Upstream project: https://github.com/openai/codex
+
+OpenAI Codex NOTICE:
+
+OpenAI Codex Copyright 2025 OpenAI
+
+This project includes code derived from Ratatui
+(https://github.com/ratatui/ratatui), licensed under the MIT license.
+Copyright (c) 2016-2022 Florian Dehau
+Copyright (c) 2023-2025 The Ratatui Developers
