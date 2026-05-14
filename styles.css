@@ -133,7 +133,7 @@
   background: var(--background-modifier-active-hover);
 }
 
-.codex-panel__runtime-model {
+.codex-panel button.clickable-icon.codex-panel__runtime-model {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
@@ -143,8 +143,8 @@
   padding: var(--size-2-2, 4px) var(--size-2-3, 6px);
   border: 0;
   appearance: none;
-  background: transparent !important;
-  box-shadow: none !important;
+  background: transparent;
+  box-shadow: none;
   color: var(--text-muted);
   font: inherit;
   font-size: var(--codex-panel-toolbar-text-size);
@@ -154,27 +154,27 @@
   user-select: none;
 }
 
-.codex-panel__runtime-model.is-emphasized {
-  background: var(--background-modifier-active-hover) !important;
+.codex-panel button.clickable-icon.codex-panel__runtime-model.is-emphasized {
+  background: var(--background-modifier-active-hover);
   color: var(--text-normal);
 }
 
-.codex-panel__runtime-model:hover,
-.codex-panel__runtime-model.is-active {
+.codex-panel button.clickable-icon.codex-panel__runtime-model:hover,
+.codex-panel button.clickable-icon.codex-panel__runtime-model.is-active {
   color: var(--text-normal);
 }
 
-.codex-panel__runtime-model.is-active {
-  background: var(--background-modifier-hover) !important;
+.codex-panel button.clickable-icon.codex-panel__runtime-model.is-active {
+  background: var(--background-modifier-hover);
 }
 
-.codex-panel__runtime-model:hover {
-  background: var(--background-modifier-hover) !important;
+.codex-panel button.clickable-icon.codex-panel__runtime-model:hover {
+  background: var(--background-modifier-hover);
 }
 
-.codex-panel__runtime-model.is-emphasized:hover,
-.codex-panel__runtime-model.is-emphasized.is-active {
-  background: var(--background-modifier-active-hover) !important;
+.codex-panel button.clickable-icon.codex-panel__runtime-model.is-emphasized:hover,
+.codex-panel button.clickable-icon.codex-panel__runtime-model.is-emphasized.is-active {
+  background: var(--background-modifier-active-hover);
 }
 
 .codex-panel__runtime-model-value {
@@ -191,7 +191,7 @@
   gap: var(--codex-panel-panel-gap);
 }
 
-.codex-panel__toolbar-panel-item {
+.codex-panel button.menu-item.codex-panel__toolbar-panel-item {
   display: flex;
   align-items: center;
   gap: var(--size-4-2);
@@ -199,11 +199,11 @@
   min-width: 0;
   height: auto;
   padding: var(--size-4-1) var(--size-4-2);
-  border: 0 !important;
+  border: 0;
   border-radius: var(--radius-s);
   appearance: none;
-  background: transparent !important;
-  box-shadow: none !important;
+  background: transparent;
+  box-shadow: none;
   color: var(--codex-panel-toolbar-text-color);
   font: inherit;
   font-size: var(--codex-panel-toolbar-text-size);
@@ -240,23 +240,23 @@
   font-size: var(--codex-panel-toolbar-meta-size);
 }
 
-.codex-panel__toolbar-panel-item:not(:disabled):not(.is-disabled):hover,
-.codex-panel__toolbar-panel-item.selected,
-.codex-panel__toolbar-panel-item.is-selected,
-.codex-panel__toolbar-panel-item.is-active {
+.codex-panel button.menu-item.codex-panel__toolbar-panel-item:not(:disabled):not(.is-disabled):hover,
+.codex-panel button.menu-item.codex-panel__toolbar-panel-item.selected,
+.codex-panel button.menu-item.codex-panel__toolbar-panel-item.is-selected,
+.codex-panel button.menu-item.codex-panel__toolbar-panel-item.is-active {
   color: var(--text-normal);
 }
 
-.codex-panel__toolbar-panel-item:not(:disabled):not(.is-disabled):hover {
-  background: var(--background-modifier-hover) !important;
+.codex-panel button.menu-item.codex-panel__toolbar-panel-item:not(:disabled):not(.is-disabled):hover {
+  background: var(--background-modifier-hover);
 }
 
-.codex-panel__toolbar-panel-item.is-disabled {
+.codex-panel button.menu-item.codex-panel__toolbar-panel-item.is-disabled {
   cursor: default;
   opacity: 0.45;
 }
 
-.codex-panel__toolbar-panel-item:disabled {
+.codex-panel button.menu-item.codex-panel__toolbar-panel-item:disabled {
   cursor: default;
   opacity: 0.45;
 }
