@@ -13,6 +13,7 @@ import type { ThreadArchiveResponse } from "../generated/app-server/v2/ThreadArc
 import type { ThreadForkResponse } from "../generated/app-server/v2/ThreadForkResponse";
 import type { ThreadListResponse } from "../generated/app-server/v2/ThreadListResponse";
 import type { ThreadResumeResponse } from "../generated/app-server/v2/ThreadResumeResponse";
+import type { ThreadRollbackResponse } from "../generated/app-server/v2/ThreadRollbackResponse";
 import type { ThreadSetNameResponse } from "../generated/app-server/v2/ThreadSetNameResponse";
 import type { SortDirection } from "../generated/app-server/v2/SortDirection";
 import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
@@ -52,6 +53,7 @@ interface ClientResponseByMethod {
   "thread/list": ThreadListResponse;
   "thread/archive": ThreadArchiveResponse;
   "thread/unarchive": ThreadUnarchiveResponse;
+  "thread/rollback": ThreadRollbackResponse;
   "thread/name/set": ThreadSetNameResponse;
   "thread/turns/list": ThreadTurnsListResponse;
   "skills/list": SkillsListResponse;
@@ -220,6 +222,10 @@ export class AppServerClient {
 
   unarchiveThread(threadId: string): Promise<ThreadUnarchiveResponse> {
     return this.request("thread/unarchive", { threadId });
+  }
+
+  rollbackThread(threadId: string): Promise<ThreadRollbackResponse> {
+    return this.request("thread/rollback", { threadId, numTurns: 1 });
   }
 
   setThreadName(threadId: string, name: string): Promise<ThreadSetNameResponse> {

@@ -6,6 +6,7 @@ export interface DisplayItemSignatureContext {
   activeTurnId: string | null;
   displayItems: DisplayItem[];
   workspaceRoot?: string | null;
+  canRollbackItem?: (item: DisplayItem) => boolean;
 }
 
 export function displayItemSignature(item: DisplayItem, context: DisplayItemSignatureContext): string {
@@ -20,6 +21,7 @@ export function displayItemSignature(item: DisplayItem, context: DisplayItemSign
     "output" in item ? (item.output ?? "") : "",
     "details" in item ? JSON.stringify(item.details ?? []) : "",
     item.kind === "message" ? (item.editedFiles?.join("\n") ?? "") : "",
+    item.kind === "message" ? String(context.canRollbackItem?.(item) ?? false) : "",
     item.kind === "reasoning" && isReasoningActive(item, context) ? "reasoning-active" : "",
     executionState(item) ?? "",
     item.kind === "fileChange" ? JSON.stringify(item.changes) : "",

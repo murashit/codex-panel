@@ -196,6 +196,57 @@ describe("view renderers", () => {
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
   });
 
+  it("renders rollback action only for the eligible user message", () => {
+    const onRollbackItem = vi.fn();
+    const items = [
+      { id: "u1", kind: "message", role: "user", text: "older", turnId: "turn-1", markdown: true },
+      { id: "a1", kind: "message", role: "assistant", text: "older answer", turnId: "turn-1", markdown: true },
+      { id: "u2", kind: "message", role: "user", text: "latest", turnId: "turn-2", markdown: true },
+    ] as const;
+    const blocks = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [...items],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      canRollbackItem: (item) => item.id === "u2",
+      onRollbackItem,
+    });
+
+    const rendered = blocks.map((block) => block.render());
+
+    expect(rendered[0].querySelector(".codex-panel__rollback-turn")).toBeNull();
+    expect(rendered[1].querySelector(".codex-panel__rollback-turn")).toBeNull();
+    const button = rendered[2].querySelector<HTMLButtonElement>(".codex-panel__rollback-turn");
+    expect(button?.getAttribute("aria-label")).toBe("Rollback last turn");
+    button?.click();
+    expect(onRollbackItem).toHaveBeenCalledWith(expect.objectContaining({ id: "u2" }));
+  });
+
+  it("does not render rollback action when no item is eligible", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: true,
+      displayItems: [{ id: "u1", kind: "message", role: "user", text: "running", turnId: "turn-1", markdown: true }],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      canRollbackItem: () => false,
+      onRollbackItem: vi.fn(),
+    })[0];
+
+    expect(block.render().querySelector(".codex-panel__rollback-turn")).toBeNull();
+  });
+
   it("renders command items as a compact summary with output behind details", () => {
     const block = messageRenderBlocks({
       activeThreadId: "thread",

@@ -368,6 +368,15 @@ describe("AppServerClient", () => {
     });
     transport.emitLine({ id: 7, result: { data: [], nextCursor: null } });
     await firstTurn;
+
+    const rollback = client.rollbackThread("thread-1");
+    expect(transport.sent[8]).toMatchObject({
+      id: 8,
+      method: "thread/rollback",
+      params: { threadId: "thread-1", numTurns: 1 },
+    });
+    transport.emitLine({ id: 8, result: { thread: { id: "thread-1", turns: [] } } });
+    await rollback;
   });
 
   it("sends thread naming request payloads", async () => {

@@ -6,10 +6,12 @@ import { executeSlashCommand, slashCommandHelpLines, type SlashCommandExecutionC
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {
     activeThreadId: "thread-1",
+    busy: false,
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
     startNewThread: vi.fn().mockResolvedValue(undefined),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     forkThread: vi.fn().mockResolvedValue(undefined),
+    rollbackThread: vi.fn().mockResolvedValue(undefined),
     compactThread: vi.fn().mockResolvedValue(undefined),
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
@@ -116,6 +118,41 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported slash command arguments: anything");
   });
 
+  it("rolls back the active thread for /rollback", async () => {
+    const ctx = context({ activeThreadId: "active-thread" });
+
+    await executeSlashCommand("rollback", "", ctx);
+
+    expect(ctx.rollbackThread).toHaveBeenCalledWith("active-thread");
+  });
+
+  it("rejects /rollback without an active thread", async () => {
+    const ctx = context({ activeThreadId: null });
+
+    await executeSlashCommand("rollback", "", ctx);
+
+    expect(ctx.rollbackThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread to roll back.");
+  });
+
+  it("rejects /rollback while a turn is running", async () => {
+    const ctx = context({ busy: true });
+
+    await executeSlashCommand("rollback", "", ctx);
+
+    expect(ctx.rollbackThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Interrupt the current turn before rolling back.");
+  });
+
+  it("rejects /rollback arguments", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("rollback", "2", ctx);
+
+    expect(ctx.rollbackThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported slash command arguments: 2");
+  });
+
   it("toggles Plan mode without sending text for bare /plan", async () => {
     const ctx = context();
 
@@ -146,6 +183,12 @@ describe("slash commands", () => {
   it("documents that /plan can take a message", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/plan"))).toBe(
       "/plan - Toggle Plan mode, optionally sending a message.",
+    );
+  });
+
+  it("documents rollback", () => {
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/rollback"))).toBe(
+      "/rollback - Drop the latest turn and restore its prompt to the composer.",
     );
   });
 

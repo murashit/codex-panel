@@ -1,7 +1,7 @@
 import { displayBlocksForItems, executionState } from "../display/model";
 import { displayItemSignature } from "../display/signature";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
-import { createMetaPair, createRememberedDetails } from "./components";
+import { createIconButton, createMetaPair, createRememberedDetails } from "./components";
 import { applyExecutionStateClass } from "./execution-state";
 import { renderToolResult } from "./tool-result";
 import {
@@ -31,6 +31,8 @@ export interface MessageStreamContext {
   loadOlderTurns: () => void;
   renderMarkdown: (parent: HTMLElement, text: string) => void;
   renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
+  canRollbackItem?: (item: DisplayItem) => boolean;
+  onRollbackItem?: (item: DisplayItem) => void;
   pendingRequestsSignature?: string;
   renderPendingRequests?: () => HTMLElement | null;
 }
@@ -163,7 +165,16 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
 
   const messageEl = parent.createDiv({ cls: messageClass(item) });
   applyExecutionStateClass(messageEl, executionState(item));
-  messageEl.createDiv({ cls: "codex-panel__message-role", text: displayRoleLabel(item) });
+  const role = messageEl.createDiv({ cls: "codex-panel__message-role" });
+  role.createSpan({ text: displayRoleLabel(item) });
+  if (context.canRollbackItem?.(item)) {
+    const button = createIconButton(role, "undo-2", "Rollback last turn", "codex-panel__message-action codex-panel__rollback-turn");
+    button.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      context.onRollbackItem?.(item);
+    };
+  }
   const content = messageEl.createDiv({ cls: `codex-panel__message-content ${item.markdown === false ? "" : "markdown-rendered"}` });
   if (item.markdown === false) {
     context.renderTextWithWikiLinks(content, item.text);

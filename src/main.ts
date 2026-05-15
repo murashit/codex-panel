@@ -29,6 +29,7 @@ import {
 } from "./panel/collaboration-mode";
 import { PanelController } from "./panel/controller";
 import { connectionDiagnosticLines, connectionDiagnosticRows } from "./panel/diagnostics";
+import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./panel/rollback";
 import { contextSummary, effectiveConfigSections, rateLimitSummary, type RateLimitSummary } from "./panel/runtime-view";
 import {
   configRecord,
@@ -577,9 +578,11 @@ class CodexPanelView extends ItemView {
       startNewThread: () => this.startNewThread(),
       resumeThread: (threadId) => this.resumeThread(threadId),
       forkThread: (threadId) => this.forkThread(threadId),
+      rollbackThread: (threadId) => this.rollbackThread(threadId),
       compactThread: async (threadId) => {
         await this.client?.compactThread(threadId);
       },
+      busy: this.state.busy,
       toggleFastMode: () => this.toggleFastMode(),
       toggleCollaborationMode: () => this.toggleCollaborationMode(),
       addSystemMessage: (text) => this.addSystemMessage(text),
@@ -1069,6 +1072,41 @@ class CodexPanelView extends ItemView {
     }
   }
 
+  private async rollbackThread(threadId: string): Promise<void> {
+    if (this.state.busy) {
+      this.addSystemMessage("Interrupt the current turn before rolling back.");
+      return;
+    }
+    await this.ensureConnected();
+    if (!this.client) return;
+
+    const candidate = rollbackCandidateFromItems(this.state.displayItems);
+    if (!candidate) {
+      this.addSystemMessage("No completed turn to roll back.");
+      return;
+    }
+
+    try {
+      this.setStatus("Rolling back latest turn...");
+      const response = await this.client.rollbackThread(threadId);
+      this.state.activeThreadId = response.thread.id;
+      this.state.activeThreadCwd = response.thread.cwd ?? this.state.activeThreadCwd;
+      this.state.activeTurnId = null;
+      this.state.tokenUsage = null;
+      this.state.historyCursor = null;
+      this.state.listedThreads = upsertThread(this.state.listedThreads, response.thread);
+      await this.history.loadLatest(response.thread.id);
+      this.setComposerText(candidate.text);
+      this.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
+      this.setStatus("Rolled back latest turn.");
+      this.refreshTabHeader();
+      await this.refreshThreads();
+    } catch (error) {
+      this.addSystemMessage(error instanceof Error ? error.message : String(error));
+      this.setStatus("Rollback failed.");
+    }
+  }
+
   private forceMessagesToBottom(): void {
     this.state.messagesPinnedToBottom = true;
     this.forceScrollMessagesToBottomOnNextRender = true;
@@ -1084,6 +1122,7 @@ class CodexPanelView extends ItemView {
     const scrollAnchor = shouldScrollToBottom ? null : captureScrollAnchor(messagesEl);
     this.forceScrollMessagesToBottomOnNextRender = false;
     this.state.messagesPinnedToBottom = shouldScrollToBottom;
+    const rollbackCandidate = this.state.busy ? null : rollbackCandidateFromItems(this.state.displayItems);
 
     const blocks = messageRenderBlocks({
       activeThreadId: this.state.activeThreadId,
@@ -1102,6 +1141,10 @@ class CodexPanelView extends ItemView {
       loadOlderTurns: () => void this.history.loadOlder(),
       renderMarkdown: (element, text) => this.renderMarkdownMessage(element, text),
       renderTextWithWikiLinks: (element, text) => this.renderTextWithWikiLinks(element, text),
+      canRollbackItem: (item) => isRollbackCandidateItem(item, rollbackCandidate),
+      onRollbackItem: () => {
+        if (this.state.activeThreadId) void this.rollbackThread(this.state.activeThreadId);
+      },
       pendingRequestsSignature: this.pendingRequestsSignature(),
       renderPendingRequests: () => this.createPendingRequestsElement(),
     });

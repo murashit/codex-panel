@@ -7,6 +7,7 @@ export const SLASH_COMMANDS = [
   { command: "/new", detail: "Start a new Codex thread, optionally sending a message." },
   { command: "/resume", detail: "Resume a recent Codex thread." },
   { command: "/fork", detail: "Fork the active Codex thread." },
+  { command: "/rollback", detail: "Drop the latest turn and restore its prompt to the composer." },
   { command: "/compact", detail: "Compact the current conversation context." },
   { command: "/fast", detail: "Toggle fast service tier for subsequent turns." },
   { command: "/plan", detail: "Toggle Plan mode, optionally sending a message." },
@@ -27,10 +28,12 @@ export function slashCommandHelpLines(): string[] {
 
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;
+  busy: boolean;
   listedThreads: Thread[];
   startNewThread: () => Promise<void>;
   resumeThread: (threadId: string) => Promise<void>;
   forkThread: (threadId: string) => Promise<void>;
+  rollbackThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
   toggleFastMode: () => void;
   toggleCollaborationMode: () => void;
@@ -79,6 +82,23 @@ export async function executeSlashCommand(
       return;
     }
     await context.forkThread(context.activeThreadId);
+    return;
+  }
+
+  if (command === "rollback") {
+    if (args) {
+      context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
+      return;
+    }
+    if (!context.activeThreadId) {
+      context.addSystemMessage("No active thread to roll back.");
+      return;
+    }
+    if (context.busy) {
+      context.addSystemMessage("Interrupt the current turn before rolling back.");
+      return;
+    }
+    await context.rollbackThread(context.activeThreadId);
     return;
   }
 
