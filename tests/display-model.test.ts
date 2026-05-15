@@ -56,7 +56,8 @@ describe("display model", () => {
     ];
 
     expect(displayItemsFromTurns(turns).map((item) => item.text)).toEqual(["hello", "world"]);
-    expect(displayItemFromThreadItem(userMessage)).toMatchObject({ role: "user", markdown: true });
+    expect(displayItemFromThreadItem(userMessage)).toMatchObject({ role: "user", copyText: "hello", markdown: true });
+    expect(displayItemFromThreadItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world", markdown: true });
   });
 
   it("preserves reasoning text", () => {
@@ -76,6 +77,7 @@ describe("display model", () => {
       kind: "message",
       role: "assistant",
       text: "# Plan",
+      copyText: "# Plan",
       markdown: true,
       turnId: "t1",
     });
@@ -88,7 +90,7 @@ describe("display model", () => {
   it("streams plan deltas as plain assistant text until completion", () => {
     const items = appendPlanDelta([], "p1", "t1", "<proposed_plan>\n# Plan");
     const updated = appendPlanDelta(items, "p1", "t1", "\n</proposed_plan>");
-    expect(updated).toMatchObject([{ id: "p1", kind: "message", role: "assistant", text: "# Plan", markdown: false }]);
+    expect(updated).toMatchObject([{ id: "p1", kind: "message", role: "assistant", text: "# Plan", copyText: "# Plan", markdown: false }]);
   });
 
   it("formats structured plan progress as task progress", () => {
@@ -604,6 +606,7 @@ describe("display model", () => {
 
     const updated = appendAssistantDelta(items, "a1", "t1", " world");
     expect(updated[0].text).toBe("hello world");
+    expect(updated[0]).toMatchObject({ copyText: "hello world" });
     expect(updated).toHaveLength(2);
     expect(items[0].text).toBe("hello");
     expect(updated).not.toBe(items);

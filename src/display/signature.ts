@@ -18,6 +18,7 @@ export function displayItemSignature(item: DisplayItem, context: DisplayItemSign
     item.itemId ?? "",
     item.text,
     "markdown" in item ? String(item.markdown ?? true) : "",
+    item.kind === "message" ? (item.copyText ?? "") : "",
     "output" in item ? (item.output ?? "") : "",
     "details" in item ? JSON.stringify(item.details ?? []) : "",
     item.kind === "message" ? (item.editedFiles?.join("\n") ?? "") : "",

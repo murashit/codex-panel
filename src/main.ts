@@ -462,6 +462,7 @@ class CodexPanelView extends ItemView {
         kind: "message",
         role: "user",
         text,
+        copyText: text,
         markdown: true,
       });
       this.forceMessagesToBottom();
@@ -533,6 +534,7 @@ class CodexPanelView extends ItemView {
         kind: "message",
         role: "user",
         text,
+        copyText: text,
         turnId: expectedTurnId,
         markdown: true,
       });
@@ -1141,6 +1143,7 @@ class CodexPanelView extends ItemView {
       loadOlderTurns: () => void this.history.loadOlder(),
       renderMarkdown: (element, text) => this.renderMarkdownMessage(element, text),
       renderTextWithWikiLinks: (element, text) => this.renderTextWithWikiLinks(element, text),
+      copyText: (text) => void this.copyMessageText(text),
       canRollbackItem: (item) => isRollbackCandidateItem(item, rollbackCandidate),
       onRollbackItem: () => {
         if (this.state.activeThreadId) void this.rollbackThread(this.state.activeThreadId);
@@ -1186,6 +1189,16 @@ class CodexPanelView extends ItemView {
       }
       this.state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
     });
+  }
+
+  private async copyMessageText(text: string): Promise<void> {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API is not available.");
+      await navigator.clipboard.writeText(text);
+      new Notice("Copied message.");
+    } catch {
+      new Notice("Could not copy message.");
+    }
   }
 
   private renderMarkdownMessage(parent: HTMLElement, text: string): void {

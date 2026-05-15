@@ -26,11 +26,13 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
   if (shouldSuppressThreadItem(item)) return null;
 
   if (item.type === "userMessage") {
+    const text = inputToText(item.content);
     return {
       id: item.id,
       kind: "message",
       role: "user",
-      text: inputToText(item.content),
+      text,
+      copyText: text,
       turnId,
       itemId: item.id,
       markdown: true,
@@ -43,6 +45,7 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
       kind: "message",
       role: "assistant",
       text: item.text,
+      copyText: item.text,
       turnId,
       itemId: item.id,
       markdown: true,
@@ -58,11 +61,13 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
   }
 
   if (item.type === "plan") {
+    const text = normalizeProposedPlanMarkdown(item.text);
     return {
       id: item.id,
       kind: "message",
       role: "assistant",
-      text: normalizeProposedPlanMarkdown(item.text),
+      text,
+      copyText: text,
       turnId,
       itemId: item.id,
       markdown: true,
@@ -533,6 +538,7 @@ export function appendAssistantDelta(items: DisplayItem[], itemId: string, turnI
         ? {
             ...item,
             text: `${item.text}${delta}`,
+            copyText: `${item.text}${delta}`,
             turnId: item.turnId ?? turnId,
             markdown: false,
           }
@@ -546,6 +552,7 @@ export function appendAssistantDelta(items: DisplayItem[], itemId: string, turnI
       kind: "message",
       role: "assistant",
       text: delta,
+      copyText: delta,
       turnId,
       itemId,
       markdown: false,
@@ -569,28 +576,34 @@ export function appendPlanDelta(items: DisplayItem[], itemId: string, turnId: st
   const index = items.findIndex((item) => item.itemId === itemId && item.kind === "message" && item.role === "assistant");
   if (index !== -1) {
     return items.map((item, itemIndex) =>
-      itemIndex === index && item.kind === "message"
-        ? {
-            ...item,
-            text: normalizeProposedPlanMarkdown(`${item.text}${delta}`),
-            turnId: item.turnId ?? turnId,
-            markdown: false,
-          }
-        : item,
+      itemIndex === index && item.kind === "message" ? appendPlanDeltaToMessage(item, turnId, delta) : item,
     );
   }
+  const text = normalizeProposedPlanMarkdown(delta);
   return [
     ...items,
     {
       id: itemId,
       kind: "message",
       role: "assistant",
-      text: normalizeProposedPlanMarkdown(delta),
+      text,
+      copyText: text,
       turnId,
       itemId,
       markdown: false,
     },
   ];
+}
+
+function appendPlanDeltaToMessage(item: Extract<DisplayItem, { kind: "message" }>, turnId: string, delta: string): DisplayItem {
+  const text = normalizeProposedPlanMarkdown(`${item.text}${delta}`);
+  return {
+    ...item,
+    text,
+    copyText: text,
+    turnId: item.turnId ?? turnId,
+    markdown: false,
+  };
 }
 
 export function normalizeProposedPlanMarkdown(text: string): string {

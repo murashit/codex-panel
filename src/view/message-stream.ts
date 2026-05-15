@@ -31,6 +31,7 @@ export interface MessageStreamContext {
   loadOlderTurns: () => void;
   renderMarkdown: (parent: HTMLElement, text: string) => void;
   renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
+  copyText?: (text: string) => void;
   canRollbackItem?: (item: DisplayItem) => boolean;
   onRollbackItem?: (item: DisplayItem) => void;
   pendingRequestsSignature?: string;
@@ -167,13 +168,11 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   applyExecutionStateClass(messageEl, executionState(item));
   const role = messageEl.createDiv({ cls: "codex-panel__message-role" });
   role.createSpan({ text: displayRoleLabel(item) });
+  if (item.kind === "message" && item.copyText !== undefined && context.copyText) {
+    renderMessageAction(role, "copy", "Copy message", "codex-panel__copy-message", () => context.copyText?.(item.copyText ?? item.text));
+  }
   if (context.canRollbackItem?.(item)) {
-    const button = createIconButton(role, "undo-2", "Rollback last turn", "codex-panel__message-action codex-panel__rollback-turn");
-    button.onclick = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      context.onRollbackItem?.(item);
-    };
+    renderMessageAction(role, "undo-2", "Rollback last turn", "codex-panel__rollback-turn", () => context.onRollbackItem?.(item));
   }
   const content = messageEl.createDiv({ cls: `codex-panel__message-content ${item.markdown === false ? "" : "markdown-rendered"}` });
   if (item.markdown === false) {
@@ -187,6 +186,16 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   if ("details" in item && item.details && item.details.length > 0) {
     renderMessageDetails(messageEl, item.id, item.details, context);
   }
+}
+
+function renderMessageAction(parent: HTMLElement, icon: string, label: string, className: string, onClick: () => void): HTMLButtonElement {
+  const button = createIconButton(parent, icon, label, `codex-panel__message-action ${className}`);
+  button.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  };
+  return button;
 }
 
 function renderEditedFiles(parent: HTMLElement, editedFiles: string[]): void {

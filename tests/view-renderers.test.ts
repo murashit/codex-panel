@@ -228,6 +228,91 @@ describe("view renderers", () => {
     expect(onRollbackItem).toHaveBeenCalledWith(expect.objectContaining({ id: "u2" }));
   });
 
+  it("renders copy actions for copyable messages", () => {
+    const copyText = vi.fn();
+    const blocks = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        { id: "u1", kind: "message", role: "user", text: "rendered user", copyText: "**user**", turnId: "turn-1", markdown: true },
+        { id: "a1", kind: "message", role: "assistant", text: "rendered answer", copyText: "# Answer", turnId: "turn-1", markdown: true },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      copyText,
+    });
+
+    const rendered = blocks.map((block) => block.render());
+    const userButton = rendered[0].querySelector<HTMLButtonElement>(".codex-panel__copy-message");
+    const assistantButton = rendered[1].querySelector<HTMLButtonElement>(".codex-panel__copy-message");
+
+    expect(userButton?.getAttribute("aria-label")).toBe("Copy message");
+    expect(assistantButton?.getAttribute("aria-label")).toBe("Copy message");
+    userButton?.click();
+    assistantButton?.click();
+    expect(copyText).toHaveBeenNthCalledWith(1, "**user**");
+    expect(copyText).toHaveBeenNthCalledWith(2, "# Answer");
+  });
+
+  it("does not render copy actions for tool items", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: "turn",
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        {
+          id: "tool-1",
+          kind: "tool",
+          role: "tool",
+          text: "tool summary",
+          turnId: "turn",
+          toolLabel: "web search",
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      copyText: vi.fn(),
+    })[0];
+
+    expect(block.render().querySelector(".codex-panel__copy-message")).toBeNull();
+  });
+
+  it("renders copy and rollback actions together when both apply", () => {
+    const copyText = vi.fn();
+    const onRollbackItem = vi.fn();
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [{ id: "u1", kind: "message", role: "user", text: "latest", copyText: "latest", turnId: "turn-1", markdown: true }],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      copyText,
+      canRollbackItem: () => true,
+      onRollbackItem,
+    })[0];
+
+    const element = block.render();
+    element.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
+    element.querySelector<HTMLButtonElement>(".codex-panel__rollback-turn")?.click();
+
+    expect(copyText).toHaveBeenCalledWith("latest");
+    expect(onRollbackItem).toHaveBeenCalledWith(expect.objectContaining({ id: "u1" }));
+  });
+
   it("does not render rollback action when no item is eligible", () => {
     const block = messageRenderBlocks({
       activeThreadId: "thread",
