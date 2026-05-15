@@ -49,14 +49,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          NOTES_ARGS=(--generate-notes)
           NOTES_FILE=".github/release-notes/$TAG.md"
-          if [ -f "$NOTES_FILE" ]; then
-            NOTES_ARGS=(--notes-file "$NOTES_FILE")
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "Release notes file is required at $NOTES_FILE"
+            exit 1
           fi
 
-          gh release create "$TAG" \
-            main.js manifest.json styles.css \
-            --title "$TAG" \
-            "${NOTES_ARGS[@]}" \
-            --verify-tag
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --title "$TAG" \
+              --notes-file "$NOTES_FILE" \
+              --verify-tag
+          else
+            gh release create "$TAG" \
+              main.js manifest.json styles.css \
+              --title "$TAG" \
+              --notes-file "$NOTES_FILE" \
+              --verify-tag
+          fi
