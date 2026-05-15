@@ -59,6 +59,7 @@ Obsidian wikilinks in sent messages are lightly bridged to Codex file mentions w
 - Start, resume, rename, fork, roll back, compact, and archive Codex threads from Obsidian.
 - Open multiple right-sidebar Codex panels for separate active threads.
 - Stream user, assistant, reasoning, command, tool, hook, and file-change events.
+- Copy user messages, assistant responses, and proposed plans from message hover actions.
 - Respond to command, file, permission, and Plan mode approval requests.
 - Toggle Plan mode, fast mode, model override, and reasoning effort override for subsequent turns.
 - Send steering messages during a running turn, or interrupt the turn when the composer is empty.
