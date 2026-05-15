@@ -2,7 +2,7 @@
 
 Codex Panel is a desktop-only Obsidian plugin that opens Codex in the right sidebar.
 
-It starts `codex app-server` locally, talks to it over stdio, and uses the current vault root as the Codex working directory. The panel is intentionally thin: model selection, reasoning effort, sandbox, approvals, network access, MCP, hooks, and other runtime behavior are resolved by Codex for the vault root, including a vault-local `.codex/config.toml` when present.
+It starts `codex app-server` locally, talks to it over stdio, and uses the current vault root as the Codex working directory. The panel is intentionally thin: model selection, reasoning effort, sandbox, approvals, network access, MCP, hooks, and other runtime behavior are resolved by Codex for the vault root, including a vault-local `.codex/config.toml` when present. Panel model and reasoning effort overrides are temporary inputs for subsequent turns, not duplicated Codex configuration.
 
 Use it when you want Codex available next to your notes without leaving Obsidian.
 
@@ -60,13 +60,12 @@ Obsidian wikilinks in sent messages are lightly bridged to Codex file mentions w
 - Open multiple right-sidebar Codex panels for separate active threads.
 - Stream user, assistant, reasoning, command, tool, hook, and file-change events.
 - Copy user messages, assistant responses, and proposed plans from message hover actions.
-- Respond to command, file, permission, and Plan mode approval requests.
+- Respond to command, file, and permission approval requests, and Plan mode questions.
 - Toggle Plan mode, fast mode, model override, and reasoning effort override for subsequent turns.
 - Send steering messages during a running turn, or interrupt the turn when the composer is empty.
 - Show recent chat history, paged older turns, context usage, connection diagnostics, usage limits, and effective config.
-- Inspect and manage discovered Codex hooks, including enabled state, trust status, and current hash.
+- Inspect and manage discovered Codex hooks through app-server, including enabled state, trust status, and current hash.
 - Complete vault wikilinks, slash commands, and enabled Codex skills in the composer, with inline suggestions.
-- Resolve Obsidian wikilinks in sent messages into Codex file mentions when the target exists.
 
 ## Settings and Diagnostics
 
