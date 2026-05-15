@@ -48,13 +48,15 @@ Each open Codex panel owns its own app-server connection, active thread, pending
 
 Forking a thread opens the fork in a new right-sidebar Codex panel so the source thread remains visible. If the source thread has a custom name, the fork inherits that name.
 
+Rolling back a thread drops only the latest Codex turn from history and restores that turn's user prompt text to the composer. It does not revert local file changes made during that turn.
+
 The plugin does not duplicate Codex's configuration UI. To change model defaults, sandboxing, approval policy, MCP servers, hooks, or network behavior, configure Codex itself. The panel can show the effective config for the current vault as a diagnostic view, but it does not save those settings.
 
 Obsidian wikilinks in sent messages are lightly bridged to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are not expanded, and note bodies are not automatically attached by the panel.
 
 ## Features
 
-- Start, resume, rename, fork, compact, and archive Codex threads from Obsidian.
+- Start, resume, rename, fork, roll back, compact, and archive Codex threads from Obsidian.
 - Open multiple right-sidebar Codex panels for separate active threads.
 - Stream user, assistant, reasoning, command, tool, hook, and file-change events.
 - Respond to command, file, permission, and Plan mode approval requests.
@@ -77,7 +79,7 @@ The status dot in the panel opens connection controls, diagnostics, usage limits
 
 ## Privacy and Security
 
-Codex Panel does not make its own network requests. It exchanges data with the configured `codex app-server` process over stdio. Messages, steering input, approvals, resolved file mentions, thread history requests, hook status requests, effective config requests, and archived-thread management requests are sent to Codex app-server and then handled according to your Codex CLI configuration, authentication, model provider, sandbox, approval, MCP, hook, and network settings.
+Codex Panel does not make its own network requests. It exchanges data with the configured `codex app-server` process over stdio. Messages, steering input, approvals, resolved file mentions, thread history and rollback requests, hook status requests, effective config requests, and archived-thread management requests are sent to Codex app-server and then handled according to your Codex CLI configuration, authentication, model provider, sandbox, approval, MCP, hook, and network settings.
 
 The plugin does not store API keys.
 
