@@ -21,6 +21,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"scripts/**/*.{js,mjs}\" \"*.{json,mjs,md,css}\" \"!src/generated/**\"",
     "generate:app-server-types": "codex app-server generate-ts --experimental --out src/generated/app-server && node scripts/normalize-generated-types.mjs",
     "lint": "eslint src tests --max-warnings=0",
+    "release:check": "node scripts/check-release.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "npm run typecheck && npm run test && npm run lint && npm run format:check && npm run build:prod"

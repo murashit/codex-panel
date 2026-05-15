@@ -113,9 +113,10 @@ The generation script uses `codex app-server generate-ts --experimental` because
 
 GitHub Releases attach only `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. `LICENSE` and `NOTICE` are kept in the repository and source archives for license distribution.
 
-Create a release by bumping `package.json`, `package-lock.json`, `manifest.json`, and `versions.json`, optionally adding hand-written notes at `.github/release-notes/X.Y.Z.md`, then checking the lockfile and build before pushing the matching tag:
+Create a release by bumping `package.json`, `package-lock.json`, `manifest.json`, and `versions.json`, adding hand-written notes at `.github/release-notes/X.Y.Z.md`, then checking the release metadata, lockfile, and build before pushing the matching tag:
 
 ```sh
+npm run release:check
 npm ci --dry-run
 npm run check
 git status --short
@@ -123,7 +124,7 @@ git tag X.Y.Z
 git push origin main X.Y.Z
 ```
 
-The release workflow runs `npm ci`, `npm run check`, attaches the install assets, and generates GitHub artifact attestations for them. If `.github/release-notes/X.Y.Z.md` exists, the workflow uses it as the GitHub release body; otherwise it falls back to GitHub-generated notes. If a tag-triggered release fails before creating the GitHub Release, fix the commit, move the local tag with `git tag -f X.Y.Z`, then update the remote tag with `git push --force origin X.Y.Z`.
+The release workflow runs `npm ci`, `npm run release:check`, `npm run check`, attaches the install assets, and generates GitHub artifact attestations for them. The release notes file is required and must contain a single `## Changes` section. If a tag-triggered release fails before creating the GitHub Release, fix the commit, move the local tag with `git tag -f X.Y.Z`, then update the remote tag with `git push --force origin X.Y.Z`.
 
 ## License
 
