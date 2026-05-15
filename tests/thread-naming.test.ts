@@ -4,6 +4,7 @@ import {
   findThreadNamingContext,
   firstNamingContextFromDisplayItems,
   namingRuntime,
+  namingPrompt,
   namingContextFromDisplayItems,
   namingContextFromTurn,
   normalizeGeneratedTitle,
@@ -146,6 +147,21 @@ describe("thread naming", () => {
     expect(normalizeGeneratedTitle('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
     expect(normalizeGeneratedTitle("")).toBeNull();
     expect(normalizeGeneratedTitle("x".repeat(80))).toHaveLength(40);
+  });
+
+  it("asks the model to infer the title language from the initial request", () => {
+    const prompt = namingPrompt({
+      userRequest: "Please fix the automatic thread naming behavior.",
+      assistantResponse: "I found the prompt and adjusted it.",
+    });
+
+    expect(prompt).toContain("infer the main language of the user's initial request");
+    expect(prompt).toContain("Write the title in the inferred language");
+    expect(prompt).toContain("3-7 words for languages that use spaces");
+    expect(prompt).toContain("12-28 characters for languages that usually do not");
+    expect(prompt).not.toContain("日本語の短い名詞句");
+    expect(prompt).not.toContain("Japanese characters");
+    expect(prompt).not.toContain("English words");
   });
 
   it("uses explicit naming runtime settings", () => {

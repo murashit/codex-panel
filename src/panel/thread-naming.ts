@@ -34,7 +34,8 @@ const TITLE_OUTPUT_SCHEMA: JsonValue = {
 };
 
 const TITLE_DEVELOPER_INSTRUCTIONS = [
-  "You generate short Japanese titles for Codex chat history.",
+  "You generate short titles for Codex chat history.",
+  "Infer the main language of the user's initial request and write the title in that language.",
   "Return only a JSON object matching the requested schema.",
   "Do not include Markdown, quotes around the whole response, explanations, or alternatives.",
 ].join("\n");
@@ -280,21 +281,23 @@ function lastAssistantMessage(items: ThreadItem[]): string | null {
   return null;
 }
 
-function namingPrompt(context: ThreadNamingContext): string {
+export function namingPrompt(context: ThreadNamingContext): string {
   return [
-    "次のCodex会話につける履歴用タイトルを作ってください。",
+    "Create a history title for the following Codex conversation.",
     "",
-    "条件:",
-    "- 日本語の短い名詞句または短い文",
-    "- 12〜28字程度、最大40字",
-    "- 依頼の対象と目的が分かる",
-    "- 「について」「相談」「実装してください」だけの曖昧な表現にしない",
-    "- Markdown、引用符、末尾句点、説明文は使わない",
+    "Requirements:",
+    "- First infer the main language of the user's initial request. This does not need to be strict; use the dominant language if mixed.",
+    "- Write the title in the inferred language. If the language is unclear, use the language used most in the user's initial request.",
+    "- Use a short noun phrase or short sentence.",
+    "- Keep it compact: roughly 3-7 words for languages that use spaces, or 12-28 characters for languages that usually do not. Never exceed 40 characters.",
+    "- Make the request target and purpose clear.",
+    "- Avoid vague titles such as only 'about this', 'general question', or 'please implement'.",
+    "- Do not use Markdown, quotation marks, trailing punctuation, explanations, or alternatives.",
     "",
-    "ユーザーの初回依頼:",
+    "User's initial request:",
     context.userRequest,
     "",
-    "Codexの最初の回答:",
+    "Codex's first response:",
     context.assistantResponse,
   ].join("\n");
 }
