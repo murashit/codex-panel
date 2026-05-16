@@ -8,7 +8,7 @@ import type { SortDirection } from "../generated/app-server/v2/SortDirection";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import { inputToText, truncate } from "../utils";
-import { findModelByIdOrName, supportedEffortsForModel } from "./model-runtime";
+import { findModelByIdOrName, supportedEffortsForModel } from "../runtime/model";
 
 const NAMING_SERVICE_NAME = "codex-panel-naming";
 const NAMING_TIMEOUT_MS = 60_000;

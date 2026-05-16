@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { statusValue, usageLimitStatusLines } from "../src/panel/status-lines";
-import type { RateLimitSummary } from "../src/panel/runtime-view";
+import type { RateLimitSummary } from "../src/runtime/view";
 
 describe("status line helpers", () => {
   it("formats primitive and structured diagnostic values", () => {

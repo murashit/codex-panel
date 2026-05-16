@@ -8,7 +8,7 @@ import {
   parseModelOverride,
   parseReasoningEffortOverride,
   reasoningEffortOverrideMessage,
-} from "../src/panel/runtime-settings";
+} from "../src/runtime/settings";
 import {
   currentModel,
   currentReasoningEffort,
@@ -19,8 +19,8 @@ import {
   setRuntimeOverride,
   serviceTierLabel,
   type RuntimeSnapshot,
-} from "../src/panel/runtime-state";
-import { contextSummary, rateLimitSummary } from "../src/panel/runtime-view";
+} from "../src/runtime/state";
+import { contextSummary, rateLimitSummary } from "../src/runtime/view";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {

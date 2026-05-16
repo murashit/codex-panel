@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { PanelController } from "../src/panel/controller";
-import { createPanelState } from "../src/state/panel-state";
+import { createPanelState } from "../src/panel/state";
 import type { ServerNotification } from "../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../src/generated/app-server/ServerRequest";
 import type { Thread } from "../src/generated/app-server/v2/Thread";

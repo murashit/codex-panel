@@ -1,4 +1,4 @@
-import type { SendShortcut } from "../settings";
+import type { SendShortcut } from "../settings/model";
 
 export interface ComposerSendKeyEvent {
   key: string;

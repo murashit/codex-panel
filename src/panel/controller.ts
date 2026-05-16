@@ -1,13 +1,15 @@
 import { approvalResponse, toPendingApproval, type ApprovalAction, type PendingApproval } from "../approvals/model";
+import { createAutoReviewResultItem, createReviewResultItem } from "../display/model";
 import {
   appendAssistantDelta,
   appendItemOutput,
   appendItemText,
   appendPlanDelta,
   appendToolOutput,
-  createAutoReviewResultItem,
   completeReasoningItems,
-  createReviewResultItem,
+  upsertDisplayItem,
+} from "../display/stream-updates";
+import {
   createSystemItem,
   displayItemFromThreadItem,
   displayItemsFromTurns,
@@ -15,7 +17,6 @@ import {
   planProgressDisplayItem,
   shouldSuppressLifecycleItem,
   shouldSuppressThreadItem,
-  upsertDisplayItem,
 } from "../display/model";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../display/types";
 import type { RequestId } from "../generated/app-server/RequestId";
@@ -23,7 +24,7 @@ import type { ServerNotification } from "../generated/app-server/ServerNotificat
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
-import { clearActiveThreadState, type PanelState } from "../state/panel-state";
+import { clearActiveThreadState, type PanelState } from "./state";
 import { toPendingUserInput, userInputResponse, type PendingUserInput } from "../user-input/model";
 import { jsonPreview } from "../utils";
 import { classifyAppServerLog } from "./app-server-logs";

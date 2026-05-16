@@ -1,8 +1,8 @@
-import type { AppServerClient } from "./app-server/client";
-import type { HookMetadata } from "./generated/app-server/v2/HookMetadata";
-import type { Model } from "./generated/app-server/v2/Model";
-import type { Thread } from "./generated/app-server/v2/Thread";
-import { errorMessage } from "./utils";
+import type { AppServerClient } from "../app-server/client";
+import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
+import type { Model } from "../generated/app-server/v2/Model";
+import type { Thread } from "../generated/app-server/v2/Thread";
+import { errorMessage } from "../utils";
 
 export interface LoadedHooks {
   hooks: HookMetadata[];

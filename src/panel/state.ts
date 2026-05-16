@@ -14,7 +14,7 @@ import type { ComposerSuggestion } from "../composer/suggestions";
 import type { DisplayItem } from "../display/types";
 import type { PendingUserInput } from "../user-input/model";
 import type { ServiceTier } from "../app-server/service-tier";
-import { defaultRuntimeOverride, type RuntimeOverride } from "../panel/runtime-state";
+import { defaultRuntimeOverride, type RuntimeOverride } from "../runtime/state";
 
 export interface PanelState {
   status: string;

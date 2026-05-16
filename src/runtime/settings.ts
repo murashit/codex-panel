@@ -1,5 +1,5 @@
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
-import { isReasoningEffort } from "./model-runtime";
+import { isReasoningEffort } from "./model";
 
 const DEFAULT_ALIASES = new Set(["default", "reset", "clear", "off"]);
 

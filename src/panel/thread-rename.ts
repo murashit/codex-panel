@@ -1,9 +1,9 @@
 import type { AppServerClient } from "../app-server/client";
 import type { Thread } from "../generated/app-server/v2/Thread";
 import type { Turn } from "../generated/app-server/v2/Turn";
-import type { CodexPanelSettings } from "../settings";
-import type { PanelState } from "../state/panel-state";
-import { getThreadTitle } from "../threads";
+import type { CodexPanelSettings } from "../settings/model";
+import type { PanelState } from "./state";
+import { getThreadTitle } from "../threads/model";
 import {
   findThreadNamingContext,
   generateThreadTitleWithCodex,

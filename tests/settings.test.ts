@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FileSystemAdapter, type App } from "obsidian";
 
-import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData } from "../src/settings";
+import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData } from "../src/settings/model";
 
 describe("settings", () => {
   it("normalizes empty data", () => {

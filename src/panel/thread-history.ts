@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../app-server/client";
 import { displayItemsFromTurns } from "../display/model";
-import type { PanelState } from "../state/panel-state";
+import type { PanelState } from "./state";
 
 export interface ThreadHistoryLoaderHost {
   state: PanelState;

@@ -1,4 +1,4 @@
-import type { RateLimitSummary } from "./runtime-view";
+import type { RateLimitSummary } from "../runtime/view";
 
 export function statusValue(value: unknown, fallback: string): string {
   if (typeof value === "string") return value;

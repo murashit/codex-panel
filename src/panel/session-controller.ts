@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../app-server/client";
-import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "./runtime-state";
-import type { PanelState } from "../state/panel-state";
+import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../runtime/state";
+import type { PanelState } from "./state";
 
 export interface PanelSessionControllerHost {
   state: PanelState;

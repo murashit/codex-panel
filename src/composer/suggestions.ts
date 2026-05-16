@@ -1,7 +1,7 @@
 import type { SkillMetadata } from "../generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../generated/app-server/v2/Thread";
-import { SLASH_COMMANDS, type SlashCommandName } from "../panel/slash-commands";
-import { getThreadTitle } from "../threads";
+import { SLASH_COMMANDS, type SlashCommandName } from "./slash-commands";
+import { getThreadTitle } from "../threads/model";
 import { shortThreadId } from "../utils";
 
 export interface ComposerSuggestion {

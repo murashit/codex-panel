@@ -9,7 +9,7 @@ import {
   runtimeOverrideLabel,
   serviceTierLabel,
   type RuntimeSnapshot,
-} from "./runtime-state";
+} from "./state";
 
 export interface ContextSummary {
   label: string;

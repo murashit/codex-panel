@@ -1,17 +1,18 @@
 import { type App, Notice, PluginSettingTab, Setting } from "obsidian";
 
-import type { AppServerClient } from "./app-server/client";
-import { withAppServerSession } from "./app-server/session-client";
-import { DEFAULT_CODEX_PATH } from "./constants";
-import type { ReasoningEffort } from "./generated/app-server/ReasoningEffort";
-import type { HookMetadata } from "./generated/app-server/v2/HookMetadata";
-import type { Model } from "./generated/app-server/v2/Model";
-import type { Thread } from "./generated/app-server/v2/Thread";
-import type CodexPanelPlugin from "./main";
-import { findModelByIdOrName, REASONING_EFFORTS, sortedAvailableModels, supportedEffortsForModel } from "./panel/model-runtime";
-import { loadHookData, loadSettingsData } from "./settings-data";
-import { archivedThreadDisplayTitle, fullThreadTitle } from "./threads";
-import { errorMessage, shortThreadId } from "./utils";
+import type { AppServerClient } from "../app-server/client";
+import { withAppServerSession } from "../app-server/session-client";
+import { DEFAULT_CODEX_PATH } from "../constants";
+import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
+import type { Model } from "../generated/app-server/v2/Model";
+import type { Thread } from "../generated/app-server/v2/Thread";
+import type CodexPanelPlugin from "../main";
+import { findModelByIdOrName, REASONING_EFFORTS, sortedAvailableModels, supportedEffortsForModel } from "../runtime/model";
+import { archivedThreadDisplayTitle } from "../threads/model";
+import { errorMessage } from "../utils";
+import { loadHookData, loadSettingsData } from "./data";
+import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";
 const SEND_SHORTCUT_LABELS = {
@@ -139,48 +140,24 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
     }
 
-    const hookSection = containerEl.createDiv({ cls: "codex-panel-settings__dynamic-section codex-panel-settings__hook-section" });
-    new Setting(hookSection)
-      .setClass("codex-panel-settings__dynamic-section-heading")
-      .setHeading()
-      .setName("Hook status")
-      .setDesc("Review hooks discovered by Codex app-server for the current vault root, including trust and enabled state.");
-
-    if (this.hooksLoading) {
-      hookSection.createEl("p", { cls: "setting-item-description codex-panel-settings__dynamic-section-status", text: "Loading hooks..." });
-    } else if (this.hooksLoaded) {
-      this.renderHooks(hookSection);
-    } else if (this.hooksStatus) {
-      hookSection.createEl("p", { cls: "setting-item-description codex-panel-settings__dynamic-section-status", text: this.hooksStatus });
-    }
-
-    const archivedSection = containerEl.createDiv({
-      cls: "codex-panel-settings__dynamic-section codex-panel-settings__archived-section",
+    renderHookSection(containerEl, {
+      hooks: this.hooks,
+      warnings: this.hookWarnings,
+      errors: this.hookErrors,
+      loaded: this.hooksLoaded,
+      loading: this.hooksLoading,
+      status: this.hooksStatus,
+      onTrust: (hook) => void this.trustHook(hook),
+      onToggleEnabled: (hook, enabled) => void this.setHookEnabled(hook, enabled),
     });
-    new Setting(archivedSection)
-      .setClass("codex-panel-settings__dynamic-section-heading")
-      .setHeading()
-      .setName("Archived thread list")
-      .setDesc("Restore archived Codex threads to chat history when they are needed again.");
 
-    if (this.archivedThreadsLoading) {
-      archivedSection.createEl("p", {
-        cls: "setting-item-description codex-panel-settings__dynamic-section-status",
-        text: "Loading archived threads...",
-      });
-    } else if (this.archivedThreadsLoaded && this.archivedThreads.length === 0) {
-      archivedSection.createEl("p", {
-        cls: "setting-item-description codex-panel-settings__dynamic-section-status",
-        text: "No archived threads.",
-      });
-    } else if (this.archivedThreadsLoaded) {
-      this.renderArchivedThreadList(archivedSection);
-    } else if (this.archivedThreadsStatus) {
-      archivedSection.createEl("p", {
-        cls: "setting-item-description codex-panel-settings__dynamic-section-status",
-        text: this.archivedThreadsStatus,
-      });
-    }
+    renderArchivedThreadSection(containerEl, {
+      threads: this.archivedThreads,
+      loaded: this.archivedThreadsLoaded,
+      loading: this.archivedThreadsLoading,
+      status: this.archivedThreadsStatus,
+      onRestore: (threadId) => void this.restoreArchivedThread(threadId),
+    });
 
     this.maybeAutoLoadSettingsData();
   }
@@ -341,86 +318,4 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private selectedNamingModel(): Model | null {
     return findModelByIdOrName(this.namingModels, this.plugin.settings.threadNamingModel);
   }
-
-  private renderArchivedThreadList(containerEl: HTMLElement): void {
-    containerEl.createEl("p", {
-      cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-      text: `Loaded ${this.archivedThreads.length} archived thread${this.archivedThreads.length === 1 ? "" : "s"} from Codex app-server.`,
-    });
-    const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__archived-list" });
-    for (const thread of this.archivedThreads) {
-      const title = archivedThreadDisplayTitle(thread);
-      const setting = new Setting(list)
-        .setClass("codex-panel-settings__dynamic-row")
-        .setName(title)
-        .setDesc(`Updated ${formatThreadDate(thread.updatedAt)} · ${shortThreadId(thread.id)}`)
-        .addExtraButton((button) => {
-          button.setIcon("rotate-ccw").onClick(() => void this.restoreArchivedThread(thread.id));
-          button.extraSettingsEl.addClass("codex-panel-settings__archived-restore");
-          button.extraSettingsEl.setAttr("aria-label", `Restore ${title}`);
-        });
-      setting.settingEl.addClass("codex-panel-settings__archived-row");
-      setting.settingEl.setAttr("title", fullThreadTitle(thread));
-    }
-  }
-
-  private renderHooks(containerEl: HTMLElement): void {
-    if (this.hooks.length === 0) {
-      containerEl.createEl("p", { cls: "setting-item-description", text: "No hooks discovered for the current vault root." });
-    } else {
-      containerEl.createEl("p", {
-        cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-        text: `Loaded ${this.hooks.length} hook${this.hooks.length === 1 ? "" : "s"} from Codex app-server.`,
-      });
-      const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__hook-list" });
-      for (const hook of this.hooks) {
-        this.renderHookRow(list, hook);
-      }
-    }
-
-    for (const warning of this.hookWarnings) {
-      containerEl.createEl("p", { cls: "setting-item-description codex-panel-settings__hook-warning", text: warning });
-    }
-    for (const error of this.hookErrors) {
-      containerEl.createEl("p", { cls: "setting-item-description codex-panel-settings__hook-error", text: error });
-    }
-  }
-
-  private renderHookRow(list: HTMLElement, hook: HookMetadata): void {
-    const canTrust = !hook.isManaged && (hook.trustStatus === "untrusted" || hook.trustStatus === "modified");
-    const setting = new Setting(list)
-      .setClass("codex-panel-settings__dynamic-row")
-      .setName(hook.statusMessage || hook.command || hook.matcher || hook.eventName)
-      .setDesc(`${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${hook.enabled ? "enabled" : "disabled"}`)
-      .addButton((button) => {
-        button
-          .setButtonText("Trust")
-          .setDisabled(this.hooksLoading || !canTrust)
-          .onClick(() => void this.trustHook(hook));
-      })
-      .addButton((button) => {
-        button
-          .setButtonText(hook.enabled ? "Disable" : "Enable")
-          .setDisabled(this.hooksLoading || hook.isManaged)
-          .onClick(() => void this.setHookEnabled(hook, !hook.enabled));
-      });
-    setting.settingEl.addClass("codex-panel-settings__hook-row");
-    setting.settingEl.setAttr("title", hook.command ?? hook.key);
-    setting.descEl.createDiv({
-      cls: "codex-panel-settings__hook-hash",
-      text: hook.currentHash,
-      attr: { title: hook.key },
-    });
-  }
-}
-
-function formatThreadDate(timestamp: number): string {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return "unknown";
-  return new Date(timestamp * 1000).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }

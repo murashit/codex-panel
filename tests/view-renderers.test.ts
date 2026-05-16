@@ -10,12 +10,12 @@ import {
   scrollComposerSuggestionIntoView,
   syncComposerControls,
   syncComposerHeight,
-} from "../src/view/composer";
-import { renderPendingRequestMessage } from "../src/view/pending-request-message";
-import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../src/view/toolbar";
+} from "../src/ui/composer";
+import { renderPendingRequestMessage } from "../src/ui/pending-request-message";
+import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../src/ui/toolbar";
 import { displayItemSignature } from "../src/display/signature";
-import { messageRenderBlocks, syncMessageRenderBlocks } from "../src/view/message-stream";
-import { displayDiffLines, persistedTurnDiffViewState, renderTurnDiffView } from "../src/view/turn-diff";
+import { messageRenderBlocks, syncMessageRenderBlocks } from "../src/ui/message-stream";
+import { displayDiffLines, persistedTurnDiffViewState, renderTurnDiffView } from "../src/ui/turn-diff";
 
 declare global {
   function createDiv(options?: { cls?: string; text?: string; attr?: Record<string, string> }): HTMLDivElement;
@@ -220,7 +220,7 @@ describe("view renderers", () => {
               rows: [
                 { key: "status", value: "approved" },
                 { key: "action", value: "apply patch" },
-                { key: "files", value: "src/display/tool-view.ts\nsrc/view/message-stream.ts" },
+                { key: "files", value: "src/display/tool-view.ts\nsrc/ui/message-stream.ts" },
               ],
             },
           ],
@@ -242,7 +242,7 @@ describe("view renderers", () => {
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusapproved");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("actionapply patch");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain(
-      "filessrc/display/tool-view.ts\nsrc/view/message-stream.ts",
+      "filessrc/display/tool-view.ts\nsrc/ui/message-stream.ts",
     );
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
   });

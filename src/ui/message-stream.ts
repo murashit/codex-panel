@@ -1,4 +1,5 @@
-import { displayBlocksForItems, executionState } from "../display/model";
+import { displayBlocksForItems } from "../display/blocks";
+import { executionState } from "../display/model";
 import { displayItemSignature } from "../display/signature";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
 import { createIconButton, createMetaPair, createRememberedDetails } from "./components";

@@ -6,7 +6,7 @@ import {
   defaultCollaborationMode,
   nextCollaborationMode,
   planCollaborationMode,
-} from "../src/panel/collaboration-mode";
+} from "../src/runtime/collaboration-mode";
 
 describe("collaboration mode", () => {
   it("toggles between Default and Plan mode", () => {

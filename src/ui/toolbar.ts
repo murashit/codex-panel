@@ -1,6 +1,6 @@
 import { setIcon } from "obsidian";
 
-import type { EffectiveConfigSection, RateLimitSummary } from "../panel/runtime-view";
+import type { EffectiveConfigSection, RateLimitSummary } from "../runtime/view";
 import { createToolbarButton } from "./components";
 import { renderEffectiveConfig } from "./config";
 

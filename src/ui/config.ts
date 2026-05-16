@@ -1,4 +1,4 @@
-import type { EffectiveConfigSection } from "../panel/runtime-view";
+import type { EffectiveConfigSection } from "../runtime/view";
 import { createDefinitionRow } from "./components";
 
 export function renderEffectiveConfig(parent: HTMLElement, sections: EffectiveConfigSection[]): void {

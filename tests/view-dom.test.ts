@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { renderTextWithWikiLinks, shortSignature } from "../src/view/dom";
+import { renderTextWithWikiLinks, shortSignature } from "../src/ui/dom";
 
 declare global {
   interface HTMLElement {

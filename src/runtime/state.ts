@@ -8,9 +8,9 @@ import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsa
 import type { DisplayItem } from "../display/types";
 import { parseServiceTier, serviceTierRequestValue, type ServiceTier, type ServiceTierRequest } from "../app-server/service-tier";
 import { defaultCollaborationMode, planCollaborationMode } from "./collaboration-mode";
-import { findModelByIdOrName, isReasoningEffort, supportedEffortsForModel } from "./model-runtime";
-import { compactModelLabel, compactReasoningEffortLabel } from "./runtime-settings";
-export { sortedAvailableModels } from "./model-runtime";
+import { findModelByIdOrName, isReasoningEffort, supportedEffortsForModel } from "./model";
+import { compactModelLabel, compactReasoningEffortLabel } from "./settings";
+export { sortedAvailableModels } from "./model";
 
 export type RuntimeOverride<T> = { kind: "default" } | { kind: "set"; value: T } | { kind: "resetPending" };
 

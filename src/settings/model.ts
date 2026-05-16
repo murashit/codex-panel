@@ -1,8 +1,8 @@
 import { FileSystemAdapter, type App } from "obsidian";
 
-import { DEFAULT_CODEX_PATH } from "./constants";
-import type { ReasoningEffort } from "./generated/app-server/ReasoningEffort";
-import { normalizeReasoningEffort } from "./panel/model-runtime";
+import { DEFAULT_CODEX_PATH } from "../constants";
+import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import { normalizeReasoningEffort } from "../runtime/model";
 
 export interface CodexPanelSettings {
   codexPath: string;

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "../src/view/scroll";
+import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "../src/ui/scroll";
 
 describe("message scroll helpers", () => {
   it("detects whether the transcript is pinned near the bottom", () => {
