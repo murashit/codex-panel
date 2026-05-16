@@ -36,6 +36,8 @@ export interface MessageStreamContext {
   renderMarkdown: (parent: HTMLElement, text: string) => void;
   renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
   copyText?: (text: string) => void;
+  canImplementPlanItem?: (item: DisplayItem) => boolean;
+  onImplementPlanItem?: (item: DisplayItem) => void;
   canRollbackItem?: (item: DisplayItem) => boolean;
   onRollbackItem?: (item: DisplayItem) => void;
   openTurnDiff?: (state: TurnDiffViewState) => void;
@@ -211,6 +213,9 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   role.createSpan({ text: displayRoleLabel(item) });
   if (item.kind === "message" && item.copyText !== undefined && context.copyText) {
     renderMessageAction(role, "copy", "Copy message", "codex-panel__copy-message", () => context.copyText?.(item.copyText ?? item.text));
+  }
+  if (context.canImplementPlanItem?.(item)) {
+    renderMessageAction(role, "play", "Implement plan", "codex-panel__implement-plan", () => context.onImplementPlanItem?.(item));
   }
   if (context.canRollbackItem?.(item)) {
     renderMessageAction(role, "undo-2", "Rollback last turn", "codex-panel__rollback-turn", () => context.onRollbackItem?.(item));

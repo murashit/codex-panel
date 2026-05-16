@@ -39,6 +39,7 @@ export interface MessageDisplayItem extends DisplayBase {
   kind: "message";
   role: "user" | "assistant";
   copyText?: string;
+  proposedPlan?: boolean;
   editedFiles?: string[];
   turnDiff?: DisplayTurnDiff;
   autoReviewSummaries?: string[];

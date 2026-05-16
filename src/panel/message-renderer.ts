@@ -18,6 +18,7 @@ export interface PanelMessageRendererOptions {
   consumeForceScrollToBottom: () => boolean;
   loadOlderTurns: () => void;
   rollbackThread: (threadId: string) => void;
+  implementPlan: (item: DisplayItem) => void;
   openTurnDiff: (state: TurnDiffViewState) => void;
   pendingRequestsSignature: () => string;
   renderPendingRequests: () => HTMLElement | null;
@@ -37,6 +38,7 @@ export class PanelMessageRenderer {
     const scrollAnchor = shouldScrollToBottom ? null : captureScrollAnchor(messagesEl);
     state.messagesPinnedToBottom = shouldScrollToBottom;
     const rollbackCandidate = state.busy ? null : rollbackCandidateFromItems(state.displayItems);
+    const implementPlanCandidate = implementPlanCandidateFromState(state);
 
     const blocks = messageRenderBlocks({
       activeThreadId: state.activeThreadId,
@@ -57,6 +59,8 @@ export class PanelMessageRenderer {
       renderMarkdown: (element, text) => this.renderMarkdownMessage(element, text),
       renderTextWithWikiLinks: (element, text) => this.renderTextWithWikiLinks(element, text),
       copyText: (text) => void this.copyMessageText(text),
+      canImplementPlanItem: (item: DisplayItem) => item.id === implementPlanCandidate?.id,
+      onImplementPlanItem: (item) => this.options.implementPlan(item),
       canRollbackItem: (item: DisplayItem) => isRollbackCandidateItem(item, rollbackCandidate),
       onRollbackItem: () => {
         if (state.activeThreadId) this.options.rollbackThread(state.activeThreadId);
@@ -119,4 +123,16 @@ export class PanelMessageRenderer {
       void this.options.app.workspace.openLinkText(target, sourcePath, false);
     });
   }
+}
+
+export function implementPlanCandidateFromState(
+  state: Pick<PanelState, "activeThreadId" | "busy" | "composerDraft" | "requestedCollaborationMode" | "displayItems">,
+): DisplayItem | null {
+  if (!state.activeThreadId || state.busy || state.composerDraft.trim().length > 0 || state.requestedCollaborationMode !== "plan") {
+    return null;
+  }
+  return (
+    [...state.displayItems].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ??
+    null
+  );
 }

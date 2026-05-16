@@ -88,6 +88,7 @@ export function appendPlanDelta(items: DisplayItem[], itemId: string, turnId: st
       turnId,
       itemId,
       markdown: false,
+      proposedPlan: true,
     },
   ];
 }
@@ -100,6 +101,7 @@ function appendPlanDeltaToMessage(item: Extract<DisplayItem, { kind: "message" }
     copyText: text,
     turnId: item.turnId ?? turnId,
     markdown: false,
+    proposedPlan: true,
   };
 }
 

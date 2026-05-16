@@ -14,6 +14,7 @@ import {
 import { renderPendingRequestMessage } from "../src/ui/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../src/ui/toolbar";
 import { displayItemSignature } from "../src/display/signature";
+import { implementPlanCandidateFromState } from "../src/panel/message-renderer";
 import { messageRenderBlocks, syncMessageRenderBlocks } from "../src/ui/message-stream";
 import { displayDiffLines, persistedTurnDiffViewState, renderTurnDiffView } from "../src/ui/turn-diff";
 
@@ -308,6 +309,91 @@ describe("view renderers", () => {
     assistantButton?.click();
     expect(copyText).toHaveBeenNthCalledWith(1, "**user**");
     expect(copyText).toHaveBeenNthCalledWith(2, "# Answer");
+  });
+
+  it("renders implement plan action for eligible proposed plans", () => {
+    const onImplementPlanItem = vi.fn();
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        {
+          id: "p1",
+          kind: "message",
+          role: "assistant",
+          text: "# Plan",
+          copyText: "# Plan",
+          turnId: "turn-1",
+          markdown: true,
+          proposedPlan: true,
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      copyText: vi.fn(),
+      canImplementPlanItem: () => true,
+      onImplementPlanItem,
+    })[0];
+
+    const element = block.render();
+    const button = element.querySelector<HTMLButtonElement>(".codex-panel__implement-plan");
+
+    expect(button?.getAttribute("aria-label")).toBe("Implement plan");
+    button?.click();
+    expect(onImplementPlanItem).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }));
+  });
+
+  it("includes implement plan availability in message signatures", () => {
+    const item = {
+      id: "p1",
+      kind: "message",
+      role: "assistant",
+      text: "# Plan",
+      copyText: "# Plan",
+      turnId: "turn-1",
+      markdown: true,
+      proposedPlan: true,
+    } as const;
+
+    expect(
+      displayItemSignature(item, { busy: false, activeTurnId: null, displayItems: [item], canImplementPlanItem: () => true }),
+    ).not.toBe(displayItemSignature(item, { busy: false, activeTurnId: null, displayItems: [item], canImplementPlanItem: () => false }));
+  });
+
+  it("selects only the latest proposed plan as an implement candidate", () => {
+    const firstPlan = {
+      id: "p1",
+      kind: "message",
+      role: "assistant",
+      text: "# First plan",
+      turnId: "turn-1",
+      proposedPlan: true,
+    } as const;
+    const secondPlan = {
+      id: "p2",
+      kind: "message",
+      role: "assistant",
+      text: "# Second plan",
+      turnId: "turn-2",
+      proposedPlan: true,
+    } as const;
+    const baseState = {
+      activeThreadId: "thread",
+      busy: false,
+      composerDraft: "",
+      requestedCollaborationMode: "plan" as const,
+      displayItems: [firstPlan, { id: "a1", kind: "message", role: "assistant", text: "answer" } as const, secondPlan],
+    };
+
+    expect(implementPlanCandidateFromState(baseState)).toBe(secondPlan);
+    expect(implementPlanCandidateFromState({ ...baseState, requestedCollaborationMode: "default" })).toBeNull();
+    expect(implementPlanCandidateFromState({ ...baseState, composerDraft: "edit first" })).toBeNull();
+    expect(implementPlanCandidateFromState({ ...baseState, busy: true })).toBeNull();
   });
 
   it("does not render copy actions for tool items", () => {

@@ -93,6 +93,7 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
       turnId,
       itemId: item.id,
       markdown: true,
+      proposedPlan: true,
     };
   }
 

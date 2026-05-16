@@ -95,6 +95,7 @@ describe("display model", () => {
       text: "# Plan",
       copyText: "# Plan",
       markdown: true,
+      proposedPlan: true,
       turnId: "t1",
     });
   });
@@ -106,7 +107,9 @@ describe("display model", () => {
   it("streams plan deltas as plain assistant text until completion", () => {
     const items = appendPlanDelta([], "p1", "t1", "<proposed_plan>\n# Plan");
     const updated = appendPlanDelta(items, "p1", "t1", "\n</proposed_plan>");
-    expect(updated).toMatchObject([{ id: "p1", kind: "message", role: "assistant", text: "# Plan", copyText: "# Plan", markdown: false }]);
+    expect(updated).toMatchObject([
+      { id: "p1", kind: "message", role: "assistant", text: "# Plan", copyText: "# Plan", markdown: false, proposedPlan: true },
+    ]);
   });
 
   it("formats structured plan progress as task progress", () => {

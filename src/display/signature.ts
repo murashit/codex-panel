@@ -7,6 +7,7 @@ export interface DisplayItemSignatureContext {
   displayItems: DisplayItem[];
   workspaceRoot?: string | null;
   canRollbackItem?: (item: DisplayItem) => boolean;
+  canImplementPlanItem?: (item: DisplayItem) => boolean;
 }
 
 export function displayItemSignature(item: DisplayItem, context: DisplayItemSignatureContext): string {
@@ -19,11 +20,13 @@ export function displayItemSignature(item: DisplayItem, context: DisplayItemSign
     item.text,
     "markdown" in item ? String(item.markdown ?? true) : "",
     item.kind === "message" ? (item.copyText ?? "") : "",
+    item.kind === "message" ? String(item.proposedPlan ?? false) : "",
     "output" in item ? (item.output ?? "") : "",
     "details" in item ? JSON.stringify(item.details ?? []) : "",
     item.kind === "message" ? (item.editedFiles?.join("\n") ?? "") : "",
     item.kind === "message" ? (item.turnDiff?.diff ?? "") : "",
     item.kind === "message" ? (item.autoReviewSummaries?.join("\n") ?? "") : "",
+    item.kind === "message" ? String(context.canImplementPlanItem?.(item) ?? false) : "",
     item.kind === "message" ? String(context.canRollbackItem?.(item) ?? false) : "",
     item.kind === "reasoning" && isReasoningActive(item, context) ? "reasoning-active" : "",
     executionState(item) ?? "",

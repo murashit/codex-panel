@@ -98,6 +98,7 @@ export class CodexPanelView extends ItemView {
       },
       loadOlderTurns: () => void this.history.loadOlder(),
       rollbackThread: (threadId) => void this.rollbackThread(threadId),
+      implementPlan: (item) => void this.implementPlan(item),
       openTurnDiff: (state) => void this.plugin.openTurnDiff(state),
       pendingRequestsSignature: () => this.pendingRequestsSignature(),
       renderPendingRequests: () => this.createPendingRequestsElement(),
@@ -447,6 +448,16 @@ export class CodexPanelView extends ItemView {
     this.scheduleRender();
   }
 
+  private async implementPlan(item: DisplayItem): Promise<void> {
+    if (!this.canImplementPlanItem(item)) return;
+    await this.ensureConnected();
+    if (!this.client || !this.state.activeThreadId) return;
+
+    this.state.requestedCollaborationMode = "default";
+    this.state.runtimePicker = null;
+    await this.sendTurnText("Please implement this plan.");
+  }
+
   private async interruptTurn(): Promise<void> {
     if (!this.client || !this.state.activeThreadId || !this.state.activeTurnId) return;
     try {
@@ -506,6 +517,13 @@ export class CodexPanelView extends ItemView {
     this.state.requestedCollaborationMode = next;
     this.state.runtimePicker = null;
     this.addSystemMessage(collaborationModeToggleMessage(next));
+  }
+
+  private canImplementPlanItem(item: DisplayItem): boolean {
+    if (item.kind !== "message" || item.role !== "assistant" || item.proposedPlan !== true) return false;
+    if (!this.state.activeThreadId || this.state.busy || this.state.composerDraft.trim().length > 0) return false;
+    if (this.state.requestedCollaborationMode !== "plan") return false;
+    return latestProposedPlanItem(this.state.displayItems)?.id === item.id;
   }
 
   private toggleRuntimePicker(picker: NonNullable<PanelState["runtimePicker"]>): void {
@@ -1031,4 +1049,8 @@ export class CodexPanelView extends ItemView {
   private syncComposerControls(): void {
     this.composerController.syncControls(this.composerSlotEl);
   }
+}
+
+function latestProposedPlanItem(items: DisplayItem[]): DisplayItem | null {
+  return [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ?? null;
 }
