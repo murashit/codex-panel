@@ -867,6 +867,22 @@ describe("display model", () => {
     expect(assistantBlock).toMatchObject({ item: { editedFiles: ["src/main.ts", "styles.css"] } });
   });
 
+  it("adds turn diff metadata to the final assistant message only when aggregated diff exists", () => {
+    const items: DisplayItem[] = [
+      fileChangeItem("f1", "t1", "src/main.ts"),
+      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+    ];
+
+    const withoutDiff = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
+    expect(withoutDiff).toMatchObject({ item: { editedFiles: ["src/main.ts"] } });
+    expect(withoutDiff && withoutDiff.type === "item" ? withoutDiff.item : null).not.toHaveProperty("turnDiff");
+
+    const withDiff = displayBlocksForItems(items, null, null, new Map([["t1", "@@\n-old\n+new"]])).find(
+      (block) => block.type === "item" && block.item.role === "assistant",
+    );
+    expect(withDiff).toMatchObject({ item: { editedFiles: ["src/main.ts"], turnDiff: { diff: "@@\n-old\n+new" } } });
+  });
+
   it("adds auto-review summaries to the final assistant message", () => {
     const items: DisplayItem[] = [
       {

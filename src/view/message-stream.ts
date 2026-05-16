@@ -11,6 +11,7 @@ import {
   renderReasoningItem,
   renderTaskProgressItem,
 } from "./work-items";
+import type { TurnDiffViewState } from "./turn-diff";
 
 export interface MessageRenderBlock {
   key: string;
@@ -25,6 +26,7 @@ export interface MessageStreamContext {
   loadingHistory: boolean;
   busy: boolean;
   displayItems: DisplayItem[];
+  turnDiffs?: ReadonlyMap<string, string>;
   workspaceRoot?: string | null;
   openDetails: Set<string>;
   onDetailsToggle?: () => void;
@@ -34,6 +36,7 @@ export interface MessageStreamContext {
   copyText?: (text: string) => void;
   canRollbackItem?: (item: DisplayItem) => boolean;
   onRollbackItem?: (item: DisplayItem) => void;
+  openTurnDiff?: (state: TurnDiffViewState) => void;
   pendingRequestsSignature?: string;
   renderPendingRequests?: () => HTMLElement | null;
 }
@@ -62,7 +65,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
     return blocks;
   }
 
-  for (const block of displayBlocksForItems(context.displayItems, context.activeTurnId, context.workspaceRoot)) {
+  for (const block of displayBlocksForItems(context.displayItems, context.activeTurnId, context.workspaceRoot, context.turnDiffs)) {
     if (block.type === "item") {
       blocks.push({
         key: `item:${block.item.id}`,
@@ -185,7 +188,7 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
     context.renderMarkdown(content, item.text);
   }
   if (item.kind === "message" && item.editedFiles && item.editedFiles.length > 0) {
-    renderEditedFiles(messageEl, item.editedFiles);
+    renderEditedFiles(messageEl, item, context);
   }
   if (item.kind === "message" && item.autoReviewSummaries && item.autoReviewSummaries.length > 0) {
     renderAutoReviewSummaries(messageEl, item.autoReviewSummaries);
@@ -205,10 +208,30 @@ function renderMessageAction(parent: HTMLElement, icon: string, label: string, c
   return button;
 }
 
-function renderEditedFiles(parent: HTMLElement, editedFiles: string[]): void {
+function renderEditedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kind: "message" }>, context: MessageStreamContext): void {
+  const editedFiles = item.editedFiles ?? [];
   const label = editedFiles.length === 1 ? "Edited 1 file" : `Edited ${editedFiles.length} files`;
-  const details = parent.createEl("details", { cls: "codex-panel__edited-files" });
-  details.createEl("summary", { text: label });
+  const wrapper = parent.createDiv({ cls: "codex-panel__edited-files" });
+  const details = wrapper.createEl("details", { cls: "codex-panel__edited-files-details" });
+  const summary = details.createEl("summary");
+  const summaryContent = summary.createSpan({ cls: "codex-panel__edited-files-summary" });
+  summaryContent.createSpan({ text: label });
+  if (item.turnDiff && item.turnId && context.activeThreadId && context.openTurnDiff) {
+    summaryContent.createSpan({ cls: "codex-panel__edited-files-separator", text: "·" });
+    const button = createIconButton(summaryContent, "file-diff", "View diff", "codex-panel__open-turn-diff");
+    button.createSpan({ cls: "codex-panel__open-turn-diff-label", text: "View diff" });
+    button.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      context.openTurnDiff?.({
+        threadId: context.activeThreadId ?? "",
+        turnId: item.turnId ?? "",
+        cwd: context.workspaceRoot ?? null,
+        files: editedFiles,
+        diff: item.turnDiff?.diff ?? "",
+      });
+    };
+  }
   const list = details.createEl("ul");
   for (const file of editedFiles) {
     list.createEl("li", { text: file });

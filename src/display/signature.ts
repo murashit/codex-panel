@@ -22,6 +22,7 @@ export function displayItemSignature(item: DisplayItem, context: DisplayItemSign
     "output" in item ? (item.output ?? "") : "",
     "details" in item ? JSON.stringify(item.details ?? []) : "",
     item.kind === "message" ? (item.editedFiles?.join("\n") ?? "") : "",
+    item.kind === "message" ? (item.turnDiff?.diff ?? "") : "",
     item.kind === "message" ? (item.autoReviewSummaries?.join("\n") ?? "") : "",
     item.kind === "message" ? String(context.canRollbackItem?.(item) ?? false) : "",
     item.kind === "reasoning" && isReasoningActive(item, context) ? "reasoning-active" : "",

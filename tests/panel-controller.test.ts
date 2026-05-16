@@ -125,6 +125,42 @@ describe("PanelController", () => {
     ]);
   });
 
+  it("stores the latest aggregated turn diff for the active turn", () => {
+    const state = createPanelState();
+    state.activeThreadId = "thread-active";
+    state.activeTurnId = "turn-active";
+    const controller = controllerForState(state);
+
+    controller.handleNotification({
+      method: "turn/diff/updated",
+      params: { threadId: "thread-active", turnId: "turn-active", diff: "@@\n-old\n+first" },
+    } satisfies Extract<ServerNotification, { method: "turn/diff/updated" }>);
+    controller.handleNotification({
+      method: "turn/diff/updated",
+      params: { threadId: "thread-active", turnId: "turn-active", diff: "@@\n-old\n+second" },
+    } satisfies Extract<ServerNotification, { method: "turn/diff/updated" }>);
+
+    expect(state.turnDiffs.get("turn-active")).toBe("@@\n-old\n+second");
+  });
+
+  it("ignores aggregated turn diffs outside the active scope", () => {
+    const state = createPanelState();
+    state.activeThreadId = "thread-active";
+    state.activeTurnId = "turn-active";
+    const controller = controllerForState(state);
+
+    controller.handleNotification({
+      method: "turn/diff/updated",
+      params: { threadId: "thread-other", turnId: "turn-active", diff: "@@\n-wrong\n+wrong" },
+    } satisfies Extract<ServerNotification, { method: "turn/diff/updated" }>);
+    controller.handleNotification({
+      method: "turn/diff/updated",
+      params: { threadId: "thread-active", turnId: "turn-other", diff: "@@\n-wrong\n+wrong" },
+    } satisfies Extract<ServerNotification, { method: "turn/diff/updated" }>);
+
+    expect(state.turnDiffs.size).toBe(0);
+  });
+
   it("formats hook runs as compact summaries with details", () => {
     const state = createPanelState();
     state.activeThreadId = "thread-active";

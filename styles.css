@@ -953,6 +953,47 @@
   font-size: var(--font-ui-smaller);
 }
 
+.codex-panel__edited-files {
+  display: block;
+}
+
+.codex-panel__edited-files-details {
+  display: block;
+}
+
+.codex-panel__edited-files-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--codex-panel-control-gap);
+}
+
+.codex-panel__open-turn-diff {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--size-2-1, 2px);
+  width: auto;
+  height: auto;
+  min-width: 0;
+  padding: 0;
+  --icon-size: var(--icon-xs, 14px);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel__open-turn-diff:hover {
+  background: transparent;
+}
+
+.codex-panel__open-turn-diff:focus-visible {
+  background: var(--background-modifier-hover);
+}
+
+.codex-panel__edited-files-separator {
+  color: var(--text-faint);
+}
+
 .codex-panel__reasoning {
   margin: 0 0 10px;
   padding-left: var(--codex-panel-message-indent);
@@ -1272,8 +1313,66 @@
   color: var(--text-accent);
 }
 
+.codex-panel__diff-line--file {
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+
 .codex-panel__diff-line--context {
   color: var(--text-muted);
+}
+
+.codex-panel-turn-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3, 12px);
+  padding: var(--size-4-4, 16px);
+  height: 100%;
+  overflow: auto;
+}
+
+.codex-panel-turn-diff__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2, 8px);
+}
+
+.codex-panel-turn-diff__title-block {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.codex-panel-turn-diff__title {
+  color: var(--text-normal);
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel-turn-diff__meta,
+.codex-panel-turn-diff__files,
+.codex-panel-turn-diff__empty {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel-turn-diff__copy {
+  flex: 0 0 auto;
+}
+
+.codex-panel-turn-diff__files {
+  margin: 0;
+}
+
+.codex-panel-turn-diff__files ul {
+  margin-block: var(--size-2-2, 4px) 0;
+}
+
+.codex-panel-turn-diff__diff.codex-panel__diff {
+  max-height: none;
+  margin: 0;
+  overflow: visible;
+  white-space: pre-wrap;
 }
 
 .codex-panel__user-input-question {

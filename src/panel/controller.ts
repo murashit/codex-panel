@@ -92,6 +92,12 @@ export class PanelController {
         "fileChange",
         "File change inProgress",
       );
+    } else if (method === "turn/diff/updated") {
+      if (params.diff.trim().length > 0) {
+        this.state.turnDiffs.set(params.turnId, params.diff);
+      } else {
+        this.state.turnDiffs.delete(params.turnId);
+      }
     } else if (method === "turn/completed") {
       this.reconcileCompletedTurn(params.turn);
       this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turn.id);

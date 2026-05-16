@@ -35,6 +35,7 @@ export interface PanelState {
   rateLimit: RateLimitSnapshot | null;
   busy: boolean;
   displayItems: DisplayItem[];
+  turnDiffs: Map<string, string>;
   approvals: PendingApproval[];
   pendingUserInputs: PendingUserInput[];
   userInputDrafts: Map<string, string>;
@@ -75,6 +76,7 @@ export function createPanelState(): PanelState {
     rateLimit: null,
     busy: false,
     displayItems: [],
+    turnDiffs: new Map(),
     approvals: [],
     pendingUserInputs: [],
     userInputDrafts: new Map(),
@@ -114,6 +116,7 @@ export function clearActiveThreadState(state: PanelState): void {
   state.historyCursor = null;
   state.loadingHistory = false;
   state.displayItems = [];
+  state.turnDiffs.clear();
   state.messagesPinnedToBottom = true;
   clearActiveTurnState(state);
 }

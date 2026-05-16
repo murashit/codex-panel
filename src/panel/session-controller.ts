@@ -46,6 +46,7 @@ export class PanelSessionController {
     this.host.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
     this.host.state.tokenUsage = null;
     this.host.state.historyCursor = null;
+    this.host.state.turnDiffs.clear();
     this.host.forceMessagesToBottom();
     return response;
   }

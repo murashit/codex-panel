@@ -40,8 +40,13 @@ export interface MessageDisplayItem extends DisplayBase {
   role: "user" | "assistant";
   copyText?: string;
   editedFiles?: string[];
+  turnDiff?: DisplayTurnDiff;
   autoReviewSummaries?: string[];
   markdown?: boolean;
+}
+
+export interface DisplayTurnDiff {
+  diff: string;
 }
 
 export interface SystemDisplayItem extends DisplayBase {

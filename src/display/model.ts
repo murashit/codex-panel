@@ -653,7 +653,12 @@ export function appendItemOutput(
   ] as DisplayItem[];
 }
 
-export function displayBlocksForItems(items: DisplayItem[], activeTurnId: string | null, workspaceRoot?: string | null): DisplayBlock[] {
+export function displayBlocksForItems(
+  items: DisplayItem[],
+  activeTurnId: string | null,
+  workspaceRoot?: string | null,
+  turnDiffs?: ReadonlyMap<string, string>,
+): DisplayBlock[] {
   const visibleItems = items.filter(shouldShowDisplayItem);
   const orderedItems = activeTurnId ? moveActiveTaskProgressToEnd(visibleItems, activeTurnId) : visibleItems;
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
@@ -687,7 +692,10 @@ export function displayBlocksForItems(items: DisplayItem[], activeTurnId: string
       }
       continue;
     }
-    blocks.push({ type: "item", item: itemWithTurnSummaries(item, editedFilesByTurn, autoReviewSummariesByTurn, finalAssistantIdByTurn) });
+    blocks.push({
+      type: "item",
+      item: itemWithTurnSummaries(item, editedFilesByTurn, autoReviewSummariesByTurn, finalAssistantIdByTurn, turnDiffs),
+    });
   }
 
   return blocks;
@@ -726,13 +734,21 @@ function itemWithTurnSummaries(
   editedFilesByTurn: Map<string, string[]>,
   autoReviewSummariesByTurn: Map<string, string[]>,
   finalAssistantIdByTurn: Map<string, string>,
+  turnDiffs?: ReadonlyMap<string, string>,
 ): DisplayItem {
   if (!item.turnId || finalAssistantIdByTurn.get(item.turnId) !== item.id) return item;
   if (item.kind !== "message") return item;
   const editedFiles = editedFilesByTurn.get(item.turnId);
   const autoReviewSummaries = autoReviewSummariesByTurn.get(item.turnId);
-  if ((!editedFiles || editedFiles.length === 0) && (!autoReviewSummaries || autoReviewSummaries.length === 0)) return item;
-  return { ...item, editedFiles, autoReviewSummaries };
+  const diff = turnDiffs?.get(item.turnId);
+  const turnDiff = diff && diff.trim().length > 0 ? { diff } : undefined;
+  if ((!editedFiles || editedFiles.length === 0) && (!autoReviewSummaries || autoReviewSummaries.length === 0) && !turnDiff) return item;
+  return {
+    ...item,
+    ...(editedFiles && editedFiles.length > 0 ? { editedFiles } : {}),
+    ...(turnDiff ? { turnDiff } : {}),
+    ...(autoReviewSummaries && autoReviewSummaries.length > 0 ? { autoReviewSummaries } : {}),
+  };
 }
 
 function editedFilesForTurns(items: DisplayItem[], workspaceRoot?: string | null): Map<string, string[]> {

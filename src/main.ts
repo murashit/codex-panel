@@ -1,4 +1,4 @@
-import { ItemView, MarkdownRenderer, Notice, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
+import { ItemView, MarkdownRenderer, Notice, Plugin, TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "./app-server/client";
 import { ConnectionManager, StaleConnectionError } from "./app-server/connection-manager";
@@ -15,7 +15,7 @@ import {
 } from "./composer/suggestions";
 import { isComposerSendKey } from "./composer/keys";
 import { userInputWithWikiLinkMentions } from "./composer/wikilink-context";
-import { VIEW_TYPE_CODEX_PANEL } from "./constants";
+import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { createSystemItem } from "./display/model";
 import type { DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "./generated/app-server/ReasoningEffort";
@@ -70,6 +70,13 @@ import { messageRenderBlocks } from "./view/message-stream";
 import { renderPendingRequestMessage } from "./view/pending-request-message";
 import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "./view/scroll";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "./view/toolbar";
+import {
+  isPersistedTurnDiffViewState,
+  persistedTurnDiffViewState,
+  renderTurnDiffView,
+  type PersistedTurnDiffViewState,
+  type TurnDiffViewState,
+} from "./view/turn-diff";
 
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
@@ -80,6 +87,7 @@ export default class CodexPanelPlugin extends Plugin {
     await this.loadSettings();
 
     this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexPanelView(leaf, this));
+    this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexTurnDiffView(leaf));
 
     this.addRibbonIcon("bot-message-square", "Open panel", () => {
       void this.activateView();
@@ -134,6 +142,17 @@ export default class CodexPanelPlugin extends Plugin {
     return view;
   }
 
+  async openTurnDiff(state: TurnDiffViewState): Promise<void> {
+    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF)[0];
+    const leaf = existing ?? this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true, state: { ...persistedTurnDiffViewState(state) } });
+    await leaf.loadIfDeferred();
+    if (leaf.view instanceof CodexTurnDiffView) {
+      leaf.view.setDiffPayload(state);
+    }
+    await this.app.workspace.revealLeaf(leaf);
+  }
+
   private createRightSidebarTab(): WorkspaceLeaf | null {
     const { workspace } = this.app;
     const existing = workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL).find((leaf) => leaf.getRoot() === workspace.rightSplit);
@@ -168,6 +187,73 @@ export default class CodexPanelPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+}
+
+class CodexTurnDiffView extends ItemView {
+  private metadata: PersistedTurnDiffViewState | null = null;
+  private payload: TurnDiffViewState | null = null;
+
+  getViewType(): string {
+    return VIEW_TYPE_CODEX_TURN_DIFF;
+  }
+
+  getDisplayText(): string {
+    return "Codex turn diff";
+  }
+
+  getIcon(): string {
+    return "file-diff";
+  }
+
+  getState(): Record<string, unknown> {
+    return this.metadata ? { ...this.metadata } : {};
+  }
+
+  async setState(state: unknown, result: ViewStateResult): Promise<void> {
+    await super.setState(state, result);
+    this.metadata = isPersistedTurnDiffViewState(state)
+      ? {
+          threadId: state.threadId,
+          turnId: state.turnId,
+          cwd: state.cwd,
+          files: [...state.files],
+        }
+      : null;
+    this.payload = null;
+    this.render();
+  }
+
+  async onOpen(): Promise<void> {
+    this.render();
+  }
+
+  setDiffPayload(payload: TurnDiffViewState): void {
+    this.metadata = persistedTurnDiffViewState(payload);
+    this.payload = payload;
+    this.render();
+  }
+
+  private render(): void {
+    const root = this.contentEl;
+    renderTurnDiffView(
+      root,
+      this.payload,
+      {
+        copyDiff: this.payload ? () => void this.copyDiff(this.payload?.diff ?? "") : undefined,
+      },
+      this.metadata,
+    );
+  }
+
+  private async copyDiff(diff: string): Promise<void> {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API is not available.");
+      await navigator.clipboard.writeText(diff);
+      new Notice("Copied diff.");
+    } catch {
+      new Notice("Could not copy diff.");
+    }
   }
 }
 
@@ -343,6 +429,7 @@ class CodexPanelView extends ItemView {
       const response = await this.session.startThread();
       if (!response) return;
       this.threadRename.resetThreadTurnPresence(false);
+      this.state.turnDiffs.clear();
       this.state.displayItems = [this.systemItem(`Started thread ${response.thread.id}`)];
       this.forceMessagesToBottom();
       await this.refreshThreads();
@@ -384,6 +471,7 @@ class CodexPanelView extends ItemView {
       this.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
       this.state.tokenUsage = null;
       this.state.displayItems = [];
+      this.state.turnDiffs.clear();
       this.state.historyCursor = null;
       this.state.listedThreads = upsertThread(this.state.listedThreads, response.thread);
       this.threadRename.resetThreadTurnPresence(false);
@@ -1096,6 +1184,7 @@ class CodexPanelView extends ItemView {
       this.state.activeTurnId = null;
       this.state.tokenUsage = null;
       this.state.historyCursor = null;
+      this.state.turnDiffs.clear();
       this.state.listedThreads = upsertThread(this.state.listedThreads, response.thread);
       await this.history.loadLatest(response.thread.id);
       this.setComposerText(candidate.text);
@@ -1133,6 +1222,7 @@ class CodexPanelView extends ItemView {
       loadingHistory: this.state.loadingHistory,
       busy: this.state.busy,
       displayItems: this.state.displayItems,
+      turnDiffs: this.state.turnDiffs,
       workspaceRoot: this.state.activeThreadCwd ?? this.plugin.vaultPath,
       openDetails: this.state.openDetails,
       onDetailsToggle: () => {
@@ -1148,6 +1238,7 @@ class CodexPanelView extends ItemView {
       onRollbackItem: () => {
         if (this.state.activeThreadId) void this.rollbackThread(this.state.activeThreadId);
       },
+      openTurnDiff: (state) => void this.plugin.openTurnDiff(state),
       pendingRequestsSignature: this.pendingRequestsSignature(),
       renderPendingRequests: () => this.createPendingRequestsElement(),
     });

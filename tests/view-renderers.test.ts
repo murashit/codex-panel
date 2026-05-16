@@ -15,6 +15,7 @@ import { renderPendingRequestMessage } from "../src/view/pending-request-message
 import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../src/view/toolbar";
 import { displayItemSignature } from "../src/display/signature";
 import { messageRenderBlocks } from "../src/view/message-stream";
+import { displayDiffLines, persistedTurnDiffViewState, renderTurnDiffView } from "../src/view/turn-diff";
 
 declare global {
   function createDiv(options?: { cls?: string; text?: string; attr?: Record<string, string> }): HTMLDivElement;
@@ -441,6 +442,166 @@ describe("view renderers", () => {
       "update src/main.ts",
       "Patch output",
     ]);
+  });
+
+  it("renders the edited files footer with an open diff action when aggregated turn diff exists", () => {
+    const openTurnDiff = vi.fn();
+    const blocks = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      workspaceRoot: "/vault/project",
+      displayItems: [
+        {
+          id: "patch-1",
+          kind: "fileChange",
+          role: "tool",
+          text: "File change completed",
+          turnId: "turn",
+          status: "completed",
+          changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
+        },
+        { id: "a1", kind: "message", role: "assistant", text: "Done", turnId: "turn", markdown: true },
+      ],
+      turnDiffs: new Map([["turn", "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new"]]),
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      openTurnDiff,
+    });
+
+    const assistant = blocks.find((block) => block.key === "item:a1")?.render();
+    const button = assistant?.querySelector<HTMLButtonElement>(".codex-panel__open-turn-diff");
+
+    expect(assistant?.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
+    expect(button?.getAttribute("aria-label")).toBe("View diff");
+    expect(button?.textContent).toContain("View diff");
+    button?.click();
+    expect(openTurnDiff).toHaveBeenCalledWith({
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["src/main.ts"],
+      diff: "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new",
+    });
+  });
+
+  it("does not render the open diff action without aggregated turn diff", () => {
+    const blocks = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        {
+          id: "patch-1",
+          kind: "fileChange",
+          role: "tool",
+          text: "File change completed",
+          turnId: "turn",
+          status: "completed",
+          changes: [{ kind: "update", path: "src/main.ts", diff: "@@\n-old\n+new" }],
+        },
+        { id: "a1", kind: "message", role: "assistant", text: "Done", turnId: "turn", markdown: true },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      openTurnDiff: vi.fn(),
+    });
+
+    const assistant = blocks.find((block) => block.key === "item:a1")?.render();
+
+    expect(assistant?.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
+    expect(assistant?.querySelector(".codex-panel__open-turn-diff")).toBeNull();
+  });
+
+  it("renders the turn diff view with classified unified diff lines", () => {
+    const parent = document.createElement("div");
+    const copyDiff = vi.fn();
+
+    renderTurnDiffView(
+      parent,
+      {
+        threadId: "019e061e-0046-7653-a362-86de9a47cb5c",
+        turnId: "019e061f-0046-7653-a362-86de9a47cb5c",
+        cwd: "/vault/project",
+        files: ["src/main.ts"],
+        diff: "diff --git a/src/main.ts b/src/main.ts\n--- a/src/main.ts\n+++ b/src/main.ts\n@@\n-old\n+new\n context",
+      },
+      { copyDiff },
+    );
+
+    expect(parent.querySelector(".codex-panel-turn-diff__title")?.textContent).toBe("Turn diff");
+    expect(parent.querySelector(".codex-panel-turn-diff__meta")?.textContent).toContain("019e061e");
+    expect(parent.querySelector(".codex-panel-turn-diff__files summary")?.textContent).toBe("Changed files");
+    expect(parent.querySelector(".codex-panel-turn-diff__files")?.textContent).toContain("src/main.ts");
+    expect(parent.querySelector(".codex-panel__diff-line--file")?.textContent).toBe("src/main.ts");
+    expect(parent.textContent).not.toContain("diff --git");
+    expect(parent.textContent).not.toContain("+++ b/src/main.ts");
+    expect(parent.querySelectorAll(".codex-panel__diff-line--hunk")).toHaveLength(1);
+    expect(parent.querySelectorAll(".codex-panel__diff-line--removed")).toHaveLength(1);
+    expect(parent.querySelectorAll(".codex-panel__diff-line--added")).toHaveLength(1);
+    parent.querySelector<HTMLButtonElement>(".codex-panel-turn-diff__copy")?.click();
+    expect(copyDiff).toHaveBeenCalled();
+  });
+
+  it("keeps unified diff text out of persisted turn diff view state", () => {
+    const persisted = persistedTurnDiffViewState({
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["src/main.ts"],
+      diff: "@@\n-old\n+new",
+    });
+
+    expect(persisted).toEqual({
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["src/main.ts"],
+    });
+    expect(persisted).not.toHaveProperty("diff");
+  });
+
+  it("renders restored turn diff metadata without unavailable diff text", () => {
+    const parent = document.createElement("div");
+
+    renderTurnDiffView(parent, null, {}, { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts"] });
+
+    expect(parent.querySelector(".codex-panel-turn-diff__meta")?.textContent).toContain("thread / turn");
+    expect(parent.textContent).toContain("Turn diff is no longer available.");
+    expect(parent.querySelector(".codex-panel-turn-diff__copy")).toBeNull();
+    expect(parent.querySelector(".codex-panel-turn-diff__diff")).toBeNull();
+  });
+
+  it("simplifies git diff file headers for turn diff display", () => {
+    expect(
+      displayDiffLines(
+        "diff --git a/days/2026-05-16.md b/days/2026-05-16.md\nindex 111..222\n--- a/days/2026-05-16.md\n+++ b/days/2026-05-16.md\n@@\n-old\n+new",
+      ),
+    ).toEqual([{ text: "days/2026-05-16.md", kind: "file" }, { text: "@@" }, { text: "-old" }, { text: "+new" }]);
+  });
+
+  it("keeps added-file diffs readable after simplifying headers", () => {
+    expect(
+      displayDiffLines(
+        "diff --git a/new-note.md b/new-note.md\nnew file mode 100644\nindex 0000000..1111111\n--- /dev/null\n+++ b/new-note.md\n@@\n+hello",
+      ),
+    ).toEqual([{ text: "new-note.md", kind: "file" }, { text: "new file mode 100644" }, { text: "@@" }, { text: "+hello" }]);
+  });
+
+  it("keeps body lines that look like file markers after the hunk starts", () => {
+    expect(
+      displayDiffLines(
+        "diff --git a/note.md b/note.md\nindex 111..222\n--- a/note.md\n+++ b/note.md\n@@\n+++ frontmatter\n--- removed marker",
+      ),
+    ).toEqual([{ text: "note.md", kind: "file" }, { text: "@@" }, { text: "+++ frontmatter" }, { text: "--- removed marker" }]);
   });
 
   it("renders generic tool details as visible sections inside one details block", () => {
