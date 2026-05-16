@@ -56,8 +56,14 @@ Codex Panel makes a few Obsidian-specific adjustments instead of mirroring the t
 
 - Wikilinks in sent messages are resolved to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are left alone, and note bodies are not attached automatically.
 - Forking a thread opens the fork in a new right-sidebar panel so the source thread stays visible.
-- Rolling back removes only the latest Codex turn from thread history and restores that turn's user prompt to the composer. It does not revert file changes.
+- Rolling back is limited to thread history; see File Changes and Rollback.
 - The composer sends with `Enter` by default, with `Shift+Enter` for a newline. You can switch sending to `Cmd/Ctrl+Enter` in the plugin settings.
+
+## File Changes and Rollback
+
+Codex Panel shows file-change activity and turn-level diffs reported by Codex app-server so you can review what changed. These diffs are for inspection and copying; they are not a restore source.
+
+Rolling back a turn only removes the latest Codex turn from thread history and restores that turn's user prompt to the composer. It does not revert files changed by Codex. Use your normal project or vault workflow, such as Git, to review or revert local file changes.
 
 ## Configuration and Diagnostics
 
