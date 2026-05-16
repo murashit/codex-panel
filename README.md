@@ -1,15 +1,13 @@
 # Codex Panel
 
-Codex Panel is a desktop-only Obsidian plugin that opens Codex in the right sidebar.
+Codex Panel is a desktop-only Obsidian plugin that opens Codex in the right sidebar. It starts `codex app-server` locally, talks to it over stdio, and uses the current vault root as the Codex working directory.
 
-It starts `codex app-server` locally, talks to it over stdio, and uses the current vault root as the Codex working directory. The panel is intentionally thin: model selection, reasoning effort, sandbox, approvals, network access, MCP, hooks, and other runtime behavior are resolved by Codex for the vault root, including a vault-local `.codex/config.toml` when present. Panel model and reasoning effort overrides are temporary inputs for subsequent turns, not duplicated Codex configuration.
-
-Use it when you want Codex available next to your notes without leaving Obsidian.
+Codex still owns model selection, sandboxing, approvals, MCP, hooks, network access, and other runtime policy. Codex Panel is the Obsidian side-panel UI for that app-server session.
 
 ## Requirements
 
 - Obsidian desktop app 1.12.0 or newer.
-- Codex CLI installed, authenticated, and available as `codex`, or a custom executable path configured in the plugin settings.
+- Codex CLI installed, authenticated, and available as `codex`, or configured with an absolute executable path in the plugin settings.
 - A vault where Codex is allowed to work according to your Codex CLI configuration.
 
 Codex Panel does not support Obsidian mobile.
@@ -26,60 +24,52 @@ Install Codex Panel from Obsidian's Community plugins browser:
 
 You can also open the plugin page directly: <https://community.obsidian.md/plugins/codex-panel>.
 
-## First Use
-
-Open the command palette and run:
-
-- `Codex Panel: Open panel`
-- `Codex Panel: Open new panel`
-- `Codex Panel: New chat`
-
-`Open panel` and the ribbon icon reveal the first existing Codex panel when one is already open. Use `Open new panel` to add another Codex tab in the right sidebar so separate threads can run side by side.
-
-If Obsidian cannot find `codex`, open `Settings` > `Codex Panel` and set `Codex executable` to an absolute path such as `/opt/homebrew/bin/codex`.
-
-The composer sends with `Enter` by default. Use `Shift+Enter` for a newline, or change the send shortcut to `Cmd/Ctrl+Enter` in the plugin settings. If `Cmd/Ctrl+Enter` is already assigned in Obsidian's Hotkeys settings, Obsidian may handle it before Codex Panel; remove that hotkey assignment if sending does not work.
-
 ## How It Works
 
-Codex Panel launches a local Codex app-server process for the current vault. The vault root becomes Codex's working directory, so Codex sees the same project or notes folder that Obsidian has open.
+The current vault root is the app-server working directory. For project vaults, Codex sees the project next to your notes. For plain note vaults, the vault itself is the workspace.
 
-Each open Codex panel owns its own app-server connection, active thread, pending approvals, Plan mode questions, and composer draft. Thread history is shared through Codex for the same vault, and panel tabs use the active thread title or shortened thread id when available.
+Each open panel has its own app-server connection, active thread, pending requests, and composer draft. Thread history and configuration still come from Codex for the same vault root.
 
-Forking a thread opens the fork in a new right-sidebar Codex panel so the source thread remains visible. If the source thread has a custom name, the fork inherits that name.
+## Opening the Panel
 
-Rolling back a thread drops only the latest Codex turn from history and restores that turn's user prompt text to the composer. It does not revert local file changes made during that turn.
+Open the command palette and run `Codex Panel: Open panel`, or use the ribbon icon. If Obsidian cannot find `codex`, set `Settings` > `Codex Panel` > `Codex executable` to an absolute path such as `/opt/homebrew/bin/codex`.
 
-The plugin does not duplicate Codex's configuration UI. To change model defaults, sandboxing, approval policy, MCP servers, hooks, or network behavior, configure Codex itself. The panel can show the effective config for the current vault as a diagnostic view, but it does not save those settings.
+Use `Codex Panel: New chat` to start a fresh thread. Use `Codex Panel: Open new panel` when you want multiple Codex threads side by side.
 
-Obsidian wikilinks in sent messages are lightly bridged to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are not expanded, and note bodies are not automatically attached by the panel.
+## Supported Codex Workflows
 
-## Features
+Codex Panel supports the Codex workflows that are useful from a side panel:
 
-- Start, resume, rename, fork, roll back, compact, and archive Codex threads from Obsidian.
-- Open multiple right-sidebar Codex panels for separate active threads.
-- Stream user, assistant, reasoning, command, tool, hook, and file-change events.
-- Copy user messages, assistant responses, and proposed plans from message hover actions.
-- Respond to command, file, and permission approval requests, and Plan mode questions.
+- Start, resume, rename, fork, roll back, compact, and archive threads.
+- Stream assistant messages, reasoning, commands, tool calls, hooks, file changes, and agent activity.
+- Respond to command, file, and permission approval requests.
+- Answer Plan mode questions and copy proposed plans.
 - Toggle Plan mode, fast mode, model override, and reasoning effort override for subsequent turns.
-- Send steering messages during a running turn, or interrupt the turn when the composer is empty.
-- Show recent chat history, paged older turns, context usage, connection diagnostics, usage limits, and effective config.
-- Inspect and manage discovered Codex hooks through app-server, including enabled state, trust status, and current hash.
-- Complete vault wikilinks, slash commands, and enabled Codex skills in the composer, with inline suggestions.
+- Send steering messages during a running turn, or interrupt when the composer is empty.
+- Inspect context usage, usage limits, connection diagnostics, and effective config.
+- Inspect and manage discovered Codex hooks from Obsidian settings.
+- Complete slash commands and enabled Codex skills in the composer.
 
-## Settings and Diagnostics
+## Obsidian Integration
 
-Codex Panel stores only panel-specific settings in Obsidian plugin data:
+Codex Panel makes a few Obsidian-specific adjustments instead of mirroring the terminal UI exactly:
 
-- Codex executable path.
-- Composer send shortcut.
-- Optional model and reasoning effort overrides for automatic thread naming.
+- Wikilinks in sent messages are resolved to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are left alone, and note bodies are not attached automatically.
+- Forking a thread opens the fork in a new right-sidebar panel so the source thread stays visible.
+- Rolling back removes only the latest Codex turn from thread history and restores that turn's user prompt to the composer. It does not revert file changes.
+- The composer sends with `Enter` by default, with `Shift+Enter` for a newline. You can switch sending to `Cmd/Ctrl+Enter` in the plugin settings.
 
-The status dot in the panel opens connection controls, diagnostics, usage limits, and the effective Codex config for the current vault. The settings tab also includes dynamic sections for archived threads and hook status; those are loaded from Codex app-server when needed.
+## Configuration and Diagnostics
+
+Codex configuration stays in Codex. Defaults and runtime policy, including model, reasoning effort, sandboxing, approvals, MCP servers, hook definitions, network access, and providers, should be configured the same way you configure Codex CLI.
+
+The settings tab stores only panel-specific preferences: Codex executable path, composer send shortcut, and optional model/effort overrides for automatic thread naming. Model and reasoning effort controls in the panel are temporary inputs for subsequent turns, not saved Codex defaults.
+
+The status dot opens connection controls and diagnostics, including effective config and usage limits. The settings tab can load app-server-backed hook status and archived threads on demand, including hook trust and enabled state. Codex Panel can show and request those app-server operations, but it does not edit or duplicate Codex config.
 
 ## Privacy and Security
 
-Codex Panel does not make its own network requests. It exchanges data with the configured `codex app-server` process over stdio. Messages, steering input, approvals, resolved file mentions, thread history and rollback requests, hook status requests, effective config requests, and archived-thread management requests are sent to Codex app-server and then handled according to your Codex CLI configuration, authentication, model provider, sandbox, approval, MCP, hook, and network settings.
+Codex Panel does not make its own network requests. It exchanges data with the configured `codex app-server` process over stdio. Messages, steering input, approvals, resolved file mentions, thread history operations, hook status requests, effective config requests, and archived-thread management requests are sent to Codex app-server and then handled according to your Codex CLI configuration.
 
 The plugin does not store API keys.
 
@@ -89,64 +79,10 @@ Codex Panel depends on the experimental `codex app-server` API. Later Codex CLI 
 
 The current release is developed and tested with Codex CLI 0.130.0.
 
-## Development
+## Project Docs
 
-```sh
-npm ci
-npm run format
-npm run check
-npm run build
-```
-
-Run `npm run format` after edits and before `npm run check` so Prettier-only issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, ESLint, Prettier check, and a production esbuild bundle.
-
-`main.js`, `data.json`, and `node_modules/` are ignored by Git. `main.js` is still the file Obsidian loads, so run `npm run build` or `npm run build:prod` after source changes.
-
-### Source Layout
-
-The source tree is organized by responsibility rather than by the original single Obsidian plugin entrypoint:
-
-- `src/main.ts` registers Obsidian views, commands, settings, and lifecycle hooks.
-- `src/app-server/` owns app-server transport, connection lifecycle, compatibility helpers, and RPC facades.
-- `src/panel/` owns Codex panel orchestration, Obsidian `ItemView` classes, request/session controllers, thread actions, and panel-specific state.
-- `src/runtime/` owns Codex runtime configuration projection, model metadata, collaboration mode, and compact labels used by views.
-- `src/display/` converts app-server turn items and streaming deltas into display model objects.
-- `src/ui/` contains pure DOM renderers for reusable panel UI pieces.
-- `src/composer/` contains composer input behavior, slash command definitions, suggestions, and Obsidian wikilink resolution.
-- `src/settings/` contains Obsidian settings models, settings-tab rendering, and app-server-backed dynamic settings data.
-- `src/threads/` contains thread title and list presentation helpers shared outside the panel.
-
-Keep new code near the state or API it owns. Shared domain helpers should not be placed under `src/panel/` unless they are panel-specific orchestration.
-
-The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI:
-
-```sh
-npm run generate:app-server-types
-npm run check
-```
-
-The generation script uses `codex app-server generate-ts --experimental` because the panel depends on experimental app-server fields such as collaboration mode and generated v2 types.
-
-## Release
-
-GitHub Releases attach only `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. `LICENSE` and `NOTICE` are kept in the repository and source archives for license distribution.
-
-Create a release by preparing the next version, editing the generated release notes, committing the release changes, then running the preflight before pushing the matching tag:
-
-```sh
-npm run release:prepare -- X.Y.Z
-# Edit .github/release-notes/X.Y.Z.md.
-git status --short
-git add package.json package-lock.json manifest.json versions.json .github/release-notes/X.Y.Z.md
-git commit -m "Bump version to X.Y.Z"
-npm run release:preflight
-git tag X.Y.Z
-git push origin main X.Y.Z
-```
-
-`release:prepare` updates the version files and creates a `## Changes` release notes template. `release:preflight` verifies the local Git state, release metadata, lockfile, and full build once after the release commit is on `main`.
-
-The release workflow runs `npm ci`, `npm run release:check`, `npm run check`, attaches the install assets, and generates GitHub artifact attestations for them. The release notes file is required and must contain a single `## Changes` section. If a tag-triggered release fails before creating the GitHub Release, fix the commit, move the local tag with `git tag -f X.Y.Z`, then update the remote tag with `git push --force origin X.Y.Z`.
+- [Development](docs/development.md)
+- [Release](docs/release.md)
 
 ## License
 
