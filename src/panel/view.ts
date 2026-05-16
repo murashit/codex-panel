@@ -135,6 +135,7 @@ export class CodexPanelView extends ItemView {
     });
     this.controller = new PanelController(this.state, {
       refreshThreads: () => void this.refreshThreads(),
+      refreshSkills: (forceReload) => void this.refreshSkills(forceReload),
       maybeNameThread: (threadId, turn) => this.threadRename.maybeAutoNameThread(threadId, turn),
       respondToServerRequest: (requestId, result) => this.respondToServerRequest(requestId, result),
       rejectServerRequest: (requestId, code, message) => this.rejectServerRequest(requestId, code, message),
@@ -272,6 +273,13 @@ export class CodexPanelView extends ItemView {
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  private async refreshSkills(forceReload = false): Promise<void> {
+    this.client = this.connection.currentClient();
+    if (!this.client) return;
+    await this.session.refreshSkills(forceReload);
+    this.render();
   }
 
   private async resumeThread(threadId: string): Promise<void> {

@@ -13,6 +13,7 @@ function controllerForState(
 ): PanelController {
   return new PanelController(state, {
     refreshThreads: vi.fn(),
+    refreshSkills: vi.fn(),
     maybeNameThread: vi.fn(),
     respondToServerRequest: vi.fn(() => true),
     rejectServerRequest: vi.fn(() => true),
@@ -123,6 +124,18 @@ describe("PanelController", () => {
         status: "inProgress",
       },
     ]);
+  });
+
+  it("refreshes skills from disk when app-server reports skill changes", () => {
+    const refreshSkills = vi.fn();
+    const controller = controllerForState(createPanelState(), { refreshSkills });
+
+    controller.handleNotification({
+      method: "skills/changed",
+      params: {},
+    } satisfies Extract<ServerNotification, { method: "skills/changed" }>);
+
+    expect(refreshSkills).toHaveBeenCalledWith(true);
   });
 
   it("stores the latest aggregated turn diff for the active turn", () => {

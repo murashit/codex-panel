@@ -60,6 +60,22 @@ describe("display model", () => {
     expect(displayItemFromThreadItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world", markdown: true });
   });
 
+  it("keeps structured skill metadata out of displayed user text when a prompt body exists", () => {
+    const item: ThreadItem = {
+      type: "userMessage",
+      id: "u1",
+      content: [
+        { type: "text", text: "Use $obsidian-codex-panel-maintain.", text_elements: [] },
+        { type: "skill", name: "obsidian-codex-panel-maintain", path: "/skills/obsidian-codex-panel-maintain/SKILL.md" },
+      ],
+    };
+
+    expect(displayItemFromThreadItem(item)).toMatchObject({
+      text: "Use $obsidian-codex-panel-maintain.",
+      copyText: "Use $obsidian-codex-panel-maintain.",
+    });
+  });
+
   it("preserves reasoning text", () => {
     const item: ThreadItem = { type: "reasoning", id: "r1", summary: ["summary"], content: ["detail"] };
     expect(displayItemFromThreadItem(item)?.text).toBe("summary\n\ndetail");

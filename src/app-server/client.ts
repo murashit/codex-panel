@@ -248,10 +248,10 @@ export class AppServerClient {
     });
   }
 
-  listSkills(cwd: string): Promise<SkillsListResponse> {
+  listSkills(cwd: string, forceReload = false): Promise<SkillsListResponse> {
     return this.request("skills/list", {
       cwds: [cwd],
-      forceReload: false,
+      forceReload,
     });
   }
 

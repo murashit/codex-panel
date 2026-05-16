@@ -68,11 +68,11 @@ export class PanelSessionController {
     }
   }
 
-  async refreshSkills(): Promise<void> {
+  async refreshSkills(forceReload = false): Promise<void> {
     const client = this.host.currentClient();
     if (!client) return;
     try {
-      const response = await client.listSkills(this.host.vaultPath);
+      const response = await client.listSkills(this.host.vaultPath, forceReload);
       this.host.state.availableSkills = response.data.flatMap((entry) => entry.skills).filter((skill) => skill.enabled);
     } catch (error) {
       this.host.state.availableSkills = [];

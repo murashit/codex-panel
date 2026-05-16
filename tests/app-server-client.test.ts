@@ -351,31 +351,40 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 5, result: { data: [] } });
     await skills;
 
-    const turns = client.threadTurnsList("thread-1", "cursor-1", 10);
+    const reloadedSkills = client.listSkills("/vault", true);
     expect(transport.sent[6]).toMatchObject({
       id: 6,
-      method: "thread/turns/list",
-      params: { threadId: "thread-1", cursor: "cursor-1", limit: 10, sortDirection: "desc", itemsView: "full" },
+      method: "skills/list",
+      params: { cwds: ["/vault"], forceReload: true },
     });
-    transport.emitLine({ id: 6, result: { data: [], nextCursor: null } });
-    await turns;
+    transport.emitLine({ id: 6, result: { data: [] } });
+    await reloadedSkills;
 
-    const firstTurn = client.threadTurnsList("thread-1", null, 1, "asc");
+    const turns = client.threadTurnsList("thread-1", "cursor-1", 10);
     expect(transport.sent[7]).toMatchObject({
       id: 7,
       method: "thread/turns/list",
-      params: { threadId: "thread-1", cursor: null, limit: 1, sortDirection: "asc", itemsView: "full" },
+      params: { threadId: "thread-1", cursor: "cursor-1", limit: 10, sortDirection: "desc", itemsView: "full" },
     });
     transport.emitLine({ id: 7, result: { data: [], nextCursor: null } });
+    await turns;
+
+    const firstTurn = client.threadTurnsList("thread-1", null, 1, "asc");
+    expect(transport.sent[8]).toMatchObject({
+      id: 8,
+      method: "thread/turns/list",
+      params: { threadId: "thread-1", cursor: null, limit: 1, sortDirection: "asc", itemsView: "full" },
+    });
+    transport.emitLine({ id: 8, result: { data: [], nextCursor: null } });
     await firstTurn;
 
     const rollback = client.rollbackThread("thread-1");
-    expect(transport.sent[8]).toMatchObject({
-      id: 8,
+    expect(transport.sent[9]).toMatchObject({
+      id: 9,
       method: "thread/rollback",
       params: { threadId: "thread-1", numTurns: 1 },
     });
-    transport.emitLine({ id: 8, result: { thread: { id: "thread-1", turns: [] } } });
+    transport.emitLine({ id: 9, result: { thread: { id: "thread-1", turns: [] } } });
     await rollback;
   });
 

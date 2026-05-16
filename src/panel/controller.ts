@@ -33,6 +33,7 @@ import { clearUserInputDrafts, createApprovalResultItem, createUserInputResultIt
 
 export interface PanelControllerActions {
   refreshThreads: () => void;
+  refreshSkills: (forceReload?: boolean) => void;
   maybeNameThread: (threadId: string, turn: Turn) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
@@ -111,6 +112,8 @@ export class PanelController {
       this.state.tokenUsage = params.tokenUsage ?? null;
     } else if (method === "account/rateLimits/updated") {
       this.state.rateLimit = params.rateLimits ?? null;
+    } else if (method === "skills/changed") {
+      this.actions.refreshSkills(true);
     } else if (method === "hook/started") {
       this.upsertHookRun(params.run, params.turnId, "running");
     } else if (method === "hook/completed") {

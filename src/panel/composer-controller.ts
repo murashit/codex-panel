@@ -11,7 +11,7 @@ import {
   type ComposerSuggestion,
   type NoteCandidate,
 } from "../composer/suggestions";
-import { userInputWithWikiLinkMentions } from "../composer/wikilink-context";
+import { userInputWithWikiLinkMentionsAndSkills } from "../composer/wikilink-context";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
 import type { SendShortcut } from "../settings/model";
 import { renderComposerShell, renderComposerSuggestions, syncComposerControls, syncComposerHeight } from "../ui/composer";
@@ -102,7 +102,11 @@ export class PanelComposerController {
   }
 
   codexInput(text: string): UserInput[] {
-    return userInputWithWikiLinkMentions(text, (target) => resolveAppWikiLinkMention(this.options.app, target));
+    return userInputWithWikiLinkMentionsAndSkills(
+      text,
+      (target) => resolveAppWikiLinkMention(this.options.app, target),
+      this.options.state.availableSkills,
+    );
   }
 
   private handleSuggestionKeydown(event: KeyboardEvent): boolean {

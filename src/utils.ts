@@ -20,7 +20,7 @@ export function inputToText(content: UserInput[]): string {
       if (item.type === "localImage") return `[local image] ${item.path}`;
       if (item.type === "image") return `[image] ${item.url}`;
       if (item.type === "mention") return hasText ? "" : `[@${item.name}] ${item.path}`;
-      if (item.type === "skill") return `[$${item.name}] ${item.path}`;
+      if (item.type === "skill") return hasText ? "" : `[$${item.name}] ${item.path}`;
       return "";
     })
     .filter(Boolean)
