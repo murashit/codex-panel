@@ -1,7 +1,7 @@
 {
   "name": "codex-panel",
-  "version": "0.1.11",
-  "description": "Obsidian side panel for Codex app-server.",
+  "version": "0.1.12",
+  "description": "Codex in your Obsidian sidebar.",
   "main": "main.js",
   "author": "murashit",
   "license": "Apache-2.0",
