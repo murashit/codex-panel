@@ -126,6 +126,37 @@ describe("view renderers", () => {
     expect(displayItemSignature(streamed, context)).not.toBe(displayItemSignature(completed, context));
   });
 
+  it("invalidates path summary tool blocks when the workspace root changes", () => {
+    const item = {
+      id: "tool-path",
+      kind: "tool",
+      role: "tool",
+      text: "/vault/project/assets/image.png",
+      toolLabel: "imageView",
+      summaryPath: true,
+    } as const;
+    const baseContext = { busy: false, activeTurnId: null, displayItems: [item] };
+
+    expect(displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault" })).not.toBe(
+      displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault/project" }),
+    );
+  });
+
+  it("does not invalidate generic tool blocks when only the workspace root changes", () => {
+    const item = {
+      id: "tool",
+      kind: "tool",
+      role: "tool",
+      text: "/vault/project",
+      toolLabel: "example.tool",
+    } as const;
+    const baseContext = { busy: false, activeTurnId: null, displayItems: [item] };
+
+    expect(displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault" })).toBe(
+      displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault/project" }),
+    );
+  });
+
   it("renders review result items as compact auto-review tool rows", () => {
     const block = messageRenderBlocks({
       activeThreadId: "thread",
@@ -707,6 +738,96 @@ describe("view renderers", () => {
     expect(element.classList.contains("codex-panel__tool-result--plain")).toBe(true);
     expect(element.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("web search");
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("https://example.com");
+  });
+
+  it("renders path summary tools relative to the workspace root", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: "turn",
+      historyCursor: null,
+      loadingHistory: false,
+      busy: true,
+      workspaceRoot: "/vault/project",
+      displayItems: [
+        {
+          id: "tool-path",
+          kind: "tool",
+          role: "tool",
+          text: "/vault/project/assets/image.png",
+          toolLabel: "imageView",
+          summaryPath: true,
+          turnId: "turn",
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = block.render();
+
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("assets/image.png");
+    expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBe("assets/image.png");
+  });
+
+  it("keeps path summary tools absolute outside the workspace root", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: "turn",
+      historyCursor: null,
+      loadingHistory: false,
+      busy: true,
+      workspaceRoot: "/vault/project",
+      displayItems: [
+        {
+          id: "tool-path",
+          kind: "tool",
+          role: "tool",
+          text: "/tmp/image.png",
+          toolLabel: "imageView",
+          summaryPath: true,
+          turnId: "turn",
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = block.render();
+
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("/tmp/image.png");
+  });
+
+  it("does not treat generic tool summaries as paths without an explicit marker", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: "turn",
+      historyCursor: null,
+      loadingHistory: false,
+      busy: true,
+      workspaceRoot: "/vault/project",
+      displayItems: [
+        {
+          id: "tool-path-like",
+          kind: "tool",
+          role: "tool",
+          text: "/vault/project",
+          toolLabel: "example.tool",
+          turnId: "turn",
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = block.render();
+
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("/vault/project");
   });
 
   it("renders hook metadata as rows inside one details block", () => {

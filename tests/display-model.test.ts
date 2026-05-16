@@ -310,6 +310,29 @@ describe("display model", () => {
     });
   });
 
+  it("summarizes parsed search paths relative to the command cwd", () => {
+    const item: ThreadItem = {
+      type: "commandExecution",
+      id: "cmd-1",
+      command: "rg target /vault/src/display",
+      cwd: "/vault",
+      processId: null,
+      source: "agent",
+      status: "completed",
+      commandActions: [{ type: "search", command: "rg", query: "target", path: "/vault/src/display" }],
+      aggregatedOutput: "search results",
+      exitCode: 0,
+      durationMs: 10,
+    };
+
+    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+      kind: "command",
+      actionLabel: "search",
+      text: "target in src/display",
+      state: "completed",
+    });
+  });
+
   it("labels parsed file listing commands and summarizes their path", () => {
     const item: ThreadItem = {
       type: "commandExecution",
@@ -501,6 +524,21 @@ describe("display model", () => {
     });
   });
 
+  it("marks image view summaries as path summaries", () => {
+    const item: ThreadItem = {
+      type: "imageView",
+      id: "image-1",
+      path: "/vault/project/assets/image.png",
+    };
+
+    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+      kind: "tool",
+      text: "/vault/project/assets/image.png",
+      toolLabel: "imageView",
+      summaryPath: true,
+    });
+  });
+
   it("uses details as the summary when a tool target cannot be extracted", () => {
     const item: ThreadItem = {
       type: "dynamicToolCall",
@@ -591,7 +629,7 @@ describe("display model", () => {
           rows: expect.arrayContaining([
             { key: "action", value: "apply patch" },
             { key: "cwd", value: "/vault" },
-            { key: "files", value: "/vault/src/display/model.ts\n/vault/tests/display-model.test.ts" },
+            { key: "files", value: "src/display/model.ts\ntests/display-model.test.ts" },
           ]),
         },
       ],

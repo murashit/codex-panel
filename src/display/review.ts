@@ -3,6 +3,7 @@ import type { GuardianApprovalReviewAction } from "../generated/app-server/v2/Gu
 import type { ItemGuardianApprovalReviewCompletedNotification } from "../generated/app-server/v2/ItemGuardianApprovalReviewCompletedNotification";
 import type { ItemGuardianApprovalReviewStartedNotification } from "../generated/app-server/v2/ItemGuardianApprovalReviewStartedNotification";
 import type { DisplayItem } from "./types";
+import { pathsRelativeToRoot } from "./paths";
 import { classifyExecutionState } from "./state";
 
 type AutoReviewNotification = ItemGuardianApprovalReviewStartedNotification | ItemGuardianApprovalReviewCompletedNotification;
@@ -101,7 +102,7 @@ function autoReviewActionRows(action: GuardianApprovalReviewAction): DisplayRow[
     return [
       { key: "action", value: "apply patch" },
       { key: "cwd", value: action.cwd },
-      { key: "files", value: action.files.length > 0 ? action.files.join("\n") : "(none)" },
+      { key: "files", value: action.files.length > 0 ? pathsRelativeToRoot(action.files, action.cwd).join("\n") : "(none)" },
     ];
   }
   if (action.type === "networkAccess") {

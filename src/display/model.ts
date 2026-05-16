@@ -5,6 +5,7 @@ import type { TurnPlanStep } from "../generated/app-server/v2/TurnPlanStep";
 import { inputToText, truncate } from "../utils";
 import { taskStatusMarker } from "./labels";
 import { agentDisplayItem } from "./agent";
+import { pathRelativeToRoot } from "./paths";
 import { classifyExecutionState, executionState } from "./state";
 import {
   bodyDetail,
@@ -175,6 +176,7 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
       role: "tool",
       text: compactToolSummary(null, item.path),
       toolLabel: "imageView",
+      summaryPath: true,
       turnId,
       itemId: item.id,
     };
@@ -188,6 +190,7 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
       role: "tool",
       text: compactToolSummary(null, target, statusQualifier(item.status, failedStatusLabel(item.status))),
       toolLabel: "imageGeneration",
+      summaryPath: Boolean(item.savedPath),
       turnId,
       itemId: item.id,
       status: item.status,
@@ -246,13 +249,13 @@ function commandTargetLabel(item: CommandExecutionItem): string {
   const action = representativeCommandAction(item.commandActions);
   if (action?.type === "search") {
     const query = commandActionValue(action.query);
-    const path = commandActionValue(action.path);
+    const path = commandActionPathLabel(action.path, item.cwd);
     if (query && path) return `${quoteInline(query)} in ${path}`;
     if (query) return quoteInline(query);
     if (path) return path;
   }
   if (action?.type === "read") return commandReadTargetLabel(action, item.cwd);
-  if (action?.type === "listFiles") return commandActionValue(action.path) ?? "workspace";
+  if (action?.type === "listFiles") return commandActionPathLabel(action.path, item.cwd) ?? "workspace";
   return unwrapShellLoginCommand(firstCommandLine(item.command));
 }
 
@@ -277,6 +280,11 @@ function representativeCommandAction(actions: CommandAction[]): CommandAction | 
 function commandActionValue(value: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function commandActionPathLabel(value: string | null, cwd: string): string | null {
+  const path = commandActionValue(value);
+  return path ? pathRelativeToWorkspace(path, cwd) : null;
 }
 
 function commandReadTargetLabel(action: Extract<CommandAction, { type: "read" }>, cwd: string): string {
@@ -786,11 +794,7 @@ function autoReviewSummariesForTurns(items: DisplayItem[]): Map<string, string[]
 }
 
 export function pathRelativeToWorkspace(path: string, workspaceRoot?: string | null): string {
-  const normalizedPath = path.replace(/\\/g, "/").replace(/^\.\//, "");
-  const root = workspaceRoot?.replace(/\\/g, "/").replace(/\/+$/, "");
-  if (!root) return normalizedPath;
-  if (normalizedPath === root) return ".";
-  return normalizedPath.startsWith(`${root}/`) ? normalizedPath.slice(root.length + 1) : normalizedPath;
+  return pathRelativeToRoot(path, workspaceRoot);
 }
 
 function turnActivitySummary(items: DisplayItem[]): string {

@@ -1,4 +1,5 @@
-import { executionState, pathRelativeToWorkspace } from "./model";
+import { executionState } from "./model";
+import { pathRelativeToRoot } from "./paths";
 import type {
   ApprovalResultDisplayItem,
   CommandDisplayItem,
@@ -37,7 +38,7 @@ export function toolResultView(item: ToolResultDisplayItem, workspaceRoot?: stri
   if (item.kind === "fileChange") return fileChangeToolView(item, workspaceRoot);
   if (item.kind === "approvalResult") return approvalToolView(item);
   if (item.kind === "reviewResult") return reviewToolView(item);
-  return genericToolView(item);
+  return genericToolView(item, workspaceRoot);
 }
 
 function commandToolView(item: CommandDisplayItem): ToolResultView {
@@ -60,7 +61,7 @@ function commandToolView(item: CommandDisplayItem): ToolResultView {
 function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string | null): ToolResultView {
   const displayChanges = item.changes.map((change) => ({
     ...change,
-    displayPath: change.path && change.path !== "(unknown)" ? pathRelativeToWorkspace(change.path, workspaceRoot) : change.path,
+    displayPath: change.path && change.path !== "(unknown)" ? pathRelativeToRoot(change.path, workspaceRoot) : change.path,
   }));
   const details: ToolResultDetailSection[] = [
     {
@@ -87,11 +88,15 @@ function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string 
   );
 }
 
-function genericToolView(item: ToolDisplayItem): ToolResultView {
-  return toolView(item, `codex-panel__tool-item codex-panel__tool-item--${item.kind}`, item.toolLabel ?? item.kind, `${item.id}:details`, [
-    ...(item.details ?? []).flatMap(detailSection),
-    ...outputSection(item.kind === "hook" ? "Hook output" : "Output", item.output),
-  ]);
+function genericToolView(item: ToolDisplayItem, workspaceRoot?: string | null): ToolResultView {
+  return toolView(
+    item,
+    `codex-panel__tool-item codex-panel__tool-item--${item.kind}`,
+    item.toolLabel ?? item.kind,
+    `${item.id}:details`,
+    [...(item.details ?? []).flatMap(detailSection), ...outputSection(item.kind === "hook" ? "Hook output" : "Output", item.output)],
+    item.summaryPath ? pathRelativeToRoot(item.text, workspaceRoot) : item.text,
+  );
 }
 
 function reviewToolView(item: ReviewResultDisplayItem): ToolResultView {

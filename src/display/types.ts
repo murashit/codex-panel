@@ -100,6 +100,7 @@ export interface ToolDisplayItem extends DisplayBase {
   kind: "tool" | "hook" | "reasoning";
   role: "tool";
   toolLabel?: string;
+  summaryPath?: boolean;
   status?: string;
   output?: string;
   details?: DisplayDetailSection[];

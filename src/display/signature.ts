@@ -29,6 +29,7 @@ export function displayItemSignature(item: DisplayItem, context: DisplayItemSign
     executionState(item) ?? "",
     item.kind === "fileChange" ? JSON.stringify(item.changes) : "",
     item.kind === "fileChange" ? (context.workspaceRoot ?? "") : "",
+    item.kind === "tool" && item.summaryPath ? (context.workspaceRoot ?? "") : "",
     item.kind === "taskProgress" ? JSON.stringify({ explanation: item.explanation, steps: item.steps, status: item.status }) : "",
     item.kind === "agent"
       ? JSON.stringify({
