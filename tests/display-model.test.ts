@@ -867,6 +867,23 @@ describe("display model", () => {
     expect(assistantBlock).toMatchObject({ item: { editedFiles: ["src/main.ts", "styles.css"] } });
   });
 
+  it("adds auto-review summaries to the final assistant message", () => {
+    const items: DisplayItem[] = [
+      {
+        id: "review-1",
+        kind: "reviewResult",
+        role: "tool",
+        text: "Auto-review approved: npm test",
+        turnId: "t1",
+        state: "completed",
+      },
+      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+    ];
+
+    const assistantBlock = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
+    expect(assistantBlock).toMatchObject({ item: { autoReviewSummaries: ["Auto-review approved: npm test"] } });
+  });
+
   it("shows edited files relative to the workspace root", () => {
     const items: DisplayItem[] = [
       fileChangeItem("f1", "t1", "/vault/project/src/main.ts"),

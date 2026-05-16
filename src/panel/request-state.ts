@@ -1,4 +1,5 @@
 import type { RequestId } from "../generated/app-server/RequestId";
+import { approvalDetails, approvalResultSummary, approvalTitle, type ApprovalAction, type PendingApproval } from "../approvals/model";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { PendingUserInput } from "../user-input/model";
 
@@ -15,6 +16,31 @@ export function clearUserInputDrafts(drafts: Map<string, string>, input: Pending
     drafts.delete(userInputDraftKey(input.requestId, question.id));
     drafts.delete(userInputOtherDraftKey(input.requestId, question.id));
   }
+}
+
+export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): DisplayItem {
+  const status = approvalResultStatus(action);
+  const scope = action === "accept-session" ? "session" : "turn";
+  return {
+    id: `approval-${String(approval.requestId)}`,
+    kind: "approvalResult",
+    role: "tool",
+    text: approvalResultText(approval, action),
+    turnId: approvalTurnId(approval),
+    markdown: false,
+    state: action === "accept" || action === "accept-session" ? "completed" : "failed",
+    details: [
+      {
+        title: "Approval",
+        rows: [
+          { key: "status", value: status },
+          { key: "scope", value: scope },
+          { key: "request", value: approvalTitle(approval) },
+          ...approvalDetails(approval),
+        ],
+      },
+    ],
+  };
 }
 
 export function createUserInputResultItem(
@@ -41,4 +67,27 @@ export function createUserInputResultItem(
     state: status === "submitted" ? "completed" : "failed",
     details,
   };
+}
+
+function approvalResultText(approval: PendingApproval, action: ApprovalAction): string {
+  return `${approvalResultPrefix(action)}: ${approvalResultSummary(approval)}`;
+}
+
+function approvalResultPrefix(action: ApprovalAction): string {
+  if (action === "accept") return "Allowed";
+  if (action === "accept-session") return "Allowed for this session";
+  if (action === "cancel") return "Cancelled";
+  return "Denied";
+}
+
+function approvalResultStatus(action: ApprovalAction): string {
+  if (action === "accept") return "allowed";
+  if (action === "accept-session") return "allowed for session";
+  if (action === "cancel") return "cancelled";
+  return "denied";
+}
+
+function approvalTurnId(approval: PendingApproval): string | undefined {
+  const params = approval.params as { turnId?: unknown };
+  return typeof params.turnId === "string" ? params.turnId : undefined;
 }

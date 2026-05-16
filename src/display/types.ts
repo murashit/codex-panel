@@ -40,12 +40,20 @@ export interface MessageDisplayItem extends DisplayBase {
   role: "user" | "assistant";
   copyText?: string;
   editedFiles?: string[];
+  autoReviewSummaries?: string[];
   markdown?: boolean;
 }
 
 export interface SystemDisplayItem extends DisplayBase {
-  kind: "system" | "approvalResult" | "userInputResult";
+  kind: "system" | "userInputResult";
   role: "system" | "tool";
+  markdown?: boolean;
+  details?: DisplayDetailSection[];
+}
+
+export interface ApprovalResultDisplayItem extends DisplayBase {
+  kind: "approvalResult";
+  role: "tool";
   markdown?: boolean;
   details?: DisplayDetailSection[];
 }
@@ -146,6 +154,7 @@ export type DisplayItem =
   | ToolDisplayItem
   | TaskProgressDisplayItem
   | AgentDisplayItem
+  | ApprovalResultDisplayItem
   | ReviewResultDisplayItem;
 
 export type DisplayBlock =

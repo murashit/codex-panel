@@ -2,10 +2,19 @@ import type { DisplayBlock, DisplayDetailSection, DisplayFileChange, DisplayItem
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import type { TurnPlanStep } from "../generated/app-server/v2/TurnPlanStep";
-import { inputToText, jsonPreview, truncate } from "../utils";
+import { inputToText, truncate } from "../utils";
 import { taskStatusMarker } from "./labels";
 import { agentDisplayItem } from "./agent";
 import { classifyExecutionState, executionState } from "./state";
+import {
+  bodyDetail,
+  compactToolSummary,
+  failedStatusLabel,
+  jsonDetails,
+  jsonTargetLabel,
+  metaDetail,
+  statusQualifier,
+} from "./tool-format";
 export { activeAgentRunSummary, agentDisplayItem } from "./agent";
 export { classifyExecutionState, executionState, executionStateLabel } from "./state";
 export { createAutoReviewResultItem, createReviewResultItem } from "./review";
@@ -109,11 +118,11 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
       turnId,
       itemId: item.id,
       status: item.status,
-      details: [
-        { title: "Arguments JSON", body: jsonPreview(item.arguments) },
-        ...(item.result ? [{ title: "Result JSON", body: jsonPreview(item.result) }] : []),
-        ...(item.error ? [{ title: "Error JSON", body: jsonPreview(item.error) }] : []),
-      ],
+      details: jsonDetails([
+        ["Arguments JSON", item.arguments],
+        ["Result JSON", item.result],
+        ["Error JSON", item.error],
+      ]),
       output: "",
       state: classifyExecutionState({ status: item.status }),
     };
@@ -132,10 +141,10 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
       turnId,
       itemId: item.id,
       status: item.status,
-      details: [
-        { title: "Arguments JSON", body: jsonPreview(item.arguments) },
-        ...(item.contentItems ? [{ title: "Result JSON", body: jsonPreview(item.contentItems) }] : []),
-      ],
+      details: jsonDetails([
+        ["Arguments JSON", item.arguments],
+        ["Result JSON", item.contentItems],
+      ]),
       output: "",
       state: item.success === false ? "failed" : classifyExecutionState({ status: item.status }),
     };
@@ -183,9 +192,9 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
       itemId: item.id,
       status: item.status,
       details: [
-        ...(item.savedPath ? [{ title: "Saved path", body: item.savedPath }] : []),
-        ...(item.revisedPrompt ? [{ title: "Revised prompt", body: item.revisedPrompt }] : []),
-        ...(item.result ? [{ title: "Result", body: item.result }] : []),
+        ...bodyDetail("Saved path", item.savedPath),
+        ...bodyDetail("Revised prompt", item.revisedPrompt),
+        ...bodyDetail("Result", item.result),
       ],
       output: "",
       state: classifyExecutionState({ status: item.status }),
@@ -226,31 +235,11 @@ type FileChangeItem = Extract<ThreadItem, { type: "fileChange" }>;
 type ReasoningItem = Extract<ThreadItem, { type: "reasoning" }>;
 type WebSearchItem = Extract<ThreadItem, { type: "webSearch" }>;
 
-const TOOL_SUMMARY_LIMIT = 140;
-
 function reasoningText(item: ReasoningItem): string {
   return [...item.summary, ...item.content]
     .map((part) => part.trim())
     .filter(Boolean)
     .join("\n\n");
-}
-
-function compactToolSummary(label: string | null, target?: string | null, qualifier?: string | null): string {
-  const targetText = target?.trim();
-  const base = label ? (targetText ? `${label}: ${targetText}` : label) : (targetText ?? "details");
-  return truncate(qualifier ? `${base} (${qualifier})` : base, TOOL_SUMMARY_LIMIT);
-}
-
-function statusQualifier(status: unknown, failure?: string | null): string | null {
-  if (status === "declined") return "declined";
-  if (status === "failed") return failure || "failed";
-  return null;
-}
-
-function failedStatusLabel(status: unknown): string | null {
-  if (status === "failed") return "failed";
-  if (status === "declined") return "declined";
-  return null;
 }
 
 function commandTargetLabel(item: CommandExecutionItem): string {
@@ -377,51 +366,7 @@ function webSearchDetails(item: WebSearchItem): DisplayDetailSection[] {
     rows.push({ key: "query", value: item.query });
   }
 
-  return rows.length > 0 ? [{ title: "web search", rows }] : [];
-}
-
-function jsonTargetLabel(value: unknown): string | null {
-  const direct = jsonTargetPrimitive(value);
-  if (direct) return direct;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-
-  const record = value as Record<string, unknown>;
-  const priorityKeys = [
-    "q",
-    "query",
-    "search_query",
-    "url",
-    "ref_id",
-    "path",
-    "file",
-    "filename",
-    "ticker",
-    "location",
-    "team",
-    "league",
-    "id",
-    "target",
-    "command",
-  ];
-
-  for (const key of priorityKeys) {
-    const target = jsonTargetPrimitive(record[key]);
-    if (target) return target;
-  }
-
-  const firstEntry = Object.entries(record).find(([, entryValue]) => jsonTargetPrimitive(entryValue));
-  return firstEntry ? jsonTargetPrimitive(firstEntry[1]) : null;
-}
-
-function jsonTargetPrimitive(value: unknown): string | null {
-  if (typeof value === "string" && value.trim().length > 0) return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (!Array.isArray(value)) return null;
-  for (const item of value) {
-    const target = jsonTargetLabel(item);
-    if (target) return target;
-  }
-  return null;
+  return metaDetail("web search", rows);
 }
 
 export function commandDisplayItem(item: CommandExecutionItem, turnId?: string): DisplayItem {
@@ -712,6 +657,7 @@ export function displayBlocksForItems(items: DisplayItem[], activeTurnId: string
   const visibleItems = items.filter(shouldShowDisplayItem);
   const orderedItems = activeTurnId ? moveActiveTaskProgressToEnd(visibleItems, activeTurnId) : visibleItems;
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
+  const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
   const finalAssistantIdByTurn = finalAssistantItemsByTurn(visibleItems);
   const groupedTurnIds = new Set([...finalAssistantIdByTurn.keys()].filter((turnId) => turnId !== activeTurnId));
 
@@ -741,7 +687,7 @@ export function displayBlocksForItems(items: DisplayItem[], activeTurnId: string
       }
       continue;
     }
-    blocks.push({ type: "item", item: itemWithEditedFiles(item, editedFilesByTurn, finalAssistantIdByTurn) });
+    blocks.push({ type: "item", item: itemWithTurnSummaries(item, editedFilesByTurn, autoReviewSummariesByTurn, finalAssistantIdByTurn) });
   }
 
   return blocks;
@@ -775,16 +721,18 @@ function isFinalAssistantMessage(item: DisplayItem): boolean {
   return item.kind === "message" && item.role === "assistant" && item.markdown !== false;
 }
 
-function itemWithEditedFiles(
+function itemWithTurnSummaries(
   item: DisplayItem,
   editedFilesByTurn: Map<string, string[]>,
+  autoReviewSummariesByTurn: Map<string, string[]>,
   finalAssistantIdByTurn: Map<string, string>,
 ): DisplayItem {
   if (!item.turnId || finalAssistantIdByTurn.get(item.turnId) !== item.id) return item;
   if (item.kind !== "message") return item;
   const editedFiles = editedFilesByTurn.get(item.turnId);
-  if (!editedFiles || editedFiles.length === 0) return item;
-  return { ...item, editedFiles };
+  const autoReviewSummaries = autoReviewSummariesByTurn.get(item.turnId);
+  if ((!editedFiles || editedFiles.length === 0) && (!autoReviewSummaries || autoReviewSummaries.length === 0)) return item;
+  return { ...item, editedFiles, autoReviewSummaries };
 }
 
 function editedFilesForTurns(items: DisplayItem[], workspaceRoot?: string | null): Map<string, string[]> {
@@ -806,6 +754,19 @@ function editedFilesForItem(item: DisplayItem, workspaceRoot?: string | null): s
   return item.changes.flatMap((change) =>
     change.path && change.path !== "(unknown)" ? [pathRelativeToWorkspace(change.path, workspaceRoot)] : [],
   );
+}
+
+function autoReviewSummariesForTurns(items: DisplayItem[]): Map<string, string[]> {
+  const byTurn = new Map<string, string[]>();
+  for (const item of items) {
+    if (!item.turnId || item.kind !== "reviewResult") continue;
+    const summary = item.text.trim();
+    if (!summary) continue;
+    const summaries = byTurn.get(item.turnId) ?? [];
+    if (!summaries.includes(summary)) summaries.push(summary);
+    byTurn.set(item.turnId, summaries);
+  }
+  return byTurn;
 }
 
 export function pathRelativeToWorkspace(path: string, workspaceRoot?: string | null): string {

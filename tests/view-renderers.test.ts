@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { PendingApproval } from "../src/approvals/model";
 import type { PendingUserInput } from "../src/user-input/model";
 import {
   renderComposerShell,
@@ -1063,6 +1064,42 @@ describe("view renderers", () => {
     expect(resolveUserInput).toHaveBeenCalledWith(input);
   });
 
+  it("renders pending approvals and Plan mode questions in the same request block", () => {
+    const parent = document.createElement("div");
+    const approval = pendingApproval();
+    const input = pendingUserInput();
+
+    renderPendingRequestMessage(
+      parent,
+      [approval],
+      [input],
+      {
+        values: new Map(),
+        draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
+        otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
+      },
+      new Set(),
+      { resolveApproval: vi.fn(), resolveUserInput: vi.fn(), cancelUserInput: vi.fn() },
+    );
+
+    expect(parent.querySelectorAll(".codex-panel__pending-request-message")).toHaveLength(1);
+    expect(parent.querySelectorAll(".codex-panel__pending-request-card")).toHaveLength(2);
+    expect(parent.querySelectorAll(".codex-panel__pending-request-body")).toHaveLength(2);
+    expect(parent.querySelector(".codex-panel__approval-body")).toBeNull();
+    expect(parent.querySelector(".codex-panel__approval .codex-panel__pending-request-title")?.textContent).toBe("Permission approval");
+    expect(parent.querySelector(".codex-panel__approval .codex-panel__pending-request-body")?.textContent).toContain("Need network");
+    expect(parent.querySelector(".codex-panel__approval-details summary")?.textContent).toBe("Request details");
+    expect(parent.querySelector(".codex-panel__user-input .codex-panel__pending-request-title")?.textContent).toBe("Codex needs input");
+    expect([...parent.querySelectorAll(".codex-panel__pending-request-button")].map((button) => button.textContent)).toEqual([
+      "Allow",
+      "Allow session",
+      "Deny",
+      "Cancel",
+      "Submit",
+      "Cancel",
+    ]);
+  });
+
   it("renders submitted user input separately from approvals", () => {
     const block = messageRenderBlocks({
       activeThreadId: "thread",
@@ -1094,6 +1131,82 @@ describe("view renderers", () => {
     expect(element.textContent).not.toContain("Approval");
     expect(element.querySelector("details summary")?.textContent).toBe("Scope");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("answerNarrow");
+  });
+
+  it("renders manual approval results with completion state and details", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: "turn",
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        {
+          id: "approval-1",
+          kind: "approvalResult",
+          role: "tool",
+          text: "Allowed for this session: Need access",
+          turnId: "turn",
+          markdown: false,
+          state: "completed",
+          details: [
+            {
+              title: "Approval",
+              rows: [
+                { key: "status", value: "allowed for session" },
+                { key: "scope", value: "session" },
+              ],
+            },
+          ],
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = block.render();
+
+    expect(element.classList.contains("codex-panel__message--approval-result")).toBe(true);
+    expect(element.classList.contains("codex-panel__tool-result")).toBe(true);
+    expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
+    expect(element.querySelector(".codex-panel__message-content")).toBeNull();
+    expect(element.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("approval");
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("Allowed for this session: Need access");
+    expect(element.querySelector("details summary")?.textContent).toBe("approval");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusallowed for session");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("scopesession");
+  });
+
+  it("renders auto-review summaries under the final assistant message", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        {
+          id: "assistant-1",
+          kind: "message",
+          role: "assistant",
+          text: "Done",
+          turnId: "turn",
+          markdown: true,
+          autoReviewSummaries: ["Auto-review approved: npm test"],
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = block.render();
+
+    expect(element.querySelector(".codex-panel__auto-reviews summary")?.textContent).toBe("Auto-reviewed 1 request");
+    expect(element.querySelector(".codex-panel__auto-reviews")?.textContent).toContain("Auto-review approved: npm test");
   });
 
   it("adds pending requests to the bottom of message render blocks", () => {
@@ -1301,6 +1414,22 @@ function pendingUserInput(): PendingUserInput {
           options: [{ label: "Narrow", description: "Small change" }],
         },
       ],
+    },
+  };
+}
+
+function pendingApproval(): PendingApproval {
+  return {
+    requestId: 42,
+    method: "item/permissions/requestApproval",
+    params: {
+      threadId: "thread",
+      turnId: "turn",
+      itemId: "permission",
+      startedAtMs: 1,
+      cwd: "/vault",
+      reason: "Need network",
+      permissions: { network: { enabled: true }, fileSystem: null },
     },
   };
 }

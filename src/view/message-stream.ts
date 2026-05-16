@@ -160,7 +160,11 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
     renderToolResult(parent, item, context);
     return;
   }
-  if (item.kind !== "message" && item.kind !== "system" && item.kind !== "approvalResult" && item.kind !== "userInputResult") {
+  if (item.kind === "approvalResult") {
+    renderToolResult(parent, item, context);
+    return;
+  }
+  if (item.kind !== "message" && item.kind !== "system" && item.kind !== "userInputResult") {
     return;
   }
 
@@ -182,6 +186,9 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   }
   if (item.kind === "message" && item.editedFiles && item.editedFiles.length > 0) {
     renderEditedFiles(messageEl, item.editedFiles);
+  }
+  if (item.kind === "message" && item.autoReviewSummaries && item.autoReviewSummaries.length > 0) {
+    renderAutoReviewSummaries(messageEl, item.autoReviewSummaries);
   }
   if ("details" in item && item.details && item.details.length > 0) {
     renderMessageDetails(messageEl, item.id, item.details, context);
@@ -205,6 +212,16 @@ function renderEditedFiles(parent: HTMLElement, editedFiles: string[]): void {
   const list = details.createEl("ul");
   for (const file of editedFiles) {
     list.createEl("li", { text: file });
+  }
+}
+
+function renderAutoReviewSummaries(parent: HTMLElement, summaries: string[]): void {
+  const label = summaries.length === 1 ? "Auto-reviewed 1 request" : `Auto-reviewed ${summaries.length} requests`;
+  const details = parent.createEl("details", { cls: "codex-panel__auto-reviews" });
+  details.createEl("summary", { text: label });
+  const list = details.createEl("ul");
+  for (const summary of summaries) {
+    list.createEl("li", { text: summary });
   }
 }
 

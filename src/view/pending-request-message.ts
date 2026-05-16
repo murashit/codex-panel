@@ -47,12 +47,10 @@ function renderApprovalCard(
   openDetails: Set<string>,
   actions: PendingRequestMessageActions,
 ): void {
-  const card = parent.createDiv({ cls: "setting-item codex-panel__pending-request-card codex-panel__approval" });
-  const info = card.createDiv({ cls: "setting-item-info codex-panel__pending-request-info" });
+  const { info, controls } = createPendingRequestCard(parent, "codex-panel__approval");
   info.createDiv({ cls: "setting-item-name codex-panel__pending-request-title", text: approvalTitle(approval) });
-  info.createDiv({ cls: "setting-item-description codex-panel__approval-body", text: approvalSummary(approval) });
+  info.createDiv({ cls: "setting-item-description codex-panel__pending-request-body", text: approvalSummary(approval) });
   renderApprovalDetails(info, approval, openDetails);
-  const controls = card.createDiv({ cls: "setting-item-control codex-panel__pending-request-actions" });
 
   createActionButton(controls, "Allow", "mod-cta", () => actions.resolveApproval(approval, "accept"));
   createActionButton(controls, "Allow session", "", () => actions.resolveApproval(approval, "accept-session"));
@@ -66,7 +64,7 @@ function renderApprovalDetails(parent: HTMLElement, approval: PendingApproval, o
     openDetails,
     `approval:${String(approval.requestId)}:details`,
     "codex-panel__approval-details",
-    "Details",
+    "Request details",
   );
   const rows = details.createEl("dl", { cls: "codex-panel__meta-grid" });
   for (const row of approvalDetails(approval)) {
@@ -80,18 +78,23 @@ function renderUserInputCard(
   drafts: PendingRequestMessageDrafts,
   actions: PendingRequestMessageActions,
 ): void {
-  const card = parent.createDiv({ cls: "setting-item codex-panel__pending-request-card codex-panel__user-input" });
-  const info = card.createDiv({ cls: "setting-item-info codex-panel__pending-request-info" });
+  const { info, controls } = createPendingRequestCard(parent, "codex-panel__user-input");
   info.createDiv({ cls: "setting-item-name codex-panel__pending-request-title", text: "Codex needs input" });
   info.createDiv({
-    cls: "setting-item-description codex-panel__approval-body",
+    cls: "setting-item-description codex-panel__pending-request-body",
     text: `${input.params.questions.length} question${input.params.questions.length === 1 ? "" : "s"} from Plan mode.`,
   });
   renderUserInputQuestions(info, input, drafts);
 
-  const controls = card.createDiv({ cls: "setting-item-control codex-panel__pending-request-actions" });
   createActionButton(controls, "Submit", "mod-cta", () => actions.resolveUserInput(input));
   createActionButton(controls, "Cancel", "", () => actions.cancelUserInput(input));
+}
+
+function createPendingRequestCard(parent: HTMLElement, className: string): { info: HTMLElement; controls: HTMLElement } {
+  const card = parent.createDiv({ cls: `setting-item codex-panel__pending-request-card ${className}` });
+  const info = card.createDiv({ cls: "setting-item-info codex-panel__pending-request-info" });
+  const controls = card.createDiv({ cls: "setting-item-control codex-panel__pending-request-actions" });
+  return { info, controls };
 }
 
 function renderUserInputQuestions(parent: HTMLElement, input: PendingUserInput, drafts: PendingRequestMessageDrafts): void {

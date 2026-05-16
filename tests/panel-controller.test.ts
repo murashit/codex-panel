@@ -268,6 +268,40 @@ describe("PanelController", () => {
     });
   });
 
+  it("records manual permission approvals as colored result items", () => {
+    const state = createPanelState();
+    const respondToServerRequest = vi.fn(() => true);
+    const controller = controllerForState(state, { respondToServerRequest });
+
+    controller.handleServerRequest(supportedApprovalRequests()[2]!);
+    controller.resolveApproval(state.approvals[0]!, "accept-session");
+
+    expect(respondToServerRequest).toHaveBeenCalledWith(12, {
+      scope: "session",
+      permissions: {},
+    });
+    expect(state.approvals).toEqual([]);
+    expect(state.displayItems.at(-1)).toMatchObject({
+      id: "approval-12",
+      kind: "approvalResult",
+      role: "tool",
+      text: "Allowed for this session: Need access",
+      turnId: "turn",
+      state: "completed",
+      details: [
+        {
+          title: "Approval",
+          rows: expect.arrayContaining([
+            { key: "status", value: "allowed for session" },
+            { key: "scope", value: "session" },
+            { key: "request", value: "Permission approval" },
+            { key: "cwd", value: "/tmp/project" },
+          ]),
+        },
+      ],
+    });
+  });
+
   it("handles known server request families and rejects unsupported requests by default", () => {
     const state = createPanelState();
     const rejectServerRequest = vi.fn(() => true);

@@ -1,4 +1,4 @@
-import { approvalResponse, approvalTitle, toPendingApproval, type ApprovalAction, type PendingApproval } from "../approvals/model";
+import { approvalResponse, toPendingApproval, type ApprovalAction, type PendingApproval } from "../approvals/model";
 import {
   appendAssistantDelta,
   appendItemOutput,
@@ -28,7 +28,7 @@ import { toPendingUserInput, userInputResponse, type PendingUserInput } from "..
 import { jsonPreview } from "../utils";
 import { classifyAppServerLog } from "./app-server-logs";
 import { hookRunDisplayItem } from "./hook-display";
-import { clearUserInputDrafts, createUserInputResultItem } from "./request-state";
+import { clearUserInputDrafts, createApprovalResultItem, createUserInputResultItem } from "./request-state";
 
 export interface PanelControllerActions {
   refreshThreads: () => void;
@@ -195,14 +195,7 @@ export class PanelController {
       return;
     }
     this.state.approvals = this.state.approvals.filter((item) => item.requestId !== approval.requestId);
-    this.state.displayItems.push({
-      id: `approval-${String(approval.requestId)}`,
-      kind: "approvalResult",
-      role: "tool",
-      text: `${approvalTitle(approval)}: ${action}`,
-      turnId: approvalTurnId(approval),
-      markdown: false,
-    });
+    this.state.displayItems.push(createApprovalResultItem(approval, action));
   }
 
   resolveUserInput(input: PendingUserInput, answers: Record<string, string>): void {
@@ -378,11 +371,6 @@ function messageTurnId(message: ServerNotification | ServerRequest): string | nu
   const params = message.params as { turnId?: unknown; turn?: { id?: unknown } };
   if (typeof params.turnId === "string") return params.turnId;
   return typeof params.turn?.id === "string" ? params.turn.id : null;
-}
-
-function approvalTurnId(approval: PendingApproval): string | undefined {
-  const params = approval.params as { turnId?: unknown };
-  return typeof params.turnId === "string" ? params.turnId : undefined;
 }
 
 function removeUnstructuredAutoReviewWarnings(items: DisplayItem[]): DisplayItem[] {

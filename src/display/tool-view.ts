@@ -1,5 +1,6 @@
 import { executionState, pathRelativeToWorkspace } from "./model";
 import type {
+  ApprovalResultDisplayItem,
   CommandDisplayItem,
   DisplayDetailSection,
   DisplayFileChange,
@@ -10,7 +11,12 @@ import type {
   ToolDisplayItem,
 } from "./types";
 
-export type ToolResultDisplayItem = CommandDisplayItem | FileChangeDisplayItem | ToolDisplayItem | ReviewResultDisplayItem;
+export type ToolResultDisplayItem =
+  | CommandDisplayItem
+  | FileChangeDisplayItem
+  | ToolDisplayItem
+  | ApprovalResultDisplayItem
+  | ReviewResultDisplayItem;
 
 export type ToolResultDetailSection =
   | { kind: "meta"; title?: string; rows: Array<{ key: string; value: string }> }
@@ -29,6 +35,7 @@ export interface ToolResultView {
 export function toolResultView(item: ToolResultDisplayItem, workspaceRoot?: string | null): ToolResultView {
   if (item.kind === "command") return commandToolView(item);
   if (item.kind === "fileChange") return fileChangeToolView(item, workspaceRoot);
+  if (item.kind === "approvalResult") return approvalToolView(item);
   if (item.kind === "reviewResult") return reviewToolView(item);
   return genericToolView(item);
 }
@@ -47,14 +54,7 @@ function commandToolView(item: CommandDisplayItem): ToolResultView {
     },
     ...outputSection("Output", item.output),
   ];
-  return {
-    className: "codex-panel__message codex-panel__message--tool codex-panel__tool-item",
-    label: item.actionLabel ?? "command",
-    summary: item.text,
-    detailsKey: `${item.id}:command-details`,
-    details,
-    state: executionState(item),
-  };
+  return toolView(item, "codex-panel__tool-item", item.actionLabel ?? "command", `${item.id}:command-details`, details);
 }
 
 function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string | null): ToolResultView {
@@ -77,43 +77,69 @@ function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string 
     })),
     ...outputSection("Patch output", item.output),
   ];
+  return toolView(
+    item,
+    "codex-panel__file-change",
+    "file change",
+    `${item.id}:file-change-details`,
+    details,
+    fileChangeSummary(item, displayChanges),
+  );
+}
+
+function genericToolView(item: ToolDisplayItem): ToolResultView {
+  return toolView(item, `codex-panel__tool-item codex-panel__tool-item--${item.kind}`, item.toolLabel ?? item.kind, `${item.id}:details`, [
+    ...(item.details ?? []).flatMap(detailSection),
+    ...outputSection(item.kind === "hook" ? "Hook output" : "Output", item.output),
+  ]);
+}
+
+function reviewToolView(item: ReviewResultDisplayItem): ToolResultView {
+  return resultToolView(
+    item,
+    "auto-review",
+    `${item.id}:review-details`,
+    "codex-panel__message--review-result codex-panel__tool-item--review",
+  );
+}
+
+function approvalToolView(item: ApprovalResultDisplayItem): ToolResultView {
+  return resultToolView(
+    item,
+    "approval",
+    `${item.id}:approval-details`,
+    "codex-panel__message--approval-result codex-panel__tool-item--approval",
+  );
+}
+
+function resultToolView(
+  item: ApprovalResultDisplayItem | ReviewResultDisplayItem,
+  label: string,
+  detailsKey: string,
+  className: string,
+): ToolResultView {
+  return toolView(item, `codex-panel__tool-item ${className}`, label, detailsKey, (item.details ?? []).flatMap(resultDetailSection));
+}
+
+function toolView(
+  item: ToolResultDisplayItem,
+  className: string,
+  label: string,
+  detailsKey: string,
+  details: ToolResultDetailSection[],
+  summary = item.text,
+): ToolResultView {
   return {
-    className: "codex-panel__message codex-panel__message--tool codex-panel__file-change",
-    label: "file change",
-    summary: fileChangeSummary(item, displayChanges),
-    detailsKey: `${item.id}:file-change-details`,
+    className: `codex-panel__message codex-panel__message--tool ${className}`,
+    label,
+    summary,
+    detailsKey,
     details,
     state: executionState(item),
   };
 }
 
-function genericToolView(item: ToolDisplayItem): ToolResultView {
-  return {
-    className: `codex-panel__message codex-panel__message--tool codex-panel__tool-item codex-panel__tool-item--${item.kind}`,
-    label: item.toolLabel ?? item.kind,
-    summary: item.text,
-    detailsKey: `${item.id}:details`,
-    details: [
-      ...(item.details ?? []).flatMap(detailSection),
-      ...outputSection(item.kind === "hook" ? "Hook output" : "Output", item.output),
-    ],
-    state: executionState(item),
-  };
-}
-
-function reviewToolView(item: ReviewResultDisplayItem): ToolResultView {
-  return {
-    className:
-      "codex-panel__message codex-panel__message--tool codex-panel__message--review-result codex-panel__tool-item codex-panel__tool-item--review",
-    label: "auto-review",
-    summary: item.text,
-    detailsKey: `${item.id}:review-details`,
-    details: (item.details ?? []).flatMap(reviewDetailSection),
-    state: executionState(item),
-  };
-}
-
-function reviewDetailSection(section: DisplayDetailSection): ToolResultDetailSection[] {
+function resultDetailSection(section: DisplayDetailSection): ToolResultDetailSection[] {
   if (section.rows && section.rows.length > 0) return [{ kind: "meta", rows: section.rows }];
   return detailSection(section);
 }

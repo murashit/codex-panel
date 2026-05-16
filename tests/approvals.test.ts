@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { approvalResponse, approvalSummary, approvalTitle, toPendingApproval } from "../src/approvals/model";
+import { approvalDetails, approvalResponse, approvalSummary, approvalTitle, toPendingApproval } from "../src/approvals/model";
 import type { ServerRequest } from "../src/generated/app-server/ServerRequest";
 
 describe("approval model", () => {
@@ -50,6 +50,100 @@ describe("approval model", () => {
       permissions: { network: { enabled: true } },
       scope: "turn",
     });
+  });
+
+  it("shows approval reasons first in pending request summaries", () => {
+    const command = toPendingApproval({
+      id: 20,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        command: "npm run build",
+        cwd: "/tmp/project",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        startedAtMs: 1,
+        reason: "Needs unsandboxed access",
+        commandActions: [],
+        proposedExecpolicyAmendment: null,
+        proposedNetworkPolicyAmendments: [],
+      },
+    })!;
+    const fileChange = toPendingApproval({
+      id: 21,
+      method: "item/fileChange/requestApproval",
+      params: {
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "file",
+        startedAtMs: 1,
+        reason: "Write outside workspace",
+        grantRoot: "/tmp/project",
+      },
+    })!;
+    const permissions = toPendingApproval({
+      id: 22,
+      method: "item/permissions/requestApproval",
+      params: {
+        cwd: "/tmp/project",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "permissions",
+        startedAtMs: 1,
+        reason: "Need network",
+        permissions: { network: { enabled: true }, fileSystem: null },
+      },
+    })!;
+
+    expect(approvalSummary(command)).toBe("Needs unsandboxed access\nnpm run build");
+    expect(approvalSummary(fileChange)).toBe("Write outside workspace\ngrant root: /tmp/project");
+    expect(approvalSummary(permissions).startsWith("Need network\ncwd: /tmp/project")).toBe(true);
+  });
+
+  it("keeps approval details semantic and omits raw payloads", () => {
+    const approval = toPendingApproval({
+      id: 23,
+      method: "item/permissions/requestApproval",
+      params: {
+        cwd: "/tmp/project",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "permissions",
+        startedAtMs: 1,
+        reason: "Need network",
+        permissions: { network: { enabled: true }, fileSystem: null },
+      },
+    })!;
+
+    expect(approvalDetails(approval)).toEqual([
+      { key: "reason", value: "Need network" },
+      { key: "cwd", value: "/tmp/project" },
+      { key: "network", value: "enabled" },
+    ]);
+  });
+
+  it("omits empty approval detail rows", () => {
+    const approval = toPendingApproval({
+      id: 24,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        command: "npm test",
+        cwd: "/tmp/project",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        startedAtMs: 1,
+        reason: null,
+        commandActions: [],
+        proposedExecpolicyAmendment: null,
+        proposedNetworkPolicyAmendments: [],
+      },
+    })!;
+
+    expect(approvalDetails(approval)).toEqual([
+      { key: "command", value: "npm test" },
+      { key: "cwd", value: "/tmp/project" },
+    ]);
   });
 
   it("builds action responses for current approval families", () => {

@@ -5,6 +5,7 @@ import type { FileChangeRequestApprovalResponse } from "../generated/app-server/
 import type { GrantedPermissionProfile } from "../generated/app-server/v2/GrantedPermissionProfile";
 import type { PermissionsRequestApprovalResponse } from "../generated/app-server/v2/PermissionsRequestApprovalResponse";
 import { jsonPreview } from "../utils";
+import { addOptional, nonEmptyString, permissionRows } from "./permission-details";
 
 export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel";
 export type ApprovalRequest = Extract<
@@ -23,6 +24,13 @@ export type PendingApproval = ApprovalRequest extends infer Request
       }
     : never
   : never;
+
+interface ApprovalSummaryParts {
+  reason: string | null;
+  target: string | null;
+  fallback: string;
+  lines: string[];
+}
 
 export function toPendingApproval(request: ServerRequest): PendingApproval | null {
   if (!isApprovalRequest(request)) return null;
@@ -77,44 +85,55 @@ export function approvalTitle(approval: PendingApproval): string {
 }
 
 export function approvalSummary(approval: PendingApproval): string {
+  return approvalSummaryParts(approval).lines.join("\n");
+}
+
+export function approvalResultSummary(approval: PendingApproval): string {
+  const summary = approvalSummaryParts(approval);
+  return summary.reason ?? summary.target ?? summary.fallback;
+}
+
+function approvalSummaryParts(approval: PendingApproval): ApprovalSummaryParts {
   const params = approval.params as Record<string, unknown>;
+  const reason = nonEmptyString(params.reason);
   if (approval.method.includes("commandExecution")) {
-    return typeof params.command === "string" ? params.command : "Command execution requested.";
+    const target = nonEmptyString(params.command);
+    return summaryParts(reason, target, "Command execution requested.");
   }
   if (approval.method.includes("fileChange")) {
-    return typeof params.grantRoot === "string"
-      ? `grant root: ${params.grantRoot}`
-      : typeof params.reason === "string"
-        ? params.reason
-        : "Allow file changes?";
+    const grantRoot = nonEmptyString(params.grantRoot);
+    return summaryParts(reason, grantRoot ? `grant root: ${grantRoot}` : null, "Allow file changes?");
   }
   if (approval.method.includes("permissions")) {
-    return [
-      `cwd: ${typeof params.cwd === "string" ? params.cwd : "(unknown)"}`,
-      typeof params.reason === "string" ? params.reason : "",
-      jsonPreview(params.permissions),
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const cwd = `cwd: ${typeof params.cwd === "string" ? params.cwd : "(unknown)"}`;
+    return summaryParts(reason, cwd, "Permission change requested.", jsonPreview(params.permissions));
   }
-  return jsonPreview(params);
+  const fallback = jsonPreview(params);
+  return summaryParts(reason, null, fallback);
 }
 
 export function approvalDetails(approval: PendingApproval): Array<{ key: string; value: string }> {
   const params = approval.params as Record<string, unknown>;
-  const rows: Array<{ key: string; value: string }> = [
-    { key: "method", value: approval.method },
-    { key: "cwd", value: stringValue(params.cwd, "(unknown)") },
-  ];
+  const rows: Array<{ key: string; value: string }> = [];
   addOptional(rows, "reason", params.reason);
-  addOptional(rows, "grant root", params.grantRoot);
   addOptional(rows, "command", Array.isArray(params.command) ? params.command.join(" ") : params.command);
+  addOptional(rows, "cwd", params.cwd);
+  addOptional(rows, "grant root", params.grantRoot);
   addOptional(rows, "actions", params.commandActions);
-  addOptional(rows, "permissions", params.permissions);
+  rows.push(...permissionRows(params.permissions));
   addOptional(rows, "future command rule", params.proposedExecpolicyAmendment);
   addOptional(rows, "future network rules", params.proposedNetworkPolicyAmendments);
-  if (Object.keys(params).length > 0) rows.push({ key: "raw", value: jsonPreview(params) });
   return rows;
+}
+
+function summaryParts(reason: string | null, target: string | null, fallback: string, extra?: string | null): ApprovalSummaryParts {
+  const lines = [reason, target, extra].filter((value): value is string => Boolean(value));
+  return {
+    reason,
+    target,
+    fallback,
+    lines: lines.length > 0 ? lines : [fallback],
+  };
 }
 
 function commandDecision(action: ApprovalAction): CommandExecutionRequestApprovalResponse["decision"] {
@@ -137,16 +156,4 @@ function grantedPermissions(requested: unknown): GrantedPermissionProfile {
   if (source?.network) granted.network = source.network as GrantedPermissionProfile["network"];
   if (source?.fileSystem) granted.fileSystem = source.fileSystem as GrantedPermissionProfile["fileSystem"];
   return granted;
-}
-
-function addOptional(rows: Array<{ key: string; value: string }>, key: string, value: unknown): void {
-  if (value === null || value === undefined) return;
-  rows.push({ key, value: stringValue(value) });
-}
-
-function stringValue(value: unknown, fallback = ""): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
-  if (value === null || value === undefined) return fallback;
-  return jsonPreview(value);
 }

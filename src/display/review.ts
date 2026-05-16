@@ -1,4 +1,4 @@
-import type { FileSystemPath } from "../generated/app-server/v2/FileSystemPath";
+import { permissionRows } from "../approvals/permission-details";
 import type { GuardianApprovalReviewAction } from "../generated/app-server/v2/GuardianApprovalReviewAction";
 import type { ItemGuardianApprovalReviewCompletedNotification } from "../generated/app-server/v2/ItemGuardianApprovalReviewCompletedNotification";
 import type { ItemGuardianApprovalReviewStartedNotification } from "../generated/app-server/v2/ItemGuardianApprovalReviewStartedNotification";
@@ -131,35 +131,6 @@ function autoReviewActionRows(action: GuardianApprovalReviewAction): DisplayRow[
     ];
   }
   return [{ key: "action", value: "review action" }];
-}
-
-function permissionRows(permissions: Extract<GuardianApprovalReviewAction, { type: "requestPermissions" }>["permissions"]): DisplayRow[] {
-  const rows: DisplayRow[] = [];
-  if (permissions.network?.enabled !== null && permissions.network?.enabled !== undefined) {
-    rows.push({ key: "network", value: permissions.network.enabled ? "enabled" : "disabled" });
-  }
-  const fileSystem = permissions.fileSystem;
-  if (!fileSystem) return rows;
-  if (fileSystem.entries && fileSystem.entries.length > 0) {
-    rows.push({
-      key: "filesystem",
-      value: fileSystem.entries.map((entry) => `${fileSystemPathLabel(entry.path)} (${entry.access})`).join("\n"),
-    });
-  }
-  if (fileSystem.read && fileSystem.read.length > 0) rows.push({ key: "read", value: fileSystem.read.join("\n") });
-  if (fileSystem.write && fileSystem.write.length > 0) rows.push({ key: "write", value: fileSystem.write.join("\n") });
-  if (fileSystem.globScanMaxDepth !== null && fileSystem.globScanMaxDepth !== undefined) {
-    rows.push({ key: "glob depth", value: String(fileSystem.globScanMaxDepth) });
-  }
-  return rows;
-}
-
-function fileSystemPathLabel(path: FileSystemPath): string {
-  if (path.type === "path") return path.path;
-  if (path.type === "glob_pattern") return path.pattern;
-  if (path.value.kind === "project_roots") return path.value.subpath ? `project_roots/${path.value.subpath}` : "project_roots";
-  if (path.value.kind === "unknown") return path.value.subpath ? `${path.value.path}/${path.value.subpath}` : path.value.path;
-  return path.value.kind;
 }
 
 function autoReviewActionLabel(action: GuardianApprovalReviewAction): string {
