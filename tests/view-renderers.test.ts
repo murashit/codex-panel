@@ -14,7 +14,7 @@ import {
 import { renderPendingRequestMessage } from "../src/view/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../src/view/toolbar";
 import { displayItemSignature } from "../src/display/signature";
-import { messageRenderBlocks } from "../src/view/message-stream";
+import { messageRenderBlocks, syncMessageRenderBlocks } from "../src/view/message-stream";
 import { displayDiffLines, persistedTurnDiffViewState, renderTurnDiffView } from "../src/view/turn-diff";
 
 declare global {
@@ -140,6 +140,24 @@ describe("view renderers", () => {
     expect(displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault" })).not.toBe(
       displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault/project" }),
     );
+  });
+
+  it("reuses message block nodes while signatures are stable", () => {
+    const parent = document.createElement("div");
+    const signatures = new Map<string, string>();
+    const first = document.createElement("section");
+    first.textContent = "first";
+
+    syncMessageRenderBlocks(parent, [{ key: "one", signature: "same", render: () => first }], signatures);
+    syncMessageRenderBlocks(parent, [{ key: "one", signature: "same", render: () => document.createElement("aside") }], signatures);
+
+    expect(parent.firstElementChild).toBe(first);
+
+    const replacement = document.createElement("article");
+    syncMessageRenderBlocks(parent, [{ key: "one", signature: "changed", render: () => replacement }], signatures);
+
+    expect(parent.firstElementChild).toBe(replacement);
+    expect(signatures.get("one")).toBe("changed");
   });
 
   it("does not invalidate generic tool blocks when only the workspace root changes", () => {

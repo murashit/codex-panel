@@ -21,6 +21,12 @@ export function inheritedForkThreadName(threadId: string, threads: Thread[]): st
   return name || null;
 }
 
+export function upsertThread(threads: Thread[], thread: Thread): Thread[] {
+  const index = threads.findIndex((item) => item.id === thread.id);
+  if (index === -1) return [thread, ...threads];
+  return threads.map((item, itemIndex) => (itemIndex === index ? { ...item, ...thread } : item));
+}
+
 export function archivedThreadDisplayTitle(thread: Thread): string {
   const title = fullThreadTitle(thread);
   if (!title || title === thread.id || UUID_PATTERN.test(title)) return "Untitled archived thread";

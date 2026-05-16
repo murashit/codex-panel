@@ -28,6 +28,13 @@ export class FileSystemAdapter {
   }
 }
 
+export class TFile {
+  constructor(
+    readonly path: string,
+    readonly basename: string,
+  ) {}
+}
+
 export class Notice {
   constructor(message: string) {
     notices.push(message);

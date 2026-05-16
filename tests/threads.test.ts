@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../src/generated/app-server/v2/Thread";
-import { codexPanelDisplayTitle, inheritedForkThreadName } from "../src/threads";
+import { codexPanelDisplayTitle, inheritedForkThreadName, upsertThread } from "../src/threads";
 
 describe("thread helpers", () => {
   it("formats Codex panel display titles from the active thread", () => {
@@ -15,6 +15,15 @@ describe("thread helpers", () => {
     expect(inheritedForkThreadName("named", [thread({ id: "named", name: "親スレッド", preview: "Preview" })])).toBe("親スレッド");
     expect(inheritedForkThreadName("preview-only", [thread({ id: "preview-only", preview: "Preview" })])).toBeNull();
     expect(inheritedForkThreadName("blank-name", [thread({ id: "blank-name", name: "  ", preview: "Preview" })])).toBeNull();
+  });
+
+  it("upserts resumed thread metadata without reordering existing rows", () => {
+    const first = thread({ id: "first", preview: "old" });
+    const second = thread({ id: "second" });
+    const updated = thread({ id: "first", preview: "new", name: "Named" });
+
+    expect(upsertThread([first, second], updated)).toEqual([{ ...first, ...updated }, second]);
+    expect(upsertThread([second], first)).toEqual([first, second]);
   });
 });
 

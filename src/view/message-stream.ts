@@ -2,6 +2,7 @@ import { displayBlocksForItems, executionState } from "../display/model";
 import { displayItemSignature } from "../display/signature";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
 import { createIconButton, createMetaPair, createRememberedDetails } from "./components";
+import { shortSignature } from "./dom";
 import { applyExecutionStateClass } from "./execution-state";
 import { renderToolResult } from "./tool-result";
 import {
@@ -99,6 +100,38 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
   }
 
   return blocks;
+}
+
+export function syncMessageRenderBlocks(parent: HTMLElement, blocks: MessageRenderBlock[], signatures: Map<string, string>): void {
+  const existing = new Map<string, HTMLElement>();
+  parent.querySelectorAll<HTMLElement>(":scope > [data-codex-panel-block-key]").forEach((element) => {
+    const key = element.dataset.codexPanelBlockKey;
+    if (key) existing.set(key, element);
+  });
+
+  const seen = new Set<string>();
+  for (const block of blocks) {
+    const current = existing.get(block.key);
+    let element = current;
+    if (!element || signatures.get(block.key) !== block.signature) {
+      element = block.render();
+      element.dataset.codexPanelBlockKey = block.key;
+      element.dataset.codexPanelBlockSignature = shortSignature(block.signature);
+      signatures.set(block.key, block.signature);
+      if (current) {
+        current.replaceWith(element);
+      }
+    }
+    parent.appendChild(element);
+    seen.add(block.key);
+  }
+
+  for (const [key, element] of existing) {
+    if (!seen.has(key)) {
+      signatures.delete(key);
+      element.remove();
+    }
+  }
 }
 
 function createHistoryBarElement(loadingHistory: boolean, loadOlderTurns: () => void): HTMLElement {

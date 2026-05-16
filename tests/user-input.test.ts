@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { questionDefaultAnswer, toPendingUserInput, userInputResponse } from "../src/user-input/model";
+import { pendingRequestsSignature } from "../src/panel/request-state";
 import type { ServerRequest } from "../src/generated/app-server/ServerRequest";
 
 describe("user input model", () => {
@@ -31,5 +32,55 @@ describe("user input model", () => {
     expect(userInputResponse(input!, { direction: "Recommended" })).toEqual({
       answers: { direction: { answers: ["Recommended"] } },
     });
+  });
+
+  it("signs pending request content and drafts deterministically", () => {
+    const input = toPendingUserInput({
+      id: 7,
+      method: "item/tool/requestUserInput",
+      params: {
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "item",
+        questions: [
+          {
+            id: "direction",
+            header: "Direction",
+            question: "Which way?",
+            isOther: true,
+            isSecret: false,
+            options: [{ label: "Recommended", description: "Use the default path" }],
+          },
+        ],
+      },
+    })!;
+    const drafts = new Map([
+      ["z", "last"],
+      ["a", "first"],
+    ]);
+
+    expect(pendingRequestsSignature([], [], drafts)).toBe("");
+    expect(pendingRequestsSignature([], [input], drafts)).toBe(
+      JSON.stringify({
+        approvals: [],
+        inputs: [
+          {
+            id: 7,
+            questions: [
+              {
+                id: "direction",
+                header: "Direction",
+                question: "Which way?",
+                options: ["Recommended"],
+              },
+            ],
+          },
+        ],
+        drafts: [
+          ["a", "first"],
+          ["z", "last"],
+        ],
+      }),
+    );
   });
 });

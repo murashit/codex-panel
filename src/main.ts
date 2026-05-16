@@ -1,4 +1,4 @@
-import { ItemView, MarkdownRenderer, Notice, Plugin, TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { ItemView, MarkdownRenderer, Notice, Plugin, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "./app-server/client";
 import { ConnectionManager, StaleConnectionError } from "./app-server/connection-manager";
@@ -14,12 +14,12 @@ import {
   type NoteCandidate,
 } from "./composer/suggestions";
 import { isComposerSendKey } from "./composer/keys";
+import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./composer/obsidian-context";
 import { userInputWithWikiLinkMentions } from "./composer/wikilink-context";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { createSystemItem } from "./display/model";
 import type { DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "./generated/app-server/ReasoningEffort";
-import type { Thread } from "./generated/app-server/v2/Thread";
 import type { UserInput } from "./generated/app-server/v2/UserInput";
 import type { ServiceTier } from "./app-server/service-tier";
 import {
@@ -30,7 +30,7 @@ import {
 import { PanelController } from "./panel/controller";
 import { connectionDiagnosticLines, connectionDiagnosticRows } from "./panel/diagnostics";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./panel/rollback";
-import { contextSummary, effectiveConfigSections, rateLimitSummary, type RateLimitSummary } from "./panel/runtime-view";
+import { contextSummary, effectiveConfigSections, rateLimitSummary } from "./panel/runtime-view";
 import {
   configRecord,
   currentModel,
@@ -49,6 +49,7 @@ import {
   type RuntimeSnapshot,
 } from "./panel/runtime-state";
 import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessage } from "./panel/runtime-settings";
+import { statusValue, usageLimitStatusLines } from "./panel/status-lines";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult, type SlashCommandName } from "./panel/slash-commands";
 import { PanelSessionController } from "./panel/session-controller";
 import { ThreadHistoryLoader } from "./panel/thread-history";
@@ -56,8 +57,9 @@ import { ThreadRenameController } from "./panel/thread-rename";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings";
 import { CodexPanelSettingTab } from "./settings-tab";
 import { clearActiveThreadState, clearConnectionScopedState, createPanelState, type PanelState } from "./state/panel-state";
-import { userInputDraftKey, userInputOtherDraftKey } from "./panel/request-state";
-import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName } from "./threads";
+import { pendingRequestsSignature as requestStateSignature, userInputDraftKey, userInputOtherDraftKey } from "./panel/request-state";
+import { copyTextWithNotice } from "./view/clipboard";
+import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName, upsertThread } from "./threads";
 import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
 import {
   renderComposerShell,
@@ -65,8 +67,8 @@ import {
   syncComposerControls as syncComposerControlElements,
   syncComposerHeight,
 } from "./view/composer";
-import { renderTextWithWikiLinks as renderInlineWikiLinks, shortSignature } from "./view/dom";
-import { messageRenderBlocks } from "./view/message-stream";
+import { renderTextWithWikiLinks as renderInlineWikiLinks } from "./view/dom";
+import { messageRenderBlocks, syncMessageRenderBlocks } from "./view/message-stream";
 import { renderPendingRequestMessage } from "./view/pending-request-message";
 import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "./view/scroll";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "./view/toolbar";
@@ -247,13 +249,7 @@ class CodexTurnDiffView extends ItemView {
   }
 
   private async copyDiff(diff: string): Promise<void> {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API is not available.");
-      await navigator.clipboard.writeText(diff);
-      new Notice("Copied diff.");
-    } catch {
-      new Notice("Could not copy diff.");
-    }
+    await copyTextWithNotice(diff, "Copied diff.", "Could not copy diff.");
   }
 }
 
@@ -385,14 +381,7 @@ class CodexPanelView extends ItemView {
   }
 
   setComposerText(text: string): void {
-    this.state.composerDraft = text;
-    if (this.composer) {
-      this.composer.value = text;
-      syncComposerHeight(this.composer);
-      this.composer.focus();
-    } else {
-      this.render();
-    }
+    this.setComposerDraft(text, { focus: true, renderIfDetached: true });
   }
 
   private async ensureConnected(): Promise<void> {
@@ -509,12 +498,7 @@ class CodexPanelView extends ItemView {
 
     const slashCommand = parseSlashCommand(text);
     if (slashCommand) {
-      this.state.composerDraft = "";
-      if (this.composer) {
-        this.composer.value = "";
-        syncComposerHeight(this.composer);
-      }
-      this.clearComposerSuggestions();
+      this.setComposerDraft("", { clearSuggestions: true });
       const result = await this.executeSlashCommand(slashCommand.command, slashCommand.args);
       if (result?.sendText) {
         await this.sendTurnText(result.sendText);
@@ -554,11 +538,7 @@ class CodexPanelView extends ItemView {
         markdown: true,
       });
       this.forceMessagesToBottom();
-      this.state.composerDraft = "";
-      if (this.composer) {
-        this.composer.value = "";
-        syncComposerHeight(this.composer);
-      }
+      this.setComposerDraft("");
       this.state.busy = true;
       this.render();
 
@@ -588,11 +568,7 @@ class CodexPanelView extends ItemView {
     } catch (error) {
       this.state.busy = false;
       if (optimisticUserId) this.state.displayItems = this.state.displayItems.filter((item) => item.id !== optimisticUserId);
-      this.state.composerDraft = text;
-      if (this.composer) {
-        this.composer.value = text;
-        syncComposerHeight(this.composer);
-      }
+      this.setComposerDraft(text);
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
     this.scheduleRender();
@@ -607,12 +583,7 @@ class CodexPanelView extends ItemView {
     const threadId = this.state.activeThreadId;
     const expectedTurnId = this.state.activeTurnId;
 
-    this.state.composerDraft = "";
-    if (this.composer) {
-      this.composer.value = "";
-      syncComposerHeight(this.composer);
-    }
-    this.clearComposerSuggestions();
+    this.setComposerDraft("", { clearSuggestions: true });
     this.syncComposerControls();
 
     try {
@@ -629,12 +600,7 @@ class CodexPanelView extends ItemView {
       this.forceMessagesToBottom();
       this.setStatus("Steered current turn.");
     } catch (error) {
-      this.state.composerDraft = text;
-      if (this.composer) {
-        this.composer.value = text;
-        syncComposerHeight(this.composer);
-        this.composer.focus();
-      }
+      this.setComposerDraft(text, { focus: true });
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
 
@@ -1242,35 +1208,7 @@ class CodexPanelView extends ItemView {
       pendingRequestsSignature: this.pendingRequestsSignature(),
       renderPendingRequests: () => this.createPendingRequestsElement(),
     });
-    const existing = new Map<string, HTMLElement>();
-    messagesEl.querySelectorAll<HTMLElement>(":scope > [data-codex-panel-block-key]").forEach((element) => {
-      const key = element.dataset.codexPanelBlockKey;
-      if (key) existing.set(key, element);
-    });
-
-    const seen = new Set<string>();
-    for (const block of blocks) {
-      const current = existing.get(block.key);
-      let element = current;
-      if (!element || this.blockSignatures.get(block.key) !== block.signature) {
-        element = block.render();
-        element.dataset.codexPanelBlockKey = block.key;
-        element.dataset.codexPanelBlockSignature = shortSignature(block.signature);
-        this.blockSignatures.set(block.key, block.signature);
-        if (current) {
-          current.replaceWith(element);
-        }
-      }
-      messagesEl.appendChild(element);
-      seen.add(block.key);
-    }
-
-    for (const [key, element] of existing) {
-      if (!seen.has(key)) {
-        this.blockSignatures.delete(key);
-        element.remove();
-      }
-    }
+    syncMessageRenderBlocks(messagesEl, blocks, this.blockSignatures);
 
     window.requestAnimationFrame(() => {
       if (shouldScrollToBottom) {
@@ -1283,13 +1221,7 @@ class CodexPanelView extends ItemView {
   }
 
   private async copyMessageText(text: string): Promise<void> {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API is not available.");
-      await navigator.clipboard.writeText(text);
-      new Notice("Copied message.");
-    } catch {
-      new Notice("Could not copy message.");
-    }
+    await copyTextWithNotice(text, "Copied message.", "Could not copy message.");
   }
 
   private renderMarkdownMessage(parent: HTMLElement, text: string): void {
@@ -1301,20 +1233,7 @@ class CodexPanelView extends ItemView {
   }
 
   private pendingRequestsSignature(): string {
-    if (this.state.approvals.length === 0 && this.state.pendingUserInputs.length === 0) return "";
-    return JSON.stringify({
-      approvals: this.state.approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),
-      inputs: this.state.pendingUserInputs.map((input) => ({
-        id: input.requestId,
-        questions: input.params.questions.map((question) => ({
-          id: question.id,
-          header: question.header,
-          question: question.question,
-          options: question.options?.map((option) => option.label) ?? null,
-        })),
-      })),
-      drafts: Array.from(this.state.userInputDrafts.entries()).sort(([left], [right]) => left.localeCompare(right)),
-    });
+    return requestStateSignature(this.state.approvals, this.state.pendingUserInputs, this.state.userInputDrafts);
   }
 
   private createPendingRequestsElement(): HTMLElement | null {
@@ -1389,6 +1308,19 @@ class CodexPanelView extends ItemView {
     this.composer = elements.composer;
     this.composerSuggestEl = elements.suggestions;
     this.updateComposerSuggestions();
+  }
+
+  private setComposerDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean; renderIfDetached?: boolean } = {}): void {
+    this.state.composerDraft = text;
+    if (options.clearSuggestions) this.clearComposerSuggestions();
+    if (!this.composer) {
+      if (options.renderIfDetached) this.render();
+      return;
+    }
+
+    this.composer.value = text;
+    syncComposerHeight(this.composer);
+    if (options.focus) this.composer.focus();
   }
 
   private syncComposerControls(): void {
@@ -1510,28 +1442,13 @@ class CodexPanelView extends ItemView {
 
   private noteCandidates(): NoteCandidate[] {
     if (!this.noteCandidatesCache) {
-      this.noteCandidatesCache = this.app.vault.getMarkdownFiles().map((file) => ({
-        basename: file.basename,
-        path: file.path,
-        mtime: file.stat.mtime,
-      }));
+      this.noteCandidatesCache = appNoteCandidates(this.app);
     }
     return this.noteCandidatesCache;
   }
 
   private codexInput(text: string): UserInput[] {
-    return userInputWithWikiLinkMentions(text, (target) => this.resolveWikiLinkMention(target));
-  }
-
-  private resolveWikiLinkMention(target: string): { name: string; path: string } | null {
-    const sourcePath = this.app.workspace.getActiveFile()?.path ?? "";
-    const linkedFile = this.app.metadataCache.getFirstLinkpathDest(target, sourcePath);
-    if (linkedFile?.path) return { name: linkedFile.basename, path: linkedFile.path };
-
-    const directPath = target.endsWith(".md") ? target : `${target}.md`;
-    const abstractFile = this.app.vault.getAbstractFileByPath(directPath);
-    if (abstractFile instanceof TFile) return { name: abstractFile.basename, path: abstractFile.path };
-    return null;
+    return userInputWithWikiLinkMentions(text, (target) => resolveAppWikiLinkMention(this.app, target));
   }
 
   private registerNoteIndexInvalidation(): void {
@@ -1544,30 +1461,5 @@ class CodexPanelView extends ItemView {
     this.registerEvent(this.app.vault.on("delete", invalidate));
     this.registerEvent(this.app.vault.on("rename", invalidate));
     this.registerEvent(this.app.vault.on("modify", invalidate));
-  }
-}
-
-function statusValue(value: unknown, fallback: string): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
-  if (value === null || value === undefined) return fallback;
-  return jsonPreview(value, fallback);
-}
-
-function upsertThread(threads: Thread[], thread: Thread): Thread[] {
-  const index = threads.findIndex((item) => item.id === thread.id);
-  if (index === -1) return [thread, ...threads];
-  return threads.map((item, itemIndex) => (itemIndex === index ? { ...item, ...thread } : item));
-}
-
-function usageLimitStatusLines(limit: RateLimitSummary): string[] {
-  return ["Usage limits", ...limit.rows.map((row) => `${row.label}: ${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`)];
-}
-
-function jsonPreview(value: unknown, fallback: string): string {
-  try {
-    return JSON.stringify(value) ?? fallback;
-  } catch {
-    return fallback;
   }
 }

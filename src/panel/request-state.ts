@@ -11,6 +11,23 @@ export function userInputOtherDraftKey(requestId: RequestId, questionId: string)
   return `${String(requestId)}:${questionId}:other`;
 }
 
+export function pendingRequestsSignature(approvals: PendingApproval[], inputs: PendingUserInput[], drafts: Map<string, string>): string {
+  if (approvals.length === 0 && inputs.length === 0) return "";
+  return JSON.stringify({
+    approvals: approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),
+    inputs: inputs.map((input) => ({
+      id: input.requestId,
+      questions: input.params.questions.map((question) => ({
+        id: question.id,
+        header: question.header,
+        question: question.question,
+        options: question.options?.map((option) => option.label) ?? null,
+      })),
+    })),
+    drafts: Array.from(drafts.entries()).sort(([left], [right]) => left.localeCompare(right)),
+  });
+}
+
 export function clearUserInputDrafts(drafts: Map<string, string>, input: PendingUserInput): void {
   for (const question of input.params.questions) {
     drafts.delete(userInputDraftKey(input.requestId, question.id));
