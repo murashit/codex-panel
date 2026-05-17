@@ -226,6 +226,25 @@ export function setIcon(element: HTMLElement, icon: string): void {
 function ensureElementHelpers(): void {
   if (typeof HTMLElement === "undefined") return;
 
+  const NodeCtor = globalThis.Node ?? document.defaultView?.Node;
+  if (NodeCtor && !Object.getOwnPropertyDescriptor(NodeCtor.prototype, "doc")) {
+    Object.defineProperty(NodeCtor.prototype, "doc", {
+      configurable: true,
+      get(this: Node): Document {
+        return this.ownerDocument ?? document;
+      },
+    });
+  }
+
+  if (NodeCtor && !Object.getOwnPropertyDescriptor(NodeCtor.prototype, "win")) {
+    Object.defineProperty(NodeCtor.prototype, "win", {
+      configurable: true,
+      get(this: Node): Window {
+        return this.ownerDocument?.defaultView ?? window;
+      },
+    });
+  }
+
   if (!HTMLElement.prototype.addClass) {
     HTMLElement.prototype.addClass = function addClass(className: string): void {
       this.classList.add(className);

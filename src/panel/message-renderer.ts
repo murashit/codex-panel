@@ -52,7 +52,7 @@ export class PanelMessageRenderer {
       workspaceRoot: state.activeThreadCwd ?? this.options.vaultPath,
       openDetails: state.openDetails,
       onDetailsToggle: () => {
-        window.requestAnimationFrame(() => {
+        messagesEl.win.requestAnimationFrame(() => {
           state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
         });
       },
@@ -72,7 +72,7 @@ export class PanelMessageRenderer {
     });
     syncMessageRenderBlocks(messagesEl, blocks, this.options.blockSignatures);
 
-    window.requestAnimationFrame(() => {
+    messagesEl.win.requestAnimationFrame(() => {
       if (shouldScrollToBottom) {
         messagesEl.scrollTop = bottomScrollTop(messagesEl);
       } else {
@@ -99,7 +99,7 @@ export class PanelMessageRenderer {
     if (!this.options.state.messagesPinnedToBottom) return;
     const messagesEl = parent.closest<HTMLElement>(".codex-panel__messages");
     if (!messagesEl) return;
-    window.requestAnimationFrame(() => {
+    messagesEl.win.requestAnimationFrame(() => {
       if (!this.options.state.messagesPinnedToBottom) return;
       messagesEl.scrollTop = bottomScrollTop(messagesEl);
       this.options.state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);

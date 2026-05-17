@@ -47,12 +47,10 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   async activateView(): Promise<CodexPanelView> {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)[0];
-    const leaf = existing ?? this.app.workspace.getRightLeaf(false);
-    if (!leaf) throw new Error("Could not create a right sidebar leaf.");
-
-    await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
-    await this.app.workspace.revealLeaf(leaf);
+    const leaf = await this.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_PANEL, "right", {
+      active: true,
+      reveal: true,
+    });
     return leaf.view as CodexPanelView;
   }
 

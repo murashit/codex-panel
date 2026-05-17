@@ -363,7 +363,7 @@ function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, ac
       actions.cancelRenameThread(thread.threadId);
     }
   };
-  window.setTimeout(() => {
+  input.win.setTimeout(() => {
     if (input.ownerDocument.activeElement !== input) {
       input.focus();
       input.select();

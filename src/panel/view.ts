@@ -202,14 +202,14 @@ export class CodexPanelView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.composerController.registerNoteIndexInvalidation((eventRef) => this.registerEvent(eventRef));
-    this.registerDomEvent(activeDocument, "pointerdown", (event) => this.closeToolbarPanelOnOutsidePointer(event));
+    this.registerDomEvent(this.containerEl.doc, "pointerdown", (event) => this.closeToolbarPanelOnOutsidePointer(event));
     this.render();
     await this.ensureConnected();
   }
 
   async onClose(): Promise<void> {
     if (this.scheduledRenderTimer !== null) {
-      window.clearTimeout(this.scheduledRenderTimer);
+      this.containerEl.win.clearTimeout(this.scheduledRenderTimer);
       this.scheduledRenderTimer = null;
     }
     this.connection.disconnect();
@@ -800,7 +800,8 @@ export class CodexPanelView extends ItemView {
     if (!this.hasOpenToolbarPanel()) return;
 
     const target = event.target;
-    if (target instanceof Element) {
+    const viewWindow = this.containerEl.doc.defaultView;
+    if (viewWindow && target instanceof viewWindow.Element) {
       const insideToolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
       if (insideToolbarPanel && this.containerEl.contains(insideToolbarPanel)) return;
     }
@@ -823,7 +824,7 @@ export class CodexPanelView extends ItemView {
 
   private scheduleRender(): void {
     if (this.scheduledRenderTimer !== null) return;
-    this.scheduledRenderTimer = window.setTimeout(() => {
+    this.scheduledRenderTimer = this.containerEl.win.setTimeout(() => {
       this.scheduledRenderTimer = null;
       this.render();
     }, 50);

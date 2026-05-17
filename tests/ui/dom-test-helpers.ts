@@ -21,6 +21,23 @@ declare global {
 
 export function installObsidianDomShims(): void {
   beforeEach(() => {
+    const NodeCtor = globalThis.Node ?? document.defaultView?.Node;
+    if (NodeCtor && !Object.getOwnPropertyDescriptor(NodeCtor.prototype, "doc")) {
+      Object.defineProperty(NodeCtor.prototype, "doc", {
+        configurable: true,
+        get(this: Node): Document {
+          return this.ownerDocument ?? document;
+        },
+      });
+    }
+    if (NodeCtor && !Object.getOwnPropertyDescriptor(NodeCtor.prototype, "win")) {
+      Object.defineProperty(NodeCtor.prototype, "win", {
+        configurable: true,
+        get(this: Node): Window {
+          return this.ownerDocument?.defaultView ?? window;
+        },
+      });
+    }
     HTMLElement.prototype.addClass = function addClass(this: HTMLElement, className: string): void {
       this.classList.add(...className.split(/\s+/).filter(Boolean));
     };

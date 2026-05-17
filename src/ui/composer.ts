@@ -104,19 +104,15 @@ export function syncComposerHeight(composer: HTMLTextAreaElement | null): void {
   if (!composer) return;
   const style = getComputedStyle(composer);
   const minHeight = parseCssPixels(style.minHeight, 76);
-  const maxHeight = composerMaxHeight(style.maxHeight);
-  setCssProps(composer, { height: "auto" });
+  const maxHeight = composerMaxHeight(style.maxHeight, composer.win);
+  const resetHeightProps: Record<string, string> = { height: "auto" };
+  composer.setCssProps(resetHeightProps);
   const nextHeight = Math.min(Math.max(composer.scrollHeight, minHeight), maxHeight);
-  setCssProps(composer, {
+  const sizingProps: Record<string, string> = {
     height: `${nextHeight}px`,
     "overflow-y": composer.scrollHeight > maxHeight ? "auto" : "hidden",
-  });
-}
-
-function setCssProps(element: HTMLElement, props: Record<string, string>): void {
-  for (const [key, value] of Object.entries(props)) {
-    element.style.setProperty(key, value);
-  }
+  };
+  composer.setCssProps(sizingProps);
 }
 
 function parseCssPixels(value: string, fallback: number): number {
@@ -124,26 +120,26 @@ function parseCssPixels(value: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function composerMaxHeight(value: string): number {
-  return parseCssLengthExpression(value) ?? Math.min(208, window.innerHeight * 0.4);
+function composerMaxHeight(value: string, win: Window): number {
+  return parseCssLengthExpression(value, win) ?? Math.min(208, win.innerHeight * 0.4);
 }
 
-function parseCssLengthExpression(value: string): number | null {
+function parseCssLengthExpression(value: string, win: Window): number | null {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "none") return null;
   if (/^min\(/i.test(trimmed)) {
     const values = Array.from(trimmed.matchAll(/(-?\d+(?:\.\d+)?)\s*(px|vh)/gi), (match) =>
-      cssLengthToPixels(Number.parseFloat(match[1]), match[2]),
+      cssLengthToPixels(Number.parseFloat(match[1]), match[2], win),
     ).filter((candidate): candidate is number => Number.isFinite(candidate));
     return values.length > 0 ? Math.min(...values) : null;
   }
   const length = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*(px|vh)$/i);
   if (!length) return null;
-  return cssLengthToPixels(Number.parseFloat(length[1]), length[2]);
+  return cssLengthToPixels(Number.parseFloat(length[1]), length[2], win);
 }
 
-function cssLengthToPixels(value: number, unit: string): number {
-  if (unit.toLowerCase() === "vh") return (window.innerHeight * value) / 100;
+function cssLengthToPixels(value: number, unit: string, win: Window): number {
+  if (unit.toLowerCase() === "vh") return (win.innerHeight * value) / 100;
   return value;
 }
 
