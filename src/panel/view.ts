@@ -15,7 +15,7 @@ import {
   nextCollaborationMode,
 } from "../runtime/collaboration-mode";
 import { PanelController } from "./controller";
-import { connectionDiagnosticLines, connectionDiagnosticRows } from "./diagnostics";
+import { connectionDiagnosticLines, connectionDiagnosticRows, diagnosticAlertLevel } from "./diagnostics";
 import { rollbackCandidateFromItems } from "./rollback";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../runtime/view";
 import {
@@ -138,6 +138,10 @@ export class CodexPanelView extends ItemView {
       refreshThreads: () => void this.refreshThreads(),
       refreshSkills: (forceReload) => void this.refreshSkills(forceReload),
       maybeNameThread: (threadId, turn) => this.threadRename.maybeAutoNameThread(threadId, turn),
+      recordMcpStartupStatus: (name, status, message) => {
+        this.session.recordMcpStartupStatus(name, status, message);
+        this.scheduleRender();
+      },
       respondToServerRequest: (requestId, result) => this.respondToServerRequest(requestId, result),
       rejectServerRequest: (requestId, code, message) => this.rejectServerRequest(requestId, code, message),
     });
@@ -146,9 +150,6 @@ export class CodexPanelView extends ItemView {
       vaultPath: this.plugin.vaultPath,
       currentClient: () => this.connection.currentClient(),
       runtimeSnapshot: () => this.runtimeSnapshot(),
-      setStatus: (status) => this.setStatus(status),
-      addSystemMessage: (text) => this.addSystemMessage(text),
-      addDedupedSystemMessage: (text) => this.addDedupedSystemMessage(text),
       forceMessagesToBottom: () => this.forceMessagesToBottom(),
     });
     this.history = new ThreadHistoryLoader({
@@ -230,6 +231,7 @@ export class CodexPanelView extends ItemView {
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
       await this.session.refreshSessionMetadata();
+      await this.session.refreshCapabilityDiagnostics();
       await this.session.refreshThreadList();
       this.refreshTabHeader();
       this.setStatus("Connected.");
@@ -274,6 +276,14 @@ export class CodexPanelView extends ItemView {
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  private async refreshDiagnostics(): Promise<void> {
+    const alreadyConnected = this.connection.isConnected();
+    await this.ensureConnected();
+    if (!this.client) return;
+    if (alreadyConnected) await this.session.refreshCapabilityDiagnostics();
+    this.render();
   }
 
   private async refreshSkills(forceReload = false): Promise<void> {
@@ -641,6 +651,7 @@ export class CodexPanelView extends ItemView {
       toggleFast: () => this.toggleFastMode(),
       toggleRuntime: () => this.toggleRuntimePicker("model"),
       connect: () => void this.reconnectFromToolbar(),
+      refreshDiagnostics: () => void this.refreshDiagnostics(),
       refreshThreads: () => {
         this.state.openDetails.delete("status-panel");
         void this.refreshThreads();
@@ -703,6 +714,7 @@ export class CodexPanelView extends ItemView {
       effortChoices: this.effortToolbarChoices(),
       connectLabel: this.connection.isConnected() ? "Reconnect" : "Connect",
       diagnostics: this.connectionDiagnosticRows(),
+      diagnosticAlertLevel: diagnosticAlertLevel(this.state.appServerDiagnostics),
     };
   }
 
@@ -878,7 +890,7 @@ export class CodexPanelView extends ItemView {
       configuredCommand: this.plugin.settings.codexPath,
       initializeResponse: this.state.initializeResponse,
       activeThreadCliVersion: this.state.activeThreadCliVersion,
-      compatibility: this.state.appServerCompatibility,
+      diagnostics: this.state.appServerDiagnostics,
     });
   }
 

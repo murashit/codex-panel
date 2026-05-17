@@ -1,4 +1,11 @@
 import type { AppServerClient } from "../app-server/client";
+import {
+  capabilityProbeError,
+  capabilityProbeOk,
+  upsertMcpServerDiagnostic,
+  type CapabilityProbeMethod,
+} from "../app-server/compatibility";
+import type { McpServerStatus } from "../generated/app-server/v2/McpServerStatus";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../runtime/state";
 import type { PanelState } from "./state";
 
@@ -7,9 +14,6 @@ export interface PanelSessionControllerHost {
   vaultPath: string;
   currentClient: () => AppServerClient | null;
   runtimeSnapshot: () => RuntimeSnapshot;
-  setStatus: (status: string) => void;
-  addSystemMessage: (text: string) => void;
-  addDedupedSystemMessage: (text: string) => void;
   forceMessagesToBottom: () => void;
 }
 
@@ -57,14 +61,8 @@ export class PanelSessionController {
     try {
       const response = await client.listModels(false);
       this.host.state.availableModels = response.data;
-      this.host.state.appServerCompatibility.modelList = "ok";
-      this.host.state.appServerCompatibility.modelListError = null;
-    } catch (error) {
+    } catch {
       this.host.state.availableModels = [];
-      const message = error instanceof Error ? error.message : String(error);
-      this.host.state.appServerCompatibility.modelList = "failed";
-      this.host.state.appServerCompatibility.modelListError = message;
-      this.host.addDedupedSystemMessage(`Could not load Codex models: ${message}`);
     }
   }
 
@@ -74,9 +72,8 @@ export class PanelSessionController {
     try {
       const response = await client.listSkills(this.host.vaultPath, forceReload);
       this.host.state.availableSkills = response.data.flatMap((entry) => entry.skills).filter((skill) => skill.enabled);
-    } catch (error) {
+    } catch {
       this.host.state.availableSkills = [];
-      this.host.addDedupedSystemMessage(`Could not load Codex skills: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -88,6 +85,101 @@ export class PanelSessionController {
       this.host.state.rateLimit = response.rateLimitsByLimitId?.codex ?? response.rateLimits ?? null;
     } catch {
       this.host.state.rateLimit = null;
+    }
+  }
+
+  async refreshCapabilityDiagnostics(): Promise<void> {
+    const client = this.host.currentClient();
+    if (!client) return;
+
+    await Promise.all([
+      this.probeCapability(
+        "model/list",
+        () => client.listModels(false),
+        (response) => `${response.data.length} models`,
+      ),
+      this.probeCapability(
+        "skills/list",
+        () => client.listSkills(this.host.vaultPath),
+        (response) => {
+          const count = response.data.reduce((total, entry) => total + entry.skills.length, 0);
+          return `${count} skills`;
+        },
+      ),
+      this.probeCapability(
+        "hooks/list",
+        () => client.listHooks(this.host.vaultPath),
+        (response) => {
+          const count = response.data.reduce((total, entry) => total + entry.hooks.length, 0);
+          return `${count} hooks`;
+        },
+      ),
+      this.probeCapability(
+        "account/rateLimits/read",
+        () => client.readAccountRateLimits(),
+        (response) => (response.rateLimitsByLimitId ? `${Object.keys(response.rateLimitsByLimitId).length} limits` : "available"),
+      ),
+      this.probeCapability(
+        "mcpServerStatus/list",
+        () => client.listMcpServerStatus(),
+        (response) => {
+          this.recordMcpServerStatus(response.data);
+          const issueCount = response.data.filter((server) => server.authStatus === "notLoggedIn").length;
+          return issueCount > 0 ? `${response.data.length} servers, ${issueCount} auth issues` : `${response.data.length} servers`;
+        },
+      ),
+      this.probeCapability(
+        "collaborationMode/list",
+        () => client.listCollaborationModes(),
+        (response) => `${response.data.length} modes`,
+      ),
+      this.probeCapability(
+        "modelProvider/capabilities/read",
+        () => client.readModelProviderCapabilities(),
+        (response) =>
+          [
+            response.namespaceTools ? "namespace tools" : null,
+            response.imageGeneration ? "image generation" : null,
+            response.webSearch ? "web search" : null,
+          ]
+            .filter(Boolean)
+            .join(", ") || "no optional capabilities",
+      ),
+    ]);
+  }
+
+  recordMcpStartupStatus(name: string, startupStatus: "starting" | "ready" | "failed" | "cancelled", message: string | null): void {
+    this.host.state.appServerDiagnostics = upsertMcpServerDiagnostic(this.host.state.appServerDiagnostics, {
+      name,
+      startupStatus,
+      authStatus: null,
+      toolCount: null,
+      message,
+    });
+  }
+
+  private async probeCapability<T>(
+    method: CapabilityProbeMethod,
+    request: () => Promise<T>,
+    summarize: (response: T) => string | null,
+  ): Promise<void> {
+    try {
+      const response = await request();
+      this.host.state.appServerDiagnostics.probes[method] = capabilityProbeOk(method, summarize(response));
+    } catch (error) {
+      this.host.state.appServerDiagnostics.probes[method] = capabilityProbeError(method, error);
+    }
+  }
+
+  private recordMcpServerStatus(servers: McpServerStatus[]): void {
+    for (const server of servers) {
+      this.host.state.appServerDiagnostics = upsertMcpServerDiagnostic(this.host.state.appServerDiagnostics, {
+        name: server.name,
+        startupStatus: "unknown",
+        authStatus: server.authStatus,
+        toolCount: Object.keys(server.tools ?? {}).length,
+        message: null,
+      });
     }
   }
 }

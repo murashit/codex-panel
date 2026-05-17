@@ -6,6 +6,7 @@ import { renderEffectiveConfig } from "./config";
 
 export type ToolbarPanelKind = "history" | "status" | "runtime";
 export type ToolbarStatusState = "offline" | "connected" | "running";
+export type ToolbarDiagnosticAlertLevel = "normal" | "warning" | "error";
 
 export interface ToolbarChoice {
   label: string;
@@ -56,6 +57,7 @@ export interface ToolbarViewModel {
   effortChoices: ToolbarChoice[];
   connectLabel: string;
   diagnostics: ToolbarDiagnosticRow[];
+  diagnosticAlertLevel: ToolbarDiagnosticAlertLevel;
 }
 
 export interface ToolbarActions {
@@ -65,6 +67,7 @@ export interface ToolbarActions {
   toggleFast: () => void;
   toggleRuntime: () => void;
   connect: () => void;
+  refreshDiagnostics: () => void;
   refreshThreads: () => void;
   resumeThread: (threadId: string) => void;
   archiveThread: (threadId: string) => void;
@@ -104,6 +107,7 @@ export function toolbarSignature(model: ToolbarViewModel): string {
     effortChoices: model.effortChoices.map((choice) => `${choice.label}:${choice.selected}:${choice.disabled}:${choice.meta ?? ""}`),
     connectLabel: model.connectLabel,
     diagnostics: model.diagnostics.map((row) => `${row.label}:${row.value}:${row.level ?? "normal"}`),
+    diagnosticAlertLevel: model.diagnosticAlertLevel,
   });
 }
 
@@ -128,16 +132,32 @@ function renderHistoryButton(parent: HTMLElement, model: ToolbarViewModel, actio
 }
 
 function renderStatusButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
-  const label = `Status: ${model.status}; ${model.connected ? "connected" : "not connected"}`;
+  const alertClass = model.diagnosticAlertLevel === "normal" ? "" : ` codex-panel__status-dot--diagnostic-${model.diagnosticAlertLevel}`;
   const button = parent.createEl("button", {
-    cls: `clickable-icon nav-action-button codex-panel__top-control codex-panel__status-dot codex-panel__status-dot--${model.statusState} ${model.statusPanelOpen ? "is-active" : ""}`,
+    cls: `clickable-icon nav-action-button codex-panel__top-control codex-panel__status-dot codex-panel__status-dot--${model.statusState}${alertClass} ${model.statusPanelOpen ? "is-active" : ""}`,
     attr: {
       type: "button",
-      "aria-label": label,
+      "aria-label": statusButtonLabel(model),
       "aria-expanded": model.statusPanelOpen ? "true" : "false",
     },
   });
+  if (model.diagnosticAlertLevel !== "normal") {
+    button.createSpan({
+      cls: `codex-panel__status-dot-diagnostic codex-panel__status-dot-diagnostic--${model.diagnosticAlertLevel}`,
+      attr: { "aria-hidden": "true" },
+    });
+  }
   button.onclick = actions.toggleStatusPanel;
+}
+
+function statusButtonLabel(model: ToolbarViewModel): string {
+  const status = model.status.trim() || (model.connected ? "Connected" : "Not connected");
+  const connection = model.connected ? "connected" : "not connected";
+  const normalizedStatus = status.toLowerCase().replace(/[.!…]+$/u, "");
+  const parts = [`Status: ${status}`];
+  if (normalizedStatus !== connection) parts.push(`Connection: ${connection}`);
+  parts.push(`Diagnostics: ${model.diagnosticAlertLevel}`);
+  return parts.join("; ");
 }
 
 function renderRuntimeStatus(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
@@ -215,6 +235,10 @@ function renderToolbarPanel(toolbar: HTMLElement, model: ToolbarViewModel, actio
 function renderStatusPanel(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
   const statusItems = parent.createDiv({ cls: "codex-panel__status-panel-items", attr: { role: "menu" } });
   createToolbarPanelItem(statusItems, model.connectLabel, { onClick: actions.connect, className: "codex-panel__status-panel-item" });
+  createToolbarPanelItem(statusItems, "Refresh diagnostics", {
+    onClick: actions.refreshDiagnostics,
+    className: "codex-panel__status-panel-item",
+  });
   createToolbarPanelItem(statusItems, "Refresh thread list", {
     onClick: actions.refreshThreads,
     className: "codex-panel__status-panel-item",

@@ -35,6 +35,7 @@ export interface PanelControllerActions {
   refreshThreads: () => void;
   refreshSkills: (forceReload?: boolean) => void;
   maybeNameThread: (threadId: string, turn: Turn) => void;
+  recordMcpStartupStatus: (name: string, status: "starting" | "ready" | "failed" | "cancelled", message: string | null) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
 }
@@ -352,14 +353,7 @@ export class PanelController {
 
   private handleMcpStartupStatus(params: Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>["params"]): void {
     if (!params?.name) return;
-    if (params.status === "failed") {
-      const key = `${params.name}:${params.error ?? ""}`;
-      if (this.state.reportedMcpFailures.has(key)) return;
-      this.state.reportedMcpFailures.add(key);
-      this.addSystemMessage(
-        `MCP server failed to start: ${params.name}\n${params.error ?? ""}\n\nThis is non-fatal for the Codex thread unless that MCP server is needed.`,
-      );
-    }
+    this.actions.recordMcpStartupStatus(params.name, params.status, params.error ?? null);
   }
 }
 

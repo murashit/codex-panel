@@ -7,7 +7,11 @@ import type { ConfigWriteResponse } from "../generated/app-server/v2/ConfigWrite
 import type { GetAccountRateLimitsResponse } from "../generated/app-server/v2/GetAccountRateLimitsResponse";
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
 import type { HooksListResponse } from "../generated/app-server/v2/HooksListResponse";
+import type { CollaborationModeListResponse } from "../generated/app-server/v2/CollaborationModeListResponse";
+import type { ListMcpServerStatusParams } from "../generated/app-server/v2/ListMcpServerStatusParams";
+import type { ListMcpServerStatusResponse } from "../generated/app-server/v2/ListMcpServerStatusResponse";
 import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
+import type { ModelProviderCapabilitiesReadResponse } from "../generated/app-server/v2/ModelProviderCapabilitiesReadResponse";
 import type { SkillsListResponse } from "../generated/app-server/v2/SkillsListResponse";
 import type { ThreadArchiveResponse } from "../generated/app-server/v2/ThreadArchiveResponse";
 import type { ThreadForkResponse } from "../generated/app-server/v2/ThreadForkResponse";
@@ -25,7 +29,7 @@ import type { TurnSteerResponse } from "../generated/app-server/v2/TurnSteerResp
 import type { UserInput } from "../generated/app-server/v2/UserInput";
 import { CLIENT_VERSION } from "../constants";
 import { StdioAppServerTransport, type AppServerTransport, type AppServerTransportHandlers } from "./transport";
-import type { ClientRequestMethod, ClientRequestParams, PendingRequest, RpcInboundMessage, RpcOutboundMessage } from "./types";
+import type { ClientRequestMethod, ClientRequestParams, PendingRequest, RpcError, RpcInboundMessage, RpcOutboundMessage } from "./types";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
@@ -41,6 +45,20 @@ export interface AppServerClientHandlers {
 }
 
 export type AppServerTransportFactory = (handlers: AppServerTransportHandlers) => AppServerTransport;
+
+export class AppServerRpcError extends Error {
+  readonly code?: number;
+  readonly data?: unknown;
+  readonly method: ClientRequestMethod;
+
+  constructor(method: ClientRequestMethod, error: RpcError) {
+    super(error.message || "Codex app-server request failed.");
+    this.name = "AppServerRpcError";
+    this.code = error.code;
+    this.data = error.data;
+    this.method = method;
+  }
+}
 
 interface ClientResponseByMethod {
   initialize: InitializeResponse;
@@ -59,6 +77,9 @@ interface ClientResponseByMethod {
   "skills/list": SkillsListResponse;
   "model/list": ModelListResponse;
   "account/rateLimits/read": GetAccountRateLimitsResponse;
+  "mcpServerStatus/list": ListMcpServerStatusResponse;
+  "collaborationMode/list": CollaborationModeListResponse;
+  "modelProvider/capabilities/read": ModelProviderCapabilitiesReadResponse;
   "thread/compact/start": Record<string, never>;
   "turn/start": TurnStartResponse;
   "turn/steer": TurnSteerResponse;
@@ -266,6 +287,20 @@ export class AppServerClient {
     return this.request("account/rateLimits/read", undefined);
   }
 
+  listMcpServerStatus(
+    params: ListMcpServerStatusParams = { detail: "toolsAndAuthOnly", limit: 100 },
+  ): Promise<ListMcpServerStatusResponse> {
+    return this.request("mcpServerStatus/list", params);
+  }
+
+  listCollaborationModes(): Promise<CollaborationModeListResponse> {
+    return this.request("collaborationMode/list", {});
+  }
+
+  readModelProviderCapabilities(): Promise<ModelProviderCapabilitiesReadResponse> {
+    return this.request("modelProvider/capabilities/read", {});
+  }
+
   compactThread(threadId: string): Promise<Record<string, never>> {
     return this.request("thread/compact/start", { threadId });
   }
@@ -416,7 +451,7 @@ export class AppServerClient {
       window.clearTimeout(pending.timeout);
       this.pending.delete(message.id);
       if ("error" in message && message.error) {
-        pending.reject(new Error(message.error.message || "Codex app-server request failed."));
+        pending.reject(new AppServerRpcError(pending.method, message.error));
       } else {
         pending.resolve(message.result);
       }

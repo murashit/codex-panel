@@ -1235,8 +1235,15 @@ describe("view renderers", () => {
     const statusButton = parent.querySelector(".codex-panel__status-dot");
     expect(statusButton?.tagName).toBe("BUTTON");
     expect(statusButton?.getAttribute("role")).toBeNull();
+    expect(statusButton?.getAttribute("aria-label")).toBe("Status: Connected.; Diagnostics: normal");
     parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle")?.click();
     expect(toggleHistory).toHaveBeenCalled();
+
+    parent.empty();
+    renderToolbar(parent, toolbarModel({ status: "Turn running...", statusState: "running" }), toolbarActions());
+    expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe(
+      "Status: Turn running...; Connection: connected; Diagnostics: normal",
+    );
 
     expect(toolbarSignature(baseModel)).not.toBe(toolbarSignature({ ...baseModel, status: "Turn running..." }));
     expect(toolbarSignature(baseModel)).not.toBe(
@@ -1304,6 +1311,7 @@ describe("view renderers", () => {
 
   it("renders connection diagnostics in the status menu", () => {
     const parent = document.createElement("div");
+    const refreshDiagnostics = vi.fn();
 
     renderToolbar(
       parent,
@@ -1315,13 +1323,40 @@ describe("view renderers", () => {
           { label: "compatibility", value: "model/list failed", level: "error" },
         ],
       }),
-      toolbarActions(),
+      toolbarActions({ refreshDiagnostics }),
     );
 
     expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection diagnostics");
     expect(parent.textContent).toContain("Effective Codex config");
+    expect(parent.textContent).toContain("Refresh diagnostics");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
     expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")?.textContent).toContain("model/list failed");
+    [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")]
+      .find((button) => button.textContent?.includes("Refresh diagnostics"))
+      ?.click();
+    expect(refreshDiagnostics).toHaveBeenCalled();
+  });
+
+  it("renders diagnostic alert badges on the status dot", () => {
+    const normal = document.createElement("div");
+    renderToolbar(normal, toolbarModel({ diagnosticAlertLevel: "normal" }), toolbarActions());
+    const normalStatus = normal.querySelector(".codex-panel__status-dot");
+    expect(normalStatus?.querySelector(".codex-panel__status-dot-diagnostic")).toBeNull();
+    expect(normalStatus?.getAttribute("aria-label")).toContain("Diagnostics: normal");
+
+    const warning = document.createElement("div");
+    renderToolbar(warning, toolbarModel({ diagnosticAlertLevel: "warning" }), toolbarActions());
+    const warningStatus = warning.querySelector(".codex-panel__status-dot");
+    expect(warningStatus?.classList.contains("codex-panel__status-dot--diagnostic-warning")).toBe(true);
+    expect(warningStatus?.querySelector(".codex-panel__status-dot-diagnostic--warning")).not.toBeNull();
+    expect(warningStatus?.getAttribute("aria-label")).toContain("Diagnostics: warning");
+
+    const error = document.createElement("div");
+    renderToolbar(error, toolbarModel({ diagnosticAlertLevel: "error" }), toolbarActions());
+    const errorStatus = error.querySelector(".codex-panel__status-dot");
+    expect(errorStatus?.classList.contains("codex-panel__status-dot--diagnostic-error")).toBe(true);
+    expect(errorStatus?.querySelector(".codex-panel__status-dot-diagnostic--error")).not.toBeNull();
+    expect(errorStatus?.getAttribute("aria-label")).toContain("Diagnostics: error");
   });
 
   it("renders effective config inside the status menu without a separate toggle", () => {
@@ -1758,6 +1793,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     effortChoices: [{ label: "Default", selected: true, onClick: vi.fn() }],
     connectLabel: "Reconnect",
     diagnostics: [{ label: "running app-server", value: "codex-cli/test" }],
+    diagnosticAlertLevel: "normal",
     ...overrides,
   };
 }
@@ -1770,6 +1806,7 @@ function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> 
     toggleFast: vi.fn(),
     toggleRuntime: vi.fn(),
     connect: vi.fn(),
+    refreshDiagnostics: vi.fn(),
     refreshThreads: vi.fn(),
     resumeThread: vi.fn(),
     archiveThread: vi.fn(),

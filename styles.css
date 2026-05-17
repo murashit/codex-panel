@@ -358,6 +358,7 @@
 .codex-panel__status-dot {
   grid-column: 4;
   cursor: pointer;
+  position: relative;
 }
 
 .codex-panel__status-dot::before {
@@ -377,6 +378,24 @@
 .codex-panel__status-dot--running::before {
   background: var(--interactive-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+}
+
+.codex-panel__status-dot-diagnostic {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--background-primary);
+  border-radius: 999px;
+}
+
+.codex-panel__status-dot-diagnostic--warning {
+  background: var(--text-warning);
+}
+
+.codex-panel__status-dot-diagnostic--error {
+  background: var(--text-error);
 }
 
 .codex-panel__meter-compact {

@@ -15,6 +15,7 @@ function controllerForState(
     refreshThreads: vi.fn(),
     refreshSkills: vi.fn(),
     maybeNameThread: vi.fn(),
+    recordMcpStartupStatus: vi.fn(),
     respondToServerRequest: vi.fn(() => true),
     rejectServerRequest: vi.fn(() => true),
     ...actions,
@@ -250,6 +251,24 @@ describe("PanelController", () => {
       limitId: "codex",
       primary: { usedPercent: 64 },
     });
+  });
+
+  it("records MCP startup status for diagnostics without a chat system message", () => {
+    const state = createPanelState();
+    const recordMcpStartupStatus = vi.fn();
+    const controller = controllerForState(state, { recordMcpStartupStatus });
+
+    controller.handleNotification({
+      method: "mcpServer/startupStatus/updated",
+      params: {
+        name: "github",
+        status: "failed",
+        error: "missing token",
+      },
+    } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
+
+    expect(recordMcpStartupStatus).toHaveBeenCalledWith("github", "failed", "missing token");
+    expect(state.displayItems).toEqual([]);
   });
 
   it("queues and resolves requestUserInput server requests", () => {

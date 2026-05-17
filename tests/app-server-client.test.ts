@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../src/app-server/client";
+import type { AppServerRpcError } from "../src/app-server/client";
 import type { AppServerTransport, AppServerTransportHandlers } from "../src/app-server/transport";
 import type { RpcOutboundMessage } from "../src/app-server/types";
 import type { InitializeResponse } from "../src/generated/app-server/InitializeResponse";
@@ -309,6 +310,51 @@ describe("AppServerClient", () => {
     });
     transport.emitLine({ id: 2, result: { data: [], nextCursor: null } });
     await listing;
+  });
+
+  it("sends diagnostic capability request payloads", async () => {
+    const { client, transport } = await connectedClient();
+
+    const mcpStatus = client.listMcpServerStatus();
+    expect(transport.sent[2]).toMatchObject({
+      id: 2,
+      method: "mcpServerStatus/list",
+      params: { detail: "toolsAndAuthOnly", limit: 100 },
+    });
+    transport.emitLine({ id: 2, result: { data: [], nextCursor: null } });
+    await mcpStatus;
+
+    const collaborationModes = client.listCollaborationModes();
+    expect(transport.sent[3]).toMatchObject({
+      id: 3,
+      method: "collaborationMode/list",
+      params: {},
+    });
+    transport.emitLine({ id: 3, result: { data: [] } });
+    await collaborationModes;
+
+    const capabilities = client.readModelProviderCapabilities();
+    expect(transport.sent[4]).toMatchObject({
+      id: 4,
+      method: "modelProvider/capabilities/read",
+      params: {},
+    });
+    transport.emitLine({ id: 4, result: { namespaceTools: true, imageGeneration: false, webSearch: true } });
+    await capabilities;
+  });
+
+  it("preserves app-server RPC error codes", async () => {
+    const { client, transport } = await connectedClient();
+
+    const listing = client.listModels();
+    transport.emitLine({ id: 2, error: { code: -32601, message: "Method not found" } });
+
+    await expect(listing).rejects.toMatchObject({
+      name: "AppServerRpcError",
+      code: -32601,
+      method: "model/list",
+      message: "Method not found",
+    } satisfies Partial<AppServerRpcError>);
   });
 
   it("sends golden list and history request payloads", async () => {

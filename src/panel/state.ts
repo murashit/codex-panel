@@ -7,8 +7,8 @@ import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnap
 import type { SkillMetadata } from "../generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../generated/app-server/v2/Thread";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
-import type { AppServerCompatibility } from "../app-server/compatibility";
-import { createAppServerCompatibility } from "../app-server/compatibility";
+import type { AppServerDiagnostics } from "../app-server/compatibility";
+import { createAppServerDiagnostics } from "../app-server/compatibility";
 import type { PendingApproval } from "../approvals/model";
 import type { ComposerSuggestion } from "../composer/suggestions";
 import type { DisplayItem } from "../display/types";
@@ -26,7 +26,7 @@ export interface PanelState {
   activeModel: string | null;
   activeServiceTier: string | null;
   activeThreadCliVersion: string | null;
-  appServerCompatibility: AppServerCompatibility;
+  appServerDiagnostics: AppServerDiagnostics;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
   requestedCollaborationMode: ModeKind;
@@ -47,7 +47,6 @@ export interface PanelState {
   runtimePicker: "model" | "effort" | null;
   availableModels: Model[];
   availableSkills: SkillMetadata[];
-  reportedMcpFailures: Set<string>;
   reportedLogs: Set<string>;
   composerSuggestSelected: number;
   composerSuggestions: ComposerSuggestion[];
@@ -67,7 +66,7 @@ export function createPanelState(): PanelState {
     activeModel: null,
     activeServiceTier: null,
     activeThreadCliVersion: null,
-    appServerCompatibility: createAppServerCompatibility(),
+    appServerDiagnostics: createAppServerDiagnostics(),
     requestedModel: defaultRuntimeOverride(),
     requestedReasoningEffort: defaultRuntimeOverride(),
     requestedCollaborationMode: "default",
@@ -88,7 +87,6 @@ export function createPanelState(): PanelState {
     runtimePicker: null,
     availableModels: [],
     availableSkills: [],
-    reportedMcpFailures: new Set(),
     reportedLogs: new Set(),
     composerSuggestSelected: 0,
     composerSuggestions: [],
@@ -130,5 +128,7 @@ export function clearConnectionScopedState(state: PanelState): void {
   state.listedThreads = [];
   state.threadsLoaded = false;
   state.availableModels = [];
+  state.availableSkills = [];
+  state.appServerDiagnostics = createAppServerDiagnostics();
   state.runtimePicker = null;
 }
