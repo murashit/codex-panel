@@ -1,5 +1,6 @@
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "../approvals/model";
-import { createAutoReviewResultItem, createReviewResultItem } from "../display/model";
+import { planProgressDisplayItem } from "../display/plan";
+import { createAutoReviewResultItem, createReviewResultItem } from "../display/review";
 import {
   appendAssistantDelta,
   appendItemOutput,
@@ -9,15 +10,14 @@ import {
   completeReasoningItems,
   upsertDisplayItem,
 } from "../display/stream-updates";
+import { createSystemItem } from "../display/system";
 import {
-  createSystemItem,
   displayItemFromThreadItem,
   displayItemsFromTurns,
   normalizeFileChanges,
-  planProgressDisplayItem,
   shouldSuppressLifecycleItem,
   shouldSuppressThreadItem,
-} from "../display/model";
+} from "../display/thread-items";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../display/types";
 import type { RequestId } from "../generated/app-server/RequestId";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";

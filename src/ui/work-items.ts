@@ -1,5 +1,6 @@
-import { activeAgentRunSummary, executionState } from "../display/model";
+import { activeAgentRunSummary } from "../display/agent";
 import { isReasoningActive } from "../display/signature";
+import { executionState } from "../display/state";
 import type { AgentDisplayItem, AgentRunSummary, AgentRunSummaryAgent, DisplayItem, TaskProgressDisplayItem } from "../display/types";
 import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel, taskStatusMarker } from "../display/labels";
 import type { MessageStreamContext } from "./message-stream";

@@ -8,7 +8,6 @@ import {
   parseReasoningEffortOverride,
   reasoningEffortOverrideMessage,
 } from "../runtime/settings";
-export { slashCommandHelpLines, type SlashCommandName } from "../composer/slash-commands";
 
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;

@@ -1,5 +1,5 @@
-import { executionState } from "./model";
 import { pathRelativeToRoot } from "./paths";
+import { executionState } from "./state";
 import type {
   ApprovalResultDisplayItem,
   CommandDisplayItem,

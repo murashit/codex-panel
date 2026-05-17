@@ -10,7 +10,6 @@ import { parseServiceTier, serviceTierRequestValue, type ServiceTier, type Servi
 import { defaultCollaborationMode, planCollaborationMode } from "./collaboration-mode";
 import { findModelByIdOrName, isReasoningEffort, supportedEffortsForModel } from "./model";
 import { compactModelLabel, compactReasoningEffortLabel } from "./settings";
-export { sortedAvailableModels } from "./model";
 
 export type RuntimeOverride<T> = { kind: "default" } | { kind: "set"; value: T } | { kind: "resetPending" };
 

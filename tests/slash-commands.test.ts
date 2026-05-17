@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { slashCommandHelpLines } from "../src/composer/slash-commands";
 import type { Thread } from "../src/generated/app-server/v2/Thread";
-import { executeSlashCommand, slashCommandHelpLines, type SlashCommandExecutionContext } from "../src/panel/slash-commands";
+import { executeSlashCommand, type SlashCommandExecutionContext } from "../src/panel/slash-commands";
 
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {

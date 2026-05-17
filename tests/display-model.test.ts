@@ -1,22 +1,19 @@
 import { describe, expect, it } from "vitest";
 
+import { activeAgentRunSummary } from "../src/display/agent";
+import { displayBlocksForItems } from "../src/display/blocks";
 import {
   appendAssistantDelta,
-  activeAgentRunSummary,
   appendItemOutput,
   appendItemText,
   appendPlanDelta,
   appendToolOutput,
-  createAutoReviewResultItem,
-  createReviewResultItem,
-  displayBlocksForItems,
-  displayItemFromThreadItem,
-  displayItemsFromTurns,
-  executionState,
-  normalizeProposedPlanMarkdown,
-  planProgressDisplayItem,
   upsertDisplayItem,
-} from "../src/display/model";
+} from "../src/display/stream-updates";
+import { normalizeProposedPlanMarkdown, planProgressDisplayItem } from "../src/display/plan";
+import { createAutoReviewResultItem, createReviewResultItem } from "../src/display/review";
+import { executionState } from "../src/display/state";
+import { displayItemFromThreadItem, displayItemsFromTurns } from "../src/display/thread-items";
 import type { DisplayItem } from "../src/display/types";
 import type { ThreadItem } from "../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../src/generated/app-server/v2/Turn";
@@ -74,6 +71,11 @@ describe("display model", () => {
       text: "Use $obsidian-codex-panel-maintain.",
       copyText: "Use $obsidian-codex-panel-maintain.",
     });
+  });
+
+  it("suppresses legacy output thread items", () => {
+    expect(displayItemFromThreadItem({ type: "outputMessage", id: "out-1" } as unknown as ThreadItem)).toBeNull();
+    expect(displayItemFromThreadItem({ type: "toolOutputMessage", id: "tool-out-1" } as unknown as ThreadItem)).toBeNull();
   });
 
   it("preserves reasoning text", () => {
@@ -362,7 +364,7 @@ describe("display model", () => {
       source: "agent",
       status: "completed",
       commandActions: [{ type: "listFiles", command: "rg", path: "src/display" }],
-      aggregatedOutput: "src/display/model.ts",
+      aggregatedOutput: "src/display/thread-items.ts",
       exitCode: 0,
       durationMs: 10,
     };
@@ -558,6 +560,31 @@ describe("display model", () => {
     });
   });
 
+  it("preserves image generation status, details, and state", () => {
+    const item: ThreadItem = {
+      type: "imageGeneration",
+      id: "image-gen-1",
+      status: "completed",
+      revisedPrompt: "A precise UI mockup.",
+      result: "image result",
+      savedPath: "/vault/project/assets/generated.png",
+    };
+
+    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+      kind: "tool",
+      text: "/vault/project/assets/generated.png",
+      toolLabel: "imageGeneration",
+      summaryPath: true,
+      status: "completed",
+      details: [
+        { title: "Saved path", body: "/vault/project/assets/generated.png" },
+        { title: "Revised prompt", body: "A precise UI mockup." },
+        { title: "Result", body: "image result" },
+      ],
+      state: "completed",
+    });
+  });
+
   it("uses details as the summary when a tool target cannot be extracted", () => {
     const item: ThreadItem = {
       type: "dynamicToolCall",
@@ -603,6 +630,36 @@ describe("display model", () => {
     });
   });
 
+  it("preserves review mode items with their review output", () => {
+    const entered: ThreadItem = { type: "enteredReviewMode", id: "review-entered", review: "Review started" };
+    const exited: ThreadItem = { type: "exitedReviewMode", id: "review-exited", review: "Review finished" };
+
+    expect(displayItemFromThreadItem(entered, "t1")).toMatchObject({
+      kind: "tool",
+      text: "Entered review mode",
+      toolLabel: "enteredReviewMode",
+      output: "Review started",
+    });
+    expect(displayItemFromThreadItem(exited, "t1")).toMatchObject({
+      kind: "tool",
+      text: "Exited review mode",
+      toolLabel: "exitedReviewMode",
+      output: "Review finished",
+    });
+  });
+
+  it("preserves context compaction items as short tool items", () => {
+    const item: ThreadItem = { type: "contextCompaction", id: "compact-1" };
+
+    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+      kind: "tool",
+      text: "Context compaction",
+      toolLabel: "contextCompaction",
+      turnId: "t1",
+      itemId: "compact-1",
+    });
+  });
+
   it("structures automatic approval review summary messages", () => {
     expect(
       createReviewResultItem(
@@ -637,7 +694,7 @@ describe("display model", () => {
         targetItemId: "patch-1",
         decisionSource: "agent",
         review: { status: "approved", riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
-        action: { type: "applyPatch", cwd: "/vault", files: ["/vault/src/display/model.ts", "/vault/tests/display-model.test.ts"] },
+        action: { type: "applyPatch", cwd: "/vault", files: ["/vault/src/display/thread-items.ts", "/vault/tests/display-model.test.ts"] },
       }),
     ).toMatchObject({
       kind: "reviewResult",
@@ -648,7 +705,7 @@ describe("display model", () => {
           rows: expect.arrayContaining([
             { key: "action", value: "apply patch" },
             { key: "cwd", value: "/vault" },
-            { key: "files", value: "src/display/model.ts\ntests/display-model.test.ts" },
+            { key: "files", value: "src/display/thread-items.ts\ntests/display-model.test.ts" },
           ]),
         },
       ],

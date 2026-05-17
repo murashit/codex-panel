@@ -1,4 +1,4 @@
-import { executionState } from "./model";
+import { executionState } from "./state";
 import type { DisplayItem } from "./types";
 
 export interface DisplayItemSignatureContext {

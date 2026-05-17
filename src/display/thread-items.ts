@@ -1,9 +1,7 @@
 import type { DisplayDetailSection, DisplayFileChange, DisplayItem } from "./types";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
-import type { TurnPlanStep } from "../generated/app-server/v2/TurnPlanStep";
 import { inputToText, truncate } from "../utils";
-import { taskStatusMarker } from "./labels";
 import { agentDisplayItem } from "./agent";
 import { pathRelativeToRoot } from "./paths";
 import { normalizeProposedPlanMarkdown } from "./plan";
@@ -17,20 +15,22 @@ import {
   metaDetail,
   statusQualifier,
 } from "./tool-format";
-export { activeAgentRunSummary, agentDisplayItem } from "./agent";
-export { displayBlocksForItems } from "./blocks";
-export { normalizeProposedPlanMarkdown } from "./plan";
-export { classifyExecutionState, executionState, executionStateLabel } from "./state";
-export { createAutoReviewResultItem, createReviewResultItem } from "./review";
-export {
-  appendAssistantDelta,
-  appendItemOutput,
-  appendItemText,
-  appendPlanDelta,
-  appendToolOutput,
-  completeReasoningItems,
-  upsertDisplayItem,
-} from "./stream-updates";
+
+type UserMessageItem = Extract<ThreadItem, { type: "userMessage" }>;
+type AgentMessageItem = Extract<ThreadItem, { type: "agentMessage" }>;
+type PlanItem = Extract<ThreadItem, { type: "plan" }>;
+type HookPromptItem = Extract<ThreadItem, { type: "hookPrompt" }>;
+type ReasoningItem = Extract<ThreadItem, { type: "reasoning" }>;
+type CommandExecutionItem = Extract<ThreadItem, { type: "commandExecution" }>;
+type CommandAction = CommandExecutionItem["commandActions"][number];
+type FileChangeItem = Extract<ThreadItem, { type: "fileChange" }>;
+type McpToolCallItem = Extract<ThreadItem, { type: "mcpToolCall" }>;
+type DynamicToolCallItem = Extract<ThreadItem, { type: "dynamicToolCall" }>;
+type WebSearchItem = Extract<ThreadItem, { type: "webSearch" }>;
+type ImageViewItem = Extract<ThreadItem, { type: "imageView" }>;
+type ImageGenerationItem = Extract<ThreadItem, { type: "imageGeneration" }>;
+type ReviewModeItem = Extract<ThreadItem, { type: "enteredReviewMode" }> | Extract<ThreadItem, { type: "exitedReviewMode" }>;
+type ContextCompactionItem = Extract<ThreadItem, { type: "contextCompaction" }>;
 
 export function displayItemsFromTurns(turns: Turn[]): DisplayItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
@@ -47,209 +47,225 @@ export function displayItemsFromTurns(turns: Turn[]): DisplayItem[] {
 export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): DisplayItem | null {
   if (shouldSuppressThreadItem(item)) return null;
 
-  if (item.type === "userMessage") {
-    const text = inputToText(item.content);
-    return {
-      id: item.id,
-      kind: "message",
-      role: "user",
-      text,
-      copyText: text,
-      turnId,
-      itemId: item.id,
-      markdown: true,
-    };
+  switch (item.type) {
+    case "userMessage":
+      return userMessageDisplayItem(item, turnId);
+    case "agentMessage":
+      return agentMessageDisplayItem(item, turnId);
+    case "commandExecution":
+      return commandDisplayItem(item, turnId);
+    case "fileChange":
+      return fileChangeDisplayItem(item, turnId);
+    case "plan":
+      return planDisplayItem(item, turnId);
+    case "hookPrompt":
+      return hookPromptDisplayItem(item, turnId);
+    case "reasoning":
+      return reasoningDisplayItem(item, turnId);
+    case "mcpToolCall":
+      return mcpToolCallDisplayItem(item, turnId);
+    case "dynamicToolCall":
+      return dynamicToolCallDisplayItem(item, turnId);
+    case "collabAgentToolCall":
+      return agentDisplayItem(item, turnId);
+    case "webSearch":
+      return webSearchDisplayItem(item, turnId);
+    case "imageView":
+      return imageViewDisplayItem(item, turnId);
+    case "imageGeneration":
+      return imageGenerationDisplayItem(item, turnId);
+    case "enteredReviewMode":
+    case "exitedReviewMode":
+      return reviewModeDisplayItem(item, turnId);
+    case "contextCompaction":
+      return contextCompactionDisplayItem(item, turnId);
+    default:
+      return assertNever(item);
   }
-
-  if (item.type === "agentMessage") {
-    return {
-      id: item.id,
-      kind: "message",
-      role: "assistant",
-      text: item.text,
-      copyText: item.text,
-      turnId,
-      itemId: item.id,
-      markdown: true,
-    };
-  }
-
-  if (item.type === "commandExecution") {
-    return commandDisplayItem(item, turnId);
-  }
-
-  if (item.type === "fileChange") {
-    return fileChangeDisplayItem(item, turnId);
-  }
-
-  if (item.type === "plan") {
-    const text = normalizeProposedPlanMarkdown(item.text);
-    return {
-      id: item.id,
-      kind: "message",
-      role: "assistant",
-      text,
-      copyText: text,
-      turnId,
-      itemId: item.id,
-      markdown: true,
-      proposedPlan: true,
-    };
-  }
-
-  if (item.type === "hookPrompt") {
-    return {
-      id: item.id,
-      kind: "hook",
-      role: "tool",
-      text: item.fragments.map((fragment) => fragment.text).join("\n\n") || "Hook prompt",
-      turnId,
-      itemId: item.id,
-    };
-  }
-
-  if (item.type === "reasoning") {
-    return {
-      id: item.id,
-      kind: "reasoning",
-      role: "tool",
-      text: reasoningText(item),
-      turnId,
-      itemId: item.id,
-    };
-  }
-
-  if (item.type === "mcpToolCall") {
-    const name = `${item.server}.${item.tool}`;
-    const target = jsonTargetLabel(item.arguments);
-    const failure = item.error?.message ? truncate(item.error.message, 96) : failedStatusLabel(item.status);
-    return {
-      id: item.id,
-      kind: "tool",
-      role: "tool",
-      text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
-      toolLabel: name,
-      turnId,
-      itemId: item.id,
-      status: item.status,
-      details: jsonDetails([
-        ["Arguments JSON", item.arguments],
-        ["Result JSON", item.result],
-        ["Error JSON", item.error],
-      ]),
-      output: "",
-      state: classifyExecutionState({ status: item.status }),
-    };
-  }
-
-  if (item.type === "dynamicToolCall") {
-    const name = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
-    const target = jsonTargetLabel(item.arguments);
-    const failure = item.success === false ? "failed" : failedStatusLabel(item.status);
-    return {
-      id: item.id,
-      kind: "tool",
-      role: "tool",
-      text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
-      toolLabel: name,
-      turnId,
-      itemId: item.id,
-      status: item.status,
-      details: jsonDetails([
-        ["Arguments JSON", item.arguments],
-        ["Result JSON", item.contentItems],
-      ]),
-      output: "",
-      state: item.success === false ? "failed" : classifyExecutionState({ status: item.status }),
-    };
-  }
-
-  if (item.type === "collabAgentToolCall") {
-    return agentDisplayItem(item, turnId);
-  }
-
-  if (item.type === "webSearch") {
-    return {
-      id: item.id,
-      kind: "tool",
-      role: "tool",
-      text: webSearchSummary(item),
-      toolLabel: "web search",
-      turnId,
-      itemId: item.id,
-      details: webSearchDetails(item),
-      output: "",
-    };
-  }
-
-  if (item.type === "imageView") {
-    return {
-      id: item.id,
-      kind: "tool",
-      role: "tool",
-      text: compactToolSummary(null, item.path),
-      toolLabel: "imageView",
-      summaryPath: true,
-      turnId,
-      itemId: item.id,
-    };
-  }
-
-  if (item.type === "imageGeneration") {
-    const target = item.savedPath ?? item.result ?? item.revisedPrompt ?? null;
-    return {
-      id: item.id,
-      kind: "tool",
-      role: "tool",
-      text: compactToolSummary(null, target, statusQualifier(item.status, failedStatusLabel(item.status))),
-      toolLabel: "imageGeneration",
-      summaryPath: Boolean(item.savedPath),
-      turnId,
-      itemId: item.id,
-      status: item.status,
-      details: [
-        ...bodyDetail("Saved path", item.savedPath),
-        ...bodyDetail("Revised prompt", item.revisedPrompt),
-        ...bodyDetail("Result", item.result),
-      ],
-      output: "",
-      state: classifyExecutionState({ status: item.status }),
-    };
-  }
-
-  if (item.type === "enteredReviewMode" || item.type === "exitedReviewMode") {
-    return {
-      id: item.id,
-      kind: "tool",
-      role: "tool",
-      text: item.type === "enteredReviewMode" ? "Entered review mode" : "Exited review mode",
-      toolLabel: item.type,
-      turnId,
-      itemId: item.id,
-      output: item.review,
-    };
-  }
-
-  if (item.type === "contextCompaction") {
-    return {
-      id: item.id,
-      kind: "tool",
-      role: "tool",
-      text: "Context compaction",
-      toolLabel: "contextCompaction",
-      turnId,
-      itemId: item.id,
-    };
-  }
-
-  return null;
 }
 
-type CommandExecutionItem = Extract<ThreadItem, { type: "commandExecution" }>;
-type CommandAction = CommandExecutionItem["commandActions"][number];
-type FileChangeItem = Extract<ThreadItem, { type: "fileChange" }>;
-type ReasoningItem = Extract<ThreadItem, { type: "reasoning" }>;
-type WebSearchItem = Extract<ThreadItem, { type: "webSearch" }>;
+function userMessageDisplayItem(item: UserMessageItem, turnId?: string): DisplayItem {
+  const text = inputToText(item.content);
+  return {
+    id: item.id,
+    kind: "message",
+    role: "user",
+    text,
+    copyText: text,
+    turnId,
+    itemId: item.id,
+    markdown: true,
+  };
+}
+
+function agentMessageDisplayItem(item: AgentMessageItem, turnId?: string): DisplayItem {
+  return {
+    id: item.id,
+    kind: "message",
+    role: "assistant",
+    text: item.text,
+    copyText: item.text,
+    turnId,
+    itemId: item.id,
+    markdown: true,
+  };
+}
+
+function planDisplayItem(item: PlanItem, turnId?: string): DisplayItem {
+  const text = normalizeProposedPlanMarkdown(item.text);
+  return {
+    id: item.id,
+    kind: "message",
+    role: "assistant",
+    text,
+    copyText: text,
+    turnId,
+    itemId: item.id,
+    markdown: true,
+    proposedPlan: true,
+  };
+}
+
+function hookPromptDisplayItem(item: HookPromptItem, turnId?: string): DisplayItem {
+  return {
+    id: item.id,
+    kind: "hook",
+    role: "tool",
+    text: item.fragments.map((fragment) => fragment.text).join("\n\n") || "Hook prompt",
+    turnId,
+    itemId: item.id,
+  };
+}
+
+function reasoningDisplayItem(item: ReasoningItem, turnId?: string): DisplayItem {
+  return {
+    id: item.id,
+    kind: "reasoning",
+    role: "tool",
+    text: reasoningText(item),
+    turnId,
+    itemId: item.id,
+  };
+}
+
+function mcpToolCallDisplayItem(item: McpToolCallItem, turnId?: string): DisplayItem {
+  const name = `${item.server}.${item.tool}`;
+  const target = jsonTargetLabel(item.arguments);
+  const failure = item.error?.message ? truncate(item.error.message, 96) : failedStatusLabel(item.status);
+  return {
+    id: item.id,
+    kind: "tool",
+    role: "tool",
+    text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
+    toolLabel: name,
+    turnId,
+    itemId: item.id,
+    status: item.status,
+    details: jsonDetails([
+      ["Arguments JSON", item.arguments],
+      ["Result JSON", item.result],
+      ["Error JSON", item.error],
+    ]),
+    output: "",
+    state: classifyExecutionState({ status: item.status }),
+  };
+}
+
+function dynamicToolCallDisplayItem(item: DynamicToolCallItem, turnId?: string): DisplayItem {
+  const name = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
+  const target = jsonTargetLabel(item.arguments);
+  const failure = item.success === false ? "failed" : failedStatusLabel(item.status);
+  return {
+    id: item.id,
+    kind: "tool",
+    role: "tool",
+    text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
+    toolLabel: name,
+    turnId,
+    itemId: item.id,
+    status: item.status,
+    details: jsonDetails([
+      ["Arguments JSON", item.arguments],
+      ["Result JSON", item.contentItems],
+    ]),
+    output: "",
+    state: item.success === false ? "failed" : classifyExecutionState({ status: item.status }),
+  };
+}
+
+function webSearchDisplayItem(item: WebSearchItem, turnId?: string): DisplayItem {
+  return {
+    id: item.id,
+    kind: "tool",
+    role: "tool",
+    text: webSearchSummary(item),
+    toolLabel: "web search",
+    turnId,
+    itemId: item.id,
+    details: webSearchDetails(item),
+    output: "",
+  };
+}
+
+function imageViewDisplayItem(item: ImageViewItem, turnId?: string): DisplayItem {
+  return {
+    id: item.id,
+    kind: "tool",
+    role: "tool",
+    text: compactToolSummary(null, item.path),
+    toolLabel: "imageView",
+    summaryPath: true,
+    turnId,
+    itemId: item.id,
+  };
+}
+
+function imageGenerationDisplayItem(item: ImageGenerationItem, turnId?: string): DisplayItem {
+  const target = item.savedPath ?? item.result ?? item.revisedPrompt ?? null;
+  return {
+    id: item.id,
+    kind: "tool",
+    role: "tool",
+    text: compactToolSummary(null, target, statusQualifier(item.status, failedStatusLabel(item.status))),
+    toolLabel: "imageGeneration",
+    summaryPath: Boolean(item.savedPath),
+    turnId,
+    itemId: item.id,
+    status: item.status,
+    details: [
+      ...bodyDetail("Saved path", item.savedPath),
+      ...bodyDetail("Revised prompt", item.revisedPrompt),
+      ...bodyDetail("Result", item.result),
+    ],
+    output: "",
+    state: classifyExecutionState({ status: item.status }),
+  };
+}
+
+function reviewModeDisplayItem(item: ReviewModeItem, turnId?: string): DisplayItem {
+  return {
+    id: item.id,
+    kind: "tool",
+    role: "tool",
+    text: item.type === "enteredReviewMode" ? "Entered review mode" : "Exited review mode",
+    toolLabel: item.type,
+    turnId,
+    itemId: item.id,
+    output: item.review,
+  };
+}
+
+function contextCompactionDisplayItem(item: ContextCompactionItem, turnId?: string): DisplayItem {
+  return {
+    id: item.id,
+    kind: "tool",
+    role: "tool",
+    text: "Context compaction",
+    toolLabel: "contextCompaction",
+    turnId,
+    itemId: item.id,
+  };
+}
 
 function reasoningText(item: ReasoningItem): string {
   return [...item.summary, ...item.content]
@@ -430,24 +446,6 @@ export function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): Di
   };
 }
 
-export function planProgressDisplayItem(turnId: string, explanation: string | null, plan: TurnPlanStep[]): DisplayItem {
-  const lines = plan.map((step) => `${taskStatusMarker(step.status)} ${step.step}`);
-  const body = [explanation?.trim(), ...lines].filter((line): line is string => Boolean(line && line.length > 0)).join("\n");
-  const status = plan.some((step) => step.status === "inProgress" || step.status === "pending") ? "inProgress" : "completed";
-  return {
-    id: `plan-progress-${turnId}`,
-    kind: "taskProgress",
-    role: "tool",
-    text: body || "Plan updated",
-    turnId,
-    itemId: `plan-progress-${turnId}`,
-    explanation: explanation?.trim() || null,
-    steps: plan.map((step) => ({ step: step.step, status: step.status })),
-    status,
-    state: classifyExecutionState({ status }),
-  };
-}
-
 export function normalizeFileChanges(changes: unknown[]): DisplayFileChange[] {
   return changes.flatMap((change) => {
     if (!change || typeof change !== "object") return [];
@@ -474,11 +472,6 @@ export function pathRelativeToWorkspace(path: string, workspaceRoot?: string | n
   return pathRelativeToRoot(path, workspaceRoot);
 }
 
-export function createSystemItem(text: string): DisplayItem {
-  return {
-    id: `system-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    kind: "system",
-    role: "system",
-    text,
-  };
+function assertNever(_item: never): null {
+  return null;
 }

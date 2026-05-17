@@ -1,6 +1,6 @@
 import { displayBlocksForItems } from "../display/blocks";
-import { executionState } from "../display/model";
 import { displayItemSignature } from "../display/signature";
+import { executionState } from "../display/state";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
 import { createIconButton, createMetaPair, createRememberedDetails } from "./components";
 import { shortSignature } from "./dom";

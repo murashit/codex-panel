@@ -4,9 +4,10 @@ import type { AppServerClient } from "../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../app-server/connection-manager";
 import type { ServiceTier } from "../app-server/service-tier";
 import type { ApprovalAction, PendingApproval } from "../approvals/model";
+import type { SlashCommandName } from "../composer/slash-commands";
 import { parseSlashCommand } from "../composer/suggestions";
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
-import { createSystemItem } from "../display/model";
+import { createSystemItem } from "../display/system";
 import type { DisplayItem } from "../display/types";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import {
@@ -31,12 +32,12 @@ import {
   runtimeSummaryLabel,
   serviceTierLabel,
   setRuntimeOverride,
-  sortedAvailableModels,
   supportedReasoningEfforts,
   type RuntimeSnapshot,
 } from "../runtime/state";
+import { sortedAvailableModels } from "../runtime/model";
 import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessage } from "../runtime/settings";
-import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult, type SlashCommandName } from "./slash-commands";
+import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import { PanelSessionController } from "./session-controller";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
 import { ThreadHistoryLoader } from "./thread-history";
