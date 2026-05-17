@@ -19,6 +19,8 @@
     "dev": "node esbuild.config.mjs --watch",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"scripts/**/*.{js,mjs}\" \"*.{json,mjs,md,css}\" \"!src/generated/**\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"scripts/**/*.{js,mjs}\" \"*.{json,mjs,md,css}\" \"!src/generated/**\"",
+    "api:baseline": "node scripts/report-api-baseline.mjs",
+    "api:baseline:check": "node scripts/report-api-baseline.mjs --check",
     "generate:app-server-types": "codex app-server generate-ts --experimental --out src/generated/app-server && node scripts/normalize-generated-types.mjs",
     "lint": "eslint src tests --max-warnings=0",
     "release:check": "node scripts/check-release.mjs",
@@ -36,7 +38,7 @@
     "eslint": "^10.3.0",
     "eslint-plugin-obsidianmd": "^0.3.0",
     "jsdom": "^29.1.1",
-    "obsidian": "^1.12.3",
+    "obsidian": "~1.12.3",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"

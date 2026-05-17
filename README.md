@@ -82,9 +82,12 @@ The plugin does not store API keys.
 
 ## Compatibility
 
-Codex Panel depends on the experimental `codex app-server` API. Later Codex CLI releases may require regenerated app-server bindings or compatibility fixes.
+| Key                      | Version   | Policy                                                                                              |
+| ------------------------ | --------- | --------------------------------------------------------------------------------------------------- |
+| `obsidian.minAppVersion` | `1.12.0`  | Track the latest patch in this minor; raise this baseline when adopting a newer Obsidian API minor. |
+| `codex.testedCliVersion` | `0.130.0` | Manage app-server compatibility by Codex CLI minor version.                                         |
 
-The current release is developed and tested with Codex CLI 0.130.0.
+Codex Panel depends on the experimental `codex app-server` API. Later Codex CLI releases may require regenerated app-server bindings or compatibility fixes.
 
 ## Project Docs
 
