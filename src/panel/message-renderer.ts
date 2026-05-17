@@ -6,6 +6,7 @@ import { renderTextWithWikiLinks as renderInlineWikiLinks } from "../ui/dom";
 import { messageRenderBlocks, syncMessageRenderBlocks } from "../ui/message-stream";
 import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "../ui/scroll";
 import type { TurnDiffViewState } from "../ui/turn-diff";
+import { markdownFileLinkTarget } from "./markdown-file-links";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
 import type { PanelState } from "./state";
 
@@ -89,6 +90,7 @@ export class PanelMessageRenderer {
     const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
     void MarkdownRenderer.render(this.options.app, text, parent, sourcePath, this.options.owner).then(() => {
       this.bindRenderedWikiLinks(parent, sourcePath);
+      this.bindRenderedMarkdownFileLinks(parent, sourcePath);
       this.scrollMarkdownMessageIntoPinnedBottom(parent);
     });
   }
@@ -113,6 +115,20 @@ export class PanelMessageRenderer {
         if (target.trim().length > 0) {
           void this.options.app.workspace.openLinkText(target, sourcePath, false);
         }
+      };
+    });
+  }
+
+  private bindRenderedMarkdownFileLinks(parent: HTMLElement, sourcePath: string): void {
+    parent.querySelectorAll<HTMLAnchorElement>("a[href]:not(.internal-link)").forEach((link) => {
+      const href = link.getAttribute("href") ?? "";
+      const target = markdownFileLinkTarget(this.options.app, this.options.vaultPath, href);
+      if (!target) return;
+
+      link.addClass("codex-panel__filelink");
+      link.onclick = (event) => {
+        event.preventDefault();
+        void this.options.app.workspace.openLinkText(target, sourcePath, false);
       };
     });
   }

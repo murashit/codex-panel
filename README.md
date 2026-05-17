@@ -55,6 +55,7 @@ Codex Panel supports the Codex workflows that are useful from a side panel:
 Codex Panel makes a few Obsidian-specific adjustments instead of mirroring the terminal UI exactly:
 
 - Wikilinks in sent messages are resolved to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are left alone, and note bodies are not attached automatically.
+- Markdown links in rendered messages that point to existing vault files open in Obsidian. External links and non-vault file paths keep their normal link behavior.
 - Forking a thread opens the fork in a new right-sidebar panel so the source thread stays visible.
 - Rolling back is limited to thread history; see File Changes and Rollback.
 - The composer sends with `Enter` by default, with `Shift+Enter` for a newline. You can switch sending to `Cmd/Ctrl+Enter` in the plugin settings.

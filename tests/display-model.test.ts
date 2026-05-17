@@ -11,6 +11,7 @@ import {
   upsertDisplayItem,
 } from "../src/display/stream-updates";
 import { normalizeProposedPlanMarkdown, planProgressDisplayItem } from "../src/display/plan";
+import { pathRelativeToRoot } from "../src/display/paths";
 import { createAutoReviewResultItem, createReviewResultItem } from "../src/display/review";
 import { executionState } from "../src/display/state";
 import { displayItemFromThreadItem, displayItemsFromTurns } from "../src/display/thread-items";
@@ -341,6 +342,29 @@ describe("display model", () => {
       source: "agent",
       status: "completed",
       commandActions: [{ type: "search", command: "rg", query: "target", path: "/vault/src/display" }],
+      aggregatedOutput: "search results",
+      exitCode: 0,
+      durationMs: 10,
+    };
+
+    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+      kind: "command",
+      actionLabel: "search",
+      text: "target in src/display",
+      state: "completed",
+    });
+  });
+
+  it("summarizes Windows paths relative to the command cwd", () => {
+    const item: ThreadItem = {
+      type: "commandExecution",
+      id: "cmd-1",
+      command: "rg target C:\\Vault\\src\\display",
+      cwd: "C:\\Vault",
+      processId: null,
+      source: "agent",
+      status: "completed",
+      commandActions: [{ type: "search", command: "rg", query: "target", path: "C:\\Vault\\src\\display" }],
       aggregatedOutput: "search results",
       exitCode: 0,
       durationMs: 10,
@@ -1026,6 +1050,11 @@ describe("display model", () => {
       (block) => block.type === "item" && block.item.role === "assistant",
     );
     expect(assistantBlock).toMatchObject({ item: { editedFiles: ["/tmp/outside.txt", "src/main.ts", "styles.css"] } });
+  });
+
+  it("keeps Windows sibling paths outside the workspace root", () => {
+    expect(pathRelativeToRoot("C:\\Vault\\project\\src\\main.ts", "C:\\Vault\\project")).toBe("src/main.ts");
+    expect(pathRelativeToRoot("C:\\Vault\\project-other\\src\\main.ts", "C:\\Vault\\project")).toBe("C:/Vault/project-other/src/main.ts");
   });
 
   it("detects failed command state", () => {
