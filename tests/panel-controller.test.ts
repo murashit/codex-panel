@@ -462,6 +462,61 @@ describe("PanelController", () => {
     ]);
   });
 
+  it("clears pending request state when app-server resolves a request", () => {
+    const state = createPanelState();
+    state.activeThreadId = "thread-active";
+    state.approvals = [
+      {
+        requestId: 50,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          ...supportedApprovalRequests()[0]!.params,
+          threadId: "thread-active",
+        } as Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }>["params"],
+      },
+    ];
+    state.pendingUserInputs = [
+      {
+        requestId: 50,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          itemId: "input",
+          questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+        },
+      },
+    ];
+    state.userInputDrafts.set("50:note", "draft");
+    const controller = controllerForState(state);
+
+    controller.handleNotification({
+      method: "serverRequest/resolved",
+      params: { threadId: "thread-active", requestId: 50 },
+    } satisfies Extract<ServerNotification, { method: "serverRequest/resolved" }>);
+
+    expect(state.approvals).toEqual([]);
+    expect(state.pendingUserInputs).toEqual([]);
+    expect(state.userInputDrafts.size).toBe(0);
+  });
+
+  it("keeps user-visible app-server notices in the message stream", () => {
+    const state = createPanelState();
+    const controller = controllerForState(state);
+
+    controller.handleNotification({
+      method: "warning",
+      params: { threadId: null, message: "careful" },
+    } satisfies Extract<ServerNotification, { method: "warning" }>);
+
+    expect(state.displayItems).toEqual([
+      expect.objectContaining({
+        kind: "system",
+        text: 'warning: {\n  "threadId": null,\n  "message": "careful"\n}',
+      }),
+    ]);
+  });
+
   it("clears all active-thread scoped state when the active thread is archived", () => {
     const state = createPanelState();
     state.activeThreadId = "thread-active";

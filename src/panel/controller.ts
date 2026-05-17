@@ -1,4 +1,4 @@
-import { approvalResponse, toPendingApproval, type ApprovalAction, type PendingApproval } from "../approvals/model";
+import { approvalResponse, type ApprovalAction, type PendingApproval } from "../approvals/model";
 import { createAutoReviewResultItem, createReviewResultItem } from "../display/model";
 import {
   appendAssistantDelta,
@@ -25,10 +25,11 @@ import type { ServerRequest } from "../generated/app-server/ServerRequest";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import { clearActiveThreadState, type PanelState } from "./state";
-import { toPendingUserInput, userInputResponse, type PendingUserInput } from "../user-input/model";
+import { userInputResponse, type PendingUserInput } from "../user-input/model";
 import { jsonPreview } from "../utils";
 import { classifyAppServerLog } from "./app-server-logs";
 import { hookRunDisplayItem } from "./hook-display";
+import { routeServerNotification, routeServerRequest } from "./inbound-routing";
 import { clearUserInputDrafts, createApprovalResultItem, createUserInputResultItem } from "./request-state";
 
 export interface PanelControllerActions {
@@ -47,146 +48,48 @@ export class PanelController {
   ) {}
 
   handleNotification(notification: ServerNotification): void {
-    if (!this.isInActiveScope(notification)) return;
-
-    const { method, params } = notification;
-    if (method === "turn/started") {
-      this.state.activeThreadId = params.threadId;
-      this.state.activeTurnId = params.turn.id ?? this.state.activeTurnId;
-      this.state.busy = true;
-      this.state.status = "Turn running...";
-    } else if (method === "item/agentMessage/delta") {
-      this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turnId);
-      this.state.displayItems = appendAssistantDelta(this.state.displayItems, params.itemId, params.turnId, params.delta ?? "");
-    } else if (method === "item/plan/delta") {
-      this.state.displayItems = appendPlanDelta(this.state.displayItems, params.itemId, params.turnId, params.delta ?? "");
-    } else if (method === "turn/plan/updated") {
-      this.state.displayItems = upsertDisplayItem(
-        this.state.displayItems,
-        planProgressDisplayItem(params.turnId, params.explanation ?? null, params.plan ?? []),
-      );
-    } else if (method === "item/reasoning/summaryTextDelta") {
-      this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta ?? "", "reasoning");
-    } else if (method === "item/reasoning/textDelta") {
-      this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta ?? "", "reasoning");
-    } else if (method === "item/reasoning/summaryPartAdded") {
-      this.appendToolText(params.itemId, params.turnId, "reasoning", "", "reasoning");
-    } else if (method === "item/started") {
-      this.handleStartedItem(params.item, params.turnId);
-    } else if (method === "item/completed") {
-      this.handleCompletedItem(params.item, params.turnId);
-    } else if (method === "item/commandExecution/outputDelta") {
-      this.state.displayItems = appendItemOutput(
-        this.state.displayItems,
-        params.itemId,
-        params.turnId,
-        params.delta ?? "",
-        "command",
-        "Command running",
-      );
-    } else if (method === "item/fileChange/patchUpdated") {
-      this.upsertFileChange(params.itemId, params.turnId, params.changes ?? [], "inProgress");
-    } else if (method === "item/fileChange/outputDelta") {
-      this.state.displayItems = appendItemOutput(
-        this.state.displayItems,
-        params.itemId,
-        params.turnId,
-        params.delta ?? "",
-        "fileChange",
-        "File change inProgress",
-      );
-    } else if (method === "turn/diff/updated") {
-      if (params.diff.trim().length > 0) {
-        this.state.turnDiffs.set(params.turnId, params.diff);
-      } else {
-        this.state.turnDiffs.delete(params.turnId);
-      }
-    } else if (method === "turn/completed") {
-      this.reconcileCompletedTurn(params.turn);
-      this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turn.id);
-      this.state.busy = false;
-      this.state.activeTurnId = null;
-      this.state.status = `Turn ${params.turn.status ?? "completed"}.`;
-      this.actions.maybeNameThread(params.threadId, params.turn);
-      this.actions.refreshThreads();
-    } else if (method === "thread/tokenUsage/updated") {
-      this.state.tokenUsage = params.tokenUsage ?? null;
-    } else if (method === "account/rateLimits/updated") {
-      this.state.rateLimit = params.rateLimits ?? null;
-    } else if (method === "skills/changed") {
-      this.actions.refreshSkills(true);
-    } else if (method === "hook/started") {
-      this.upsertHookRun(params.run, params.turnId, "running");
-    } else if (method === "hook/completed") {
-      this.upsertHookRun(params.run, params.turnId, params.run?.status ?? "completed");
-    } else if (method === "item/mcpToolCall/progress") {
-      this.state.displayItems = appendToolOutput(
-        this.state.displayItems,
-        params.itemId,
-        params.turnId,
-        params.message ?? "",
-        "mcp progress",
-      );
-    } else if (method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed") {
-      const reviewItem = createAutoReviewResultItem(params);
-      this.state.displayItems = upsertDisplayItem(removeUnstructuredAutoReviewWarnings(this.state.displayItems), reviewItem);
-    } else if (method === "thread/started") {
-      if (params.thread) {
-        if (!this.state.activeThreadId || this.state.activeThreadId === params.thread.id) {
-          this.state.activeThreadCwd = params.thread.cwd ?? this.state.activeThreadCwd;
-        }
-      }
-    } else if (method === "thread/archived") {
-      this.state.listedThreads = this.state.listedThreads.filter((thread) => thread.id !== params.threadId);
-      if (this.state.activeThreadId === params.threadId) {
-        clearActiveThreadState(this.state);
-      }
-    } else if (method === "thread/unarchived") {
-      this.actions.refreshThreads();
-    } else if (method === "thread/name/updated") {
-      const name = typeof params.threadName === "string" && params.threadName.trim() ? params.threadName.trim() : null;
-      this.state.listedThreads = this.state.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread));
-      this.actions.refreshThreads();
-    } else if (method === "serverRequest/resolved") {
-      this.state.approvals = this.state.approvals.filter((approval) => approval.requestId !== params.requestId);
-      const resolvedInputs = this.state.pendingUserInputs.filter((input) => input.requestId === params.requestId);
-      this.state.pendingUserInputs = this.state.pendingUserInputs.filter((input) => input.requestId !== params.requestId);
-      for (const input of resolvedInputs) clearUserInputDrafts(this.state.userInputDrafts, input);
-    } else if (method === "thread/compacted") {
-      this.addSystemMessage("Context compacted.");
-    } else if (method === "guardianWarning") {
-      const item = createReviewResultItem(params.message);
-      if (!isUnstructuredAutoReviewWarning(item) || !hasStructuredAutoReviewResult(this.state.displayItems, this.state.activeTurnId)) {
-        this.state.displayItems = upsertDisplayItem(this.state.displayItems, item);
-      }
-    } else if (method === "model/rerouted" || method === "deprecationNotice") {
-      this.addSystemMessage(`${method}: ${jsonPreview(params)}`);
-    } else if (method === "mcpServer/startupStatus/updated") {
-      this.handleMcpStartupStatus(params);
-    } else if (method === "error" || method === "warning" || method === "configWarning") {
-      this.addSystemMessage(`${method}: ${jsonPreview(params)}`);
+    const route = routeServerNotification(notification, this.activeRouteScope());
+    switch (route.kind) {
+      case "inactive":
+      case "unhandled":
+        return;
+      case "streamUpdate":
+        this.handleStreamUpdate(route.notification);
+        return;
+      case "turnLifecycle":
+        this.handleTurnLifecycle(route.notification);
+        return;
+      case "threadLifecycle":
+        this.handleThreadLifecycle(route.notification);
+        return;
+      case "requestResolved":
+        this.handleRequestResolved(route.notification);
+        return;
+      case "diagnosticStatus":
+        this.handleDiagnosticStatus(route.notification);
+        return;
+      case "userVisibleNotice":
+        this.handleUserVisibleNotice(route.notification);
+        return;
     }
   }
 
   handleServerRequest(request: ServerRequest): void {
-    if (!this.isRequestInActiveScope(request)) {
-      this.rejectServerRequest(request, `Rejected inactive app-server request: ${request.method}`);
-      return;
+    const route = routeServerRequest(request, this.activeRouteScope());
+    switch (route.kind) {
+      case "approval":
+        this.queueApprovalRequest(route.approval);
+        return;
+      case "userInput":
+        this.queueUserInputRequest(route.input);
+        return;
+      case "inactive":
+        this.rejectServerRequest(request, `Rejected inactive app-server request: ${request.method}`);
+        return;
+      case "unsupported":
+        this.rejectUnsupportedServerRequest(request);
+        return;
     }
-
-    const approval = toPendingApproval(request);
-    if (approval) {
-      this.queueApprovalRequest(approval);
-      return;
-    }
-
-    const userInput = toPendingUserInput(request);
-    if (userInput) {
-      this.queueUserInputRequest(userInput);
-      return;
-    }
-
-    this.rejectUnsupportedServerRequest(request);
   }
 
   handleAppServerLog(message: string): void {
@@ -241,6 +144,149 @@ export class PanelController {
     this.addSystemMessage(text);
   }
 
+  private handleStreamUpdate(notification: ServerNotification): void {
+    const { method, params } = notification;
+    if (method === "item/agentMessage/delta") {
+      this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turnId);
+      this.state.displayItems = appendAssistantDelta(this.state.displayItems, params.itemId, params.turnId, params.delta ?? "");
+    } else if (method === "item/plan/delta") {
+      this.state.displayItems = appendPlanDelta(this.state.displayItems, params.itemId, params.turnId, params.delta ?? "");
+    } else if (method === "turn/plan/updated") {
+      this.state.displayItems = upsertDisplayItem(
+        this.state.displayItems,
+        planProgressDisplayItem(params.turnId, params.explanation ?? null, params.plan ?? []),
+      );
+    } else if (method === "item/reasoning/summaryTextDelta") {
+      this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta ?? "", "reasoning");
+    } else if (method === "item/reasoning/textDelta") {
+      this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta ?? "", "reasoning");
+    } else if (method === "item/reasoning/summaryPartAdded") {
+      this.appendToolText(params.itemId, params.turnId, "reasoning", "", "reasoning");
+    } else if (method === "item/started") {
+      this.handleStartedItem(params.item, params.turnId);
+    } else if (method === "item/completed") {
+      this.handleCompletedItem(params.item, params.turnId);
+    } else if (method === "item/commandExecution/outputDelta") {
+      this.state.displayItems = appendItemOutput(
+        this.state.displayItems,
+        params.itemId,
+        params.turnId,
+        params.delta ?? "",
+        "command",
+        "Command running",
+      );
+    } else if (method === "item/fileChange/patchUpdated") {
+      this.upsertFileChange(params.itemId, params.turnId, params.changes ?? [], "inProgress");
+    } else if (method === "item/fileChange/outputDelta") {
+      this.state.displayItems = appendItemOutput(
+        this.state.displayItems,
+        params.itemId,
+        params.turnId,
+        params.delta ?? "",
+        "fileChange",
+        "File change inProgress",
+      );
+    } else if (method === "turn/diff/updated") {
+      if (params.diff.trim().length > 0) {
+        this.state.turnDiffs.set(params.turnId, params.diff);
+      } else {
+        this.state.turnDiffs.delete(params.turnId);
+      }
+    } else if (method === "hook/started") {
+      this.upsertHookRun(params.run, params.turnId, "running");
+    } else if (method === "hook/completed") {
+      this.upsertHookRun(params.run, params.turnId, params.run?.status ?? "completed");
+    } else if (method === "item/mcpToolCall/progress") {
+      this.state.displayItems = appendToolOutput(
+        this.state.displayItems,
+        params.itemId,
+        params.turnId,
+        params.message ?? "",
+        "mcp progress",
+      );
+    } else if (method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed") {
+      const reviewItem = createAutoReviewResultItem(params);
+      this.state.displayItems = upsertDisplayItem(removeUnstructuredAutoReviewWarnings(this.state.displayItems), reviewItem);
+    } else if (method === "guardianWarning") {
+      const item = createReviewResultItem(params.message);
+      if (!isUnstructuredAutoReviewWarning(item) || !hasStructuredAutoReviewResult(this.state.displayItems, this.state.activeTurnId)) {
+        this.state.displayItems = upsertDisplayItem(this.state.displayItems, item);
+      }
+    }
+  }
+
+  private handleTurnLifecycle(notification: ServerNotification): void {
+    const { method, params } = notification;
+    if (method === "turn/started") {
+      this.state.activeThreadId = params.threadId;
+      this.state.activeTurnId = params.turn.id ?? this.state.activeTurnId;
+      this.state.busy = true;
+      this.state.status = "Turn running...";
+    } else if (method === "turn/completed") {
+      this.reconcileCompletedTurn(params.turn);
+      this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turn.id);
+      this.state.busy = false;
+      this.state.activeTurnId = null;
+      this.state.status = `Turn ${params.turn.status ?? "completed"}.`;
+      this.actions.maybeNameThread(params.threadId, params.turn);
+      this.actions.refreshThreads();
+    }
+  }
+
+  private handleThreadLifecycle(notification: ServerNotification): void {
+    const { method, params } = notification;
+    if (method === "thread/started") {
+      if (params.thread) {
+        if (!this.state.activeThreadId || this.state.activeThreadId === params.thread.id) {
+          this.state.activeThreadCwd = params.thread.cwd ?? this.state.activeThreadCwd;
+        }
+      }
+    } else if (method === "thread/archived") {
+      this.state.listedThreads = this.state.listedThreads.filter((thread) => thread.id !== params.threadId);
+      if (this.state.activeThreadId === params.threadId) {
+        clearActiveThreadState(this.state);
+      }
+    } else if (method === "thread/unarchived") {
+      this.actions.refreshThreads();
+    } else if (method === "thread/name/updated") {
+      const name = typeof params.threadName === "string" && params.threadName.trim() ? params.threadName.trim() : null;
+      this.state.listedThreads = this.state.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread));
+      this.actions.refreshThreads();
+    }
+  }
+
+  private handleRequestResolved(notification: Extract<ServerNotification, { method: "serverRequest/resolved" }>): void {
+    const { requestId } = notification.params;
+    this.state.approvals = this.state.approvals.filter((approval) => approval.requestId !== requestId);
+    const resolvedInputs = this.state.pendingUserInputs.filter((input) => input.requestId === requestId);
+    this.state.pendingUserInputs = this.state.pendingUserInputs.filter((input) => input.requestId !== requestId);
+    for (const input of resolvedInputs) clearUserInputDrafts(this.state.userInputDrafts, input);
+  }
+
+  private handleDiagnosticStatus(notification: ServerNotification): void {
+    const { method, params } = notification;
+    if (method === "thread/tokenUsage/updated") {
+      this.state.tokenUsage = params.tokenUsage ?? null;
+    } else if (method === "account/rateLimits/updated") {
+      this.state.rateLimit = params.rateLimits ?? null;
+    } else if (method === "skills/changed") {
+      this.actions.refreshSkills(true);
+    } else if (method === "mcpServer/startupStatus/updated") {
+      this.handleMcpStartupStatus(params);
+    }
+  }
+
+  private handleUserVisibleNotice(notification: ServerNotification): void {
+    const { method, params } = notification;
+    if (method === "thread/compacted") {
+      this.addSystemMessage("Context compacted.");
+    } else if (method === "model/rerouted" || method === "deprecationNotice") {
+      this.addSystemMessage(`${method}: ${jsonPreview(params)}`);
+    } else if (method === "error" || method === "warning" || method === "configWarning") {
+      this.addSystemMessage(`${method}: ${jsonPreview(params)}`);
+    }
+  }
+
   private queueApprovalRequest(approval: PendingApproval): void {
     if (!this.state.approvals.some((existing) => existing.requestId === approval.requestId)) {
       this.state.approvals.push(approval);
@@ -253,6 +299,13 @@ export class PanelController {
     }
   }
 
+  private activeRouteScope(): { activeThreadId: string | null; activeTurnId: string | null } {
+    return {
+      activeThreadId: this.state.activeThreadId,
+      activeTurnId: this.state.activeTurnId,
+    };
+  }
+
   private rejectUnsupportedServerRequest(request: ServerRequest): void {
     const message = `Rejected unsupported app-server request: ${request.method}`;
     this.rejectServerRequest(request, message);
@@ -263,27 +316,6 @@ export class PanelController {
     if (!this.actions.rejectServerRequest(request.id, -32601, message)) {
       this.addSystemMessage("Could not reject app-server request because Codex app-server is not connected.");
     }
-  }
-
-  private isInActiveScope(notification: ServerNotification): boolean {
-    const threadId = notificationThreadId(notification);
-    if (threadId && this.state.activeThreadId && threadId !== this.state.activeThreadId) {
-      if (notification.method === "thread/started") return true;
-      return false;
-    }
-
-    const turnId = notificationTurnId(notification);
-    if (turnId && this.state.activeTurnId && turnId !== this.state.activeTurnId) return false;
-    return true;
-  }
-
-  private isRequestInActiveScope(request: ServerRequest): boolean {
-    const threadId = messageThreadId(request);
-    if (threadId && this.state.activeThreadId && threadId !== this.state.activeThreadId) return false;
-
-    const turnId = messageTurnId(request);
-    if (turnId && this.state.activeTurnId && turnId !== this.state.activeTurnId) return false;
-    return true;
   }
 
   private handleStartedItem(item: ThreadItem, turnId: string): void {
@@ -355,26 +387,6 @@ export class PanelController {
     if (!params?.name) return;
     this.actions.recordMcpStartupStatus(params.name, params.status, params.error ?? null);
   }
-}
-
-function notificationThreadId(notification: ServerNotification): string | null {
-  return messageThreadId(notification);
-}
-
-function notificationTurnId(notification: ServerNotification): string | null {
-  return messageTurnId(notification);
-}
-
-function messageThreadId(message: ServerNotification | ServerRequest): string | null {
-  const params = message.params as { threadId?: unknown };
-  if (typeof params.threadId === "string") return params.threadId;
-  return null;
-}
-
-function messageTurnId(message: ServerNotification | ServerRequest): string | null {
-  const params = message.params as { turnId?: unknown; turn?: { id?: unknown } };
-  if (typeof params.turnId === "string") return params.turnId;
-  return typeof params.turn?.id === "string" ? params.turn.id : null;
 }
 
 function removeUnstructuredAutoReviewWarnings(items: DisplayItem[]): DisplayItem[] {
