@@ -1465,7 +1465,6 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--codex-panel-section-gap);
   padding: var(--codex-panel-composer-padding-y) var(--codex-panel-edge-padding-x);
-  border-top: 1px solid var(--background-modifier-border);
 }
 
 .codex-panel__input {
