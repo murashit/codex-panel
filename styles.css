@@ -1394,6 +1394,67 @@
   white-space: pre-wrap;
 }
 
+.codex-panel-rewrite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3, 12px);
+}
+
+.codex-panel-rewrite__instruction {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.codex-panel-rewrite__controls,
+.codex-panel-rewrite__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2, 8px);
+}
+
+.codex-panel-rewrite__context {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-3, 6px);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel-rewrite__actions {
+  display: inline-flex;
+  gap: var(--size-2-3, 6px);
+}
+
+.codex-panel-rewrite__status {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel-rewrite__preview {
+  display: none;
+  max-height: 120px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--radius-s);
+  background: var(--code-background, var(--background-secondary));
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: var(--font-smaller);
+  white-space: pre-wrap;
+}
+
+.codex-panel-rewrite__preview:not(:empty) {
+  display: block;
+}
+
+.codex-panel-rewrite__diff .codex-panel__diff {
+  max-height: min(360px, 45vh);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .codex-panel__user-input-question {
   display: grid;
   gap: var(--codex-panel-control-gap);
