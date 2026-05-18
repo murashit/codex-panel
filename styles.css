@@ -1413,8 +1413,10 @@
 }
 
 .codex-panel-rewrite-popover__instruction {
-  min-height: 72px;
-  resize: vertical;
+  min-height: calc((var(--icon-s, 16px) + var(--size-2-3, 6px) * 2) * 2 + var(--size-2-1, 2px));
+  max-height: min(168px, 28vh);
+  resize: none;
+  overflow-y: auto;
 }
 
 .codex-panel-rewrite-popover__prompt-row {
@@ -1435,6 +1437,11 @@
 .codex-panel-rewrite-popover__footer {
   display: flex;
   justify-content: flex-end;
+}
+
+.codex-panel-rewrite-popover__footer.is-hidden,
+.codex-panel-rewrite-popover__diff:empty {
+  display: none;
 }
 
 .codex-panel-rewrite-popover__icon-button {
