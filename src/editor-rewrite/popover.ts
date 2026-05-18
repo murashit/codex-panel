@@ -1,7 +1,7 @@
 import { Notice, type Editor } from "obsidian";
 
+import { syncComposerHeight } from "../ui/composer";
 import { createIconButton } from "../ui/components";
-import { syncTextareaHeight } from "../ui/textarea-autogrow";
 import { diffLineClass, displayDiffLineText, displayDiffLines } from "../ui/turn-diff";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { isRewriteActionKey, isRewriteGenerateKey } from "./keys";
@@ -115,6 +115,7 @@ export class RewriteSelectionPopover {
     } finally {
       if (this.abortController === abortController) this.abortController = null;
       this.syncControls();
+      if (this.options.session.status === "preview") this.focusApplyButton();
       this.position();
     }
   }
@@ -140,10 +141,9 @@ export class RewriteSelectionPopover {
     const root = activeDocument.body.createDiv({ cls: "codex-panel-rewrite-popover" });
     root.setAttr("role", "dialog");
     root.setAttr("aria-label", "Rewrite selection");
-    root.onkeydown = (event) => this.handlePopoverKeydown(event);
 
     const instruction = root.createEl("textarea", {
-      cls: "codex-panel-rewrite-popover__instruction",
+      cls: "codex-panel__input codex-panel-rewrite-popover__instruction",
       attr: { placeholder: "How should Codex rewrite the selected text?" },
     });
     instruction.value = this.options.session.instruction;
@@ -162,18 +162,38 @@ export class RewriteSelectionPopover {
 
     const promptRow = root.createDiv({ cls: "codex-panel-rewrite-popover__prompt-row" });
     promptRow.append(instruction);
-    const controls = promptRow.createDiv({ cls: "codex-panel-rewrite-popover__controls" });
-    const generateButton = createIconButton(controls, "sparkles", "Generate rewrite", "codex-panel-rewrite-popover__icon-button");
+    const controls = promptRow.createDiv({ cls: "codex-panel__composer-actions codex-panel-rewrite-popover__controls" });
+    const generateButton = createIconButton(
+      controls,
+      "sparkles",
+      "Generate rewrite",
+      "codex-panel__composer-action codex-panel-rewrite-popover__icon-button",
+    );
     generateButton.onclick = () => void this.generate();
-    const cancelButton = createIconButton(controls, "x", "Cancel rewrite", "codex-panel-rewrite-popover__icon-button");
+    const cancelButton = createIconButton(
+      controls,
+      "x",
+      "Cancel rewrite",
+      "codex-panel__composer-action codex-panel-rewrite-popover__icon-button",
+    );
     cancelButton.onclick = () => this.cancel();
 
     const status = root.createDiv({ cls: "codex-panel-rewrite-popover__status" });
     const streamPreview = root.createEl("pre", { cls: "codex-panel-rewrite-popover__stream-preview is-hidden" });
     const resultRow = root.createDiv({ cls: "codex-panel-rewrite-popover__result-row" });
     const diff = resultRow.createDiv({ cls: "codex-panel-rewrite-popover__diff" });
-    const applyButton = createIconButton(resultRow, "check", "Apply rewrite", "codex-panel-rewrite-popover__icon-button mod-cta");
+    const applyButton = createIconButton(
+      resultRow,
+      "check",
+      "Apply rewrite",
+      "codex-panel__composer-action codex-panel-rewrite-popover__icon-button mod-cta",
+    );
     applyButton.onclick = () => this.apply();
+    applyButton.onkeydown = (event) => {
+      if (!isRewriteActionKey(event)) return;
+      event.preventDefault();
+      this.apply();
+    };
 
     return { root, instruction, generateButton, applyButton, resultRow, status, streamPreview, diff, debug: null };
   }
@@ -254,13 +274,9 @@ export class RewriteSelectionPopover {
     this.close();
   }
 
-  private handlePopoverKeydown(event: KeyboardEvent): void {
-    if (!this.elements || event.target === this.elements.instruction) return;
-    if (isInteractiveEventTarget(event.target)) return;
-    if (this.options.session.replacementText === null || this.options.session.status === "generating") return;
-    if (!isRewriteActionKey(event)) return;
-    event.preventDefault();
-    this.apply();
+  private focusApplyButton(): void {
+    if (!this.elements || this.elements.applyButton.disabled) return;
+    this.elements.applyButton.focus({ preventScroll: true });
   }
 
   private setStatus(text: string, options: { active?: boolean } = {}): void {
@@ -291,10 +307,7 @@ export class RewriteSelectionPopover {
   }
 
   private syncInstructionHeight(): void {
-    syncTextareaHeight(this.elements?.instruction ?? null, {
-      minHeightFallback: 0,
-      maxHeightFallback: Math.min(168, activeWindow.innerHeight * 0.28),
-    });
+    syncComposerHeight(this.elements?.instruction ?? null);
   }
 
   private position(): void {
@@ -335,9 +348,4 @@ function renderRewriteDiff(parent: HTMLElement, diff: string): void {
       text: displayDiffLineText(line.text, lineClass),
     });
   }
-}
-
-function isInteractiveEventTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return Boolean(target.closest("button, input, textarea, select, a, [role='button']"));
 }

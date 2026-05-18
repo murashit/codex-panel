@@ -1,5 +1,6 @@
 .codex-panel,
-.codex-panel-settings {
+.codex-panel-settings,
+.codex-panel-rewrite-popover {
   --codex-panel-top-icon-size: var(--icon-s, 16px);
   --codex-panel-icon-button-inline-size: calc(var(--codex-panel-top-icon-size) + var(--size-2-3, 6px) * 2);
   --codex-panel-icon-button-block-size: calc(var(--codex-panel-top-icon-size) + var(--size-2-2, 4px) * 2);
@@ -1397,8 +1398,6 @@
 }
 
 .codex-panel-rewrite-popover {
-  --rewrite-icon-button-size: calc(var(--icon-s, 16px) + var(--size-2-3, 6px) * 2);
-  --rewrite-control-stack-size: calc(var(--rewrite-icon-button-size) * 2 + var(--size-2-1, 2px));
   position: fixed;
   z-index: var(--layer-popover, 30);
   box-sizing: border-box;
@@ -1416,38 +1415,17 @@
   color: var(--text-normal);
 }
 
-.codex-panel-rewrite-popover__instruction {
-  box-sizing: border-box;
-  display: block;
-  width: 100%;
-  height: var(--rewrite-control-stack-size);
-  min-height: var(--rewrite-control-stack-size);
-  max-height: min(168px, 28vh);
-  padding: var(--size-2-3, 6px) var(--size-4-2, 8px);
-  line-height: var(--line-height-normal);
-  resize: none;
-  overflow-y: hidden;
-}
-
 .codex-panel-rewrite-popover__prompt-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--size-2-2, 4px);
+  gap: var(--codex-panel-section-gap);
   align-items: stretch;
-}
-
-.codex-panel-rewrite-popover__controls {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: var(--size-2-1, 2px);
 }
 
 .codex-panel-rewrite-popover__result-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--size-2-2, 4px);
+  gap: var(--codex-panel-control-gap);
   align-items: start;
 }
 
@@ -1456,28 +1434,8 @@
   display: none;
 }
 
-.codex-panel-rewrite-popover__icon-button {
-  --icon-size: var(--icon-s, 16px);
-  --icon-stroke: var(--icon-s-stroke-width, 2px);
-  box-sizing: border-box;
-  width: var(--rewrite-icon-button-size);
-  height: var(--rewrite-icon-button-size);
-  min-width: var(--rewrite-icon-button-size);
-  min-height: var(--rewrite-icon-button-size);
-  padding: var(--size-2-3, 6px);
-  border: 0;
-  border-radius: var(--clickable-icon-radius, var(--radius-s));
-  line-height: 1;
-}
-
 .codex-panel-rewrite-popover__icon-button.is-hidden {
   display: none;
-}
-
-.codex-panel-rewrite-popover__icon-button svg {
-  width: var(--icon-size);
-  height: var(--icon-size);
-  stroke-width: var(--icon-stroke);
 }
 
 .codex-panel-rewrite-popover__status {
