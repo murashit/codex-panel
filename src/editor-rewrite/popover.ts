@@ -1,6 +1,7 @@
 import { Notice, type Editor } from "obsidian";
 
-import { renderUnifiedDiff } from "../ui/turn-diff";
+import { createIconButton } from "../ui/components";
+import { displayDiffLines } from "../ui/turn-diff";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { isRewriteGenerateKey } from "./keys";
 import { canApplyRewrite, type RewriteRuntimeSettings, type RewriteSession } from "./model";
@@ -55,11 +56,13 @@ export class RewriteSelectionPopover {
     };
     this.instructionEl = instructionEl;
 
-    const controls = root.createDiv({ cls: "codex-panel-rewrite-popover__controls" });
-    const generateButton = controls.createEl("button", { text: "Generate", attr: { type: "button" } });
+    const promptRow = root.createDiv({ cls: "codex-panel-rewrite-popover__prompt-row" });
+    promptRow.append(instructionEl);
+    const controls = promptRow.createDiv({ cls: "codex-panel-rewrite-popover__controls" });
+    const generateButton = createIconButton(controls, "sparkles", "Generate rewrite", "codex-panel-rewrite-popover__icon-button");
     generateButton.onclick = () => void this.generate();
     this.generateButton = generateButton;
-    const cancelButton = controls.createEl("button", { text: "Cancel", attr: { type: "button" } });
+    const cancelButton = createIconButton(controls, "x", "Cancel rewrite", "codex-panel-rewrite-popover__icon-button");
     cancelButton.onclick = () => {
       this.options.session.status = "cancelled";
       this.close();
@@ -69,11 +72,7 @@ export class RewriteSelectionPopover {
     this.diffEl = root.createDiv({ cls: "codex-panel-rewrite-popover__diff" });
 
     const footer = root.createDiv({ cls: "codex-panel-rewrite-popover__footer" });
-    const applyButton = footer.createEl("button", {
-      text: "Apply",
-      cls: "mod-cta",
-      attr: { type: "button" },
-    });
+    const applyButton = createIconButton(footer, "check", "Apply rewrite", "codex-panel-rewrite-popover__icon-button mod-cta");
     applyButton.onclick = () => this.apply();
     this.applyButton = applyButton;
 
@@ -163,7 +162,7 @@ export class RewriteSelectionPopover {
     const replacement = this.options.session.replacementText;
     if (replacement === null || !this.diffEl) return;
     this.diffEl.empty();
-    renderUnifiedDiff(
+    renderRewriteDiff(
       this.diffEl,
       buildSelectionUnifiedDiff(this.options.session.filePath, this.options.session.originalText, replacement),
     );
@@ -216,9 +215,12 @@ export class RewriteSelectionPopover {
     if (this.instructionEl) this.instructionEl.disabled = generating;
     if (this.generateButton) {
       this.generateButton.disabled = generating || !hasInstruction;
-      this.generateButton.setText(this.options.session.replacementText === null ? "Generate" : "Regenerate");
+      this.generateButton.setAttr("aria-label", this.options.session.replacementText === null ? "Generate rewrite" : "Regenerate rewrite");
     }
-    if (this.applyButton) this.applyButton.disabled = generating || this.options.session.replacementText === null;
+    if (this.applyButton) {
+      this.applyButton.disabled = generating || this.options.session.replacementText === null;
+      this.applyButton.classList.toggle("is-hidden", this.options.session.replacementText === null);
+    }
   }
 
   private position(): void {
@@ -268,6 +270,23 @@ export class RewriteSelectionPopover {
     target.addEventListener(type, callback, options);
     this.cleanups.push(() => target.removeEventListener(type, callback, options));
   }
+}
+
+function renderRewriteDiff(parent: HTMLElement, diff: string): void {
+  const pre = parent.createEl("pre", { cls: "codex-panel__diff codex-panel-rewrite-popover__diff-body" });
+  for (const line of displayDiffLines(diff)) {
+    if (line.kind === "file" || line.text.startsWith("@@")) continue;
+    pre.createEl("span", {
+      cls: `codex-panel__diff-line codex-panel__diff-line--${rewriteDiffLineClass(line.text)}`,
+      text: line.text || " ",
+    });
+  }
+}
+
+function rewriteDiffLineClass(text: string): "added" | "removed" | "context" {
+  if (text.startsWith("+") && !text.startsWith("+++")) return "added";
+  if (text.startsWith("-") && !text.startsWith("---")) return "removed";
+  return "context";
 }
 
 function selectionRect(): DOMRect | null {
