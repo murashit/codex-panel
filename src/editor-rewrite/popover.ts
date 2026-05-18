@@ -2,7 +2,7 @@ import { Notice, type Editor } from "obsidian";
 
 import { createIconButton } from "../ui/components";
 import { syncTextareaHeight } from "../ui/textarea-autogrow";
-import { displayDiffLines } from "../ui/turn-diff";
+import { diffLineClass, displayDiffLineText, displayDiffLines } from "../ui/turn-diff";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { isRewriteGenerateKey } from "./keys";
 import { canApplyRewrite, type RewriteRuntimeSettings, type RewriteSession } from "./model";
@@ -293,17 +293,12 @@ function renderRewriteDiff(parent: HTMLElement, diff: string): void {
   const pre = parent.createEl("pre", { cls: "codex-panel__diff codex-panel-rewrite-popover__diff-body" });
   for (const line of displayDiffLines(diff)) {
     if (line.kind === "file" || line.text.startsWith("@@")) continue;
+    const lineClass = diffLineClass(line);
     pre.createEl("span", {
-      cls: `codex-panel__diff-line codex-panel__diff-line--${rewriteDiffLineClass(line.text)}`,
-      text: line.text || " ",
+      cls: `codex-panel__diff-line codex-panel__diff-line--${lineClass}`,
+      text: displayDiffLineText(line.text, lineClass),
     });
   }
-}
-
-function rewriteDiffLineClass(text: string): "added" | "removed" | "context" {
-  if (text.startsWith("+") && !text.startsWith("+++")) return "added";
-  if (text.startsWith("-") && !text.startsWith("---")) return "removed";
-  return "context";
 }
 
 function selectionRect(): DOMRect | null {

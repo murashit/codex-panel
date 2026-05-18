@@ -90,7 +90,11 @@ function renderTurnDiffHeader(
 export function renderUnifiedDiff(parent: HTMLElement, diff: string): HTMLElement {
   const pre = parent.createEl("pre", { cls: "codex-panel__diff codex-panel-turn-diff__diff" });
   for (const line of displayDiffLines(diff)) {
-    pre.createEl("span", { cls: `codex-panel__diff-line codex-panel__diff-line--${diffLineClass(line)}`, text: line.text || " " });
+    const lineClass = diffLineClass(line);
+    pre.createEl("span", {
+      cls: `codex-panel__diff-line codex-panel__diff-line--${lineClass}`,
+      text: displayDiffLineText(line.text, lineClass),
+    });
   }
   return pre;
 }
@@ -127,11 +131,21 @@ function filePathFromGitDiffHeader(line: string): string | null {
   return match[2] ?? match[1] ?? null;
 }
 
-function diffLineClass(line: DisplayDiffLine): "added" | "removed" | "hunk" | "context" | "file" {
+export type DiffLineClass = "added" | "removed" | "hunk" | "context" | "file";
+
+export function diffLineClass(line: DisplayDiffLine): DiffLineClass {
   if (line.kind === "file") return "file";
-  const text = line.text;
+  return diffLineClassFromText(line.text);
+}
+
+export function diffLineClassFromText(text: string): Exclude<DiffLineClass, "file"> {
   if (text.startsWith("+") && !text.startsWith("+++")) return "added";
   if (text.startsWith("-") && !text.startsWith("---")) return "removed";
   if (text.startsWith("@@")) return "hunk";
   return "context";
+}
+
+export function displayDiffLineText(text: string, lineClass: DiffLineClass): string {
+  const displayText = lineClass === "added" || lineClass === "removed" ? text.slice(1) : text;
+  return displayText || " ";
 }

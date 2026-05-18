@@ -591,6 +591,10 @@ describe("turn diff view decisions", () => {
     expect(parent.querySelector(".codex-panel__diff-line--file")?.textContent).toBe("src/main.ts");
     expect(parent.textContent).not.toContain("diff --git");
     expect(parent.textContent).not.toContain("+++ b/src/main.ts");
+    expect(parent.textContent).not.toContain("-old");
+    expect(parent.textContent).not.toContain("+new");
+    expect(parent.textContent).toContain("old");
+    expect(parent.textContent).toContain("new");
     expect(parent.querySelectorAll(".codex-panel__diff-line--hunk")).toHaveLength(1);
     expect(parent.querySelectorAll(".codex-panel__diff-line--removed")).toHaveLength(1);
     expect(parent.querySelectorAll(".codex-panel__diff-line--added")).toHaveLength(1);
