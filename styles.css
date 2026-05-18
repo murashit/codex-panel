@@ -1509,6 +1509,23 @@
   animation-delay: 0.36s;
 }
 
+.codex-panel-rewrite-popover__stream-preview {
+  box-sizing: border-box;
+  max-height: min(180px, 28vh);
+  margin: 0;
+  padding: var(--size-2-3, 6px) var(--size-4-2, 8px);
+  overflow: auto;
+  border-left: 2px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: var(--font-smaller);
+  white-space: pre-wrap;
+}
+
+.codex-panel-rewrite-popover__stream-preview.is-hidden {
+  display: none;
+}
+
 .codex-panel-rewrite-popover__diff-body {
   box-sizing: border-box;
   max-height: min(300px, 38vh);

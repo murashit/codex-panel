@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildSelectionUnifiedDiff } from "../../src/editor-rewrite/diff";
-import { isRewriteGenerateKey, type RewriteGenerateKeyEvent } from "../../src/editor-rewrite/keys";
+import { isRewriteActionKey, isRewriteGenerateKey, type RewriteGenerateKeyEvent } from "../../src/editor-rewrite/keys";
 import { canApplyRewrite, type RewriteSession } from "../../src/editor-rewrite/model";
 import { parseRewriteOutput, rewriteOutputFromTurn, rewriteOutputParseResultFromTurn } from "../../src/editor-rewrite/output";
 import { buildRewritePrompt } from "../../src/editor-rewrite/prompt";
@@ -131,6 +131,14 @@ describe("editor rewrite keys", () => {
     expect(isRewriteGenerateKey({ ...baseEvent, metaKey: true }, "mod-enter")).toBe(true);
     expect(isRewriteGenerateKey({ ...baseEvent, ctrlKey: true }, "mod-enter")).toBe(true);
     expect(isRewriteGenerateKey(baseEvent, "mod-enter")).toBe(false);
+  });
+
+  it("treats plain Enter and Cmd/Ctrl+Enter as preview action keys", () => {
+    expect(isRewriteActionKey(baseEvent)).toBe(true);
+    expect(isRewriteActionKey({ ...baseEvent, metaKey: true })).toBe(true);
+    expect(isRewriteActionKey({ ...baseEvent, ctrlKey: true })).toBe(true);
+    expect(isRewriteActionKey({ ...baseEvent, shiftKey: true })).toBe(false);
+    expect(isRewriteActionKey({ ...baseEvent, isComposing: true })).toBe(false);
   });
 });
 

@@ -13,6 +13,13 @@ export interface RewriteSelectionCommandHost extends Plugin {
 }
 
 export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandHost): void {
+  const activePopovers = new Set<RewriteSelectionPopover>();
+
+  plugin.register(() => {
+    for (const popover of activePopovers) popover.close();
+    activePopovers.clear();
+  });
+
   plugin.addCommand({
     id: "rewrite-selection",
     name: "Rewrite selection",
@@ -43,14 +50,17 @@ export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandH
         debugText: null,
       };
 
-      new RewriteSelectionPopover({
+      const popover = new RewriteSelectionPopover({
         codexPath: plugin.settings.codexPath,
         cwd: plugin.vaultPath,
         editor,
+        onClose: () => activePopovers.delete(popover),
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,
         session,
-      }).open();
+      });
+      popover.open();
+      activePopovers.add(popover);
     },
   });
 }

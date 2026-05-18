@@ -4,7 +4,7 @@ import { createIconButton } from "../ui/components";
 import { syncTextareaHeight } from "../ui/textarea-autogrow";
 import { diffLineClass, displayDiffLineText, displayDiffLines } from "../ui/turn-diff";
 import { buildSelectionUnifiedDiff } from "./diff";
-import { isRewriteGenerateKey } from "./keys";
+import { isRewriteActionKey, isRewriteGenerateKey } from "./keys";
 import { canApplyRewrite, type RewriteRuntimeSettings, type RewriteSession } from "./model";
 import { RewriteOutputError } from "./output";
 import { positionRewritePopover } from "./position";
@@ -18,6 +18,7 @@ export interface RewriteSelectionPopoverOptions {
   codexPath: string;
   cwd: string;
   editor: Editor;
+  onClose?: () => void;
   runtimeSettings: RewriteRuntimeSettings;
   sendShortcut: SendShortcut;
   session: RewriteSession;
@@ -32,6 +33,7 @@ interface RewritePopoverElements {
   applyButton: HTMLButtonElement;
   resultRow: HTMLElement;
   status: HTMLElement;
+  streamPreview: HTMLElement;
   diff: HTMLElement;
   debug: HTMLDetailsElement | null;
 }
@@ -66,12 +68,15 @@ export class RewriteSelectionPopover {
   }
 
   close(): void {
+    const hadElements = this.elements !== null;
+    if (!hadElements && this.options.session.status !== "generating") return;
     if (this.options.session.status === "generating") {
       this.abortController?.abort();
     }
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     this.elements?.root.remove();
     this.elements = null;
+    this.options.onClose?.();
   }
 
   private async generate(): Promise<void> {
@@ -122,6 +127,7 @@ export class RewriteSelectionPopover {
 
   private updatePreview(text: string): void {
     this.options.session.streamText = text;
+    this.renderStreamPreview();
     this.setStatus("Writing replacement", { active: true });
     this.position();
   }
@@ -134,6 +140,7 @@ export class RewriteSelectionPopover {
     const root = activeDocument.body.createDiv({ cls: "codex-panel-rewrite-popover" });
     root.setAttr("role", "dialog");
     root.setAttr("aria-label", "Rewrite selection");
+    root.onkeydown = (event) => this.handlePopoverKeydown(event);
 
     const instruction = root.createEl("textarea", {
       cls: "codex-panel-rewrite-popover__instruction",
@@ -146,8 +153,10 @@ export class RewriteSelectionPopover {
       this.position();
     };
     instruction.onkeydown = (event) => {
-      if (!isRewriteGenerateKey(event, this.options.sendShortcut)) return;
+      const hasReplacement = this.options.session.replacementText !== null;
+      if (!(hasReplacement ? isRewriteActionKey(event) : isRewriteGenerateKey(event, this.options.sendShortcut))) return;
       event.preventDefault();
+      event.stopPropagation();
       void this.generate();
     };
 
@@ -160,12 +169,13 @@ export class RewriteSelectionPopover {
     cancelButton.onclick = () => this.cancel();
 
     const status = root.createDiv({ cls: "codex-panel-rewrite-popover__status" });
+    const streamPreview = root.createEl("pre", { cls: "codex-panel-rewrite-popover__stream-preview is-hidden" });
     const resultRow = root.createDiv({ cls: "codex-panel-rewrite-popover__result-row" });
     const diff = resultRow.createDiv({ cls: "codex-panel-rewrite-popover__diff" });
     const applyButton = createIconButton(resultRow, "check", "Apply rewrite", "codex-panel-rewrite-popover__icon-button mod-cta");
     applyButton.onclick = () => this.apply();
 
-    return { root, instruction, generateButton, applyButton, resultRow, status, diff, debug: null };
+    return { root, instruction, generateButton, applyButton, resultRow, status, streamPreview, diff, debug: null };
   }
 
   private startGeneration(instruction: string): void {
@@ -175,12 +185,15 @@ export class RewriteSelectionPopover {
     this.options.session.replacementText = null;
     this.options.session.debugText = null;
     this.elements?.diff.empty();
+    this.renderStreamPreview();
     this.renderDebug(null);
   }
 
   private showRewritePreview(replacementText: string): void {
     this.options.session.replacementText = replacementText;
     this.options.session.status = "preview";
+    this.options.session.streamText = "";
+    this.renderStreamPreview();
     this.renderDiff();
     this.setStatus("");
   }
@@ -188,8 +201,18 @@ export class RewriteSelectionPopover {
   private showGenerationFailure(error: unknown): void {
     this.options.session.status = "failed";
     this.options.session.debugText = error instanceof RewriteOutputError ? error.rawText : null;
+    this.options.session.streamText = "";
+    this.renderStreamPreview();
     this.renderDebug(this.options.session.debugText);
     this.setStatus(error instanceof Error ? error.message : String(error));
+  }
+
+  private renderStreamPreview(): void {
+    if (!this.elements) return;
+    const preview = this.options.session.streamText.trim();
+    this.elements.streamPreview.empty();
+    this.elements.streamPreview.classList.toggle("is-hidden", !preview);
+    if (preview) this.elements.streamPreview.createSpan({ text: preview });
   }
 
   private renderDiff(): void {
@@ -229,6 +252,15 @@ export class RewriteSelectionPopover {
     editor.replaceRange(replacement, session.targetRange.from, session.targetRange.to, "codex-panel-rewrite");
     session.status = "applied";
     this.close();
+  }
+
+  private handlePopoverKeydown(event: KeyboardEvent): void {
+    if (!this.elements || event.target === this.elements.instruction) return;
+    if (isInteractiveEventTarget(event.target)) return;
+    if (this.options.session.replacementText === null || this.options.session.status === "generating") return;
+    if (!isRewriteActionKey(event)) return;
+    event.preventDefault();
+    this.apply();
   }
 
   private setStatus(text: string, options: { active?: boolean } = {}): void {
@@ -303,4 +335,9 @@ function renderRewriteDiff(parent: HTMLElement, diff: string): void {
       text: displayDiffLineText(line.text, lineClass),
     });
   }
+}
+
+function isInteractiveEventTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest("button, input, textarea, select, a, [role='button']"));
 }
