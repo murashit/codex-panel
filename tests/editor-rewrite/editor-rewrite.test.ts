@@ -48,6 +48,18 @@ describe("editor rewrite prompt", () => {
     expect(prompt).toContain("Current note context:");
     expect(prompt).toContain("# Heading");
   });
+
+  it("uses fences that cannot be closed by note code blocks", () => {
+    const prompt = buildRewritePrompt(
+      session({
+        originalText: "```ts\nconst value = 1;\n```",
+        noteText: "````markdown\n```ts\nconst value = 1;\n```\n````",
+      }),
+    );
+
+    expect(prompt).toContain("````text\n```ts");
+    expect(prompt).toContain("`````text\n````markdown");
+  });
 });
 
 describe("editor rewrite diff", () => {

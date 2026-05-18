@@ -30,11 +30,13 @@ export interface RunRewriteSelectionOptions {
   runtimeSettings?: RewriteRuntimeSettings;
   onActivity?: (activity: RewriteActivity) => void;
   onPreview?: (text: string) => void;
+  signal?: AbortSignal;
 }
 
 export type RewriteActivity = "reasoning" | "writing";
 
 export async function runRewriteSelection(options: RunRewriteSelectionOptions): Promise<RewriteOutput> {
+  throwIfAborted(options.signal);
   let threadId: string | null = null;
   let expectedTurnId: string | null = null;
   let preview = "";
@@ -100,20 +102,24 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
   });
 
   try {
-    await client.connect();
-    const runtime = options.runtimeSettings ? await rewriteRuntimeForClient(client, options.runtimeSettings) : {};
-    const threadResponse = await client.startEphemeralThread(options.cwd, REWRITE_SERVICE_NAME, REWRITE_DEVELOPER_INSTRUCTIONS);
+    await abortable(client.connect(), options.signal);
+    const runtime = options.runtimeSettings
+      ? await abortable(rewriteRuntimeForClient(client, options.runtimeSettings), options.signal)
+      : {};
+    const threadResponse = await abortable(
+      client.startEphemeralThread(options.cwd, REWRITE_SERVICE_NAME, REWRITE_DEVELOPER_INSTRUCTIONS),
+      options.signal,
+    );
     threadId = threadResponse.thread.id;
-    const turnResponse = await client.startStructuredTurn(
-      threadId,
-      options.cwd,
-      options.prompt,
-      REWRITE_OUTPUT_SCHEMA,
-      runtime.model,
-      runtime.effort,
+    const turnResponse = await abortable(
+      client.startStructuredTurn(threadId, options.cwd, options.prompt, REWRITE_OUTPUT_SCHEMA, runtime.model, runtime.effort),
+      options.signal,
     );
     expectedTurnId = turnResponse.turn.id;
-    const turn = turnResponse.turn.status === "completed" ? turnWithCollectedItems(turnResponse.turn, completedItems) : await completedTurn;
+    const turn =
+      turnResponse.turn.status === "completed"
+        ? turnWithCollectedItems(turnResponse.turn, completedItems)
+        : await abortable(completedTurn, options.signal);
     const { output, rawText } = rewriteOutputParseResultFromTurn(turn);
     if (!output) throw new RewriteOutputError("Codex did not return a valid rewrite patch.", rawText);
     return output;
@@ -122,6 +128,24 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
     if (timeout) window.clearTimeout(timeout);
     client.disconnect();
   }
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw rewriteAbortError();
+}
+
+function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return promise;
+  throwIfAborted(signal);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(rewriteAbortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
+function rewriteAbortError(): Error {
+  return new Error("Selection rewrite cancelled.");
 }
 
 function turnWithCollectedItems(turn: Turn, completedItems: ThreadItem[]): Turn {

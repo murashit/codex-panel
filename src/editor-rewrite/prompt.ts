@@ -45,7 +45,13 @@ function positionLabel(position: { line: number; ch: number }): string {
 }
 
 function fenced(text: string): string {
-  return ["```text", text, "```"].join("\n");
+  const fence = safeBacktickFence(text);
+  return [`${fence}text`, text, fence].join("\n");
+}
+
+function safeBacktickFence(text: string): string {
+  const longestRun = Math.max(2, ...Array.from(text.matchAll(/`+/g), (match) => match[0].length));
+  return "`".repeat(longestRun + 1);
 }
 
 function truncateNoteContext(text: string): string {
