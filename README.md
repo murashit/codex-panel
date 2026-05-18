@@ -70,7 +70,7 @@ Rolling back a turn only removes the latest Codex turn from thread history and r
 
 Codex configuration stays in Codex. Defaults and runtime policy, including model, reasoning effort, sandboxing, approvals, MCP servers, hook definitions, network access, and providers, should be configured the same way you configure Codex CLI.
 
-The settings tab stores only panel-specific preferences: Codex executable path, composer send shortcut, and optional model/effort overrides for automatic thread naming. Model and reasoning effort controls in the panel are temporary inputs for subsequent turns, not saved Codex defaults.
+The settings tab stores only panel-specific preferences: Codex executable path, composer send shortcut, and optional model/effort overrides for automatic thread naming and selection rewrites. Model and reasoning effort controls in the panel are temporary inputs for subsequent turns, not saved Codex defaults.
 
 The status dot opens connection controls and diagnostics, including effective config and usage limits. The settings tab can load app-server-backed hook status and archived threads on demand, including hook trust and enabled state. Codex Panel can show and request those app-server operations, but it does not edit or duplicate Codex config.
 
