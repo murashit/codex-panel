@@ -44,7 +44,7 @@ export function activeComposerSuggestions(
 ): ComposerSuggestion[] {
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
-    activeThreadResumeSuggestions(beforeCursor, threads) ??
+    activeThreadCommandSuggestions(beforeCursor, threads) ??
     activeModelOverrideSuggestions(beforeCursor, models) ??
     activeReasoningEffortSuggestions(beforeCursor, models, currentModel) ??
     activeSlashCommandSuggestions(beforeCursor) ??
@@ -145,8 +145,8 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
     }));
 }
 
-export function activeThreadResumeSuggestions(beforeCursor: string, threads: Thread[]): ComposerSuggestion[] | null {
-  const match = beforeCursor.match(/(?:^|\n)\/resume\s+([^\n]{0,120})$/);
+export function activeThreadCommandSuggestions(beforeCursor: string, threads: Thread[]): ComposerSuggestion[] | null {
+  const match = beforeCursor.match(/(?:^|\n)\/(?:resume|refer)\s+([^\s\n]{0,120})$/);
   if (!match || match.index === undefined) return null;
 
   const rawQuery = match[1] ?? "";

@@ -534,6 +534,43 @@ describe("message stream block identity and message actions", () => {
     });
   });
 
+  it("renders referenced thread metadata without exposing hidden context", () => {
+    const blocks = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        {
+          id: "u1",
+          kind: "message",
+          role: "user",
+          text: "この続きです",
+          copyText: "この続きです",
+          markdown: true,
+          referencedThread: {
+            threadId: "thread-reference",
+            title: "参照元",
+            includedTurns: 2,
+            turnLimit: 20,
+          },
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    });
+
+    const user = blocks.find((block) => block.key === "item:u1")?.render();
+
+    expect(user?.querySelector(".codex-panel__message-content")?.textContent).toBe("この続きです");
+    expect(user?.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("Referenced 参照元");
+    expect(user?.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("2/20 turns");
+    expect(user?.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.title).toBe("thread-reference");
+  });
+
   it("does not render the open diff action without aggregated turn diff", () => {
     const blocks = messageRenderBlocks({
       activeThreadId: "thread",

@@ -70,6 +70,7 @@ describe("composer suggestions", () => {
     expect(parseSlashCommand("/status")).toEqual({ command: "status", args: "" });
     expect(parseSlashCommand("/new")).toEqual({ command: "new", args: "" });
     expect(parseSlashCommand("/resume thread-1")).toEqual({ command: "resume", args: "thread-1" });
+    expect(parseSlashCommand("/refer thread-1 続きです")).toEqual({ command: "refer", args: "thread-1 続きです" });
     expect(parseSlashCommand("/fork")).toEqual({ command: "fork", args: "" });
     expect(parseSlashCommand("/doctor")).toEqual({ command: "doctor", args: "" });
     expect(parseSlashCommand("/fast now")).toEqual({ command: "fast", args: "now" });
@@ -99,7 +100,7 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
   });
 
-  it("suggests recent threads for /resume arguments", () => {
+  it("suggests recent threads for /resume and /refer arguments", () => {
     const threads = [
       thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Codex Panel実装" }),
       thread({ id: "019abcde-0000-7000-8000-000000000002", name: "別件" }),
@@ -121,6 +122,13 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/resume", notes, [], threads)).toEqual([]);
     expect(activeComposerSuggestions("/resume 019abcde-0000-7000-8000-000000000001", notes, [], threads)).toEqual([]);
     expect(activeComposerSuggestions("/resume 019abcde-0000-7000-8000-000000000001 ", notes, [], threads)).toEqual([]);
+    expect(activeComposerSuggestions("/refer codex", notes, [], threads)[0]).toMatchObject({
+      display: "Codex Panel実装",
+      detail: "019abcde",
+      replacement: "019abcde-0000-7000-8000-000000000001",
+      appendSpaceOnInsert: true,
+    });
+    expect(activeComposerSuggestions("/refer 019abcde-0000-7000-8000-000000000001 ", notes, [], threads)).toEqual([]);
   });
 
   it("does not suggest threads for /fork arguments", () => {

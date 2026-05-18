@@ -11,6 +11,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
     startNewThread: vi.fn().mockResolvedValue(undefined),
     resumeThread: vi.fn().mockResolvedValue(undefined),
+    referThread: vi.fn().mockResolvedValue([{ type: "text", text: "referenced", text_elements: [] }]),
     forkThread: vi.fn().mockResolvedValue(undefined),
     rollbackThread: vi.fn().mockResolvedValue(undefined),
     compactThread: vi.fn().mockResolvedValue(undefined),
@@ -102,6 +103,41 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
   });
 
+  it("returns referenced input for /refer", async () => {
+    const target = thread({ id: "thread-alpha", name: "Alpha" });
+    const input = [{ type: "text" as const, text: "context\n質問です", text_elements: [] }];
+    const ctx = context({
+      listedThreads: [thread({ id: "thread-current", name: "Current" }), target],
+      referThread: vi.fn().mockResolvedValue(input),
+    });
+
+    const result = await executeSlashCommand("refer", "thread-alpha 質問です", ctx);
+
+    expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です");
+    expect(result).toEqual({ sendText: "質問です", sendInput: input });
+  });
+
+  it("rejects /refer without both thread and message", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("refer", "thread-2", ctx);
+
+    expect(ctx.referThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Usage: /refer <thread> <message>");
+  });
+
+  it("rejects /refer for the active thread", async () => {
+    const ctx = context({
+      activeThreadId: "thread-1",
+      listedThreads: [thread({ id: "thread-1", name: "Current" })],
+    });
+
+    await executeSlashCommand("refer", "thread-1 続きです", ctx);
+
+    expect(ctx.referThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
+  });
+
   it("forks the active thread for /fork", async () => {
     const ctx = context({ activeThreadId: "active-thread" });
 
@@ -190,6 +226,12 @@ describe("slash commands", () => {
   it("documents rollback", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/rollback"))).toBe(
       "/rollback - Drop the latest turn and restore its prompt to the composer.",
+    );
+  });
+
+  it("documents refer history size", () => {
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/refer"))).toBe(
+      "/refer - Send a message with up to 20 recent turns from another non-archived thread.",
     );
   });
 

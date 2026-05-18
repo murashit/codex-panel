@@ -58,6 +58,47 @@ describe("thread item conversion preserves app-server semantics", () => {
     expect(displayItemFromThreadItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world", markdown: true });
   });
 
+  it("hides persisted /refer context in displayed user messages", () => {
+    const text = [
+      "[Codex Panel referenced thread]",
+      "Title: 参照元",
+      "Thread ID: thread-reference",
+      "Included turns: 2/20",
+      "Included history: user input and final Codex responses only.",
+      "",
+      "Reference conversation:",
+      "",
+      "Turn 1:",
+      "User:",
+      "元の依頼",
+      "Codex:",
+      "元の回答",
+      "",
+      "[/Codex Panel referenced thread]",
+      "",
+      "Current user request:",
+      "この続きです",
+    ].join("\n");
+
+    expect(
+      displayItemFromThreadItem({
+        type: "userMessage",
+        id: "u1",
+        content: [{ type: "text", text, text_elements: [] }],
+      }),
+    ).toMatchObject({
+      role: "user",
+      text: "この続きです",
+      copyText: "この続きです",
+      referencedThread: {
+        threadId: "thread-reference",
+        title: "参照元",
+        includedTurns: 2,
+        turnLimit: 20,
+      },
+    });
+  });
+
   it("keeps structured skill metadata out of displayed user text when a prompt body exists", () => {
     const item: ThreadItem = {
       type: "userMessage",

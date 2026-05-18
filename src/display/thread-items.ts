@@ -2,6 +2,7 @@ import type { DisplayDetailSection, DisplayFileChange, DisplayItem } from "./typ
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import { inputToText, truncate } from "../utils";
+import { referencedThreadDisplayFromPrompt } from "../threads/reference";
 import { agentDisplayItem } from "./agent";
 import { pathRelativeToRoot } from "./paths";
 import { normalizeProposedPlanMarkdown } from "./plan";
@@ -86,6 +87,20 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
 
 function userMessageDisplayItem(item: UserMessageItem, turnId?: string): DisplayItem {
   const text = inputToText(item.content);
+  const referencedThread = referencedThreadDisplayFromPrompt(text);
+  if (referencedThread) {
+    return {
+      id: item.id,
+      kind: "message",
+      role: "user",
+      text: referencedThread.text,
+      copyText: referencedThread.text,
+      referencedThread: referencedThread.reference,
+      turnId,
+      itemId: item.id,
+      markdown: true,
+    };
+  }
   return {
     id: item.id,
     kind: "message",

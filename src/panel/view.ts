@@ -10,6 +10,8 @@ import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { createSystemItem } from "../display/system";
 import type { DisplayItem } from "../display/types";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { Thread } from "../generated/app-server/v2/Thread";
+import type { UserInput } from "../generated/app-server/v2/UserInput";
 import {
   collaborationModeLabel as formatCollaborationModeLabel,
   collaborationModeToggleMessage,
@@ -48,6 +50,7 @@ import { questionDefaultAnswer, type PendingUserInput } from "../user-input/mode
 import { PanelComposerController } from "./composer-controller";
 import { clearActiveThreadState, clearConnectionScopedState, createPanelState, type PanelState } from "./state";
 import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName, upsertThread } from "../threads/model";
+import { referencedThreadPrompt, referencedThreadStatus, referencedThreadTurns, REFERENCED_THREAD_TURN_LIMIT } from "../threads/reference";
 import { renderPendingRequestMessage } from "../ui/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "../ui/toolbar";
 import type { TurnDiffViewState } from "../ui/turn-diff";
@@ -354,7 +357,7 @@ export class CodexPanelView extends ItemView {
       this.composerController.setDraft("", { clearSuggestions: true });
       const result = await this.executeSlashCommand(slashCommand.command, slashCommand.args);
       if (result?.sendText) {
-        await this.sendTurnText(result.sendText);
+        await this.sendTurnText(result.sendText, result.sendInput);
       }
       this.render();
       return;
@@ -363,7 +366,7 @@ export class CodexPanelView extends ItemView {
     await this.sendTurnText(text);
   }
 
-  private async sendTurnText(text: string): Promise<void> {
+  private async sendTurnText(text: string, codexInputOverride?: UserInput[]): Promise<void> {
     const client = this.client;
     if (!client) return;
 
@@ -399,7 +402,7 @@ export class CodexPanelView extends ItemView {
       if (turnSettings.warning) {
         this.addSystemMessage(`${this.collaborationModeLabel()} mode is selected, but ${turnSettings.warning}`);
       }
-      const codexInput = this.composerController.codexInput(text);
+      const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
       const activeThreadId = this.state.activeThreadId;
       if (!activeThreadId) return;
       const response = await client.startTurn(
@@ -496,6 +499,7 @@ export class CodexPanelView extends ItemView {
       listedThreads: this.state.listedThreads,
       startNewThread: () => this.startNewThread(),
       resumeThread: (threadId) => this.resumeThread(threadId),
+      referThread: (thread, message) => this.referencedThreadInput(thread, message),
       forkThread: (threadId) => this.forkThread(threadId),
       rollbackThread: (threadId) => this.rollbackThread(threadId),
       compactThread: async (threadId) => {
@@ -513,6 +517,25 @@ export class CodexPanelView extends ItemView {
       modelStatusLines: () => this.modelStatusLines(),
       effortStatusLines: () => this.effortStatusLines(),
     });
+  }
+
+  private async referencedThreadInput(thread: Thread, message: string): Promise<UserInput[] | null> {
+    if (!this.client) return null;
+    try {
+      const response = await this.client.threadTurnsList(thread.id, null, REFERENCED_THREAD_TURN_LIMIT);
+      const turns = referencedThreadTurns(response.data);
+      if (turns.length === 0) {
+        this.addSystemMessage("Referenced thread has no readable conversation turns.");
+        return null;
+      }
+      const prompt = referencedThreadPrompt(thread, turns, message);
+      const messageInput = this.composerController.codexInput(message);
+      this.setStatus(referencedThreadStatus(thread, turns.length));
+      return [{ type: "text", text: prompt, text_elements: [] }, ...messageInput.filter((item) => item.type !== "text")];
+    } catch (error) {
+      this.addSystemMessage(error instanceof Error ? error.message : String(error));
+      return null;
+    }
   }
 
   private toggleFastMode(): void {

@@ -39,11 +39,19 @@ export interface MessageDisplayItem extends DisplayBase {
   kind: "message";
   role: "user" | "assistant";
   copyText?: string;
+  referencedThread?: ReferencedThreadDisplay;
   proposedPlan?: boolean;
   editedFiles?: string[];
   turnDiff?: DisplayTurnDiff;
   autoReviewSummaries?: string[];
   markdown?: boolean;
+}
+
+export interface ReferencedThreadDisplay {
+  threadId: string;
+  title: string;
+  includedTurns: number;
+  turnLimit: number;
 }
 
 export interface DisplayTurnDiff {

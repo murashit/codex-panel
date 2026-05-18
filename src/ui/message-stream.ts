@@ -229,6 +229,9 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   if (item.kind === "message" && item.editedFiles && item.editedFiles.length > 0) {
     renderEditedFiles(messageEl, item, context);
   }
+  if (item.kind === "message" && item.referencedThread) {
+    renderReferencedThread(messageEl, item);
+  }
   if (item.kind === "message" && item.autoReviewSummaries && item.autoReviewSummaries.length > 0) {
     renderAutoReviewSummaries(messageEl, item.autoReviewSummaries);
   }
@@ -245,6 +248,18 @@ function renderMessageAction(parent: HTMLElement, icon: string, label: string, c
     onClick();
   };
   return button;
+}
+
+function renderReferencedThread(parent: HTMLElement, item: Extract<DisplayItem, { kind: "message" }>): void {
+  const reference = item.referencedThread;
+  if (!reference) return;
+  const wrapper = parent.createDiv({ cls: "codex-panel__referenced-thread" });
+  const label = wrapper.createSpan({ cls: "codex-panel__referenced-thread-label" });
+  label.createSpan({ text: "Referenced " });
+  label.createSpan({ text: reference.title });
+  label.createSpan({ cls: "codex-panel__edited-files-separator", text: "·" });
+  label.createSpan({ text: `${reference.includedTurns}/${reference.turnLimit} turns` });
+  wrapper.title = reference.threadId;
 }
 
 function renderEditedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kind: "message" }>, context: MessageStreamContext): void {

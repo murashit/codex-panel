@@ -967,10 +967,17 @@
 }
 
 .codex-panel__edited-files,
+.codex-panel__referenced-thread,
 .codex-panel__auto-reviews {
   margin-top: 6px;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
+}
+
+.codex-panel__referenced-thread-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--codex-panel-control-gap);
 }
 
 .codex-panel__edited-files {

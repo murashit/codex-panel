@@ -1,6 +1,7 @@
 export const SLASH_COMMANDS = [
   { command: "/new", detail: "Start a new Codex thread, optionally sending a message." },
   { command: "/resume", detail: "Resume a recent Codex thread." },
+  { command: "/refer", detail: "Send a message with up to 20 recent turns from another non-archived thread." },
   { command: "/fork", detail: "Fork the active Codex thread." },
   { command: "/rollback", detail: "Drop the latest turn and restore its prompt to the composer." },
   { command: "/compact", detail: "Compact the current conversation context." },

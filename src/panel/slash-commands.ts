@@ -1,5 +1,6 @@
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { Thread } from "../generated/app-server/v2/Thread";
+import type { UserInput } from "../generated/app-server/v2/UserInput";
 import { getThreadTitle } from "../threads/model";
 import { slashCommandHelpLines, type SlashCommandName } from "../composer/slash-commands";
 import {
@@ -15,6 +16,7 @@ export interface SlashCommandExecutionContext {
   listedThreads: Thread[];
   startNewThread: () => Promise<void>;
   resumeThread: (threadId: string) => Promise<void>;
+  referThread: (thread: Thread, message: string) => Promise<UserInput[] | null>;
   forkThread: (threadId: string) => Promise<void>;
   rollbackThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
@@ -32,6 +34,7 @@ export interface SlashCommandExecutionContext {
 
 export interface SlashCommandExecutionResult {
   sendText?: string;
+  sendInput?: UserInput[];
 }
 
 export async function executeSlashCommand(
@@ -53,6 +56,26 @@ export async function executeSlashCommand(
     }
     await context.resumeThread(thread.thread.id);
     return;
+  }
+
+  if (command === "refer") {
+    const parsed = parseReferArgs(args);
+    if (!parsed) {
+      context.addSystemMessage("Usage: /refer <thread> <message>");
+      return;
+    }
+    const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
+    if (!thread.ok) {
+      context.addSystemMessage(thread.message);
+      return;
+    }
+    if (thread.thread.id === context.activeThreadId) {
+      context.addSystemMessage("Use the current thread directly instead of referencing it.");
+      return;
+    }
+    const input = await context.referThread(thread.thread, parsed.message);
+    if (!input) return;
+    return { sendText: parsed.message, sendInput: input };
   }
 
   if (command === "fork") {
@@ -158,6 +181,12 @@ export async function executeSlashCommand(
 }
 
 type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: string };
+
+function parseReferArgs(args: string): { threadQuery: string; message: string } | null {
+  const match = args.match(/^(\S+)\s+([\s\S]*\S)\s*$/);
+  if (!match) return null;
+  return { threadQuery: match[1], message: match[2] };
+}
 
 export function resolveThreadArgument(args: string, threads: Thread[]): ThreadResolution {
   const query = args.trim();
