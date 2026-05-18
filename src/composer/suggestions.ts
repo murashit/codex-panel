@@ -1,5 +1,13 @@
+import type { Model } from "../generated/app-server/v2/Model";
 import type { SkillMetadata } from "../generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../generated/app-server/v2/Thread";
+import {
+  findModelByIdOrName,
+  isReasoningEffort,
+  REASONING_EFFORTS,
+  sortedAvailableModels,
+  supportedEffortsForModel,
+} from "../runtime/model";
 import { SLASH_COMMANDS, type SlashCommandName } from "./slash-commands";
 import { getThreadTitle } from "../threads/model";
 import { shortThreadId } from "../utils";
@@ -31,10 +39,14 @@ export function activeComposerSuggestions(
   notes: NoteCandidate[],
   skills: SkillMetadata[],
   threads: Thread[] = [],
+  models: Model[] = [],
+  currentModel: string | null = null,
 ): ComposerSuggestion[] {
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
     activeThreadResumeSuggestions(beforeCursor, threads) ??
+    activeModelOverrideSuggestions(beforeCursor, models) ??
+    activeReasoningEffortSuggestions(beforeCursor, models, currentModel) ??
     activeSlashCommandSuggestions(beforeCursor) ??
     activeSkillSuggestions(beforeCursor, skills) ??
     []
@@ -160,6 +172,84 @@ export function activeThreadResumeSuggestions(beforeCursor: string, threads: Thr
       start,
       appendSpaceOnInsert: true,
     }));
+}
+
+export function activeModelOverrideSuggestions(beforeCursor: string, models: Model[]): ComposerSuggestion[] | null {
+  const match = beforeCursor.match(/(?:^|\n)\/model\s+([^\n]{0,120})$/);
+  if (!match || match.index === undefined) return null;
+
+  const rawQuery = match[1] ?? "";
+  const query = rawQuery.trim().toLowerCase();
+  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  if (query === "default") return null;
+  if (models.some((model) => !model.hidden && model.model.toLowerCase() === query)) return null;
+  const start = beforeCursor.length - rawQuery.length;
+  const suggestions = [
+    {
+      display: "default",
+      detail: "Reset model override",
+      replacement: "default",
+      start,
+      appendSpaceOnInsert: true,
+    },
+    ...sortedAvailableModels(models)
+      .map((model, index) => {
+        const id = model.id.toLowerCase();
+        const name = model.model.toLowerCase();
+        const displayName = model.displayName.toLowerCase();
+        const score = query.length === 0 ? 2 : name.startsWith(query) ? 0 : displayName.includes(query) ? 1 : id.includes(query) ? 2 : -1;
+        return { model, score, index };
+      })
+      .filter((item) => item.score !== -1)
+      .sort((a, b) => a.score - b.score || a.index - b.index || a.model.model.localeCompare(b.model.model))
+      .map(({ model }) => ({
+        display: model.model,
+        detail: model.displayName || model.description,
+        replacement: model.model,
+        start,
+        appendSpaceOnInsert: true,
+      })),
+  ];
+
+  return suggestions
+    .filter((item) => query.length === 0 || item.display.toLowerCase().startsWith(query) || item.detail.toLowerCase().includes(query))
+    .slice(0, 8);
+}
+
+export function activeReasoningEffortSuggestions(
+  beforeCursor: string,
+  models: Model[],
+  currentModel: string | null,
+): ComposerSuggestion[] | null {
+  const match = beforeCursor.match(/(?:^|\n)\/effort\s+([^\n]{0,120})$/);
+  if (!match || match.index === undefined) return null;
+
+  const rawQuery = match[1] ?? "";
+  const query = rawQuery.trim().toLowerCase();
+  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  if (query === "default" || isReasoningEffort(query)) return null;
+  const start = beforeCursor.length - rawQuery.length;
+  const model = findModelByIdOrName(models, currentModel);
+  const efforts = model ? supportedEffortsForModel(model) : REASONING_EFFORTS;
+  const modelDetail = model ? `Supported by ${model.model}` : "Supported reasoning effort";
+  const suggestions = [
+    {
+      display: "default",
+      detail: "Reset effort override",
+      replacement: "default",
+      start,
+      appendSpaceOnInsert: true,
+    },
+    ...efforts.map((effort) => ({
+      display: effort,
+      detail: modelDetail,
+      replacement: effort,
+      start,
+      appendSpaceOnInsert: true,
+    })),
+  ];
+
+  return suggestions.filter((item) => item.display.toLowerCase().startsWith(query)).slice(0, 8);
 }
 
 export function activeSkillSuggestions(beforeCursor: string, skills: SkillMetadata[]): ComposerSuggestion[] | null {

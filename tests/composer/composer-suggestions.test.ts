@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
+import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import {
   activeComposerSuggestions,
@@ -34,6 +36,27 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     turns: [],
     ...overrides,
   } as Thread;
+}
+
+function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Model> = {}): Model {
+  return {
+    id: name,
+    model: name,
+    upgrade: null,
+    upgradeInfo: null,
+    availabilityNux: null,
+    displayName: name,
+    description: `${name} description`,
+    hidden: false,
+    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+    defaultReasoningEffort: efforts[0] ?? "medium",
+    inputModalities: ["text"],
+    supportsPersonality: false,
+    additionalSpeedTiers: [],
+    serviceTiers: [],
+    isDefault: false,
+    ...overrides,
+  };
 }
 
 describe("composer suggestions", () => {
@@ -109,6 +132,48 @@ describe("composer suggestions", () => {
     );
 
     expect(suggestions).toEqual([]);
+  });
+
+  it("suggests model override arguments for /model", () => {
+    const models = [
+      model("gpt-5.5", ["low", "medium", "high"]),
+      model("gpt-5.4-mini", ["minimal", "low", "medium"]),
+      model("hidden-model", ["medium"], { hidden: true }),
+    ];
+
+    const suggestions = activeComposerSuggestions("/model gpt-5.4", notes, [], [], models);
+
+    expect(suggestions[0]).toMatchObject({
+      display: "gpt-5.4-mini",
+      detail: "gpt-5.4-mini",
+      replacement: "gpt-5.4-mini",
+      appendSpaceOnInsert: true,
+    });
+    expect(activeComposerSuggestions("/model ", notes, [], [], models).map((suggestion) => suggestion.replacement)).toEqual([
+      "default",
+      "gpt-5.4-mini",
+      "gpt-5.5",
+    ]);
+    expect(activeComposerSuggestions("/model hidden", notes, [], [], models)).toEqual([]);
+    expect(activeComposerSuggestions("/model gpt-5.5", notes, [], [], models)).toEqual([]);
+    expect(activeComposerSuggestions("/model gpt-5.5 ", notes, [], [], models)).toEqual([]);
+  });
+
+  it("suggests reasoning effort arguments for /effort", () => {
+    const models = [model("gpt-5.5", ["low", "medium", "high"]), model("gpt-5.4-mini", ["minimal", "low", "medium"])];
+
+    expect(activeComposerSuggestions("/effort h", notes, [], [], models, "gpt-5.5")[0]).toMatchObject({
+      display: "high",
+      detail: "Supported by gpt-5.5",
+      replacement: "high",
+      appendSpaceOnInsert: true,
+    });
+    expect(
+      activeComposerSuggestions("/effort ", notes, [], [], models, "gpt-5.4-mini").map((suggestion) => suggestion.replacement),
+    ).toEqual(["default", "minimal", "low", "medium"]);
+    expect(activeComposerSuggestions("/effort x", notes, [], [], models, "gpt-5.4-mini")).toEqual([]);
+    expect(activeComposerSuggestions("/effort high", notes, [], [], models, "gpt-5.5")).toEqual([]);
+    expect(activeComposerSuggestions("/effort high ", notes, [], [], models, "gpt-5.5")).toEqual([]);
   });
 
   it("adds a trailing space for slash command and skill insertions only", () => {

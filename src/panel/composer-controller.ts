@@ -23,6 +23,7 @@ export interface PanelComposerControllerOptions {
   viewId: string;
   sendShortcut: () => SendShortcut;
   canInterrupt: () => boolean;
+  currentModelForSuggestions: () => string | null;
   renderIfDetached: () => void;
   onSubmit: () => void;
   onNewThread: () => void;
@@ -160,6 +161,8 @@ export class PanelComposerController {
       this.noteCandidates(),
       this.options.state.availableSkills,
       this.options.state.listedThreads,
+      this.options.state.availableModels,
+      this.options.currentModelForSuggestions(),
     );
 
     this.options.state.composerSuggestions = suggestions;

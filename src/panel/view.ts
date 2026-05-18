@@ -110,6 +110,7 @@ export class CodexPanelView extends ItemView {
       viewId: this.viewId,
       sendShortcut: () => this.plugin.settings.sendShortcut,
       canInterrupt: () => this.state.busy && Boolean(this.state.activeThreadId && this.state.activeTurnId),
+      currentModelForSuggestions: () => currentModel(this.runtimeSnapshot()),
       renderIfDetached: () => this.render(),
       onSubmit: () => void this.submitComposerAction(),
       onNewThread: () => void this.startNewThread(),
