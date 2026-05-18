@@ -97,7 +97,7 @@ describe("settings tab", () => {
       "Automatic thread naming",
       "Selection rewrite",
       "Hook status",
-      "Thread archive",
+      "Archive actions",
     ]);
   });
 
@@ -124,8 +124,8 @@ describe("settings tab", () => {
 
     tab.display();
     const toggle = tab.containerEl.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    const folder = inputForSetting(tab, "Archive export folder");
-    const filename = inputForSetting(tab, "Archive export filename");
+    const folder = inputForSetting(tab, "Save folder");
+    const filename = inputForSetting(tab, "Save filename");
     if (!toggle || !folder || !filename) throw new Error("Missing archive export controls");
 
     toggle.checked = true;
@@ -138,7 +138,7 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledTimes(3);
     expect(tab.containerEl.textContent).toContain("title, thread_id, and created");
-    expect(tab.containerEl.querySelector<HTMLSelectElement>('select[aria-label="Choose archive export folder"]')).toBeNull();
+    expect(settingDesc(tab, "Save before archiving")).toContain("If saving fails");
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
@@ -201,12 +201,13 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(tab.containerEl.textContent).toContain("Loaded 1 hook from Codex app-server.");
+    expect(tab.containerEl.textContent).toContain("Archived threads below can be restored to chat history.");
     expect(tab.containerEl.textContent).toContain("Loaded 1 archived thread from Codex app-server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
       "Hook status",
     );
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-section .setting-item-heading")?.textContent).toContain(
-      "Thread archive",
+      "Archive actions",
     );
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .setting-item")).toHaveLength(1);
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(1);

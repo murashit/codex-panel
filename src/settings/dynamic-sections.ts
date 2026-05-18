@@ -54,8 +54,8 @@ export function renderArchivedThreadSection(containerEl: HTMLElement, state: Arc
   new Setting(section)
     .setClass("codex-panel-settings__dynamic-section-heading")
     .setHeading()
-    .setName("Thread archive")
-    .setDesc("Save markdown copies when archiving threads, and restore archived threads when needed.");
+    .setName("Archive actions")
+    .setDesc("Configure what happens when a thread is archived, and restore already archived threads when needed.");
 
   renderArchiveExportSettings(section, state);
 
@@ -81,7 +81,7 @@ export function renderArchivedThreadSection(containerEl: HTMLElement, state: Arc
 
 function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
   new Setting(containerEl)
-    .setName("Archive export")
+    .setName("Save before archiving")
     .setDesc(
       "Save a markdown note before archiving. If saving fails, the thread is not archived. Frontmatter is fixed to title, thread_id, and created.",
     )
@@ -90,7 +90,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
     });
 
   new Setting(containerEl)
-    .setName("Archive export folder")
+    .setName("Save folder")
     .setDesc("Vault-relative folder path. The folder is created when needed.")
     .addText((text) => {
       text
@@ -100,7 +100,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
     });
 
   new Setting(containerEl)
-    .setName("Archive export filename")
+    .setName("Save filename")
     .setDesc(
       "Markdown filename template. Available variables: {{date}}, {{time}}, {{title}}, {{id}}, {{shortId}}. Existing files get a numeric suffix.",
     )
@@ -115,7 +115,9 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
   containerEl.createEl("p", {
     cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-    text: `Loaded ${state.threads.length} archived thread${state.threads.length === 1 ? "" : "s"} from Codex app-server.`,
+    text: `Archived threads below can be restored to chat history. Loaded ${state.threads.length} archived thread${
+      state.threads.length === 1 ? "" : "s"
+    } from Codex app-server.`,
   });
   const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__archived-list" });
   for (const thread of state.threads) {
