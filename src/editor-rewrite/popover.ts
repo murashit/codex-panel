@@ -1,6 +1,7 @@
 import { Notice, type Editor } from "obsidian";
 
 import { createIconButton } from "../ui/components";
+import { syncTextareaHeight } from "../ui/textarea-autogrow";
 import { displayDiffLines } from "../ui/turn-diff";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { isRewriteGenerateKey } from "./keys";
@@ -28,7 +29,7 @@ export class RewriteSelectionPopover {
   private instructionEl: HTMLTextAreaElement | null = null;
   private generateButton: HTMLButtonElement | null = null;
   private applyButton: HTMLButtonElement | null = null;
-  private footerEl: HTMLElement | null = null;
+  private resultRowEl: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
   private diffEl: HTMLElement | null = null;
   private debugEl: HTMLDetailsElement | null = null;
@@ -74,11 +75,10 @@ export class RewriteSelectionPopover {
     };
 
     this.statusEl = root.createDiv({ cls: "codex-panel-rewrite-popover__status" });
-    this.diffEl = root.createDiv({ cls: "codex-panel-rewrite-popover__diff" });
-
-    const footer = root.createDiv({ cls: "codex-panel-rewrite-popover__footer" });
-    this.footerEl = footer;
-    const applyButton = createIconButton(footer, "check", "Apply rewrite", "codex-panel-rewrite-popover__icon-button mod-cta");
+    const resultRow = root.createDiv({ cls: "codex-panel-rewrite-popover__result-row" });
+    this.resultRowEl = resultRow;
+    this.diffEl = resultRow.createDiv({ cls: "codex-panel-rewrite-popover__diff" });
+    const applyButton = createIconButton(resultRow, "check", "Apply rewrite", "codex-panel-rewrite-popover__icon-button mod-cta");
     applyButton.onclick = () => this.apply();
     this.applyButton = applyButton;
 
@@ -106,7 +106,7 @@ export class RewriteSelectionPopover {
     this.instructionEl = null;
     this.generateButton = null;
     this.applyButton = null;
-    this.footerEl = null;
+    this.resultRowEl = null;
     this.statusEl = null;
     this.diffEl = null;
     this.debugEl = null;
@@ -209,6 +209,7 @@ export class RewriteSelectionPopover {
     if (!this.statusEl) return;
     this.statusEl.empty();
     this.statusEl.classList.toggle("is-active", Boolean(options.active));
+    if (!text && !options.active) return;
     this.statusEl.createSpan({ text });
     if (!options.active) return;
     const dots = this.statusEl.createSpan({ cls: "codex-panel-rewrite-popover__status-dots" });
@@ -229,13 +230,14 @@ export class RewriteSelectionPopover {
       this.applyButton.disabled = generating || this.options.session.replacementText === null;
       this.applyButton.classList.toggle("is-hidden", this.options.session.replacementText === null);
     }
-    this.footerEl?.classList.toggle("is-hidden", this.options.session.replacementText === null);
+    this.resultRowEl?.classList.toggle("is-hidden", this.options.session.replacementText === null);
   }
 
   private syncInstructionHeight(): void {
-    if (!this.instructionEl) return;
-    this.instructionEl.setCssProps({ height: "auto" });
-    this.instructionEl.setCssProps({ height: `${this.instructionEl.scrollHeight}px` });
+    syncTextareaHeight(this.instructionEl, {
+      minHeightFallback: 0,
+      maxHeightFallback: Math.min(168, activeWindow.innerHeight * 0.28),
+    });
   }
 
   private position(): void {

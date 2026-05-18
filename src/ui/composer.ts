@@ -1,5 +1,6 @@
 import type { ComposerSuggestion } from "../composer/suggestions";
 import { createIconButton, setButtonIcon } from "./components";
+import { syncTextareaHeight } from "./textarea-autogrow";
 
 export interface ComposerElements {
   composer: HTMLTextAreaElement;
@@ -101,46 +102,10 @@ export function syncComposerControls(
 }
 
 export function syncComposerHeight(composer: HTMLTextAreaElement | null): void {
-  if (!composer) return;
-  const style = getComputedStyle(composer);
-  const minHeight = parseCssPixels(style.minHeight, 76);
-  const maxHeight = composerMaxHeight(style.maxHeight, composer.win);
-  const resetHeightProps: Record<string, string> = { height: "auto" };
-  composer.setCssProps(resetHeightProps);
-  const nextHeight = Math.min(Math.max(composer.scrollHeight, minHeight), maxHeight);
-  const sizingProps: Record<string, string> = {
-    height: `${nextHeight}px`,
-    "overflow-y": composer.scrollHeight > maxHeight ? "auto" : "hidden",
-  };
-  composer.setCssProps(sizingProps);
-}
-
-function parseCssPixels(value: string, fallback: number): number {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function composerMaxHeight(value: string, win: Window): number {
-  return parseCssLengthExpression(value, win) ?? Math.min(208, win.innerHeight * 0.4);
-}
-
-function parseCssLengthExpression(value: string, win: Window): number | null {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "none") return null;
-  if (/^min\(/i.test(trimmed)) {
-    const values = Array.from(trimmed.matchAll(/(-?\d+(?:\.\d+)?)\s*(px|vh)/gi), (match) =>
-      cssLengthToPixels(Number.parseFloat(match[1]), match[2], win),
-    ).filter((candidate): candidate is number => Number.isFinite(candidate));
-    return values.length > 0 ? Math.min(...values) : null;
-  }
-  const length = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*(px|vh)$/i);
-  if (!length) return null;
-  return cssLengthToPixels(Number.parseFloat(length[1]), length[2], win);
-}
-
-function cssLengthToPixels(value: number, unit: string, win: Window): number {
-  if (unit.toLowerCase() === "vh") return (win.innerHeight * value) / 100;
-  return value;
+  syncTextareaHeight(composer, {
+    minHeightFallback: 76,
+    maxHeightFallback: composer ? Math.min(208, composer.win.innerHeight * 0.4) : 208,
+  });
 }
 
 export function renderComposerSuggestions(

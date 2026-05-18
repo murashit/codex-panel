@@ -1395,6 +1395,8 @@
 }
 
 .codex-panel-rewrite-popover {
+  --rewrite-icon-button-size: calc(var(--icon-s, 16px) + var(--size-2-3, 6px) * 2);
+  --rewrite-control-stack-size: calc(var(--rewrite-icon-button-size) * 2 + var(--size-2-1, 2px));
   position: fixed;
   z-index: var(--layer-popover, 30);
   box-sizing: border-box;
@@ -1413,10 +1415,16 @@
 }
 
 .codex-panel-rewrite-popover__instruction {
-  min-height: calc((var(--icon-s, 16px) + var(--size-2-3, 6px) * 2) * 2 + var(--size-2-1, 2px));
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: var(--rewrite-control-stack-size);
+  min-height: var(--rewrite-control-stack-size);
   max-height: min(168px, 28vh);
+  padding: var(--size-2-3, 6px) var(--size-4-2, 8px);
+  line-height: var(--line-height-normal);
   resize: none;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 .codex-panel-rewrite-popover__prompt-row {
@@ -1434,12 +1442,14 @@
   gap: var(--size-2-1, 2px);
 }
 
-.codex-panel-rewrite-popover__footer {
-  display: flex;
-  justify-content: flex-end;
+.codex-panel-rewrite-popover__result-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--size-2-2, 4px);
+  align-items: start;
 }
 
-.codex-panel-rewrite-popover__footer.is-hidden,
+.codex-panel-rewrite-popover__result-row.is-hidden,
 .codex-panel-rewrite-popover__diff:empty {
   display: none;
 }
@@ -1448,12 +1458,14 @@
   --icon-size: var(--icon-s, 16px);
   --icon-stroke: var(--icon-s-stroke-width, 2px);
   box-sizing: border-box;
-  width: calc(var(--icon-size) + var(--size-2-3, 6px) * 2);
-  height: calc(var(--icon-size) + var(--size-2-3, 6px) * 2);
-  min-width: 0;
+  width: var(--rewrite-icon-button-size);
+  height: var(--rewrite-icon-button-size);
+  min-width: var(--rewrite-icon-button-size);
+  min-height: var(--rewrite-icon-button-size);
   padding: var(--size-2-3, 6px);
   border: 0;
   border-radius: var(--clickable-icon-radius, var(--radius-s));
+  line-height: 1;
 }
 
 .codex-panel-rewrite-popover__icon-button.is-hidden {
@@ -1496,8 +1508,11 @@
 }
 
 .codex-panel-rewrite-popover__diff-body {
+  box-sizing: border-box;
   max-height: min(300px, 38vh);
+  width: 100%;
   margin: 0;
+  padding: var(--size-2-3, 6px) var(--size-4-2, 8px);
   overflow: auto;
   white-space: pre-wrap;
 }
