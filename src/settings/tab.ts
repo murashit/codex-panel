@@ -55,7 +55,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setHeading()
       .setName("General")
       .setDesc(
-        "This plugin stores only panel metadata, the app-server launch command, composer send shortcut, and optional automatic thread naming runtime overrides. Sandbox, approvals, MCP, and normal chat runtime policy are resolved from Codex config for the current vault.",
+        "This plugin stores only panel metadata, the app-server launch command, composer send shortcut, and optional runtime overrides for automatic thread naming and selection rewrites. Sandbox, approvals, MCP, and normal chat runtime policy are resolved from Codex config for the current vault.",
       );
 
     new Setting(configSection)

@@ -40,12 +40,13 @@ Use `Codex Panel: New chat` to start a fresh thread. Use `Codex Panel: Open new 
 
 Codex Panel supports the Codex workflows that are useful from a side panel:
 
-- Start, resume, rename, fork, roll back, compact, archive, and reference threads (`/new`, `/resume`, `/refer`, `/fork`, `/rollback`, `/compact`).
+- Start, resume, rename, fork, roll back, compact, and archive threads (`/new`, `/resume`, `/fork`, `/rollback`, `/compact`).
 - Complete slash commands (`/help`) and enabled Codex skills in the composer.
+- Reference another non-archived thread without switching away from the current one (`/refer <thread> <message>`). Codex receives up to 20 recent turns, limited to user input and final Codex responses.
+- Toggle Plan mode, optionally sending the same message after switching (`/plan <message>`), then answer questions and copy or implement proposed plans.
+- Toggle fast mode, model override, and reasoning effort override for subsequent turns (`/fast`, `/model`, `/effort`).
 - Send steering messages during a running turn, or interrupt when the composer is empty.
-- Toggle Plan mode, fast mode, model override, and reasoning effort override for subsequent turns (`/plan`, `/fast`, `/model`, `/effort`).
 - Respond to command, file, and permission approval requests.
-- Answer Plan mode questions and copy proposed plans.
 - Stream assistant messages, reasoning, commands, tool calls, hooks, file changes, and agent activity.
 - Inspect file changes and roll back the latest turn without reverting local files.
 - Inspect context usage, usage limits, connection diagnostics, and effective config (`/status`, `/doctor`).
@@ -57,29 +58,23 @@ Codex Panel supports the Codex workflows that are useful from a side panel:
 Codex Panel makes a few Obsidian-specific adjustments instead of mirroring the terminal UI exactly:
 
 - Wikilinks in sent messages are resolved to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are left alone, and note bodies are not attached automatically.
-- `/refer <thread> <message>` sends a message with up to 20 recent turns from another non-archived thread as extra context. It includes user input and final Codex responses only, without intermediate tool calls or command output.
 - Markdown links in rendered messages that point to existing vault files open in Obsidian. External links and non-vault file paths keep their normal link behavior.
 - Forking a thread opens the fork in a new right-sidebar panel so the source thread stays visible.
-- Rolling back is limited to thread history. It restores the rolled-back prompt to the composer, but it does not revert files changed by Codex.
 - The composer sends with `Enter` by default, with `Shift+Enter` for a newline. You can switch sending to `Cmd/Ctrl+Enter` in the plugin settings.
 
 ## Selection Rewrites
 
-Use `Codex Panel: Rewrite selection` when you want Codex to rewrite a specific passage in the active Markdown editor without starting a normal chat turn. Select text, run the command, describe the rewrite you want, review the streamed preview and selection-scoped diff, then apply the replacement.
+Use `Codex Panel: Rewrite selection` to rewrite selected text in the active Markdown editor without starting a normal chat turn. Codex sees the selection, the current editor buffer as note context, and your instruction; you review the preview and selection-scoped diff before applying.
 
-Selection rewrites run in a short-lived Codex app-server session instead of the open panel thread. Codex receives the selected text, the current editor buffer as note context, and your instruction, then returns replacement text. Codex Panel applies that replacement through the Obsidian editor only after you confirm it; Codex is not asked to edit the file directly.
-
-The command stops with a notice when there is no active Markdown note or the selection is empty. Generation can fail if Codex cannot start, the request is interrupted, or the model does not return the expected replacement output. Applying can also fail when the selected range changed after generation; regenerate the rewrite so the replacement is based on the current text.
-
-The settings tab includes optional model and reasoning effort overrides for selection rewrites. Leave them as Codex default unless you want rewrite requests to use a different runtime from automatic thread naming and normal panel turns.
+Selection rewrites run in a short-lived app-server session and apply through the Obsidian editor only after confirmation. The command requires a non-empty selection in an active Markdown note, and it asks you to regenerate if the selected text changes before apply.
 
 ## Configuration and Diagnostics
 
-Codex configuration stays in Codex. Configure defaults and runtime policy such as model, reasoning effort, sandboxing, approvals, MCP servers, hooks, network access, and providers the same way you configure Codex CLI.
+Codex configuration stays in Codex. Configure model defaults, sandboxing, approvals, MCP servers, hooks, network access, and providers the same way you configure Codex CLI.
 
-The Codex Panel settings tab stores only panel-specific preferences: Codex executable path, composer send shortcut, and optional model/effort overrides for automatic thread naming and selection rewrites. Model and reasoning effort controls in the panel toolbar are temporary inputs for subsequent turns, not saved Codex defaults.
+The Codex Panel settings tab stores only panel-specific preferences: Codex executable path, composer send shortcut, and optional model/effort overrides for automatic thread naming and selection rewrites. Toolbar model and effort controls are temporary inputs for subsequent turns.
 
-The status dot opens connection controls and diagnostics, including effective config, context usage, and usage limits. The settings tab can load app-server-backed hook status and archived threads on demand, including hook trust and enabled state. Codex Panel can show and request these app-server operations, but it does not duplicate Codex config as Obsidian settings.
+The status dot opens connection controls and diagnostics, including effective config, context usage, and usage limits. The settings tab can also load app-server-backed hook status and archived threads on demand.
 
 ## Privacy and Security
 

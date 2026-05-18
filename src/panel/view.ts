@@ -40,6 +40,7 @@ import {
 import { sortedAvailableModels } from "../runtime/model";
 import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessage } from "../runtime/settings";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
+import type { ThreadReferenceInput } from "./slash-commands";
 import { PanelSessionController } from "./session-controller";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
 import { ThreadHistoryLoader } from "./thread-history";
@@ -50,7 +51,14 @@ import { questionDefaultAnswer, type PendingUserInput } from "../user-input/mode
 import { PanelComposerController } from "./composer-controller";
 import { clearActiveThreadState, clearConnectionScopedState, createPanelState, type PanelState } from "./state";
 import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName, upsertThread } from "../threads/model";
-import { referencedThreadPrompt, referencedThreadStatus, referencedThreadTurns, REFERENCED_THREAD_TURN_LIMIT } from "../threads/reference";
+import {
+  referencedThreadDisplay,
+  referencedThreadPrompt,
+  referencedThreadStatus,
+  referencedThreadTurns,
+  REFERENCED_THREAD_TURN_LIMIT,
+  type ReferencedThreadDisplay,
+} from "../threads/reference";
 import { renderPendingRequestMessage } from "../ui/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "../ui/toolbar";
 import type { TurnDiffViewState } from "../ui/turn-diff";
@@ -357,7 +365,7 @@ export class CodexPanelView extends ItemView {
       this.composerController.setDraft("", { clearSuggestions: true });
       const result = await this.executeSlashCommand(slashCommand.command, slashCommand.args);
       if (result?.sendText) {
-        await this.sendTurnText(result.sendText, result.sendInput);
+        await this.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
       }
       this.render();
       return;
@@ -366,12 +374,12 @@ export class CodexPanelView extends ItemView {
     await this.sendTurnText(text);
   }
 
-  private async sendTurnText(text: string, codexInputOverride?: UserInput[]): Promise<void> {
+  private async sendTurnText(text: string, codexInputOverride?: UserInput[], referencedThread?: ReferencedThreadDisplay): Promise<void> {
     const client = this.client;
     if (!client) return;
 
     if (this.state.busy) {
-      await this.steerCurrentTurn(text);
+      await this.steerCurrentTurn(text, codexInputOverride, referencedThread);
       return;
     }
 
@@ -391,6 +399,7 @@ export class CodexPanelView extends ItemView {
         role: "user",
         text,
         copyText: text,
+        ...(referencedThread ? { referencedThread } : {}),
         markdown: true,
       });
       this.forceMessagesToBottom();
@@ -430,7 +439,11 @@ export class CodexPanelView extends ItemView {
     this.scheduleRender();
   }
 
-  private async steerCurrentTurn(text: string): Promise<void> {
+  private async steerCurrentTurn(
+    text: string,
+    codexInputOverride?: UserInput[],
+    referencedThread?: ReferencedThreadDisplay,
+  ): Promise<void> {
     if (!this.client || !this.state.activeThreadId || !this.state.activeTurnId) {
       this.addSystemMessage("Current turn is not steerable yet.");
       return;
@@ -443,7 +456,7 @@ export class CodexPanelView extends ItemView {
     this.syncComposerControls();
 
     try {
-      await this.client.steerTurn(threadId, expectedTurnId, this.composerController.codexInput(text));
+      await this.client.steerTurn(threadId, expectedTurnId, codexInputOverride ?? this.composerController.codexInput(text));
       this.state.displayItems.push({
         id: `local-steer-${Date.now()}`,
         kind: "message",
@@ -451,6 +464,7 @@ export class CodexPanelView extends ItemView {
         text,
         copyText: text,
         turnId: expectedTurnId,
+        ...(referencedThread ? { referencedThread } : {}),
         markdown: true,
       });
       this.forceMessagesToBottom();
@@ -519,7 +533,7 @@ export class CodexPanelView extends ItemView {
     });
   }
 
-  private async referencedThreadInput(thread: Thread, message: string): Promise<UserInput[] | null> {
+  private async referencedThreadInput(thread: Thread, message: string): Promise<ThreadReferenceInput | null> {
     if (!this.client) return null;
     try {
       const response = await this.client.threadTurnsList(thread.id, null, REFERENCED_THREAD_TURN_LIMIT);
@@ -531,7 +545,10 @@ export class CodexPanelView extends ItemView {
       const prompt = referencedThreadPrompt(thread, turns, message);
       const messageInput = this.composerController.codexInput(message);
       this.setStatus(referencedThreadStatus(thread, turns.length));
-      return [{ type: "text", text: prompt, text_elements: [] }, ...messageInput.filter((item) => item.type !== "text")];
+      return {
+        input: [{ type: "text", text: prompt, text_elements: [] }, ...messageInput.filter((item) => item.type !== "text")],
+        referencedThread: referencedThreadDisplay(thread, turns.length),
+      };
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
       return null;

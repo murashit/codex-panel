@@ -11,7 +11,10 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
     startNewThread: vi.fn().mockResolvedValue(undefined),
     resumeThread: vi.fn().mockResolvedValue(undefined),
-    referThread: vi.fn().mockResolvedValue([{ type: "text", text: "referenced", text_elements: [] }]),
+    referThread: vi.fn().mockResolvedValue({
+      input: [{ type: "text", text: "referenced", text_elements: [] }],
+      referencedThread: { threadId: "thread-2", title: "Referenced", includedTurns: 1, turnLimit: 20 },
+    }),
     forkThread: vi.fn().mockResolvedValue(undefined),
     rollbackThread: vi.fn().mockResolvedValue(undefined),
     compactThread: vi.fn().mockResolvedValue(undefined),
@@ -106,15 +109,16 @@ describe("slash commands", () => {
   it("returns referenced input for /refer", async () => {
     const target = thread({ id: "thread-alpha", name: "Alpha" });
     const input = [{ type: "text" as const, text: "context\n質問です", text_elements: [] }];
+    const referencedThread = { threadId: "thread-alpha", title: "Alpha", includedTurns: 2, turnLimit: 20 };
     const ctx = context({
       listedThreads: [thread({ id: "thread-current", name: "Current" }), target],
-      referThread: vi.fn().mockResolvedValue(input),
+      referThread: vi.fn().mockResolvedValue({ input, referencedThread }),
     });
 
     const result = await executeSlashCommand("refer", "thread-alpha 質問です", ctx);
 
     expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です");
-    expect(result).toEqual({ sendText: "質問です", sendInput: input });
+    expect(result).toEqual({ sendText: "質問です", sendInput: input, referencedThread });
   });
 
   it("rejects /refer without both thread and message", async () => {

@@ -2,6 +2,7 @@ import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { Thread } from "../generated/app-server/v2/Thread";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
 import { getThreadTitle } from "../threads/model";
+import type { ReferencedThreadDisplay } from "../threads/reference";
 import { slashCommandHelpLines, type SlashCommandName } from "../composer/slash-commands";
 import {
   modelOverrideMessage,
@@ -16,7 +17,7 @@ export interface SlashCommandExecutionContext {
   listedThreads: Thread[];
   startNewThread: () => Promise<void>;
   resumeThread: (threadId: string) => Promise<void>;
-  referThread: (thread: Thread, message: string) => Promise<UserInput[] | null>;
+  referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
   forkThread: (threadId: string) => Promise<void>;
   rollbackThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
@@ -35,6 +36,12 @@ export interface SlashCommandExecutionContext {
 export interface SlashCommandExecutionResult {
   sendText?: string;
   sendInput?: UserInput[];
+  referencedThread?: ReferencedThreadDisplay;
+}
+
+export interface ThreadReferenceInput {
+  input: UserInput[];
+  referencedThread: ReferencedThreadDisplay;
 }
 
 export async function executeSlashCommand(
@@ -73,9 +80,9 @@ export async function executeSlashCommand(
       context.addSystemMessage("Use the current thread directly instead of referencing it.");
       return;
     }
-    const input = await context.referThread(thread.thread, parsed.message);
-    if (!input) return;
-    return { sendText: parsed.message, sendInput: input };
+    const reference = await context.referThread(thread.thread, parsed.message);
+    if (!reference) return;
+    return { sendText: parsed.message, sendInput: reference.input, referencedThread: reference.referencedThread };
   }
 
   if (command === "fork") {

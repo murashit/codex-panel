@@ -3,9 +3,15 @@ import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import { inputToText, shortThreadId } from "../utils";
 import { getThreadTitle } from "./model";
-import type { ReferencedThreadDisplay } from "../display/types";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
+
+export interface ReferencedThreadDisplay {
+  threadId: string;
+  title: string;
+  includedTurns: number;
+  turnLimit: number;
+}
 
 export interface ReferencedThreadTurn {
   userText: string | null;
@@ -52,6 +58,15 @@ export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTu
 
 export function referencedThreadStatus(thread: Thread, count: number): string {
   return `Referencing ${shortThreadId(thread.id)} (${count}/${REFERENCED_THREAD_TURN_LIMIT} turns).`;
+}
+
+export function referencedThreadDisplay(thread: Thread, count: number): ReferencedThreadDisplay {
+  return {
+    threadId: thread.id,
+    title: getThreadTitle(thread),
+    includedTurns: count,
+    turnLimit: REFERENCED_THREAD_TURN_LIMIT,
+  };
 }
 
 export function referencedThreadDisplayFromPrompt(text: string): { text: string; reference: ReferencedThreadDisplay } | null {

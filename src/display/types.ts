@@ -1,3 +1,5 @@
+import type { ReferencedThreadDisplay } from "../threads/reference";
+
 export type DisplayKind =
   | "message"
   | "command"
@@ -45,13 +47,6 @@ export interface MessageDisplayItem extends DisplayBase {
   turnDiff?: DisplayTurnDiff;
   autoReviewSummaries?: string[];
   markdown?: boolean;
-}
-
-export interface ReferencedThreadDisplay {
-  threadId: string;
-  title: string;
-  includedTurns: number;
-  turnLimit: number;
 }
 
 export interface DisplayTurnDiff {
