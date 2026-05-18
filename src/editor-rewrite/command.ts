@@ -34,7 +34,6 @@ export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandH
         },
         originalText,
         noteText: editor.getValue(),
-        contextMode: "note",
         instruction: "",
         status: "editing-prompt",
         streamText: "",

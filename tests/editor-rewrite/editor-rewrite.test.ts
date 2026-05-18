@@ -30,16 +30,8 @@ describe("editor rewrite output", () => {
 });
 
 describe("editor rewrite prompt", () => {
-  it("omits note context in selection-only mode", () => {
-    const prompt = buildRewritePrompt(session({ contextMode: "selection" }));
-
-    expect(prompt).toContain("Selected text:");
-    expect(prompt).toContain("Rewrite this sentence.");
-    expect(prompt).not.toContain("Current note context:");
-  });
-
-  it("includes note context in note mode", () => {
-    const prompt = buildRewritePrompt(session({ contextMode: "note" }));
+  it("always includes note context with the selected text", () => {
+    const prompt = buildRewritePrompt(session());
 
     expect(prompt).toContain("Context mode: Selection + note context");
     expect(prompt).toContain("Current note context:");
@@ -84,7 +76,6 @@ function session(overrides: Partial<RewriteSession> = {}): RewriteSession {
     },
     originalText: "Rewrite this sentence.",
     noteText: "# Heading\n\nRewrite this sentence.\n\nNext paragraph.",
-    contextMode: "note",
     instruction: "Make it clearer.",
     status: "editing-prompt",
     streamText: "",

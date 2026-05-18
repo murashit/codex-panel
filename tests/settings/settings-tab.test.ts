@@ -95,6 +95,7 @@ describe("settings tab", () => {
       "Codex executable",
       "Send shortcut",
       "Thread naming model",
+      "Rewrite selection model",
       "Hook status",
       "Archived thread list",
     ]);
@@ -285,6 +286,8 @@ function newSettingsTab(options: { saveSettings?: () => Promise<void>; sendShort
         codexPath: "codex",
         threadNamingModel: null,
         threadNamingEffort: null,
+        rewriteSelectionModel: null,
+        rewriteSelectionEffort: null,
         sendShortcut: options.sendShortcut ?? "enter",
       },
       vaultPath: "/vault",

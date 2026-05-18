@@ -2,7 +2,7 @@ import { Modal, Notice, type App, type Editor } from "obsidian";
 
 import { renderUnifiedDiff } from "../ui/turn-diff";
 import { buildSelectionUnifiedDiff } from "./diff";
-import { canApplyRewrite, type RewriteContextMode, type RewriteSession } from "./model";
+import { canApplyRewrite, type RewriteSession } from "./model";
 import { buildRewritePrompt } from "./prompt";
 import { runRewriteSelection } from "./runner";
 
@@ -15,7 +15,6 @@ export interface RewriteSelectionModalOptions {
 
 export class RewriteSelectionModal extends Modal {
   private instructionEl: HTMLTextAreaElement | null = null;
-  private contextEl: HTMLSelectElement | null = null;
   private generateButton: HTMLButtonElement | null = null;
   private applyButton: HTMLButtonElement | null = null;
   private statusEl: HTMLElement | null = null;
@@ -43,16 +42,6 @@ export class RewriteSelectionModal extends Modal {
     this.instructionEl.oninput = () => this.syncControls();
 
     const controls = contentEl.createDiv({ cls: "codex-panel-rewrite__controls" });
-    const contextLabel = controls.createEl("label", { cls: "codex-panel-rewrite__context" });
-    contextLabel.createSpan({ text: "Context" });
-    this.contextEl = contextLabel.createEl("select");
-    this.addContextOption("note", "Selection + note context");
-    this.addContextOption("selection", "Selection only");
-    this.contextEl.value = this.options.session.contextMode === "selection" ? "selection" : "note";
-    this.contextEl.onchange = () => {
-      this.options.session.contextMode = this.contextEl?.value === "selection" ? "selection" : "note";
-    };
-
     const actions = controls.createDiv({ cls: "codex-panel-rewrite__actions" });
     this.generateButton = actions.createEl("button", { text: "Generate", attr: { type: "button" } });
     this.generateButton.onclick = () => void this.generate();
@@ -83,10 +72,6 @@ export class RewriteSelectionModal extends Modal {
     this.contentEl.empty();
   }
 
-  private addContextOption(value: Exclude<RewriteContextMode, "note-and-thread">, label: string): void {
-    this.contextEl?.createEl("option", { text: label, attr: { value } });
-  }
-
   private async generate(): Promise<void> {
     const instruction = this.instructionEl?.value.trim() ?? "";
     if (!instruction) {
@@ -96,7 +81,6 @@ export class RewriteSelectionModal extends Modal {
     }
 
     this.options.session.instruction = instruction;
-    this.options.session.contextMode = this.contextEl?.value === "selection" ? "selection" : "note";
     this.options.session.status = "generating";
     this.options.session.streamText = "";
     this.options.session.replacementText = null;
@@ -163,7 +147,6 @@ export class RewriteSelectionModal extends Modal {
     const generating = this.options.session.status === "generating";
     const hasInstruction = Boolean(this.instructionEl?.value.trim());
     if (this.instructionEl) this.instructionEl.disabled = generating;
-    if (this.contextEl) this.contextEl.disabled = generating;
     if (this.generateButton) this.generateButton.disabled = generating || !hasInstruction;
     if (this.applyButton) this.applyButton.disabled = generating || this.options.session.replacementText === null;
   }

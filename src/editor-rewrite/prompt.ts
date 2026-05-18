@@ -1,4 +1,4 @@
-import type { RewriteContextMode, RewriteSession } from "./model";
+import type { RewriteSession } from "./model";
 
 const MAX_NOTE_CONTEXT_CHARS = 20_000;
 
@@ -25,32 +25,19 @@ export function buildRewritePrompt(session: RewriteSession): string {
     "Target:",
     `- File: ${session.filePath}`,
     `- Selection: ${positionLabel(session.targetRange.from)} to ${positionLabel(session.targetRange.to)}`,
-    `- Context mode: ${contextModeLabel(session.contextMode)}`,
+    "- Context mode: Selection + note context",
     "",
     "User instruction:",
     session.instruction,
     "",
     "Selected text:",
     fenced(session.originalText),
-    ...noteContextLines(session),
-  ].join("\n");
-}
-
-function noteContextLines(session: RewriteSession): string[] {
-  if (session.contextMode === "selection") return [];
-  return [
     "",
     "Current note context:",
     fenced(truncateNoteContext(session.noteText)),
     "",
     "Reminder: use the note context only to make the selected-text replacement coherent.",
-  ];
-}
-
-function contextModeLabel(mode: RewriteContextMode): string {
-  if (mode === "selection") return "Selection only";
-  if (mode === "note") return "Selection + note context";
-  return "Selection + note context + active thread";
+  ].join("\n");
 }
 
 function positionLabel(position: { line: number; ch: number }): string {

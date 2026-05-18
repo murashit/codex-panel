@@ -33,9 +33,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private hooksLoaded = false;
   private hooksLoading = false;
   private hooksStatus = "";
-  private namingModels: Model[] = [];
-  private namingModelsLoading = false;
-  private namingModelsStatus = "";
+  private models: Model[] = [];
+  private modelsLoading = false;
+  private modelsStatus = "";
 
   constructor(
     app: App,
@@ -102,7 +102,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setDesc("Model and reasoning effort used only for automatic thread titles.")
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.threadNamingModel;
-        const options = this.namingModelOptions();
+        const options = this.modelOptions();
         dropdown.selectEl.ariaLabel = "Thread naming model";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.some((model) => model.model === current || model.id === current)) {
@@ -122,7 +122,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       })
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.threadNamingEffort;
-        const options = this.namingEffortOptions();
+        const options = this.effortOptions(this.plugin.settings.threadNamingModel);
         dropdown.selectEl.ariaLabel = "Thread naming effort";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         for (const effort of options) {
@@ -133,10 +133,47 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
-    if (this.namingModelsLoading || (this.namingModelsStatus && !this.namingModelsStatus.startsWith("Loaded "))) {
+
+    new Setting(configSection)
+      .setName("Rewrite selection model")
+      .setDesc("Model and reasoning effort used only for selection rewrites.")
+      .addDropdown((dropdown) => {
+        const current = this.plugin.settings.rewriteSelectionModel;
+        const options = this.modelOptions();
+        dropdown.selectEl.ariaLabel = "Rewrite selection model";
+        dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
+        if (current && !options.some((model) => model.model === current || model.id === current)) {
+          dropdown.addOption(current, `${current} (saved)`);
+        }
+        for (const model of options) {
+          dropdown.addOption(model.model, model.model);
+        }
+        dropdown.setValue(current ?? CODEX_DEFAULT_VALUE).onChange(async (value) => {
+          this.plugin.settings.rewriteSelectionModel = value === CODEX_DEFAULT_VALUE ? null : value;
+          if (!this.rewriteSelectionEffortSupported(this.plugin.settings.rewriteSelectionEffort)) {
+            this.plugin.settings.rewriteSelectionEffort = null;
+          }
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      })
+      .addDropdown((dropdown) => {
+        const current = this.plugin.settings.rewriteSelectionEffort;
+        const options = this.effortOptions(this.plugin.settings.rewriteSelectionModel);
+        dropdown.selectEl.ariaLabel = "Rewrite selection effort";
+        dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
+        for (const effort of options) {
+          dropdown.addOption(effort, effort);
+        }
+        dropdown.setValue(current && options.includes(current) ? current : CODEX_DEFAULT_VALUE).onChange(async (value) => {
+          this.plugin.settings.rewriteSelectionEffort = value === CODEX_DEFAULT_VALUE ? null : (value as ReasoningEffort);
+          await this.plugin.saveSettings();
+        });
+      });
+    if (this.modelsLoading || (this.modelsStatus && !this.modelsStatus.startsWith("Loaded "))) {
       configSection.createEl("p", {
         cls: "setting-item-description codex-panel-settings__section-status",
-        text: this.namingModelsStatus || "Loading models...",
+        text: this.modelsStatus || "Loading models...",
       });
     }
 
@@ -170,10 +207,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async refreshSettingsData(): Promise<void> {
     this.settingsDataLoading = true;
-    this.namingModelsLoading = true;
+    this.modelsLoading = true;
     this.archivedThreadsLoading = true;
     this.hooksLoading = true;
-    this.namingModelsStatus = "Loading models...";
+    this.modelsStatus = "Loading models...";
     this.archivedThreadsStatus = "Loading archived threads...";
     this.hooksStatus = "Loading hooks...";
     this.display();
@@ -183,11 +220,11 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       const result = await this.withSettingsSession((client) => loadSettingsData(client, this.plugin.vaultPath));
 
       if (result.models.ok) {
-        this.namingModels = result.models.data;
-        this.namingModelsStatus = result.models.status;
+        this.models = result.models.data;
+        this.modelsStatus = result.models.status;
       } else {
         failedCount += 1;
-        this.namingModelsStatus = result.models.status;
+        this.modelsStatus = result.models.status;
       }
 
       if (result.hooks.ok) {
@@ -212,12 +249,12 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     } catch (error) {
       failedCount = 3;
       const message = errorMessage(error);
-      this.namingModelsStatus = `Could not load models: ${message}`;
+      this.modelsStatus = `Could not load models: ${message}`;
       this.hooksStatus = `Could not load hooks: ${message}`;
       this.archivedThreadsStatus = `Could not load archived threads: ${message}`;
     } finally {
       this.settingsDataLoading = false;
-      this.namingModelsLoading = false;
+      this.modelsLoading = false;
       this.archivedThreadsLoading = false;
       this.hooksLoading = false;
       if (failedCount > 0) {
@@ -302,20 +339,24 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     return withAppServerSession(this.plugin.settings.codexPath, this.plugin.vaultPath, operation);
   }
 
-  private namingModelOptions(): Model[] {
-    return sortedAvailableModels(this.namingModels);
+  private modelOptions(): Model[] {
+    return sortedAvailableModels(this.models);
   }
 
-  private namingEffortOptions(): ReasoningEffort[] {
-    const model = this.selectedNamingModel();
+  private effortOptions(modelIdOrName: string | null): ReasoningEffort[] {
+    const model = this.selectedModel(modelIdOrName);
     return model ? supportedEffortsForModel(model) : REASONING_EFFORTS;
   }
 
   private namingEffortSupported(effort: ReasoningEffort | null): boolean {
-    return !effort || this.namingEffortOptions().includes(effort);
+    return !effort || this.effortOptions(this.plugin.settings.threadNamingModel).includes(effort);
   }
 
-  private selectedNamingModel(): Model | null {
-    return findModelByIdOrName(this.namingModels, this.plugin.settings.threadNamingModel);
+  private rewriteSelectionEffortSupported(effort: ReasoningEffort | null): boolean {
+    return !effort || this.effortOptions(this.plugin.settings.rewriteSelectionModel).includes(effort);
+  }
+
+  private selectedModel(modelIdOrName: string | null): Model | null {
+    return findModelByIdOrName(this.models, modelIdOrName);
   }
 }

@@ -8,6 +8,8 @@ export interface CodexPanelSettings {
   codexPath: string;
   threadNamingModel: string | null;
   threadNamingEffort: ReasoningEffort | null;
+  rewriteSelectionModel: string | null;
+  rewriteSelectionEffort: ReasoningEffort | null;
   sendShortcut: SendShortcut;
 }
 
@@ -17,6 +19,8 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   codexPath: DEFAULT_CODEX_PATH,
   threadNamingModel: null,
   threadNamingEffort: null,
+  rewriteSelectionModel: null,
+  rewriteSelectionEffort: null,
   sendShortcut: "enter",
 };
 
@@ -26,6 +30,8 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
     codexPath: stringOrDefault(record.codexPath, DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH,
     threadNamingModel: threadNamingModelOrDefault(record.threadNamingModel),
     threadNamingEffort: reasoningEffortOrDefault(record.threadNamingEffort),
+    rewriteSelectionModel: modelOrDefault(record.rewriteSelectionModel),
+    rewriteSelectionEffort: reasoningEffortOrDefault(record.rewriteSelectionEffort),
     sendShortcut: sendShortcutOrDefault(record.sendShortcut),
   };
 }
@@ -33,10 +39,12 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
 export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelSettings): boolean {
   const record = asRecord(data);
   return (
-    Object.keys(record).length === 4 &&
+    Object.keys(record).length === 6 &&
     record.codexPath === settings.codexPath &&
     record.threadNamingModel === settings.threadNamingModel &&
     record.threadNamingEffort === settings.threadNamingEffort &&
+    record.rewriteSelectionModel === settings.rewriteSelectionModel &&
+    record.rewriteSelectionEffort === settings.rewriteSelectionEffort &&
     record.sendShortcut === settings.sendShortcut
   );
 }
@@ -50,6 +58,10 @@ function stringOrDefault(value: unknown, fallback: string): string {
 }
 
 function threadNamingModelOrDefault(value: unknown): string | null {
+  return modelOrDefault(value);
+}
+
+function modelOrDefault(value: unknown): string | null {
   if (typeof value !== "string") return DEFAULT_SETTINGS.threadNamingModel;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;

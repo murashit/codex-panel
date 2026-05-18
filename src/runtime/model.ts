@@ -26,3 +26,31 @@ export function supportedEffortsForModel(model: Model | null): ReasoningEffort[]
   const efforts = model?.supportedReasoningEfforts.map((option) => option.reasoningEffort).filter(isReasoningEffort) ?? [];
   return efforts.length > 0 ? efforts : REASONING_EFFORTS;
 }
+
+export interface RuntimeOverrideSettings {
+  model: string | null;
+  effort: ReasoningEffort | null;
+}
+
+export interface RuntimeOverride {
+  model?: string;
+  effort?: ReasoningEffort;
+}
+
+export function runtimeOverride(settings: RuntimeOverrideSettings): RuntimeOverride {
+  return {
+    ...(settings.model ? { model: settings.model } : {}),
+    ...(settings.effort ? { effort: settings.effort } : {}),
+  };
+}
+
+export function validatedRuntimeOverride(settings: RuntimeOverrideSettings, models: Model[]): RuntimeOverride {
+  const runtime = runtimeOverride(settings);
+  if (!runtime.model || !runtime.effort) return runtime;
+
+  const model = findModelByIdOrName(models, runtime.model);
+  if (!model) return runtime;
+
+  const supportedEfforts = new Set(supportedEffortsForModel(model));
+  return supportedEfforts.has(runtime.effort) ? runtime : { model: runtime.model };
+}

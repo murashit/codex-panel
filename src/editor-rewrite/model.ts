@@ -1,7 +1,5 @@
 import type { EditorPosition } from "obsidian";
 
-export type RewriteContextMode = "selection" | "note" | "note-and-thread";
-
 export type RewriteStatus = "editing-prompt" | "generating" | "preview" | "applied" | "cancelled" | "failed";
 
 export interface RewriteSession {
@@ -12,7 +10,6 @@ export interface RewriteSession {
   };
   originalText: string;
   noteText: string;
-  contextMode: RewriteContextMode;
   instruction: string;
   status: RewriteStatus;
   streamText: string;

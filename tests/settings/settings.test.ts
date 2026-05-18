@@ -19,6 +19,8 @@ describe("settings", () => {
       codexPath: "/usr/local/bin/codex",
       threadNamingModel: "gpt-5.4-mini",
       threadNamingEffort: "low",
+      rewriteSelectionModel: "gpt-5.4-mini",
+      rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
       model: "gpt-5.5",
       sandboxMode: "workspace-write",
@@ -30,6 +32,8 @@ describe("settings", () => {
       codexPath: "/usr/local/bin/codex",
       threadNamingModel: "gpt-5.4-mini",
       threadNamingEffort: "low",
+      rewriteSelectionModel: "gpt-5.4-mini",
+      rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
     };
 
@@ -46,6 +50,8 @@ describe("settings", () => {
       codexPath: "/usr/local/bin/codex",
       threadNamingModel: "gpt-5.4-mini",
       threadNamingEffort: "low",
+      rewriteSelectionModel: "gpt-5.4-mini",
+      rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
     });
     expect(settingsMatchNormalizedData({ ...settings }, settings)).toBe(true);
@@ -61,6 +67,17 @@ describe("settings", () => {
     expect(normalizeSettings({ threadNamingModel: 1, threadNamingEffort: "invalid" })).toMatchObject({
       threadNamingModel: DEFAULT_SETTINGS.threadNamingModel,
       threadNamingEffort: DEFAULT_SETTINGS.threadNamingEffort,
+    });
+  });
+
+  it("normalizes current rewrite selection runtime settings", () => {
+    expect(normalizeSettings({ rewriteSelectionModel: " gpt-5.4-mini ", rewriteSelectionEffort: "minimal" })).toMatchObject({
+      rewriteSelectionModel: "gpt-5.4-mini",
+      rewriteSelectionEffort: "minimal",
+    });
+    expect(normalizeSettings({ rewriteSelectionModel: 1, rewriteSelectionEffort: "invalid" })).toMatchObject({
+      rewriteSelectionModel: DEFAULT_SETTINGS.rewriteSelectionModel,
+      rewriteSelectionEffort: DEFAULT_SETTINGS.rewriteSelectionEffort,
     });
   });
 

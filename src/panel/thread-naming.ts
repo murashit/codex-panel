@@ -8,7 +8,7 @@ import type { SortDirection } from "../generated/app-server/v2/SortDirection";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import { inputToText, truncate } from "../utils";
-import { findModelByIdOrName, supportedEffortsForModel } from "../runtime/model";
+import { runtimeOverride, validatedRuntimeOverride } from "../runtime/model";
 
 const NAMING_SERVICE_NAME = "codex-panel-naming";
 const NAMING_TIMEOUT_MS = 60_000;
@@ -214,21 +214,11 @@ export interface NamingRuntime {
 }
 
 export function namingRuntime(settings: ThreadNamingRuntimeSettings): NamingRuntime {
-  return {
-    ...(settings.threadNamingModel ? { model: settings.threadNamingModel } : {}),
-    ...(settings.threadNamingEffort ? { effort: settings.threadNamingEffort } : {}),
-  };
+  return runtimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }
 
 export function validatedNamingRuntime(settings: ThreadNamingRuntimeSettings, models: Model[]): NamingRuntime {
-  const runtime = namingRuntime(settings);
-  if (!runtime.model || !runtime.effort) return runtime;
-
-  const model = findModelByIdOrName(models, runtime.model);
-  if (!model) return runtime;
-
-  const supportedEfforts = new Set(supportedEffortsForModel(model));
-  return supportedEfforts.has(runtime.effort) ? runtime : { model: runtime.model };
+  return validatedRuntimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort }, models);
 }
 
 function turnWithCollectedItems(turn: Turn, items: ThreadItem[]): Turn {
