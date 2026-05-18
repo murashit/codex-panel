@@ -1394,44 +1394,43 @@
   white-space: pre-wrap;
 }
 
-.codex-panel-rewrite {
+.codex-panel-rewrite-popover {
+  position: fixed;
+  z-index: var(--layer-popover, 30);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--size-4-3, 12px);
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(560px, calc(100vh - 24px));
+  padding: var(--size-4-3, 12px);
+  overflow: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+  color: var(--text-normal);
 }
 
-.codex-panel-rewrite__instruction {
-  min-height: 96px;
+.codex-panel-rewrite-popover__instruction {
+  min-height: 92px;
   resize: vertical;
 }
 
-.codex-panel-rewrite__controls,
-.codex-panel-rewrite__footer {
+.codex-panel-rewrite-popover__controls,
+.codex-panel-rewrite-popover__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--size-4-2, 8px);
 }
 
-.codex-panel-rewrite__context {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--size-2-3, 6px);
+.codex-panel-rewrite-popover__status {
   color: var(--text-muted);
   font-size: var(--font-ui-small);
 }
 
-.codex-panel-rewrite__actions {
-  display: inline-flex;
-  gap: var(--size-2-3, 6px);
-}
-
-.codex-panel-rewrite__status {
-  color: var(--text-muted);
-  font-size: var(--font-ui-small);
-}
-
-.codex-panel-rewrite__preview {
+.codex-panel-rewrite-popover__preview {
   display: none;
   max-height: 120px;
   overflow: auto;
@@ -1445,13 +1444,36 @@
   white-space: pre-wrap;
 }
 
-.codex-panel-rewrite__preview:not(:empty) {
+.codex-panel-rewrite-popover__preview:not(:empty) {
   display: block;
 }
 
-.codex-panel-rewrite__diff .codex-panel__diff {
-  max-height: min(360px, 45vh);
+.codex-panel-rewrite-popover__diff .codex-panel__diff {
+  max-height: min(300px, 38vh);
   margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.codex-panel-rewrite-popover__debug {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel-rewrite-popover__debug.is-hidden {
+  display: none;
+}
+
+.codex-panel-rewrite-popover__debug pre {
+  max-height: 160px;
+  overflow: auto;
+  margin: var(--size-2-3, 6px) 0 0;
+  padding: 8px;
+  border-radius: var(--radius-s);
+  background: var(--code-background, var(--background-secondary));
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: var(--font-smaller);
   white-space: pre-wrap;
 }
 

@@ -1,7 +1,7 @@
 import { MarkdownView, Notice, type Editor, type Plugin } from "obsidian";
 
-import { RewriteSelectionModal } from "./modal";
 import type { RewriteRuntimeSettings, RewriteSession } from "./model";
+import { RewriteSelectionPopover } from "./popover";
 
 export interface RewriteSelectionCommandHost extends Plugin {
   settings: {
@@ -41,7 +41,7 @@ export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandH
         debugText: null,
       };
 
-      new RewriteSelectionModal(plugin.app, {
+      new RewriteSelectionPopover({
         codexPath: plugin.settings.codexPath,
         cwd: plugin.vaultPath,
         editor,
