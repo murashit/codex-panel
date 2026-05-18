@@ -1,12 +1,12 @@
 import { MarkdownView, Notice, type Editor, type Plugin } from "obsidian";
 
 import { RewriteSelectionModal } from "./modal";
-import type { RewriteSession } from "./model";
+import type { RewriteRuntimeSettings, RewriteSession } from "./model";
 
 export interface RewriteSelectionCommandHost extends Plugin {
   settings: {
     codexPath: string;
-  };
+  } & RewriteRuntimeSettings;
   vaultPath: string;
 }
 
@@ -38,12 +38,14 @@ export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandH
         status: "editing-prompt",
         streamText: "",
         replacementText: null,
+        debugText: null,
       };
 
       new RewriteSelectionModal(plugin.app, {
         codexPath: plugin.settings.codexPath,
         cwd: plugin.vaultPath,
         editor,
+        runtimeSettings: plugin.settings,
         session,
       }).open();
     },

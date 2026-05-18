@@ -4,6 +4,21 @@ export interface RewriteOutput {
   replacementText: string;
 }
 
+export interface RewriteOutputParseResult {
+  output: RewriteOutput | null;
+  rawText: string | null;
+}
+
+export class RewriteOutputError extends Error {
+  constructor(
+    message: string,
+    readonly rawText: string | null,
+  ) {
+    super(message);
+    this.name = "RewriteOutputError";
+  }
+}
+
 export function parseRewriteOutput(text: string): RewriteOutput | null {
   try {
     const parsed = JSON.parse(text.trim()) as unknown;
@@ -17,8 +32,13 @@ export function parseRewriteOutput(text: string): RewriteOutput | null {
 }
 
 export function rewriteOutputFromTurn(turn: Turn): RewriteOutput | null {
+  return rewriteOutputParseResultFromTurn(turn).output;
+}
+
+export function rewriteOutputParseResultFromTurn(turn: Turn): RewriteOutputParseResult {
   const text = lastAgentMessageText(turn);
-  return text ? parseRewriteOutput(text) : null;
+  if (!text) return { output: null, rawText: null };
+  return { output: parseRewriteOutput(text), rawText: text };
 }
 
 function lastAgentMessageText(turn: Turn): string | null {

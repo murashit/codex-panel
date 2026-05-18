@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { buildSelectionUnifiedDiff } from "../../src/editor-rewrite/diff";
 import { canApplyRewrite, type RewriteSession } from "../../src/editor-rewrite/model";
-import { parseRewriteOutput, rewriteOutputFromTurn } from "../../src/editor-rewrite/output";
+import { parseRewriteOutput, rewriteOutputFromTurn, rewriteOutputParseResultFromTurn } from "../../src/editor-rewrite/output";
 import { buildRewritePrompt } from "../../src/editor-rewrite/prompt";
+import { rewriteRuntime, validatedRewriteRuntime } from "../../src/editor-rewrite/runner";
+import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
 
 describe("editor rewrite output", () => {
@@ -26,6 +28,14 @@ describe("editor rewrite output", () => {
         ]),
       ),
     ).toEqual({ replacementText: "final" });
+  });
+
+  it("keeps raw model text when rewrite output parsing fails", () => {
+    expect(
+      rewriteOutputParseResultFromTurn(
+        turn([{ type: "agentMessage", id: "a1", text: "replacementText: final", phase: "final_answer", memoryCitation: null }]),
+      ),
+    ).toEqual({ output: null, rawText: "replacementText: final" });
   });
 });
 
@@ -67,6 +77,27 @@ describe("editor rewrite apply guard", () => {
   });
 });
 
+describe("editor rewrite runtime", () => {
+  it("uses explicit rewrite runtime settings", () => {
+    expect(rewriteRuntime({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" })).toEqual({
+      model: "gpt-5.4-mini",
+      effort: "minimal",
+    });
+  });
+
+  it("omits rewrite runtime overrides that are set to Codex default", () => {
+    expect(rewriteRuntime({ rewriteSelectionModel: null, rewriteSelectionEffort: null })).toEqual({});
+  });
+
+  it("omits an explicit rewrite effort when the selected model does not support it", () => {
+    expect(
+      validatedRewriteRuntime({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" }, [
+        model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
+      ]),
+    ).toEqual({ model: "gpt-5.4-mini" });
+  });
+});
+
 function session(overrides: Partial<RewriteSession> = {}): RewriteSession {
   return {
     filePath: "Note.md",
@@ -80,6 +111,7 @@ function session(overrides: Partial<RewriteSession> = {}): RewriteSession {
     status: "editing-prompt",
     streamText: "",
     replacementText: null,
+    debugText: null,
     ...overrides,
   };
 }
@@ -95,5 +127,25 @@ function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
     completedAt: null,
     durationMs: null,
     ...overrides,
+  };
+}
+
+function model(name: string, efforts: Model["supportedReasoningEfforts"][number]["reasoningEffort"][]): Model {
+  return {
+    id: name,
+    model: name,
+    upgrade: null,
+    upgradeInfo: null,
+    availabilityNux: null,
+    displayName: name,
+    description: "",
+    hidden: false,
+    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+    defaultReasoningEffort: efforts[0] ?? "low",
+    inputModalities: ["text"],
+    supportsPersonality: false,
+    additionalSpeedTiers: [],
+    serviceTiers: [],
+    isDefault: false,
   };
 }

@@ -2,7 +2,8 @@ import { Modal, Notice, type App, type Editor } from "obsidian";
 
 import { renderUnifiedDiff } from "../ui/turn-diff";
 import { buildSelectionUnifiedDiff } from "./diff";
-import { canApplyRewrite, type RewriteSession } from "./model";
+import { canApplyRewrite, type RewriteRuntimeSettings, type RewriteSession } from "./model";
+import { RewriteOutputError } from "./output";
 import { buildRewritePrompt } from "./prompt";
 import { runRewriteSelection } from "./runner";
 
@@ -10,6 +11,7 @@ export interface RewriteSelectionModalOptions {
   codexPath: string;
   cwd: string;
   editor: Editor;
+  runtimeSettings: RewriteRuntimeSettings;
   session: RewriteSession;
 }
 
@@ -84,6 +86,7 @@ export class RewriteSelectionModal extends Modal {
     this.options.session.status = "generating";
     this.options.session.streamText = "";
     this.options.session.replacementText = null;
+    this.options.session.debugText = null;
     this.previewEl?.setText("");
     this.diffEl?.empty();
     this.setStatus("Generating patch...");
@@ -94,6 +97,7 @@ export class RewriteSelectionModal extends Modal {
         codexPath: this.options.codexPath,
         cwd: this.options.cwd,
         prompt: buildRewritePrompt(this.options.session),
+        runtimeSettings: this.options.runtimeSettings,
         onPreview: (text) => this.updatePreview(text),
       });
       this.options.session.replacementText = output.replacementText;
@@ -102,6 +106,7 @@ export class RewriteSelectionModal extends Modal {
       this.setStatus("Review the patch before applying it.");
     } catch (error) {
       this.options.session.status = "failed";
+      this.options.session.debugText = error instanceof RewriteOutputError ? error.rawText : null;
       this.setStatus(error instanceof Error ? error.message : String(error));
     } finally {
       this.syncControls();
