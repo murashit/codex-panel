@@ -5,7 +5,7 @@ description: Use when preparing, checking, committing, tagging, pushing, or repa
 
 # Codex Panel Release
 
-Use this skill for Codex Panel release work. The README Release section is the public procedure and source of truth for user-facing release commands. This skill adds Codex-facing gates and handling details.
+Use this skill for Codex Panel release work. `docs/release.md` is the public procedure and source of truth for user-facing release commands. This skill adds Codex-facing gates and handling details.
 
 ## Ground Rules
 
@@ -16,7 +16,7 @@ Use this skill for Codex Panel release work. The README Release section is the p
 
 ## Procedure
 
-1. Read the README Release section, `package.json`, `manifest.json`, `versions.json`, and existing `.github/release-notes/` files.
+1. Read `docs/release.md`, `package.json`, `manifest.json`, `versions.json`, and existing `.github/release-notes/` files.
 2. Identify the target release version and the commit range since the previous released tag.
 3. Run `npm run release:prepare -- X.Y.Z`.
 4. Draft `.github/release-notes/X.Y.Z.md` from the full diff since the previous released tag, not only the latest commit.
