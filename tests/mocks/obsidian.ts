@@ -113,6 +113,11 @@ export class Setting {
     callback(new TextComponent(this.controlEl));
     return this;
   }
+
+  addToggle(callback: (toggle: ToggleComponent) => void): this {
+    callback(new ToggleComponent(this.controlEl));
+    return this;
+  }
 }
 
 class ButtonComponent {
@@ -214,6 +219,26 @@ class TextComponent {
   onChange(callback: (value: string) => void | Promise<void>): this {
     this.inputEl.onchange = () => {
       void callback(this.inputEl.value);
+    };
+    return this;
+  }
+}
+
+class ToggleComponent {
+  readonly toggleEl: HTMLInputElement;
+
+  constructor(parent: HTMLElement) {
+    this.toggleEl = parent.createEl("input", { attr: { type: "checkbox" } });
+  }
+
+  setValue(value: boolean): this {
+    this.toggleEl.checked = value;
+    return this;
+  }
+
+  onChange(callback: (value: boolean) => void | Promise<void>): this {
+    this.toggleEl.onchange = () => {
+      void callback(this.toggleEl.checked);
     };
     return this;
   }

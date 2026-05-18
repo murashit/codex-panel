@@ -11,6 +11,9 @@ export interface CodexPanelSettings {
   rewriteSelectionModel: string | null;
   rewriteSelectionEffort: ReasoningEffort | null;
   sendShortcut: SendShortcut;
+  archiveExportEnabled: boolean;
+  archiveExportFolderTemplate: string;
+  archiveExportFilenameTemplate: string;
 }
 
 export type SendShortcut = "enter" | "mod-enter";
@@ -22,6 +25,9 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   rewriteSelectionModel: null,
   rewriteSelectionEffort: null,
   sendShortcut: "enter",
+  archiveExportEnabled: false,
+  archiveExportFolderTemplate: "Codex Archives",
+  archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
 };
 
 export function normalizeSettings(data: unknown): CodexPanelSettings {
@@ -33,19 +39,27 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
     rewriteSelectionModel: modelOrDefault(record.rewriteSelectionModel),
     rewriteSelectionEffort: reasoningEffortOrDefault(record.rewriteSelectionEffort),
     sendShortcut: sendShortcutOrDefault(record.sendShortcut),
+    archiveExportEnabled: booleanOrDefault(record.archiveExportEnabled, DEFAULT_SETTINGS.archiveExportEnabled),
+    archiveExportFolderTemplate: stringOrDefault(record.archiveExportFolderTemplate, DEFAULT_SETTINGS.archiveExportFolderTemplate).trim(),
+    archiveExportFilenameTemplate:
+      stringOrDefault(record.archiveExportFilenameTemplate, DEFAULT_SETTINGS.archiveExportFilenameTemplate).trim() ||
+      DEFAULT_SETTINGS.archiveExportFilenameTemplate,
   };
 }
 
 export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelSettings): boolean {
   const record = asRecord(data);
   return (
-    Object.keys(record).length === 6 &&
+    Object.keys(record).length === 9 &&
     record.codexPath === settings.codexPath &&
     record.threadNamingModel === settings.threadNamingModel &&
     record.threadNamingEffort === settings.threadNamingEffort &&
     record.rewriteSelectionModel === settings.rewriteSelectionModel &&
     record.rewriteSelectionEffort === settings.rewriteSelectionEffort &&
-    record.sendShortcut === settings.sendShortcut
+    record.sendShortcut === settings.sendShortcut &&
+    record.archiveExportEnabled === settings.archiveExportEnabled &&
+    record.archiveExportFolderTemplate === settings.archiveExportFolderTemplate &&
+    record.archiveExportFilenameTemplate === settings.archiveExportFilenameTemplate
   );
 }
 
@@ -55,6 +69,10 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function stringOrDefault(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function booleanOrDefault(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function threadNamingModelOrDefault(value: unknown): string | null {

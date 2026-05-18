@@ -41,6 +41,7 @@ Use `Codex Panel: New chat` to start a fresh thread. Use `Codex Panel: Open new 
 Codex Panel supports the Codex workflows that are useful from a side panel:
 
 - Start, resume, rename, fork, roll back, compact, and archive threads (`/new`, `/resume`, `/fork`, `/rollback`, `/compact`).
+- Optionally save an archived thread as a Markdown note in the vault before archiving it.
 - Complete slash commands (`/help`) and enabled Codex skills in the composer.
 - Reference another non-archived thread without switching away from the current one (`/refer <thread> <message>`). Codex receives up to 20 recent turns, limited to user input and final Codex responses.
 - Toggle Plan mode, optionally sending the same message after switching (`/plan <message>`), then answer questions and copy or implement proposed plans.
@@ -72,7 +73,7 @@ Selection rewrites run in a short-lived app-server session and apply through the
 
 Codex configuration stays in Codex. Configure model defaults, sandboxing, approvals, MCP servers, hooks, network access, and providers the same way you configure Codex CLI.
 
-The Codex Panel settings tab stores only panel-specific preferences: Codex executable path, composer send shortcut, and optional model/effort overrides for automatic thread naming and selection rewrites. Toolbar model and effort controls are temporary inputs for subsequent turns.
+The Codex Panel settings tab stores only panel-specific preferences: Codex executable path, composer send shortcut, optional archive export folder and filename templates, and optional model/effort overrides for automatic thread naming and selection rewrites. Toolbar model and effort controls are temporary inputs for subsequent turns.
 
 The status dot opens connection controls and diagnostics, including effective config, context usage, and usage limits. The settings tab can also load app-server-backed hook status and archived threads on demand.
 

@@ -51,6 +51,7 @@ import { questionDefaultAnswer, type PendingUserInput } from "../user-input/mode
 import { PanelComposerController } from "./composer-controller";
 import { clearActiveThreadState, clearConnectionScopedState, createPanelState, type PanelState } from "./state";
 import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName, upsertThread } from "../threads/model";
+import { exportArchivedThreadMarkdown } from "../threads/export";
 import {
   referencedThreadDisplay,
   referencedThreadPrompt,
@@ -997,6 +998,11 @@ export class CodexPanelView extends ItemView {
     }
     if (!this.client) return;
     try {
+      if (this.plugin.settings.archiveExportEnabled) {
+        const response = await this.client.readThread(threadId, true);
+        const result = await exportArchivedThreadMarkdown(response.thread, this.plugin.settings, this.app.vault.adapter);
+        new Notice(`Saved archived thread to ${result.path}.`);
+      }
       await this.client.archiveThread(threadId);
       if (this.state.activeThreadId === threadId) {
         clearActiveThreadState(this.state);

@@ -22,6 +22,9 @@ describe("settings", () => {
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
+      archiveExportEnabled: true,
+      archiveExportFolderTemplate: "Codex Archives/{{date}}",
+      archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
       model: "gpt-5.5",
       sandboxMode: "workspace-write",
       approvalPolicy: "on-request",
@@ -35,6 +38,9 @@ describe("settings", () => {
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
+      archiveExportEnabled: true,
+      archiveExportFolderTemplate: "Codex Archives/{{date}}",
+      archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
     };
 
     expect(normalizeSettings(storedData)).toEqual(normalized);
@@ -53,6 +59,9 @@ describe("settings", () => {
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
+      archiveExportEnabled: true,
+      archiveExportFolderTemplate: "Codex Archives",
+      archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
     });
     expect(settingsMatchNormalizedData({ ...settings }, settings)).toBe(true);
     expect(settingsMatchNormalizedData({ ...settings, extraPanelState: {} }, settings)).toBe(false);
@@ -84,6 +93,31 @@ describe("settings", () => {
   it("normalizes the send shortcut", () => {
     expect(normalizeSettings({ sendShortcut: "mod-enter" }).sendShortcut).toBe("mod-enter");
     expect(normalizeSettings({ sendShortcut: "invalid" }).sendShortcut).toBe(DEFAULT_SETTINGS.sendShortcut);
+  });
+
+  it("normalizes archive export settings", () => {
+    expect(
+      normalizeSettings({
+        archiveExportEnabled: true,
+        archiveExportFolderTemplate: " Exports ",
+        archiveExportFilenameTemplate: " {{title}}.md ",
+      }),
+    ).toMatchObject({
+      archiveExportEnabled: true,
+      archiveExportFolderTemplate: "Exports",
+      archiveExportFilenameTemplate: "{{title}}.md",
+    });
+    expect(
+      normalizeSettings({
+        archiveExportEnabled: "yes",
+        archiveExportFolderTemplate: 1,
+        archiveExportFilenameTemplate: "   ",
+      }),
+    ).toMatchObject({
+      archiveExportEnabled: DEFAULT_SETTINGS.archiveExportEnabled,
+      archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
+      archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
+    });
   });
 
   it("requires a desktop filesystem vault path", () => {

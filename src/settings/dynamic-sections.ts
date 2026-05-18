@@ -6,10 +6,16 @@ import { archivedThreadDisplayTitle, fullThreadTitle } from "../threads/model";
 import { shortThreadId } from "../utils";
 
 export interface ArchivedThreadSectionState {
+  exportEnabled: boolean;
+  exportFolderTemplate: string;
+  exportFilenameTemplate: string;
   threads: Thread[];
   loaded: boolean;
   loading: boolean;
   status: string;
+  onExportEnabledChange(enabled: boolean): void;
+  onExportFolderTemplateChange(value: string): void;
+  onExportFilenameTemplateChange(value: string): void;
   onRestore(threadId: string): void;
 }
 
@@ -30,7 +36,7 @@ export function renderHookSection(containerEl: HTMLElement, state: HookSectionSt
     .setClass("codex-panel-settings__dynamic-section-heading")
     .setHeading()
     .setName("Hook status")
-    .setDesc("Review hooks discovered by Codex app-server for the current vault root, including trust and enabled state.");
+    .setDesc("Review hooks discovered for this vault root, including trust and enabled state.");
 
   if (state.loading) {
     section.createEl("p", { cls: "setting-item-description codex-panel-settings__dynamic-section-status", text: "Loading hooks..." });
@@ -48,8 +54,10 @@ export function renderArchivedThreadSection(containerEl: HTMLElement, state: Arc
   new Setting(section)
     .setClass("codex-panel-settings__dynamic-section-heading")
     .setHeading()
-    .setName("Archived thread list")
-    .setDesc("Restore archived Codex threads to chat history when they are needed again.");
+    .setName("Thread archive")
+    .setDesc("Save markdown copies when archiving threads, and restore archived threads when needed.");
+
+  renderArchiveExportSettings(section, state);
 
   if (state.loading) {
     section.createEl("p", {
@@ -69,6 +77,39 @@ export function renderArchivedThreadSection(containerEl: HTMLElement, state: Arc
       text: state.status,
     });
   }
+}
+
+function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
+  new Setting(containerEl)
+    .setName("Archive export")
+    .setDesc(
+      "Save a markdown note before archiving. If saving fails, the thread is not archived. Frontmatter is fixed to title, thread_id, and created.",
+    )
+    .addToggle((toggle) => {
+      toggle.setValue(state.exportEnabled).onChange((value) => state.onExportEnabledChange(value));
+    });
+
+  new Setting(containerEl)
+    .setName("Archive export folder")
+    .setDesc("Vault-relative folder path. The folder is created when needed.")
+    .addText((text) => {
+      text
+        .setPlaceholder("Codex archives")
+        .setValue(state.exportFolderTemplate)
+        .onChange((value) => state.onExportFolderTemplateChange(value));
+    });
+
+  new Setting(containerEl)
+    .setName("Archive export filename")
+    .setDesc(
+      "Markdown filename template. Available variables: {{date}}, {{time}}, {{title}}, {{id}}, {{shortId}}. Existing files get a numeric suffix.",
+    )
+    .addText((text) => {
+      text
+        .setPlaceholder("{{date}} {{time}} {{title}} {{shortId}}.md")
+        .setValue(state.exportFilenameTemplate)
+        .onChange((value) => state.onExportFilenameTemplateChange(value));
+    });
 }
 
 function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {

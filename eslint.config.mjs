@@ -52,7 +52,7 @@ export default [
         "error",
         {
           acronyms: ["MCP"],
-          brands: ["Codex"],
+          brands: ["Codex", "Codex Panel", "Obsidian"],
         },
       ],
     },

@@ -94,10 +94,10 @@ describe("settings tab", () => {
       "Settings data",
       "Codex executable",
       "Send shortcut",
-      "Thread naming model",
-      "Rewrite selection model",
+      "Automatic thread naming",
+      "Selection rewrite",
       "Hook status",
-      "Archived thread list",
+      "Thread archive",
     ]);
   });
 
@@ -116,6 +116,29 @@ describe("settings tab", () => {
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(settingDesc(tab, "Send shortcut")).toContain("Obsidian Hotkeys");
     expect(tab.containerEl.querySelector(".codex-panel-settings__section-status")?.textContent ?? "").not.toContain("Obsidian Hotkeys");
+  });
+
+  it("saves archive export settings", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const toggle = tab.containerEl.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const folder = inputForSetting(tab, "Archive export folder");
+    const filename = inputForSetting(tab, "Archive export filename");
+    if (!toggle || !folder || !filename) throw new Error("Missing archive export controls");
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new toggle.ownerDocument.defaultView!.Event("change"));
+    folder.value = "Saved Threads";
+    folder.dispatchEvent(new folder.ownerDocument.defaultView!.Event("change"));
+    filename.value = "{{date}} {{title}}.md";
+    filename.dispatchEvent(new filename.ownerDocument.defaultView!.Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledTimes(3);
+    expect(tab.containerEl.textContent).toContain("title, thread_id, and created");
+    expect(tab.containerEl.querySelector<HTMLSelectElement>('select[aria-label="Choose archive export folder"]')).toBeNull();
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
@@ -183,7 +206,7 @@ describe("settings tab", () => {
       "Hook status",
     );
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-section .setting-item-heading")?.textContent).toContain(
-      "Archived thread list",
+      "Thread archive",
     );
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .setting-item")).toHaveLength(1);
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(1);
@@ -289,6 +312,9 @@ function newSettingsTab(options: { saveSettings?: () => Promise<void>; sendShort
         rewriteSelectionModel: null,
         rewriteSelectionEffort: null,
         sendShortcut: options.sendShortcut ?? "enter",
+        archiveExportEnabled: false,
+        archiveExportFolderTemplate: "Codex Archives",
+        archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
       },
       vaultPath: "/vault",
       saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
@@ -334,4 +360,11 @@ function clickButton(tab: CodexPanelSettingTab, text: string): void {
   const button = Array.from(tab.containerEl.querySelectorAll("button")).find((element) => element.textContent === text);
   if (!button) throw new Error(`Could not find button: ${text}`);
   button.click();
+}
+
+function inputForSetting(tab: CodexPanelSettingTab, name: string): HTMLInputElement | null {
+  const setting = Array.from(tab.containerEl.querySelectorAll(".setting-item")).find(
+    (element) => element.querySelector(".setting-item-name")?.textContent === name,
+  );
+  return setting?.querySelector("input") ?? null;
 }

@@ -55,12 +55,12 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setHeading()
       .setName("General")
       .setDesc(
-        "This plugin stores only panel metadata, the app-server launch command, composer send shortcut, and optional runtime overrides for automatic thread naming and selection rewrites. Sandbox, approvals, MCP, and normal chat runtime policy are resolved from Codex config for the current vault.",
+        "Codex Panel stores only panel-specific preferences. Sandbox, approvals, MCP, and normal chat runtime policy still come from Codex config for this vault.",
       );
 
     new Setting(configSection)
       .setName("Settings data")
-      .setDesc("Refresh thread naming models, hooks, and archived threads from Codex app-server.")
+      .setDesc("Refresh models, hooks, and archived threads from Codex app-server.")
       .addButton((button) => {
         button
           .setButtonText(this.settingsDataLoading ? "Refreshing..." : "Refresh settings data")
@@ -70,7 +70,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
     new Setting(configSection)
       .setName("Codex executable")
-      .setDesc("Command used to launch `codex app-server`. Use an absolute path when Obsidian cannot see your shell PATH.")
+      .setDesc("Command used to launch `codex app-server`. Use an absolute path if Obsidian cannot see your shell PATH.")
       .addText((text) => {
         text
           .setPlaceholder(DEFAULT_CODEX_PATH)
@@ -84,7 +84,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     new Setting(configSection)
       .setName("Send shortcut")
       .setDesc(
-        "Choose how the composer sends messages. With Enter selected, use Shift+Enter for a newline. If Cmd/Ctrl+Enter is assigned in Obsidian Hotkeys, Obsidian may handle it before Codex Panel. Remove that assignment in Settings > Hotkeys if sending does not work.",
+        "Choose how the composer sends messages. With Enter selected, Shift+Enter inserts a newline. Obsidian Hotkeys may intercept Cmd/Ctrl+Enter.",
       )
       .addDropdown((dropdown) => {
         dropdown.selectEl.ariaLabel = "Send shortcut";
@@ -98,12 +98,12 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
 
     new Setting(configSection)
-      .setName("Thread naming model")
-      .setDesc("Model and reasoning effort used only for automatic thread titles.")
+      .setName("Automatic thread naming")
+      .setDesc("Model and reasoning effort used only when generating thread title suggestions.")
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.threadNamingModel;
         const options = this.modelOptions();
-        dropdown.selectEl.ariaLabel = "Thread naming model";
+        dropdown.selectEl.ariaLabel = "Automatic thread naming model";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.some((model) => model.model === current || model.id === current)) {
           dropdown.addOption(current, `${current} (saved)`);
@@ -123,7 +123,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.threadNamingEffort;
         const options = this.effortOptions(this.plugin.settings.threadNamingModel);
-        dropdown.selectEl.ariaLabel = "Thread naming effort";
+        dropdown.selectEl.ariaLabel = "Automatic thread naming effort";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         for (const effort of options) {
           dropdown.addOption(effort, effort);
@@ -135,12 +135,12 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
 
     new Setting(configSection)
-      .setName("Rewrite selection model")
-      .setDesc("Model and reasoning effort used only for selection rewrites.")
+      .setName("Selection rewrite")
+      .setDesc("Model and reasoning effort used only by the rewrite selection command.")
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.rewriteSelectionModel;
         const options = this.modelOptions();
-        dropdown.selectEl.ariaLabel = "Rewrite selection model";
+        dropdown.selectEl.ariaLabel = "Selection rewrite model";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.some((model) => model.model === current || model.id === current)) {
           dropdown.addOption(current, `${current} (saved)`);
@@ -160,7 +160,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.rewriteSelectionEffort;
         const options = this.effortOptions(this.plugin.settings.rewriteSelectionModel);
-        dropdown.selectEl.ariaLabel = "Rewrite selection effort";
+        dropdown.selectEl.ariaLabel = "Selection rewrite effort";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         for (const effort of options) {
           dropdown.addOption(effort, effort);
@@ -189,10 +189,16 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
 
     renderArchivedThreadSection(containerEl, {
+      exportEnabled: this.plugin.settings.archiveExportEnabled,
+      exportFolderTemplate: this.plugin.settings.archiveExportFolderTemplate,
+      exportFilenameTemplate: this.plugin.settings.archiveExportFilenameTemplate,
       threads: this.archivedThreads,
       loaded: this.archivedThreadsLoaded,
       loading: this.archivedThreadsLoading,
       status: this.archivedThreadsStatus,
+      onExportEnabledChange: (enabled) => void this.setArchiveExportEnabled(enabled),
+      onExportFolderTemplateChange: (value) => void this.setArchiveExportFolderTemplate(value),
+      onExportFilenameTemplateChange: (value) => void this.setArchiveExportFilenameTemplate(value),
       onRestore: (threadId) => void this.restoreArchivedThread(threadId),
     });
 
@@ -314,6 +320,22 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       this.hooksLoading = false;
       this.display();
     }
+  }
+
+  private async setArchiveExportEnabled(enabled: boolean): Promise<void> {
+    this.plugin.settings.archiveExportEnabled = enabled;
+    await this.plugin.saveSettings();
+    this.display();
+  }
+
+  private async setArchiveExportFolderTemplate(value: string): Promise<void> {
+    this.plugin.settings.archiveExportFolderTemplate = value.trim();
+    await this.plugin.saveSettings();
+  }
+
+  private async setArchiveExportFilenameTemplate(value: string): Promise<void> {
+    this.plugin.settings.archiveExportFilenameTemplate = value.trim();
+    await this.plugin.saveSettings();
   }
 
   private async restoreArchivedThread(threadId: string): Promise<void> {

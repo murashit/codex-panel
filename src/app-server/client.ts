@@ -16,6 +16,7 @@ import type { SkillsListResponse } from "../generated/app-server/v2/SkillsListRe
 import type { ThreadArchiveResponse } from "../generated/app-server/v2/ThreadArchiveResponse";
 import type { ThreadForkResponse } from "../generated/app-server/v2/ThreadForkResponse";
 import type { ThreadListResponse } from "../generated/app-server/v2/ThreadListResponse";
+import type { ThreadReadResponse } from "../generated/app-server/v2/ThreadReadResponse";
 import type { ThreadResumeResponse } from "../generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadRollbackResponse } from "../generated/app-server/v2/ThreadRollbackResponse";
 import type { ThreadSetNameResponse } from "../generated/app-server/v2/ThreadSetNameResponse";
@@ -69,6 +70,7 @@ interface ClientResponseByMethod {
   "thread/resume": ThreadResumeResponse;
   "thread/fork": ThreadForkResponse;
   "thread/list": ThreadListResponse;
+  "thread/read": ThreadReadResponse;
   "thread/archive": ThreadArchiveResponse;
   "thread/unarchive": ThreadUnarchiveResponse;
   "thread/rollback": ThreadRollbackResponse;
@@ -239,6 +241,10 @@ export class AppServerClient {
 
   archiveThread(threadId: string): Promise<ThreadArchiveResponse> {
     return this.request("thread/archive", { threadId });
+  }
+
+  readThread(threadId: string, includeTurns = true): Promise<ThreadReadResponse> {
+    return this.request("thread/read", { threadId, includeTurns });
   }
 
   unarchiveThread(threadId: string): Promise<ThreadUnarchiveResponse> {
