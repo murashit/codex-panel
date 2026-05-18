@@ -28,7 +28,6 @@ export class RewriteSelectionPopover {
   private generateButton: HTMLButtonElement | null = null;
   private applyButton: HTMLButtonElement | null = null;
   private statusEl: HTMLElement | null = null;
-  private previewEl: HTMLElement | null = null;
   private diffEl: HTMLElement | null = null;
   private debugEl: HTMLDetailsElement | null = null;
   private readonly cleanups: Cleanup[] = [];
@@ -67,11 +66,7 @@ export class RewriteSelectionPopover {
     };
 
     this.statusEl = root.createDiv({ cls: "codex-panel-rewrite-popover__status" });
-    this.previewEl = root.createEl("pre", { cls: "codex-panel-rewrite-popover__preview" });
     this.diffEl = root.createDiv({ cls: "codex-panel-rewrite-popover__diff" });
-    const debugEl = root.createEl("details", { cls: "codex-panel-rewrite-popover__debug" });
-    debugEl.createEl("summary", { text: "Debug output" });
-    this.debugEl = debugEl;
 
     const footer = root.createDiv({ cls: "codex-panel-rewrite-popover__footer" });
     const applyButton = footer.createEl("button", {
@@ -92,7 +87,7 @@ export class RewriteSelectionPopover {
       }
     });
 
-    this.setStatus("Enter an instruction, then generate a patch.");
+    this.setStatus("");
     this.syncControls();
     this.position();
     instructionEl.focus();
@@ -106,7 +101,6 @@ export class RewriteSelectionPopover {
     this.generateButton = null;
     this.applyButton = null;
     this.statusEl = null;
-    this.previewEl = null;
     this.diffEl = null;
     this.debugEl = null;
   }
@@ -124,10 +118,11 @@ export class RewriteSelectionPopover {
     this.options.session.streamText = "";
     this.options.session.replacementText = null;
     this.options.session.debugText = null;
-    this.previewEl?.setText("");
     this.diffEl?.empty();
+    this.debugEl?.remove();
+    this.debugEl = null;
     this.renderDebug();
-    this.setStatus("Generating patch", { active: true });
+    this.setStatus("Generating", { active: true });
     this.syncControls();
 
     try {
@@ -142,7 +137,7 @@ export class RewriteSelectionPopover {
       this.options.session.replacementText = output.replacementText;
       this.options.session.status = "preview";
       this.renderDiff();
-      this.setStatus("Review the patch before applying it.");
+      this.setStatus("");
     } catch (error) {
       this.options.session.status = "failed";
       this.options.session.debugText = error instanceof RewriteOutputError ? error.rawText : null;
@@ -156,7 +151,6 @@ export class RewriteSelectionPopover {
 
   private updatePreview(text: string): void {
     this.options.session.streamText = text;
-    this.previewEl?.setText(text);
     this.setStatus("Writing replacement", { active: true });
     this.position();
   }
@@ -176,16 +170,15 @@ export class RewriteSelectionPopover {
   }
 
   private renderDebug(): void {
-    if (!this.debugEl) return;
     const debugText = this.options.session.debugText;
-    this.debugEl.empty();
-    this.debugEl.createEl("summary", { text: "Debug output" });
-    if (debugText) {
-      this.debugEl.createEl("pre", { text: debugText });
-      this.debugEl.classList.remove("is-hidden");
-    } else {
-      this.debugEl.classList.add("is-hidden");
-    }
+    this.debugEl?.remove();
+    this.debugEl = null;
+    if (!debugText || !this.rootEl) return;
+
+    const debugEl = this.rootEl.createEl("details", { cls: "codex-panel-rewrite-popover__debug" });
+    debugEl.createEl("summary", { text: "Debug output" });
+    debugEl.createEl("pre", { text: debugText });
+    this.debugEl = debugEl;
   }
 
   private apply(): void {
