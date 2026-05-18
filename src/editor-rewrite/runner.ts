@@ -28,8 +28,11 @@ export interface RunRewriteSelectionOptions {
   cwd: string;
   prompt: string;
   runtimeSettings?: RewriteRuntimeSettings;
+  onActivity?: (activity: RewriteActivity) => void;
   onPreview?: (text: string) => void;
 }
+
+export type RewriteActivity = "reasoning" | "writing";
 
 export async function runRewriteSelection(options: RunRewriteSelectionOptions): Promise<RewriteOutput> {
   let threadId: string | null = null;
@@ -54,8 +57,19 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
       if (notification.method === "item/agentMessage/delta") {
         if (!threadId || notification.params.threadId !== threadId) return;
         if (expectedTurnId && notification.params.turnId !== expectedTurnId) return;
+        options.onActivity?.("writing");
         preview += notification.params.delta;
         options.onPreview?.(preview);
+        return;
+      }
+      if (
+        notification.method === "item/reasoning/summaryTextDelta" ||
+        notification.method === "item/reasoning/textDelta" ||
+        notification.method === "item/reasoning/summaryPartAdded"
+      ) {
+        if (!threadId || notification.params.threadId !== threadId) return;
+        if (expectedTurnId && notification.params.turnId !== expectedTurnId) return;
+        options.onActivity?.("reasoning");
         return;
       }
       if (notification.method === "item/completed") {

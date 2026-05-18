@@ -6,7 +6,7 @@ import { isRewriteGenerateKey } from "./keys";
 import { canApplyRewrite, type RewriteRuntimeSettings, type RewriteSession } from "./model";
 import { RewriteOutputError } from "./output";
 import { buildRewritePrompt } from "./prompt";
-import { runRewriteSelection } from "./runner";
+import { runRewriteSelection, type RewriteActivity } from "./runner";
 import type { SendShortcut } from "../settings/model";
 
 const POPOVER_MARGIN = 8;
@@ -127,7 +127,7 @@ export class RewriteSelectionPopover {
     this.previewEl?.setText("");
     this.diffEl?.empty();
     this.renderDebug();
-    this.setStatus("Generating patch...");
+    this.setStatus("Generating patch", { active: true });
     this.syncControls();
 
     try {
@@ -136,6 +136,7 @@ export class RewriteSelectionPopover {
         cwd: this.options.cwd,
         prompt: buildRewritePrompt(this.options.session),
         runtimeSettings: this.options.runtimeSettings,
+        onActivity: (activity) => this.updateActivity(activity),
         onPreview: (text) => this.updatePreview(text),
       });
       this.options.session.replacementText = output.replacementText;
@@ -156,7 +157,12 @@ export class RewriteSelectionPopover {
   private updatePreview(text: string): void {
     this.options.session.streamText = text;
     this.previewEl?.setText(text);
+    this.setStatus("Writing replacement", { active: true });
     this.position();
+  }
+
+  private updateActivity(activity: RewriteActivity): void {
+    this.setStatus(activity === "reasoning" ? "Reasoning" : "Writing replacement", { active: true });
   }
 
   private renderDiff(): void {
@@ -199,8 +205,16 @@ export class RewriteSelectionPopover {
     this.close();
   }
 
-  private setStatus(text: string): void {
-    this.statusEl?.setText(text);
+  private setStatus(text: string, options: { active?: boolean } = {}): void {
+    if (!this.statusEl) return;
+    this.statusEl.empty();
+    this.statusEl.classList.toggle("is-active", Boolean(options.active));
+    this.statusEl.createSpan({ text });
+    if (!options.active) return;
+    const dots = this.statusEl.createSpan({ cls: "codex-panel-rewrite-popover__status-dots" });
+    dots.createSpan({ text: "." });
+    dots.createSpan({ text: "." });
+    dots.createSpan({ text: "." });
   }
 
   private syncControls(): void {
