@@ -9,6 +9,7 @@ export const SLASH_COMMANDS = [
   { command: "/plan", detail: "Toggle Plan mode, optionally sending a message." },
   { command: "/status", detail: "Show current session, context, and usage limits." },
   { command: "/doctor", detail: "Show Codex CLI and app-server connection diagnostics." },
+  { command: "/mcp", detail: "Show MCP servers recognized by Codex app-server." },
   { command: "/model", detail: "Show or set the model for subsequent turns." },
   { command: "/effort", detail: "Show or set reasoning effort for subsequent turns." },
   { command: "/help", detail: "Show available Codex slash commands." },

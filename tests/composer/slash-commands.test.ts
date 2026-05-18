@@ -26,6 +26,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     setRequestedReasoningEffort: vi.fn(),
     statusSummaryLines: () => ["status"],
     connectionDiagnosticLines: () => ["doctor"],
+    mcpStatusLines: vi.fn().mockResolvedValue(["mcp"]),
     modelStatusLines: () => ["model"],
     effortStatusLines: () => ["effort"],
     ...overrides,
@@ -246,5 +247,27 @@ describe("slash commands", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/doctor"))).toBe(
       "/doctor - Show Codex CLI and app-server connection diagnostics.",
     );
+  });
+
+  it("shows MCP server status", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("mcp", "", ctx);
+
+    expect(ctx.mcpStatusLines).toHaveBeenCalledOnce();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("mcp");
+  });
+
+  it("rejects /mcp arguments", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("mcp", "enable github", ctx);
+
+    expect(ctx.mcpStatusLines).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported slash command arguments: enable github");
+  });
+
+  it("documents MCP status", () => {
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/mcp"))).toBe("/mcp - Show MCP servers recognized by Codex app-server.");
   });
 });

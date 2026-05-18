@@ -41,6 +41,7 @@ import { sortedAvailableModels } from "../runtime/model";
 import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessage } from "../runtime/settings";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import type { ThreadReferenceInput } from "./slash-commands";
+import { mcpStatusLines } from "./mcp-status";
 import { PanelSessionController } from "./session-controller";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
 import { ThreadHistoryLoader } from "./thread-history";
@@ -529,6 +530,7 @@ export class CodexPanelView extends ItemView {
       setRequestedReasoningEffort: (effort) => this.setRequestedReasoningEffort(effort),
       statusSummaryLines: () => this.statusSummaryLines(),
       connectionDiagnosticLines: () => this.connectionDiagnosticLines(),
+      mcpStatusLines: () => this.mcpStatusLines(),
       modelStatusLines: () => this.modelStatusLines(),
       effortStatusLines: () => this.effortStatusLines(),
     });
@@ -940,6 +942,18 @@ export class CodexPanelView extends ItemView {
 
   private connectionDiagnosticLines(): string[] {
     return connectionDiagnosticLines(this.connectionDiagnosticRows());
+  }
+
+  private async mcpStatusLines(): Promise<string[]> {
+    if (!this.client) return ["MCP servers", "Codex app-server is not connected."];
+
+    try {
+      const response = await this.client.listMcpServerStatus();
+      return mcpStatusLines(response.data, this.state.appServerDiagnostics.mcpServers);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return ["MCP servers", `Could not load MCP servers: ${message}`];
+    }
   }
 
   private collaborationModeLabel(): string {

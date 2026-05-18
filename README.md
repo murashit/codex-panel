@@ -49,7 +49,7 @@ Codex Panel supports the app-server-backed Codex workflows that fit a persistent
 - Respond to command, file, and permission approval requests.
 - Stream assistant messages, reasoning, commands, tool calls, hooks, file changes, and agent activity.
 - Inspect file changes and roll back the latest turn without reverting local files.
-- Inspect context usage, usage limits, connection diagnostics, and effective config (`/status`, `/doctor`).
+- Inspect context usage, usage limits, connection diagnostics, MCP server inventory, and effective config (`/status`, `/doctor`, `/mcp`).
 - Inspect and manage discovered Codex hooks from Codex Panel settings.
 - Rewrite the current Markdown editor selection from an inline popover.
 

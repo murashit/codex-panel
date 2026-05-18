@@ -29,6 +29,7 @@ export interface SlashCommandExecutionContext {
   setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void;
   statusSummaryLines: () => string[];
   connectionDiagnosticLines: () => string[];
+  mcpStatusLines: () => Promise<string[]>;
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
 }
@@ -148,6 +149,15 @@ export async function executeSlashCommand(
 
   if (command === "doctor") {
     context.addSystemMessage(context.connectionDiagnosticLines().join("\n"));
+    return;
+  }
+
+  if (command === "mcp") {
+    if (args) {
+      context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
+      return;
+    }
+    context.addSystemMessage((await context.mcpStatusLines()).join("\n"));
     return;
   }
 
