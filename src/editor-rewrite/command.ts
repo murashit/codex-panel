@@ -2,10 +2,12 @@ import { MarkdownView, Notice, type Editor, type Plugin } from "obsidian";
 
 import type { RewriteRuntimeSettings, RewriteSession } from "./model";
 import { RewriteSelectionPopover } from "./popover";
+import type { SendShortcut } from "../settings/model";
 
 export interface RewriteSelectionCommandHost extends Plugin {
   settings: {
     codexPath: string;
+    sendShortcut: SendShortcut;
   } & RewriteRuntimeSettings;
   vaultPath: string;
 }
@@ -46,6 +48,7 @@ export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandH
         cwd: plugin.vaultPath,
         editor,
         runtimeSettings: plugin.settings,
+        sendShortcut: plugin.settings.sendShortcut,
         session,
       }).open();
     },

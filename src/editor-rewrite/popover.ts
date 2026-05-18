@@ -2,10 +2,12 @@ import { Notice, type Editor } from "obsidian";
 
 import { renderUnifiedDiff } from "../ui/turn-diff";
 import { buildSelectionUnifiedDiff } from "./diff";
+import { isRewriteGenerateKey } from "./keys";
 import { canApplyRewrite, type RewriteRuntimeSettings, type RewriteSession } from "./model";
 import { RewriteOutputError } from "./output";
 import { buildRewritePrompt } from "./prompt";
 import { runRewriteSelection } from "./runner";
+import type { SendShortcut } from "../settings/model";
 
 const POPOVER_MARGIN = 8;
 
@@ -14,6 +16,7 @@ export interface RewriteSelectionPopoverOptions {
   cwd: string;
   editor: Editor;
   runtimeSettings: RewriteRuntimeSettings;
+  sendShortcut: SendShortcut;
   session: RewriteSession;
 }
 
@@ -46,6 +49,11 @@ export class RewriteSelectionPopover {
     });
     instructionEl.value = this.options.session.instruction;
     instructionEl.oninput = () => this.syncControls();
+    instructionEl.onkeydown = (event) => {
+      if (!isRewriteGenerateKey(event, this.options.sendShortcut)) return;
+      event.preventDefault();
+      void this.generate();
+    };
     this.instructionEl = instructionEl;
 
     const controls = root.createDiv({ cls: "codex-panel-rewrite-popover__controls" });

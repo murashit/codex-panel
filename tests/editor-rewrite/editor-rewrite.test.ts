@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildSelectionUnifiedDiff } from "../../src/editor-rewrite/diff";
+import { isRewriteGenerateKey, type RewriteGenerateKeyEvent } from "../../src/editor-rewrite/keys";
 import { canApplyRewrite, type RewriteSession } from "../../src/editor-rewrite/model";
 import { parseRewriteOutput, rewriteOutputFromTurn, rewriteOutputParseResultFromTurn } from "../../src/editor-rewrite/output";
 import { buildRewritePrompt } from "../../src/editor-rewrite/prompt";
@@ -95,6 +96,29 @@ describe("editor rewrite runtime", () => {
         model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
       ]),
     ).toEqual({ model: "gpt-5.4-mini" });
+  });
+});
+
+describe("editor rewrite keys", () => {
+  const baseEvent: RewriteGenerateKeyEvent = {
+    key: "Enter",
+    shiftKey: false,
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    isComposing: false,
+  };
+
+  it("generates on plain Enter in Enter mode", () => {
+    expect(isRewriteGenerateKey(baseEvent, "enter")).toBe(true);
+    expect(isRewriteGenerateKey({ ...baseEvent, shiftKey: true }, "enter")).toBe(false);
+    expect(isRewriteGenerateKey({ ...baseEvent, metaKey: true }, "enter")).toBe(false);
+  });
+
+  it("generates on Cmd/Ctrl+Enter in mod-enter mode", () => {
+    expect(isRewriteGenerateKey({ ...baseEvent, metaKey: true }, "mod-enter")).toBe(true);
+    expect(isRewriteGenerateKey({ ...baseEvent, ctrlKey: true }, "mod-enter")).toBe(true);
+    expect(isRewriteGenerateKey(baseEvent, "mod-enter")).toBe(false);
   });
 });
 
