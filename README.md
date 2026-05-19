@@ -51,7 +51,7 @@ Codex Panel supports the app-server-backed Codex workflows that fit a persistent
 - Inspect file changes and roll back the latest turn without reverting local files.
 - Inspect context usage, usage limits, connection diagnostics, MCP server inventory, and effective config (`/status`, `/doctor`, `/mcp`).
 - Inspect and manage discovered Codex hooks from Codex Panel settings.
-- Rewrite the current Markdown editor selection from an inline popover.
+- Rewrite the current Markdown editor selection from an Obsidian editor command.
 
 ## Obsidian Integration
 
@@ -62,12 +62,8 @@ Codex Panel adds vault-aware behavior where Obsidian benefits from a different s
 - Forking a thread opens the fork in a new right-sidebar panel so the source thread stays visible.
 - Thread archiving can save a Markdown note in the vault before the thread is archived. The save location, filename template, and optional fixed tags are configured in Codex Panel settings.
 - The composer sends with `Enter` by default, with `Shift+Enter` for a newline. You can switch sending to `Cmd/Ctrl+Enter` in Codex Panel settings.
-
-## Selection Rewrites
-
-Use `Codex Panel: Rewrite selection` to rewrite selected text in the active Markdown editor without starting a normal chat turn. Codex sees the selection, the current editor buffer as note context, and your instruction. You review the preview and selection-scoped diff before applying the change.
-
-Selection rewrites run in a short-lived app-server session and apply through the Obsidian editor only after confirmation. The command requires a non-empty selection in an active Markdown note, and it asks you to regenerate if the selected text changes before applying.
+- `Codex Panel: Rewrite selection` rewrites selected text in the active Markdown editor without starting a normal chat turn. The command requires a non-empty selection in an active Markdown note. Codex sees the selection, the current editor buffer as note context, and your instruction, then returns a replacement preview with a selection-scoped diff.
+- Selection rewrites run in a short-lived app-server session, separate from the current panel thread. Nothing is written to the note until you confirm the preview. If the selected text changes before applying, Codex Panel asks you to regenerate so the replacement still matches the editor state you reviewed.
 
 ## Configuration and Diagnostics
 
