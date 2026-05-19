@@ -14,6 +14,7 @@ export interface CodexPanelSettings {
   archiveExportEnabled: boolean;
   archiveExportFolderTemplate: string;
   archiveExportFilenameTemplate: string;
+  archiveExportTags: string;
 }
 
 export type SendShortcut = "enter" | "mod-enter";
@@ -28,6 +29,7 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   archiveExportEnabled: false,
   archiveExportFolderTemplate: "Codex Archives",
   archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
+  archiveExportTags: "",
 };
 
 export function normalizeSettings(data: unknown): CodexPanelSettings {
@@ -44,13 +46,14 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
     archiveExportFilenameTemplate:
       stringOrDefault(record.archiveExportFilenameTemplate, DEFAULT_SETTINGS.archiveExportFilenameTemplate).trim() ||
       DEFAULT_SETTINGS.archiveExportFilenameTemplate,
+    archiveExportTags: stringOrDefault(record.archiveExportTags, DEFAULT_SETTINGS.archiveExportTags).trim(),
   };
 }
 
 export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelSettings): boolean {
   const record = asRecord(data);
   return (
-    Object.keys(record).length === 9 &&
+    Object.keys(record).length === 10 &&
     record.codexPath === settings.codexPath &&
     record.threadNamingModel === settings.threadNamingModel &&
     record.threadNamingEffort === settings.threadNamingEffort &&
@@ -59,7 +62,8 @@ export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelS
     record.sendShortcut === settings.sendShortcut &&
     record.archiveExportEnabled === settings.archiveExportEnabled &&
     record.archiveExportFolderTemplate === settings.archiveExportFolderTemplate &&
-    record.archiveExportFilenameTemplate === settings.archiveExportFilenameTemplate
+    record.archiveExportFilenameTemplate === settings.archiveExportFilenameTemplate &&
+    record.archiveExportTags === settings.archiveExportTags
   );
 }
 

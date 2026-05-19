@@ -9,6 +9,7 @@ export interface ArchivedThreadSectionState {
   exportEnabled: boolean;
   exportFolderTemplate: string;
   exportFilenameTemplate: string;
+  exportTags: string;
   threads: Thread[];
   loaded: boolean;
   loading: boolean;
@@ -16,6 +17,7 @@ export interface ArchivedThreadSectionState {
   onExportEnabledChange(enabled: boolean): void;
   onExportFolderTemplateChange(value: string): void;
   onExportFilenameTemplateChange(value: string): void;
+  onExportTagsChange(value: string): void;
   onRestore(threadId: string): void;
 }
 
@@ -83,7 +85,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
   new Setting(containerEl)
     .setName("Save before archiving")
     .setDesc(
-      "Save a markdown note before archiving. If saving fails, the thread is not archived. Frontmatter is fixed to title, thread_id, and created.",
+      "Save a markdown note before archiving. If saving fails, the thread is not archived. Frontmatter includes title, thread_id, created, and optional tags.",
     )
     .addToggle((toggle) => {
       toggle.setValue(state.exportEnabled).onChange((value) => state.onExportEnabledChange(value));
@@ -109,6 +111,16 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
         .setPlaceholder("{{date}} {{time}} {{title}} {{shortId}}.md")
         .setValue(state.exportFilenameTemplate)
         .onChange((value) => state.onExportFilenameTemplateChange(value));
+    });
+
+  new Setting(containerEl)
+    .setName("Save tags")
+    .setDesc("Comma-separated fixed tags for saved notes. Variables are not expanded. Leave empty to omit tags.")
+    .addText((text) => {
+      text
+        .setPlaceholder("Codex, archive")
+        .setValue(state.exportTags)
+        .onChange((value) => state.onExportTagsChange(value));
     });
 }
 

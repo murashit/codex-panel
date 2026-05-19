@@ -25,6 +25,7 @@ describe("settings", () => {
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
       archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
+      archiveExportTags: "codex, archive",
       model: "gpt-5.5",
       sandboxMode: "workspace-write",
       approvalPolicy: "on-request",
@@ -41,6 +42,7 @@ describe("settings", () => {
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
       archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
+      archiveExportTags: "codex, archive",
     };
 
     expect(normalizeSettings(storedData)).toEqual(normalized);
@@ -62,6 +64,7 @@ describe("settings", () => {
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives",
       archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
+      archiveExportTags: "codex, archive",
     });
     expect(settingsMatchNormalizedData({ ...settings }, settings)).toBe(true);
     expect(settingsMatchNormalizedData({ ...settings, extraPanelState: {} }, settings)).toBe(false);
@@ -101,22 +104,26 @@ describe("settings", () => {
         archiveExportEnabled: true,
         archiveExportFolderTemplate: " Exports ",
         archiveExportFilenameTemplate: " {{title}}.md ",
+        archiveExportTags: ' #codex, "archive" ',
       }),
     ).toMatchObject({
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Exports",
       archiveExportFilenameTemplate: "{{title}}.md",
+      archiveExportTags: '#codex, "archive"',
     });
     expect(
       normalizeSettings({
         archiveExportEnabled: "yes",
         archiveExportFolderTemplate: 1,
         archiveExportFilenameTemplate: "   ",
+        archiveExportTags: 1,
       }),
     ).toMatchObject({
       archiveExportEnabled: DEFAULT_SETTINGS.archiveExportEnabled,
       archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
       archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
+      archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
     });
   });
 

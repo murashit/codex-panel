@@ -24,7 +24,8 @@ interface TemplateContext {
   shortId: string;
 }
 
-type ArchiveExportSettings = Pick<CodexPanelSettings, "archiveExportFolderTemplate" | "archiveExportFilenameTemplate">;
+type ArchiveExportSettings = Pick<CodexPanelSettings, "archiveExportFolderTemplate" | "archiveExportFilenameTemplate"> &
+  Partial<Pick<CodexPanelSettings, "archiveExportTags">>;
 
 export async function exportArchivedThreadMarkdown(
   thread: Thread,
@@ -38,17 +39,19 @@ export async function exportArchivedThreadMarkdown(
   await ensureFolder(adapter, folder);
 
   const path = await uniqueMarkdownPath(adapter, folder, filename);
-  await adapter.write(path, markdownFromThread(thread, now));
+  await adapter.write(path, markdownFromThread(thread, now, settings));
   return { path };
 }
 
-export function markdownFromThread(thread: Thread, exportedAt = new Date()): string {
+export function markdownFromThread(thread: Thread, exportedAt = new Date(), settings?: Partial<ArchiveExportSettings>): string {
   const title = exportThreadTitle(thread);
+  const tags = normalizedArchiveTags(settings?.archiveExportTags ?? "");
   const lines = [
     "---",
     `title: ${yamlString(title)}`,
     `thread_id: ${yamlString(thread.id)}`,
     `created: ${yamlString(formatDate(exportedAt))}`,
+    ...frontmatterTagsLines(tags),
     "---",
     "",
     `# ${title}`,
@@ -56,6 +59,18 @@ export function markdownFromThread(thread: Thread, exportedAt = new Date()): str
     ...turnMarkdownLines(thread.turns),
   ];
   return `${trimTrailingBlankLines(lines).join("\n")}\n`;
+}
+
+export function normalizedArchiveTags(value: string): string[] {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const rawTag of value.split(",")) {
+    const tag = stripMatchingQuotes(stripLeadingHashes(rawTag.trim()).trim()).trim();
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    tags.push(tag);
+  }
+  return tags;
 }
 
 function turnMarkdownLines(turns: Turn[]): string[] {
@@ -88,6 +103,21 @@ function markdownLinesFromItem(item: ThreadItem): string[] {
     return text ? ["## Proposed plan", "", text, ""] : [];
   }
   return [];
+}
+
+function frontmatterTagsLines(tags: string[]): string[] {
+  return tags.length > 0 ? [`tags: [${tags.map(yamlString).join(", ")}]`] : [];
+}
+
+function stripLeadingHashes(value: string): string {
+  return value.replace(/^#+/, "");
+}
+
+function stripMatchingQuotes(value: string): string {
+  if (value.length < 2) return value;
+  const first = value[0];
+  const last = value[value.length - 1];
+  return (first === `"` || first === `'`) && first === last ? value.slice(1, -1) : value;
 }
 
 function templateContext(thread: Thread, now: Date): TemplateContext {

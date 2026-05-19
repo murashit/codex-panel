@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
-import { exportArchivedThreadMarkdown, markdownFromThread, type ArchiveExportAdapter } from "../../src/threads/export";
+import {
+  exportArchivedThreadMarkdown,
+  markdownFromThread,
+  normalizedArchiveTags,
+  type ArchiveExportAdapter,
+} from "../../src/threads/export";
 import { referencedThreadPrompt } from "../../src/threads/reference";
 
 describe("thread archive export", () => {
@@ -69,6 +74,29 @@ describe("thread archive export", () => {
     expect(output).not.toContain("元の依頼");
   });
 
+  it("writes optional frontmatter tags from fixed comma-separated settings", () => {
+    const output = markdownFromThread(thread({ name: "Tagged thread" }), new Date(2026, 4, 18), {
+      archiveExportTags: '#codex, "archive", codex, {{title}}',
+    });
+
+    expect(output).toContain('tags: ["codex", "archive", "{{title}}"]');
+  });
+
+  it("omits frontmatter tags when archive tags are empty", () => {
+    const output = markdownFromThread(thread(), new Date(2026, 4, 18), { archiveExportTags: " , # , " });
+
+    expect(output).not.toContain("tags:");
+  });
+
+  it("normalizes archive tags without sorting or changing unmatched quotes", () => {
+    expect(normalizedArchiveTags(` "codex" , 'archive', #note/tag, codex, "unfinished `)).toEqual([
+      "codex",
+      "archive",
+      "note/tag",
+      '"unfinished',
+    ]);
+  });
+
   it("expands templates, sanitizes paths, creates folders, and preserves existing files", async () => {
     const adapter = new MemoryAdapter(["Codex Archives/2026-05-18/My-Thread- abcdef12.md"]);
 
@@ -77,6 +105,7 @@ describe("thread archive export", () => {
       {
         archiveExportFolderTemplate: "Codex Archives/{{date}}",
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
+        archiveExportTags: "codex, archive",
       },
       adapter,
       new Date(2026, 4, 18, 9, 8, 7),
@@ -86,6 +115,7 @@ describe("thread archive export", () => {
     expect(adapter.folders).toContain("Codex Archives");
     expect(adapter.folders).toContain("Codex Archives/2026-05-18");
     expect(adapter.files.get(result.path)).toContain('thread_id: "abcdef12-9999"');
+    expect(adapter.files.get(result.path)).toContain('tags: ["codex", "archive"]');
   });
 
   it("rejects vault-external or empty export paths", async () => {

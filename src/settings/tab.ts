@@ -192,6 +192,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       exportEnabled: this.plugin.settings.archiveExportEnabled,
       exportFolderTemplate: this.plugin.settings.archiveExportFolderTemplate,
       exportFilenameTemplate: this.plugin.settings.archiveExportFilenameTemplate,
+      exportTags: this.plugin.settings.archiveExportTags,
       threads: this.archivedThreads,
       loaded: this.archivedThreadsLoaded,
       loading: this.archivedThreadsLoading,
@@ -199,6 +200,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       onExportEnabledChange: (enabled) => void this.setArchiveExportEnabled(enabled),
       onExportFolderTemplateChange: (value) => void this.setArchiveExportFolderTemplate(value),
       onExportFilenameTemplateChange: (value) => void this.setArchiveExportFilenameTemplate(value),
+      onExportTagsChange: (value) => void this.setArchiveExportTags(value),
       onRestore: (threadId) => void this.restoreArchivedThread(threadId),
     });
 
@@ -335,6 +337,11 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async setArchiveExportFilenameTemplate(value: string): Promise<void> {
     this.plugin.settings.archiveExportFilenameTemplate = value.trim();
+    await this.plugin.saveSettings();
+  }
+
+  private async setArchiveExportTags(value: string): Promise<void> {
+    this.plugin.settings.archiveExportTags = value.trim();
     await this.plugin.saveSettings();
   }
 

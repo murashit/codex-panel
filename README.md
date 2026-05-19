@@ -60,7 +60,7 @@ Codex Panel adds vault-aware behavior where Obsidian benefits from a different s
 - Wikilinks in sent messages resolve to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are left alone, and note bodies are not attached automatically.
 - Markdown links in rendered messages that point to existing vault files open in Obsidian. External links and non-vault file paths keep their normal link behavior.
 - Forking a thread opens the fork in a new right-sidebar panel so the source thread stays visible.
-- Thread archiving can save a Markdown note in the vault before the thread is archived. The save location and filename template are configured in Codex Panel settings.
+- Thread archiving can save a Markdown note in the vault before the thread is archived. The save location, filename template, and optional fixed tags are configured in Codex Panel settings.
 - The composer sends with `Enter` by default, with `Shift+Enter` for a newline. You can switch sending to `Cmd/Ctrl+Enter` in Codex Panel settings.
 
 ## Selection Rewrites
@@ -73,7 +73,7 @@ Selection rewrites run in a short-lived app-server session and apply through the
 
 Codex configuration stays in Codex. Configure model defaults, sandboxing, approvals, MCP servers, hooks, network access, and providers the same way you configure Codex CLI.
 
-Codex Panel settings store only panel-specific preferences: Codex executable path, composer send shortcut, optional archive export folder and filename templates, and optional model/effort overrides for automatic thread naming and selection rewrites. Toolbar model and effort controls are temporary inputs for subsequent turns.
+Codex Panel settings store only panel-specific preferences: Codex executable path, composer send shortcut, optional archive export folder and filename templates, optional archive export tags, and optional model/effort overrides for automatic thread naming and selection rewrites. Toolbar model and effort controls are temporary inputs for subsequent turns.
 
 The status dot opens connection controls and diagnostics, including effective config, context usage, and usage limits. Codex Panel settings can also load app-server-backed hook status and archived threads on demand.
 

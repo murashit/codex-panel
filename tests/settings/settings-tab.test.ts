@@ -126,7 +126,8 @@ describe("settings tab", () => {
     const toggle = tab.containerEl.querySelector<HTMLInputElement>('input[type="checkbox"]');
     const folder = inputForSetting(tab, "Save folder");
     const filename = inputForSetting(tab, "Save filename");
-    if (!toggle || !folder || !filename) throw new Error("Missing archive export controls");
+    const tags = inputForSetting(tab, "Save tags");
+    if (!toggle || !folder || !filename || !tags) throw new Error("Missing archive export controls");
 
     toggle.checked = true;
     toggle.dispatchEvent(new toggle.ownerDocument.defaultView!.Event("change"));
@@ -134,11 +135,14 @@ describe("settings tab", () => {
     folder.dispatchEvent(new folder.ownerDocument.defaultView!.Event("change"));
     filename.value = "{{date}} {{title}}.md";
     filename.dispatchEvent(new filename.ownerDocument.defaultView!.Event("change"));
+    tags.value = "codex, archive";
+    tags.dispatchEvent(new tags.ownerDocument.defaultView!.Event("change"));
     await flushPromises();
 
-    expect(saveSettings).toHaveBeenCalledTimes(3);
-    expect(tab.containerEl.textContent).toContain("title, thread_id, and created");
+    expect(saveSettings).toHaveBeenCalledTimes(4);
+    expect(tab.containerEl.textContent).toContain("title, thread_id, created, and optional tags");
     expect(settingDesc(tab, "Save before archiving")).toContain("If saving fails");
+    expect(settingDesc(tab, "Save tags")).toContain("Variables are not expanded");
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
@@ -316,6 +320,7 @@ function newSettingsTab(options: { saveSettings?: () => Promise<void>; sendShort
         archiveExportEnabled: false,
         archiveExportFolderTemplate: "Codex Archives",
         archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
+        archiveExportTags: "",
       },
       vaultPath: "/vault",
       saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
