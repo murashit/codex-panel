@@ -113,9 +113,11 @@ export function syncMessageRenderBlocks(parent: HTMLElement, blocks: MessageRend
   });
 
   const seen = new Set<string>();
+  let nextPosition: ChildNode | null = parent.firstChild;
   for (const block of blocks) {
     const current = existing.get(block.key);
     let element = current;
+    const currentWasNext = current === nextPosition;
     if (!element || signatures.get(block.key) !== block.signature) {
       element = block.render();
       element.dataset.codexPanelBlockKey = block.key;
@@ -123,9 +125,13 @@ export function syncMessageRenderBlocks(parent: HTMLElement, blocks: MessageRend
       signatures.set(block.key, block.signature);
       if (current) {
         current.replaceWith(element);
+        if (currentWasNext) nextPosition = element;
       }
     }
-    parent.appendChild(element);
+    if (element !== nextPosition) {
+      parent.insertBefore(element, nextPosition);
+    }
+    nextPosition = element.nextSibling;
     seen.add(block.key);
   }
 

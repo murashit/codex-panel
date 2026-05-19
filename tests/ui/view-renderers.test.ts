@@ -71,6 +71,35 @@ describe("message stream block identity and message actions", () => {
     expect(signatures.get("one")).toBe("changed");
   });
 
+  it("leaves stable ordered message block nodes in place during repeated syncs", () => {
+    const parent = document.createElement("div");
+    const signatures = new Map<string, string>();
+    const first = document.createElement("section");
+    const second = document.createElement("article");
+
+    syncMessageRenderBlocks(
+      parent,
+      [
+        { key: "one", signature: "same-one", render: () => first },
+        { key: "two", signature: "same-two", render: () => second },
+      ],
+      signatures,
+    );
+
+    const insertBefore = vi.spyOn(parent, "insertBefore");
+    syncMessageRenderBlocks(
+      parent,
+      [
+        { key: "one", signature: "same-one", render: () => document.createElement("aside") },
+        { key: "two", signature: "same-two", render: () => document.createElement("aside") },
+      ],
+      signatures,
+    );
+
+    expect(insertBefore).not.toHaveBeenCalled();
+    expect([...parent.children]).toEqual([first, second]);
+  });
+
   it("does not invalidate generic tool blocks when only the workspace root changes", () => {
     const item = {
       id: "tool",
