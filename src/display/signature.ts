@@ -20,6 +20,7 @@ export function displayItemSignature(item: DisplayItem, context: DisplayItemSign
     item.text,
     "markdown" in item ? String(item.markdown ?? true) : "",
     item.kind === "message" ? (item.copyText ?? "") : "",
+    item.kind === "message" ? String(isMessageCopyActionVisible(item, context)) : "",
     item.kind === "message" ? String(item.proposedPlan ?? false) : "",
     "output" in item ? (item.output ?? "") : "",
     "details" in item ? JSON.stringify(item.details ?? []) : "",
@@ -52,6 +53,14 @@ export function displayItemSignature(item: DisplayItem, context: DisplayItemSign
       ? (item.status ?? "")
       : "",
   ].join("\u0000");
+}
+
+export function isMessageCopyActionVisible(
+  item: DisplayItem,
+  context: Pick<DisplayItemSignatureContext, "busy" | "activeTurnId">,
+): boolean {
+  if (item.kind !== "message" || item.copyText === undefined) return false;
+  return !(context.busy && context.activeTurnId && item.role === "assistant" && item.turnId === context.activeTurnId);
 }
 
 export function isReasoningActive(

@@ -1,5 +1,5 @@
 import { displayBlocksForItems } from "../display/blocks";
-import { displayItemSignature } from "../display/signature";
+import { displayItemSignature, isMessageCopyActionVisible } from "../display/signature";
 import { executionState } from "../display/state";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
 import { createIconButton, createMetaPair, createRememberedDetails } from "./components";
@@ -217,7 +217,7 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   applyExecutionStateClass(messageEl, executionState(item));
   const role = messageEl.createDiv({ cls: "codex-panel__message-role" });
   role.createSpan({ text: displayRoleLabel(item) });
-  if (item.kind === "message" && item.copyText !== undefined && context.copyText) {
+  if (item.kind === "message" && context.copyText && isMessageCopyActionVisible(item, context)) {
     renderMessageAction(role, "copy", "Copy message", "codex-panel__copy-message", () => context.copyText?.(item.copyText ?? item.text));
   }
   if (context.canImplementPlanItem?.(item)) {

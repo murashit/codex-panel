@@ -250,6 +250,39 @@ describe("message stream block identity and message actions", () => {
     expect(copyText).toHaveBeenNthCalledWith(2, "# Answer");
   });
 
+  it("hides copy action for the active assistant message while a turn is running", () => {
+    const item = {
+      id: "a-running",
+      itemId: "a-running",
+      kind: "message",
+      role: "assistant",
+      text: "partial",
+      copyText: "partial",
+      turnId: "turn-1",
+      markdown: false,
+    } as const;
+    const context = {
+      activeThreadId: "thread",
+      activeTurnId: "turn-1",
+      historyCursor: null,
+      loadingHistory: false,
+      busy: true,
+      displayItems: [item],
+      openDetails: new Set<string>(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent: HTMLElement, text: string) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent: HTMLElement, text: string) => parent.createDiv({ text }),
+      copyText: vi.fn(),
+    };
+
+    const runningBlock = messageRenderBlocks(context)[0];
+    const completedBlock = messageRenderBlocks({ ...context, busy: false, activeTurnId: null })[0];
+
+    expect(runningBlock.render().querySelector(".codex-panel__copy-message")).toBeNull();
+    expect(completedBlock.render().querySelector(".codex-panel__copy-message")).not.toBeNull();
+    expect(runningBlock.signature).not.toBe(completedBlock.signature);
+  });
+
   it("renders implement plan action for eligible proposed plans", () => {
     const onImplementPlanItem = vi.fn();
     const block = messageRenderBlocks({
