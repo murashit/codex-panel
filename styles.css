@@ -1567,10 +1567,6 @@
   margin: 2px 0 0;
 }
 
-.codex-panel__user-input-radio:checked + .codex-panel__user-input-option-label {
-  color: var(--text-accent);
-}
-
 .codex-panel__user-input-option-description {
   grid-column: 2;
   color: var(--text-muted);

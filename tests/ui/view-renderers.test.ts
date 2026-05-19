@@ -1636,7 +1636,7 @@ describe("pending request renderer decisions", () => {
           text: "Done",
           turnId: "turn",
           markdown: true,
-          autoReviewSummaries: ["Auto-review approved: npm test"],
+          autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"],
         },
       ],
       openDetails: new Set(),
@@ -1647,7 +1647,7 @@ describe("pending request renderer decisions", () => {
 
     const element = block.render();
 
-    expect(element.querySelector(".codex-panel__auto-reviews summary")?.textContent).toBe("Auto-reviewed 1 request");
+    expect(element.querySelector(".codex-panel__auto-reviews summary")?.textContent).toBe("Auto-reviewed 2 requests");
     expect(element.querySelector(".codex-panel__auto-reviews")?.textContent).toContain("Auto-review approved: npm test");
   });
 

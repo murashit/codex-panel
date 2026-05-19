@@ -128,7 +128,7 @@ function autoReviewSummariesForTurns(items: DisplayItem[]): Map<string, string[]
     const summary = item.text.trim();
     if (!summary) continue;
     const summaries = byTurn.get(item.turnId) ?? [];
-    if (!summaries.includes(summary)) summaries.push(summary);
+    summaries.push(summary);
     byTurn.set(item.turnId, summaries);
   }
   return byTurn;

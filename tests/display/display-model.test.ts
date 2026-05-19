@@ -1076,11 +1076,21 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         turnId: "t1",
         state: "completed",
       },
+      {
+        id: "review-2",
+        kind: "reviewResult",
+        role: "tool",
+        text: "Auto-review approved: npm test",
+        turnId: "t1",
+        state: "completed",
+      },
       { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
     ];
 
     const assistantBlock = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
-    expect(assistantBlock).toMatchObject({ item: { autoReviewSummaries: ["Auto-review approved: npm test"] } });
+    expect(assistantBlock).toMatchObject({
+      item: { autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
+    });
   });
 });
 
