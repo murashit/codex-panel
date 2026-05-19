@@ -16,6 +16,11 @@ import type { PendingUserInput } from "../user-input/model";
 import type { ServiceTier } from "../app-server/service-tier";
 import { defaultRuntimeOverride, type RuntimeOverride } from "../runtime/state";
 
+export interface PendingTurnStart {
+  anchorItemId: string;
+  promptSubmitHookItemIds: string[];
+}
+
 export interface PanelState {
   status: string;
   effectiveConfig: ConfigReadResponse | null;
@@ -35,6 +40,7 @@ export interface PanelState {
   rateLimit: RateLimitSnapshot | null;
   busy: boolean;
   displayItems: DisplayItem[];
+  pendingTurnStart: PendingTurnStart | null;
   turnDiffs: Map<string, string>;
   approvals: PendingApproval[];
   pendingUserInputs: PendingUserInput[];
@@ -75,6 +81,7 @@ export function createPanelState(): PanelState {
     rateLimit: null,
     busy: false,
     displayItems: [],
+    pendingTurnStart: null,
     turnDiffs: new Map(),
     approvals: [],
     pendingUserInputs: [],
@@ -99,6 +106,7 @@ export function createPanelState(): PanelState {
 export function clearActiveTurnState(state: PanelState): void {
   state.activeTurnId = null;
   state.busy = false;
+  state.pendingTurnStart = null;
   state.approvals = [];
   state.pendingUserInputs = [];
   state.userInputDrafts.clear();

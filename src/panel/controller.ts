@@ -28,7 +28,7 @@ import { clearActiveThreadState, type PanelState } from "./state";
 import { userInputResponse, type PendingUserInput } from "../user-input/model";
 import { jsonPreview } from "../utils";
 import { classifyAppServerLog } from "./app-server-logs";
-import { hookRunDisplayItem } from "./hook-display";
+import { attachHookRunsToTurn, hookRunDisplayItem } from "./hook-display";
 import { routeServerNotification, routeServerRequest } from "./inbound-routing";
 import { clearUserInputDrafts, createApprovalResultItem, createUserInputResultItem } from "./request-state";
 
@@ -220,6 +220,7 @@ export class PanelController {
     if (method === "turn/started") {
       this.state.activeThreadId = params.threadId;
       this.state.activeTurnId = params.turn.id ?? this.state.activeTurnId;
+      if (params.turn.id) this.attachPendingPromptSubmitHooks(params.turn.id);
       this.state.busy = true;
       this.state.status = "Turn running...";
     } else if (method === "turn/completed") {
@@ -379,8 +380,30 @@ export class PanelController {
     turnId: string | null,
     status: string,
   ): void {
-    const item = hookRunDisplayItem(run, turnId, status);
-    if (item) this.state.displayItems = upsertDisplayItem(this.state.displayItems, item);
+    const resolvedTurnId = this.hookRunTurnId(run, turnId);
+    const item = hookRunDisplayItem(run, resolvedTurnId, status);
+    if (!item) return;
+    this.state.displayItems = upsertDisplayItem(this.state.displayItems, item);
+    if (!resolvedTurnId && this.state.pendingTurnStart && run?.eventName === "userPromptSubmit") {
+      const hookIds = this.state.pendingTurnStart.promptSubmitHookItemIds;
+      if (!hookIds.includes(item.id)) hookIds.push(item.id);
+    }
+  }
+
+  private hookRunTurnId(
+    run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"],
+    turnId: string | null,
+  ): string | null {
+    if (turnId) return turnId;
+    if (run?.eventName === "userPromptSubmit" && !this.state.pendingTurnStart) return this.state.activeTurnId;
+    return null;
+  }
+
+  private attachPendingPromptSubmitHooks(turnId: string): void {
+    const pending = this.state.pendingTurnStart;
+    if (!pending) return;
+    this.state.displayItems = attachHookRunsToTurn(this.state.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
+    this.state.pendingTurnStart = null;
   }
 
   private handleMcpStartupStatus(params: Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>["params"]): void {

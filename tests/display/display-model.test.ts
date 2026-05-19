@@ -863,6 +863,19 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(blocks[2]).toMatchObject({ item: { id: "a3" } });
   });
 
+  it("keeps completed turn work details attached to the final response even when system messages are interleaved", () => {
+    const items: DisplayItem[] = [
+      { id: "s1", kind: "system", role: "system", text: "debug before hook" },
+      commandItem("c1", "npm test", "t1"),
+      { id: "s2", kind: "system", role: "system", text: "debug after hook" },
+      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+    ];
+
+    const blocks = displayBlocksForItems(items, null);
+
+    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["s1", "s2", "turn-t1-activity", "a1"]);
+  });
+
   it("keeps active turn activities expanded", () => {
     const items: DisplayItem[] = [
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1" },
@@ -1091,6 +1104,25 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(assistantBlock).toMatchObject({
       item: { autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
     });
+  });
+
+  it("does not add edited file or auto-review summaries to active turn messages", () => {
+    const items: DisplayItem[] = [
+      fileChangeItem("f1", "t1", "src/main.ts"),
+      {
+        id: "review-1",
+        kind: "reviewResult",
+        role: "tool",
+        text: "Auto-review approved: npm test",
+        turnId: "t1",
+        state: "completed",
+      },
+      { id: "a1", kind: "message", role: "assistant", text: "still working", turnId: "t1" },
+    ];
+
+    const assistantBlock = displayBlocksForItems(items, "t1").find((block) => block.type === "item" && block.item.id === "a1");
+    expect(assistantBlock && assistantBlock.type === "item" ? assistantBlock.item : null).not.toHaveProperty("editedFiles");
+    expect(assistantBlock && assistantBlock.type === "item" ? assistantBlock.item : null).not.toHaveProperty("autoReviewSummaries");
   });
 });
 

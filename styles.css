@@ -886,7 +886,22 @@
 }
 
 .codex-panel__message--system {
-  border-left-color: var(--text-faint);
+  margin-bottom: 8px;
+  border-left-color: var(--background-modifier-border);
+  font-family: var(--font-interface);
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel__message--system .codex-panel__message-role {
+  font-size: var(--font-ui-smaller);
+  font-weight: 500;
+}
+
+.codex-panel__message--system .codex-panel__message-content {
+  color: var(--text-muted);
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-tight);
 }
 
 .codex-panel__message--review-result {

@@ -14,6 +14,7 @@ export function displayBlocksForItems(
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
   const finalAssistantIdByTurn = finalAssistantItemsByTurn(visibleItems);
   const groupedTurnIds = new Set([...finalAssistantIdByTurn.keys()].filter((turnId) => turnId !== activeTurnId));
+  const summaryAssistantIdByTurn = new Map([...finalAssistantIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
 
   const groupedActivities = new Map<string, DisplayItem[]>();
   for (const item of orderedItems) {
@@ -23,27 +24,25 @@ export function displayBlocksForItems(
     groupedActivities.set(item.turnId, group);
   }
 
-  const emittedGroups = new Set<string>();
   const blocks: DisplayBlock[] = [];
   for (const item of orderedItems) {
     const turnId = item.turnId;
     if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, finalAssistantIdByTurn)) {
-      if (!emittedGroups.has(turnId)) {
-        const groupItems = groupedActivities.get(turnId) ?? [];
-        blocks.push({
-          type: "activityGroup",
-          id: `turn-${turnId}-activity`,
-          turnId,
-          summary: turnActivitySummary(groupItems),
-          items: groupItems,
-        });
-        emittedGroups.add(turnId);
-      }
       continue;
+    }
+    if (turnId && finalAssistantIdByTurn.get(turnId) === item.id && groupedActivities.has(turnId)) {
+      const groupItems = groupedActivities.get(turnId) ?? [];
+      blocks.push({
+        type: "activityGroup",
+        id: `turn-${turnId}-activity`,
+        turnId,
+        summary: turnActivitySummary(groupItems),
+        items: groupItems,
+      });
     }
     blocks.push({
       type: "item",
-      item: itemWithTurnSummaries(item, editedFilesByTurn, autoReviewSummariesByTurn, finalAssistantIdByTurn, turnDiffs),
+      item: itemWithTurnSummaries(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryAssistantIdByTurn, turnDiffs),
     });
   }
 

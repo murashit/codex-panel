@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { PanelController } from "../../src/panel/controller";
+import { attachHookRunsToTurn } from "../../src/panel/hook-display";
 import { createPanelState } from "../../src/panel/state";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
@@ -210,7 +211,7 @@ describe("PanelController", () => {
 
       expect(state.displayItems).toMatchObject([
         {
-          id: "hook-hook-1",
+          id: "hook-hook-1-1",
           kind: "hook",
           text: "postToolUse: Formatted 1 file.",
           toolLabel: "hook",
@@ -229,6 +230,214 @@ describe("PanelController", () => {
           ],
         },
       ]);
+    });
+
+    it("attaches unscoped hook runs to the active turn while streaming", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      state.activeTurnId = "turn-active";
+      state.busy = true;
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "hook/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: null,
+          run: {
+            id: "hook-1",
+            eventName: "userPromptSubmit",
+            handlerType: "command",
+            executionMode: "sync",
+            scope: "turn",
+            sourcePath: "/vault/.codex/hooks.json",
+            source: "project",
+            displayOrder: 1n,
+            status: "completed",
+            statusMessage: "Saving jj baseline",
+            startedAt: 1n,
+            completedAt: 2n,
+            durationMs: 1n,
+            entries: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
+
+      expect(state.displayItems[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook", turnId: "turn-active" });
+    });
+
+    it("leaves non-prompt unscoped hook runs outside the active turn", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      state.activeTurnId = "turn-active";
+      state.busy = true;
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "hook/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: null,
+          run: {
+            id: "hook-1",
+            eventName: "postToolUse",
+            handlerType: "command",
+            executionMode: "sync",
+            scope: "turn",
+            sourcePath: "/vault/.codex/hooks.json",
+            source: "project",
+            displayOrder: 1n,
+            status: "completed",
+            statusMessage: "Rollback hook",
+            startedAt: 1n,
+            completedAt: 2n,
+            durationMs: 1n,
+            entries: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
+
+      expect(state.displayItems[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(state.displayItems[0]?.turnId).toBeUndefined();
+    });
+
+    it("keeps repeated hook runs with the same run id as separate display items", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      state.activeTurnId = "turn-active";
+      const controller = controllerForState(state);
+      const baseRun: Extract<ServerNotification, { method: "hook/completed" }>["params"]["run"] = {
+        id: "hook-1",
+        eventName: "userPromptSubmit",
+        handlerType: "command",
+        executionMode: "sync",
+        scope: "turn",
+        sourcePath: "/vault/.codex/hooks.json",
+        source: "project",
+        displayOrder: 1n,
+        status: "completed",
+        statusMessage: "Saving jj baseline",
+        completedAt: 2n,
+        durationMs: 1n,
+        entries: [],
+        startedAt: 1n,
+      };
+
+      controller.handleNotification({
+        method: "hook/completed",
+        params: { threadId: "thread-active", turnId: "turn-active", run: { ...baseRun, startedAt: 1n } },
+      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
+      controller.handleNotification({
+        method: "hook/completed",
+        params: { threadId: "thread-active", turnId: "turn-active", run: { ...baseRun, startedAt: 3n } },
+      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
+
+      expect(state.displayItems.map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
+    });
+
+    it("attaches pre-turn prompt submit hook runs when the turn starts", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      state.pendingTurnStart = { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] };
+      state.displayItems = [
+        { id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true },
+        {
+          id: "hook-hook-1-1",
+          kind: "hook",
+          role: "tool",
+          text: "userPromptSubmit: Saving jj baseline",
+          toolLabel: "hook",
+          status: "completed",
+        },
+      ];
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "turn/started",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "inProgress",
+            startedAt: 1,
+            completedAt: null,
+            durationMs: null,
+            error: null,
+            itemsView: "full",
+            items: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+
+      expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(state.displayItems[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
+      expect(state.pendingTurnStart).toBeNull();
+    });
+
+    it("moves pre-turn hook runs after the optimistic user message when a turn id is assigned", () => {
+      const items = attachHookRunsToTurn(
+        [
+          {
+            id: "hook-old-1",
+            kind: "hook",
+            role: "tool",
+            text: "userPromptSubmit: Stale hook",
+            toolLabel: "hook",
+            status: "completed",
+          },
+          {
+            id: "hook-hook-1-1",
+            kind: "hook",
+            role: "tool",
+            text: "userPromptSubmit: Saving jj baseline",
+            toolLabel: "hook",
+            status: "completed",
+          },
+          { id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true },
+        ],
+        "turn-active",
+        ["hook-hook-1-1"],
+        "local-user-1",
+      );
+
+      expect(items.map((item) => item.id)).toEqual(["hook-old-1", "local-user-1", "hook-hook-1-1"]);
+      expect(items[0]?.turnId).toBeUndefined();
+      expect(items[2]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
+    });
+
+    it("captures only prompt-submit hooks observed during the pending turn start", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      state.pendingTurnStart = { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] };
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "hook/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: null,
+          run: {
+            id: "hook-1",
+            eventName: "userPromptSubmit",
+            handlerType: "command",
+            executionMode: "sync",
+            scope: "turn",
+            sourcePath: "/vault/.codex/hooks.json",
+            source: "project",
+            displayOrder: 1n,
+            status: "completed",
+            statusMessage: "Saving jj baseline",
+            startedAt: 1n,
+            completedAt: 2n,
+            durationMs: 1n,
+            entries: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
+
+      expect(state.displayItems[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(state.displayItems[0]?.turnId).toBeUndefined();
+      expect(state.pendingTurnStart?.promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
     it("stores account rate limit updates outside thread scope", () => {

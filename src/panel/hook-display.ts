@@ -15,18 +15,48 @@ export function hookRunDisplayItem(
     ...(run.durationMs !== null && run.durationMs !== undefined ? [{ key: "duration", value: `${run.durationMs}ms` }] : []),
   ];
   const details = [{ rows: metaRows }, ...(entries ? [{ title: "Hook output", body: entries }] : [])];
+  const displayId = hookRunDisplayId(run);
   return {
-    id: `hook-${run.id}`,
+    id: displayId,
     kind: "hook",
     role: "tool",
     text: hookSummary(run.eventName, run.statusMessage),
     toolLabel: "hook",
     turnId: turnId ?? undefined,
-    itemId: `hook-${run.id}`,
+    itemId: displayId,
     status,
     details,
     output: "",
   };
+}
+
+function hookRunDisplayId(run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"]): string {
+  return `hook-${run.id}-${run.startedAt.toString()}`;
+}
+
+export function attachHookRunsToTurn(
+  items: DisplayItem[],
+  turnId: string,
+  hookItemIds: readonly string[],
+  afterItemId?: string | null,
+): DisplayItem[] {
+  const hookIdSet = new Set(hookItemIds);
+  const attachedHooks = items.filter((item) => hookIdSet.has(item.id)).map((item) => ({ ...item, turnId }));
+  if (attachedHooks.length === 0) return items;
+
+  const withoutAttachedHooks = items.filter((item) => !hookIdSet.has(item.id));
+  const anchorItemId = afterItemId ?? lastUserMessageAnchorId(withoutAttachedHooks, turnId);
+  if (!anchorItemId) return [...withoutAttachedHooks, ...attachedHooks];
+  const insertAfterIndex = withoutAttachedHooks.findIndex((item) => item.id === anchorItemId);
+  if (insertAfterIndex === -1) return [...withoutAttachedHooks, ...attachedHooks];
+  return [...withoutAttachedHooks.slice(0, insertAfterIndex + 1), ...attachedHooks, ...withoutAttachedHooks.slice(insertAfterIndex + 1)];
+}
+
+function lastUserMessageAnchorId(items: DisplayItem[], turnId: string): string | null {
+  const anchor = [...items]
+    .reverse()
+    .find((item) => item.kind === "message" && item.role === "user" && (!item.turnId || item.turnId === turnId));
+  return anchor?.id ?? null;
 }
 
 function hookSummary(eventName: string | null | undefined, statusMessage: string | null | undefined): string {

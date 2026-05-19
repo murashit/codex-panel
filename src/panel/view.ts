@@ -50,6 +50,7 @@ import { pendingRequestsSignature as requestStateSignature, userInputDraftKey, u
 import type { CodexPanelSettings } from "../settings/model";
 import { questionDefaultAnswer, type PendingUserInput } from "../user-input/model";
 import { PanelComposerController } from "./composer-controller";
+import { attachHookRunsToTurn } from "./hook-display";
 import { clearActiveThreadState, clearConnectionScopedState, createPanelState, type PanelState } from "./state";
 import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName, upsertThread } from "../threads/model";
 import { exportArchivedThreadMarkdown } from "../threads/export";
@@ -404,6 +405,7 @@ export class CodexPanelView extends ItemView {
         ...(referencedThread ? { referencedThread } : {}),
         markdown: true,
       });
+      this.state.pendingTurnStart = { anchorItemId: optimisticUserId, promptSubmitHookItemIds: [] };
       this.forceMessagesToBottom();
       this.composerController.setDraft("");
       this.state.busy = true;
@@ -428,13 +430,28 @@ export class CodexPanelView extends ItemView {
       this.state.requestedModel = commitRuntimeOverride(this.state.requestedModel);
       this.state.requestedReasoningEffort = commitRuntimeOverride(this.state.requestedReasoningEffort);
       this.state.activeTurnId = response.turn.id;
+      const pendingTurnStart = this.state.pendingTurnStart;
       this.state.displayItems = this.state.displayItems.map((item) =>
         item.id === optimisticUserId ? { ...item, turnId: response.turn.id } : item,
       );
+      if (pendingTurnStart) {
+        this.state.displayItems = attachHookRunsToTurn(
+          this.state.displayItems,
+          response.turn.id,
+          pendingTurnStart.promptSubmitHookItemIds,
+          pendingTurnStart.anchorItemId,
+        );
+        this.state.pendingTurnStart = null;
+      }
       this.setStatus("Turn running...");
     } catch (error) {
       this.state.busy = false;
       if (optimisticUserId) this.state.displayItems = this.state.displayItems.filter((item) => item.id !== optimisticUserId);
+      if (this.state.pendingTurnStart) {
+        const hookIds = new Set(this.state.pendingTurnStart.promptSubmitHookItemIds);
+        this.state.displayItems = this.state.displayItems.filter((item) => !hookIds.has(item.id));
+        this.state.pendingTurnStart = null;
+      }
       this.composerController.setDraft(text);
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
