@@ -21,7 +21,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"scripts/**/*.{js,mjs}\" \"*.{json,mjs,md,css}\" \"!src/generated/**\"",
     "api:baseline": "node scripts/report-api-baseline.mjs",
     "api:baseline:check": "node scripts/report-api-baseline.mjs --check",
-    "generate:app-server-types": "codex app-server generate-ts --experimental --out src/generated/app-server && node scripts/normalize-generated-types.mjs",
+    "generate:app-server-types": "node scripts/clean-generated-types.mjs && codex app-server generate-ts --experimental --out src/generated/app-server && node scripts/normalize-generated-types.mjs",
     "lint": "eslint src tests --max-warnings=0",
     "release:check": "node scripts/check-release.mjs",
     "release:preflight": "node scripts/preflight-release.mjs",

@@ -87,7 +87,16 @@ describe("AppServerClient", () => {
     );
 
     const connecting = client.connect();
-    expect(getTransport().sent[0]).toMatchObject({ id: 1, method: "initialize" });
+    expect(getTransport().sent[0]).toMatchObject({
+      id: 1,
+      method: "initialize",
+      params: {
+        capabilities: {
+          experimentalApi: true,
+          requestAttestation: false,
+        },
+      },
+    });
     getTransport().emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
     await expect(connecting).resolves.toMatchObject({ codexHome: "/tmp/codex" });
     expect(getTransport().sent[1]).toEqual({ method: "initialized" });

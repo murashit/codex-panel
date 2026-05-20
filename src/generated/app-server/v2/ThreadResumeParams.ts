@@ -7,7 +7,6 @@ import type { ResponseItem } from "../ResponseItem";
 import type { JsonValue } from "../serde_json/JsonValue";
 import type { ApprovalsReviewer } from "./ApprovalsReviewer";
 import type { AskForApproval } from "./AskForApproval";
-import type { PermissionProfileSelectionParams } from "./PermissionProfileSelectionParams";
 import type { SandboxMode } from "./SandboxMode";
 
 /**
@@ -36,18 +35,22 @@ path?: string | null,
 /**
  * Configuration overrides for the resumed thread, if any.
  */
-model?: string | null, modelProvider?: string | null, serviceTier?: string | null, cwd?: string | null, approvalPolicy?: AskForApproval | null,
+model?: string | null, modelProvider?: string | null, serviceTier?: string | null, cwd?: string | null,
+/**
+ * Replace the thread's runtime workspace roots. Relative paths are
+ * resolved against the effective cwd for the thread.
+ */
+runtimeWorkspaceRoots?: Array<string> | null, approvalPolicy?: AskForApproval | null,
 /**
  * Override where approval requests are routed for review on this thread
  * and subsequent turns.
  */
 approvalsReviewer?: ApprovalsReviewer | null, sandbox?: SandboxMode | null,
 /**
- * Named profile selection for the resumed thread. Cannot be combined
- * with `sandbox`. Use bounded `modifications` for supported thread
- * adjustments instead of replacing the full permissions profile.
+ * Named profile id for the resumed thread. Cannot be combined with
+ * `sandbox`.
  */
-permissions?: PermissionProfileSelectionParams | null, config?: { [key in string]?: JsonValue } | null, baseInstructions?: string | null, developerInstructions?: string | null, personality?: Personality | null,
+permissions?: string | null, config?: { [key in string]?: JsonValue } | null, baseInstructions?: string | null, developerInstructions?: string | null, personality?: Personality | null,
 /**
  * When true, return only thread metadata and live-resume state without
  * populating `thread.turns`. This is useful when the client plans to call

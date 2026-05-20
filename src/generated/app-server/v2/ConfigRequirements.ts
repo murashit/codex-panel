@@ -9,4 +9,4 @@ import type { NetworkRequirements } from "./NetworkRequirements";
 import type { ResidencyRequirement } from "./ResidencyRequirement";
 import type { SandboxMode } from "./SandboxMode";
 
-export type ConfigRequirements = { allowedApprovalPolicies: Array<AskForApproval> | null, allowedApprovalsReviewers: Array<ApprovalsReviewer> | null, allowedSandboxModes: Array<SandboxMode> | null, allowedWebSearchModes: Array<WebSearchMode> | null, featureRequirements: { [key in string]?: boolean } | null, hooks: ManagedHooksRequirements | null, enforceResidency: ResidencyRequirement | null, network: NetworkRequirements | null, };
+export type ConfigRequirements = { allowedApprovalPolicies: Array<AskForApproval> | null, allowedApprovalsReviewers: Array<ApprovalsReviewer> | null, allowedSandboxModes: Array<SandboxMode> | null, allowedWebSearchModes: Array<WebSearchMode> | null, allowManagedHooksOnly: boolean | null, featureRequirements: { [key in string]?: boolean } | null, hooks: ManagedHooksRequirements | null, enforceResidency: ResidencyRequirement | null, network: NetworkRequirements | null, };

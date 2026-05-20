@@ -139,6 +139,7 @@ export class AppServerClient {
       },
       capabilities: {
         experimentalApi: true,
+        requestAttestation: false,
       },
     });
     this.notify({ method: "initialized" });

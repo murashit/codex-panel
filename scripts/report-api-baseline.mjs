@@ -141,6 +141,7 @@ const appServerGenerateScript = packageJson.scripts?.["generate:app-server-types
 const appServerGenerationExperimental =
   appServerGenerateScript.includes("codex app-server generate-ts") && appServerGenerateScript.includes("--experimental");
 const initializeExperimentalApi = /experimentalApi:\s*true/.test(clientSource);
+const initializeRequestAttestationDisabled = /requestAttestation:\s*false/.test(clientSource);
 
 if (!codexReadmeSemver) {
   fail("README.md Compatibility table must define `codex.testedCliVersion` as X.Y.Z.");
@@ -155,6 +156,7 @@ if (codexReadmeSemver && codexLocalSemver && minorKey(codexReadmeSemver) !== min
 }
 if (!appServerGenerationExperimental) fail("generate:app-server-types must use codex app-server generate-ts --experimental.");
 if (!initializeExperimentalApi) fail("app-server initialize must declare experimentalApi: true.");
+if (!initializeRequestAttestationDisabled) fail("app-server initialize must declare requestAttestation: false.");
 
 if (!obsidianMinSemver) fail("manifest.json minAppVersion must be X.Y.Z.");
 if (obsidianMinSemver && obsidianMinSemver.patch !== 0) {
@@ -190,6 +192,7 @@ const report = {
     localCliMatchesTestedMinor: codexReadmeSemver && codexLocalSemver ? minorKey(codexReadmeSemver) === minorKey(codexLocalSemver) : null,
     appServerGenerationExperimental,
     initializeExperimentalApi,
+    initializeRequestAttestationDisabled,
   },
   obsidian: {
     policy: "track latest patch within the guaranteed minor; raise minAppVersion when the minor changes",
@@ -220,6 +223,7 @@ if (asJson) {
   console.log(`  local codex minor: ${displayValue(report.codex.localCliMinor)}`);
   console.log(`  generate-ts --experimental: ${report.codex.appServerGenerationExperimental ? "yes" : "no"}`);
   console.log(`  initialize experimentalApi: ${report.codex.initializeExperimentalApi ? "yes" : "no"}`);
+  console.log(`  initialize requestAttestation disabled: ${report.codex.initializeRequestAttestationDisabled ? "yes" : "no"}`);
   console.log("");
   console.log("Obsidian API");
   console.log(`  policy: ${report.obsidian.policy}`);

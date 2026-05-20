@@ -145,7 +145,6 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
         { key: "hooks", value: stringValue(features.hooks, "(from default)") },
         { key: "apply patch freeform", value: stringValue(features.apply_patch_freeform, "(from default)") },
         { key: "tool web search", value: stringValue(tools.web_search, "(from default)") },
-        { key: "tool view image", value: stringValue(tools.view_image, "(from default)") },
         { key: "apps", value: enabledAppsLabel(config.apps) },
       ],
     },
