@@ -76,11 +76,6 @@ function assertJujutsuReleaseState(packageVersion) {
   if (jjRevisionCount("main@origin & ::main") !== 1) {
     fail("main@origin must be an ancestor of main; fetch or rebase before tagging");
   }
-
-  const unpushedCommits = jjRevisionCount("main@origin..main");
-  if (unpushedCommits !== 1) {
-    fail(`main must be exactly one release commit ahead of main@origin, got ${unpushedCommits}`);
-  }
 }
 
 const packageVersion = run("node", ["-p", "require('./package.json').version"], { capture: true });
