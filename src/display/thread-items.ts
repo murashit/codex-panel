@@ -1,6 +1,7 @@
-import type { DisplayDetailSection, DisplayFileChange, DisplayItem } from "./types";
+import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem } from "./types";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
+import type { UserInput } from "../generated/app-server/v2/UserInput";
 import { inputToText, truncate } from "../utils";
 import { referencedThreadDisplayFromPrompt } from "../threads/reference";
 import { agentDisplayItem } from "./agent";
@@ -87,6 +88,7 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
 
 function userMessageDisplayItem(item: UserMessageItem, turnId?: string): DisplayItem {
   const text = inputToText(item.content);
+  const mentionedFiles = fileMentionsFromInput(item.content);
   const referencedThread = referencedThreadDisplayFromPrompt(text);
   if (referencedThread) {
     return {
@@ -99,6 +101,7 @@ function userMessageDisplayItem(item: UserMessageItem, turnId?: string): Display
       turnId,
       itemId: item.id,
       markdown: true,
+      ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
     };
   }
   return {
@@ -110,7 +113,19 @@ function userMessageDisplayItem(item: UserMessageItem, turnId?: string): Display
     turnId,
     itemId: item.id,
     markdown: true,
+    ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
   };
+}
+
+export function fileMentionsFromInput(input: UserInput[]): DisplayFileMention[] {
+  const seen = new Set<string>();
+  const mentions: DisplayFileMention[] = [];
+  for (const item of input) {
+    if (item.type !== "mention" || seen.has(item.path)) continue;
+    seen.add(item.path);
+    mentions.push({ name: item.name, path: item.path });
+  }
+  return mentions;
 }
 
 function agentMessageDisplayItem(item: AgentMessageItem, turnId?: string): DisplayItem {

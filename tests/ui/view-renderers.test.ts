@@ -633,6 +633,38 @@ describe("message stream block identity and message actions", () => {
     expect(user?.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.title).toBe("thread-reference");
   });
 
+  it("renders resolved file mentions as a collapsed user message attachment", () => {
+    const blocks = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        {
+          id: "u1",
+          kind: "message",
+          role: "user",
+          text: "Read [[Alpha]].",
+          copyText: "Read [[Alpha]].",
+          markdown: true,
+          mentionedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    });
+
+    const user = blocks.find((block) => block.key === "item:u1")?.render();
+
+    expect(user?.querySelector(".codex-panel__message-content")?.textContent).toBe("Read [[Alpha]].");
+    expect(user?.querySelector(".codex-panel__mentioned-files summary")?.textContent).toBe("Mentioned 1 file");
+    expect(user?.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("Alpha");
+    expect(user?.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("thoughts/Alpha.md");
+  });
+
   it("does not render the open diff action without aggregated turn diff", () => {
     const blocks = messageRenderBlocks({
       activeThreadId: "thread",

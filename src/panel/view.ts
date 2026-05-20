@@ -8,6 +8,7 @@ import type { SlashCommandName } from "../composer/slash-commands";
 import { parseSlashCommand } from "../composer/suggestions";
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { createSystemItem } from "../display/system";
+import { fileMentionsFromInput } from "../display/thread-items";
 import type { DisplayItem } from "../display/types";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { Thread } from "../generated/app-server/v2/Thread";
@@ -395,6 +396,8 @@ export class CodexPanelView extends ItemView {
         this.threadRename.resetThreadTurnPresence(false);
       }
 
+      const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
+      const mentionedFiles = fileMentionsFromInput(codexInput);
       optimisticUserId = `local-user-${Date.now()}`;
       this.state.displayItems.push({
         id: optimisticUserId,
@@ -403,6 +406,7 @@ export class CodexPanelView extends ItemView {
         text,
         copyText: text,
         ...(referencedThread ? { referencedThread } : {}),
+        ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
         markdown: true,
       });
       this.state.pendingTurnStart = { anchorItemId: optimisticUserId, promptSubmitHookItemIds: [] };
@@ -415,7 +419,6 @@ export class CodexPanelView extends ItemView {
       if (turnSettings.warning) {
         this.addSystemMessage(`${this.collaborationModeLabel()} mode is selected, but ${turnSettings.warning}`);
       }
-      const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
       const activeThreadId = this.state.activeThreadId;
       if (!activeThreadId) return;
       const response = await client.startTurn(
@@ -470,12 +473,14 @@ export class CodexPanelView extends ItemView {
 
     const threadId = this.state.activeThreadId;
     const expectedTurnId = this.state.activeTurnId;
+    const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
+    const mentionedFiles = fileMentionsFromInput(codexInput);
 
     this.composerController.setDraft("", { clearSuggestions: true });
     this.syncComposerControls();
 
     try {
-      await this.client.steerTurn(threadId, expectedTurnId, codexInputOverride ?? this.composerController.codexInput(text));
+      await this.client.steerTurn(threadId, expectedTurnId, codexInput);
       this.state.displayItems.push({
         id: `local-steer-${Date.now()}`,
         kind: "message",
@@ -484,6 +489,7 @@ export class CodexPanelView extends ItemView {
         copyText: text,
         turnId: expectedTurnId,
         ...(referencedThread ? { referencedThread } : {}),
+        ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
         markdown: true,
       });
       this.forceMessagesToBottom();

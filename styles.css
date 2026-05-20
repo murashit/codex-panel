@@ -983,6 +983,7 @@
 
 .codex-panel__edited-files,
 .codex-panel__referenced-thread,
+.codex-panel__mentioned-files,
 .codex-panel__auto-reviews {
   margin-top: 6px;
   color: var(--text-muted);
@@ -1000,6 +1001,10 @@
 }
 
 .codex-panel__edited-files-details {
+  display: block;
+}
+
+.codex-panel__mentioned-files-details {
   display: block;
 }
 

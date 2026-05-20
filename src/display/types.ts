@@ -42,11 +42,17 @@ export interface MessageDisplayItem extends DisplayBase {
   role: "user" | "assistant";
   copyText?: string;
   referencedThread?: ReferencedThreadDisplay;
+  mentionedFiles?: DisplayFileMention[];
   proposedPlan?: boolean;
   editedFiles?: string[];
   turnDiff?: DisplayTurnDiff;
   autoReviewSummaries?: string[];
   markdown?: boolean;
+}
+
+export interface DisplayFileMention {
+  name: string;
+  path: string;
 }
 
 export interface DisplayTurnDiff {

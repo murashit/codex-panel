@@ -22,6 +22,7 @@ export function displayItemSignature(item: DisplayItem, context: DisplayItemSign
     item.kind === "message" ? (item.copyText ?? "") : "",
     item.kind === "message" ? String(isMessageCopyActionVisible(item, context)) : "",
     item.kind === "message" ? String(item.proposedPlan ?? false) : "",
+    item.kind === "message" ? JSON.stringify(item.mentionedFiles ?? []) : "",
     "output" in item ? (item.output ?? "") : "",
     "details" in item ? JSON.stringify(item.details ?? []) : "",
     item.kind === "message" ? (item.editedFiles?.join("\n") ?? "") : "",

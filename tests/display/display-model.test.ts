@@ -58,6 +58,29 @@ describe("thread item conversion preserves app-server semantics", () => {
     expect(displayItemFromThreadItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world", markdown: true });
   });
 
+  it("keeps resolved file mentions visible as user message metadata", () => {
+    const userMessage: ThreadItem = {
+      type: "userMessage",
+      id: "u1",
+      content: [
+        { type: "text", text: "Read [[Alpha]] and [[Beta]].", text_elements: [] },
+        { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
+        { type: "mention", name: "Alpha duplicate", path: "thoughts/Alpha.md" },
+        { type: "mention", name: "Beta", path: "thoughts/Beta.md" },
+      ],
+    };
+
+    expect(displayItemFromThreadItem(userMessage)).toMatchObject({
+      kind: "message",
+      role: "user",
+      text: "Read [[Alpha]] and [[Beta]].",
+      mentionedFiles: [
+        { name: "Alpha", path: "thoughts/Alpha.md" },
+        { name: "Beta", path: "thoughts/Beta.md" },
+      ],
+    });
+  });
+
   it("hides persisted /refer context in displayed user messages", () => {
     const text = [
       "[Codex Panel referenced thread]",

@@ -238,6 +238,9 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   if (item.kind === "message" && item.referencedThread) {
     renderReferencedThread(messageEl, item);
   }
+  if (item.kind === "message" && item.mentionedFiles && item.mentionedFiles.length > 0) {
+    renderMentionedFiles(messageEl, item, context);
+  }
   if (item.kind === "message" && item.autoReviewSummaries && item.autoReviewSummaries.length > 0) {
     renderAutoReviewSummaries(messageEl, item.autoReviewSummaries);
   }
@@ -295,6 +298,28 @@ function renderEditedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kin
   const list = details.createEl("ul");
   for (const file of editedFiles) {
     list.createEl("li", { text: file });
+  }
+}
+
+function renderMentionedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kind: "message" }>, context: MessageStreamContext): void {
+  const mentionedFiles = item.mentionedFiles ?? [];
+  const label = mentionedFiles.length === 1 ? "Mentioned 1 file" : `Mentioned ${mentionedFiles.length} files`;
+  const wrapper = parent.createDiv({ cls: "codex-panel__mentioned-files" });
+  const details = createRememberedDetails(
+    wrapper,
+    context.openDetails,
+    `${item.id}:mentioned-files`,
+    "codex-panel__mentioned-files-details",
+    label,
+    false,
+    context.onDetailsToggle,
+  );
+  const list = details.createEl("ul");
+  for (const file of mentionedFiles) {
+    const row = list.createEl("li");
+    row.createSpan({ text: file.name });
+    row.createSpan({ cls: "codex-panel__edited-files-separator", text: " · " });
+    row.createSpan({ text: file.path });
   }
 }
 
