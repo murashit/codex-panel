@@ -2,19 +2,22 @@
 
 GitHub Releases attach only `main.js`, `manifest.json`, and `styles.css` as Obsidian install assets. `LICENSE` and `NOTICE` are kept in the repository and source archives for license distribution.
 
+Release work is Jujutsu-first in a colocated Git repository; Git is still used to push the tag that triggers the GitHub Release workflow. If the checkout has not been initialized for Jujutsu yet, run `jj git init --colocate` and `jj bookmark track main --remote=origin` once.
+
 Create a release by preparing the next version, editing the generated release notes, committing the release changes, then running the preflight before pushing the matching tag:
 
 ```sh
 npm run release:prepare -- X.Y.Z
 # Edit .github/release-notes/X.Y.Z.md.
-git status --short
-git add package.json package-lock.json manifest.json versions.json .github/release-notes/X.Y.Z.md
-git commit -m "Bump version to X.Y.Z"
+jj status
+jj commit -m "Bump version to X.Y.Z"
+jj bookmark move main --to @-
 npm run release:preflight
-git tag X.Y.Z
-git push origin main X.Y.Z
+jj tag set X.Y.Z -r main
+jj git push --remote origin --bookmark main
+git push origin X.Y.Z
 ```
 
-`release:prepare` updates the version files and creates a `## Changes` release notes template. `release:preflight` verifies the local Git state, release metadata, lockfile, and full build once after the release commit is on `main`.
+`release:prepare` updates the version files and creates a `## Changes` release notes template. `release:preflight` verifies the local Jujutsu/Git state, release metadata, lockfile, and full build once after the release commit is on `main`.
 
-The release workflow runs `npm ci`, `npm run release:check`, `npm run check`, attaches the install assets, and generates GitHub artifact attestations for them. The release notes file is required and must contain a single `## Changes` section. If a tag-triggered release fails before creating the GitHub Release, fix the commit, move the local tag with `git tag -f X.Y.Z`, then update the remote tag with `git push --force origin X.Y.Z`.
+The release workflow runs `npm ci`, `npm run release:check`, `npm run check`, attaches the install assets, and generates GitHub artifact attestations for them. The release notes file is required and must contain a single `## Changes` section. If a tag-triggered release fails before creating the GitHub Release, fix the commit, move the local tag with `jj tag set --allow-move -r main X.Y.Z`, then update the remote tag with `git push --force origin X.Y.Z`.

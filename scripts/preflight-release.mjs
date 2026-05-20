@@ -31,25 +31,64 @@ function maybeRun(command, args) {
   return result.status === 0 ? result.stdout.trim() : null;
 }
 
-const branch = run("git", ["branch", "--show-current"], { capture: true });
-if (branch !== "main") fail(`release must be prepared from main, got ${branch || "(detached HEAD)"}`);
+function assertGitReleaseState(packageVersion) {
+  const branch = run("git", ["branch", "--show-current"], { capture: true });
+  if (branch !== "main") fail(`release must be prepared from main, got ${branch || "(detached HEAD)"}`);
 
-const status = run("git", ["status", "--short"], { capture: true });
-if (status) fail(`working tree must be clean before release preflight\n${status}`);
+  const status = run("git", ["status", "--short"], { capture: true });
+  if (status) fail(`working tree must be clean before release preflight\n${status}`);
 
-const upstream = maybeRun("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
-if (!upstream) fail("main must have an upstream tracking branch");
+  const upstream = maybeRun("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
+  if (!upstream) fail("main must have an upstream tracking branch");
 
-const upstreamAncestor = spawnSync("git", ["merge-base", "--is-ancestor", upstream, "HEAD"], {
-  encoding: "utf8",
-  stdio: "pipe",
-  shell: false,
-});
-if (upstreamAncestor.status !== 0) fail(`HEAD must contain ${upstream}; pull or rebase before tagging`);
+  const upstreamAncestor = spawnSync("git", ["merge-base", "--is-ancestor", upstream, "HEAD"], {
+    encoding: "utf8",
+    stdio: "pipe",
+    shell: false,
+  });
+  if (upstreamAncestor.status !== 0) fail(`HEAD must contain ${upstream}; pull or rebase before tagging`);
+
+  const existingTag = run("git", ["tag", "--list", packageVersion], { capture: true });
+  if (existingTag) fail(`local tag ${packageVersion} already exists`);
+}
+
+function jjCommitId(revision) {
+  return run("jj", ["log", "-r", revision, "--no-graph", "-T", 'commit_id ++ "\\n"'], { capture: true });
+}
+
+function jjRevisionCount(revision) {
+  return Number(run("jj", ["log", "-r", revision, "--count"], { capture: true }));
+}
+
+function assertJujutsuReleaseState(packageVersion) {
+  const workingCopyDiff = run("jj", ["diff", "--summary", "-r", "@"], { capture: true });
+  if (workingCopyDiff) fail(`Jujutsu working-copy commit must be empty before release preflight\n${workingCopyDiff}`);
+
+  const mainCommit = jjCommitId("main");
+  const workingCopyParent = jjCommitId("@-");
+  if (mainCommit !== workingCopyParent) {
+    fail("main bookmark must point to the release commit and be the parent of the empty working-copy commit");
+  }
+
+  const existingTag = run("jj", ["tag", "list", packageVersion], { capture: true });
+  if (existingTag) fail(`local tag ${packageVersion} already exists`);
+
+  if (jjRevisionCount("main@origin & ::main") !== 1) {
+    fail("main@origin must be an ancestor of main; fetch or rebase before tagging");
+  }
+
+  const unpushedCommits = jjRevisionCount("main@origin..main");
+  if (unpushedCommits !== 1) {
+    fail(`main must be exactly one release commit ahead of main@origin, got ${unpushedCommits}`);
+  }
+}
 
 const packageVersion = run("node", ["-p", "require('./package.json').version"], { capture: true });
-const existingTag = run("git", ["tag", "--list", packageVersion], { capture: true });
-if (existingTag) fail(`local tag ${packageVersion} already exists`);
+if (maybeRun("jj", ["root"])) {
+  assertJujutsuReleaseState(packageVersion);
+} else {
+  assertGitReleaseState(packageVersion);
+}
 
 run("npm", ["run", "release:check"]);
 run("npm", ["ci", "--dry-run"]);
