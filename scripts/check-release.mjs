@@ -57,15 +57,17 @@ try {
 
 if (notes !== undefined) {
   const normalizedNotes = notes.replace(/\r\n/g, "\n");
-  if (!normalizedNotes.startsWith("## Changes\n\n")) {
-    fail(`${notesPath} must start with "## Changes" followed by a blank line`);
+  const changesHeading = normalizedNotes.match(/^## Changes\n\n/m);
+  if (!changesHeading) {
+    fail(`${notesPath} must contain "## Changes" followed by a blank line`);
   }
-  if (!/^-\s+\S/m.test(normalizedNotes)) {
+  const changesBody = normalizedNotes.slice((changesHeading.index ?? 0) + changesHeading[0].length);
+  if (!/^-\s+\S/m.test(changesBody)) {
     fail(`${notesPath} must contain at least one bullet under Changes`);
   }
-  const extraHeadings = [...normalizedNotes.matchAll(/^##\s+(.+)$/gm)].slice(1);
-  if (extraHeadings.length > 0) {
-    fail(`${notesPath} must only contain the Changes section`);
+  const headings = [...normalizedNotes.matchAll(/^##\s+(.+)$/gm)];
+  if (headings.length !== 1 || headings[0]?.[1] !== "Changes") {
+    fail(`${notesPath} must contain a single Changes section`);
   }
 }
 
