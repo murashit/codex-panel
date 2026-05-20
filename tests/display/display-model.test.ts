@@ -856,6 +856,51 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(blocks[1]).toMatchObject({ summary: "Work details: command, thought" });
   });
 
+  it("groups completed hook and review logs before the final assistant message", () => {
+    const items: DisplayItem[] = [
+      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      {
+        id: "hook-1",
+        kind: "hook",
+        role: "tool",
+        text: "userPromptSubmit: Saving jj baseline",
+        toolLabel: "hook",
+        turnId: "t1",
+        status: "completed",
+      },
+      commandItem("c1", "npm test", "t1"),
+      { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1", status: "completed" },
+      {
+        id: "review-1",
+        kind: "reviewResult",
+        role: "tool",
+        text: "Auto-review approved: npm test",
+        turnId: "t1",
+        state: "completed",
+      },
+      {
+        id: "review-2",
+        kind: "reviewResult",
+        role: "tool",
+        text: "Auto-review approved: npm test",
+        turnId: "t1",
+        state: "completed",
+      },
+      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+    ];
+
+    const blocks = displayBlocksForItems(items, null);
+
+    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "turn-t1-activity", "a1"]);
+    expect(blocks[1]).toMatchObject({
+      summary: "Work details: command, hook, thought, 2 reviews",
+      items: [{ id: "hook-1" }, { id: "c1" }, { id: "r1" }, { id: "review-1" }, { id: "review-2" }],
+    });
+    expect(blocks[2]).toMatchObject({
+      item: { id: "a1", autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
+    });
+  });
+
   it("hides empty completed reasoning items", () => {
     const items: DisplayItem[] = [
       { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },

@@ -440,6 +440,75 @@ describe("PanelController", () => {
       expect(state.pendingTurnStart?.promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
+    it("keeps pre-turn prompt submit hooks through turn start and completed-turn reconciliation", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      state.pendingTurnStart = { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] };
+      state.displayItems = [{ id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true }];
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "hook/completed",
+        params: { threadId: "thread-active", turnId: null, run: promptSubmitHookRun("hook-1", 1n) },
+      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
+
+      expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(state.displayItems[1]?.turnId).toBeUndefined();
+      expect(state.pendingTurnStart?.promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+
+      controller.handleNotification({
+        method: "turn/started",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "inProgress",
+            startedAt: 1,
+            completedAt: null,
+            durationMs: null,
+            error: null,
+            itemsView: "full",
+            items: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+
+      expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(state.displayItems.find((item) => item.id === "local-user-1")).not.toHaveProperty("turnId");
+      expect(state.displayItems.find((item) => item.id === "hook-hook-1-1")).toMatchObject({ turnId: "turn-active" });
+      expect(state.pendingTurnStart).toBeNull();
+
+      controller.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "completed",
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+            error: null,
+            itemsView: "full",
+            items: [
+              { type: "userMessage", id: "u1", content: [{ type: "text", text: "hello", text_elements: [] }] },
+              { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+            ],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+
+      expect(state.displayItems.map((item) => item.id)).toEqual(["hook-hook-1-1", "u1", "a1"]);
+      expect(state.displayItems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "u1", text: "hello", turnId: "turn-active" }),
+          expect.objectContaining({ id: "hook-hook-1-1", kind: "hook", turnId: "turn-active" }),
+          expect.objectContaining({ id: "a1", text: "done", turnId: "turn-active" }),
+        ]),
+      );
+      expect(state.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
+    });
+
     it("stores account rate limit updates outside thread scope", () => {
       const state = createPanelState();
       const controller = controllerForState(state);
@@ -1138,6 +1207,25 @@ function thread(id: string, cwd: string): Thread {
     gitInfo: null,
     name: null,
     turns: [],
+  };
+}
+
+function promptSubmitHookRun(id: string, startedAt: bigint): Extract<ServerNotification, { method: "hook/completed" }>["params"]["run"] {
+  return {
+    id,
+    eventName: "userPromptSubmit",
+    handlerType: "command",
+    executionMode: "sync",
+    scope: "turn",
+    sourcePath: "/vault/.codex/hooks.json",
+    source: "project",
+    displayOrder: 1n,
+    status: "completed",
+    statusMessage: "Saving jj baseline",
+    startedAt,
+    completedAt: startedAt + 1n,
+    durationMs: 1n,
+    entries: [],
   };
 }
 

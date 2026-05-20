@@ -100,6 +100,68 @@ describe("message stream block identity and message actions", () => {
     expect([...parent.children]).toEqual([first, second]);
   });
 
+  it("inserts completed-turn activity groups without replacing stable conversation nodes", () => {
+    const parent = document.createElement("div");
+    const signatures = new Map<string, string>();
+    const baseContext = {
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      openDetails: new Set<string>(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
+      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
+    };
+
+    syncMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        ...baseContext,
+        displayItems: [
+          { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1", markdown: true },
+          { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1", markdown: true },
+        ],
+      }),
+      signatures,
+    );
+    const userNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:u1"]');
+    const assistantNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:a1"]');
+
+    syncMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        ...baseContext,
+        displayItems: [
+          { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1", markdown: true },
+          {
+            id: "hook-1",
+            kind: "hook",
+            role: "tool",
+            text: "userPromptSubmit: Saving jj baseline",
+            toolLabel: "hook",
+            turnId: "t1",
+            status: "completed",
+          },
+          { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1", markdown: true },
+        ],
+      }),
+      signatures,
+    );
+
+    expect(parent.querySelector('[data-codex-panel-block-key="item:u1"]')).toBe(userNode);
+    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"]')).toBe(assistantNode);
+    expect([...parent.children].map((element) => element.getAttribute("data-codex-panel-block-key"))).toEqual([
+      "item:u1",
+      "activity:turn-t1-activity",
+      "item:a1",
+    ]);
+    expect(parent.querySelector('[data-codex-panel-block-key="activity:turn-t1-activity"] summary')?.textContent).toBe(
+      "Work details: hook",
+    );
+  });
+
   it("does not invalidate generic tool blocks when only the workspace root changes", () => {
     const item = {
       id: "tool",
@@ -1029,6 +1091,53 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("messageFormatted 1 file.");
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual(["Hook output"]);
     expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
+  });
+
+  it("renders hook metadata when the hook is inside a completed-turn activity group", () => {
+    const blocks = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        { id: "u1", kind: "message", role: "user", text: "do it", turnId: "turn", markdown: true },
+        {
+          id: "hook-1",
+          kind: "hook",
+          role: "tool",
+          text: "postToolUse: Formatted 1 file.",
+          toolLabel: "hook",
+          turnId: "turn",
+          status: "completed",
+          details: [
+            {
+              rows: [
+                { key: "status", value: "completed" },
+                { key: "event", value: "postToolUse" },
+                { key: "message", value: "Formatted 1 file." },
+              ],
+            },
+            { title: "Hook output", body: "feedback: ok" },
+          ],
+        },
+        { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "turn", markdown: true },
+      ],
+      openDetails: new Set(["turn:turn:activity", "hook-1"]),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    });
+
+    const element = blocks.find((block) => block.key === "activity:turn-turn-activity")?.render();
+
+    expect(element).toBeDefined();
+    expect(element?.querySelector(":scope > summary")?.textContent).toBe("Work details: hook");
+    expect(element?.querySelector(".codex-panel__tool-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
+    expect(element?.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
+    expect(element?.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
+    expect(element?.querySelector(".codex-panel__output-title")?.textContent).toBe("Hook output");
+    expect(element?.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
   });
 
   it("renders task progress items as a dedicated task list", () => {
