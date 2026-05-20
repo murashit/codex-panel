@@ -18,6 +18,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     forkThread: vi.fn().mockResolvedValue(undefined),
     rollbackThread: vi.fn().mockResolvedValue(undefined),
     compactThread: vi.fn().mockResolvedValue(undefined),
+    archiveThread: vi.fn().mockResolvedValue(undefined),
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
     addSystemMessage: vi.fn(),
@@ -220,6 +221,59 @@ describe("slash commands", () => {
 
     expect(ctx.compactThread).toHaveBeenCalledWith("thread-1");
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Compaction requested.");
+  });
+
+  it("archives the active thread for bare /archive", async () => {
+    const ctx = context({ activeThreadId: "active-thread" });
+
+    await executeSlashCommand("archive", "", ctx);
+
+    expect(ctx.archiveThread).toHaveBeenCalledWith("active-thread");
+  });
+
+  it("archives a selected thread by id argument", async () => {
+    const ctx = context({
+      listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta" })],
+    });
+
+    await executeSlashCommand("archive", "thread-beta", ctx);
+
+    expect(ctx.archiveThread).toHaveBeenCalledWith("thread-beta");
+  });
+
+  it("rejects /archive without an active thread", async () => {
+    const ctx = context({ activeThreadId: null });
+
+    await executeSlashCommand("archive", "", ctx);
+
+    expect(ctx.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread to archive.");
+  });
+
+  it("rejects /archive while a turn is running", async () => {
+    const ctx = context({ busy: true });
+
+    await executeSlashCommand("archive", "thread-1", ctx);
+
+    expect(ctx.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the current turn before archiving threads.");
+  });
+
+  it("reports ambiguous archive matches", async () => {
+    const ctx = context({
+      listedThreads: [thread({ id: "thread-alpha", name: "Draft" }), thread({ id: "thread-beta", name: "Draft notes" })],
+    });
+
+    await executeSlashCommand("archive", "Draft", ctx);
+
+    expect(ctx.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
+  });
+
+  it("documents archive", () => {
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/archive"))).toBe(
+      "/archive - Archive the active or selected Codex thread.",
+    );
   });
 
   it("documents that /plan can take a message", () => {

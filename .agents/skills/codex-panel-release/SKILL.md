@@ -29,5 +29,5 @@ Use this skill for Codex Panel release work. `docs/release.md` is the public pro
 ## Failure Handling
 
 - If `release:prepare`, `release:check`, or `release:preflight` fails, fix the cause and rerun the explicit command.
-- If the tag-triggered workflow fails before GitHub Release creation, fix the release commit, move the local tag with `git tag -f X.Y.Z`, and force-update the remote tag.
+- If the tag-triggered workflow fails before GitHub Release creation, fix the release commit, move the local tag with `jj tag set --allow-move -r main X.Y.Z`, and force-update the remote tag.
 - If a GitHub Release already exists or was partially created, inspect the state before taking action; do not assume local asset upload is the right recovery path.

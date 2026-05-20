@@ -146,7 +146,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
 }
 
 export function activeThreadCommandSuggestions(beforeCursor: string, threads: Thread[]): ComposerSuggestion[] | null {
-  const match = beforeCursor.match(/(?:^|\n)\/(?:resume|refer)\s+([^\s\n]{0,120})$/);
+  const match = beforeCursor.match(/(?:^|\n)\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/);
   if (!match || match.index === undefined) return null;
 
   const rawQuery = match[1] ?? "";

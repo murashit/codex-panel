@@ -21,6 +21,7 @@ export interface SlashCommandExecutionContext {
   forkThread: (threadId: string) => Promise<void>;
   rollbackThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
+  archiveThread: (threadId: string) => Promise<void>;
   toggleFastMode: () => void;
   toggleCollaborationMode: () => void;
   addSystemMessage: (text: string) => void;
@@ -128,6 +129,29 @@ export async function executeSlashCommand(
     } catch (error) {
       context.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
+    return;
+  }
+
+  if (command === "archive") {
+    if (context.busy) {
+      context.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
+      return;
+    }
+    if (!args) {
+      if (!context.activeThreadId) {
+        context.addSystemMessage("No active thread to archive.");
+        return;
+      }
+      await context.archiveThread(context.activeThreadId);
+      return;
+    }
+
+    const thread = resolveThreadArgument(args, context.listedThreads);
+    if (!thread.ok) {
+      context.addSystemMessage(thread.message);
+      return;
+    }
+    await context.archiveThread(thread.thread.id);
     return;
   }
 

@@ -544,6 +544,7 @@ export class CodexPanelView extends ItemView {
       compactThread: async (threadId) => {
         await this.client?.compactThread(threadId);
       },
+      archiveThread: (threadId) => this.archiveThread(threadId),
       busy: this.state.busy,
       toggleFastMode: () => this.toggleFastMode(),
       toggleCollaborationMode: () => this.toggleCollaborationMode(),
