@@ -15,6 +15,9 @@ import {
 } from "./work-items";
 import type { TurnDiffViewState } from "./turn-diff";
 
+const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
+const MESSAGE_CONTENT_RENDERED_EVENT = "codex-panel:message-content-rendered";
+
 export interface MessageRenderBlock {
   key: string;
   signature: string;
@@ -226,11 +229,16 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   if (context.canRollbackItem?.(item)) {
     renderMessageAction(role, "undo-2", "Rollback last turn", "codex-panel__rollback-turn", () => context.onRollbackItem?.(item));
   }
-  const content = messageEl.createDiv({ cls: `codex-panel__message-content ${item.markdown === false ? "" : "markdown-rendered"}` });
+  const collapsible = isCollapsibleUserMessage(item);
+  const contentParent = collapsible ? messageEl.createDiv({ cls: "codex-panel__message-collapse" }) : messageEl;
+  const content = contentParent.createDiv({ cls: `codex-panel__message-content ${item.markdown === false ? "" : "markdown-rendered"}` });
   if (item.markdown === false) {
     context.renderTextWithWikiLinks(content, item.text);
   } else {
     context.renderMarkdown(content, item.text);
+  }
+  if (collapsible) {
+    renderUserMessageCollapse(contentParent, content, item.id, context);
   }
   if (item.kind === "message" && item.editedFiles && item.editedFiles.length > 0) {
     renderEditedFiles(messageEl, item, context);
@@ -249,6 +257,43 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   } else if ("details" in item && item.details && item.details.length > 0) {
     renderMessageDetails(messageEl, item.id, item.details, context);
   }
+}
+
+function isCollapsibleUserMessage(item: DisplayItem): boolean {
+  return item.kind === "message" && item.role === "user";
+}
+
+function renderUserMessageCollapse(parent: HTMLElement, content: HTMLElement, itemId: string, context: MessageStreamContext): void {
+  const key = `message:${itemId}:expanded`;
+  const details = parent.createEl("details", { cls: "codex-panel__message-collapse-details" });
+  details.createEl("summary", { text: "Show more" });
+
+  const update = () => {
+    const overflows = content.scrollHeight > userMessageCollapseHeight(content) + 1;
+    const expanded = context.openDetails.has(key);
+    parent.classList.toggle("codex-panel__message-collapse--overflow", overflows);
+    parent.classList.toggle("codex-panel__message-collapse--expanded", overflows && expanded);
+    content.classList.toggle("codex-panel__message-content--collapsed", overflows && !expanded);
+    details.hidden = !overflows || expanded;
+  };
+
+  details.ontoggle = () => {
+    if (!details.open) return;
+    details.open = false;
+    context.openDetails.add(key);
+    update();
+    context.onDetailsToggle?.();
+  };
+
+  content.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
+  update();
+  content.win.requestAnimationFrame(update);
+}
+
+function userMessageCollapseHeight(element: HTMLElement): number {
+  const viewportHeight = element.win.innerHeight;
+  if (viewportHeight <= 0) return USER_MESSAGE_COLLAPSE_HEIGHT_PX;
+  return Math.min(USER_MESSAGE_COLLAPSE_HEIGHT_PX, viewportHeight * 0.45);
 }
 
 function renderMessageAction(parent: HTMLElement, icon: string, label: string, className: string, onClick: () => void): HTMLButtonElement {
@@ -301,6 +346,10 @@ function renderEditedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kin
   for (const file of editedFiles) {
     list.createEl("li", { text: file });
   }
+}
+
+export function notifyMessageContentRendered(element: HTMLElement): void {
+  element.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT));
 }
 
 function renderMentionedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kind: "message" }>, context: MessageStreamContext): void {

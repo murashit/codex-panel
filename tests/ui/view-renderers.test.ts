@@ -21,6 +21,25 @@ import { composerSuggestionScrollFixture, installObsidianDomShims, topLevelDetai
 
 installObsidianDomShims();
 
+function withMessageContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
+  Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+    configurable: true,
+    get() {
+      return this.classList.contains("codex-panel__message-content") ? scrollHeight : 0;
+    },
+  });
+  try {
+    return fn();
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(HTMLElement.prototype, "scrollHeight", descriptor);
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+    }
+  }
+}
+
 describe("message stream block identity and message actions", () => {
   it("invalidates message blocks when markdown rendering mode changes", () => {
     const context = { busy: false, activeTurnId: null, displayItems: [] };
@@ -524,6 +543,86 @@ describe("message stream block identity and message actions", () => {
 
     expect(copyText).toHaveBeenCalledWith("latest");
     expect(onRollbackItem).toHaveBeenCalledWith(expect.objectContaining({ id: "u1" }));
+  });
+
+  it("collapses tall user messages without changing the copy payload", () => {
+    withMessageContentScrollHeight(500, () => {
+      const copyText = vi.fn();
+      const openDetails = new Set<string>();
+      const onDetailsToggle = vi.fn();
+      const block = messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: null,
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        displayItems: [
+          { id: "u1", kind: "message", role: "user", text: "visible text", copyText: "full copied text", turnId: "turn-1", markdown: true },
+        ],
+        openDetails,
+        onDetailsToggle,
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (parent, text) => parent.createDiv({ text }),
+        renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+        copyText,
+      })[0];
+
+      const element = block.render();
+      const content = element.querySelector<HTMLElement>(".codex-panel__message-content");
+      const details = element.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details");
+
+      expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
+      expect(details?.hidden).toBe(false);
+      expect(details?.querySelector("summary")?.textContent).toBe("Show more");
+
+      if (details) {
+        details.open = true;
+        details.dispatchEvent(new Event("toggle"));
+      }
+      expect(openDetails.has("message:u1:expanded")).toBe(true);
+      expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(false);
+      expect(details?.hidden).toBe(true);
+      expect(onDetailsToggle).toHaveBeenCalled();
+
+      element.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
+      expect(copyText).toHaveBeenCalledWith("full copied text");
+    });
+  });
+
+  it("does not show the collapse control for short user messages or assistant messages", () => {
+    withMessageContentScrollHeight(120, () => {
+      const shortUser = messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: null,
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        displayItems: [{ id: "u1", kind: "message", role: "user", text: "short", turnId: "turn-1", markdown: true }],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (parent, text) => parent.createDiv({ text }),
+        renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      })[0].render();
+
+      expect(shortUser.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details")?.hidden).toBe(true);
+    });
+
+    withMessageContentScrollHeight(500, () => {
+      const assistant = messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: null,
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "long", turnId: "turn-1", markdown: true }],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (parent, text) => parent.createDiv({ text }),
+        renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      })[0].render();
+
+      expect(assistant.querySelector(".codex-panel__message-collapse-details")).toBeNull();
+    });
   });
 
   it("does not render rollback action when no item is eligible", () => {

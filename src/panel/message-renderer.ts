@@ -3,7 +3,7 @@ import { MarkdownRenderer, type App, type Component } from "obsidian";
 import type { DisplayItem } from "../display/types";
 import { copyTextWithNotice } from "../ui/clipboard";
 import { renderTextWithWikiLinks as renderInlineWikiLinks } from "../ui/dom";
-import { messageRenderBlocks, syncMessageRenderBlocks } from "../ui/message-stream";
+import { messageRenderBlocks, notifyMessageContentRendered, syncMessageRenderBlocks } from "../ui/message-stream";
 import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "../ui/scroll";
 import type { TurnDiffViewState } from "../ui/turn-diff";
 import { markdownFileLinkTarget } from "./markdown-file-links";
@@ -91,6 +91,7 @@ export class PanelMessageRenderer {
     void MarkdownRenderer.render(this.options.app, text, parent, sourcePath, this.options.owner).then(() => {
       this.bindRenderedWikiLinks(parent, sourcePath);
       this.bindRenderedMarkdownFileLinks(parent, sourcePath);
+      notifyMessageContentRendered(parent);
       this.scrollMarkdownMessageIntoPinnedBottom(parent);
     });
   }

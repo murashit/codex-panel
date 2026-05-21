@@ -27,6 +27,7 @@
   --codex-panel-toolbar-padding-y: var(--size-4-2, 8px);
   --codex-panel-toolbar-button-gap: var(--size-2-1, 2px);
   --codex-panel-message-padding-y: var(--size-4-3, 12px);
+  --codex-panel-message-collapse-height: min(360px, 45vh);
   --codex-panel-composer-padding-y: var(--size-4-2, 8px);
   --codex-panel-section-padding: var(--codex-panel-edge-padding-x);
   --codex-panel-section-gap: var(--size-4-2, 8px);
@@ -1008,6 +1009,43 @@
 
 .codex-panel__message-content.markdown-rendered pre {
   white-space: pre-wrap;
+}
+
+.codex-panel__message-collapse {
+  position: relative;
+}
+
+.codex-panel__message-content--collapsed {
+  position: relative;
+  max-height: var(--codex-panel-message-collapse-height);
+  overflow: hidden;
+}
+
+.codex-panel__message-content--collapsed::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 72px;
+  background: linear-gradient(to bottom, transparent, var(--background-primary));
+  pointer-events: none;
+}
+
+.codex-panel__message-collapse-details {
+  position: relative;
+  z-index: 1;
+  margin-top: var(--size-2-3, 6px);
+}
+
+.codex-panel__message-collapse-details > summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.codex-panel__message-collapse-details > summary:hover {
+  color: var(--text-normal);
 }
 
 .codex-panel__edited-files,
