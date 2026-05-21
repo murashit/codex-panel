@@ -9,7 +9,7 @@ import { parseSlashCommand } from "../composer/suggestions";
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { createSystemItem } from "../display/system";
 import { fileMentionsFromInput } from "../display/thread-items";
-import type { DisplayItem } from "../display/types";
+import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { Thread } from "../generated/app-server/v2/Thread";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
@@ -549,6 +549,7 @@ export class CodexPanelView extends ItemView {
       toggleFastMode: () => this.toggleFastMode(),
       toggleCollaborationMode: () => this.toggleCollaborationMode(),
       addSystemMessage: (text) => this.addSystemMessage(text),
+      addStructuredSystemMessage: (text, details) => this.addStructuredSystemMessage(text, details),
       setStatus: (status) => this.setStatus(status),
       setRequestedModel: (model) => this.setRequestedModel(model),
       setRequestedReasoningEffort: (effort) => this.setRequestedReasoningEffort(effort),
@@ -673,6 +674,11 @@ export class CodexPanelView extends ItemView {
 
   private addSystemMessage(text: string): void {
     this.controller.addSystemMessage(text);
+    this.render();
+  }
+
+  private addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
+    this.controller.addStructuredSystemMessage(text, details);
     this.render();
   }
 

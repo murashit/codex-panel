@@ -249,6 +249,48 @@ describe("message stream block identity and message actions", () => {
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
   });
 
+  it("renders structured system result details as visible selectable meta rows", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        {
+          id: "system-help",
+          kind: "system",
+          role: "system",
+          text: "Available slash commands",
+          markdown: false,
+          details: [
+            {
+              rows: [
+                { key: "/help", value: "Show available Codex slash commands." },
+                { key: "/status", value: "Show current session, context, and usage limits." },
+              ],
+            },
+          ],
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = block.render();
+
+    expect(element.classList.contains("codex-panel__message--system")).toBe(true);
+    expect(element.querySelector(".codex-panel__message-content")?.textContent).toBe("Available slash commands");
+    expect(element.querySelector("details")).toBeNull();
+    expect(element.querySelector(".codex-panel__output-title")).toBeNull();
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("/helpShow available Codex slash commands.");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain(
+      "/statusShow current session, context, and usage limits.",
+    );
+  });
+
   it("renders rollback action only for the eligible user message", () => {
     const onRollbackItem = vi.fn();
     const items = [

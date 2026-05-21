@@ -3,7 +3,8 @@ import type { Thread } from "../generated/app-server/v2/Thread";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
 import { getThreadTitle } from "../threads/model";
 import type { ReferencedThreadDisplay } from "../threads/reference";
-import { slashCommandHelpLines, type SlashCommandName } from "../composer/slash-commands";
+import { slashCommandHelpRows, type SlashCommandName } from "../composer/slash-commands";
+import type { DisplayDetailSection, DisplayDetailMetaRow } from "../display/types";
 import {
   modelOverrideMessage,
   parseModelOverride,
@@ -25,6 +26,7 @@ export interface SlashCommandExecutionContext {
   toggleFastMode: () => void;
   toggleCollaborationMode: () => void;
   addSystemMessage: (text: string) => void;
+  addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   setStatus: (status: string) => void;
   setRequestedModel: (model: string | null) => void;
   setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void;
@@ -167,12 +169,12 @@ export async function executeSlashCommand(
   }
 
   if (command === "status") {
-    context.addSystemMessage(context.statusSummaryLines().join("\n"));
+    context.addStructuredSystemMessage("Session status", detailsFromLines(context.statusSummaryLines()));
     return;
   }
 
   if (command === "doctor") {
-    context.addSystemMessage(context.connectionDiagnosticLines().join("\n"));
+    context.addStructuredSystemMessage("Connection diagnostics", detailsFromLines(context.connectionDiagnosticLines()));
     return;
   }
 
@@ -181,7 +183,7 @@ export async function executeSlashCommand(
       context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
       return;
     }
-    context.addSystemMessage((await context.mcpStatusLines()).join("\n"));
+    context.addStructuredSystemMessage("MCP servers", detailsFromLines(await context.mcpStatusLines()));
     return;
   }
 
@@ -192,7 +194,7 @@ export async function executeSlashCommand(
       context.addSystemMessage(modelOverrideMessage(requested));
       return;
     }
-    context.addSystemMessage(context.modelStatusLines().join("\n"));
+    context.addStructuredSystemMessage("Model settings", detailsFromLines(context.modelStatusLines()));
     return;
   }
 
@@ -207,18 +209,35 @@ export async function executeSlashCommand(
       context.addSystemMessage(`Unsupported effort: ${args}`);
       return;
     }
-    context.addSystemMessage(context.effortStatusLines().join("\n"));
+    context.addStructuredSystemMessage("Reasoning effort", detailsFromLines(context.effortStatusLines()));
     return;
   }
 
   if (command === "help") {
-    context.addSystemMessage(slashCommandHelpLines().join("\n"));
+    context.addStructuredSystemMessage("Available slash commands", [{ rows: slashCommandHelpRows() }]);
     return;
   }
 
   if (args) {
     context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
   }
+}
+
+function detailsFromLines(lines: string[]): DisplayDetailSection[] {
+  const first = lines[0] ?? "";
+  const content = first.includes(": ") ? lines : lines.slice(1);
+  return [{ rows: content.map(lineToRow) }];
+}
+
+function lineToRow(line: string): DisplayDetailMetaRow {
+  const separator = line.indexOf(": ");
+  if (separator > 0) {
+    return {
+      key: line.slice(0, separator),
+      value: line.slice(separator + 2),
+    };
+  }
+  return { key: "message", value: line };
 }
 
 type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: string };

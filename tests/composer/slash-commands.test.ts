@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { slashCommandHelpLines } from "../../src/composer/slash-commands";
+import { slashCommandHelpLines, slashCommandHelpRows } from "../../src/composer/slash-commands";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import { executeSlashCommand, type SlashCommandExecutionContext } from "../../src/panel/slash-commands";
 
@@ -22,6 +22,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
     addSystemMessage: vi.fn(),
+    addStructuredSystemMessage: vi.fn(),
     setStatus: vi.fn(),
     setRequestedModel: vi.fn(),
     setRequestedReasoningEffort: vi.fn(),
@@ -276,6 +277,32 @@ describe("slash commands", () => {
     );
   });
 
+  it("shows slash command help as a structured system result", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("help", "", ctx);
+
+    expect(ctx.addSystemMessage).not.toHaveBeenCalled();
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Available slash commands", [{ rows: slashCommandHelpRows() }]);
+  });
+
+  it("shows status as a structured system result", async () => {
+    const ctx = context({ statusSummaryLines: () => ["Session status", "Session: thread-1", "Usage limits", "5h: 42%"] });
+
+    await executeSlashCommand("status", "", ctx);
+
+    expect(ctx.addSystemMessage).not.toHaveBeenCalled();
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Session status", [
+      {
+        rows: [
+          { key: "Session", value: "thread-1" },
+          { key: "message", value: "Usage limits" },
+          { key: "5h", value: "42%" },
+        ],
+      },
+    ]);
+  });
+
   it("documents that /plan can take a message", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/plan"))).toBe(
       "/plan - Toggle Plan mode, optionally sending a message.",
@@ -309,7 +336,7 @@ describe("slash commands", () => {
     await executeSlashCommand("mcp", "", ctx);
 
     expect(ctx.mcpStatusLines).toHaveBeenCalledOnce();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("mcp");
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("MCP servers", [{ rows: [] }]);
   });
 
   it("rejects /mcp arguments", async () => {

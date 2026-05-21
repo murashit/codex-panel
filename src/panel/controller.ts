@@ -10,7 +10,7 @@ import {
   completeReasoningItems,
   upsertDisplayItem,
 } from "../display/stream-updates";
-import { createSystemItem } from "../display/system";
+import { createStructuredSystemItem, createSystemItem } from "../display/system";
 import {
   displayItemFromThreadItem,
   displayItemsFromTurns,
@@ -18,7 +18,7 @@ import {
   shouldSuppressLifecycleItem,
   shouldSuppressThreadItem,
 } from "../display/thread-items";
-import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../display/types";
+import type { DisplayDetailSection, DisplayItem, DisplayKind, MessageDisplayItem } from "../display/types";
 import type { RequestId } from "../generated/app-server/RequestId";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
@@ -136,6 +136,10 @@ export class PanelController {
 
   addSystemMessage(text: string): void {
     this.state.displayItems.push(createSystemItem(text));
+  }
+
+  addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
+    this.state.displayItems.push(createStructuredSystemItem(text, details));
   }
 
   addDedupedSystemMessage(text: string): void {

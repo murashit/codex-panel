@@ -244,7 +244,9 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   if (item.kind === "message" && item.autoReviewSummaries && item.autoReviewSummaries.length > 0) {
     renderAutoReviewSummaries(messageEl, item.autoReviewSummaries);
   }
-  if ("details" in item && item.details && item.details.length > 0) {
+  if (item.kind === "system" && item.details && item.details.length > 0) {
+    renderSystemDetails(messageEl, item.details);
+  } else if ("details" in item && item.details && item.details.length > 0) {
     renderMessageDetails(messageEl, item.id, item.details, context);
   }
 }
@@ -369,5 +371,19 @@ function renderMessageDetails(parent: HTMLElement, itemId: string, details: Disp
       }
     }
     if (section.body) detailsEl.createEl("pre", { text: section.body });
+  }
+}
+
+function renderSystemDetails(parent: HTMLElement, details: DisplayDetailSection[]): void {
+  for (const section of details) {
+    const sectionEl = parent.createDiv({ cls: "codex-panel__output codex-panel__system-result-section" });
+    if (section.title) sectionEl.createDiv({ cls: "codex-panel__output-title", text: section.title });
+    if (section.rows && section.rows.length > 0) {
+      const rows = sectionEl.createEl("dl", { cls: "codex-panel__meta-grid" });
+      for (const row of section.rows) {
+        createMetaPair(rows, row.key, row.value);
+      }
+    }
+    if (section.body) sectionEl.createEl("pre", { text: section.body });
   }
 }
