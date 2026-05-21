@@ -45,6 +45,7 @@ Codex Panel supports the app-server-backed Codex workflows that fit a persistent
 - Reference another non-archived thread without switching away from the current one (`/refer <thread> <message>`). Codex receives up to 20 recent turns, limited to user input and final Codex responses.
 - Toggle Plan mode, optionally sending the same message after switching (`/plan <message>`), then answer questions and copy or implement proposed plans.
 - Toggle fast mode, model override, and reasoning effort override for subsequent turns (`/fast`, `/model`, `/effort`).
+- Toggle approval auto-review for subsequent turns (`/auto-review`).
 - Send steering messages during a running turn, or interrupt when the composer is empty.
 - Respond to command, file, and permission approval requests.
 - Stream assistant messages, reasoning, commands, tool calls, hooks, file changes, and agent activity.

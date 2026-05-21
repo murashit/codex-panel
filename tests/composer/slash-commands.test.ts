@@ -21,6 +21,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     archiveThread: vi.fn().mockResolvedValue(undefined),
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
+    toggleAutoReview: vi.fn(),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
     setStatus: vi.fn(),
@@ -215,6 +216,24 @@ describe("slash commands", () => {
     expect(result).toEqual({ sendText: "OK、実装してください" });
   });
 
+  it("toggles auto-review without sending text for bare /auto-review", async () => {
+    const ctx = context();
+
+    const result = await executeSlashCommand("auto-review", "", ctx);
+
+    expect(ctx.toggleAutoReview).toHaveBeenCalledOnce();
+    expect(result).toBeUndefined();
+  });
+
+  it("returns message text after toggling auto-review for /auto-review arguments", async () => {
+    const ctx = context();
+
+    const result = await executeSlashCommand("auto-review", "この依頼からお願いします", ctx);
+
+    expect(ctx.toggleAutoReview).toHaveBeenCalledOnce();
+    expect(result).toEqual({ sendText: "この依頼からお願いします" });
+  });
+
   it("keeps /compact behavior unchanged", async () => {
     const ctx = context();
 
@@ -306,6 +325,12 @@ describe("slash commands", () => {
   it("documents that /plan can take a message", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/plan"))).toBe(
       "/plan - Toggle Plan mode, optionally sending a message.",
+    );
+  });
+
+  it("documents that /auto-review can take a message", () => {
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/auto-review"))).toBe(
+      "/auto-review - Toggle approval auto-review, optionally sending a message.",
     );
   });
 

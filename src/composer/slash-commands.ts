@@ -6,6 +6,7 @@ export const SLASH_COMMANDS = [
   { command: "/rollback", detail: "Drop the latest turn and restore its prompt to the composer." },
   { command: "/compact", detail: "Compact the current conversation context." },
   { command: "/archive", detail: "Archive the active or selected Codex thread." },
+  { command: "/auto-review", detail: "Toggle approval auto-review, optionally sending a message." },
   { command: "/fast", detail: "Toggle fast service tier for subsequent turns." },
   { command: "/plan", detail: "Toggle Plan mode, optionally sending a message." },
   { command: "/status", detail: "Show current session, context, and usage limits." },

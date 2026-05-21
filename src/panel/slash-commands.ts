@@ -25,6 +25,7 @@ export interface SlashCommandExecutionContext {
   archiveThread: (threadId: string) => Promise<void>;
   toggleFastMode: () => void;
   toggleCollaborationMode: () => void;
+  toggleAutoReview: () => void;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   setStatus: (status: string) => void;
@@ -159,6 +160,12 @@ export async function executeSlashCommand(
 
   if (command === "fast") {
     context.toggleFastMode();
+    return;
+  }
+
+  if (command === "auto-review") {
+    context.toggleAutoReview();
+    if (args) return { sendText: args };
     return;
   }
 

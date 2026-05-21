@@ -1,6 +1,7 @@
 import type { CollaborationMode } from "../generated/app-server/CollaborationMode";
 import type { ModeKind } from "../generated/app-server/ModeKind";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
@@ -18,8 +19,10 @@ export interface RuntimeSnapshot {
   activeThreadId: string | null;
   activeModel: string | null;
   activeServiceTier: string | null;
+  activeApprovalsReviewer: ApprovalsReviewer | null;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
+  requestedApprovalsReviewer: ApprovalsReviewer | null;
   requestedCollaborationMode: ModeKind;
   requestedServiceTier: ServiceTier | null;
   tokenUsage: ThreadTokenUsage | null;
@@ -32,6 +35,7 @@ export interface TurnRuntimeSettings {
   collaborationMode: CollaborationMode | null;
   model: string | null | undefined;
   effort: ReasoningEffort | null | undefined;
+  approvalsReviewer: ApprovalsReviewer | undefined;
   warning: string | null;
 }
 
@@ -69,6 +73,18 @@ export function currentReasoningEffort(snapshot: RuntimeSnapshot, config = confi
   return isReasoningEffort(effort) ? effort : null;
 }
 
+export function currentApprovalsReviewer(
+  snapshot: RuntimeSnapshot,
+  config = configRecord(snapshot.effectiveConfig),
+): ApprovalsReviewer | null {
+  const configured = config.approvals_reviewer;
+  return snapshot.requestedApprovalsReviewer ?? snapshot.activeApprovalsReviewer ?? (isApprovalsReviewer(configured) ? configured : null);
+}
+
+export function autoReviewActive(snapshot: RuntimeSnapshot, config = configRecord(snapshot.effectiveConfig)): boolean {
+  return currentApprovalsReviewer(snapshot, config) === "auto_review";
+}
+
 export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRuntimeSettings {
   const model = currentModel(snapshot);
   const effort = currentReasoningEffort(snapshot);
@@ -81,6 +97,7 @@ export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRun
     collaborationMode,
     model: runtimeOverridePayload(snapshot.requestedModel),
     effort: runtimeOverridePayload(snapshot.requestedReasoningEffort),
+    approvalsReviewer: snapshot.requestedApprovalsReviewer ?? undefined,
     warning: model ? null : "No effective model is available. Sending without a mode override.",
   };
 }
@@ -138,6 +155,10 @@ export function runtimeOverrideLabel<T>(override: RuntimeOverride<T>): string {
 
 function configuredServiceTier(config: Record<string, unknown>): ServiceTier | null {
   return parseServiceTier(config.service_tier);
+}
+
+function isApprovalsReviewer(value: unknown): value is ApprovalsReviewer {
+  return value === "user" || value === "auto_review" || value === "guardian_subagent";
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

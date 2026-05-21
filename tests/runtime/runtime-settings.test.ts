@@ -10,6 +10,8 @@ import {
   reasoningEffortOverrideMessage,
 } from "../../src/runtime/settings";
 import {
+  autoReviewActive,
+  currentApprovalsReviewer,
   currentModel,
   currentReasoningEffort,
   currentServiceTier,
@@ -88,6 +90,42 @@ describe("runtime settings", () => {
     expect(requestedTurnRuntimeSettings(snapshot)).toMatchObject({
       model: "gpt-5.4",
       effort: "low",
+    });
+  });
+
+  it("resolves approval reviewer from requested, active, then effective config", () => {
+    expect(
+      currentApprovalsReviewer(
+        runtimeSnapshot({
+          requestedApprovalsReviewer: "user",
+          activeApprovalsReviewer: "auto_review",
+          effectiveConfig: { config: { approvals_reviewer: "guardian_subagent" } } as unknown as RuntimeSnapshot["effectiveConfig"],
+        }),
+      ),
+    ).toBe("user");
+    expect(
+      currentApprovalsReviewer(
+        runtimeSnapshot({
+          activeApprovalsReviewer: "auto_review",
+          effectiveConfig: { config: { approvals_reviewer: "guardian_subagent" } } as unknown as RuntimeSnapshot["effectiveConfig"],
+        }),
+      ),
+    ).toBe("auto_review");
+    expect(
+      currentApprovalsReviewer(
+        runtimeSnapshot({
+          effectiveConfig: { config: { approvals_reviewer: "guardian_subagent" } } as unknown as RuntimeSnapshot["effectiveConfig"],
+        }),
+      ),
+    ).toBe("guardian_subagent");
+  });
+
+  it("serializes requested approval reviewer as a turn override", () => {
+    const snapshot = runtimeSnapshot({ requestedApprovalsReviewer: "auto_review" });
+
+    expect(autoReviewActive(snapshot)).toBe(true);
+    expect(requestedTurnRuntimeSettings(snapshot)).toMatchObject({
+      approvalsReviewer: "auto_review",
     });
   });
 
@@ -248,8 +286,10 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     activeThreadId: null,
     activeModel: null,
     activeServiceTier: null,
+    activeApprovalsReviewer: null,
     requestedModel: { kind: "default" },
     requestedReasoningEffort: { kind: "default" },
+    requestedApprovalsReviewer: null,
     requestedCollaborationMode: "default",
     requestedServiceTier: null,
     tokenUsage: null,

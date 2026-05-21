@@ -2,6 +2,7 @@ import type { InitializeResponse } from "../generated/app-server/InitializeRespo
 import type { CollaborationMode } from "../generated/app-server/CollaborationMode";
 import type { RequestId } from "../generated/app-server/RequestId";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { ConfigWriteResponse } from "../generated/app-server/v2/ConfigWriteResponse";
 import type { GetAccountRateLimitsResponse } from "../generated/app-server/v2/GetAccountRateLimitsResponse";
@@ -320,6 +321,7 @@ export class AppServerClient {
     collaborationMode?: CollaborationMode | null,
     model?: string | null,
     effort?: ReasoningEffort | null,
+    approvalsReviewer?: ApprovalsReviewer,
   ): Promise<TurnStartResponse> {
     const params: ClientRequestParams<"turn/start"> & { collaborationMode?: CollaborationMode | null } = {
       threadId,
@@ -330,6 +332,7 @@ export class AppServerClient {
     if (collaborationMode) params.collaborationMode = collaborationMode;
     if (model !== undefined) params.model = model;
     if (effort !== undefined) params.effort = effort;
+    if (approvalsReviewer !== undefined) params.approvalsReviewer = approvalsReviewer;
     return this.request("turn/start", params);
   }
 

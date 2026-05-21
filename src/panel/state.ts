@@ -1,6 +1,7 @@
 import type { InitializeResponse } from "../generated/app-server/InitializeResponse";
 import type { ModeKind } from "../generated/app-server/ModeKind";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
@@ -30,10 +31,12 @@ export interface PanelState {
   activeTurnId: string | null;
   activeModel: string | null;
   activeServiceTier: string | null;
+  activeApprovalsReviewer: ApprovalsReviewer | null;
   activeThreadCliVersion: string | null;
   appServerDiagnostics: AppServerDiagnostics;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
+  requestedApprovalsReviewer: ApprovalsReviewer | null;
   requestedCollaborationMode: ModeKind;
   requestedServiceTier: ServiceTier | null;
   tokenUsage: ThreadTokenUsage | null;
@@ -71,10 +74,12 @@ export function createPanelState(): PanelState {
     activeTurnId: null,
     activeModel: null,
     activeServiceTier: null,
+    activeApprovalsReviewer: null,
     activeThreadCliVersion: null,
     appServerDiagnostics: createAppServerDiagnostics(),
     requestedModel: defaultRuntimeOverride(),
     requestedReasoningEffort: defaultRuntimeOverride(),
+    requestedApprovalsReviewer: null,
     requestedCollaborationMode: "default",
     requestedServiceTier: null,
     tokenUsage: null,
@@ -117,6 +122,7 @@ export function clearActiveThreadState(state: PanelState): void {
   state.activeThreadCwd = null;
   state.activeModel = null;
   state.activeServiceTier = null;
+  state.activeApprovalsReviewer = null;
   state.activeThreadCliVersion = null;
   state.tokenUsage = null;
   state.historyCursor = null;
@@ -131,6 +137,7 @@ export function clearConnectionScopedState(state: PanelState): void {
   clearActiveTurnState(state);
   state.activeModel = null;
   state.activeServiceTier = null;
+  state.activeApprovalsReviewer = null;
   state.activeThreadCliVersion = null;
   state.rateLimit = null;
   state.listedThreads = [];

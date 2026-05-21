@@ -1529,9 +1529,10 @@ describe("toolbar renderer decisions", () => {
   it("renders toolbar controls as buttons and signatures include live status/catalog state", () => {
     const parent = document.createElement("div");
     const toggleHistory = vi.fn();
+    const toggleAutoReview = vi.fn();
     const baseModel = toolbarModel();
 
-    renderToolbar(parent, baseModel, toolbarActions({ toggleHistory }));
+    renderToolbar(parent, baseModel, toolbarActions({ toggleHistory, toggleAutoReview }));
 
     const statusButton = parent.querySelector(".codex-panel__status-dot");
     expect(statusButton?.tagName).toBe("BUTTON");
@@ -1539,12 +1540,18 @@ describe("toolbar renderer decisions", () => {
     expect(statusButton?.getAttribute("aria-label")).toBe("Status: Connected.; Diagnostics: normal");
     parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle")?.click();
     expect(toggleHistory).toHaveBeenCalled();
+    const autoReviewButton = parent.querySelector<HTMLButtonElement>(".codex-panel__auto-review-toggle");
+    expect(autoReviewButton?.getAttribute("aria-label")).toBe("Auto-review: off");
+    expect(autoReviewButton?.getAttribute("aria-pressed")).toBe("false");
+    autoReviewButton?.click();
+    expect(toggleAutoReview).toHaveBeenCalled();
 
     parent.empty();
-    renderToolbar(parent, toolbarModel({ status: "Turn running...", statusState: "running" }), toolbarActions());
+    renderToolbar(parent, toolbarModel({ status: "Turn running...", statusState: "running", autoReviewActive: true }), toolbarActions());
     expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe(
       "Status: Turn running...; Connection: connected; Diagnostics: normal",
     );
+    expect(parent.querySelector(".codex-panel__auto-review-toggle")?.getAttribute("aria-pressed")).toBe("true");
 
     expect(toolbarSignature(baseModel)).not.toBe(toolbarSignature({ ...baseModel, status: "Turn running..." }));
     expect(toolbarSignature(baseModel)).not.toBe(
@@ -1553,6 +1560,7 @@ describe("toolbar renderer decisions", () => {
     expect(toolbarSignature(baseModel)).not.toBe(
       toolbarSignature({ ...baseModel, diagnostics: [{ label: "compatibility", value: "model/list failed", level: "error" }] }),
     );
+    expect(toolbarSignature(baseModel)).not.toBe(toolbarSignature({ ...baseModel, autoReviewActive: true }));
     expect(toolbarSignature(baseModel)).not.toBe(
       toolbarSignature({
         ...baseModel,
@@ -2131,6 +2139,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     statusPanelOpen: false,
     runtimeOpen: true,
     planActive: false,
+    autoReviewActive: false,
     fastActive: false,
     runtimeSummary: "5.5 high",
     runtimeTitle: "Model: gpt-5.5; Effort: high",
@@ -2153,6 +2162,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
 function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> = {}): Parameters<typeof renderToolbar>[2] {
   return {
     toggleHistory: vi.fn(),
+    toggleAutoReview: vi.fn(),
     toggleStatusPanel: vi.fn(),
     togglePlan: vi.fn(),
     toggleFast: vi.fn(),

@@ -11,6 +11,7 @@ import { createSystemItem } from "../display/system";
 import { fileMentionsFromInput } from "../display/thread-items";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { Thread } from "../generated/app-server/v2/Thread";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
 import {
@@ -23,6 +24,7 @@ import { connectionDiagnosticLines, connectionDiagnosticRows, diagnosticAlertLev
 import { rollbackCandidateFromItems } from "./rollback";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../runtime/view";
 import {
+  autoReviewActive,
   commitRuntimeOverride,
   configRecord,
   currentModel,
@@ -325,6 +327,7 @@ export class CodexPanelView extends ItemView {
       this.state.activeTurnId = null;
       this.state.activeModel = response.model ?? null;
       this.state.activeServiceTier = response.serviceTier ?? null;
+      this.state.activeApprovalsReviewer = response.approvalsReviewer ?? null;
       this.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
       this.state.tokenUsage = null;
       this.state.displayItems = [];
@@ -429,9 +432,11 @@ export class CodexPanelView extends ItemView {
         turnSettings.collaborationMode,
         turnSettings.model,
         turnSettings.effort,
+        turnSettings.approvalsReviewer,
       );
       this.state.requestedModel = commitRuntimeOverride(this.state.requestedModel);
       this.state.requestedReasoningEffort = commitRuntimeOverride(this.state.requestedReasoningEffort);
+      if (turnSettings.approvalsReviewer) this.state.activeApprovalsReviewer = turnSettings.approvalsReviewer;
       this.state.activeTurnId = response.turn.id;
       const pendingTurnStart = this.state.pendingTurnStart;
       this.state.displayItems = this.state.displayItems.map((item) =>
@@ -548,6 +553,7 @@ export class CodexPanelView extends ItemView {
       busy: this.state.busy,
       toggleFastMode: () => this.toggleFastMode(),
       toggleCollaborationMode: () => this.toggleCollaborationMode(),
+      toggleAutoReview: () => this.toggleAutoReview(),
       addSystemMessage: (text) => this.addSystemMessage(text),
       addStructuredSystemMessage: (text, details) => this.addStructuredSystemMessage(text, details),
       setStatus: (status) => this.setStatus(status),
@@ -597,6 +603,16 @@ export class CodexPanelView extends ItemView {
     this.state.requestedCollaborationMode = next;
     this.state.runtimePicker = null;
     this.addSystemMessage(collaborationModeToggleMessage(next));
+  }
+
+  private toggleAutoReview(): void {
+    const next: ApprovalsReviewer = autoReviewActive(this.runtimeSnapshot(), configRecord(this.state.effectiveConfig))
+      ? "user"
+      : "auto_review";
+    this.state.requestedApprovalsReviewer = next;
+    this.state.activeApprovalsReviewer = next;
+    this.state.runtimePicker = null;
+    this.addSystemMessage(next === "auto_review" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.");
   }
 
   private canImplementPlanItem(item: DisplayItem): boolean {
@@ -721,6 +737,7 @@ export class CodexPanelView extends ItemView {
     this.toolbarSignature = signature;
     renderToolbar(toolbar, model, {
       toggleHistory: () => this.toggleHistoryPanel(),
+      toggleAutoReview: () => this.toggleAutoReview(),
       toggleStatusPanel: () => this.toggleStatusPanel(),
       togglePlan: () => this.toggleCollaborationMode(),
       toggleFast: () => this.toggleFastMode(),
@@ -765,6 +782,7 @@ export class CodexPanelView extends ItemView {
       statusPanelOpen,
       runtimeOpen,
       planActive: this.state.requestedCollaborationMode === "plan",
+      autoReviewActive: autoReviewActive(snapshot, config),
       fastActive: currentServiceTier(snapshot, config) === "fast",
       runtimeSummary: runtimeSummaryLabel(model, effort),
       runtimeTitle: `Model: ${model ?? "(from default)"}; Effort: ${effort ?? "(from default)"}`,
@@ -996,8 +1014,10 @@ export class CodexPanelView extends ItemView {
       activeThreadId: this.state.activeThreadId,
       activeModel: this.state.activeModel,
       activeServiceTier: this.state.activeServiceTier,
+      activeApprovalsReviewer: this.state.activeApprovalsReviewer,
       requestedModel: this.state.requestedModel,
       requestedReasoningEffort: this.state.requestedReasoningEffort,
+      requestedApprovalsReviewer: this.state.requestedApprovalsReviewer,
       requestedCollaborationMode: this.state.requestedCollaborationMode,
       requestedServiceTier: this.state.requestedServiceTier,
       tokenUsage: this.state.tokenUsage,

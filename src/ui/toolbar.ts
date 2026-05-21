@@ -43,6 +43,7 @@ export interface ToolbarViewModel {
   statusPanelOpen: boolean;
   runtimeOpen: boolean;
   planActive: boolean;
+  autoReviewActive: boolean;
   fastActive: boolean;
   runtimeSummary: string;
   runtimeTitle: string;
@@ -62,6 +63,7 @@ export interface ToolbarViewModel {
 
 export interface ToolbarActions {
   toggleHistory: () => void;
+  toggleAutoReview: () => void;
   toggleStatusPanel: () => void;
   togglePlan: () => void;
   toggleFast: () => void;
@@ -87,6 +89,7 @@ export function toolbarSignature(model: ToolbarViewModel): string {
     statusPanelOpen: model.statusPanelOpen,
     runtimeOpen: model.runtimeOpen,
     planActive: model.planActive,
+    autoReviewActive: model.autoReviewActive,
     fastActive: model.fastActive,
     runtimeSummary: model.runtimeSummary,
     runtimeTitle: model.runtimeTitle,
@@ -115,6 +118,7 @@ export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, act
   toolbar.empty();
   const primaryRow = toolbar.createDiv({ cls: "codex-panel__toolbar-primary" });
   renderHistoryButton(primaryRow, model, actions);
+  renderAutoReviewButton(primaryRow, model, actions);
   const runtimeArea = primaryRow.createDiv({ cls: "codex-panel__runtime-area" });
   renderRuntimeStatus(runtimeArea, model, actions);
   renderContextMeter(primaryRow, model);
@@ -129,6 +133,14 @@ function renderHistoryButton(parent: HTMLElement, model: ToolbarViewModel, actio
   if (model.historyOpen) button.addClass("is-active");
   button.setAttr("aria-pressed", model.historyOpen ? "true" : "false");
   button.onclick = actions.toggleHistory;
+}
+
+function renderAutoReviewButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
+  const button = createToolbarButton(parent, "shield", `Auto-review: ${model.autoReviewActive ? "on" : "off"}`);
+  button.addClass("codex-panel__auto-review-toggle");
+  if (model.autoReviewActive) button.addClass("is-active");
+  button.setAttr("aria-pressed", model.autoReviewActive ? "true" : "false");
+  button.onclick = actions.toggleAutoReview;
 }
 
 function renderStatusButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {

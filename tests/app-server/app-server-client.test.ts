@@ -308,6 +308,36 @@ describe("AppServerClient", () => {
     await resetTurn;
   });
 
+  it("sends approval reviewer turn overrides when provided", async () => {
+    const { client, transport } = await connectedClient();
+
+    const autoReviewTurn = client.startTurn("thread-1", "/vault", "review this", null, null, undefined, undefined, "auto_review");
+    expect(transport.sent[2]).toMatchObject({
+      method: "turn/start",
+      params: {
+        threadId: "thread-1",
+        cwd: "/vault",
+        approvalsReviewer: "auto_review",
+        input: [{ type: "text", text: "review this", text_elements: [] }],
+      },
+    });
+    transport.emitLine({ id: 2, result: { turn: { id: "turn-auto-review" } } });
+    await autoReviewTurn;
+
+    const userReviewTurn = client.startTurn("thread-1", "/vault", "ask me", null, null, undefined, undefined, "user");
+    expect(transport.sent[3]).toMatchObject({
+      method: "turn/start",
+      params: {
+        threadId: "thread-1",
+        cwd: "/vault",
+        approvalsReviewer: "user",
+        input: [{ type: "text", text: "ask me", text_elements: [] }],
+      },
+    });
+    transport.emitLine({ id: 3, result: { turn: { id: "turn-user-review" } } });
+    await userReviewTurn;
+  });
+
   it("sends model list request payloads", async () => {
     const { client, transport } = await connectedClient();
 

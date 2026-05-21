@@ -47,6 +47,7 @@ export class PanelSessionController {
     this.host.state.activeTurnId = null;
     this.host.state.activeModel = response.model ?? null;
     this.host.state.activeServiceTier = response.serviceTier ?? null;
+    this.host.state.activeApprovalsReviewer = response.approvalsReviewer ?? null;
     this.host.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
     this.host.state.tokenUsage = null;
     this.host.state.historyCursor = null;
