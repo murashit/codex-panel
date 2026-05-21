@@ -1,5 +1,6 @@
 import type { RequestId } from "../generated/app-server/RequestId";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
+import type { CommandExecutionApprovalDecision } from "../generated/app-server/v2/CommandExecutionApprovalDecision";
 import type { CommandExecutionRequestApprovalResponse } from "../generated/app-server/v2/CommandExecutionRequestApprovalResponse";
 import type { FileChangeRequestApprovalResponse } from "../generated/app-server/v2/FileChangeRequestApprovalResponse";
 import type { GrantedPermissionProfile } from "../generated/app-server/v2/GrantedPermissionProfile";
@@ -7,7 +8,16 @@ import type { PermissionsRequestApprovalResponse } from "../generated/app-server
 import { jsonPreview } from "../utils";
 import { addOptional, nonEmptyString, permissionRows } from "./permission-details";
 
-export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel";
+export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel" | CommandApprovalDecisionAction;
+export interface CommandApprovalDecisionAction {
+  kind: "command-decision";
+  decision: CommandExecutionApprovalDecision;
+}
+export interface ApprovalActionOption {
+  label: string;
+  action: ApprovalAction;
+  className: string;
+}
 export type ApprovalRequest = Extract<
   ServerRequest,
   {
@@ -57,7 +67,7 @@ export function isApprovalRequest(request: ServerRequest): request is ApprovalRe
 export function approvalResponse(approval: PendingApproval, action: ApprovalAction): unknown {
   if (approval.method === "item/commandExecution/requestApproval") {
     return {
-      decision: commandDecision(action),
+      decision: isCommandDecisionAction(action) ? action.decision : commandDecision(action),
     } satisfies CommandExecutionRequestApprovalResponse;
   }
 
@@ -82,6 +92,17 @@ export function approvalTitle(approval: PendingApproval): string {
   if (approval.method.includes("fileChange")) return "File change approval";
   if (approval.method.includes("permissions")) return "Permission approval";
   return approval.method;
+}
+
+export function approvalActionOptions(approval: PendingApproval): ApprovalActionOption[] {
+  if (approval.method !== "item/commandExecution/requestApproval") return defaultApprovalActionOptions();
+  const decisions = approval.params.availableDecisions;
+  if (!decisions || decisions.length === 0) return defaultApprovalActionOptions();
+  return decisions.map((decision) => ({
+    label: commandDecisionLabel(decision),
+    action: { kind: "command-decision", decision },
+    className: commandDecisionClassName(decision),
+  }));
 }
 
 export function approvalSummary(approval: PendingApproval): string {
@@ -141,6 +162,52 @@ function commandDecision(action: ApprovalAction): CommandExecutionRequestApprova
   if (action === "accept-session") return "acceptForSession";
   if (action === "cancel") return "cancel";
   return "decline";
+}
+
+export function approvalActionKind(action: ApprovalAction): "accept" | "accept-session" | "decline" | "cancel" {
+  if (!isCommandDecisionAction(action)) return action;
+  const decision = action.decision;
+  if (decision === "accept") return "accept";
+  if (decision === "acceptForSession") return "accept-session";
+  if (decision === "cancel") return "cancel";
+  if (decision === "decline") return "decline";
+  if ("acceptWithExecpolicyAmendment" in decision) return "accept-session";
+  if ("applyNetworkPolicyAmendment" in decision) {
+    return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "accept-session" : "decline";
+  }
+  return "decline";
+}
+
+function defaultApprovalActionOptions(): ApprovalActionOption[] {
+  return [
+    { label: "Allow", action: "accept", className: "mod-cta" },
+    { label: "Allow session", action: "accept-session", className: "" },
+    { label: "Deny", action: "decline", className: "mod-warning" },
+    { label: "Cancel", action: "cancel", className: "" },
+  ];
+}
+
+function commandDecisionLabel(decision: CommandExecutionApprovalDecision): string {
+  if (decision === "accept") return "Allow";
+  if (decision === "acceptForSession") return "Allow session";
+  if (decision === "decline") return "Deny";
+  if (decision === "cancel") return "Cancel";
+  if ("acceptWithExecpolicyAmendment" in decision) return "Allow rule";
+  if ("applyNetworkPolicyAmendment" in decision) {
+    return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "Allow network rule" : "Deny network rule";
+  }
+  return "Choose";
+}
+
+function commandDecisionClassName(decision: CommandExecutionApprovalDecision): string {
+  const kind = approvalActionKind({ kind: "command-decision", decision });
+  if (kind === "accept") return "mod-cta";
+  if (kind === "decline") return "mod-warning";
+  return "";
+}
+
+function isCommandDecisionAction(action: ApprovalAction): action is CommandApprovalDecisionAction {
+  return typeof action === "object";
 }
 
 function fileChangeDecision(action: ApprovalAction): FileChangeRequestApprovalResponse["decision"] {

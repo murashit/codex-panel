@@ -1824,6 +1824,53 @@ describe("pending request renderer decisions", () => {
     ]);
   });
 
+  it("renders command approval buttons from app-server available decisions", () => {
+    const parent = document.createElement("div");
+    const approval: PendingApproval = {
+      requestId: 43,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        startedAtMs: 1,
+        reason: "Needs network",
+        networkApprovalContext: { host: "registry.npmjs.org", protocol: "https" },
+        command: null,
+        cwd: "/vault",
+        commandActions: [],
+        proposedExecpolicyAmendment: null,
+        proposedNetworkPolicyAmendments: [],
+        availableDecisions: [
+          { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },
+          "decline",
+        ],
+      },
+    };
+    const resolveApproval = vi.fn();
+
+    renderPendingRequestMessage(
+      parent,
+      [approval],
+      [],
+      {
+        values: new Map(),
+        draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
+        otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
+      },
+      new Set(),
+      { resolveApproval, resolveUserInput: vi.fn(), cancelUserInput: vi.fn() },
+    );
+
+    const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")];
+    expect(buttons.map((button) => button.textContent)).toEqual(["Allow network rule", "Deny"]);
+    buttons[0]!.click();
+    expect(resolveApproval).toHaveBeenCalledWith(approval, {
+      kind: "command-decision",
+      decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },
+    });
+  });
+
   it("renders submitted user input separately from approvals", () => {
     const block = messageRenderBlocks({
       activeThreadId: "thread",

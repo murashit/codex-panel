@@ -1,4 +1,11 @@
-import { approvalDetails, approvalSummary, approvalTitle, type ApprovalAction, type PendingApproval } from "../approvals/model";
+import {
+  approvalActionOptions,
+  approvalDetails,
+  approvalSummary,
+  approvalTitle,
+  type ApprovalAction,
+  type PendingApproval,
+} from "../approvals/model";
 import type { RequestId } from "../generated/app-server/RequestId";
 import type { PendingUserInput } from "../user-input/model";
 import { questionDefaultAnswer } from "../user-input/model";
@@ -52,10 +59,9 @@ function renderApprovalCard(
   info.createDiv({ cls: "setting-item-description codex-panel__pending-request-body", text: approvalSummary(approval) });
   renderApprovalDetails(info, approval, openDetails);
 
-  createActionButton(controls, "Allow", "mod-cta", () => actions.resolveApproval(approval, "accept"));
-  createActionButton(controls, "Allow session", "", () => actions.resolveApproval(approval, "accept-session"));
-  createActionButton(controls, "Deny", "mod-warning", () => actions.resolveApproval(approval, "decline"));
-  createActionButton(controls, "Cancel", "", () => actions.resolveApproval(approval, "cancel"));
+  for (const option of approvalActionOptions(approval)) {
+    createActionButton(controls, option.label, option.className, () => actions.resolveApproval(approval, option.action));
+  }
 }
 
 function renderApprovalDetails(parent: HTMLElement, approval: PendingApproval, openDetails: Set<string>): void {

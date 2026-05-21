@@ -1,5 +1,12 @@
 import type { RequestId } from "../generated/app-server/RequestId";
-import { approvalDetails, approvalResultSummary, approvalTitle, type ApprovalAction, type PendingApproval } from "../approvals/model";
+import {
+  approvalActionKind,
+  approvalDetails,
+  approvalResultSummary,
+  approvalTitle,
+  type ApprovalAction,
+  type PendingApproval,
+} from "../approvals/model";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { PendingUserInput } from "../user-input/model";
 
@@ -37,7 +44,8 @@ export function clearUserInputDrafts(drafts: Map<string, string>, input: Pending
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): DisplayItem {
   const status = approvalResultStatus(action);
-  const scope = action === "accept-session" ? "session" : "turn";
+  const kind = approvalActionKind(action);
+  const scope = kind === "accept-session" ? "session" : "turn";
   return {
     id: `approval-${String(approval.requestId)}`,
     kind: "approvalResult",
@@ -45,7 +53,7 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     text: approvalResultText(approval, action),
     turnId: approvalTurnId(approval),
     markdown: false,
-    state: action === "accept" || action === "accept-session" ? "completed" : "failed",
+    state: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
     details: [
       {
         title: "Approval",
@@ -91,16 +99,18 @@ function approvalResultText(approval: PendingApproval, action: ApprovalAction): 
 }
 
 function approvalResultPrefix(action: ApprovalAction): string {
-  if (action === "accept") return "Allowed";
-  if (action === "accept-session") return "Allowed for this session";
-  if (action === "cancel") return "Cancelled";
+  const kind = approvalActionKind(action);
+  if (kind === "accept") return "Allowed";
+  if (kind === "accept-session") return "Allowed for this session";
+  if (kind === "cancel") return "Cancelled";
   return "Denied";
 }
 
 function approvalResultStatus(action: ApprovalAction): string {
-  if (action === "accept") return "allowed";
-  if (action === "accept-session") return "allowed for session";
-  if (action === "cancel") return "cancelled";
+  const kind = approvalActionKind(action);
+  if (kind === "accept") return "allowed";
+  if (kind === "accept-session") return "allowed for session";
+  if (kind === "cancel") return "cancelled";
   return "denied";
 }
 

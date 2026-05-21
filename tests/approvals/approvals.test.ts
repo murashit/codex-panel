@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { approvalDetails, approvalResponse, approvalSummary, approvalTitle, toPendingApproval } from "../../src/approvals/model";
+import {
+  approvalActionOptions,
+  approvalDetails,
+  approvalResponse,
+  approvalSummary,
+  approvalTitle,
+  toPendingApproval,
+} from "../../src/approvals/model";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
+import type { CommandExecutionApprovalDecision } from "../../src/generated/app-server/v2/CommandExecutionApprovalDecision";
 
 describe("approval model", () => {
   it("classifies command approvals and builds v2 decisions", () => {
@@ -50,6 +58,36 @@ describe("approval model", () => {
       permissions: { network: { enabled: true } },
       scope: "turn",
     });
+  });
+
+  it("uses command approval decisions supplied by app-server", () => {
+    const networkDecision = {
+      applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } },
+    } satisfies CommandExecutionApprovalDecision;
+    const request: ServerRequest = {
+      id: 30,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        command: null,
+        cwd: "/tmp/project",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        startedAtMs: 1,
+        reason: "Needs network access",
+        networkApprovalContext: { host: "registry.npmjs.org", protocol: "https" },
+        commandActions: [],
+        proposedExecpolicyAmendment: null,
+        proposedNetworkPolicyAmendments: [],
+        availableDecisions: [networkDecision, "decline"],
+      },
+    };
+    const approval = toPendingApproval(request)!;
+    const options = approvalActionOptions(approval);
+
+    expect(options.map((option) => option.label)).toEqual(["Allow network rule", "Deny"]);
+    expect(approvalResponse(approval, options[0]!.action)).toEqual({ decision: networkDecision });
+    expect(approvalResponse(approval, options[1]!.action)).toEqual({ decision: "decline" });
   });
 
   it("shows approval reasons first in pending request summaries", () => {
