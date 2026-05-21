@@ -1,28 +1,31 @@
-import tsParser from "@typescript-eslint/parser";
-import tsPlugin from "@typescript-eslint/eslint-plugin";
+import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
+import tseslint from "typescript-eslint";
 
-const sourceFiles = ["src/**/*.ts", "src/**/*.tsx"];
+const typeScriptFiles = ["src/**/*.ts", "tests/**/*.ts"];
 
-export default [
+export default defineConfig([
   {
     ignores: ["main.js", "node_modules/**", "src/generated/**"],
   },
+  js.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   ...obsidianmd.configs.recommended.map((config) => ({
     ...config,
     basePath: "src",
   })),
   {
-    files: ["src/**/*.ts", "tests/**/*.ts"],
+    files: typeScriptFiles,
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
-      parser: tsParser,
       parserOptions: {
-        project: "./tsconfig.json",
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
       globals: {
+        AbortSignal: "readonly",
         HTMLElement: "readonly",
         HTMLTextAreaElement: "readonly",
         KeyboardEvent: "readonly",
@@ -32,9 +35,6 @@ export default [
         requestAnimationFrame: "readonly",
       },
     },
-    plugins: {
-      "@typescript-eslint": tsPlugin,
-    },
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-explicit-any": "error",
@@ -43,7 +43,17 @@ export default [
     },
   },
   {
-    files: sourceFiles,
+    files: ["tests/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
+      "@typescript-eslint/require-await": "off",
+    },
+  },
+  {
+    files: ["src/**/*.ts", "src/**/*.tsx"],
     plugins: {
       obsidianmd,
     },
@@ -57,4 +67,4 @@ export default [
       ],
     },
   },
-];
+]);
