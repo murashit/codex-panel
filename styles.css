@@ -454,6 +454,8 @@
 
 .codex-panel__toolbar-panel--status {
   max-height: var(--codex-panel-toolbar-status-max-height);
+  cursor: text;
+  user-select: text;
 }
 
 .codex-panel__status-panel-items {
@@ -480,6 +482,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  cursor: text;
+  user-select: text;
 }
 
 .codex-panel__limit-panel-row {
@@ -497,6 +501,8 @@
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
+  cursor: text;
+  user-select: text;
 }
 
 .codex-panel__limit-panel-value {
@@ -555,6 +561,8 @@
 
 .codex-panel__connection-diagnostics-list {
   margin: 0;
+  cursor: text;
+  user-select: text;
 }
 
 .codex-panel__connection-diagnostics-row {
@@ -579,6 +587,8 @@
 .codex-panel__connection-diagnostics-row dd {
   color: var(--text-muted);
   overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
   white-space: pre-wrap;
 }
 
@@ -665,6 +675,8 @@
 .codex-panel__toolbar-panel .codex-panel__config-row dd {
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
+  cursor: text;
+  user-select: text;
 }
 
 .codex-panel__config-title,
@@ -731,6 +743,8 @@
 .codex-panel__config-row dd {
   color: var(--text-muted);
   overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
   white-space: pre-wrap;
 }
 
@@ -740,15 +754,21 @@
   gap: var(--codex-panel-control-gap) var(--codex-panel-section-gap);
   margin: 6px 0;
   font-size: var(--font-ui-smaller);
+  cursor: text;
+  user-select: text;
 }
 
 .codex-panel__meta-grid dt {
   color: var(--text-faint);
+  cursor: text;
+  user-select: text;
 }
 
 .codex-panel__meta-grid dd {
   margin: 0;
   overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
   white-space: pre-wrap;
 }
 
@@ -902,6 +922,15 @@
   font-family: var(--font-interface);
   font-size: var(--font-ui-small);
   line-height: var(--line-height-tight);
+}
+
+.codex-panel__message--system .codex-panel__output {
+  margin-top: 6px;
+}
+
+.codex-panel__message--system .codex-panel__meta-grid {
+  grid-template-columns: minmax(max-content, 28%) minmax(0, 1fr);
+  margin-bottom: 0;
 }
 
 .codex-panel__message--review-result {
@@ -1235,6 +1264,11 @@
 .codex-panel__tool-result-details > .codex-panel__diff-file,
 .codex-panel__tool-result-details > .codex-panel__meta-grid {
   margin-left: 0;
+}
+
+.codex-panel__tool-result-details {
+  cursor: text;
+  user-select: text;
 }
 
 .codex-panel__tool-summary {
