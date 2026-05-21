@@ -37,7 +37,7 @@ export function appendAssistantDelta(items: DisplayItem[], itemId: string, turnI
             text: `${item.text}${delta}`,
             copyText: `${item.text}${delta}`,
             turnId: item.turnId ?? turnId,
-            markdown: false,
+            markdown: true,
           }
         : item,
     );
@@ -52,7 +52,7 @@ export function appendAssistantDelta(items: DisplayItem[], itemId: string, turnI
       copyText: delta,
       turnId,
       itemId,
-      markdown: false,
+      markdown: true,
     },
   ];
 }

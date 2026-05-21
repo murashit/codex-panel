@@ -53,7 +53,7 @@ describe("PanelController", () => {
       expect(state.displayItems).toEqual([]);
     });
 
-    it("applies matching streaming deltas as lightweight assistant text", () => {
+    it("applies matching streaming deltas as assistant markdown", () => {
       const state = createPanelState();
       state.activeThreadId = "thread-active";
       state.activeTurnId = "turn-active";
@@ -64,7 +64,7 @@ describe("PanelController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
       } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
 
-      expect(state.displayItems).toMatchObject([{ id: "a1", text: "hello", markdown: false }]);
+      expect(state.displayItems).toMatchObject([{ id: "a1", text: "hello", markdown: true }]);
     });
 
     it("marks active reasoning completed when assistant text starts", () => {

@@ -89,6 +89,7 @@ export class PanelMessageRenderer {
   private renderMarkdownMessage(parent: HTMLElement, text: string): void {
     const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
     void MarkdownRenderer.render(this.options.app, text, parent, sourcePath, this.options.owner).then(() => {
+      if (!parent.isConnected) return;
       this.bindRenderedWikiLinks(parent, sourcePath);
       this.bindRenderedMarkdownFileLinks(parent, sourcePath);
       notifyMessageContentRendered(parent);

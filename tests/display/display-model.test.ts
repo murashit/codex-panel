@@ -171,6 +171,14 @@ describe("thread item conversion preserves app-server semantics", () => {
     expect(normalizeProposedPlanMarkdown("<proposed_plan>\n## Summary\n- Ship it\n</proposed_plan>")).toBe("## Summary\n- Ship it");
   });
 
+  it("streams assistant deltas as markdown", () => {
+    const items = appendAssistantDelta([], "a1", "t1", "**Hello**");
+    const updated = appendAssistantDelta(items, "a1", "t1", "\n\n- world");
+    expect(updated).toMatchObject([
+      { id: "a1", kind: "message", role: "assistant", text: "**Hello**\n\n- world", copyText: "**Hello**\n\n- world", markdown: true },
+    ]);
+  });
+
   it("streams plan deltas as plain assistant text until completion", () => {
     const items = appendPlanDelta([], "p1", "t1", "<proposed_plan>\n# Plan");
     const updated = appendPlanDelta(items, "p1", "t1", "\n</proposed_plan>");
