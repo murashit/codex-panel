@@ -12,18 +12,24 @@ import {
 import { referencedThreadPrompt } from "../../src/threads/reference";
 
 describe("thread archive export", () => {
-  it("writes frontmatter and readable user/codex turns without turn timestamps", () => {
+  it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
     const output = markdownFromThread(
       thread({
         id: "thread-12345678",
         name: "Exported thread",
         turns: [
-          turn([
-            userMessage("user-1", "依頼です"),
-            commandItem("cmd-1"),
-            assistantMessage("assistant-1", "回答です"),
-            planItem("plan-1", "<proposed_plan>\n計画\n</proposed_plan>"),
-          ]),
+          turn(
+            [
+              userMessage("user-1", "依頼です"),
+              commandItem("cmd-1"),
+              assistantMessage("assistant-1", "回答です"),
+              planItem("plan-1", "<proposed_plan>\n計画\n</proposed_plan>"),
+            ],
+            {
+              startedAt: timestamp(2026, 5, 18, 9, 8),
+              completedAt: timestamp(2026, 5, 18, 9, 11),
+            },
+          ),
         ],
       }),
       new Date(2026, 4, 18, 9, 8, 7),
@@ -39,15 +45,15 @@ describe("thread archive export", () => {
         "",
         "# Exported thread",
         "",
-        "## User",
+        "## User - 2026-05-18 09:08",
         "",
         "依頼です",
         "",
-        "## Codex",
+        "## Codex - 2026-05-18 09:11",
         "",
         "回答です",
         "",
-        "## Proposed plan",
+        "## Proposed plan - 2026-05-18 09:11",
         "",
         "<proposed_plan>",
         "計画",
@@ -55,8 +61,55 @@ describe("thread archive export", () => {
         "",
       ].join("\n"),
     );
-    expect(output).not.toContain("09:08");
     expect(output).not.toContain("npm test");
+  });
+
+  it("falls back when turn timestamps are missing and uses start time for incomplete agent output", () => {
+    const output = markdownFromThread(
+      thread({
+        turns: [
+          turn([userMessage("user-1", "古い依頼"), assistantMessage("assistant-1", "古い回答")], {
+            startedAt: null,
+            completedAt: null,
+          }),
+          turn([userMessage("user-2", "途中の依頼"), assistantMessage("assistant-2", "途中の回答")], {
+            startedAt: timestamp(2026, 5, 18, 10, 1),
+            completedAt: null,
+          }),
+        ],
+      }),
+      new Date(2026, 4, 18),
+    );
+
+    expect(output).toContain("## User\n\n古い依頼");
+    expect(output).toContain("## Codex\n\n古い回答");
+    expect(output).toContain("## User - 2026-05-18 10:01\n\n途中の依頼");
+    expect(output).toContain("## Codex - 2026-05-18 10:01\n\n途中の回答");
+  });
+
+  it("exports only the thread history remaining after rollback", () => {
+    const rolledBackUserText = "rollbackされた依頼";
+    const rolledBackAssistantText = "rollbackされた回答";
+    const remainingTurn = turn([userMessage("user-1", "残る依頼"), assistantMessage("assistant-1", "残る回答")], {
+      startedAt: timestamp(2026, 5, 18, 9, 0),
+      completedAt: timestamp(2026, 5, 18, 9, 2),
+    });
+    const rolledBackTurn = turn([userMessage("user-2", rolledBackUserText), assistantMessage("assistant-2", rolledBackAssistantText)], {
+      startedAt: timestamp(2026, 5, 18, 10, 0),
+      completedAt: timestamp(2026, 5, 18, 10, 3),
+    });
+    const output = markdownFromThread(
+      thread({
+        turns: [remainingTurn],
+      }),
+      new Date(2026, 4, 18),
+    );
+
+    expect(output).toContain("残る依頼");
+    expect(output).toContain("残る回答");
+    expect(rolledBackTurn.items).toHaveLength(2);
+    expect(output).not.toContain(rolledBackUserText);
+    expect(output).not.toContain(rolledBackAssistantText);
   });
 
   it("hides embedded /refer context and keeps a compact reference line", () => {
@@ -185,7 +238,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
   };
 }
 
-function turn(items: ThreadItem[]): Turn {
+function turn(items: ThreadItem[], overrides: Partial<Turn> = {}): Turn {
   return {
     id: "turn-1",
     items,
@@ -195,7 +248,12 @@ function turn(items: ThreadItem[]): Turn {
     startedAt: 1,
     completedAt: 2,
     durationMs: 1000,
+    ...overrides,
   };
+}
+
+function timestamp(year: number, month: number, day: number, hour: number, minute: number): number {
+  return Math.floor(new Date(year, month - 1, day, hour, minute).getTime() / 1000);
 }
 
 function userMessage(id: string, text: string): ThreadItem {

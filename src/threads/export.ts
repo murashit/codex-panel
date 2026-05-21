@@ -74,17 +74,20 @@ export function normalizedArchiveTags(value: string): string[] {
 }
 
 function turnMarkdownLines(turns: Turn[]): string[] {
-  return [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0)).flatMap((turn) => turn.items.flatMap(markdownLinesFromItem));
+  return [...turns]
+    .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))
+    .flatMap((turn) => turn.items.flatMap((item) => markdownLinesFromItem(item, turn)));
 }
 
-function markdownLinesFromItem(item: ThreadItem): string[] {
+function markdownLinesFromItem(item: ThreadItem, turn: Turn): string[] {
   if (item.type === "userMessage") {
     const text = inputToText(item.content).trim();
     if (!text) return [];
+    const heading = timestampedHeading("User", turn.startedAt);
     const referenced = referencedThreadDisplayFromPrompt(text);
     if (referenced) {
       return [
-        "## User",
+        heading,
         "",
         referenced.text,
         "",
@@ -92,17 +95,29 @@ function markdownLinesFromItem(item: ThreadItem): string[] {
         "",
       ];
     }
-    return ["## User", "", text, ""];
+    return [heading, "", text, ""];
   }
   if (item.type === "agentMessage") {
     const text = item.text.trim();
-    return text ? ["## Codex", "", text, ""] : [];
+    return text ? [timestampedHeading("Codex", turn.completedAt ?? turn.startedAt), "", text, ""] : [];
   }
   if (item.type === "plan") {
     const text = item.text.trim();
-    return text ? ["## Proposed plan", "", text, ""] : [];
+    return text ? [timestampedHeading("Proposed plan", turn.completedAt ?? turn.startedAt), "", text, ""] : [];
   }
   return [];
+}
+
+function timestampedHeading(label: string, unixSeconds: number | null): string {
+  const timestamp = formatUnixTimestamp(unixSeconds);
+  return timestamp ? `## ${label} - ${timestamp}` : `## ${label}`;
+}
+
+function formatUnixTimestamp(unixSeconds: number | null): string | null {
+  if (!Number.isFinite(unixSeconds) || !unixSeconds || unixSeconds <= 0) return null;
+  const date = new Date(unixSeconds * 1000);
+  if (!Number.isFinite(date.getTime())) return null;
+  return `${formatDate(date)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 function frontmatterTagsLines(tags: string[]): string[] {
