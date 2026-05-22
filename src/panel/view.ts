@@ -214,15 +214,15 @@ export class CodexPanelView extends ItemView {
     });
   }
 
-  getViewType(): string {
+  override getViewType(): string {
     return VIEW_TYPE_CODEX_PANEL;
   }
 
-  getDisplayText(): string {
+  override getDisplayText(): string {
     return codexPanelDisplayTitle(this.state.activeThreadId, this.state.listedThreads);
   }
 
-  getIcon(): string {
+  override getIcon(): string {
     return "bot-message-square";
   }
 
@@ -238,7 +238,7 @@ export class CodexPanelView extends ItemView {
     await this.resumeThread(threadId);
   }
 
-  async onOpen(): Promise<void> {
+  override async onOpen(): Promise<void> {
     this.composerController.registerNoteIndexInvalidation((eventRef) => {
       this.registerEvent(eventRef);
     });
@@ -249,7 +249,7 @@ export class CodexPanelView extends ItemView {
     await this.ensureConnected();
   }
 
-  async onClose(): Promise<void> {
+  override async onClose(): Promise<void> {
     if (this.scheduledRenderTimer !== null) {
       this.containerEl.win.clearTimeout(this.scheduledRenderTimer);
       this.scheduledRenderTimer = null;

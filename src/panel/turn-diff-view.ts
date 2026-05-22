@@ -14,23 +14,23 @@ export class CodexTurnDiffView extends ItemView {
   private metadata: PersistedTurnDiffViewState | null = null;
   private payload: TurnDiffViewState | null = null;
 
-  getViewType(): string {
+  override getViewType(): string {
     return VIEW_TYPE_CODEX_TURN_DIFF;
   }
 
-  getDisplayText(): string {
+  override getDisplayText(): string {
     return "Codex turn diff";
   }
 
-  getIcon(): string {
+  override getIcon(): string {
     return "file-diff";
   }
 
-  getState(): Record<string, unknown> {
+  override getState(): Record<string, unknown> {
     return this.metadata ? { ...this.metadata } : {};
   }
 
-  async setState(state: unknown, result: ViewStateResult): Promise<void> {
+  override async setState(state: unknown, result: ViewStateResult): Promise<void> {
     await super.setState(state, result);
     this.metadata = isPersistedTurnDiffViewState(state)
       ? {
@@ -44,7 +44,7 @@ export class CodexTurnDiffView extends ItemView {
     this.render();
   }
 
-  async onOpen(): Promise<void> {
+  override async onOpen(): Promise<void> {
     this.render();
   }
 

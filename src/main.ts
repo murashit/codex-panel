@@ -12,7 +12,7 @@ export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
   vaultPath = "";
 
-  async onload(): Promise<void> {
+  override async onload(): Promise<void> {
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
 
