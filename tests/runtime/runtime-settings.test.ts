@@ -149,7 +149,7 @@ describe("runtime settings", () => {
       effectiveConfig: { config } as unknown as RuntimeSnapshot["effectiveConfig"],
     });
 
-    expect(config.approvals_reviewer).toBe("auto_review");
+    expect(config["approvals_reviewer"]).toBe("auto_review");
     expect(autoReviewActive(snapshot, config)).toBe(false);
   });
 
@@ -360,8 +360,8 @@ describe("runtime settings", () => {
       "active service tier": "(not reported)",
       "fast mode": "on",
     });
-    expect(policyRows.approval).toBe("never");
-    expect(policyRows.reviewer).toBe("auto_review");
+    expect(policyRows["approval"]).toBe("never");
+    expect(policyRows["reviewer"]).toBe("auto_review");
     expect(policyRows["auto-review"]).toBe("on");
     expect(policyRows["config reviewer"]).toBe("auto_review");
     expect(policyRows["active reviewer"]).toBe("(not reported)");

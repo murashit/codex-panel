@@ -244,7 +244,7 @@ describe("AppServerClient", () => {
         input: [{ type: "text", text: "default", text_elements: [] }],
       },
     });
-    expect((transport.sent[2] as { params?: Record<string, unknown> }).params?.collaborationMode).toBeUndefined();
+    expect((transport.sent[2] as { params?: Record<string, unknown> }).params?.["collaborationMode"]).toBeUndefined();
     transport.emitLine({ id: 2, result: { turn: { id: "turn-default" } } });
     await defaultTurn;
 
@@ -492,7 +492,7 @@ describe("AppServerClient", () => {
       method: "skills/list",
       params: { cwds: ["/vault"], forceReload: false },
     });
-    expect((transport.sent[2] as { params?: Record<string, unknown> }).params?.perCwdExtraUserRoots).toBeUndefined();
+    expect((transport.sent[2] as { params?: Record<string, unknown> }).params?.["perCwdExtraUserRoots"]).toBeUndefined();
     transport.emitLine({ id: 2, result: { data: [] } });
     await skills;
 

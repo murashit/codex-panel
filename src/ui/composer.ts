@@ -90,8 +90,8 @@ export function syncComposerControls(
     sendButton.classList.toggle("is-interrupt", interruptMode);
     sendButton.classList.toggle("is-steer", canSteer);
     const mode = interruptMode ? "interrupt" : canSteer ? "steer" : "send";
-    if (sendButton.dataset.codexMode !== mode) {
-      sendButton.dataset.codexMode = mode;
+    if (sendButton.dataset["codexMode"] !== mode) {
+      sendButton.dataset["codexMode"] = mode;
       setButtonIcon(sendButton, interruptMode ? "square" : canSteer ? "corner-down-right" : "send");
     }
   }

@@ -2157,14 +2157,14 @@ describe("composer renderer decisions", () => {
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
     expect(sendButton?.classList.contains("is-interrupt")).toBe(true);
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
-    expect(sendButton?.dataset.icon).toBe("square");
+    expect(sendButton?.dataset["icon"]).toBe("square");
 
     composer.value = "adjust course";
     syncComposerControls(parent, composer, true, true);
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
     expect(sendButton?.classList.contains("is-interrupt")).toBe(false);
     expect(sendButton?.classList.contains("is-steer")).toBe(true);
-    expect(sendButton?.dataset.icon).toBe("corner-down-right");
+    expect(sendButton?.dataset["icon"]).toBe("corner-down-right");
   });
 
   it("honors the smaller viewport branch of the composer max-height CSS", () => {

@@ -85,7 +85,7 @@ export class PanelSessionController {
     try {
       const response = await client.readAccountRateLimits();
       const rateLimitsByLimitId = response.rateLimitsByLimitId;
-      const codexRateLimit = rateLimitsByLimitId && Object.hasOwn(rateLimitsByLimitId, "codex") ? rateLimitsByLimitId.codex : undefined;
+      const codexRateLimit = rateLimitsByLimitId && Object.hasOwn(rateLimitsByLimitId, "codex") ? rateLimitsByLimitId["codex"] : undefined;
       this.host.state.rateLimit = codexRateLimit ?? response.rateLimits;
     } catch {
       this.host.state.rateLimit = null;

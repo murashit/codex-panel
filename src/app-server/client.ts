@@ -193,10 +193,7 @@ export class AppServerClient {
   }
 
   setHookEnabled(hook: HookMetadata, enabled: boolean): Promise<ConfigWriteResponse> {
-    const state: Record<string, JsonValue> = { enabled };
-    if (hook.trustStatus === "trusted") {
-      state.trusted_hash = hook.currentHash;
-    }
+    const state: Record<string, JsonValue> = hook.trustStatus === "trusted" ? { enabled, trusted_hash: hook.currentHash } : { enabled };
     return this.writeHookState(hook.key, state);
   }
 

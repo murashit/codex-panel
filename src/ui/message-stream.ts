@@ -117,7 +117,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
 export function syncMessageRenderBlocks(parent: HTMLElement, blocks: MessageRenderBlock[], signatures: Map<string, string>): void {
   const existing = new Map<string, HTMLElement>();
   parent.querySelectorAll<HTMLElement>(":scope > [data-codex-panel-block-key]").forEach((element) => {
-    const key = element.dataset.codexPanelBlockKey;
+    const key = element.dataset["codexPanelBlockKey"];
     if (key) existing.set(key, element);
   });
 
@@ -129,8 +129,8 @@ export function syncMessageRenderBlocks(parent: HTMLElement, blocks: MessageRend
     const currentWasNext = current === nextPosition;
     if (!element || signatures.get(block.key) !== block.signature) {
       element = block.render();
-      element.dataset.codexPanelBlockKey = block.key;
-      element.dataset.codexPanelBlockSignature = shortSignature(block.signature);
+      element.dataset["codexPanelBlockKey"] = block.key;
+      element.dataset["codexPanelBlockSignature"] = shortSignature(block.signature);
       signatures.set(block.key, block.signature);
       if (current) {
         current.replaceWith(element);

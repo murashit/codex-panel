@@ -35,18 +35,21 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
 export function normalizeSettings(data: unknown): CodexPanelSettings {
   const record = asRecord(data);
   return {
-    codexPath: stringOrDefault(record.codexPath, DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH,
-    threadNamingModel: threadNamingModelOrDefault(record.threadNamingModel),
-    threadNamingEffort: reasoningEffortOrDefault(record.threadNamingEffort),
-    rewriteSelectionModel: modelOrDefault(record.rewriteSelectionModel),
-    rewriteSelectionEffort: reasoningEffortOrDefault(record.rewriteSelectionEffort),
-    sendShortcut: sendShortcutOrDefault(record.sendShortcut),
-    archiveExportEnabled: booleanOrDefault(record.archiveExportEnabled, DEFAULT_SETTINGS.archiveExportEnabled),
-    archiveExportFolderTemplate: stringOrDefault(record.archiveExportFolderTemplate, DEFAULT_SETTINGS.archiveExportFolderTemplate).trim(),
+    codexPath: stringOrDefault(record["codexPath"], DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH,
+    threadNamingModel: threadNamingModelOrDefault(record["threadNamingModel"]),
+    threadNamingEffort: reasoningEffortOrDefault(record["threadNamingEffort"]),
+    rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"]),
+    rewriteSelectionEffort: reasoningEffortOrDefault(record["rewriteSelectionEffort"]),
+    sendShortcut: sendShortcutOrDefault(record["sendShortcut"]),
+    archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),
+    archiveExportFolderTemplate: stringOrDefault(
+      record["archiveExportFolderTemplate"],
+      DEFAULT_SETTINGS.archiveExportFolderTemplate,
+    ).trim(),
     archiveExportFilenameTemplate:
-      stringOrDefault(record.archiveExportFilenameTemplate, DEFAULT_SETTINGS.archiveExportFilenameTemplate).trim() ||
+      stringOrDefault(record["archiveExportFilenameTemplate"], DEFAULT_SETTINGS.archiveExportFilenameTemplate).trim() ||
       DEFAULT_SETTINGS.archiveExportFilenameTemplate,
-    archiveExportTags: stringOrDefault(record.archiveExportTags, DEFAULT_SETTINGS.archiveExportTags).trim(),
+    archiveExportTags: stringOrDefault(record["archiveExportTags"], DEFAULT_SETTINGS.archiveExportTags).trim(),
   };
 }
 
@@ -54,16 +57,16 @@ export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelS
   const record = asRecord(data);
   return (
     Object.keys(record).length === 10 &&
-    record.codexPath === settings.codexPath &&
-    record.threadNamingModel === settings.threadNamingModel &&
-    record.threadNamingEffort === settings.threadNamingEffort &&
-    record.rewriteSelectionModel === settings.rewriteSelectionModel &&
-    record.rewriteSelectionEffort === settings.rewriteSelectionEffort &&
-    record.sendShortcut === settings.sendShortcut &&
-    record.archiveExportEnabled === settings.archiveExportEnabled &&
-    record.archiveExportFolderTemplate === settings.archiveExportFolderTemplate &&
-    record.archiveExportFilenameTemplate === settings.archiveExportFilenameTemplate &&
-    record.archiveExportTags === settings.archiveExportTags
+    record["codexPath"] === settings.codexPath &&
+    record["threadNamingModel"] === settings.threadNamingModel &&
+    record["threadNamingEffort"] === settings.threadNamingEffort &&
+    record["rewriteSelectionModel"] === settings.rewriteSelectionModel &&
+    record["rewriteSelectionEffort"] === settings.rewriteSelectionEffort &&
+    record["sendShortcut"] === settings.sendShortcut &&
+    record["archiveExportEnabled"] === settings.archiveExportEnabled &&
+    record["archiveExportFolderTemplate"] === settings.archiveExportFolderTemplate &&
+    record["archiveExportFilenameTemplate"] === settings.archiveExportFilenameTemplate &&
+    record["archiveExportTags"] === settings.archiveExportTags
   );
 }
 

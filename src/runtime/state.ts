@@ -43,8 +43,9 @@ export function configRecord(effectiveConfig: ConfigReadResponse | null): Record
 }
 
 export function selectedProfileConfig(config: Record<string, unknown>): Record<string, unknown> {
-  const profileName = typeof config.profile === "string" && config.profile.length > 0 ? config.profile : null;
-  return profileName ? asRecord(asRecord(config.profiles)[profileName]) : {};
+  const profile = config["profile"];
+  const profileName = typeof profile === "string" && profile.length > 0 ? profile : null;
+  return profileName ? asRecord(asRecord(config["profiles"])[profileName]) : {};
 }
 
 export function resolvedConfigValue(config: Record<string, unknown>, key: string): unknown {
