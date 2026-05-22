@@ -14,7 +14,7 @@ import type { PendingApproval } from "../approvals/model";
 import type { ComposerSuggestion } from "../composer/suggestions";
 import type { DisplayItem } from "../display/types";
 import type { PendingUserInput } from "../user-input/model";
-import type { ServiceTier } from "../app-server/service-tier";
+import type { ReportedServiceTier, ServiceTier } from "../app-server/service-tier";
 import { defaultRuntimeOverride, type RuntimeOverride } from "../runtime/state";
 
 export interface PendingTurnStart {
@@ -32,7 +32,7 @@ export interface PanelState {
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
-  activeServiceTier: string | null;
+  activeServiceTier: ReportedServiceTier | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   activeThreadCliVersion: string | null;
   appServerDiagnostics: AppServerDiagnostics;

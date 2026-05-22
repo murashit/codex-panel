@@ -5,6 +5,7 @@ import {
   upsertMcpServerDiagnostic,
   type CapabilityProbeMethod,
 } from "../app-server/compatibility";
+import { reportedServiceTier } from "../app-server/service-tier";
 import type { McpServerStatus } from "../generated/app-server/v2/McpServerStatus";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../runtime/state";
 import type { PanelState } from "./state";
@@ -47,7 +48,7 @@ export class PanelSessionController {
     this.host.state.activeTurnId = null;
     this.host.state.activeModel = response.model;
     this.host.state.activeReasoningEffort = response.reasoningEffort;
-    this.host.state.activeServiceTier = response.serviceTier;
+    this.host.state.activeServiceTier = reportedServiceTier(response.serviceTier);
     this.host.state.activeApprovalsReviewer = response.approvalsReviewer;
     this.host.state.activeThreadCliVersion = response.thread.cliVersion;
     this.host.state.tokenUsage = null;

@@ -1,4 +1,5 @@
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "../approvals/model";
+import { reportedServiceTier } from "../app-server/service-tier";
 import { planProgressDisplayItem } from "../display/plan";
 import { createAutoReviewResultItem, createReviewResultItem } from "../display/review";
 import {
@@ -421,7 +422,7 @@ export class PanelController {
     this.state.activeReasoningEffort = settings.effort;
     this.state.activeCollaborationMode = settings.collaborationMode.mode;
     this.state.requestedCollaborationMode = settings.collaborationMode.mode;
-    this.state.activeServiceTier = settings.serviceTier;
+    this.state.activeServiceTier = reportedServiceTier(settings.serviceTier);
     this.state.activeApprovalsReviewer = settings.approvalsReviewer;
   }
 }

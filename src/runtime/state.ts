@@ -7,7 +7,7 @@ import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
 import type { DisplayItem } from "../display/types";
-import { parseServiceTier, serviceTierRequestValue, type ServiceTier, type ServiceTierRequest } from "../app-server/service-tier";
+import { serviceTierRequestValue, type ReportedServiceTier, type ServiceTier, type ServiceTierRequest } from "../app-server/service-tier";
 import { defaultCollaborationMode, planCollaborationMode } from "./collaboration-mode";
 import { findModelByIdOrName, supportedEffortsForModel } from "./model";
 import { compactModelLabel, compactReasoningEffortLabel } from "./settings";
@@ -21,7 +21,7 @@ export interface RuntimeSnapshot {
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
-  activeServiceTier: string | null;
+  activeServiceTier: ReportedServiceTier | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
@@ -43,9 +43,8 @@ export function currentServiceTier(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): string | null {
-  const active = parseServiceTier(snapshot.activeServiceTier) ?? snapshot.activeServiceTier;
   if (snapshot.requestedServiceTier !== null) return snapshot.requestedServiceTier;
-  return active ?? config.serviceTier;
+  return snapshot.activeServiceTier ?? config.serviceTier;
 }
 
 export function requestedOrConfiguredServiceTier(

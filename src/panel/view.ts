@@ -2,7 +2,7 @@ import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../app-server/connection-manager";
-import { serviceTierRequestValue, type ServiceTier } from "../app-server/service-tier";
+import { reportedServiceTier, serviceTierRequestValue, type ServiceTier } from "../app-server/service-tier";
 import type { ApprovalAction, PendingApproval } from "../approvals/model";
 import type { SlashCommandName } from "../composer/slash-commands";
 import { parseSlashCommand } from "../composer/suggestions";
@@ -350,7 +350,7 @@ export class CodexPanelView extends ItemView {
       this.state.activeTurnId = null;
       this.state.activeModel = response.model;
       this.state.activeReasoningEffort = response.reasoningEffort;
-      this.state.activeServiceTier = response.serviceTier;
+      this.state.activeServiceTier = reportedServiceTier(response.serviceTier);
       this.state.activeApprovalsReviewer = response.approvalsReviewer;
       this.state.activeThreadCliVersion = response.thread.cliVersion;
       this.state.tokenUsage = null;
@@ -662,7 +662,7 @@ export class CodexPanelView extends ItemView {
     }
     if ("serviceTier" in update) {
       const serviceTier = update.serviceTier;
-      this.state.activeServiceTier = this.state.requestedServiceTier ?? serviceTier ?? null;
+      this.state.activeServiceTier = this.state.requestedServiceTier ?? reportedServiceTier(serviceTier);
       this.state.requestedServiceTier = null;
     }
     if ("approvalsReviewer" in update) {
