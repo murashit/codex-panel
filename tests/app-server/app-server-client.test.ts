@@ -377,6 +377,19 @@ describe("AppServerClient", () => {
     await update;
   });
 
+  it("requests effective config with raw layers for display fallbacks", async () => {
+    const { client, transport } = await connectedClient();
+
+    const reading = client.readEffectiveConfig("/vault");
+    expect(transport.sent[2]).toMatchObject({
+      id: 2,
+      method: "config/read",
+      params: { cwd: "/vault", includeLayers: true },
+    });
+    transport.emitLine({ id: 2, result: { config: {}, origins: {}, layers: [] } });
+    await reading;
+  });
+
   it("sends model list request payloads", async () => {
     const { client, transport } = await connectedClient();
 

@@ -33,7 +33,9 @@ export interface PanelState {
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
   activeServiceTier: string | null;
+  activeServiceTierOverride: boolean;
   activeApprovalsReviewer: ApprovalsReviewer | null;
+  activeApprovalsReviewerOverride: boolean;
   activeThreadCliVersion: string | null;
   appServerDiagnostics: AppServerDiagnostics;
   requestedModel: RuntimeOverride<string>;
@@ -78,7 +80,9 @@ export function createPanelState(): PanelState {
     activeReasoningEffort: null,
     activeCollaborationMode: "default",
     activeServiceTier: null,
+    activeServiceTierOverride: false,
     activeApprovalsReviewer: null,
+    activeApprovalsReviewerOverride: false,
     activeThreadCliVersion: null,
     appServerDiagnostics: createAppServerDiagnostics(),
     requestedModel: defaultRuntimeOverride(),
@@ -128,7 +132,9 @@ export function clearActiveThreadState(state: PanelState): void {
   state.activeReasoningEffort = null;
   state.activeCollaborationMode = "default";
   state.activeServiceTier = null;
+  state.activeServiceTierOverride = false;
   state.activeApprovalsReviewer = null;
+  state.activeApprovalsReviewerOverride = false;
   state.activeThreadCliVersion = null;
   state.tokenUsage = null;
   state.historyCursor = null;
@@ -145,7 +151,9 @@ export function clearConnectionScopedState(state: PanelState): void {
   state.activeReasoningEffort = null;
   state.activeCollaborationMode = "default";
   state.activeServiceTier = null;
+  state.activeServiceTierOverride = false;
   state.activeApprovalsReviewer = null;
+  state.activeApprovalsReviewerOverride = false;
   state.activeThreadCliVersion = null;
   state.rateLimit = null;
   state.listedThreads = [];

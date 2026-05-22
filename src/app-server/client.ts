@@ -170,7 +170,7 @@ export class AppServerClient {
   }
 
   readEffectiveConfig(cwd: string): Promise<ConfigReadResponse> {
-    return this.request("config/read", { cwd, includeLayers: false });
+    return this.request("config/read", { cwd, includeLayers: true });
   }
 
   listHooks(cwd: string): Promise<HooksListResponse> {

@@ -1029,6 +1029,41 @@ describe("PanelController", () => {
       expect(state.displayItems).toEqual([]);
     });
 
+    it("preserves explicit standard service tier when settings notifications report null", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      state.activeServiceTier = "standard";
+      state.activeServiceTierOverride = true;
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "thread/settings/updated",
+        params: {
+          threadId: "thread-active",
+          threadSettings: {
+            cwd: "/workspace/active",
+            approvalPolicy: "on-request",
+            approvalsReviewer: "user",
+            sandboxPolicy: { type: "readOnly", networkAccess: false },
+            activePermissionProfile: null,
+            model: "gpt-5.5",
+            modelProvider: "openai",
+            serviceTier: null,
+            effort: "high",
+            summary: null,
+            collaborationMode: {
+              mode: "default",
+              settings: { model: "gpt-5.5", reasoning_effort: "high", developer_instructions: null },
+            },
+            personality: null,
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
+
+      expect(state.activeServiceTier).toBe("standard");
+      expect(state.activeServiceTierOverride).toBe(true);
+    });
+
     it("keeps goal notifications out of the message stream", () => {
       const state = createPanelState();
       state.activeThreadId = "thread-active";

@@ -32,6 +32,7 @@ import {
   currentServiceTier,
   defaultRuntimeOverride,
   requestedTurnRuntimeSettings,
+  resolvedConfigValue,
   resetRuntimeOverride,
   runtimeOverridePayload,
   runtimeOverrideLabel,
@@ -329,7 +330,9 @@ export class CodexPanelView extends ItemView {
       this.state.activeModel = response.model ?? null;
       this.state.activeReasoningEffort = response.reasoningEffort ?? null;
       this.state.activeServiceTier = response.serviceTier ?? null;
+      this.state.activeServiceTierOverride = false;
       this.state.activeApprovalsReviewer = response.approvalsReviewer ?? null;
+      this.state.activeApprovalsReviewerOverride = false;
       this.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
       this.state.tokenUsage = null;
       this.state.displayItems = [];
@@ -631,10 +634,12 @@ export class CodexPanelView extends ItemView {
     }
     if ("serviceTier" in update) {
       this.state.activeServiceTier = this.state.requestedServiceTier === "standard" ? "standard" : (update.serviceTier ?? null);
+      this.state.activeServiceTierOverride = true;
       this.state.requestedServiceTier = null;
     }
     if ("approvalsReviewer" in update) {
       this.state.activeApprovalsReviewer = update.approvalsReviewer ?? null;
+      this.state.activeApprovalsReviewerOverride = true;
       this.state.requestedApprovalsReviewer = null;
     }
     if (update.collaborationMode) {
@@ -647,6 +652,7 @@ export class CodexPanelView extends ItemView {
     const next: ServiceTier = current === "fast" ? "standard" : "fast";
     this.state.requestedServiceTier = next;
     this.state.activeServiceTier = next;
+    this.state.activeServiceTierOverride = true;
     this.state.runtimePicker = null;
     if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(next === "fast" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.");
@@ -666,6 +672,7 @@ export class CodexPanelView extends ItemView {
       : "auto_review";
     this.state.requestedApprovalsReviewer = next;
     this.state.activeApprovalsReviewer = next;
+    this.state.activeApprovalsReviewerOverride = true;
     this.state.runtimePicker = null;
     if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(next === "auto_review" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.");
@@ -1009,7 +1016,7 @@ export class CodexPanelView extends ItemView {
     return [
       `Model: ${currentModel(snapshot, config) ?? "(from default)"}`,
       `Override: ${runtimeOverrideLabel(this.state.requestedModel)}`,
-      `Provider: ${statusValue(config.model_provider, "(from default)")}`,
+      `Provider: ${statusValue(resolvedConfigValue(config, "model_provider"), "(from default)")}`,
       `Effort: ${currentReasoningEffort(snapshot, config) ?? "(from default)"}`,
       `Mode: ${this.collaborationModeLabel()}`,
       `Service tier: ${serviceTierLabel(snapshot, config)}`,
@@ -1067,7 +1074,9 @@ export class CodexPanelView extends ItemView {
       activeReasoningEffort: this.state.activeReasoningEffort,
       activeCollaborationMode: this.state.activeCollaborationMode,
       activeServiceTier: this.state.activeServiceTier,
+      activeServiceTierOverride: this.state.activeServiceTierOverride,
       activeApprovalsReviewer: this.state.activeApprovalsReviewer,
+      activeApprovalsReviewerOverride: this.state.activeApprovalsReviewerOverride,
       requestedModel: this.state.requestedModel,
       requestedReasoningEffort: this.state.requestedReasoningEffort,
       requestedApprovalsReviewer: this.state.requestedApprovalsReviewer,

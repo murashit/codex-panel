@@ -427,8 +427,13 @@ export class PanelController {
     this.state.activeReasoningEffort = settings.effort ?? null;
     this.state.activeCollaborationMode = settings.collaborationMode.mode;
     this.state.requestedCollaborationMode = settings.collaborationMode.mode;
-    this.state.activeServiceTier = settings.serviceTier ?? null;
-    this.state.activeApprovalsReviewer = settings.approvalsReviewer ?? null;
+    const serviceTierOverride = this.state.activeServiceTierOverride || this.state.requestedServiceTier !== null;
+    const approvalsReviewerOverride = this.state.activeApprovalsReviewerOverride || this.state.requestedApprovalsReviewer !== null;
+    this.state.activeServiceTier = settings.serviceTier ?? (serviceTierOverride ? this.state.activeServiceTier : null);
+    this.state.activeServiceTierOverride = serviceTierOverride;
+    this.state.activeApprovalsReviewer =
+      settings.approvalsReviewer ?? (approvalsReviewerOverride ? this.state.activeApprovalsReviewer : null);
+    this.state.activeApprovalsReviewerOverride = approvalsReviewerOverride;
   }
 }
 

@@ -4,9 +4,14 @@ import { jsonPreview } from "../utils";
 import { sortedAvailableModels } from "./model";
 import {
   configRecord,
+  configuredApprovalsReviewer,
+  configuredServiceTier,
+  currentApprovalsReviewer,
   currentModel,
   currentReasoningEffort,
+  autoReviewActive,
   fastModeLabel,
+  resolvedConfigValue,
   runtimeOverrideLabel,
   serviceTierLabel,
   type RuntimeSnapshot,
@@ -102,7 +107,7 @@ export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs = Date.now()):
 export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: string): EffectiveConfigSection[] {
   const config = configRecord(snapshot.effectiveConfig);
   const features = asRecord(config.features);
-  const tools = asRecord(config.tools);
+  const tools = asRecord(resolvedConfigValue(config, "tools"));
   const workspaceWrite = asRecord(config.sandbox_workspace_write);
   return [
     {
@@ -110,7 +115,7 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
       rows: [
         { key: "cwd", value: vaultPath },
         { key: "profile", value: stringValue(config.profile, "(default)") },
-        { key: "model provider", value: stringValue(config.model_provider, "(from default)") },
+        { key: "model provider", value: stringValue(resolvedConfigValue(config, "model_provider"), "(from default)") },
       ],
     },
     {
@@ -122,8 +127,8 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
         { key: "effort", value: currentReasoningEffort(snapshot, config) ?? "(from default)" },
         { key: "config effort", value: configuredReasoningEffort(snapshot, config) ?? "(not reported)" },
         { key: "effort change", value: runtimeOverrideLabel(snapshot.requestedReasoningEffort) },
-        { key: "reasoning summary", value: stringValue(config.model_reasoning_summary, "(from default)") },
-        { key: "verbosity", value: stringValue(config.model_verbosity, "(from default)") },
+        { key: "reasoning summary", value: stringValue(resolvedConfigValue(config, "model_reasoning_summary"), "(from default)") },
+        { key: "verbosity", value: stringValue(resolvedConfigValue(config, "model_verbosity"), "(from default)") },
         { key: "mode", value: snapshot.activeCollaborationMode === "plan" ? "Plan" : "Default" },
         {
           key: "mode change",
@@ -133,6 +138,8 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
               : modeLabel(snapshot.requestedCollaborationMode),
         },
         { key: "service tier", value: serviceTierLabel(snapshot, config) },
+        { key: "config service tier", value: configuredServiceTier(config) ?? "(not reported)" },
+        { key: "active service tier", value: activeRuntimeValueLabel(snapshot.activeServiceTier, snapshot.activeServiceTierOverride) },
         { key: "fast mode", value: fastModeLabel(snapshot, config) },
         { key: "context window", value: tokenLimitLabel(config.model_context_window) },
         { key: "auto compact limit", value: tokenLimitLabel(config.model_auto_compact_token_limit) },
@@ -141,12 +148,18 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
     {
       title: "Policy",
       rows: [
-        { key: "approval", value: stringValue(config.approval_policy, "(from default)") },
-        { key: "reviewer", value: stringValue(config.approvals_reviewer, "(from default)") },
+        { key: "approval", value: stringValue(resolvedConfigValue(config, "approval_policy"), "(from default)") },
+        { key: "reviewer", value: currentApprovalsReviewer(snapshot, config) ?? "(not reported)" },
+        { key: "auto-review", value: autoReviewActive(snapshot, config) ? "on" : "off" },
+        { key: "config reviewer", value: configuredApprovalsReviewer(config) ?? "(from default)" },
+        {
+          key: "active reviewer",
+          value: activeRuntimeValueLabel(snapshot.activeApprovalsReviewer, snapshot.activeApprovalsReviewerOverride),
+        },
         { key: "sandbox", value: stringValue(config.sandbox_mode, "(from default)") },
         { key: "workspace network", value: stringValue(workspaceWrite.network_access, "(from default)") },
         { key: "writable roots", value: writableRootsLabel(workspaceWrite.writable_roots) },
-        { key: "web search", value: stringValue(config.web_search, "(from default)") },
+        { key: "web search", value: stringValue(resolvedConfigValue(config, "web_search"), "(from default)") },
       ],
     },
     {
@@ -166,13 +179,15 @@ function contextUsageTokens(usage: ThreadTokenUsage): number {
 }
 
 function configuredModel(snapshot: RuntimeSnapshot, config: Record<string, unknown>): string | null {
-  if (typeof config.model === "string" && config.model.length > 0) return config.model;
+  const model = resolvedConfigValue(config, "model");
+  if (typeof model === "string" && model.length > 0) return model;
   return sortedAvailableModels(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
 }
 
 function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: Record<string, unknown>): string | null {
-  if (typeof config.model_reasoning_effort === "string" && config.model_reasoning_effort.length > 0) {
-    return config.model_reasoning_effort;
+  const effort = resolvedConfigValue(config, "model_reasoning_effort");
+  if (typeof effort === "string" && effort.length > 0) {
+    return effort;
   }
   const model = configuredModel(snapshot, config);
   return (
@@ -182,6 +197,10 @@ function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: Record<str
 
 function modeLabel(mode: RuntimeSnapshot["requestedCollaborationMode"]): string {
   return mode === "plan" ? "Plan" : "Default";
+}
+
+function activeRuntimeValueLabel(value: string | null, override: boolean): string {
+  return `${value ?? "(not reported)"}${override ? " (override)" : ""}`;
 }
 
 function rateLimitWindowSummary(

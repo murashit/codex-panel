@@ -21,7 +21,9 @@ export interface RuntimeSnapshot {
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
   activeServiceTier: string | null;
+  activeServiceTierOverride: boolean;
   activeApprovalsReviewer: ApprovalsReviewer | null;
+  activeApprovalsReviewerOverride: boolean;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
   requestedApprovalsReviewer: ApprovalsReviewer | null;
@@ -39,16 +41,26 @@ export interface TurnRuntimeSettings {
 }
 
 export function configRecord(effectiveConfig: ConfigReadResponse | null): Record<string, unknown> {
-  return asRecord(effectiveConfig?.config);
+  return fillMissingConfigValues(asRecord(effectiveConfig?.config), effectiveConfig?.layers ?? null);
+}
+
+export function selectedProfileConfig(config: Record<string, unknown>): Record<string, unknown> {
+  const profileName = typeof config.profile === "string" && config.profile.length > 0 ? config.profile : null;
+  return profileName ? asRecord(asRecord(config.profiles)[profileName]) : {};
+}
+
+export function resolvedConfigValue(config: Record<string, unknown>, key: string): unknown {
+  const profileValue = selectedProfileConfig(config)[key];
+  return profileValue === undefined || profileValue === null ? config[key] : profileValue;
 }
 
 export function currentServiceTier(snapshot: RuntimeSnapshot, config = configRecord(snapshot.effectiveConfig)): string | null {
-  return (
-    snapshot.requestedServiceTier ??
-    parseServiceTier(snapshot.activeServiceTier) ??
-    snapshot.activeServiceTier ??
-    configuredServiceTier(config)
-  );
+  const active = parseServiceTier(snapshot.activeServiceTier) ?? snapshot.activeServiceTier;
+  const configured = configuredServiceTier(config);
+  if (snapshot.requestedServiceTier !== null) return snapshot.requestedServiceTier;
+  if (snapshot.activeServiceTierOverride) return active ?? configured;
+  if (configured && (active === null || active === "standard")) return configured;
+  return active ?? configured;
 }
 
 export function requestedOrConfiguredServiceTier(
@@ -59,7 +71,7 @@ export function requestedOrConfiguredServiceTier(
 }
 
 export function currentModel(snapshot: RuntimeSnapshot, config = configRecord(snapshot.effectiveConfig)): string | null {
-  const model = config.model;
+  const model = resolvedConfigValue(config, "model");
   const configModel = typeof model === "string" && model.length > 0 ? model : null;
   if (snapshot.requestedModel.kind === "set") return snapshot.requestedModel.value;
   if (snapshot.requestedModel.kind === "resetPending" && configModel) return configModel;
@@ -68,7 +80,7 @@ export function currentModel(snapshot: RuntimeSnapshot, config = configRecord(sn
 
 export function currentReasoningEffort(snapshot: RuntimeSnapshot, config = configRecord(snapshot.effectiveConfig)): ReasoningEffort | null {
   if (snapshot.requestedReasoningEffort.kind === "set") return snapshot.requestedReasoningEffort.value;
-  const effort = config.model_reasoning_effort;
+  const effort = resolvedConfigValue(config, "model_reasoning_effort");
   if (snapshot.requestedReasoningEffort.kind === "resetPending") return isReasoningEffort(effort) ? effort : null;
   return snapshot.activeReasoningEffort ?? (isReasoningEffort(effort) ? effort : null);
 }
@@ -77,12 +89,20 @@ export function currentApprovalsReviewer(
   snapshot: RuntimeSnapshot,
   config = configRecord(snapshot.effectiveConfig),
 ): ApprovalsReviewer | null {
-  const configured = config.approvals_reviewer;
-  return snapshot.requestedApprovalsReviewer ?? snapshot.activeApprovalsReviewer ?? (isApprovalsReviewer(configured) ? configured : null);
+  const configured = configuredApprovalsReviewer(config);
+  if (snapshot.requestedApprovalsReviewer !== null) return snapshot.requestedApprovalsReviewer;
+  if (snapshot.activeApprovalsReviewerOverride) return snapshot.activeApprovalsReviewer ?? configured;
+  if (configured && (!snapshot.activeApprovalsReviewer || snapshot.activeApprovalsReviewer === "user")) return configured;
+  return snapshot.activeApprovalsReviewer ?? configured;
 }
 
 export function autoReviewActive(snapshot: RuntimeSnapshot, config = configRecord(snapshot.effectiveConfig)): boolean {
-  return currentApprovalsReviewer(snapshot, config) === "auto_review";
+  return isAutoReviewReviewer(currentApprovalsReviewer(snapshot, config));
+}
+
+export function configuredApprovalsReviewer(config: Record<string, unknown>): ApprovalsReviewer | null {
+  const value = resolvedConfigValue(config, "approvals_reviewer");
+  return isApprovalsReviewer(value) ? value : null;
 }
 
 export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRuntimeSettings {
@@ -146,14 +166,43 @@ export function runtimeOverrideLabel<T>(override: RuntimeOverride<T>): string {
   return "(none)";
 }
 
-function configuredServiceTier(config: Record<string, unknown>): ServiceTier | null {
-  return parseServiceTier(config.service_tier);
+export function configuredServiceTier(config: Record<string, unknown>): ServiceTier | null {
+  return parseServiceTier(resolvedConfigValue(config, "service_tier"));
 }
 
 function isApprovalsReviewer(value: unknown): value is ApprovalsReviewer {
   return value === "user" || value === "auto_review" || value === "guardian_subagent";
 }
 
+function isAutoReviewReviewer(value: ApprovalsReviewer | null): boolean {
+  return value === "auto_review" || value === "guardian_subagent";
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function fillMissingConfigValues(config: Record<string, unknown>, layers: ConfigReadResponse["layers"]): Record<string, unknown> {
+  if (!layers || layers.length === 0) return config;
+  const fallback = rawLayerConfigRecord(layers);
+  if (Object.keys(fallback).length === 0) return config;
+
+  const merged = { ...config };
+  for (const [key, value] of Object.entries(fallback)) {
+    if (merged[key] === undefined || merged[key] === null) {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
+function rawLayerConfigRecord(layers: NonNullable<ConfigReadResponse["layers"]>): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  for (const layer of layers) {
+    const config = asRecord(layer.config);
+    for (const [key, value] of Object.entries(config)) {
+      if (value !== undefined && value !== null) merged[key] = value;
+    }
+  }
+  return merged;
 }

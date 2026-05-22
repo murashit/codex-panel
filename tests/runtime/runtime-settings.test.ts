@@ -11,6 +11,7 @@ import {
 } from "../../src/runtime/settings";
 import {
   autoReviewActive,
+  configRecord,
   currentApprovalsReviewer,
   currentModel,
   currentReasoningEffort,
@@ -119,6 +120,128 @@ describe("runtime settings", () => {
     ).toBe("guardian_subagent");
   });
 
+  it("lets config auto-review beat an implicit initial user reviewer", () => {
+    const snapshot = runtimeSnapshot({
+      activeApprovalsReviewer: "user",
+      activeApprovalsReviewerOverride: false,
+      effectiveConfig: { config: { approvals_reviewer: "auto_review" } } as unknown as RuntimeSnapshot["effectiveConfig"],
+    });
+
+    expect(currentApprovalsReviewer(snapshot)).toBe("auto_review");
+    expect(autoReviewActive(snapshot)).toBe(true);
+  });
+
+  it("uses raw config layers when typed config omits approval reviewer", () => {
+    const config = configRecord({
+      config: {
+        approvals_reviewer: null,
+      },
+      layers: [
+        {
+          name: { type: "user", file: "/home/me/.codex/config.toml", profile: null },
+          version: "1",
+          config: { approvals_reviewer: "auto_review" },
+          disabledReason: null,
+        },
+      ],
+    } as unknown as RuntimeSnapshot["effectiveConfig"]);
+    const snapshot = runtimeSnapshot({
+      activeApprovalsReviewer: "user",
+      activeApprovalsReviewerOverride: false,
+      effectiveConfig: { config } as unknown as RuntimeSnapshot["effectiveConfig"],
+    });
+
+    expect(config.approvals_reviewer).toBe("auto_review");
+    expect(autoReviewActive(snapshot, config)).toBe(true);
+  });
+
+  it("treats guardian subagent reviewer as active auto-review", () => {
+    const snapshot = runtimeSnapshot({
+      activeApprovalsReviewer: "guardian_subagent",
+      activeApprovalsReviewerOverride: false,
+    });
+
+    expect(currentApprovalsReviewer(snapshot)).toBe("guardian_subagent");
+    expect(autoReviewActive(snapshot)).toBe(true);
+  });
+
+  it("keeps an explicit user reviewer override above config auto-review", () => {
+    const snapshot = runtimeSnapshot({
+      activeApprovalsReviewer: "user",
+      activeApprovalsReviewerOverride: true,
+      effectiveConfig: { config: { approvals_reviewer: "auto_review" } } as unknown as RuntimeSnapshot["effectiveConfig"],
+    });
+
+    expect(currentApprovalsReviewer(snapshot)).toBe("user");
+    expect(autoReviewActive(snapshot)).toBe(false);
+  });
+
+  it("resolves approval reviewer from the selected config profile", () => {
+    const snapshot = runtimeSnapshot({
+      effectiveConfig: {
+        config: {
+          approvals_reviewer: "user",
+          profile: "auto",
+          profiles: {
+            auto: { approvals_reviewer: "auto_review" },
+          },
+        },
+      } as unknown as RuntimeSnapshot["effectiveConfig"],
+    });
+
+    expect(currentApprovalsReviewer(snapshot)).toBe("auto_review");
+    expect(autoReviewActive(snapshot)).toBe(true);
+  });
+
+  it("resolves model, effort, and fast mode from the selected config profile", () => {
+    const snapshot = runtimeSnapshot({
+      effectiveConfig: {
+        config: {
+          model: "gpt-root",
+          model_reasoning_effort: "low",
+          service_tier: "standard",
+          profile: "fast-profile",
+          profiles: {
+            "fast-profile": {
+              model: "gpt-profile",
+              model_reasoning_effort: "high",
+              service_tier: "fast",
+            },
+          },
+        },
+      } as unknown as RuntimeSnapshot["effectiveConfig"],
+    });
+
+    expect(currentModel(snapshot)).toBe("gpt-profile");
+    expect(currentReasoningEffort(snapshot)).toBe("high");
+    expect(currentServiceTier(snapshot)).toBe("fast");
+    expect(serviceTierLabel(snapshot)).toBe("fast");
+    expect(fastModeLabel(snapshot)).toBe("on");
+    expect(requestedOrConfiguredServiceTier(snapshot)).toBe("fast");
+  });
+
+  it("lets config fast mode beat an implicit initial standard service tier", () => {
+    const snapshot = runtimeSnapshot({
+      activeServiceTier: "standard",
+      activeServiceTierOverride: false,
+      effectiveConfig: { config: { service_tier: "fast" } } as unknown as RuntimeSnapshot["effectiveConfig"],
+    });
+
+    expect(currentServiceTier(snapshot)).toBe("fast");
+    expect(fastModeLabel(snapshot)).toBe("on");
+  });
+
+  it("keeps an explicit standard service tier override above config fast mode", () => {
+    const snapshot = runtimeSnapshot({
+      activeServiceTier: "standard",
+      activeServiceTierOverride: true,
+      effectiveConfig: { config: { service_tier: "fast" } } as unknown as RuntimeSnapshot["effectiveConfig"],
+    });
+
+    expect(currentServiceTier(snapshot)).toBe("standard");
+    expect(fastModeLabel(snapshot)).toBe("off");
+  });
+
   it("resolves requested approval reviewer without adding it to turn runtime settings", () => {
     const snapshot = runtimeSnapshot({ requestedApprovalsReviewer: "auto_review" });
 
@@ -170,6 +293,8 @@ describe("runtime settings", () => {
       "effort change": "(none)",
       mode: "Plan",
       "mode change": "(none)",
+      "config service tier": "standard",
+      "active service tier": "(not reported)",
     });
 
     const resetSections = effectiveConfigSections(
@@ -182,6 +307,90 @@ describe("runtime settings", () => {
       resetSections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
     );
     expect(resetRuntimeRows["effort change"]).toBe("(reset to config)");
+  });
+
+  it("shows selected profile runtime and policy values in status details", () => {
+    const sections = effectiveConfigSections(
+      runtimeSnapshot({
+        effectiveConfig: {
+          config: {
+            model: "gpt-root",
+            model_provider: "root-provider",
+            model_reasoning_effort: "low",
+            model_reasoning_summary: "auto",
+            model_verbosity: "low",
+            approval_policy: "on-request",
+            web_search: "disabled",
+            service_tier: "standard",
+            profile: "auto",
+            profiles: {
+              auto: {
+                model: "gpt-profile",
+                model_provider: "profile-provider",
+                model_reasoning_effort: "high",
+                model_reasoning_summary: "detailed",
+                model_verbosity: "high",
+                approval_policy: "never",
+                approvals_reviewer: "auto_review",
+                web_search: "live",
+                service_tier: "fast",
+              },
+            },
+          },
+        } as unknown as RuntimeSnapshot["effectiveConfig"],
+      }),
+      "/vault",
+    );
+    const scopeRows = Object.fromEntries(
+      sections.find((section) => section.title === "Scope")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+    const runtimeRows = Object.fromEntries(
+      sections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+    const policyRows = Object.fromEntries(
+      sections.find((section) => section.title === "Policy")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+
+    expect(scopeRows["model provider"]).toBe("profile-provider");
+    expect(runtimeRows).toMatchObject({
+      model: "gpt-profile",
+      "config model": "gpt-profile",
+      effort: "high",
+      "config effort": "high",
+      "reasoning summary": "detailed",
+      verbosity: "high",
+      "service tier": "fast",
+      "config service tier": "fast",
+      "active service tier": "(not reported)",
+      "fast mode": "on",
+    });
+    expect(policyRows.approval).toBe("never");
+    expect(policyRows.reviewer).toBe("auto_review");
+    expect(policyRows["auto-review"]).toBe("on");
+    expect(policyRows["config reviewer"]).toBe("auto_review");
+    expect(policyRows["active reviewer"]).toBe("(not reported)");
+    expect(policyRows["web search"]).toBe("live");
+  });
+
+  it("shows active and configured reviewer inputs in status details", () => {
+    const sections = effectiveConfigSections(
+      runtimeSnapshot({
+        activeApprovalsReviewer: "guardian_subagent",
+        activeApprovalsReviewerOverride: false,
+        effectiveConfig: { config: { approvals_reviewer: "auto_review" } } as unknown as RuntimeSnapshot["effectiveConfig"],
+      }),
+      "/vault",
+    );
+    const policyRows = Object.fromEntries(
+      sections.find((section) => section.title === "Policy")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+
+    expect(policyRows).toMatchObject({
+      reviewer: "guardian_subagent",
+      "auto-review": "on",
+      "config reviewer": "auto_review",
+      "active reviewer": "guardian_subagent",
+    });
   });
 
   it("summarizes service tier and context meter state from one runtime snapshot", () => {
@@ -324,7 +533,9 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     activeReasoningEffort: null,
     activeCollaborationMode: "default",
     activeServiceTier: null,
+    activeServiceTierOverride: false,
     activeApprovalsReviewer: null,
+    activeApprovalsReviewerOverride: false,
     requestedModel: { kind: "default" },
     requestedReasoningEffort: { kind: "default" },
     requestedApprovalsReviewer: null,
