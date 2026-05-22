@@ -23,14 +23,14 @@ export interface SlashCommandExecutionContext {
   rollbackThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
-  toggleFastMode: () => void;
-  toggleCollaborationMode: () => void;
-  toggleAutoReview: () => void;
+  toggleFastMode: () => void | Promise<void>;
+  toggleCollaborationMode: () => void | Promise<void>;
+  toggleAutoReview: () => void | Promise<void>;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   setStatus: (status: string) => void;
-  setRequestedModel: (model: string | null) => void;
-  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void;
+  setRequestedModel: (model: string | null) => void | Promise<void>;
+  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void | Promise<void>;
   statusSummaryLines: () => string[];
   connectionDiagnosticLines: () => string[];
   mcpStatusLines: () => Promise<string[]>;
@@ -159,18 +159,18 @@ export async function executeSlashCommand(
   }
 
   if (command === "fast") {
-    context.toggleFastMode();
+    await context.toggleFastMode();
     return;
   }
 
   if (command === "auto-review") {
-    context.toggleAutoReview();
+    await context.toggleAutoReview();
     if (args) return { sendText: args };
     return;
   }
 
   if (command === "plan") {
-    context.toggleCollaborationMode();
+    await context.toggleCollaborationMode();
     if (args) return { sendText: args };
     return;
   }
@@ -197,7 +197,7 @@ export async function executeSlashCommand(
   if (command === "model") {
     const requested = parseModelOverride(args);
     if (requested !== undefined) {
-      context.setRequestedModel(requested);
+      await context.setRequestedModel(requested);
       context.addSystemMessage(modelOverrideMessage(requested));
       return;
     }
@@ -208,7 +208,7 @@ export async function executeSlashCommand(
   if (command === "effort") {
     const requested = parseReasoningEffortOverride(args);
     if (requested !== undefined) {
-      context.setRequestedReasoningEffort(requested);
+      await context.setRequestedReasoningEffort(requested);
       context.addSystemMessage(reasoningEffortOverrideMessage(requested));
       return;
     }

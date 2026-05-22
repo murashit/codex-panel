@@ -338,6 +338,45 @@ describe("AppServerClient", () => {
     await userReviewTurn;
   });
 
+  it("sends thread settings updates for subsequent turns", async () => {
+    const { client, transport } = await connectedClient();
+
+    const update = client.updateThreadSettings("thread-1", {
+      model: "gpt-5.5",
+      effort: "high",
+      serviceTier: "fast",
+      approvalsReviewer: "auto_review",
+      collaborationMode: {
+        mode: "plan",
+        settings: {
+          model: "gpt-5.5",
+          reasoning_effort: "high",
+          developer_instructions: null,
+        },
+      },
+    });
+    expect(transport.sent[2]).toMatchObject({
+      method: "thread/settings/update",
+      params: {
+        threadId: "thread-1",
+        model: "gpt-5.5",
+        effort: "high",
+        serviceTier: "fast",
+        approvalsReviewer: "auto_review",
+        collaborationMode: {
+          mode: "plan",
+          settings: {
+            model: "gpt-5.5",
+            reasoning_effort: "high",
+            developer_instructions: null,
+          },
+        },
+      },
+    });
+    transport.emitLine({ id: 2, result: {} });
+    await update;
+  });
+
   it("sends model list request payloads", async () => {
     const { client, transport } = await connectedClient();
 

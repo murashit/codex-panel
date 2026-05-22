@@ -2,7 +2,7 @@ import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../app-server/connection-manager";
-import type { ServiceTier } from "../app-server/service-tier";
+import { serviceTierRequestValue, type ServiceTier } from "../app-server/service-tier";
 import type { ApprovalAction, PendingApproval } from "../approvals/model";
 import type { SlashCommandName } from "../composer/slash-commands";
 import { parseSlashCommand } from "../composer/suggestions";
@@ -13,6 +13,7 @@ import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { Thread } from "../generated/app-server/v2/Thread";
+import type { ThreadSettingsUpdateParams } from "../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
 import {
   collaborationModeLabel as formatCollaborationModeLabel,
@@ -25,14 +26,14 @@ import { rollbackCandidateFromItems } from "./rollback";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../runtime/view";
 import {
   autoReviewActive,
-  commitRuntimeOverride,
   configRecord,
   currentModel,
   currentReasoningEffort,
   currentServiceTier,
-  requestedOrConfiguredServiceTier,
+  defaultRuntimeOverride,
   requestedTurnRuntimeSettings,
   resetRuntimeOverride,
+  runtimeOverridePayload,
   runtimeOverrideLabel,
   runtimeSummaryLabel,
   serviceTierLabel,
@@ -40,7 +41,7 @@ import {
   supportedReasoningEfforts,
   type RuntimeSnapshot,
 } from "../runtime/state";
-import { sortedAvailableModels } from "../runtime/model";
+import { isReasoningEffort, sortedAvailableModels } from "../runtime/model";
 import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessage } from "../runtime/settings";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import type { ThreadReferenceInput } from "./slash-commands";
@@ -326,6 +327,7 @@ export class CodexPanelView extends ItemView {
       this.state.activeThreadCwd = response.cwd ?? response.thread.cwd ?? this.plugin.vaultPath;
       this.state.activeTurnId = null;
       this.state.activeModel = response.model ?? null;
+      this.state.activeReasoningEffort = response.reasoningEffort ?? null;
       this.state.activeServiceTier = response.serviceTier ?? null;
       this.state.activeApprovalsReviewer = response.approvalsReviewer ?? null;
       this.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
@@ -398,6 +400,9 @@ export class CodexPanelView extends ItemView {
         this.refreshTabHeader();
         this.threadRename.resetThreadTurnPresence(false);
       }
+      const activeThreadId = this.state.activeThreadId;
+      if (!activeThreadId) return;
+      if (!(await this.applyPendingThreadSettings())) return;
 
       const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
       const mentionedFiles = fileMentionsFromInput(codexInput);
@@ -418,25 +423,7 @@ export class CodexPanelView extends ItemView {
       this.state.busy = true;
       this.render();
 
-      const turnSettings = requestedTurnRuntimeSettings(this.runtimeSnapshot());
-      if (turnSettings.warning) {
-        this.addSystemMessage(`${this.collaborationModeLabel()} mode is selected, but ${turnSettings.warning}`);
-      }
-      const activeThreadId = this.state.activeThreadId;
-      if (!activeThreadId) return;
-      const response = await client.startTurn(
-        activeThreadId,
-        this.plugin.vaultPath,
-        codexInput,
-        requestedOrConfiguredServiceTier(this.runtimeSnapshot()),
-        turnSettings.collaborationMode,
-        turnSettings.model,
-        turnSettings.effort,
-        turnSettings.approvalsReviewer,
-      );
-      this.state.requestedModel = commitRuntimeOverride(this.state.requestedModel);
-      this.state.requestedReasoningEffort = commitRuntimeOverride(this.state.requestedReasoningEffort);
-      if (turnSettings.approvalsReviewer) this.state.activeApprovalsReviewer = turnSettings.approvalsReviewer;
+      const response = await client.startTurn(activeThreadId, this.plugin.vaultPath, codexInput);
       this.state.activeTurnId = response.turn.id;
       const pendingTurnStart = this.state.pendingTurnStart;
       this.state.displayItems = this.state.displayItems.map((item) =>
@@ -553,7 +540,7 @@ export class CodexPanelView extends ItemView {
       busy: this.state.busy,
       toggleFastMode: () => this.toggleFastMode(),
       toggleCollaborationMode: () => this.toggleCollaborationMode(),
-      toggleAutoReview: () => this.toggleAutoReview(),
+      toggleAutoReview: () => void this.toggleAutoReview(),
       addSystemMessage: (text) => this.addSystemMessage(text),
       addStructuredSystemMessage: (text, details) => this.addStructuredSystemMessage(text, details),
       setStatus: (status) => this.setStatus(status),
@@ -589,29 +576,98 @@ export class CodexPanelView extends ItemView {
     }
   }
 
-  private toggleFastMode(): void {
+  private async applyPendingThreadSettings(): Promise<boolean> {
+    const client = this.client;
+    const threadId = this.state.activeThreadId;
+    if (!client || !threadId) return true;
+
+    const update = this.pendingThreadSettingsUpdate();
+    if (Object.keys(update).length === 0) return true;
+
+    try {
+      await client.updateThreadSettings(threadId, update);
+      this.commitPendingThreadSettings(update);
+      return true;
+    } catch (error) {
+      this.addSystemMessage(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  private pendingThreadSettingsUpdate(): Omit<ThreadSettingsUpdateParams, "threadId"> {
+    const update: Omit<ThreadSettingsUpdateParams, "threadId"> = {};
+    const turnSettings = requestedTurnRuntimeSettings(this.runtimeSnapshot());
+
+    if (this.state.requestedModel.kind !== "default") {
+      update.model = runtimeOverridePayload(this.state.requestedModel);
+    }
+    if (this.state.requestedReasoningEffort.kind !== "default") {
+      update.effort = runtimeOverridePayload(this.state.requestedReasoningEffort);
+    }
+    if (this.state.requestedServiceTier !== null) {
+      update.serviceTier = serviceTierRequestValue(this.state.requestedServiceTier);
+    }
+    if (this.state.requestedApprovalsReviewer !== null) {
+      update.approvalsReviewer = this.state.requestedApprovalsReviewer;
+    }
+    if (this.state.requestedCollaborationMode !== this.state.activeCollaborationMode) {
+      if (turnSettings.warning) {
+        this.addSystemMessage(`${this.collaborationModeLabel()} mode is selected, but ${turnSettings.warning}`);
+      } else if (turnSettings.collaborationMode) {
+        update.collaborationMode = turnSettings.collaborationMode;
+      }
+    }
+    return update;
+  }
+
+  private commitPendingThreadSettings(update: Omit<ThreadSettingsUpdateParams, "threadId">): void {
+    if ("model" in update) {
+      this.state.activeModel = update.model ?? null;
+      this.state.requestedModel = defaultRuntimeOverride();
+    }
+    if ("effort" in update) {
+      this.state.activeReasoningEffort = update.effort ?? null;
+      this.state.requestedReasoningEffort = defaultRuntimeOverride();
+    }
+    if ("serviceTier" in update) {
+      this.state.activeServiceTier = this.state.requestedServiceTier === "standard" ? "standard" : (update.serviceTier ?? null);
+      this.state.requestedServiceTier = null;
+    }
+    if ("approvalsReviewer" in update) {
+      this.state.activeApprovalsReviewer = update.approvalsReviewer ?? null;
+      this.state.requestedApprovalsReviewer = null;
+    }
+    if (update.collaborationMode) {
+      this.state.activeCollaborationMode = update.collaborationMode.mode;
+    }
+  }
+
+  private async toggleFastMode(): Promise<void> {
     const current = currentServiceTier(this.runtimeSnapshot(), configRecord(this.state.effectiveConfig));
     const next: ServiceTier = current === "fast" ? "standard" : "fast";
     this.state.requestedServiceTier = next;
     this.state.activeServiceTier = next;
     this.state.runtimePicker = null;
+    if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(next === "fast" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.");
   }
 
-  private toggleCollaborationMode(): void {
+  private async toggleCollaborationMode(): Promise<void> {
     const next = nextCollaborationMode(this.state.requestedCollaborationMode);
     this.state.requestedCollaborationMode = next;
     this.state.runtimePicker = null;
+    if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(collaborationModeToggleMessage(next));
   }
 
-  private toggleAutoReview(): void {
+  private async toggleAutoReview(): Promise<void> {
     const next: ApprovalsReviewer = autoReviewActive(this.runtimeSnapshot(), configRecord(this.state.effectiveConfig))
       ? "user"
       : "auto_review";
     this.state.requestedApprovalsReviewer = next;
     this.state.activeApprovalsReviewer = next;
     this.state.runtimePicker = null;
+    if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(next === "auto_review" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.");
   }
 
@@ -631,24 +687,26 @@ export class CodexPanelView extends ItemView {
     this.render();
   }
 
-  private setRequestedModelFromUi(model: string | null): void {
-    this.setRequestedModel(model);
+  private async setRequestedModelFromUi(model: string | null): Promise<void> {
+    await this.setRequestedModel(model);
     this.state.runtimePicker = null;
     this.addSystemMessage(modelOverrideMessage(model));
   }
 
-  private setRequestedModel(model: string | null): void {
+  private async setRequestedModel(model: string | null): Promise<void> {
     this.state.requestedModel = model === null ? resetRuntimeOverride() : setRuntimeOverride(model);
+    await this.applyPendingThreadSettings();
   }
 
-  private setRequestedReasoningEffortFromUi(effort: ReasoningEffort | null): void {
-    this.setRequestedReasoningEffort(effort);
+  private async setRequestedReasoningEffortFromUi(effort: ReasoningEffort | null): Promise<void> {
+    await this.setRequestedReasoningEffort(effort);
     this.state.runtimePicker = null;
     this.addSystemMessage(reasoningEffortOverrideMessage(effort));
   }
 
-  private setRequestedReasoningEffort(effort: ReasoningEffort | null): void {
+  private async setRequestedReasoningEffort(effort: ReasoningEffort | null): Promise<void> {
     this.state.requestedReasoningEffort = effort === null ? resetRuntimeOverride() : setRuntimeOverride(effort);
+    await this.applyPendingThreadSettings();
   }
 
   private async resolveApproval(approval: PendingApproval, action: ApprovalAction): Promise<void> {
@@ -737,10 +795,10 @@ export class CodexPanelView extends ItemView {
     this.toolbarSignature = signature;
     renderToolbar(toolbar, model, {
       toggleHistory: () => this.toggleHistoryPanel(),
-      toggleAutoReview: () => this.toggleAutoReview(),
+      toggleAutoReview: () => void this.toggleAutoReview(),
       toggleStatusPanel: () => this.toggleStatusPanel(),
-      togglePlan: () => this.toggleCollaborationMode(),
-      toggleFast: () => this.toggleFastMode(),
+      togglePlan: () => void this.toggleCollaborationMode(),
+      toggleFast: () => void this.toggleFastMode(),
       toggleRuntime: () => this.toggleRuntimePicker("model"),
       connect: () => void this.reconnectFromToolbar(),
       refreshDiagnostics: () => void this.refreshDiagnostics(),
@@ -787,7 +845,11 @@ export class CodexPanelView extends ItemView {
       runtimeSummary: runtimeSummaryLabel(model, effort),
       runtimeTitle: `Model: ${model ?? "(from default)"}; Effort: ${effort ?? "(from default)"}`,
       runtimeAriaLabel: `Runtime: ${model ?? "default"} ${effort ?? "default"}`,
-      runtimeEmphasized: this.state.requestedModel.kind !== "default" || this.state.requestedReasoningEffort.kind !== "default",
+      runtimeEmphasized:
+        this.state.requestedModel.kind !== "default" ||
+        this.state.requestedReasoningEffort.kind !== "default" ||
+        model !== configuredModel(config) ||
+        effort !== configuredReasoningEffort(config),
       context: context ? { ...context, label: compactContextLabel(context.percent, context.label) } : null,
       rateLimit: limit,
       configSections: effectiveConfigSections(snapshot, this.plugin.vaultPath),
@@ -836,19 +898,22 @@ export class CodexPanelView extends ItemView {
 
   private modelToolbarChoices(): ToolbarChoice[] {
     const snapshot = this.runtimeSnapshot();
+    const config = configRecord(this.state.effectiveConfig);
+    const activeModel = currentModel(snapshot, config);
+    const defaultSelected = this.state.requestedModel.kind !== "set" && activeModel === configuredModel(config);
     const models = sortedAvailableModels(this.state.availableModels);
     const choices: ToolbarChoice[] = [
       {
         label: "Default",
-        selected: this.state.requestedModel.kind !== "set",
-        onClick: () => this.setRequestedModelFromUi(null),
+        selected: defaultSelected,
+        onClick: () => void this.setRequestedModelFromUi(null),
       },
     ];
     choices.push(
       ...models.slice(0, 12).map((model) => ({
         label: model.model,
-        selected: currentModel(snapshot) === model.model,
-        onClick: () => this.setRequestedModelFromUi(model.model),
+        selected: !defaultSelected && activeModel === model.model,
+        onClick: () => void this.setRequestedModelFromUi(model.model),
       })),
     );
     if (models.length === 0) {
@@ -863,16 +928,19 @@ export class CodexPanelView extends ItemView {
 
   private effortToolbarChoices(): ToolbarChoice[] {
     const snapshot = this.runtimeSnapshot();
+    const config = configRecord(this.state.effectiveConfig);
+    const activeEffort = currentReasoningEffort(snapshot, config);
+    const defaultSelected = this.state.requestedReasoningEffort.kind !== "set" && activeEffort === configuredReasoningEffort(config);
     return [
       {
         label: "Default",
-        selected: this.state.requestedReasoningEffort.kind !== "set",
-        onClick: () => this.setRequestedReasoningEffortFromUi(null),
+        selected: defaultSelected,
+        onClick: () => void this.setRequestedReasoningEffortFromUi(null),
       },
       ...supportedReasoningEfforts(snapshot).map((effort) => ({
         label: effort,
-        selected: currentReasoningEffort(snapshot) === effort,
-        onClick: () => this.setRequestedReasoningEffortFromUi(effort),
+        selected: !defaultSelected && activeEffort === effort,
+        onClick: () => void this.setRequestedReasoningEffortFromUi(effort),
       })),
     ];
   }
@@ -1013,6 +1081,8 @@ export class CodexPanelView extends ItemView {
       effectiveConfig: this.state.effectiveConfig,
       activeThreadId: this.state.activeThreadId,
       activeModel: this.state.activeModel,
+      activeReasoningEffort: this.state.activeReasoningEffort,
+      activeCollaborationMode: this.state.activeCollaborationMode,
       activeServiceTier: this.state.activeServiceTier,
       activeApprovalsReviewer: this.state.activeApprovalsReviewer,
       requestedModel: this.state.requestedModel,
@@ -1178,4 +1248,12 @@ export class CodexPanelView extends ItemView {
 
 function latestProposedPlanItem(items: DisplayItem[]): DisplayItem | null {
   return [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ?? null;
+}
+
+function configuredModel(config: Record<string, unknown>): string | null {
+  return typeof config.model === "string" && config.model.length > 0 ? config.model : null;
+}
+
+function configuredReasoningEffort(config: Record<string, unknown>): ReasoningEffort | null {
+  return isReasoningEffort(config.model_reasoning_effort) ? config.model_reasoning_effort : null;
 }

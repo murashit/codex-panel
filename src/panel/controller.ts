@@ -424,6 +424,9 @@ export class PanelController {
   ): void {
     this.state.activeThreadCwd = settings.cwd ?? this.state.activeThreadCwd;
     this.state.activeModel = settings.model ?? null;
+    this.state.activeReasoningEffort = settings.effort ?? null;
+    this.state.activeCollaborationMode = settings.collaborationMode.mode;
+    this.state.requestedCollaborationMode = settings.collaborationMode.mode;
     this.state.activeServiceTier = settings.serviceTier ?? null;
     this.state.activeApprovalsReviewer = settings.approvalsReviewer ?? null;
   }

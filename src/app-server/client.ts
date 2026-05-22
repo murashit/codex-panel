@@ -21,6 +21,8 @@ import type { ThreadReadResponse } from "../generated/app-server/v2/ThreadReadRe
 import type { ThreadResumeResponse } from "../generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadRollbackResponse } from "../generated/app-server/v2/ThreadRollbackResponse";
 import type { ThreadSetNameResponse } from "../generated/app-server/v2/ThreadSetNameResponse";
+import type { ThreadSettingsUpdateParams } from "../generated/app-server/v2/ThreadSettingsUpdateParams";
+import type { ThreadSettingsUpdateResponse } from "../generated/app-server/v2/ThreadSettingsUpdateResponse";
 import type { SortDirection } from "../generated/app-server/v2/SortDirection";
 import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
 import type { ThreadTurnsListResponse } from "../generated/app-server/v2/ThreadTurnsListResponse";
@@ -76,6 +78,7 @@ interface ClientResponseByMethod {
   "thread/unarchive": ThreadUnarchiveResponse;
   "thread/rollback": ThreadRollbackResponse;
   "thread/name/set": ThreadSetNameResponse;
+  "thread/settings/update": ThreadSettingsUpdateResponse;
   "thread/turns/list": ThreadTurnsListResponse;
   "skills/list": SkillsListResponse;
   "model/list": ModelListResponse;
@@ -259,6 +262,10 @@ export class AppServerClient {
 
   setThreadName(threadId: string, name: string): Promise<ThreadSetNameResponse> {
     return this.request("thread/name/set", { threadId, name });
+  }
+
+  updateThreadSettings(threadId: string, settings: Omit<ThreadSettingsUpdateParams, "threadId">): Promise<ThreadSettingsUpdateResponse> {
+    return this.request("thread/settings/update", { threadId, ...settings });
   }
 
   threadTurnsList(

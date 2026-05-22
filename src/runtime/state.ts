@@ -18,6 +18,8 @@ export interface RuntimeSnapshot {
   effectiveConfig: ConfigReadResponse | null;
   activeThreadId: string | null;
   activeModel: string | null;
+  activeReasoningEffort: ReasoningEffort | null;
+  activeCollaborationMode: ModeKind;
   activeServiceTier: string | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   requestedModel: RuntimeOverride<string>;
@@ -70,7 +72,8 @@ export function currentModel(snapshot: RuntimeSnapshot, config = configRecord(sn
 export function currentReasoningEffort(snapshot: RuntimeSnapshot, config = configRecord(snapshot.effectiveConfig)): ReasoningEffort | null {
   if (snapshot.requestedReasoningEffort.kind === "set") return snapshot.requestedReasoningEffort.value;
   const effort = config.model_reasoning_effort;
-  return isReasoningEffort(effort) ? effort : null;
+  if (snapshot.requestedReasoningEffort.kind === "resetPending") return isReasoningEffort(effort) ? effort : null;
+  return snapshot.activeReasoningEffort ?? (isReasoningEffort(effort) ? effort : null);
 }
 
 export function currentApprovalsReviewer(

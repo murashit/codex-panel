@@ -30,6 +30,8 @@ export interface PanelState {
   activeThreadCwd: string | null;
   activeTurnId: string | null;
   activeModel: string | null;
+  activeReasoningEffort: ReasoningEffort | null;
+  activeCollaborationMode: ModeKind;
   activeServiceTier: string | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   activeThreadCliVersion: string | null;
@@ -73,6 +75,8 @@ export function createPanelState(): PanelState {
     activeThreadCwd: null,
     activeTurnId: null,
     activeModel: null,
+    activeReasoningEffort: null,
+    activeCollaborationMode: "default",
     activeServiceTier: null,
     activeApprovalsReviewer: null,
     activeThreadCliVersion: null,
@@ -121,6 +125,8 @@ export function clearActiveThreadState(state: PanelState): void {
   state.activeThreadId = null;
   state.activeThreadCwd = null;
   state.activeModel = null;
+  state.activeReasoningEffort = null;
+  state.activeCollaborationMode = "default";
   state.activeServiceTier = null;
   state.activeApprovalsReviewer = null;
   state.activeThreadCliVersion = null;
@@ -136,6 +142,8 @@ export function clearActiveThreadState(state: PanelState): void {
 export function clearConnectionScopedState(state: PanelState): void {
   clearActiveTurnState(state);
   state.activeModel = null;
+  state.activeReasoningEffort = null;
+  state.activeCollaborationMode = "default";
   state.activeServiceTier = null;
   state.activeApprovalsReviewer = null;
   state.activeThreadCliVersion = null;

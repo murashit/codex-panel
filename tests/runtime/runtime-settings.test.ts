@@ -285,6 +285,8 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     } as unknown as RuntimeSnapshot["effectiveConfig"],
     activeThreadId: null,
     activeModel: null,
+    activeReasoningEffort: null,
+    activeCollaborationMode: "default",
     activeServiceTier: null,
     activeApprovalsReviewer: null,
     requestedModel: { kind: "default" },
