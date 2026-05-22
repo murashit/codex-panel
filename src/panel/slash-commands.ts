@@ -250,7 +250,7 @@ function lineToRow(line: string): DisplayDetailMetaRow {
 type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: string };
 
 function parseReferArgs(args: string): { threadQuery: string; message: string } | null {
-  const match = args.match(/^(\S+)\s+([\s\S]*\S)\s*$/);
+  const match = /^(\S+)\s+([\s\S]*\S)\s*$/.exec(args);
   if (!match) return null;
   return { threadQuery: match[1], message: match[2] };
 }

@@ -33,7 +33,7 @@ function parseCssLengthExpression(value: string, win: Window): number | null {
     ).filter((candidate): candidate is number => Number.isFinite(candidate));
     return values.length > 0 ? Math.min(...values) : null;
   }
-  const length = trimmed.match(/^(-?\d+(?:\.\d+)?)\s*(px|vh)$/i);
+  const length = /^(-?\d+(?:\.\d+)?)\s*(px|vh)$/i.exec(trimmed);
   if (!length) return null;
   return cssLengthToPixels(Number.parseFloat(length[1]), length[2], win);
 }

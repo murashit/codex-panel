@@ -27,7 +27,7 @@ export interface NoteCandidate {
 }
 
 export function parseSlashCommand(text: string): { command: SlashCommandName; args: string } | null {
-  const match = text.match(/^\/([A-Za-z-]+)(?:\s+([\s\S]*))?$/);
+  const match = /^\/([A-Za-z-]+)(?:\s+([\s\S]*))?$/.exec(text);
   if (!match) return null;
   const command = match[1] as SlashCommandName;
   if (!SLASH_COMMANDS.some((item) => item.command === `/${command}`)) return null;
@@ -128,7 +128,7 @@ export function findWikiLinkSuggestions(queryText: string, start: number, notes:
 }
 
 export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
-  const match = beforeCursor.match(/(?:^|\n)(\/[A-Za-z-]*)$/);
+  const match = /(?:^|\n)(\/[A-Za-z-]*)$/.exec(beforeCursor);
   if (!match || match.index === undefined) return null;
 
   const query = match[1].toLowerCase();
@@ -146,7 +146,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
 }
 
 export function activeThreadCommandSuggestions(beforeCursor: string, threads: Thread[]): ComposerSuggestion[] | null {
-  const match = beforeCursor.match(/(?:^|\n)\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/);
+  const match = /(?:^|\n)\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/.exec(beforeCursor);
   if (!match || match.index === undefined) return null;
 
   const rawQuery = match[1] ?? "";
@@ -175,7 +175,7 @@ export function activeThreadCommandSuggestions(beforeCursor: string, threads: Th
 }
 
 export function activeModelOverrideSuggestions(beforeCursor: string, models: Model[]): ComposerSuggestion[] | null {
-  const match = beforeCursor.match(/(?:^|\n)\/model\s+([^\n]{0,120})$/);
+  const match = /(?:^|\n)\/model\s+([^\n]{0,120})$/.exec(beforeCursor);
   if (!match || match.index === undefined) return null;
 
   const rawQuery = match[1] ?? "";
@@ -221,7 +221,7 @@ export function activeReasoningEffortSuggestions(
   models: Model[],
   currentModel: string | null,
 ): ComposerSuggestion[] | null {
-  const match = beforeCursor.match(/(?:^|\n)\/effort\s+([^\n]{0,120})$/);
+  const match = /(?:^|\n)\/effort\s+([^\n]{0,120})$/.exec(beforeCursor);
   if (!match || match.index === undefined) return null;
 
   const rawQuery = match[1] ?? "";
@@ -253,7 +253,7 @@ export function activeReasoningEffortSuggestions(
 }
 
 export function activeSkillSuggestions(beforeCursor: string, skills: SkillMetadata[]): ComposerSuggestion[] | null {
-  const match = beforeCursor.match(/(^|[\s([{])\$([^\s\])}]{0,120})$/);
+  const match = /(^|[\s([{])\$([^\s\])}]{0,120})$/.exec(beforeCursor);
   if (!match || match.index === undefined) return null;
 
   const prefix = match[1] ?? "";

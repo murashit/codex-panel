@@ -362,7 +362,7 @@ function firstCommandLine(command: string): string {
 }
 
 function unwrapShellLoginCommand(command: string): string {
-  const match = command.match(/^(?:\/bin\/)?zsh\s+-lc\s+(.+)$/);
+  const match = /^(?:\/bin\/)?zsh\s+-lc\s+(.+)$/.exec(command);
   if (!match) return command;
   return unquoteShellCommand(match[1].trim());
 }

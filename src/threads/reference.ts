@@ -80,7 +80,7 @@ export function referencedThreadDisplayFromPrompt(text: string): { text: string;
   const title = lineValue(header, "Title") ?? "Referenced thread";
   const threadId = lineValue(header, "Thread ID") ?? "";
   const included = lineValue(header, "Included turns") ?? "";
-  const turnsMatch = included.match(/^(\d+)\/(\d+)$/);
+  const turnsMatch = /^(\d+)\/(\d+)$/.exec(included);
   const includedTurns = turnsMatch ? Number.parseInt(turnsMatch[1], 10) : REFERENCED_THREAD_TURN_LIMIT;
   const turnLimit = turnsMatch ? Number.parseInt(turnsMatch[2], 10) : REFERENCED_THREAD_TURN_LIMIT;
   const visibleText = text.slice(requestStart + requestMarker.length).trim();
