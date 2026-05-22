@@ -1,23 +1,33 @@
 import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
+import eslintConfigPrettier from "eslint-config-prettier/flat";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import tseslint from "typescript-eslint";
 
 const typeScriptFiles = ["src/**/*.ts", "tests/**/*.ts"];
+const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs"];
+const typeScriptConfigFiles = ["*.config.ts"];
+const lintedTypeScriptFiles = [...typeScriptFiles, ...typeScriptConfigFiles];
 
 export default defineConfig([
   {
     ignores: ["main.js", "node_modules/**", "src/generated/**"],
   },
   js.configs.recommended,
-  ...tseslint.configs.strictTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
+  ...tseslint.configs.strictTypeChecked.map((config) => ({
+    ...config,
+    files: lintedTypeScriptFiles,
+  })),
+  ...tseslint.configs.stylisticTypeChecked.map((config) => ({
+    ...config,
+    files: lintedTypeScriptFiles,
+  })),
   ...obsidianmd.configs.recommended.map((config) => ({
     ...config,
     basePath: "src",
   })),
   {
-    files: typeScriptFiles,
+    files: lintedTypeScriptFiles,
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -41,6 +51,18 @@ export default defineConfig([
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    files: nodeJavaScriptFiles,
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        URL: "readonly",
+        console: "readonly",
+        process: "readonly",
+      },
     },
   },
   {
@@ -68,4 +90,5 @@ export default defineConfig([
       ],
     },
   },
+  eslintConfigPrettier,
 ]);
