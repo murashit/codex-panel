@@ -32,6 +32,9 @@ type PendingApprovalFor<Request extends ApprovalRequest> = Request extends Appro
     }
   : never;
 export type PendingApproval = PendingApprovalFor<ApprovalRequest>;
+type CommandApprovalRequest = Extract<ApprovalRequest, { method: "item/commandExecution/requestApproval" }>;
+type FileChangeApprovalRequest = Extract<ApprovalRequest, { method: "item/fileChange/requestApproval" }>;
+type PermissionsApprovalRequest = Extract<ApprovalRequest, { method: "item/permissions/requestApproval" }>;
 
 interface ApprovalSummaryParts {
   reason: string | null;
@@ -44,13 +47,11 @@ export function toPendingApproval(request: ServerRequest): PendingApproval | nul
   if (!isApprovalRequest(request)) return null;
   switch (request.method) {
     case "item/commandExecution/requestApproval":
+      return pendingApproval(request);
     case "item/fileChange/requestApproval":
+      return pendingApproval(request);
     case "item/permissions/requestApproval":
-      return {
-        requestId: request.id,
-        method: request.method,
-        params: request.params,
-      } as PendingApproval;
+      return pendingApproval(request);
   }
 }
 
@@ -60,6 +61,32 @@ export function isApprovalRequest(request: ServerRequest): request is ApprovalRe
     request.method === "item/fileChange/requestApproval" ||
     request.method === "item/permissions/requestApproval"
   );
+}
+
+function pendingApproval(request: CommandApprovalRequest): PendingApprovalFor<CommandApprovalRequest>;
+function pendingApproval(request: FileChangeApprovalRequest): PendingApprovalFor<FileChangeApprovalRequest>;
+function pendingApproval(request: PermissionsApprovalRequest): PendingApprovalFor<PermissionsApprovalRequest>;
+function pendingApproval(request: ApprovalRequest): PendingApproval {
+  switch (request.method) {
+    case "item/commandExecution/requestApproval":
+      return {
+        requestId: request.id,
+        method: request.method,
+        params: request.params,
+      } satisfies PendingApprovalFor<CommandApprovalRequest>;
+    case "item/fileChange/requestApproval":
+      return {
+        requestId: request.id,
+        method: request.method,
+        params: request.params,
+      } satisfies PendingApprovalFor<FileChangeApprovalRequest>;
+    case "item/permissions/requestApproval":
+      return {
+        requestId: request.id,
+        method: request.method,
+        params: request.params,
+      } satisfies PendingApprovalFor<PermissionsApprovalRequest>;
+  }
 }
 
 export function approvalResponse(approval: PendingApproval, action: ApprovalAction): unknown {
