@@ -1,5 +1,6 @@
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { DisplayItem } from "../display/types";
+import { definedProp } from "../utils";
 
 export function hookRunDisplayItem(
   run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"],
@@ -22,7 +23,7 @@ export function hookRunDisplayItem(
     role: "tool",
     text: hookSummary(run.eventName, run.statusMessage),
     toolLabel: "hook",
-    turnId: turnId ?? undefined,
+    ...definedProp("turnId", turnId),
     itemId: displayId,
     status,
     details,

@@ -59,9 +59,7 @@ export class CodexTurnDiffView extends ItemView {
     renderTurnDiffView(
       root,
       this.payload,
-      {
-        copyDiff: this.payload ? () => void this.copyDiff(this.payload?.diff ?? "") : undefined,
-      },
+      this.payload ? { copyDiff: () => void this.copyDiff(this.payload?.diff ?? "") } : {},
       this.metadata,
     );
   }

@@ -1,5 +1,6 @@
 import { pathRelativeToRoot } from "./paths";
 import { executionState } from "./state";
+import { definedProp } from "../utils";
 import type {
   ApprovalResultDisplayItem,
   CommandDisplayItem,
@@ -151,7 +152,7 @@ function resultDetailSection(section: DisplayDetailSection): ToolResultDetailSec
 }
 
 function detailSection(section: DisplayDetailSection): ToolResultDetailSection[] {
-  if (section.rows && section.rows.length > 0) return [{ kind: "meta", title: section.title, rows: section.rows }];
+  if (section.rows && section.rows.length > 0) return [{ kind: "meta", ...definedProp("title", section.title), rows: section.rows }];
   if (section.body) return [{ kind: "output", title: section.title ?? "Output", body: section.body }];
   return [];
 }
@@ -167,5 +168,6 @@ function fileChangeSummary(item: DisplayItem, changes: (DisplayFileChange & { di
   const relativePath = changes[0]?.displayPath;
   if (!relativePath || relativePath === "(unknown)") return item.text;
   const suffixMatch = /\s\(([^)]+)\)$/.exec(item.text);
-  return suffixMatch ? `${relativePath} (${suffixMatch[1]})` : relativePath;
+  const suffix = suffixMatch?.[1];
+  return suffix ? `${relativePath} (${suffix})` : relativePath;
 }

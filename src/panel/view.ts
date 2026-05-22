@@ -628,13 +628,16 @@ export class CodexPanelView extends ItemView {
     const turnSettings = requestedTurnRuntimeSettings(this.runtimeSnapshot());
 
     if (this.state.requestedModel.kind !== "default") {
-      update.model = runtimeOverridePayload(this.state.requestedModel);
+      const model = runtimeOverridePayload(this.state.requestedModel);
+      if (model !== undefined) update.model = model;
     }
     if (this.state.requestedReasoningEffort.kind !== "default") {
-      update.effort = runtimeOverridePayload(this.state.requestedReasoningEffort);
+      const effort = runtimeOverridePayload(this.state.requestedReasoningEffort);
+      if (effort !== undefined) update.effort = effort;
     }
     if (this.state.requestedServiceTier !== null) {
-      update.serviceTier = serviceTierRequestValue(this.state.requestedServiceTier);
+      const serviceTier = serviceTierRequestValue(this.state.requestedServiceTier);
+      if (serviceTier !== undefined) update.serviceTier = serviceTier;
     }
     if (this.state.requestedApprovalsReviewer !== null) {
       update.approvalsReviewer = this.state.requestedApprovalsReviewer;
@@ -659,7 +662,8 @@ export class CodexPanelView extends ItemView {
       this.state.requestedReasoningEffort = defaultRuntimeOverride();
     }
     if ("serviceTier" in update) {
-      this.state.activeServiceTier = this.state.requestedServiceTier ?? update.serviceTier ?? null;
+      const serviceTier = update.serviceTier;
+      this.state.activeServiceTier = this.state.requestedServiceTier ?? serviceTier ?? null;
       this.state.requestedServiceTier = null;
     }
     if ("approvalsReviewer" in update) {

@@ -9,6 +9,7 @@ import {
 } from "../approvals/model";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { PendingUserInput } from "../user-input/model";
+import { definedProp } from "../utils";
 
 export function userInputDraftKey(requestId: RequestId, questionId: string): string {
   return `${String(requestId)}:${questionId}`;
@@ -51,7 +52,7 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     kind: "approvalResult",
     role: "tool",
     text: approvalResultText(approval, action),
-    turnId: approvalTurnId(approval),
+    ...definedProp("turnId", approvalTurnId(approval)),
     markdown: false,
     state: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
     details: [
@@ -87,7 +88,7 @@ export function createUserInputResultItem(
     kind: "userInputResult",
     role: "tool",
     text: status === "submitted" ? `Input submitted for ${label}.` : `Input request cancelled for ${label}.`,
-    turnId: input.params.turnId,
+    ...definedProp("turnId", input.params.turnId),
     markdown: false,
     state: status === "submitted" ? "completed" : "failed",
     details,

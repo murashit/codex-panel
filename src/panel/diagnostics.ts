@@ -79,7 +79,7 @@ function mcpServerDiagnosticRows(servers: McpServerDiagnostic[]): DiagnosticRow[
   }));
 }
 
-function capabilityLevel(status: CapabilityProbeResult["status"]): DiagnosticRow["level"] {
+function capabilityLevel(status: CapabilityProbeResult["status"]): NonNullable<DiagnosticRow["level"]> {
   if (status === "failed") return "error";
   if (status === "unknown") return "warning";
   return "normal";

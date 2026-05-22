@@ -1,5 +1,6 @@
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateDisplay, DisplayItem, ExecutionState } from "./types";
+import { definedProp } from "../utils";
 import { agentActivitySummaryLabel, agentMessagePreview } from "./labels";
 import { classifyExecutionState } from "./state";
 
@@ -17,7 +18,7 @@ export function agentDisplayItem(item: CollabAgentToolCallItem, turnId?: string)
     kind: "agent",
     role: "tool",
     text: `${agentActivitySummaryLabel(item.tool)}\nstatus: ${item.status}${receiverText}${promptText}`,
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     tool: item.tool,
     status: item.status,

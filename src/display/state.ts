@@ -1,4 +1,5 @@
 import type { DisplayItem, ExecutionState } from "./types";
+import { definedProp } from "../utils";
 
 export function executionState(item: DisplayItem): ExecutionState {
   if (item.state) return item.state;
@@ -13,7 +14,7 @@ export function executionState(item: DisplayItem): ExecutionState {
     item.kind === "reasoning"
       ? item.status
       : undefined;
-  return classifyExecutionState({ exitCode, status });
+  return classifyExecutionState({ ...definedProp("exitCode", exitCode), ...definedProp("status", status) });
 }
 
 export function classifyExecutionState(input: { exitCode?: number; status?: unknown }): ExecutionState {

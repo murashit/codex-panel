@@ -12,6 +12,13 @@ export function jsonPreview(value: unknown): string {
   }
 }
 
+export function definedProp<Key extends string, Value>(
+  key: Key,
+  value: Value | null | undefined,
+): Record<Key, Value> | Record<string, never> {
+  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
+}
+
 export function inputToText(content: UserInput[]): string {
   const hasText = content.some((item) => item.type === "text" && item.text.length > 0);
   return content

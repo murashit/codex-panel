@@ -58,10 +58,14 @@ export class AppServerRpcError extends Error {
   constructor(method: ClientRequestMethod, error: RpcError) {
     super(error.message || "Codex app-server request failed.");
     this.name = "AppServerRpcError";
-    this.code = error.code;
+    if (error.code !== undefined) this.code = error.code;
     this.data = error.data;
     this.method = method;
   }
+}
+
+function isRpcError(value: unknown): value is RpcError {
+  return value !== null && typeof value === "object" && typeof (value as { message?: unknown }).message === "string";
 }
 
 interface ClientResponseByMethod {
@@ -471,7 +475,11 @@ export class AppServerClient {
       }
       window.clearTimeout(pending.timeout);
       this.pending.delete(message.id);
-      if ("error" in message && message.error) {
+      if ("error" in message) {
+        if (!isRpcError(message.error)) {
+          pending.reject(new Error(`Codex app-server returned an invalid error response for ${pending.method}.`));
+          return;
+        }
         pending.reject(new AppServerRpcError(pending.method, message.error));
       } else {
         pending.resolve(message.result);

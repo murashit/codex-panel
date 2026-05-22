@@ -3,7 +3,7 @@ import type { FileUpdateChange } from "../generated/app-server/v2/FileUpdateChan
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
-import { inputToText, truncate } from "../utils";
+import { definedProp, inputToText, truncate } from "../utils";
 import { referencedThreadDisplayFromPrompt } from "../threads/reference";
 import { agentDisplayItem } from "./agent";
 import { pathRelativeToRoot } from "./paths";
@@ -97,7 +97,7 @@ function userMessageDisplayItem(item: UserMessageItem, turnId?: string): Display
       text: referencedThread.text,
       copyText: referencedThread.text,
       referencedThread: referencedThread.reference,
-      turnId,
+      ...definedProp("turnId", turnId),
       itemId: item.id,
       markdown: true,
       ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
@@ -109,7 +109,7 @@ function userMessageDisplayItem(item: UserMessageItem, turnId?: string): Display
     role: "user",
     text,
     copyText: text,
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     markdown: true,
     ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
@@ -134,7 +134,7 @@ function agentMessageDisplayItem(item: AgentMessageItem, turnId?: string): Displ
     role: "assistant",
     text: item.text,
     copyText: item.text,
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     markdown: true,
   };
@@ -148,7 +148,7 @@ function planDisplayItem(item: PlanItem, turnId?: string): DisplayItem {
     role: "assistant",
     text,
     copyText: text,
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     markdown: true,
     proposedPlan: true,
@@ -161,7 +161,7 @@ function hookPromptDisplayItem(item: HookPromptItem, turnId?: string): DisplayIt
     kind: "hook",
     role: "tool",
     text: item.fragments.map((fragment) => fragment.text).join("\n\n") || "Hook prompt",
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
   };
 }
@@ -172,7 +172,7 @@ function reasoningDisplayItem(item: ReasoningItem, turnId?: string): DisplayItem
     kind: "reasoning",
     role: "tool",
     text: reasoningText(item),
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
   };
 }
@@ -187,7 +187,7 @@ function mcpToolCallDisplayItem(item: McpToolCallItem, turnId?: string): Display
     role: "tool",
     text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
     toolLabel: name,
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     status: item.status,
     details: jsonDetails([
@@ -210,7 +210,7 @@ function dynamicToolCallDisplayItem(item: DynamicToolCallItem, turnId?: string):
     role: "tool",
     text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
     toolLabel: name,
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     status: item.status,
     details: jsonDetails([
@@ -229,7 +229,7 @@ function webSearchDisplayItem(item: WebSearchItem, turnId?: string): DisplayItem
     role: "tool",
     text: webSearchSummary(item),
     toolLabel: "web search",
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     details: webSearchDetails(item),
     output: "",
@@ -244,7 +244,7 @@ function imageViewDisplayItem(item: ImageViewItem, turnId?: string): DisplayItem
     text: compactToolSummary(null, item.path),
     toolLabel: "imageView",
     summaryPath: true,
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
   };
 }
@@ -258,7 +258,7 @@ function imageGenerationDisplayItem(item: ImageGenerationItem, turnId?: string):
     text: compactToolSummary(null, target, statusQualifier(item.status, failedStatusLabel(item.status))),
     toolLabel: "imageGeneration",
     summaryPath: Boolean(item.savedPath),
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     status: item.status,
     details: [
@@ -278,7 +278,7 @@ function reviewModeDisplayItem(item: ReviewModeItem, turnId?: string): DisplayIt
     role: "tool",
     text: item.type === "enteredReviewMode" ? "Entered review mode" : "Exited review mode",
     toolLabel: item.type,
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     output: item.review,
   };
@@ -291,7 +291,7 @@ function contextCompactionDisplayItem(item: ContextCompactionItem, turnId?: stri
     role: "tool",
     text: "Context compaction",
     toolLabel: "contextCompaction",
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
   };
 }
@@ -449,15 +449,15 @@ export function commandDisplayItem(item: CommandExecutionItem, turnId?: string):
     role: "tool",
     actionLabel: commandActionLabel(item),
     text: compactToolSummary(null, target, qualifier),
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     command: item.command,
     cwd: item.cwd,
     status: item.status,
-    exitCode,
-    durationMs,
+    ...definedProp("exitCode", exitCode),
+    ...definedProp("durationMs", durationMs),
     output: item.aggregatedOutput ?? "",
-    state: classifyExecutionState({ exitCode, status: item.status }),
+    state: classifyExecutionState({ ...definedProp("exitCode", exitCode), status: item.status }),
   };
 }
 
@@ -469,7 +469,7 @@ export function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): Di
     kind: "fileChange",
     role: "tool",
     text: compactToolSummary(null, fileChangeTargetLabel(changes), qualifier),
-    turnId,
+    ...definedProp("turnId", turnId),
     itemId: item.id,
     status: item.status,
     changes,
