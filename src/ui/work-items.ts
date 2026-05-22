@@ -136,7 +136,7 @@ function renderAgentSummaryRows(parent: HTMLElement, summary: AgentRunSummary): 
   if (summary.additionalAgents > 0) {
     const row = list.createEl("li", { cls: "codex-panel__agent-row codex-panel__agent-row--more" });
     row.createSpan({ cls: "codex-panel__agent-thread", text: "" });
-    row.createSpan({ cls: "codex-panel__agent-status", text: `+${summary.additionalAgents} more` });
+    row.createSpan({ cls: "codex-panel__agent-status", text: `+${String(summary.additionalAgents)} more` });
   }
 }
 

@@ -122,7 +122,7 @@ export function displayDiffLines(diff: string): DisplayDiffLine[] {
 }
 
 function fileCountLabel(files: string[]): string {
-  return files.length === 1 ? "Edited 1 file" : `Edited ${files.length} files`;
+  return files.length === 1 ? "Edited 1 file" : `Edited ${String(files.length)} files`;
 }
 
 function filePathFromGitDiffHeader(line: string): string | null {

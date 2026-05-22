@@ -161,12 +161,12 @@ function countMatchingLabel(
   const count = items.filter(predicate).length;
   if (count === 0) return null;
   if (count === 1) return label;
-  return `${count} ${pluralLabel}`;
+  return `${String(count)} ${pluralLabel}`;
 }
 
 function countLabel(items: DisplayItem[], kind: DisplayKind, label: string, pluralLabel = `${label}s`): string | null {
   const count = items.filter((item) => item.kind === kind).length;
   if (count === 0) return null;
   if (count === 1) return label;
-  return `${count} ${pluralLabel}`;
+  return `${String(count)} ${pluralLabel}`;
 }

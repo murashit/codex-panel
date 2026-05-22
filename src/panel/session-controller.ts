@@ -100,14 +100,14 @@ export class PanelSessionController {
       this.probeCapability(
         "model/list",
         () => client.listModels(false),
-        (response) => `${response.data.length} models`,
+        (response) => `${String(response.data.length)} models`,
       ),
       this.probeCapability(
         "skills/list",
         () => client.listSkills(this.host.vaultPath),
         (response) => {
           const count = response.data.reduce((total, entry) => total + entry.skills.length, 0);
-          return `${count} skills`;
+          return `${String(count)} skills`;
         },
       ),
       this.probeCapability(
@@ -115,13 +115,13 @@ export class PanelSessionController {
         () => client.listHooks(this.host.vaultPath),
         (response) => {
           const count = response.data.reduce((total, entry) => total + entry.hooks.length, 0);
-          return `${count} hooks`;
+          return `${String(count)} hooks`;
         },
       ),
       this.probeCapability(
         "account/rateLimits/read",
         () => client.readAccountRateLimits(),
-        (response) => (response.rateLimitsByLimitId ? `${Object.keys(response.rateLimitsByLimitId).length} limits` : "available"),
+        (response) => (response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available"),
       ),
       this.probeCapability(
         "mcpServerStatus/list",
@@ -129,13 +129,15 @@ export class PanelSessionController {
         (response) => {
           this.recordMcpServerStatus(response.data);
           const issueCount = response.data.filter((server) => server.authStatus === "notLoggedIn").length;
-          return issueCount > 0 ? `${response.data.length} servers, ${issueCount} auth issues` : `${response.data.length} servers`;
+          return issueCount > 0
+            ? `${String(response.data.length)} servers, ${String(issueCount)} auth issues`
+            : `${String(response.data.length)} servers`;
         },
       ),
       this.probeCapability(
         "collaborationMode/list",
         () => client.listCollaborationModes(),
-        (response) => `${response.data.length} modes`,
+        (response) => `${String(response.data.length)} modes`,
       ),
       this.probeCapability(
         "modelProvider/capabilities/read",

@@ -2,7 +2,7 @@ import type { DisplayItem } from "./types";
 import type { DisplayDetailSection } from "./types";
 
 function systemId(): string {
-  return `system-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
 }
 
 export function createSystemItem(text: string): DisplayItem {

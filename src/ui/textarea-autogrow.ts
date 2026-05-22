@@ -13,7 +13,7 @@ export function syncTextareaHeight(textarea: HTMLTextAreaElement | null, options
   textarea.setCssProps(resetHeightProps);
   const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
   const sizingProps: Record<string, string> = {
-    height: `${nextHeight}px`,
+    height: `${String(nextHeight)}px`,
     "overflow-y": textarea.scrollHeight > maxHeight ? "auto" : "hidden",
   };
   textarea.setCssProps(sizingProps);

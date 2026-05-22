@@ -135,7 +135,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
   containerEl.createEl("p", {
     cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-    text: `Archived threads below can be restored to chat history. Loaded ${state.threads.length} archived thread${
+    text: `Archived threads below can be restored to chat history. Loaded ${String(state.threads.length)} archived thread${
       state.threads.length === 1 ? "" : "s"
     } from Codex app-server.`,
   });
@@ -164,7 +164,7 @@ function renderHooks(containerEl: HTMLElement, state: HookSectionState): void {
   } else {
     containerEl.createEl("p", {
       cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-      text: `Loaded ${state.hooks.length} hook${state.hooks.length === 1 ? "" : "s"} from Codex app-server.`,
+      text: `Loaded ${String(state.hooks.length)} hook${state.hooks.length === 1 ? "" : "s"} from Codex app-server.`,
     });
     const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__hook-list" });
     for (const hook of state.hooks) {

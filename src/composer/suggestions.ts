@@ -80,7 +80,7 @@ export function nextComposerSuggestionIndex(current: number, length: number, dir
 }
 
 export function composerSuggestionSignature(value: string, cursor: number): string {
-  return `${value}\u0000${cursor}`;
+  return `${value}\u0000${String(cursor)}`;
 }
 
 export function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandidate[]): ComposerSuggestion[] | null {

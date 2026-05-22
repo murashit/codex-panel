@@ -16,7 +16,7 @@ export function createReviewResultItem(text: string): DisplayItem {
   const parsed = parseAutomaticApprovalReviewMessage(text);
   if (parsed) {
     return {
-      id: `review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: `review-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
       kind: "reviewResult",
       role: "tool",
       text: parsed.summary,
@@ -26,7 +26,7 @@ export function createReviewResultItem(text: string): DisplayItem {
     };
   }
   return {
-    id: `review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: `review-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
     kind: "reviewResult",
     role: "tool",
     text,
@@ -140,8 +140,8 @@ function autoReviewActionRows(action: GuardianApprovalReviewAction): DisplayRow[
 function autoReviewActionLabel(action: GuardianApprovalReviewAction): string {
   if (action.type === "command") return action.command;
   if (action.type === "execve") return [action.program, ...action.argv].join(" ");
-  if (action.type === "applyPatch") return `apply patch (${action.files.length} files)`;
-  if (action.type === "networkAccess") return `${action.protocol}://${action.host}:${action.port}`;
+  if (action.type === "applyPatch") return `apply patch (${String(action.files.length)} files)`;
+  if (action.type === "networkAccess") return `${action.protocol}://${action.host}:${String(action.port)}`;
   if (action.type === "mcpToolCall") return `${action.server}.${action.toolName}`;
   if (action.type === "requestPermissions") return action.reason ?? "permission request";
   return "review action";

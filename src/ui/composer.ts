@@ -130,7 +130,7 @@ export function renderComposerSuggestions(
   suggestionsEl.show();
   let selectedOption: HTMLElement | null = null;
   for (const [index, suggestion] of suggestions.entries()) {
-    const optionId = `${viewId}-composer-suggestion-${index}`;
+    const optionId = `${viewId}-composer-suggestion-${String(index)}`;
     const option = suggestionsEl.createDiv({
       cls: `suggestion-item codex-panel__composer-suggestion ${index === selectedIndex ? "is-selected" : ""}`,
       attr: {

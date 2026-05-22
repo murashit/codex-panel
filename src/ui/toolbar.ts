@@ -107,12 +107,12 @@ export function toolbarSignature(model: ToolbarViewModel): string {
     openPanel: model.openPanel,
     threads: model.threads.map(
       (thread) =>
-        `${thread.threadId}:${thread.title}:${thread.selected}:${thread.disabled}:${thread.canArchive}:${thread.rename?.draft ?? ""}:${
-          thread.rename?.generating ?? false
+        `${thread.threadId}:${thread.title}:${String(thread.selected)}:${String(thread.disabled)}:${String(thread.canArchive)}:${thread.rename?.draft ?? ""}:${
+          String(thread.rename?.generating ?? false)
         }`,
     ),
-    modelChoices: model.modelChoices.map((choice) => `${choice.label}:${choice.selected}:${choice.disabled}:${choice.meta ?? ""}`),
-    effortChoices: model.effortChoices.map((choice) => `${choice.label}:${choice.selected}:${choice.disabled}:${choice.meta ?? ""}`),
+    modelChoices: model.modelChoices.map((choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`),
+    effortChoices: model.effortChoices.map((choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`),
     connectLabel: model.connectLabel,
     diagnostics: model.diagnostics.map((section) => ({
       title: section.title,
@@ -234,7 +234,7 @@ function renderContextMeter(parent: HTMLElement, model: ToolbarViewModel): void 
   bar.createSpan({
     cls: "codex-panel__meter-compact-fill codex-panel__context-compact-fill",
     attr: {
-      style: `width: ${model.context.percent ?? 0}%`,
+      style: `width: ${String(model.context.percent ?? 0)}%`,
     },
   });
 }
@@ -284,7 +284,7 @@ function renderRateLimitPanel(parent: HTMLElement, rateLimit: RateLimitSummary |
     const meter = item.createDiv({ cls: "codex-panel__limit-panel-meter" });
     meter.createDiv({
       cls: "codex-panel__limit-panel-fill",
-      attr: { style: `width: ${row.percent}%` },
+      attr: { style: `width: ${String(row.percent)}%` },
     });
     item.createDiv({ cls: "codex-panel__limit-panel-reset", text: row.resetLabel ?? "" });
   }

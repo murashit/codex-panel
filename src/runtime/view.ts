@@ -74,10 +74,10 @@ export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null
   const percent = contextWindow ? Math.min(100, Math.round((used / contextWindow) * 100)) : null;
   const level = percent !== null && percent >= 90 ? "danger" : percent !== null && percent >= 70 ? "warn" : "ok";
   const title = contextWindow
-    ? `Context: ${formatTokenCount(used)} / ${formatTokenCount(contextWindow)} (${percent}%). Last request: ${formatTokenCount(usage.last.inputTokens)} input, ${formatTokenCount(usage.last.outputTokens)} output, ${formatTokenCount(usage.last.reasoningOutputTokens)} reasoning. Session total: ${formatTokenCount(usage.total.totalTokens)} tokens.`
+    ? `Context: ${formatTokenCount(used)} / ${formatTokenCount(contextWindow)} (${String(percent)}%). Last request: ${formatTokenCount(usage.last.inputTokens)} input, ${formatTokenCount(usage.last.outputTokens)} output, ${formatTokenCount(usage.last.reasoningOutputTokens)} reasoning. Session total: ${formatTokenCount(usage.total.totalTokens)} tokens.`
     : `Context: ${formatTokenCount(used)} tokens. Last request: ${formatTokenCount(usage.last.totalTokens)} total. Session total: ${formatTokenCount(usage.total.totalTokens)} tokens.`;
   return {
-    label: percent === null ? `${formatTokenCount(used)} tokens` : `Context ${percent}%`,
+    label: percent === null ? `${formatTokenCount(used)} tokens` : `Context ${String(percent)}%`,
     title,
     percent,
     level,
@@ -221,9 +221,9 @@ function rateLimitWindowSummary(
   const reachedText = reached ? ` ${String(reachedType)}.` : "";
   return {
     label,
-    value: `${percent}%`,
+    value: `${String(percent)}%`,
     resetLabel,
-    title: `${name} ${label}: ${percent}% used.${resetText}${reachedText}`,
+    title: `${name} ${label}: ${String(percent)}% used.${resetText}${reachedText}`,
     percent,
     level,
   };
@@ -231,8 +231,8 @@ function rateLimitWindowSummary(
 
 function formatRateLimitDuration(minutes: number): string {
   if (minutes === 10_080) return "1w";
-  if (minutes % 60 === 0) return `${minutes / 60}h`;
-  return `${minutes}m`;
+  if (minutes % 60 === 0) return `${String(minutes / 60)}h`;
+  return `${String(minutes)}m`;
 }
 
 function formatRateLimitReset(resetsAt: number): string {
@@ -245,15 +245,15 @@ function formatRateLimitRemaining(resetsAt: number, nowMs: number): string {
   if (remainingSeconds < 60) return "reset in <1m";
 
   const minutes = Math.ceil(remainingSeconds / 60);
-  if (minutes < 60) return `reset in ${minutes}m`;
+  if (minutes < 60) return `reset in ${String(minutes)}m`;
 
   const hours = Math.floor(minutes / 60);
   const remainderMinutes = minutes % 60;
-  if (hours < 24) return `reset in ${hours}h${remainderMinutes > 0 ? ` ${remainderMinutes}m` : ""}`;
+  if (hours < 24) return `reset in ${String(hours)}h${remainderMinutes > 0 ? ` ${String(remainderMinutes)}m` : ""}`;
 
   const days = Math.floor(hours / 24);
   const remainderHours = hours % 24;
-  return `reset in ${days}d${remainderHours > 0 ? ` ${remainderHours}h` : ""}`;
+  return `reset in ${String(days)}d${remainderHours > 0 ? ` ${String(remainderHours)}h` : ""}`;
 }
 
 function capitalize(value: string): string {
@@ -269,7 +269,7 @@ function writableRootsLabel(value: unknown): string {
   if (!Array.isArray(value)) return "(from default)";
   if (value.length === 0) return "none";
   if (value.length === 1) return String(value[0]);
-  return `${value.length} roots`;
+  return `${String(value.length)} roots`;
 }
 
 function enabledAppsLabel(value: unknown): string {

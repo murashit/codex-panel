@@ -90,7 +90,7 @@ function renderUserInputCard(
   info.createDiv({ cls: "setting-item-name codex-panel__pending-request-title", text: "Codex needs input" });
   info.createDiv({
     cls: "setting-item-description codex-panel__pending-request-body",
-    text: `${input.params.questions.length} question${input.params.questions.length === 1 ? "" : "s"} from Plan mode.`,
+    text: `${String(input.params.questions.length)} question${input.params.questions.length === 1 ? "" : "s"} from Plan mode.`,
   });
   renderUserInputQuestions(info, input, drafts);
 

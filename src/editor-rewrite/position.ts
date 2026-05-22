@@ -15,8 +15,8 @@ export function positionRewritePopover(root: HTMLElement, editor: Editor, margin
   const aboveTop = anchor.top - size.height - margin;
   const top = belowTop + size.height <= viewportHeight - margin ? belowTop : clamp(aboveTop, margin, viewportHeight - size.height - margin);
 
-  root.style.left = `${left}px`;
-  root.style.top = `${top}px`;
+  root.style.left = `${String(left)}px`;
+  root.style.top = `${String(top)}px`;
   return true;
 }
 

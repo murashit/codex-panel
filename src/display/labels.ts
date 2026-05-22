@@ -28,9 +28,9 @@ export function agentActivityMetaLabel(tool: string): string {
 
 export function agentRunSummaryLabel(summary: AgentRunSummary): string {
   const parts: string[] = [];
-  if (summary.failed > 0) parts.push(`${summary.failed} failed`);
-  if (summary.running > 0) parts.push(`${summary.running} running`);
-  if (summary.completed > 0) parts.push(`${summary.completed} done`);
+  if (summary.failed > 0) parts.push(`${String(summary.failed)} failed`);
+  if (summary.running > 0) parts.push(`${String(summary.running)} running`);
+  if (summary.completed > 0) parts.push(`${String(summary.completed)} done`);
   return `Agents ${parts.join(", ")}`;
 }
 

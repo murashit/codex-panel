@@ -382,7 +382,7 @@ function quoteInline(value: string): string {
 function fileChangeTargetLabel(changes: DisplayFileChange[]): string {
   if (changes.length === 0) return "no files";
   if (changes.length === 1) return changes[0]?.path ?? "1 file";
-  return `${changes.length} files`;
+  return `${String(changes.length)} files`;
 }
 
 function webSearchTarget(item: WebSearchItem): string | null {
@@ -441,7 +441,9 @@ export function commandDisplayItem(item: CommandExecutionItem, turnId?: string):
   const durationMs = typeof item.durationMs === "number" ? item.durationMs : undefined;
   const target = commandTargetLabel(item);
   const qualifier =
-    typeof exitCode === "number" && exitCode !== 0 ? `exit ${exitCode}` : statusQualifier(item.status, failedStatusLabel(item.status));
+    typeof exitCode === "number" && exitCode !== 0
+      ? `exit ${String(exitCode)}`
+      : statusQualifier(item.status, failedStatusLabel(item.status));
   return {
     id: item.id,
     kind: "command",

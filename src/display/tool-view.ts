@@ -50,7 +50,7 @@ function commandToolView(item: CommandDisplayItem): ToolResultView {
         { key: "cwd", value: item.cwd },
         { key: "status", value: item.status },
         ...(item.exitCode !== null && item.exitCode !== undefined ? [{ key: "exit", value: String(item.exitCode) }] : []),
-        ...(item.durationMs !== null && item.durationMs !== undefined ? [{ key: "duration", value: `${item.durationMs}ms` }] : []),
+        ...(item.durationMs !== null && item.durationMs !== undefined ? [{ key: "duration", value: `${String(item.durationMs)}ms` }] : []),
       ],
     },
     ...outputSection("Output", item.output),

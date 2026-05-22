@@ -54,7 +54,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
   if (context.activeThreadId && context.historyCursor) {
     blocks.push({
       key: "history-bar",
-      signature: `${context.activeThreadId}:${context.historyCursor}:${context.loadingHistory}`,
+      signature: `${context.activeThreadId}:${context.historyCursor}:${String(context.loadingHistory)}`,
       render: () => createHistoryBarElement(context.loadingHistory, context.loadOlderTurns),
     });
   }
@@ -91,7 +91,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
   const agentSummary = activeAgentRunSummaryBlock(context);
   if (agentSummary) {
     blocks.push({
-      key: `active-agents:${context.activeTurnId}`,
+      key: `active-agents:${context.activeTurnId ?? "none"}`,
       signature: JSON.stringify(agentSummary),
       render: () => createAgentRunSummaryElement(agentSummary),
     });
@@ -314,13 +314,13 @@ function renderReferencedThread(parent: HTMLElement, item: Extract<DisplayItem, 
   label.createSpan({ text: "Referenced " });
   label.createSpan({ text: reference.title });
   label.createSpan({ cls: "codex-panel__edited-files-separator", text: "·" });
-  label.createSpan({ text: `${reference.includedTurns}/${reference.turnLimit} turns` });
+  label.createSpan({ text: `${String(reference.includedTurns)}/${String(reference.turnLimit)} turns` });
   wrapper.title = reference.threadId;
 }
 
 function renderEditedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kind: "message" }>, context: MessageStreamContext): void {
   const editedFiles = item.editedFiles ?? [];
-  const label = editedFiles.length === 1 ? "Edited 1 file" : `Edited ${editedFiles.length} files`;
+  const label = editedFiles.length === 1 ? "Edited 1 file" : `Edited ${String(editedFiles.length)} files`;
   const wrapper = parent.createDiv({ cls: "codex-panel__edited-files" });
   const details = wrapper.createEl("details", { cls: "codex-panel__edited-files-details" });
   const summary = details.createEl("summary");
@@ -354,7 +354,7 @@ export function notifyMessageContentRendered(element: HTMLElement): void {
 
 function renderMentionedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kind: "message" }>, context: MessageStreamContext): void {
   const mentionedFiles = item.mentionedFiles ?? [];
-  const label = mentionedFiles.length === 1 ? "Mentioned 1 file" : `Mentioned ${mentionedFiles.length} files`;
+  const label = mentionedFiles.length === 1 ? "Mentioned 1 file" : `Mentioned ${String(mentionedFiles.length)} files`;
   const wrapper = parent.createDiv({ cls: "codex-panel__mentioned-files" });
   const details = createRememberedDetails(
     wrapper,
@@ -375,7 +375,7 @@ function renderMentionedFiles(parent: HTMLElement, item: Extract<DisplayItem, { 
 }
 
 function renderAutoReviewSummaries(parent: HTMLElement, summaries: string[]): void {
-  const label = summaries.length === 1 ? "Auto-reviewed 1 request" : `Auto-reviewed ${summaries.length} requests`;
+  const label = summaries.length === 1 ? "Auto-reviewed 1 request" : `Auto-reviewed ${String(summaries.length)} requests`;
   const details = parent.createEl("details", { cls: "codex-panel__auto-reviews" });
   details.createEl("summary", { text: label });
   const list = details.createEl("ul");
@@ -407,7 +407,7 @@ function renderMessageDetails(parent: HTMLElement, itemId: string, details: Disp
     const detailsEl = createRememberedDetails(
       parent,
       context.openDetails,
-      `${itemId}:message-detail:${index}`,
+      `${itemId}:message-detail:${String(index)}`,
       "codex-panel__output",
       summary,
       false,

@@ -9,7 +9,7 @@ export function buildSelectionUnifiedDiff(filePath: string, originalText: string
     `diff --git a/${filePath} b/${filePath}`,
     `--- a/${filePath}`,
     `+++ b/${filePath}`,
-    `@@ -1,${oldCount} +1,${newCount} @@`,
+    `@@ -1,${String(oldCount)} +1,${String(newCount)} @@`,
     ...changes.map((change) => `${change.prefix}${change.text}`),
   ].join("\n");
 }

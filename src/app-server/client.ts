@@ -130,7 +130,7 @@ export class AppServerClient {
       onExit: (code, signal) => {
         this.initialized = false;
         this.initResponse = null;
-        this.rejectAll(new Error(`Codex app-server exited: ${code ?? signal ?? "unknown"}`));
+        this.rejectAll(new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`));
         this.handlers.onExit(code, signal);
       },
     };

@@ -12,7 +12,7 @@ export function hookRunDisplayItem(
     { key: "status", value: status },
     { key: "event", value: run.eventName },
     ...(run.statusMessage ? [{ key: "message", value: run.statusMessage }] : []),
-    ...(run.durationMs !== null && run.durationMs !== undefined ? [{ key: "duration", value: `${run.durationMs}ms` }] : []),
+    ...(run.durationMs !== null && run.durationMs !== undefined ? [{ key: "duration", value: `${String(run.durationMs)}ms` }] : []),
   ];
   const details = [{ rows: metaRows }, ...(entries ? [{ title: "Hook output", body: entries }] : [])];
   const displayId = hookRunDisplayId(run);

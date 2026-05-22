@@ -41,7 +41,7 @@ export function buildRewritePrompt(session: RewriteSession): string {
 }
 
 function positionLabel(position: { line: number; ch: number }): string {
-  return `L${position.line + 1}:C${position.ch + 1}`;
+  return `L${String(position.line + 1)}:C${String(position.ch + 1)}`;
 }
 
 function fenced(text: string): string {

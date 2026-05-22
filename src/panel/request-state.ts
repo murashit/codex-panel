@@ -74,7 +74,7 @@ export function createUserInputResultItem(
   status: "submitted" | "cancelled",
 ): DisplayItem {
   const questionCount = input.params.questions.length;
-  const label = questionCount === 1 ? "1 question" : `${questionCount} questions`;
+  const label = questionCount === 1 ? "1 question" : `${String(questionCount)} questions`;
   const details: DisplayDetailSection[] = input.params.questions.map((question) => ({
     title: question.header || question.id,
     rows: [

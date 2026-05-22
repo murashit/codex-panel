@@ -431,7 +431,7 @@ export class CodexPanelView extends ItemView {
 
       const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
       const mentionedFiles = fileMentionsFromInput(codexInput);
-      optimisticUserId = `local-user-${Date.now()}`;
+      optimisticUserId = `local-user-${String(Date.now())}`;
       this.state.displayItems.push({
         id: optimisticUserId,
         kind: "message",
@@ -499,7 +499,7 @@ export class CodexPanelView extends ItemView {
     try {
       await this.client.steerTurn(threadId, expectedTurnId, codexInput);
       this.state.displayItems.push({
-        id: `local-steer-${Date.now()}`,
+        id: `local-steer-${String(Date.now())}`,
         kind: "message",
         role: "user",
         text,

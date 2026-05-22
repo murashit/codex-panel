@@ -34,7 +34,7 @@ export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTu
     "[Codex Panel referenced thread]",
     `Title: ${title}`,
     `Thread ID: ${thread.id}`,
-    `Included turns: ${turns.length}/${REFERENCED_THREAD_TURN_LIMIT}`,
+    `Included turns: ${String(turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)}`,
     "Included history: user input and final Codex responses only.",
   ];
 
@@ -43,7 +43,7 @@ export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTu
     "",
     "Reference conversation:",
     ...turns.flatMap((turn, index) => {
-      const lines = [`Turn ${index + 1}:`];
+      const lines = [`Turn ${String(index + 1)}:`];
       if (turn.userText) lines.push(`User:\n${turn.userText}`);
       if (turn.assistantText) lines.push(`Codex:\n${turn.assistantText}`);
       return ["", ...lines];
@@ -57,7 +57,7 @@ export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTu
 }
 
 export function referencedThreadStatus(thread: Thread, count: number): string {
-  return `Referencing ${shortThreadId(thread.id)} (${count}/${REFERENCED_THREAD_TURN_LIMIT} turns).`;
+  return `Referencing ${shortThreadId(thread.id)} (${String(count)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`;
 }
 
 export function referencedThreadDisplay(thread: Thread, count: number): ReferencedThreadDisplay {

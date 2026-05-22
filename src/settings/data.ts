@@ -41,7 +41,7 @@ export async function loadSettingsData(client: AppServerClient, cwd: string): Pr
         ? {
             ok: true,
             data: modelsResult.value.data,
-            status: `Loaded ${modelsResult.value.data.length} model${modelsResult.value.data.length === 1 ? "" : "s"}.`,
+            status: `Loaded ${String(modelsResult.value.data.length)} model${modelsResult.value.data.length === 1 ? "" : "s"}.`,
           }
         : { ok: false, status: `Could not load models: ${errorMessage(modelsResult.reason)}` },
     hooks:
@@ -53,7 +53,7 @@ export async function loadSettingsData(client: AppServerClient, cwd: string): Pr
         ? {
             ok: true,
             data: archivedThreadsResult.value.data,
-            status: `Loaded ${archivedThreadsResult.value.data.length} archived thread${archivedThreadsResult.value.data.length === 1 ? "" : "s"}.`,
+            status: `Loaded ${String(archivedThreadsResult.value.data.length)} archived thread${archivedThreadsResult.value.data.length === 1 ? "" : "s"}.`,
           }
         : { ok: false, status: `Could not load archived threads: ${errorMessage(archivedThreadsResult.reason)}` },
   };
@@ -78,7 +78,7 @@ function hooksForCwd(entries: Awaited<ReturnType<AppServerClient["listHooks"]>>[
 }
 
 function hooksStatus(count: number): string {
-  return `Loaded ${count} hook${count === 1 ? "" : "s"}.`;
+  return `Loaded ${String(count)} hook${count === 1 ? "" : "s"}.`;
 }
 
 function settledHooks(entries: Awaited<ReturnType<AppServerClient["listHooks"]>>["data"], cwd: string): SettledSettingsData<LoadedHooks> {

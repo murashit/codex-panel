@@ -91,7 +91,7 @@ function markdownLinesFromItem(item: ThreadItem, turn: Turn): string[] {
         "",
         referenced.text,
         "",
-        `> Referenced: ${referenced.reference.title} (${referenced.reference.includedTurns}/${referenced.reference.turnLimit} turns, ${referenced.reference.threadId})`,
+        `> Referenced: ${referenced.reference.title} (${String(referenced.reference.includedTurns)}/${String(referenced.reference.turnLimit)} turns, ${referenced.reference.threadId})`,
         "",
       ];
     }
@@ -196,7 +196,7 @@ async function uniqueMarkdownPath(adapter: ArchiveExportAdapter, folder: string,
   let candidate = `${folder}/${filename}`;
   let suffix = 2;
   while (await adapter.exists(candidate)) {
-    candidate = `${folder}/${stem} ${suffix}${extension}`;
+    candidate = `${folder}/${stem} ${String(suffix)}${extension}`;
     suffix += 1;
   }
   return candidate;
@@ -227,7 +227,7 @@ function yamlString(value: string): string {
 }
 
 function formatDate(date: Date): string {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  return `${String(date.getFullYear())}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
 function formatTime(date: Date): string {
