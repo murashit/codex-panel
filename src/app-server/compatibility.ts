@@ -86,8 +86,8 @@ export function appServerIdentity(initializeResponse: InitializeResponse | null)
 
 export function appServerPlatform(initializeResponse: InitializeResponse | null): string {
   if (!initializeResponse) return "(not connected)";
-  const family = initializeResponse.platformFamily ?? "unknown";
-  const os = initializeResponse.platformOs ?? "unknown";
+  const family = initializeResponse.platformFamily;
+  const os = initializeResponse.platformOs;
   return `${os}/${family}`;
 }
 

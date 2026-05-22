@@ -22,7 +22,7 @@ export function mcpStatusLines(servers: McpServerStatus[], diagnostics: McpServe
 
 function mcpServerStatusLine(server: McpServerStatus, diagnostic: McpServerDiagnostic | undefined): string {
   const startup = diagnostic?.startupStatus && diagnostic.startupStatus !== "unknown" ? diagnostic.startupStatus : "available";
-  const tools = Object.keys(server.tools ?? {}).length;
+  const tools = Object.keys(server.tools).length;
   const resources = server.resources.length;
   const templates = server.resourceTemplates.length;
   const parts = [startup, `auth ${server.authStatus}`, countLabel(tools, "tool"), countLabel(resources, "resource")];

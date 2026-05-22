@@ -254,8 +254,8 @@ export function setIcon(element: HTMLElement, icon: string): void {
 function ensureElementHelpers(): void {
   if (typeof HTMLElement === "undefined") return;
 
-  const NodeCtor = globalThis.Node ?? document.defaultView?.Node;
-  if (NodeCtor && !Object.getOwnPropertyDescriptor(NodeCtor.prototype, "doc")) {
+  const NodeCtor = nodeConstructor();
+  if (!Object.getOwnPropertyDescriptor(NodeCtor.prototype, "doc")) {
     Object.defineProperty(NodeCtor.prototype, "doc", {
       configurable: true,
       get(this: Node): Document {
@@ -264,7 +264,7 @@ function ensureElementHelpers(): void {
     });
   }
 
-  if (NodeCtor && !Object.getOwnPropertyDescriptor(NodeCtor.prototype, "win")) {
+  if (!Object.getOwnPropertyDescriptor(NodeCtor.prototype, "win")) {
     Object.defineProperty(NodeCtor.prototype, "win", {
       configurable: true,
       get(this: Node): Window {
@@ -273,55 +273,41 @@ function ensureElementHelpers(): void {
     });
   }
 
-  if (!HTMLElement.prototype.addClass) {
-    HTMLElement.prototype.addClass = function addClass(className: string): void {
-      this.classList.add(className);
-    };
-  }
+  HTMLElement.prototype.addClass = function addClass(className: string): void {
+    this.classList.add(className);
+  };
 
-  if (!HTMLElement.prototype.empty) {
-    HTMLElement.prototype.empty = function empty(): void {
-      this.replaceChildren();
-    };
-  }
+  HTMLElement.prototype.empty = function empty(): void {
+    this.replaceChildren();
+  };
 
-  if (!HTMLElement.prototype.setAttr) {
-    HTMLElement.prototype.setAttr = function setAttr(name: string, value: string): void {
-      this.setAttribute(name, value);
-    };
-  }
+  HTMLElement.prototype.setAttr = function setAttr(name: string, value: string): void {
+    this.setAttribute(name, value);
+  };
 
-  if (!HTMLElement.prototype.setCssProps) {
-    HTMLElement.prototype.setCssProps = function setCssProps(props: Record<string, string>): void {
-      for (const [key, value] of Object.entries(props)) {
-        this.style.setProperty(key, value);
-      }
-    };
-  }
+  HTMLElement.prototype.setCssProps = function setCssProps(props: Record<string, string>): void {
+    for (const [key, value] of Object.entries(props)) {
+      this.style.setProperty(key, value);
+    }
+  };
 
-  if (!HTMLElement.prototype.createEl) {
-    HTMLElement.prototype.createEl = function createEl<K extends keyof HTMLElementTagNameMap>(
-      tag: K,
-      options: ElementOptions = {},
-    ): HTMLElementTagNameMap[K] {
-      const child = document.createElement(tag);
-      applyOptions(child, options);
-      this.append(child);
-      return child;
-    };
-  }
+  HTMLElement.prototype.createEl = function createEl<K extends keyof HTMLElementTagNameMap>(
+    tag: K,
+    options: ElementOptions = {},
+  ): HTMLElementTagNameMap[K] {
+    const child = document.createElement(tag);
+    applyOptions(child, options);
+    this.append(child);
+    return child;
+  };
 
-  if (!HTMLElement.prototype.createDiv) {
-    HTMLElement.prototype.createDiv = function createDiv(options: ElementOptions = {}): HTMLDivElement {
-      return this.createEl("div", options);
-    };
-  }
+  HTMLElement.prototype.createDiv = function createDiv(options: ElementOptions = {}): HTMLDivElement {
+    return this.createEl("div", options);
+  };
 
-  if (!HTMLElement.prototype.createSpan) {
-    HTMLElement.prototype.createSpan = function createSpan(options: ElementOptions = {}): HTMLSpanElement {
-      return this.createEl("span", options);
-    };
-  }
+  HTMLElement.prototype.createSpan = function createSpan(options: ElementOptions = {}): HTMLSpanElement {
+    return this.createEl("span", options);
+  };
 }
 
 function applyOptions(element: HTMLElement, options: ElementOptions): void {

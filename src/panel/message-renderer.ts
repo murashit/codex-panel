@@ -123,7 +123,7 @@ export class PanelMessageRenderer {
       link.addClass("codex-panel__wikilink");
       link.onclick = (event) => {
         event.preventDefault();
-        const target = link.getAttribute("data-href") ?? link.getAttribute("href") ?? link.textContent ?? "";
+        const target = link.getAttribute("data-href") ?? link.getAttribute("href") ?? link.textContent;
         if (target.trim().length > 0) {
           void this.options.app.workspace.openLinkText(target, sourcePath, false);
         }

@@ -41,7 +41,7 @@ function logString(value: unknown, fallback = ""): string {
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
   if (value === null || value === undefined) return fallback;
   try {
-    return JSON.stringify(value) ?? fallback;
+    return JSON.stringify(value);
   } catch {
     return fallback;
   }

@@ -347,15 +347,15 @@ export class CodexPanelView extends ItemView {
     try {
       const response = await this.client.resumeThread(threadId, this.plugin.vaultPath);
       this.state.activeThreadId = response.thread.id;
-      this.state.activeThreadCwd = response.cwd ?? response.thread.cwd ?? this.plugin.vaultPath;
+      this.state.activeThreadCwd = response.cwd;
       this.state.activeTurnId = null;
-      this.state.activeModel = response.model ?? null;
-      this.state.activeReasoningEffort = response.reasoningEffort ?? null;
-      this.state.activeServiceTier = response.serviceTier ?? null;
+      this.state.activeModel = response.model;
+      this.state.activeReasoningEffort = response.reasoningEffort;
+      this.state.activeServiceTier = response.serviceTier;
       this.state.activeServiceTierOverride = false;
-      this.state.activeApprovalsReviewer = response.approvalsReviewer ?? null;
+      this.state.activeApprovalsReviewer = response.approvalsReviewer;
       this.state.activeApprovalsReviewerOverride = false;
-      this.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
+      this.state.activeThreadCliVersion = response.thread.cliVersion;
       this.state.tokenUsage = null;
       this.state.displayItems = [];
       this.state.turnDiffs.clear();
@@ -450,7 +450,7 @@ export class CodexPanelView extends ItemView {
 
       const response = await client.startTurn(activeThreadId, this.plugin.vaultPath, codexInput);
       this.state.activeTurnId = response.turn.id;
-      const pendingTurnStart = this.state.pendingTurnStart;
+      const pendingTurnStart = this.state.pendingTurnStart as typeof this.state.pendingTurnStart | null;
       this.state.displayItems = this.state.displayItems.map((item) =>
         item.id === optimisticUserId ? { ...item, turnId: response.turn.id } : item,
       );
@@ -930,8 +930,6 @@ export class CodexPanelView extends ItemView {
     this.render();
 
     await this.ensureConnected();
-    if (!threadId || !this.client) return;
-
     try {
       await this.resumeThread(threadId);
     } catch (error) {
@@ -1231,7 +1229,7 @@ export class CodexPanelView extends ItemView {
       this.setStatus("Rolling back latest turn...");
       const response = await this.client.rollbackThread(threadId);
       this.state.activeThreadId = response.thread.id;
-      this.state.activeThreadCwd = response.thread.cwd ?? this.state.activeThreadCwd;
+      this.state.activeThreadCwd = response.thread.cwd;
       this.state.activeTurnId = null;
       this.state.tokenUsage = null;
       this.state.historyCursor = null;

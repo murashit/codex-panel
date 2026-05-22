@@ -220,10 +220,7 @@ export async function executeSlashCommand(
     return;
   }
 
-  if (command === "help") {
-    context.addStructuredSystemMessage("Available slash commands", [{ rows: slashCommandHelpRows() }]);
-    return;
-  }
+  context.addStructuredSystemMessage("Available slash commands", [{ rows: slashCommandHelpRows() }]);
 
   if (args) {
     context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
@@ -258,7 +255,7 @@ function parseReferArgs(args: string): { threadQuery: string; message: string } 
 export function resolveThreadArgument(args: string, threads: Thread[]): ThreadResolution {
   const query = args.trim();
   if (!query) {
-    const thread = threads[0];
+    const thread = threads.at(0);
     return thread ? { ok: true, thread } : { ok: false, message: "No recent threads to resume." };
   }
 

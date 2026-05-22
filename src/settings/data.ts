@@ -69,11 +69,12 @@ export async function loadHookData(client: AppServerClient, cwd: string): Promis
 }
 
 function hooksForCwd(entries: Awaited<ReturnType<AppServerClient["listHooks"]>>["data"], cwd: string): Omit<LoadedHooks, "status"> {
-  const entry = entries.find((item) => item.cwd === cwd) ?? entries[0];
+  const entry = entries.find((item) => item.cwd === cwd) ?? entries.at(0);
+  if (!entry) return { hooks: [], warnings: [], errors: [] };
   return {
-    hooks: entry?.hooks ?? [],
-    warnings: entry?.warnings ?? [],
-    errors: (entry?.errors ?? []).map((error) => JSON.stringify(error)),
+    hooks: entry.hooks,
+    warnings: entry.warnings,
+    errors: entry.errors.map((error) => JSON.stringify(error)),
   };
 }
 

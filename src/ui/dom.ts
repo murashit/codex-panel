@@ -11,12 +11,12 @@ export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openL
   const doc = parent.ownerDocument;
   let lastIndex = 0;
   for (const match of text.matchAll(wikilinkPattern)) {
-    const index = match.index ?? 0;
+    const index = match.index;
     if (index > lastIndex) {
       parent.appendChild(doc.createTextNode(text.slice(lastIndex, index)));
     }
 
-    const rawLink = match[1] ?? "";
+    const rawLink = match[1];
     const separator = rawLink.indexOf("|");
     const target = (separator === -1 ? rawLink : rawLink.slice(0, separator)).trim();
     const label = (separator === -1 ? rawLink : rawLink.slice(separator + 1)).trim() || target;

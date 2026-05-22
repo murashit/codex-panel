@@ -13,7 +13,7 @@ export function usageLimitStatusLines(limit: RateLimitSummary): string[] {
 
 function jsonPreview(value: unknown, fallback: string): string {
   try {
-    return JSON.stringify(value) ?? fallback;
+    return JSON.stringify(value);
   } catch {
     return fallback;
   }

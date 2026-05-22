@@ -212,10 +212,6 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
     renderToolResult(parent, item, context);
     return;
   }
-  if (item.kind !== "message" && item.kind !== "system" && item.kind !== "userInputResult") {
-    return;
-  }
-
   const messageEl = parent.createDiv({ cls: messageClass(item) });
   applyExecutionStateClass(messageEl, executionState(item));
   const role = messageEl.createDiv({ cls: "codex-panel__message-role" });

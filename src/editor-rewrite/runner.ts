@@ -41,7 +41,7 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
   let expectedTurnId: string | null = null;
   let preview = "";
   let completed = false;
-  let timeout: ReturnType<Window["setTimeout"]> | null = null;
+  let timeout: number | undefined;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
   const completedItems: ThreadItem[] = [];
@@ -129,7 +129,7 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
     return output;
   } finally {
     completed = true;
-    if (timeout) window.clearTimeout(timeout);
+    if (timeout !== undefined) window.clearTimeout(timeout);
     client.disconnect();
   }
 }

@@ -42,16 +42,17 @@ export function toolResultView(item: ToolResultDisplayItem, workspaceRoot?: stri
 }
 
 function commandToolView(item: CommandDisplayItem): ToolResultView {
+  const rows = [
+    { key: "command", value: item.command },
+    { key: "cwd", value: item.cwd },
+    { key: "status", value: item.status },
+    ...(item.exitCode !== undefined ? [{ key: "exit", value: String(item.exitCode) }] : []),
+    ...(item.durationMs !== undefined ? [{ key: "duration", value: `${String(item.durationMs)}ms` }] : []),
+  ];
   const details: ToolResultDetailSection[] = [
     {
       kind: "meta",
-      rows: [
-        { key: "command", value: item.command },
-        { key: "cwd", value: item.cwd },
-        { key: "status", value: item.status },
-        ...(item.exitCode !== null && item.exitCode !== undefined ? [{ key: "exit", value: String(item.exitCode) }] : []),
-        ...(item.durationMs !== null && item.durationMs !== undefined ? [{ key: "duration", value: `${String(item.durationMs)}ms` }] : []),
-      ],
+      rows,
     },
     ...outputSection("Output", item.output),
   ];
@@ -73,8 +74,8 @@ function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string 
     },
     ...displayChanges.map((change) => ({
       kind: "diff" as const,
-      title: `${change.kind ?? "changed"} ${change.displayPath ?? "(unknown)"}`,
-      diff: change.diff ?? "",
+      title: `${change.kind} ${change.displayPath}`,
+      diff: change.diff,
     })),
     ...outputSection("Patch output", item.output),
   ];

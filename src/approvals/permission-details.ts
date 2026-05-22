@@ -10,8 +10,9 @@ export function permissionRows(value: unknown): DetailRow[] {
   if (!permissions || typeof permissions !== "object") return [];
 
   const rows: DetailRow[] = [];
-  if (permissions.network?.enabled !== null && permissions.network?.enabled !== undefined) {
-    rows.push({ key: "network", value: permissions.network.enabled ? "enabled" : "disabled" });
+  const networkEnabled = permissions.network?.enabled;
+  if (typeof networkEnabled === "boolean") {
+    rows.push({ key: "network", value: networkEnabled ? "enabled" : "disabled" });
   }
 
   const fileSystem = permissions.fileSystem as {

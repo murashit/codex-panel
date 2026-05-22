@@ -683,6 +683,27 @@ describe("thread item conversion preserves app-server semantics", () => {
     });
   });
 
+  it("uses image generation result as the summary when no saved path is present", () => {
+    const item: ThreadItem = {
+      type: "imageGeneration",
+      id: "image-gen-1",
+      status: "completed",
+      revisedPrompt: "A precise UI mockup.",
+      result: "image result",
+    };
+
+    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+      kind: "tool",
+      text: "image result",
+      toolLabel: "imageGeneration",
+      summaryPath: false,
+      details: [
+        { title: "Revised prompt", body: "A precise UI mockup." },
+        { title: "Result", body: "image result" },
+      ],
+    });
+  });
+
   it("uses details as the summary when a tool target cannot be extracted", () => {
     const item: ThreadItem = {
       type: "dynamicToolCall",

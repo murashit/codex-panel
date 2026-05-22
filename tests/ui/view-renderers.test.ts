@@ -683,6 +683,42 @@ describe("message stream block identity and message actions", () => {
     expect(element.querySelector("details")?.hasAttribute("open")).toBe(false);
   });
 
+  it("omits command exit and duration rows while they are unavailable", () => {
+    const block = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: "turn",
+      historyCursor: null,
+      loadingHistory: false,
+      busy: true,
+      displayItems: [
+        {
+          id: "cmd-1",
+          kind: "command",
+          role: "tool",
+          text: "npm run check",
+          turnId: "turn",
+          command: "npm run check",
+          cwd: "/vault",
+          status: "inProgress",
+          output: "",
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = block.render();
+    const metaText = element.querySelector(".codex-panel__meta-grid")?.textContent ?? "";
+
+    expect(metaText).toContain("commandnpm run check");
+    expect(metaText).toContain("statusinProgress");
+    expect(metaText).not.toContain("exit");
+    expect(metaText).not.toContain("duration");
+    expect(metaText).not.toContain("undefined");
+  });
+
   it("uses read as the command header for parsed file reads", () => {
     const block = messageRenderBlocks({
       activeThreadId: "thread",
@@ -1646,7 +1682,7 @@ describe("toolbar renderer decisions", () => {
     expect(parent.textContent).toContain("codex-cli/1.2.3");
     expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")?.textContent).toContain("model/list failed");
     [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")]
-      .find((button) => button.textContent?.includes("Refresh diagnostics"))
+      .find((button) => button.textContent.includes("Refresh diagnostics"))
       ?.click();
     expect(refreshDiagnostics).toHaveBeenCalled();
   });
@@ -1878,7 +1914,7 @@ describe("pending request renderer decisions", () => {
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")];
     expect(buttons.map((button) => button.textContent)).toEqual(["Allow network rule", "Deny"]);
-    const allowButton = buttons[0];
+    const allowButton = buttons.at(0);
     if (!allowButton) throw new Error("Missing allow button");
     allowButton.click();
     expect(resolveApproval).toHaveBeenCalledWith(approval, {

@@ -43,15 +43,15 @@ export class PanelSessionController {
     const serviceTier = requestedOrConfiguredServiceTier(this.host.runtimeSnapshot());
     const response = await client.startThread(this.host.vaultPath, serviceTier);
     this.host.state.activeThreadId = response.thread.id;
-    this.host.state.activeThreadCwd = response.cwd ?? response.thread.cwd ?? this.host.vaultPath;
+    this.host.state.activeThreadCwd = response.cwd;
     this.host.state.activeTurnId = null;
-    this.host.state.activeModel = response.model ?? null;
-    this.host.state.activeReasoningEffort = response.reasoningEffort ?? null;
-    this.host.state.activeServiceTier = response.serviceTier ?? null;
+    this.host.state.activeModel = response.model;
+    this.host.state.activeReasoningEffort = response.reasoningEffort;
+    this.host.state.activeServiceTier = response.serviceTier;
     this.host.state.activeServiceTierOverride = false;
-    this.host.state.activeApprovalsReviewer = response.approvalsReviewer ?? null;
+    this.host.state.activeApprovalsReviewer = response.approvalsReviewer;
     this.host.state.activeApprovalsReviewerOverride = false;
-    this.host.state.activeThreadCliVersion = response.thread.cliVersion ?? null;
+    this.host.state.activeThreadCliVersion = response.thread.cliVersion;
     this.host.state.tokenUsage = null;
     this.host.state.historyCursor = null;
     this.host.state.turnDiffs.clear();
@@ -86,7 +86,9 @@ export class PanelSessionController {
     if (!client) return;
     try {
       const response = await client.readAccountRateLimits();
-      this.host.state.rateLimit = response.rateLimitsByLimitId?.codex ?? response.rateLimits ?? null;
+      const rateLimitsByLimitId = response.rateLimitsByLimitId;
+      const codexRateLimit = rateLimitsByLimitId && Object.hasOwn(rateLimitsByLimitId, "codex") ? rateLimitsByLimitId.codex : undefined;
+      this.host.state.rateLimit = codexRateLimit ?? response.rateLimits;
     } catch {
       this.host.state.rateLimit = null;
     }
@@ -183,7 +185,7 @@ export class PanelSessionController {
         name: server.name,
         startupStatus: "unknown",
         authStatus: server.authStatus,
-        toolCount: Object.keys(server.tools ?? {}).length,
+        toolCount: Object.keys(server.tools).length,
         message: null,
       });
     }

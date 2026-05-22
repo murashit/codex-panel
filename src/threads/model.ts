@@ -5,7 +5,9 @@ const MAX_THREAD_DISPLAY_TITLE_LENGTH = 96;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function getThreadTitle(thread: Thread): string {
-  return thread.name ?? thread.preview ?? thread.id;
+  return (
+    [thread.name, thread.preview, thread.id].find((value): value is string => typeof value === "string" && value.length > 0) ?? thread.id
+  );
 }
 
 export function codexPanelDisplayTitle(activeThreadId: string | null, threads: Thread[]): string {

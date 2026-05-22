@@ -71,7 +71,7 @@ export async function generateThreadTitleWithCodex(
   let namingThreadId: string | null = null;
   let expectedTurnId: string | null = null;
   let completed = false;
-  let timeout: ReturnType<Window["setTimeout"]> | null = null;
+  let timeout: number | undefined;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNamingNotification: (notification: ServerNotification) => void = () => undefined;
   const completedItems: ThreadItem[] = [];
@@ -134,7 +134,7 @@ export async function generateThreadTitleWithCodex(
     return titleFromNamingTurn(turn);
   } finally {
     completed = true;
-    if (timeout) window.clearTimeout(timeout);
+    if (timeout !== undefined) window.clearTimeout(timeout);
     client.disconnect();
   }
 }

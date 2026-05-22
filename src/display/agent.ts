@@ -71,7 +71,7 @@ export function activeAgentRunSummary(items: DisplayItem[], activeTurnId: string
 }
 
 function agentStatesDisplay(states: CollabAgentToolCallItem["agentsStates"]): AgentStateDisplay[] {
-  return Object.entries(states ?? {})
+  return Object.entries(states)
     .map(([threadId, state]) => ({
       threadId,
       status: state?.status ?? "unknown",

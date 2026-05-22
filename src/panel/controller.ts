@@ -97,7 +97,7 @@ export class PanelController {
     if (classified === null) return;
     if (classified.kind === "plain") {
       this.addDedupedSystemMessage(classified.text);
-    } else if (classified.kind === "error") {
+    } else {
       this.addDedupedSystemMessage(`app-server error: ${classified.text}`);
     }
   }
@@ -152,18 +152,18 @@ export class PanelController {
     const { method, params } = notification;
     if (method === "item/agentMessage/delta") {
       this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turnId);
-      this.state.displayItems = appendAssistantDelta(this.state.displayItems, params.itemId, params.turnId, params.delta ?? "");
+      this.state.displayItems = appendAssistantDelta(this.state.displayItems, params.itemId, params.turnId, params.delta);
     } else if (method === "item/plan/delta") {
-      this.state.displayItems = appendPlanDelta(this.state.displayItems, params.itemId, params.turnId, params.delta ?? "");
+      this.state.displayItems = appendPlanDelta(this.state.displayItems, params.itemId, params.turnId, params.delta);
     } else if (method === "turn/plan/updated") {
       this.state.displayItems = upsertDisplayItem(
         this.state.displayItems,
-        planProgressDisplayItem(params.turnId, params.explanation ?? null, params.plan ?? []),
+        planProgressDisplayItem(params.turnId, params.explanation, params.plan),
       );
     } else if (method === "item/reasoning/summaryTextDelta") {
-      this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta ?? "", "reasoning");
+      this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta, "reasoning");
     } else if (method === "item/reasoning/textDelta") {
-      this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta ?? "", "reasoning");
+      this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta, "reasoning");
     } else if (method === "item/reasoning/summaryPartAdded") {
       this.appendToolText(params.itemId, params.turnId, "reasoning", "", "reasoning");
     } else if (method === "item/started") {
@@ -175,18 +175,18 @@ export class PanelController {
         this.state.displayItems,
         params.itemId,
         params.turnId,
-        params.delta ?? "",
+        params.delta,
         "command",
         "Command running",
       );
     } else if (method === "item/fileChange/patchUpdated") {
-      this.upsertFileChange(params.itemId, params.turnId, params.changes ?? [], "inProgress");
+      this.upsertFileChange(params.itemId, params.turnId, params.changes, "inProgress");
     } else if (method === "item/fileChange/outputDelta") {
       this.state.displayItems = appendItemOutput(
         this.state.displayItems,
         params.itemId,
         params.turnId,
-        params.delta ?? "",
+        params.delta,
         "fileChange",
         "File change inProgress",
       );
@@ -199,13 +199,13 @@ export class PanelController {
     } else if (method === "hook/started") {
       this.upsertHookRun(params.run, params.turnId, "running");
     } else if (method === "hook/completed") {
-      this.upsertHookRun(params.run, params.turnId, params.run?.status ?? "completed");
+      this.upsertHookRun(params.run, params.turnId, params.run.status);
     } else if (method === "item/mcpToolCall/progress") {
       this.state.displayItems = appendToolOutput(
         this.state.displayItems,
         params.itemId,
         params.turnId,
-        params.message ?? "",
+        params.message,
         "mcp progress",
       );
     } else if (method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed") {
@@ -223,8 +223,8 @@ export class PanelController {
     const { method, params } = notification;
     if (method === "turn/started") {
       this.state.activeThreadId = params.threadId;
-      this.state.activeTurnId = params.turn.id ?? this.state.activeTurnId;
-      if (params.turn.id) this.attachPendingPromptSubmitHooks(params.turn.id);
+      this.state.activeTurnId = params.turn.id;
+      this.attachPendingPromptSubmitHooks(params.turn.id);
       this.state.busy = true;
       this.state.status = "Turn running...";
     } else if (method === "turn/completed") {
@@ -232,7 +232,7 @@ export class PanelController {
       this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turn.id);
       this.state.busy = false;
       this.state.activeTurnId = null;
-      this.state.status = `Turn ${params.turn.status ?? "completed"}.`;
+      this.state.status = `Turn ${params.turn.status}.`;
       this.actions.maybeNameThread(params.threadId, params.turn);
       this.actions.refreshThreads();
     }
@@ -241,10 +241,8 @@ export class PanelController {
   private handleThreadLifecycle(notification: ServerNotification): void {
     const { method, params } = notification;
     if (method === "thread/started") {
-      if (params.thread) {
-        if (!this.state.activeThreadId || this.state.activeThreadId === params.thread.id) {
-          this.state.activeThreadCwd = params.thread.cwd ?? this.state.activeThreadCwd;
-        }
+      if (!this.state.activeThreadId || this.state.activeThreadId === params.thread.id) {
+        this.state.activeThreadCwd = params.thread.cwd;
       }
     } else if (method === "thread/archived") {
       this.state.listedThreads = this.state.listedThreads.filter((thread) => thread.id !== params.threadId);
@@ -277,9 +275,9 @@ export class PanelController {
   private handleDiagnosticStatus(notification: ServerNotification): void {
     const { method, params } = notification;
     if (method === "thread/tokenUsage/updated") {
-      this.state.tokenUsage = params.tokenUsage ?? null;
+      this.state.tokenUsage = params.tokenUsage;
     } else if (method === "account/rateLimits/updated") {
-      this.state.rateLimit = params.rateLimits ?? null;
+      this.state.rateLimit = params.rateLimits;
     } else if (method === "skills/changed") {
       this.actions.refreshSkills(true);
     } else if (method === "mcpServer/startupStatus/updated") {
@@ -330,13 +328,13 @@ export class PanelController {
   }
 
   private handleStartedItem(item: ThreadItem, turnId: string): void {
-    if (!item || shouldSuppressThreadItem(item) || shouldSuppressLifecycleItem(item)) return;
+    if (shouldSuppressThreadItem(item) || shouldSuppressLifecycleItem(item)) return;
     const displayItem = displayItemFromThreadItem(item, turnId);
     if (displayItem) this.state.displayItems = upsertDisplayItem(this.state.displayItems, displayItem);
   }
 
   private handleCompletedItem(item: ThreadItem, turnId: string): void {
-    if (!item || shouldSuppressThreadItem(item) || item.type === "userMessage") return;
+    if (shouldSuppressThreadItem(item) || item.type === "userMessage") return;
     const displayItem = displayItemFromThreadItem(item, turnId);
     if (displayItem) {
       this.state.displayItems = upsertDisplayItem(this.state.displayItems, displayItem);
@@ -394,7 +392,7 @@ export class PanelController {
     const item = hookRunDisplayItem(run, resolvedTurnId, status);
     if (!item) return;
     this.state.displayItems = upsertDisplayItem(this.state.displayItems, item);
-    if (!resolvedTurnId && this.state.pendingTurnStart && run?.eventName === "userPromptSubmit") {
+    if (!resolvedTurnId && this.state.pendingTurnStart && run.eventName === "userPromptSubmit") {
       const hookIds = this.state.pendingTurnStart.promptSubmitHookItemIds;
       if (!hookIds.includes(item.id)) hookIds.push(item.id);
     }
@@ -405,7 +403,7 @@ export class PanelController {
     turnId: string | null,
   ): string | null {
     if (turnId) return turnId;
-    if (run?.eventName === "userPromptSubmit" && !this.state.pendingTurnStart) return this.state.activeTurnId;
+    if (run.eventName === "userPromptSubmit" && !this.state.pendingTurnStart) return this.state.activeTurnId;
     return null;
   }
 
@@ -417,16 +415,16 @@ export class PanelController {
   }
 
   private handleMcpStartupStatus(params: Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>["params"]): void {
-    if (!params?.name) return;
-    this.actions.recordMcpStartupStatus(params.name, params.status, params.error ?? null);
+    if (params.name.length === 0) return;
+    this.actions.recordMcpStartupStatus(params.name, params.status, params.error);
   }
 
   private applyThreadSettings(
     settings: Extract<ServerNotification, { method: "thread/settings/updated" }>["params"]["threadSettings"],
   ): void {
-    this.state.activeThreadCwd = settings.cwd ?? this.state.activeThreadCwd;
-    this.state.activeModel = settings.model ?? null;
-    this.state.activeReasoningEffort = settings.effort ?? null;
+    this.state.activeThreadCwd = settings.cwd;
+    this.state.activeModel = settings.model;
+    this.state.activeReasoningEffort = settings.effort;
     this.state.activeCollaborationMode = settings.collaborationMode.mode;
     this.state.requestedCollaborationMode = settings.collaborationMode.mode;
     const serviceTierOverride = this.state.activeServiceTierOverride || this.state.requestedServiceTier !== null;
@@ -434,7 +432,7 @@ export class PanelController {
     this.state.activeServiceTier = settings.serviceTier ?? (serviceTierOverride ? this.state.activeServiceTier : null);
     this.state.activeServiceTierOverride = serviceTierOverride;
     this.state.activeApprovalsReviewer =
-      settings.approvalsReviewer ?? (approvalsReviewerOverride ? this.state.activeApprovalsReviewer : null);
+      nullableSettings.approvalsReviewer ?? (approvalsReviewerOverride ? this.state.activeApprovalsReviewer : null);
     this.state.activeApprovalsReviewerOverride = approvalsReviewerOverride;
   }
 }

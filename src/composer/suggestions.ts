@@ -31,7 +31,7 @@ export function parseSlashCommand(text: string): { command: SlashCommandName; ar
   if (!match) return null;
   const command = match[1] as SlashCommandName;
   if (!SLASH_COMMANDS.some((item) => item.command === `/${command}`)) return null;
-  return { command, args: match[2]?.trim() ?? "" };
+  return { command, args: match.at(2)?.trim() ?? "" };
 }
 
 export function activeComposerSuggestions(
@@ -149,7 +149,7 @@ export function activeThreadCommandSuggestions(beforeCursor: string, threads: Th
   const match = /(?:^|\n)\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
-  const rawQuery = match[1] ?? "";
+  const rawQuery = match[1];
   const query = rawQuery.trim().toLowerCase();
   if (query.length > 0 && /\s$/.test(rawQuery)) return null;
   if (threads.some((thread) => thread.id.toLowerCase() === query)) return null;
@@ -178,7 +178,7 @@ export function activeModelOverrideSuggestions(beforeCursor: string, models: Mod
   const match = /(?:^|\n)\/model\s+([^\n]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
-  const rawQuery = match[1] ?? "";
+  const rawQuery = match[1];
   const query = rawQuery.trim().toLowerCase();
   if (query.length > 0 && /\s$/.test(rawQuery)) return null;
   if (query === "default") return null;
@@ -224,7 +224,7 @@ export function activeReasoningEffortSuggestions(
   const match = /(?:^|\n)\/effort\s+([^\n]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
-  const rawQuery = match[1] ?? "";
+  const rawQuery = match[1];
   const query = rawQuery.trim().toLowerCase();
   if (query.length > 0 && /\s$/.test(rawQuery)) return null;
   if (query === "default" || isReasoningEffort(query)) return null;
@@ -256,8 +256,8 @@ export function activeSkillSuggestions(beforeCursor: string, skills: SkillMetada
   const match = /(^|[\s([{])\$([^\s\])}]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
-  const prefix = match[1] ?? "";
-  const query = (match[2] ?? "").toLowerCase();
+  const prefix = match[1];
+  const query = match[2].toLowerCase();
   if (skills.some((skill) => skill.name.toLowerCase() === query)) return null;
   const start = match.index + prefix.length;
   return skills

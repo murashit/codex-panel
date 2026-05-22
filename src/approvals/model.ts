@@ -77,14 +77,10 @@ export function approvalResponse(approval: PendingApproval, action: ApprovalActi
     } satisfies FileChangeRequestApprovalResponse;
   }
 
-  if (approval.method === "item/permissions/requestApproval") {
-    return {
-      scope: action === "accept-session" ? "session" : "turn",
-      permissions: action === "accept" || action === "accept-session" ? grantedPermissions(approval.params.permissions) : {},
-    } satisfies PermissionsRequestApprovalResponse;
-  }
-
-  throw new Error("Unsupported approval method.");
+  return {
+    scope: action === "accept-session" ? "session" : "turn",
+    permissions: action === "accept" || action === "accept-session" ? grantedPermissions(approval.params.permissions) : {},
+  } satisfies PermissionsRequestApprovalResponse;
 }
 
 export function approvalTitle(approval: PendingApproval): string {

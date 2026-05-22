@@ -213,7 +213,7 @@ function renderHookRow(list: HTMLElement, hook: HookMetadata, state: HookSection
 }
 
 function firstNonEmptyString(...values: string[]): string {
-  return values.find((value) => value.length > 0) ?? values[values.length - 1] ?? "";
+  return values.find((value) => value.length > 0) ?? values.at(-1) ?? "";
 }
 
 function formatThreadDate(timestamp: number): string {

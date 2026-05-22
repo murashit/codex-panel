@@ -73,7 +73,7 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   async openTurnDiff(state: TurnDiffViewState): Promise<void> {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF)[0];
+    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF).at(0);
     const leaf = existing ?? this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true, state: { ...persistedTurnDiffViewState(state) } });
     await leaf.loadIfDeferred();

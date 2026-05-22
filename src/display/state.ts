@@ -24,7 +24,7 @@ export function classifyExecutionState(input: { exitCode?: number; status?: unkn
   if (/(fail|error|errored|notfound|not_found|missing|denied|declin|cancel|reject|aborted)/.test(statusText)) return "failed";
   if (/(running|in[_ -]?progress|queued|pending|started)/.test(statusText)) return "running";
   if (/(completed|complete|success|succeeded|approved|allowed|applied|finished|done)/.test(statusText)) return "completed";
-  if (typeof input.exitCode === "number" && input.exitCode === 0) return "completed";
+  if (typeof input.exitCode === "number") return "completed";
   return null;
 }
 

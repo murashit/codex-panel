@@ -6,13 +6,13 @@ export function hookRunDisplayItem(
   turnId: string | null,
   status: string,
 ): DisplayItem | null {
-  if (!run?.id) return null;
-  const entries = (run.entries ?? []).map((entry) => `${entry.kind}: ${entry.text}`).join("\n");
+  if (run.id.length === 0) return null;
+  const entries = run.entries.map((entry) => `${entry.kind}: ${entry.text}`).join("\n");
   const metaRows = [
     { key: "status", value: status },
     { key: "event", value: run.eventName },
     ...(run.statusMessage ? [{ key: "message", value: run.statusMessage }] : []),
-    ...(run.durationMs !== null && run.durationMs !== undefined ? [{ key: "duration", value: `${String(run.durationMs)}ms` }] : []),
+    ...(run.durationMs !== null ? [{ key: "duration", value: `${String(run.durationMs)}ms` }] : []),
   ];
   const details = [{ rows: metaRows }, ...(entries ? [{ title: "Hook output", body: entries }] : [])];
   const displayId = hookRunDisplayId(run);

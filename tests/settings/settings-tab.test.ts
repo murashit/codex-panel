@@ -361,7 +361,7 @@ function settingDesc(tab: CodexPanelSettingTab, name: string): string {
 }
 
 function buttonTexts(tab: CodexPanelSettingTab): string[] {
-  return Array.from(tab.containerEl.querySelectorAll("button")).map((element) => element.textContent ?? "");
+  return Array.from(tab.containerEl.querySelectorAll("button")).map((element) => element.textContent);
 }
 
 function clickButton(tab: CodexPanelSettingTab, text: string): void {

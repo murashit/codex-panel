@@ -66,9 +66,9 @@ function parseAutomaticApprovalReviewMessage(
   const match = /^Automatic approval review\s+([a-zA-Z][\w-]*)(?:\s+\(([^)]*)\))?:\s*(.+)$/i.exec(text.trim());
   if (!match) return null;
 
-  const status = match[1]?.trim() ?? "review";
-  const fieldText = match[2]?.trim();
-  const message = match[3]?.trim() ?? "";
+  const status = match[1].trim();
+  const fieldText = match.at(2)?.trim();
+  const message = match[3].trim();
   const rows = [{ key: "status", value: status }];
   for (const field of fieldText?.split(",") ?? []) {
     const fieldMatch = /^\s*([^:]+):\s*(.+?)\s*$/.exec(field);
@@ -127,14 +127,11 @@ function autoReviewActionRows(action: GuardianApprovalReviewAction): DisplayRow[
       ...(action.connectorId ? [{ key: "connector id", value: action.connectorId }] : []),
     ];
   }
-  if (action.type === "requestPermissions") {
-    return [
-      { key: "action", value: "request permissions" },
-      ...(action.reason ? [{ key: "reason", value: action.reason }] : []),
-      ...permissionRows(action.permissions),
-    ];
-  }
-  return [{ key: "action", value: "review action" }];
+  return [
+    { key: "action", value: "request permissions" },
+    ...(action.reason ? [{ key: "reason", value: action.reason }] : []),
+    ...permissionRows(action.permissions),
+  ];
 }
 
 function autoReviewActionLabel(action: GuardianApprovalReviewAction): string {
@@ -143,6 +140,5 @@ function autoReviewActionLabel(action: GuardianApprovalReviewAction): string {
   if (action.type === "applyPatch") return `apply patch (${String(action.files.length)} files)`;
   if (action.type === "networkAccess") return `${action.protocol}://${action.host}:${String(action.port)}`;
   if (action.type === "mcpToolCall") return `${action.server}.${action.toolName}`;
-  if (action.type === "requestPermissions") return action.reason ?? "permission request";
-  return "review action";
+  return action.reason ?? "permission request";
 }

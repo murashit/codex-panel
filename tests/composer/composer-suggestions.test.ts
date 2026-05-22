@@ -209,7 +209,7 @@ describe("composer suggestions", () => {
     expect(slash).toMatchObject({ replacement: "/status", appendSpaceOnInsert: true });
     expect(skill).toMatchObject({ replacement: "$obsidian-dataview-read", appendSpaceOnInsert: true });
     expect(wikilink).toMatchObject({ replacement: "[[Beta Note]]" });
-    expect(wikilink?.appendSpaceOnInsert).toBeUndefined();
+    expect(wikilink.appendSpaceOnInsert).toBeUndefined();
 
     expect(applyComposerSuggestionInsertion("/sta", 4, slash)).toEqual({ value: "/status ", cursor: 8 });
     expect(applyComposerSuggestionInsertion("/sta then", 4, slash)).toEqual({ value: "/status then", cursor: 7 });

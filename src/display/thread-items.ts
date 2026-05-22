@@ -38,7 +38,7 @@ export function displayItemsFromTurns(turns: Turn[]): DisplayItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: DisplayItem[] = [];
   for (const turn of sortedTurns) {
-    for (const item of turn.items ?? []) {
+    for (const item of turn.items) {
       const displayItem = displayItemFromThreadItem(item, turn.id);
       if (displayItem) items.push(displayItem);
     }
@@ -251,7 +251,7 @@ function imageViewDisplayItem(item: ImageViewItem, turnId?: string): DisplayItem
 }
 
 function imageGenerationDisplayItem(item: ImageGenerationItem, turnId?: string): DisplayItem {
-  const target = item.savedPath ?? item.result ?? item.revisedPrompt ?? null;
+  const target = item.savedPath ?? item.result;
   return {
     id: item.id,
     kind: "tool",
@@ -331,7 +331,7 @@ function representativeCommandAction(actions: CommandAction[]): CommandAction | 
     actions.find((action) => action.type === "read") ??
     actions.find((action) => action.type === "search") ??
     actions.find((action) => action.type === "listFiles") ??
-    actions[0] ??
+    actions.at(0) ??
     null
   );
 }
@@ -453,8 +453,8 @@ export function commandDisplayItem(item: CommandExecutionItem, turnId?: string):
     turnId,
     itemId: item.id,
     command: item.command,
-    cwd: item.cwd ?? "(unknown)",
-    status: item.status ?? "(unknown)",
+    cwd: item.cwd,
+    status: item.status,
     exitCode,
     durationMs,
     output: item.aggregatedOutput ?? "",
@@ -463,7 +463,7 @@ export function commandDisplayItem(item: CommandExecutionItem, turnId?: string):
 }
 
 export function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): DisplayItem {
-  const changes = normalizeFileChanges(item.changes ?? []);
+  const changes = normalizeFileChanges(item.changes);
   const qualifier = statusQualifier(item.status, failedStatusLabel(item.status));
   return {
     id: item.id,

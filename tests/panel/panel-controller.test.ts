@@ -237,6 +237,49 @@ describe("PanelController", () => {
       ]);
     });
 
+    it("omits hook duration details while duration is unavailable", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      state.activeTurnId = "turn-active";
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "hook/completed",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          run: {
+            id: "hook-1",
+            eventName: "postToolUse",
+            handlerType: "command",
+            executionMode: "sync",
+            scope: "turn",
+            sourcePath: "/vault/.codex/hooks.json",
+            source: "project",
+            displayOrder: 1n,
+            status: "completed",
+            statusMessage: null,
+            startedAt: 1n,
+            completedAt: null,
+            durationMs: null,
+            entries: [],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
+
+      expect(state.displayItems[0]).toMatchObject({
+        kind: "hook",
+        details: [
+          {
+            rows: [
+              { key: "status", value: "completed" },
+              { key: "event", value: "postToolUse" },
+            ],
+          },
+        ],
+      });
+    });
+
     it("attaches unscoped hook runs to the active turn while streaming", () => {
       const state = createPanelState();
       state.activeThreadId = "thread-active";
@@ -441,8 +484,8 @@ describe("PanelController", () => {
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
       expect(state.displayItems[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(state.displayItems[0]?.turnId).toBeUndefined();
-      expect(state.pendingTurnStart?.promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+      expect(state.displayItems[0].turnId).toBeUndefined();
+      expect(expectPresent(state.pendingTurnStart).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
     it("keeps pre-turn prompt submit hooks through turn start and completed-turn reconciliation", () => {
@@ -458,8 +501,8 @@ describe("PanelController", () => {
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
       expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(state.displayItems[1]?.turnId).toBeUndefined();
-      expect(state.pendingTurnStart?.promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+      expect(state.displayItems[1].turnId).toBeUndefined();
+      expect(expectPresent(state.pendingTurnStart).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
 
       controller.handleNotification({
         method: "turn/started",
@@ -1183,7 +1226,7 @@ describe("PanelController", () => {
         state: "completed",
       });
       const reviewItem = state.displayItems[0];
-      expect(reviewItem && "details" in reviewItem ? reviewItem.details?.[0] : null).toMatchObject({
+      expect("details" in reviewItem ? reviewItem.details?.[0] : null).toMatchObject({
         title: "Review",
         rows: expect.arrayContaining([{ key: "status", value: "approved" }]),
       });
