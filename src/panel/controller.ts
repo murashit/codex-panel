@@ -16,7 +16,6 @@ import {
   displayItemsFromTurns,
   normalizeFileChanges,
   shouldSuppressLifecycleItem,
-  shouldSuppressThreadItem,
 } from "../display/thread-items";
 import type { DisplayDetailSection, DisplayItem, DisplayKind, MessageDisplayItem } from "../display/types";
 import type { RequestId } from "../generated/app-server/RequestId";
@@ -322,13 +321,13 @@ export class PanelController {
   }
 
   private handleStartedItem(item: ThreadItem, turnId: string): void {
-    if (shouldSuppressThreadItem(item) || shouldSuppressLifecycleItem(item)) return;
+    if (shouldSuppressLifecycleItem(item)) return;
     const displayItem = displayItemFromThreadItem(item, turnId);
     if (displayItem) this.state.displayItems = upsertDisplayItem(this.state.displayItems, displayItem);
   }
 
   private handleCompletedItem(item: ThreadItem, turnId: string): void {
-    if (shouldSuppressThreadItem(item) || item.type === "userMessage") return;
+    if (item.type === "userMessage") return;
     const displayItem = displayItemFromThreadItem(item, turnId);
     if (displayItem) {
       this.state.displayItems = upsertDisplayItem(this.state.displayItems, displayItem);
@@ -421,21 +420,14 @@ export class PanelController {
     this.state.activeReasoningEffort = settings.effort;
     this.state.activeCollaborationMode = settings.collaborationMode.mode;
     this.state.requestedCollaborationMode = settings.collaborationMode.mode;
-    const nullableSettings: ThreadSettingsWithNullableReviewer = settings;
     const serviceTierOverride = this.state.activeServiceTierOverride || this.state.requestedServiceTier !== null;
     const approvalsReviewerOverride = this.state.activeApprovalsReviewerOverride || this.state.requestedApprovalsReviewer !== null;
     this.state.activeServiceTier = settings.serviceTier ?? (serviceTierOverride ? this.state.activeServiceTier : null);
     this.state.activeServiceTierOverride = serviceTierOverride;
-    this.state.activeApprovalsReviewer =
-      nullableSettings.approvalsReviewer ?? (approvalsReviewerOverride ? this.state.activeApprovalsReviewer : null);
+    this.state.activeApprovalsReviewer = settings.approvalsReviewer;
     this.state.activeApprovalsReviewerOverride = approvalsReviewerOverride;
   }
 }
-
-type ThreadSettings = Extract<ServerNotification, { method: "thread/settings/updated" }>["params"]["threadSettings"];
-type ThreadSettingsWithNullableReviewer = Omit<ThreadSettings, "approvalsReviewer"> & {
-  approvalsReviewer: ThreadSettings["approvalsReviewer"] | null;
-};
 
 function removeUnstructuredAutoReviewWarnings(items: DisplayItem[]): DisplayItem[] {
   return items.filter((item) => !isUnstructuredAutoReviewWarning(item));

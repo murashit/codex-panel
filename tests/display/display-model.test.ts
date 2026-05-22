@@ -138,11 +138,6 @@ describe("thread item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("suppresses legacy output thread items", () => {
-    expect(displayItemFromThreadItem({ type: "outputMessage", id: "out-1" } as unknown as ThreadItem)).toBeNull();
-    expect(displayItemFromThreadItem({ type: "toolOutputMessage", id: "tool-out-1" } as unknown as ThreadItem)).toBeNull();
-  });
-
   it("preserves reasoning text", () => {
     const item: ThreadItem = { type: "reasoning", id: "r1", summary: ["summary"], content: ["detail"] };
     expect(displayItemFromThreadItem(item)?.text).toBe("summary\n\ndetail");

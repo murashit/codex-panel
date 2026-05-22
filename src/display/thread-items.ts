@@ -47,8 +47,6 @@ export function displayItemsFromTurns(turns: Turn[]): DisplayItem[] {
 }
 
 export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): DisplayItem | null {
-  if (shouldSuppressThreadItem(item)) return null;
-
   switch (item.type) {
     case "userMessage":
       return userMessageDisplayItem(item, turnId);
@@ -490,10 +488,6 @@ export function normalizeFileChanges(changes: unknown[]): DisplayFileChange[] {
       },
     ];
   });
-}
-
-export function shouldSuppressThreadItem(item: { type: string }): boolean {
-  return item.type === "outputMessage" || item.type === "toolOutputMessage";
 }
 
 export function shouldSuppressLifecycleItem(item: ThreadItem): boolean {
