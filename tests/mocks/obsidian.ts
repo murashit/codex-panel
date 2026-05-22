@@ -36,7 +36,10 @@ export class TFile {
 }
 
 export class Notice {
+  readonly message: string;
+
   constructor(message: string) {
+    this.message = message;
     notices.push(message);
   }
 }
