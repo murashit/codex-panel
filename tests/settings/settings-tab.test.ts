@@ -32,6 +32,7 @@ describe("settings tab", () => {
     vi.stubGlobal("HTMLDivElement", dom.window.HTMLDivElement);
     vi.stubGlobal("HTMLInputElement", dom.window.HTMLInputElement);
     vi.stubGlobal("HTMLSelectElement", dom.window.HTMLSelectElement);
+    vi.stubGlobal("Event", dom.window.Event);
     withAppServerSessionMock.mockReset();
     notices.length = 0;
   });
@@ -110,7 +111,7 @@ describe("settings tab", () => {
     if (!shortcut) throw new Error("Missing send shortcut dropdown");
 
     shortcut.value = "mod-enter";
-    shortcut.dispatchEvent(new shortcut.ownerDocument.defaultView!.Event("change"));
+    shortcut.dispatchEvent(new Event("change"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
@@ -130,13 +131,13 @@ describe("settings tab", () => {
     if (!toggle || !folder || !filename || !tags) throw new Error("Missing archive export controls");
 
     toggle.checked = true;
-    toggle.dispatchEvent(new toggle.ownerDocument.defaultView!.Event("change"));
+    toggle.dispatchEvent(new Event("change"));
     folder.value = "Saved Threads";
-    folder.dispatchEvent(new folder.ownerDocument.defaultView!.Event("change"));
+    folder.dispatchEvent(new Event("change"));
     filename.value = "{{date}} {{title}}.md";
-    filename.dispatchEvent(new filename.ownerDocument.defaultView!.Event("change"));
+    filename.dispatchEvent(new Event("change"));
     tags.value = "codex, archive";
-    tags.dispatchEvent(new tags.ownerDocument.defaultView!.Event("change"));
+    tags.dispatchEvent(new Event("change"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledTimes(4);

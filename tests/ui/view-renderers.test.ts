@@ -1725,9 +1725,10 @@ describe("toolbar renderer decisions", () => {
     expect(startRenameThread).toHaveBeenCalledWith("thread");
 
     const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
-    expect(input?.value).toBe("Draft title");
-    input!.value = "New title";
-    input!.dispatchEvent(new Event("input", { bubbles: true }));
+    if (!input) throw new Error("Missing thread rename input");
+    expect(input.value).toBe("Draft title");
+    input.value = "New title";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
 
     parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.click();
@@ -1877,7 +1878,9 @@ describe("pending request renderer decisions", () => {
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")];
     expect(buttons.map((button) => button.textContent)).toEqual(["Allow network rule", "Deny"]);
-    buttons[0]!.click();
+    const allowButton = buttons[0];
+    if (!allowButton) throw new Error("Missing allow button");
+    allowButton.click();
     expect(resolveApproval).toHaveBeenCalledWith(approval, {
       kind: "command-decision",
       decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },

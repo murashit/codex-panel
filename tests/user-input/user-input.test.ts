@@ -4,6 +4,11 @@ import { questionDefaultAnswer, toPendingUserInput, userInputResponse } from "..
 import { pendingRequestsSignature } from "../../src/panel/request-state";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
 
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("Expected value to be present");
+  return value;
+}
+
 describe("user input model", () => {
   it("classifies requestUserInput and builds answers", () => {
     const request: ServerRequest = {
@@ -26,16 +31,16 @@ describe("user input model", () => {
       },
     };
 
-    const input = toPendingUserInput(request);
+    const input = expectPresent(toPendingUserInput(request));
     expect(input).toMatchObject({ requestId: 7, method: "item/tool/requestUserInput" });
     expect(questionDefaultAnswer(request.params.questions[0])).toBe("Recommended");
-    expect(userInputResponse(input!, { direction: "Recommended" })).toEqual({
+    expect(userInputResponse(input, { direction: "Recommended" })).toEqual({
       answers: { direction: { answers: ["Recommended"] } },
     });
   });
 
   it("signs pending request content and drafts deterministically", () => {
-    const input = toPendingUserInput({
+    const input = expectPresent(toPendingUserInput({
       id: 7,
       method: "item/tool/requestUserInput",
       params: {
@@ -53,7 +58,7 @@ describe("user input model", () => {
           },
         ],
       },
-    })!;
+    }));
     const drafts = new Map([
       ["z", "last"],
       ["a", "first"],

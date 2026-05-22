@@ -23,6 +23,11 @@ function controllerForState(
   });
 }
 
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("Expected value to be present");
+  return value;
+}
+
 describe("PanelController", () => {
   describe("active turn routing", () => {
     it("ignores item notifications for a different active thread", () => {
@@ -624,8 +629,8 @@ describe("PanelController", () => {
       const respondToServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { respondToServerRequest });
 
-      controller.handleServerRequest(supportedApprovalRequests()[2]!);
-      controller.resolveApproval(state.approvals[0]!, "accept-session");
+      controller.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
+      controller.resolveApproval(expectPresent(state.approvals[0]), "accept-session");
 
       expect(respondToServerRequest).toHaveBeenCalledWith(12, {
         scope: "session",
@@ -763,7 +768,7 @@ describe("PanelController", () => {
           requestId: 50,
           method: "item/commandExecution/requestApproval",
           params: {
-            ...supportedApprovalRequests()[0]!.params,
+            ...expectPresent(supportedApprovalRequests()[0]).params,
             threadId: "thread-active",
           } as Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }>["params"],
         },
@@ -834,7 +839,7 @@ describe("PanelController", () => {
         {
           requestId: 10,
           method: "item/commandExecution/requestApproval",
-          params: supportedApprovalRequests()[0]!.params as Extract<
+          params: expectPresent(supportedApprovalRequests()[0]).params as Extract<
             ServerRequest,
             { method: "item/commandExecution/requestApproval" }
           >["params"],
