@@ -182,9 +182,10 @@ function renderHooks(containerEl: HTMLElement, state: HookSectionState): void {
 
 function renderHookRow(list: HTMLElement, hook: HookMetadata, state: HookSectionState): void {
   const canTrust = !hook.isManaged && (hook.trustStatus === "untrusted" || hook.trustStatus === "modified");
+  const hookName = firstNonEmptyString(hook.statusMessage, hook.command, hook.matcher, hook.eventName);
   const setting = new Setting(list)
     .setClass("codex-panel-settings__dynamic-row")
-    .setName(hook.statusMessage || hook.command || hook.matcher || hook.eventName)
+    .setName(hookName)
     .setDesc(`${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${hook.enabled ? "enabled" : "disabled"}`)
     .addButton((button) => {
       button
@@ -209,6 +210,10 @@ function renderHookRow(list: HTMLElement, hook: HookMetadata, state: HookSection
     text: hook.currentHash,
     attr: { title: hook.key },
   });
+}
+
+function firstNonEmptyString(...values: string[]): string {
+  return values.find((value) => value.length > 0) ?? values[values.length - 1] ?? "";
 }
 
 function formatThreadDate(timestamp: number): string {

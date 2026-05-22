@@ -81,13 +81,13 @@ export function capabilityProbeError(method: CapabilityProbeMethod, error: unkno
 }
 
 export function appServerIdentity(initializeResponse: InitializeResponse | null): string {
-  return initializeResponse?.userAgent || "(not connected)";
+  return initializeResponse?.userAgent ?? "(not connected)";
 }
 
 export function appServerPlatform(initializeResponse: InitializeResponse | null): string {
   if (!initializeResponse) return "(not connected)";
-  const family = initializeResponse.platformFamily || "unknown";
-  const os = initializeResponse.platformOs || "unknown";
+  const family = initializeResponse.platformFamily ?? "unknown";
+  const os = initializeResponse.platformOs ?? "unknown";
   return `${os}/${family}`;
 }
 

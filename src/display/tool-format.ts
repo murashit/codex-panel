@@ -11,7 +11,7 @@ export function compactToolSummary(label: string | null, target?: string | null,
 
 export function statusQualifier(status: unknown, failure?: string | null): string | null {
   if (status === "declined") return "declined";
-  if (status === "failed") return failure || "failed";
+  if (status === "failed") return failure && failure.length > 0 ? failure : "failed";
   return null;
 }
 

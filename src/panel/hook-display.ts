@@ -60,7 +60,8 @@ function lastUserMessageAnchorId(items: DisplayItem[], turnId: string): string |
 }
 
 function hookSummary(eventName: string | null | undefined, statusMessage: string | null | undefined): string {
-  const event = eventName?.trim() || "Hook";
+  const trimmedEvent = eventName?.trim();
+  const event = trimmedEvent && trimmedEvent.length > 0 ? trimmedEvent : "Hook";
   const message = statusMessage?.trim();
   return message ? `${event}: ${message}` : event;
 }

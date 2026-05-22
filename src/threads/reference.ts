@@ -25,7 +25,7 @@ export function referencedThreadTurns(turns: Turn[]): ReferencedThreadTurn[] {
       userText: firstUserMessage(turn.items),
       assistantText: lastAssistantMessage(turn.items),
     }))
-    .filter((turn) => turn.userText || turn.assistantText);
+    .filter((turn) => turn.userText !== null || turn.assistantText !== null);
 }
 
 export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTurn[], userRequest: string): string {

@@ -241,9 +241,7 @@ export class PanelComposerController {
   }
 
   private noteCandidates(): NoteCandidate[] {
-    if (!this.noteCandidatesCache) {
-      this.noteCandidatesCache = appNoteCandidates(this.options.app);
-    }
+    this.noteCandidatesCache ??= appNoteCandidates(this.options.app);
     return this.noteCandidatesCache;
   }
 }

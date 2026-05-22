@@ -5,7 +5,7 @@ const MAX_THREAD_DISPLAY_TITLE_LENGTH = 96;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function getThreadTitle(thread: Thread): string {
-  return thread.name || thread.preview || thread.id;
+  return thread.name ?? thread.preview ?? thread.id;
 }
 
 export function codexPanelDisplayTitle(activeThreadId: string | null, threads: Thread[]): string {
@@ -18,7 +18,7 @@ export function codexPanelDisplayTitle(activeThreadId: string | null, threads: T
 
 export function inheritedForkThreadName(threadId: string, threads: Thread[]): string | null {
   const name = threads.find((thread) => thread.id === threadId)?.name?.trim();
-  return name || null;
+  return name !== undefined && name.length > 0 ? name : null;
 }
 
 export function upsertThread(threads: Thread[], thread: Thread): Thread[] {

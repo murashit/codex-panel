@@ -51,7 +51,7 @@ export function selectedProfileConfig(config: Record<string, unknown>): Record<s
 
 export function resolvedConfigValue(config: Record<string, unknown>, key: string): unknown {
   const profileValue = selectedProfileConfig(config)[key];
-  return profileValue === undefined || profileValue === null ? config[key] : profileValue;
+  return profileValue ?? config[key];
 }
 
 export function currentServiceTier(snapshot: RuntimeSnapshot, config = configRecord(snapshot.effectiveConfig)): string | null {
@@ -189,9 +189,7 @@ function fillMissingConfigValues(config: Record<string, unknown>, layers: Config
 
   const merged = { ...config };
   for (const [key, value] of Object.entries(fallback)) {
-    if (merged[key] === undefined || merged[key] === null) {
-      merged[key] = value;
-    }
+    merged[key] ??= value;
   }
   return merged;
 }

@@ -338,7 +338,7 @@ function representativeCommandAction(actions: CommandAction[]): CommandAction | 
 
 function commandActionValue(value: string | null): string | null {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
+  return trimmed !== undefined && trimmed.length > 0 ? trimmed : null;
 }
 
 function commandActionPathLabel(value: string | null, cwd: string): string | null {
