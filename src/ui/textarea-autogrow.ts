@@ -28,13 +28,15 @@ function parseCssLengthExpression(value: string, win: Window): number | null {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "none") return null;
   if (/^min\(/i.test(trimmed)) {
-    const values = Array.from(trimmed.matchAll(/(-?\d+(?:\.\d+)?)\s*(px|vh)/gi), (match) =>
-      cssLengthToPixels(Number.parseFloat(match[1]), match[2], win),
-    ).filter((candidate): candidate is number => Number.isFinite(candidate));
+    const values = Array.from(trimmed.matchAll(/(-?\d+(?:\.\d+)?)\s*(px|vh)/gi), (match) => {
+      const value = match[1];
+      const unit = match[2];
+      return value && unit ? cssLengthToPixels(Number.parseFloat(value), unit, win) : Number.NaN;
+    }).filter((candidate): candidate is number => Number.isFinite(candidate));
     return values.length > 0 ? Math.min(...values) : null;
   }
   const length = /^(-?\d+(?:\.\d+)?)\s*(px|vh)$/i.exec(trimmed);
-  if (!length) return null;
+  if (!length?.[1] || !length[2]) return null;
   return cssLengthToPixels(Number.parseFloat(length[1]), length[2], win);
 }
 

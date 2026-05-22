@@ -267,6 +267,7 @@ function firstUserMessage(items: ThreadItem[]): string | null {
 function lastAssistantMessage(items: ThreadItem[]): string | null {
   for (let index = items.length - 1; index >= 0; index -= 1) {
     const item = items[index];
+    if (item === undefined) continue;
     if (item.type !== "agentMessage" && item.type !== "plan") continue;
     const text = item.text.trim();
     if (text) return text;

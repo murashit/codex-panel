@@ -6,6 +6,7 @@ export function upsertDisplayItem(items: DisplayItem[], next: DisplayItem): Disp
   if (index === -1) return [...items, next];
   const copy = [...items];
   const previous = copy[index];
+  if (previous === undefined) return items;
   copy[index] = {
     ...previous,
     ...next,

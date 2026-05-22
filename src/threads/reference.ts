@@ -81,8 +81,8 @@ export function referencedThreadDisplayFromPrompt(text: string): { text: string;
   const threadId = lineValue(header, "Thread ID") ?? "";
   const included = lineValue(header, "Included turns") ?? "";
   const turnsMatch = /^(\d+)\/(\d+)$/.exec(included);
-  const includedTurns = turnsMatch ? Number.parseInt(turnsMatch[1], 10) : REFERENCED_THREAD_TURN_LIMIT;
-  const turnLimit = turnsMatch ? Number.parseInt(turnsMatch[2], 10) : REFERENCED_THREAD_TURN_LIMIT;
+  const includedTurns = turnsMatch?.[1] ? Number.parseInt(turnsMatch[1], 10) : REFERENCED_THREAD_TURN_LIMIT;
+  const turnLimit = turnsMatch?.[2] ? Number.parseInt(turnsMatch[2], 10) : REFERENCED_THREAD_TURN_LIMIT;
   const visibleText = text.slice(requestStart + requestMarker.length).trim();
   if (!visibleText || !threadId) return null;
   return {
@@ -118,6 +118,7 @@ function firstUserMessage(items: ThreadItem[]): string | null {
 function lastAssistantMessage(items: ThreadItem[]): string | null {
   for (let index = items.length - 1; index >= 0; index -= 1) {
     const item = items[index];
+    if (item === undefined) continue;
     if (item.type !== "agentMessage" && item.type !== "plan") continue;
     const text = item.text.trim();
     if (text) return text;

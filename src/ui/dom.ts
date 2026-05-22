@@ -17,12 +17,14 @@ export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openL
     }
 
     const rawLink = match[1];
+    const rawMatch = match[0];
+    if (rawLink === undefined) continue;
     const separator = rawLink.indexOf("|");
     const target = (separator === -1 ? rawLink : rawLink.slice(0, separator)).trim();
     const label = (separator === -1 ? rawLink : rawLink.slice(separator + 1)).trim() || target;
 
     if (target.length === 0) {
-      parent.appendChild(doc.createTextNode(match[0]));
+      parent.appendChild(doc.createTextNode(rawMatch));
     } else {
       const link = parent.createEl("a", {
         cls: "internal-link codex-panel__wikilink",
@@ -37,7 +39,7 @@ export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openL
         openLink(target);
       };
     }
-    lastIndex = index + match[0].length;
+    lastIndex = index + rawMatch.length;
   }
 
   if (lastIndex < text.length) {

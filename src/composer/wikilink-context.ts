@@ -17,7 +17,9 @@ export function parsedWikiLinks(text: string): ParsedWikiLink[] {
   const links: ParsedWikiLink[] = [];
   const seen = new Set<string>();
   for (const match of text.matchAll(WIKILINK_PATTERN)) {
-    const raw = match[1].trim();
+    const rawValue = match[1];
+    if (rawValue === undefined) continue;
+    const raw = rawValue.trim();
     const link = parseWikiLink(raw);
     if (!link) continue;
     const key = `${link.target}${link.subpath}`;
@@ -64,6 +66,7 @@ export function parsedSkillReferences(text: string): string[] {
   const seen = new Set<string>();
   for (const match of text.matchAll(SKILL_REFERENCE_PATTERN)) {
     const name = match[2];
+    if (name === undefined) continue;
     const key = name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);

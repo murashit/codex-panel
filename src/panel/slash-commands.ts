@@ -249,7 +249,9 @@ type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: str
 function parseReferArgs(args: string): { threadQuery: string; message: string } | null {
   const match = /^(\S+)\s+([\s\S]*\S)\s*$/.exec(args);
   if (!match) return null;
-  return { threadQuery: match[1], message: match[2] };
+  const threadQuery = match[1];
+  const message = match[2];
+  return threadQuery !== undefined && message !== undefined ? { threadQuery, message } : null;
 }
 
 export function resolveThreadArgument(args: string, threads: Thread[]): ThreadResolution {
@@ -260,12 +262,12 @@ export function resolveThreadArgument(args: string, threads: Thread[]): ThreadRe
   }
 
   const idMatches = threads.filter((thread) => thread.id === query || thread.id.startsWith(query));
-  if (idMatches.length === 1) return { ok: true, thread: idMatches[0] };
+  if (idMatches.length === 1 && idMatches[0]) return { ok: true, thread: idMatches[0] };
   if (idMatches.length > 1) return { ok: false, message: `Multiple matching threads: ${idMatches.map((thread) => thread.id).join(", ")}` };
 
   const titleQuery = query.toLowerCase();
   const titleMatches = threads.filter((thread) => getThreadTitle(thread).toLowerCase().includes(titleQuery));
-  if (titleMatches.length === 1) return { ok: true, thread: titleMatches[0] };
+  if (titleMatches.length === 1 && titleMatches[0]) return { ok: true, thread: titleMatches[0] };
   if (titleMatches.length > 1) return { ok: false, message: `Multiple matching threads: ${titleMatches.map(getThreadTitle).join(", ")}` };
 
   return { ok: false, message: `No matching thread: ${query}` };

@@ -39,7 +39,7 @@ function lineChanges(originalLines: string[], replacementLines: string[]): DiffL
       newIndex += 1;
     } else if (
       newIndex < replacementLines.length &&
-      (oldIndex === originalLines.length || lengths[oldIndex]?.[newIndex + 1] >= lengths[oldIndex + 1]?.[newIndex])
+      (oldIndex === originalLines.length || (lengths[oldIndex]?.[newIndex + 1] ?? 0) >= (lengths[oldIndex + 1]?.[newIndex] ?? 0))
     ) {
       changes.push({ prefix: "+", text: replacementLines[newIndex] ?? "" });
       newIndex += 1;
@@ -56,7 +56,9 @@ function lcsLengths(left: string[], right: string[]): number[][] {
   const rows = Array.from({ length: left.length + 1 }, () => Array.from({ length: right.length + 1 }, () => 0));
   for (let leftIndex = left.length - 1; leftIndex >= 0; leftIndex -= 1) {
     for (let rightIndex = right.length - 1; rightIndex >= 0; rightIndex -= 1) {
-      rows[leftIndex][rightIndex] =
+      const row = rows[leftIndex];
+      if (row === undefined) continue;
+      row[rightIndex] =
         left[leftIndex] === right[rightIndex]
           ? (rows[leftIndex + 1]?.[rightIndex + 1] ?? 0) + 1
           : Math.max(rows[leftIndex + 1]?.[rightIndex] ?? 0, rows[leftIndex]?.[rightIndex + 1] ?? 0);

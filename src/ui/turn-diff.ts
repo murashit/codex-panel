@@ -128,7 +128,7 @@ function fileCountLabel(files: string[]): string {
 function filePathFromGitDiffHeader(line: string): string | null {
   const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
   if (!match) return null;
-  return match[2];
+  return match[2] ?? null;
 }
 
 export type DiffLineClass = "added" | "removed" | "hunk" | "context" | "file";

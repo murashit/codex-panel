@@ -66,9 +66,12 @@ function parseAutomaticApprovalReviewMessage(
   const match = /^Automatic approval review\s+([a-zA-Z][\w-]*)(?:\s+\(([^)]*)\))?:\s*(.+)$/i.exec(text.trim());
   if (!match) return null;
 
-  const status = match[1].trim();
+  const statusText = match[1];
+  const messageText = match[3];
+  if (statusText === undefined || messageText === undefined) return null;
+  const status = statusText.trim();
   const fieldText = match.at(2)?.trim();
-  const message = match[3].trim();
+  const message = messageText.trim();
   const rows = [{ key: "status", value: status }];
   for (const field of fieldText?.split(",") ?? []) {
     const fieldMatch = /^\s*([^:]+):\s*(.+?)\s*$/.exec(field);

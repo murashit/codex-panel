@@ -259,8 +259,11 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   }
   if (item.kind === "system" && item.details && item.details.length > 0) {
     renderSystemDetails(messageEl, item.details);
-  } else if ("details" in item && item.details && item.details.length > 0) {
-    renderMessageDetails(messageEl, item.id, item.details, context);
+  } else {
+    const details = "details" in item ? item.details : undefined;
+    if (details && details.length > 0) {
+      renderMessageDetails(messageEl, item.id, details, context);
+    }
   }
 }
 

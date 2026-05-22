@@ -27,6 +27,7 @@ export function captureScrollAnchor(container: HTMLElement): ScrollAnchor | null
 
   const viewportTop = container.scrollTop;
   const anchor = children.find((child) => child.offsetTop + child.offsetHeight >= viewportTop) ?? children[0];
+  if (!anchor) return null;
   const key = anchor.getAttribute(MESSAGE_BLOCK_KEY_ATTRIBUTE);
   if (!key) return null;
 
