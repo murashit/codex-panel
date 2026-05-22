@@ -75,7 +75,7 @@ function renderDetailSection(parent: HTMLElement, section: ToolResultDetailSecti
   renderOutputBlock(parent, section.title, section.body);
 }
 
-function renderMetaBlock(parent: HTMLElement, title: string | undefined, rows: Array<{ key: string; value: string }>): void {
+function renderMetaBlock(parent: HTMLElement, title: string | undefined, rows: { key: string; value: string }[]): void {
   const section = title ? renderOutputSection(parent, title, "codex-panel__output codex-panel__output--meta") : parent;
   const meta = section.createEl("dl", { cls: "codex-panel__meta-grid" });
   for (const row of rows) {

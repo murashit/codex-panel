@@ -67,7 +67,7 @@ describe("thread naming", () => {
   });
 
   it("scans older thread pages until it finds a usable naming context", async () => {
-    const calls: Array<{ cursor: string | null; limit: number; sortDirection: string }> = [];
+    const calls: { cursor: string | null; limit: number; sortDirection: string }[] = [];
     const context = await findThreadNamingContext({
       threadId: "thread",
       pageLimit: 2,

@@ -185,7 +185,7 @@ describe("approval model", () => {
   });
 
   it("builds action responses for current approval families", () => {
-    const requests: Array<{ request: ServerRequest; acceptSession: unknown; cancel: unknown }> = [
+    const requests: { request: ServerRequest; acceptSession: unknown; cancel: unknown }[] = [
       {
         request: {
           id: 3,

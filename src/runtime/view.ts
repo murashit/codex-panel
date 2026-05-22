@@ -41,7 +41,7 @@ export interface RateLimitSummaryRow {
 
 export interface EffectiveConfigSection {
   title: string;
-  rows: Array<{ key: string; value: string }>;
+  rows: { key: string; value: string }[];
 }
 
 export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null {

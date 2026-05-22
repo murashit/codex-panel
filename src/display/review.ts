@@ -59,7 +59,7 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Disp
 
 function parseAutomaticApprovalReviewMessage(
   text: string,
-): { status: string; summary: string; rows: Array<{ key: string; value: string }> } | null {
+): { status: string; summary: string; rows: { key: string; value: string }[] } | null {
   const match = /^Automatic approval review\s+([a-zA-Z][\w-]*)(?:\s+\(([^)]*)\))?:\s*(.+)$/i.exec(text.trim());
   if (!match) return null;
 

@@ -14,7 +14,7 @@ export function permissionRows(value: unknown): DetailRow[] {
   const fileSystem = permissions.fileSystem as {
     read?: unknown;
     write?: unknown;
-    entries?: Array<{ path?: unknown; access?: unknown }>;
+    entries?: { path?: unknown; access?: unknown }[];
     globScanMaxDepth?: unknown;
   } | null;
   if (!fileSystem || typeof fileSystem !== "object") return rows;

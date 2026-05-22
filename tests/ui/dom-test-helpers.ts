@@ -90,7 +90,13 @@ export function installObsidianDomShims(): void {
   });
 }
 
-export function topLevelDetailsSummaries(element: HTMLElement): Array<string | null> {
+function nodeConstructor(): typeof Node {
+  const defaultView = document.defaultView;
+  if (defaultView === null) throw new Error("Expected document.defaultView to install Obsidian DOM helpers.");
+  return (globalThis as typeof globalThis & { Node?: typeof Node }).Node ?? defaultView.Node;
+}
+
+export function topLevelDetailsSummaries(element: HTMLElement): (string | null)[] {
   const candidates = [element, ...element.children];
   return candidates
     .filter((child): child is HTMLDetailsElement => child instanceof HTMLDetailsElement)

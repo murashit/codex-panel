@@ -25,6 +25,6 @@ export function slashCommandHelpLines(): string[] {
   return SLASH_COMMANDS.map((item) => `${item.command} - ${item.detail}`);
 }
 
-export function slashCommandHelpRows(): Array<{ key: string; value: string }> {
+export function slashCommandHelpRows(): { key: string; value: string }[] {
   return SLASH_COMMANDS.map((item) => ({ key: item.command, value: item.detail }));
 }

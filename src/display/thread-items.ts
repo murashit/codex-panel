@@ -419,7 +419,7 @@ function webSearchQueryList(
 }
 
 function webSearchDetails(item: WebSearchItem): DisplayDetailSection[] {
-  const rows: Array<{ key: string; value: string }> = [];
+  const rows: { key: string; value: string }[] = [];
   if (item.action) rows.push({ key: "action", value: webSearchActionLabel(item.action.type) });
   if (item.action?.type === "search") {
     const queries = webSearchQueryList(item.action.query, item.action.queries, item.query);

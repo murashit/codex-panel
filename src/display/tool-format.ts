@@ -33,7 +33,7 @@ export function jsonDetail(title: string, value: unknown): DisplayDetailSection[
   return value === null || value === undefined ? [] : [{ title, body: jsonPreview(value) }];
 }
 
-export function jsonDetails(entries: Array<[title: string, value: unknown]>): DisplayDetailSection[] {
+export function jsonDetails(entries: [title: string, value: unknown][]): DisplayDetailSection[] {
   return entries.flatMap(([title, value]) => jsonDetail(title, value));
 }
 

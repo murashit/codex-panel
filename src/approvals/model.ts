@@ -133,9 +133,9 @@ function approvalSummaryParts(approval: PendingApproval): ApprovalSummaryParts {
   return summaryParts(reason, null, fallback);
 }
 
-export function approvalDetails(approval: PendingApproval): Array<{ key: string; value: string }> {
+export function approvalDetails(approval: PendingApproval): { key: string; value: string }[] {
   const params = approval.params as Record<string, unknown>;
-  const rows: Array<{ key: string; value: string }> = [];
+  const rows: { key: string; value: string }[] = [];
   addOptional(rows, "reason", params.reason);
   addOptional(rows, "command", Array.isArray(params.command) ? params.command.join(" ") : params.command);
   addOptional(rows, "cwd", params.cwd);

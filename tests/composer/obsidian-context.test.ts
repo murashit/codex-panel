@@ -57,7 +57,7 @@ function appFixture(options: {
   activePath?: string;
   linkDestination?: TFile | null;
   getFirstLinkpathDest?: (target: string, sourcePath: string) => TFile | null;
-  markdownFiles?: Array<{ basename: string; path: string; stat: { mtime: number } }>;
+  markdownFiles?: { basename: string; path: string; stat: { mtime: number } }[];
   abstractFiles?: Map<string, TFile>;
 }): App {
   return {

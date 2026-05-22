@@ -20,7 +20,7 @@ export type ToolResultDisplayItem =
   | ReviewResultDisplayItem;
 
 export type ToolResultDetailSection =
-  | { kind: "meta"; title?: string; rows: Array<{ key: string; value: string }> }
+  | { kind: "meta"; title?: string; rows: { key: string; value: string }[] }
   | { kind: "output"; title: string; body: string }
   | { kind: "diff"; title: string; diff: string };
 
@@ -159,7 +159,7 @@ function outputSection(title: string, body: string | null | undefined): ToolResu
   return body ? [{ kind: "output", title, body }] : [];
 }
 
-function fileChangeSummary(item: DisplayItem, changes: Array<DisplayFileChange & { displayPath: string }>): string {
+function fileChangeSummary(item: DisplayItem, changes: (DisplayFileChange & { displayPath: string })[]): string {
   if (item.kind !== "fileChange") return item.text;
   if (changes.length === 0) return item.text;
   if (changes.length > 1) return item.text;
