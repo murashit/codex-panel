@@ -1149,7 +1149,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
     const withoutDiff = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
     expect(withoutDiff).toMatchObject({ item: { editedFiles: ["src/main.ts"] } });
-    expect(withoutDiff && withoutDiff.type === "item" ? withoutDiff.item : null).not.toHaveProperty("turnDiff");
+    expect(withoutDiff?.type === "item" ? withoutDiff.item : null).not.toHaveProperty("turnDiff");
 
     const withDiff = displayBlocksForItems(items, null, null, new Map([["t1", "@@\n-old\n+new"]])).find(
       (block) => block.type === "item" && block.item.role === "assistant",
@@ -1199,8 +1199,8 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     ];
 
     const assistantBlock = displayBlocksForItems(items, "t1").find((block) => block.type === "item" && block.item.id === "a1");
-    expect(assistantBlock && assistantBlock.type === "item" ? assistantBlock.item : null).not.toHaveProperty("editedFiles");
-    expect(assistantBlock && assistantBlock.type === "item" ? assistantBlock.item : null).not.toHaveProperty("autoReviewSummaries");
+    expect(assistantBlock?.type === "item" ? assistantBlock.item : null).not.toHaveProperty("editedFiles");
+    expect(assistantBlock?.type === "item" ? assistantBlock.item : null).not.toHaveProperty("autoReviewSummaries");
   });
 });
 

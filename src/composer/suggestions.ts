@@ -129,7 +129,7 @@ export function findWikiLinkSuggestions(queryText: string, start: number, notes:
 
 export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
   const match = /(?:^|\n)(\/[A-Za-z-]*)$/.exec(beforeCursor);
-  if (!match || match.index === undefined) return null;
+  if (match?.index === undefined) return null;
 
   const query = match[1].toLowerCase();
   if (SLASH_COMMANDS.some((item) => item.command.toLowerCase() === query)) return null;
@@ -147,7 +147,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
 
 export function activeThreadCommandSuggestions(beforeCursor: string, threads: Thread[]): ComposerSuggestion[] | null {
   const match = /(?:^|\n)\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/.exec(beforeCursor);
-  if (!match || match.index === undefined) return null;
+  if (match?.index === undefined) return null;
 
   const rawQuery = match[1] ?? "";
   const query = rawQuery.trim().toLowerCase();
@@ -176,7 +176,7 @@ export function activeThreadCommandSuggestions(beforeCursor: string, threads: Th
 
 export function activeModelOverrideSuggestions(beforeCursor: string, models: Model[]): ComposerSuggestion[] | null {
   const match = /(?:^|\n)\/model\s+([^\n]{0,120})$/.exec(beforeCursor);
-  if (!match || match.index === undefined) return null;
+  if (match?.index === undefined) return null;
 
   const rawQuery = match[1] ?? "";
   const query = rawQuery.trim().toLowerCase();
@@ -222,7 +222,7 @@ export function activeReasoningEffortSuggestions(
   currentModel: string | null,
 ): ComposerSuggestion[] | null {
   const match = /(?:^|\n)\/effort\s+([^\n]{0,120})$/.exec(beforeCursor);
-  if (!match || match.index === undefined) return null;
+  if (match?.index === undefined) return null;
 
   const rawQuery = match[1] ?? "";
   const query = rawQuery.trim().toLowerCase();
@@ -254,7 +254,7 @@ export function activeReasoningEffortSuggestions(
 
 export function activeSkillSuggestions(beforeCursor: string, skills: SkillMetadata[]): ComposerSuggestion[] | null {
   const match = /(^|[\s([{])\$([^\s\])}]{0,120})$/.exec(beforeCursor);
-  if (!match || match.index === undefined) return null;
+  if (match?.index === undefined) return null;
 
   const prefix = match[1] ?? "";
   const query = (match[2] ?? "").toLowerCase();
