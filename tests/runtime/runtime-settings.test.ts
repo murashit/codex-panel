@@ -23,7 +23,7 @@ import {
   serviceTierLabel,
   type RuntimeSnapshot,
 } from "../../src/runtime/state";
-import { contextSummary, rateLimitSummary } from "../../src/runtime/view";
+import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../src/runtime/view";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {
@@ -146,6 +146,44 @@ describe("runtime settings", () => {
         settings: { model: "gpt-5-active" },
       },
     });
+  });
+
+  it("separates effective runtime, config defaults, and pending changes in status details", () => {
+    const sections = effectiveConfigSections(
+      runtimeSnapshot({
+        activeModel: "gpt-5-active",
+        activeReasoningEffort: "low",
+        activeCollaborationMode: "plan",
+        requestedCollaborationMode: "plan",
+        requestedModel: setRuntimeOverride("gpt-5-pending"),
+      }),
+      "/vault",
+    );
+    const runtimeRows = Object.fromEntries(
+      sections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+
+    expect(runtimeRows).toMatchObject({
+      model: "gpt-5-pending",
+      "config model": "gpt-5.5",
+      "model change": "gpt-5-pending",
+      effort: "low",
+      "config effort": "high",
+      "effort change": "(none)",
+      mode: "Plan",
+      "mode change": "(none)",
+    });
+
+    const resetSections = effectiveConfigSections(
+      runtimeSnapshot({
+        requestedReasoningEffort: resetRuntimeOverride(),
+      }),
+      "/vault",
+    );
+    const resetRuntimeRows = Object.fromEntries(
+      resetSections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+    expect(resetRuntimeRows["effort change"]).toBe("(reset to config)");
   });
 
   it("summarizes service tier and context meter state from one runtime snapshot", () => {

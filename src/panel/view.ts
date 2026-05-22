@@ -41,7 +41,7 @@ import {
   supportedReasoningEfforts,
   type RuntimeSnapshot,
 } from "../runtime/state";
-import { isReasoningEffort, sortedAvailableModels } from "../runtime/model";
+import { sortedAvailableModels } from "../runtime/model";
 import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessage } from "../runtime/settings";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import type { ThreadReferenceInput } from "./slash-commands";
@@ -845,11 +845,7 @@ export class CodexPanelView extends ItemView {
       runtimeSummary: runtimeSummaryLabel(model, effort),
       runtimeTitle: `Model: ${model ?? "(from default)"}; Effort: ${effort ?? "(from default)"}`,
       runtimeAriaLabel: `Runtime: ${model ?? "default"} ${effort ?? "default"}`,
-      runtimeEmphasized:
-        this.state.requestedModel.kind !== "default" ||
-        this.state.requestedReasoningEffort.kind !== "default" ||
-        model !== configuredModel(config) ||
-        effort !== configuredReasoningEffort(config),
+      runtimeEmphasized: false,
       context: context ? { ...context, label: compactContextLabel(context.percent, context.label) } : null,
       rateLimit: limit,
       configSections: effectiveConfigSections(snapshot, this.plugin.vaultPath),
@@ -900,22 +896,14 @@ export class CodexPanelView extends ItemView {
     const snapshot = this.runtimeSnapshot();
     const config = configRecord(this.state.effectiveConfig);
     const activeModel = currentModel(snapshot, config);
-    const defaultSelected = this.state.requestedModel.kind !== "set" && activeModel === configuredModel(config);
     const models = sortedAvailableModels(this.state.availableModels);
     const choices: ToolbarChoice[] = [
-      {
-        label: "Default",
-        selected: defaultSelected,
-        onClick: () => void this.setRequestedModelFromUi(null),
-      },
-    ];
-    choices.push(
       ...models.slice(0, 12).map((model) => ({
         label: model.model,
-        selected: !defaultSelected && activeModel === model.model,
+        selected: activeModel === model.model,
         onClick: () => void this.setRequestedModelFromUi(model.model),
       })),
-    );
+    ];
     if (models.length === 0) {
       choices.push({
         label: "No model list available.",
@@ -930,19 +918,11 @@ export class CodexPanelView extends ItemView {
     const snapshot = this.runtimeSnapshot();
     const config = configRecord(this.state.effectiveConfig);
     const activeEffort = currentReasoningEffort(snapshot, config);
-    const defaultSelected = this.state.requestedReasoningEffort.kind !== "set" && activeEffort === configuredReasoningEffort(config);
-    return [
-      {
-        label: "Default",
-        selected: defaultSelected,
-        onClick: () => void this.setRequestedReasoningEffortFromUi(null),
-      },
-      ...supportedReasoningEfforts(snapshot).map((effort) => ({
-        label: effort,
-        selected: !defaultSelected && activeEffort === effort,
-        onClick: () => void this.setRequestedReasoningEffortFromUi(effort),
-      })),
-    ];
+    return supportedReasoningEfforts(snapshot).map((effort) => ({
+      label: effort,
+      selected: activeEffort === effort,
+      onClick: () => void this.setRequestedReasoningEffortFromUi(effort),
+    }));
   }
 
   private toggleHistoryPanel(): void {
@@ -1248,12 +1228,4 @@ export class CodexPanelView extends ItemView {
 
 function latestProposedPlanItem(items: DisplayItem[]): DisplayItem | null {
   return [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ?? null;
-}
-
-function configuredModel(config: Record<string, unknown>): string | null {
-  return typeof config.model === "string" && config.model.length > 0 ? config.model : null;
-}
-
-function configuredReasoningEffort(config: Record<string, unknown>): ReasoningEffort | null {
-  return isReasoningEffort(config.model_reasoning_effort) ? config.model_reasoning_effort : null;
 }

@@ -1,13 +1,14 @@
 import type { RateLimitWindow } from "../generated/app-server/v2/RateLimitWindow";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
 import { jsonPreview } from "../utils";
+import { sortedAvailableModels } from "./model";
 import {
   configRecord,
   currentModel,
   currentReasoningEffort,
   fastModeLabel,
-  runtimeOverrideLabel,
   serviceTierLabel,
+  type RuntimeOverride,
   type RuntimeSnapshot,
 } from "./state";
 
@@ -116,12 +117,21 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
       title: "Runtime",
       rows: [
         { key: "model", value: currentModel(snapshot, config) ?? "(from default)" },
-        { key: "model override", value: runtimeOverrideLabel(snapshot.requestedModel) },
+        { key: "config model", value: configuredModel(snapshot, config) ?? "(not reported)" },
+        { key: "model change", value: pendingRuntimeChangeLabel(snapshot.requestedModel) },
         { key: "effort", value: currentReasoningEffort(snapshot, config) ?? "(from default)" },
-        { key: "effort override", value: runtimeOverrideLabel(snapshot.requestedReasoningEffort) },
+        { key: "config effort", value: configuredReasoningEffort(snapshot, config) ?? "(not reported)" },
+        { key: "effort change", value: pendingRuntimeChangeLabel(snapshot.requestedReasoningEffort) },
         { key: "reasoning summary", value: stringValue(config.model_reasoning_summary, "(from default)") },
         { key: "verbosity", value: stringValue(config.model_verbosity, "(from default)") },
-        { key: "mode", value: snapshot.requestedCollaborationMode === "plan" ? "Plan" : "Default" },
+        { key: "mode", value: snapshot.activeCollaborationMode === "plan" ? "Plan" : "Default" },
+        {
+          key: "mode change",
+          value:
+            snapshot.requestedCollaborationMode === snapshot.activeCollaborationMode
+              ? "(none)"
+              : modeLabel(snapshot.requestedCollaborationMode),
+        },
         { key: "service tier", value: serviceTierLabel(snapshot, config) },
         { key: "fast mode", value: fastModeLabel(snapshot, config) },
         { key: "context window", value: tokenLimitLabel(config.model_context_window) },
@@ -153,6 +163,31 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
 
 function contextUsageTokens(usage: ThreadTokenUsage): number {
   return usage.last.inputTokens > 0 ? usage.last.inputTokens : usage.last.totalTokens;
+}
+
+function configuredModel(snapshot: RuntimeSnapshot, config: Record<string, unknown>): string | null {
+  if (typeof config.model === "string" && config.model.length > 0) return config.model;
+  return sortedAvailableModels(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
+}
+
+function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: Record<string, unknown>): string | null {
+  if (typeof config.model_reasoning_effort === "string" && config.model_reasoning_effort.length > 0) {
+    return config.model_reasoning_effort;
+  }
+  const model = configuredModel(snapshot, config);
+  return (
+    sortedAvailableModels(snapshot.availableModels).find((availableModel) => availableModel.model === model)?.defaultReasoningEffort ?? null
+  );
+}
+
+function modeLabel(mode: RuntimeSnapshot["requestedCollaborationMode"]): string {
+  return mode === "plan" ? "Plan" : "Default";
+}
+
+function pendingRuntimeChangeLabel<T>(override: RuntimeOverride<T>): string {
+  if (override.kind === "set") return String(override.value);
+  if (override.kind === "resetPending") return "(reset to config)";
+  return "(none)";
 }
 
 function rateLimitWindowSummary(
