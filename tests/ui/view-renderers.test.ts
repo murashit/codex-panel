@@ -1680,7 +1680,7 @@ describe("toolbar renderer decisions", () => {
         statusPanelOpen: true,
         openPanel: "status",
         diagnostics: [
-          { title: "Process", rows: [{ label: "running app-server", value: "codex-cli/1.2.3" }] },
+          { title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/1.2.3" }] },
           { title: "Capabilities", rows: [{ label: "compatibility", value: "model/list failed", level: "error" }] },
         ],
       }),
@@ -2210,7 +2210,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     modelChoices: [{ label: "Default", selected: true, onClick: vi.fn() }],
     effortChoices: [{ label: "Default", selected: true, onClick: vi.fn() }],
     connectLabel: "Reconnect",
-    diagnostics: [{ title: "Process", rows: [{ label: "running app-server", value: "codex-cli/test" }] }],
+    diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
     diagnosticAlertLevel: "normal",
     ...overrides,
   };

@@ -276,7 +276,7 @@ function renderRateLimitPanel(parent: HTMLElement, rateLimit: RateLimitSummary |
   if (!rateLimit) return;
 
   const section = parent.createDiv({ cls: `codex-panel__limit-panel codex-panel__limit-panel--${rateLimit.level}` });
-  section.createDiv({ cls: "codex-panel__limit-panel-title", text: "Usage Limit" });
+  section.createDiv({ cls: "codex-panel__limit-panel-title", text: "Usage limit" });
   const list = section.createDiv({ cls: "codex-panel__limit-panel-list" });
   for (const row of rateLimit.rows) {
     const item = list.createDiv({
@@ -311,12 +311,12 @@ function renderConnectionDiagnostics(parent: HTMLElement, sections: ToolbarDiagn
 }
 
 function renderRuntimePicker(parent: HTMLElement, model: ToolbarViewModel): void {
-  const picker = parent.createDiv({ cls: "codex-panel__runtime-picker", attr: { role: "listbox", "aria-label": "Runtime settings" } });
+  const picker = parent.createDiv({ cls: "codex-panel__runtime-picker", attr: { role: "listbox", "aria-label": "Runtime controls" } });
   picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Model" });
   for (const choice of model.modelChoices) {
     createToolbarPanelItem(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
   }
-  picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Effort" });
+  picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Reasoning effort" });
   for (const choice of model.effortChoices) {
     createToolbarPanelItem(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
   }

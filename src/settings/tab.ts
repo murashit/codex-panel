@@ -20,6 +20,10 @@ const SEND_SHORTCUT_LABELS = {
   "mod-enter": "Cmd/Ctrl+Enter",
 } as const;
 
+function renderSettingsHeading(containerEl: HTMLElement, name: string): void {
+  new Setting(containerEl).setClass("codex-panel-settings__section-heading").setHeading().setName(name);
+}
+
 export class CodexPanelSettingTab extends PluginSettingTab {
   private settingsDataAutoLoadStarted = false;
   private settingsDataLoading = false;
@@ -50,27 +54,14 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     containerEl.addClass("codex-panel-settings");
 
     const configSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__general-section" });
-    new Setting(configSection)
-      .setClass("codex-panel-settings__section-heading")
-      .setHeading()
-      .setName("General")
-      .setDesc(
-        "Codex Panel stores only panel-specific preferences. Sandbox, approvals, MCP, and normal chat runtime policy still come from Codex config for this vault.",
-      );
-
-    new Setting(configSection)
-      .setName("Settings data")
-      .setDesc("Refresh models, hooks, and archived threads from Codex app-server.")
-      .addButton((button) => {
-        button
-          .setButtonText(this.settingsDataLoading ? "Refreshing..." : "Refresh settings data")
-          .setDisabled(this.settingsDataLoading)
-          .onClick(() => void this.refreshSettingsData());
-      });
+    configSection.createEl("p", {
+      cls: "setting-item-description codex-panel-settings__section-intro",
+      text: "Codex Panel stores only panel preferences. Models, sandboxing, approvals, MCP servers, hooks, and network access still come from Codex config.",
+    });
 
     new Setting(configSection)
       .setName("Codex executable")
-      .setDesc("Command used to launch `codex app-server`. Use an absolute path if Obsidian cannot see your shell PATH.")
+      .setDesc("Path used to start `codex app-server`. Use an absolute path if Obsidian cannot find `codex`.")
       .addText((text) => {
         text
           .setPlaceholder(DEFAULT_CODEX_PATH)
@@ -82,9 +73,21 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
 
     new Setting(configSection)
+      .setName("Codex data")
+      .setDesc("Refresh models, hooks, and archived threads from Codex app server.")
+      .addButton((button) => {
+        button
+          .setButtonText(this.settingsDataLoading ? "Refreshing..." : "Refresh Codex data")
+          .setDisabled(this.settingsDataLoading)
+          .onClick(() => void this.refreshSettingsData());
+      });
+
+    const composerSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__composer-section" });
+    renderSettingsHeading(composerSection, "Composer");
+    new Setting(composerSection)
       .setName("Send shortcut")
       .setDesc(
-        "Choose how the composer sends messages. With Enter selected, Shift+Enter inserts a newline. Obsidian Hotkeys may intercept Cmd/Ctrl+Enter.",
+        "Choose how the composer sends messages. Shift+Enter inserts a newline when Enter sends. Obsidian hotkeys may intercept Cmd/Ctrl+Enter.",
       )
       .addDropdown((dropdown) => {
         dropdown.selectEl.ariaLabel = "Send shortcut";
@@ -97,9 +100,11 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(configSection)
+    const helperSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__helper-section" });
+    renderSettingsHeading(helperSection, "Codex helpers");
+    new Setting(helperSection)
       .setName("Automatic thread naming")
-      .setDesc("Model and reasoning effort used only when generating thread title suggestions.")
+      .setDesc("Choose the model and reasoning effort used to suggest thread names.")
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.threadNamingModel;
         const options = this.modelOptions();
@@ -134,9 +139,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(configSection)
+    new Setting(helperSection)
       .setName("Selection rewrite")
-      .setDesc("Model and reasoning effort used only by the rewrite selection command.")
+      .setDesc("Choose the model and reasoning effort used by rewrite selection.")
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.rewriteSelectionModel;
         const options = this.modelOptions();
@@ -177,17 +182,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
     }
 
-    renderHookSection(containerEl, {
-      hooks: this.hooks,
-      warnings: this.hookWarnings,
-      errors: this.hookErrors,
-      loaded: this.hooksLoaded,
-      loading: this.hooksLoading,
-      status: this.hooksStatus,
-      onTrust: (hook) => void this.trustHook(hook),
-      onToggleEnabled: (hook, enabled) => void this.setHookEnabled(hook, enabled),
-    });
-
     renderArchivedThreadSection(containerEl, {
       exportEnabled: this.plugin.settings.archiveExportEnabled,
       exportFolderTemplate: this.plugin.settings.archiveExportFolderTemplate,
@@ -202,6 +196,17 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       onExportFilenameTemplateChange: (value) => void this.setArchiveExportFilenameTemplate(value),
       onExportTagsChange: (value) => void this.setArchiveExportTags(value),
       onRestore: (threadId) => void this.restoreArchivedThread(threadId),
+    });
+
+    renderHookSection(containerEl, {
+      hooks: this.hooks,
+      warnings: this.hookWarnings,
+      errors: this.hookErrors,
+      loaded: this.hooksLoaded,
+      loading: this.hooksLoading,
+      status: this.hooksStatus,
+      onTrust: (hook) => void this.trustHook(hook),
+      onToggleEnabled: (hook, enabled) => void this.setHookEnabled(hook, enabled),
     });
 
     this.maybeAutoLoadSettingsData();
@@ -266,7 +271,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       this.archivedThreadsLoading = false;
       this.hooksLoading = false;
       if (failedCount > 0) {
-        new Notice("Could not refresh all Codex settings data.");
+        new Notice("Could not refresh all Codex data.");
       }
       this.display();
     }

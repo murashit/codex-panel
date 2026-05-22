@@ -333,26 +333,24 @@ describe("slash commands", () => {
   });
 
   it("documents that /plan can take a message", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/plan"))).toBe(
-      "/plan - Toggle Plan mode, optionally sending a message.",
-    );
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/plan"))).toBe("/plan - Toggle Plan mode, optionally with a message.");
   });
 
   it("documents that /auto-review can take a message", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/auto-review"))).toBe(
-      "/auto-review - Toggle approval auto-review, optionally sending a message.",
+      "/auto-review - Toggle approval auto-review, optionally with a message.",
     );
   });
 
   it("documents rollback", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/rollback"))).toBe(
-      "/rollback - Drop the latest turn and restore its prompt to the composer.",
+      "/rollback - Roll back the latest turn and restore its prompt.",
     );
   });
 
   it("documents refer history size", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/refer"))).toBe(
-      "/refer - Send a message with up to 20 recent turns from another non-archived thread.",
+      "/refer - Send a message with recent turns from another non-archived thread.",
     );
   });
 
@@ -361,7 +359,7 @@ describe("slash commands", () => {
       "/status - Show current session, context, and usage limits.",
     );
     expect(slashCommandHelpLines().find((line) => line.startsWith("/doctor"))).toBe(
-      "/doctor - Show Codex CLI and app-server connection diagnostics.",
+      "/doctor - Show Codex CLI and Codex App Server diagnostics.",
     );
   });
 
@@ -384,6 +382,6 @@ describe("slash commands", () => {
   });
 
   it("documents MCP status", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/mcp"))).toBe("/mcp - Show MCP servers recognized by Codex app-server.");
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/mcp"))).toBe("/mcp - Show MCP servers reported by Codex App Server.");
   });
 });

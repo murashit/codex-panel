@@ -3,7 +3,7 @@ import type { McpServerDiagnostic } from "../app-server/compatibility";
 
 export function mcpStatusLines(servers: McpServerStatus[], diagnostics: McpServerDiagnostic[] = []): string[] {
   if (servers.length === 0 && diagnostics.length === 0) {
-    return ["MCP servers", "Codex app-server reports no MCP servers."];
+    return ["MCP servers", "Codex App Server reports no MCP servers."];
   }
 
   const statusByName = new Map(servers.map((server) => [server.name, server]));

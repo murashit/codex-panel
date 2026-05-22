@@ -85,20 +85,21 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(withAppServerSessionMock).toHaveBeenCalledTimes(1);
-    expect(buttonTexts(tab)).toContain("Refresh settings data");
+    expect(buttonTexts(tab)).toContain("Refresh Codex data");
     expect(buttonTexts(tab)).not.toContain("Load models");
     expect(buttonTexts(tab)).not.toContain("Load hooks");
     expect(buttonTexts(tab)).not.toContain("Load archive list");
     expect(tab.containerEl.querySelector("h2")).toBeNull();
     expect(settingNames(tab)).toEqual([
-      "General",
-      "Settings data",
       "Codex executable",
+      "Codex data",
+      "Composer",
       "Send shortcut",
+      "Codex helpers",
       "Automatic thread naming",
       "Selection rewrite",
-      "Hook status",
       "Archive actions",
+      "Hook status",
     ]);
   });
 
@@ -115,8 +116,8 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Send shortcut")).toContain("Obsidian Hotkeys");
-    expect(tab.containerEl.querySelector(".codex-panel-settings__section-status")?.textContent ?? "").not.toContain("Obsidian Hotkeys");
+    expect(settingDesc(tab, "Send shortcut")).toContain("Obsidian hotkeys");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__section-status")?.textContent ?? "").not.toContain("Obsidian hotkeys");
   });
 
   it("saves archive export settings", async () => {
@@ -143,7 +144,7 @@ describe("settings tab", () => {
     expect(saveSettings).toHaveBeenCalledTimes(4);
     expect(tab.containerEl.textContent).toContain("title, thread_id, created, and optional tags");
     expect(settingDesc(tab, "Save before archiving")).toContain("If saving fails");
-    expect(settingDesc(tab, "Save tags")).toContain("Variables are not expanded");
+    expect(settingDesc(tab, "Save tags")).toContain("Leave empty to omit tags");
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
@@ -163,7 +164,7 @@ describe("settings tab", () => {
 
     tab.display();
     await flushPromises();
-    clickButton(tab, "Refresh settings data");
+    clickButton(tab, "Refresh Codex data");
     await flushPromises();
 
     expect(withAppServerSessionMock).toHaveBeenCalledTimes(2);
@@ -189,7 +190,7 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 model.");
     expect(tab.containerEl.textContent).toContain("Could not load hooks: hooks unavailable");
     expect(tab.containerEl.textContent).toContain("Archived thread");
-    expect(notices).toEqual(["Could not refresh all Codex settings data."]);
+    expect(notices).toEqual(["Could not refresh all Codex data."]);
   });
 
   it("renders archived threads and hooks as dynamic setting rows", async () => {
@@ -205,9 +206,9 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.textContent).toContain("Loaded 1 hook from Codex app-server.");
-    expect(tab.containerEl.textContent).toContain("Archived threads below can be restored to chat history.");
-    expect(tab.containerEl.textContent).toContain("Loaded 1 archived thread from Codex app-server.");
+    expect(tab.containerEl.textContent).toContain("Loaded 1 hook from Codex app server.");
+    expect(tab.containerEl.textContent).toContain("Restore archived threads to chat history.");
+    expect(tab.containerEl.textContent).toContain("Loaded 1 archived thread from Codex app server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
       "Hook status",
     );
@@ -341,10 +342,10 @@ function settingNames(tab: CodexPanelSettingTab): string[] {
     if (element.classList.contains("setting-item")) {
       return [element.querySelector(".setting-item-name")?.textContent ?? ""];
     }
-    if (element.classList.contains("codex-panel-settings__general-section")) {
-      return Array.from(element.querySelectorAll(":scope > .setting-item")).map(
-        (setting) => setting.querySelector(".setting-item-name")?.textContent ?? "",
-      );
+    if (element.classList.contains("codex-panel-settings__section")) {
+      return Array.from(element.querySelectorAll(":scope > .setting-item")).map((setting) => {
+        return setting.querySelector(".setting-item-name")?.textContent ?? "";
+      });
     }
     if (element.classList.contains("codex-panel-settings__dynamic-section")) {
       return [element.querySelector(":scope > .setting-item-heading .setting-item-name")?.textContent ?? ""];

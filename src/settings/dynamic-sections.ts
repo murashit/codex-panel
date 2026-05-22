@@ -38,7 +38,7 @@ export function renderHookSection(containerEl: HTMLElement, state: HookSectionSt
     .setClass("codex-panel-settings__dynamic-section-heading")
     .setHeading()
     .setName("Hook status")
-    .setDesc("Review hooks discovered for this vault root, including trust and enabled state.");
+    .setDesc("Review discovered hooks, trust changes, and turn hooks on or off.");
 
   if (state.loading) {
     section.createEl("p", { cls: "setting-item-description codex-panel-settings__dynamic-section-status", text: "Loading hooks..." });
@@ -57,7 +57,7 @@ export function renderArchivedThreadSection(containerEl: HTMLElement, state: Arc
     .setClass("codex-panel-settings__dynamic-section-heading")
     .setHeading()
     .setName("Archive actions")
-    .setDesc("Configure what happens when a thread is archived, and restore already archived threads when needed.");
+    .setDesc("Save threads to notes before archiving, or restore archived threads.");
 
   renderArchiveExportSettings(section, state);
 
@@ -85,7 +85,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
   new Setting(containerEl)
     .setName("Save before archiving")
     .setDesc(
-      "Save a markdown note before archiving. If saving fails, the thread is not archived. Frontmatter includes title, thread_id, created, and optional tags.",
+      "Save a markdown note before archiving. If saving fails, the thread stays active. Frontmatter includes title, thread_id, created, and optional tags.",
     )
     .addToggle((toggle) => {
       toggle.setValue(state.exportEnabled).onChange((value) => {
@@ -95,7 +95,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 
   new Setting(containerEl)
     .setName("Save folder")
-    .setDesc("Vault-relative folder path. The folder is created when needed.")
+    .setDesc("Vault-relative folder for saved thread notes. The folder is created when needed.")
     .addText((text) => {
       text
         .setPlaceholder("Codex archives")
@@ -107,9 +107,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 
   new Setting(containerEl)
     .setName("Save filename")
-    .setDesc(
-      "Markdown filename template. Available variables: {{date}}, {{time}}, {{title}}, {{id}}, {{shortId}}. Existing files get a numeric suffix.",
-    )
+    .setDesc("Filename template. Variables: {{date}}, {{time}}, {{title}}, {{id}}, {{shortId}}. Existing files get a numeric suffix.")
     .addText((text) => {
       text
         .setPlaceholder("{{date}} {{time}} {{title}} {{shortId}}.md")
@@ -121,7 +119,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 
   new Setting(containerEl)
     .setName("Save tags")
-    .setDesc("Comma-separated fixed tags for saved notes. Variables are not expanded. Leave empty to omit tags.")
+    .setDesc("Comma-separated fixed tags for saved notes. Leave empty to omit tags.")
     .addText((text) => {
       text
         .setPlaceholder("Codex, archive")
@@ -135,9 +133,9 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
   containerEl.createEl("p", {
     cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-    text: `Archived threads below can be restored to chat history. Loaded ${String(state.threads.length)} archived thread${
+    text: `Restore archived threads to chat history. Loaded ${String(state.threads.length)} archived thread${
       state.threads.length === 1 ? "" : "s"
-    } from Codex app-server.`,
+    } from Codex app server.`,
   });
   const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__archived-list" });
   for (const thread of state.threads) {
@@ -160,11 +158,11 @@ function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThrea
 
 function renderHooks(containerEl: HTMLElement, state: HookSectionState): void {
   if (state.hooks.length === 0) {
-    containerEl.createEl("p", { cls: "setting-item-description", text: "No hooks discovered for the current vault root." });
+    containerEl.createEl("p", { cls: "setting-item-description", text: "No hooks found for this vault root." });
   } else {
     containerEl.createEl("p", {
       cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-      text: `Loaded ${String(state.hooks.length)} hook${state.hooks.length === 1 ? "" : "s"} from Codex app-server.`,
+      text: `Loaded ${String(state.hooks.length)} hook${state.hooks.length === 1 ? "" : "s"} from Codex app server.`,
     });
     const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__hook-list" });
     for (const hook of state.hooks) {

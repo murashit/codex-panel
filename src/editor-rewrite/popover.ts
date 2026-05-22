@@ -157,7 +157,7 @@ export class RewriteSelectionPopover {
 
     const instruction = root.createEl("textarea", {
       cls: "codex-panel__input codex-panel-rewrite-popover__instruction",
-      attr: { placeholder: "How should Codex rewrite the selected text?" },
+      attr: { placeholder: "How should Codex rewrite this selection?" },
     });
     instruction.value = this.options.session.instruction;
     instruction.oninput = () => {
@@ -179,16 +179,11 @@ export class RewriteSelectionPopover {
     const generateButton = createIconButton(
       controls,
       "sparkles",
-      "Generate rewrite",
+      "Generate",
       "codex-panel__composer-action codex-panel-rewrite-popover__icon-button",
     );
     generateButton.onclick = () => void this.generate();
-    const cancelButton = createIconButton(
-      controls,
-      "x",
-      "Cancel rewrite",
-      "codex-panel__composer-action codex-panel-rewrite-popover__icon-button",
-    );
+    const cancelButton = createIconButton(controls, "x", "Cancel", "codex-panel__composer-action codex-panel-rewrite-popover__icon-button");
     cancelButton.onclick = () => {
       this.cancel();
     };
@@ -200,7 +195,7 @@ export class RewriteSelectionPopover {
     const applyButton = createIconButton(
       resultRow,
       "check",
-      "Apply rewrite",
+      "Apply",
       "codex-panel__composer-action codex-panel-rewrite-popover__icon-button mod-cta",
     );
     applyButton.onclick = () => {
@@ -317,7 +312,7 @@ export class RewriteSelectionPopover {
     const hasReplacement = this.options.session.replacementText !== null;
     this.elements.instruction.disabled = generating;
     this.elements.generateButton.disabled = generating || !hasInstruction;
-    this.elements.generateButton.setAttr("aria-label", hasReplacement ? "Regenerate rewrite" : "Generate rewrite");
+    this.elements.generateButton.setAttr("aria-label", hasReplacement ? "Regenerate" : "Generate");
     this.elements.applyButton.disabled = generating || !hasReplacement;
     this.elements.applyButton.classList.toggle("is-hidden", !hasReplacement);
     this.elements.resultRow.classList.toggle("is-hidden", !hasReplacement);

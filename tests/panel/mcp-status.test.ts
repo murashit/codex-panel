@@ -19,7 +19,7 @@ function mcpServer(overrides: Partial<McpServerStatus> = {}): McpServerStatus {
 
 describe("mcpStatusLines", () => {
   it("reports no configured servers clearly", () => {
-    expect(mcpStatusLines([])).toEqual(["MCP servers", "Codex app-server reports no MCP servers."]);
+    expect(mcpStatusLines([])).toEqual(["MCP servers", "Codex App Server reports no MCP servers."]);
   });
 
   it("formats recognized MCP servers", () => {

@@ -32,10 +32,10 @@ export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput):
       rows: [
         { label: "connection", value: input.connected ? "connected" : "offline" },
         { label: "configured command", value: input.configuredCommand },
-        { label: "running app-server", value: appServerIdentity(input.initializeResponse) },
+        { label: "Codex App Server", value: appServerIdentity(input.initializeResponse) },
         { label: "panel client", value: CLIENT_VERSION },
         { label: "platform", value: appServerPlatform(input.initializeResponse) },
-        { label: "codexHome", value: input.initializeResponse?.codexHome ?? "(not connected)" },
+        { label: "Codex home", value: input.initializeResponse?.codexHome ?? "(not connected)" },
         { label: "active thread CLI", value: input.activeThreadCliVersion ?? "(none)" },
       ],
     },

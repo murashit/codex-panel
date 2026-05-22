@@ -90,7 +90,7 @@ function renderUserInputCard(
   info.createDiv({ cls: "setting-item-name codex-panel__pending-request-title", text: "Codex needs input" });
   info.createDiv({
     cls: "setting-item-description codex-panel__pending-request-body",
-    text: `${String(input.params.questions.length)} question${input.params.questions.length === 1 ? "" : "s"} from Plan mode.`,
+    text: `Answer ${String(input.params.questions.length)} Plan mode question${input.params.questions.length === 1 ? "" : "s"} to continue.`,
   });
   renderUserInputQuestions(info, input, drafts);
 
@@ -164,7 +164,7 @@ function renderOtherUserInputOption(
   label.createSpan({ cls: "codex-panel__user-input-option-label", text: "Other" });
   const inputEl = label.createEl("input", {
     cls: "codex-panel__user-input-text codex-panel__user-input-other-text",
-    attr: { type: "text", value: otherValue, placeholder: "Other..." },
+    attr: { type: "text", value: otherValue, placeholder: "Other answer" },
   });
   inputEl.oninput = () => {
     drafts.values.set(otherKey, inputEl.value);

@@ -25,7 +25,7 @@ export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandH
     name: "Rewrite selection",
     editorCallback: (editor, view) => {
       if (!(view instanceof MarkdownView) || !view.file) {
-        new Notice("Rewrite selection requires an active markdown note.");
+        new Notice("Select text in an active markdown note first.");
         return;
       }
 
