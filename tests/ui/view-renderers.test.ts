@@ -15,11 +15,24 @@ import { renderPendingRequestMessage } from "../../src/ui/pending-request-messag
 import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../../src/ui/toolbar";
 import { displayItemSignature } from "../../src/display/signature";
 import { implementPlanCandidateFromState } from "../../src/panel/message-renderer";
-import { messageRenderBlocks, syncMessageRenderBlocks } from "../../src/ui/message-stream";
+import { messageRenderBlocks as rawMessageRenderBlocks, syncMessageRenderBlocks } from "../../src/ui/message-stream";
 import { displayDiffLines, persistedTurnDiffViewState, renderTurnDiffView } from "../../src/ui/turn-diff";
 import { composerSuggestionScrollFixture, installObsidianDomShims, topLevelDetailsSummaries } from "./dom-test-helpers";
 
 installObsidianDomShims();
+
+function messageRenderBlocks(
+  ...args: Parameters<typeof rawMessageRenderBlocks>
+): [ReturnType<typeof rawMessageRenderBlocks>[number], ...ReturnType<typeof rawMessageRenderBlocks>] {
+  const blocks = rawMessageRenderBlocks(...args);
+  if (blocks.length === 0) throw new Error("Expected at least one message render block.");
+  return blocks as [ReturnType<typeof rawMessageRenderBlocks>[number], ...ReturnType<typeof rawMessageRenderBlocks>];
+}
+
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("Expected value to be present");
+  return value;
+}
 
 function withMessageContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
@@ -334,9 +347,9 @@ describe("message stream block identity and message actions", () => {
 
     const rendered = blocks.map((block) => block.render());
 
-    expect(rendered[0].querySelector(".codex-panel__rollback-turn")).toBeNull();
-    expect(rendered[1].querySelector(".codex-panel__rollback-turn")).toBeNull();
-    const button = rendered[2].querySelector<HTMLButtonElement>(".codex-panel__rollback-turn");
+    expect(expectPresent(rendered[0]).querySelector(".codex-panel__rollback-turn")).toBeNull();
+    expect(expectPresent(rendered[1]).querySelector(".codex-panel__rollback-turn")).toBeNull();
+    const button = expectPresent(rendered[2]).querySelector<HTMLButtonElement>(".codex-panel__rollback-turn");
     expect(button?.getAttribute("aria-label")).toBe("Rollback last turn");
     button?.click();
     expect(onRollbackItem).toHaveBeenCalledWith(expect.objectContaining({ id: "u2" }));
@@ -362,8 +375,8 @@ describe("message stream block identity and message actions", () => {
     });
 
     const rendered = blocks.map((block) => block.render());
-    const userButton = rendered[0].querySelector<HTMLButtonElement>(".codex-panel__copy-message");
-    const assistantButton = rendered[1].querySelector<HTMLButtonElement>(".codex-panel__copy-message");
+    const userButton = expectPresent(rendered[0]).querySelector<HTMLButtonElement>(".codex-panel__copy-message");
+    const assistantButton = expectPresent(rendered[1]).querySelector<HTMLButtonElement>(".codex-panel__copy-message");
 
     expect(userButton?.getAttribute("aria-label")).toBe("Copy message");
     expect(assistantButton?.getAttribute("aria-label")).toBe("Copy message");
@@ -2053,7 +2066,7 @@ describe("pending request renderer decisions", () => {
     });
 
     expect(blocks.map((block) => block.key)).toEqual(["item:a1", "pending-requests"]);
-    expect(blocks[1].render()).toBe(pending);
+    expect(expectPresent(blocks[1]).render()).toBe(pending);
   });
 });
 

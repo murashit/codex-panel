@@ -33,7 +33,7 @@ describe("user input model", () => {
 
     const input = expectPresent(toPendingUserInput(request));
     expect(input).toMatchObject({ requestId: 7, method: "item/tool/requestUserInput" });
-    expect(questionDefaultAnswer(request.params.questions[0])).toBe("Recommended");
+    expect(questionDefaultAnswer(expectPresent(request.params.questions[0]))).toBe("Recommended");
     expect(userInputResponse(input, { direction: "Recommended" })).toEqual({
       answers: { direction: { answers: ["Recommended"] } },
     });

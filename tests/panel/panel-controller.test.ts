@@ -483,8 +483,8 @@ describe("PanelController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(state.displayItems[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(state.displayItems[0].turnId).toBeUndefined();
+      expect(expectPresent(state.displayItems[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(expectPresent(state.displayItems[0]).turnId).toBeUndefined();
       expect(expectPresent(state.pendingTurnStart).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
@@ -501,7 +501,7 @@ describe("PanelController", () => {
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
       expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(state.displayItems[1].turnId).toBeUndefined();
+      expect(expectPresent(state.displayItems[1]).turnId).toBeUndefined();
       expect(expectPresent(state.pendingTurnStart).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
 
       controller.handleNotification({
@@ -628,7 +628,7 @@ describe("PanelController", () => {
       });
 
       expect(state.pendingUserInputs).toHaveLength(1);
-      controller.resolveUserInput(state.pendingUserInputs[0], { scope: "Narrow" });
+      controller.resolveUserInput(expectPresent(state.pendingUserInputs[0]), { scope: "Narrow" });
       expect(respondToServerRequest).toHaveBeenCalledWith(42, { answers: { scope: { answers: ["Narrow"] } } });
       expect(state.pendingUserInputs).toEqual([]);
       expect(state.displayItems.at(-1)).toMatchObject({
@@ -656,7 +656,7 @@ describe("PanelController", () => {
         },
       });
 
-      controller.cancelUserInput(state.pendingUserInputs[0]);
+      controller.cancelUserInput(expectPresent(state.pendingUserInputs[0]));
       expect(rejectServerRequest).toHaveBeenCalledWith(43, -32000, "User cancelled input request.");
       expect(state.pendingUserInputs).toEqual([]);
       expect(state.displayItems.at(-1)).toMatchObject({
@@ -795,7 +795,7 @@ describe("PanelController", () => {
       const controller = controllerForState(state, { respondToServerRequest });
 
       controller.handleServerRequest(userInputRequest(55));
-      controller.resolveUserInput(state.pendingUserInputs[0], { note: "Later" });
+      controller.resolveUserInput(expectPresent(state.pendingUserInputs[0]), { note: "Later" });
 
       expect(state.pendingUserInputs).toHaveLength(1);
       expect(state.displayItems).toEqual([
@@ -1223,8 +1223,8 @@ describe("PanelController", () => {
         text: "Auto-review approved: npm test",
         state: "completed",
       });
-      const reviewItem = state.displayItems[0];
-      expect("details" in reviewItem ? reviewItem.details?.[0] : null).toMatchObject({
+      const reviewItem = expectPresent(state.displayItems[0]);
+      expect("details" in reviewItem ? reviewItem.details[0] : null).toMatchObject({
         title: "Review",
         rows: expect.arrayContaining([{ key: "status", value: "approved" }]),
       });

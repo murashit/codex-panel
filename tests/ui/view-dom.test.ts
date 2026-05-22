@@ -7,6 +7,11 @@ import { installObsidianDomShims } from "./dom-test-helpers";
 
 installObsidianDomShims();
 
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("Expected value to be present");
+  return value;
+}
+
 describe("view DOM helpers", () => {
   it("uses short signatures instead of embedding full text in data attributes", () => {
     const long = "x".repeat(20_000);
@@ -22,11 +27,12 @@ describe("view DOM helpers", () => {
     renderTextWithWikiLinks(parent, "See [[Target Note|label]] and [[Other]].", openLink);
 
     const links = parent.querySelectorAll<HTMLAnchorElement>("a.internal-link");
+    const firstLink = expectPresent(links[0]);
     expect(links).toHaveLength(2);
-    expect(links[0].textContent).toBe("label");
-    expect(links[0].getAttribute("href")).toBe("Target Note");
+    expect(firstLink.textContent).toBe("label");
+    expect(firstLink.getAttribute("href")).toBe("Target Note");
 
-    links[0].click();
+    firstLink.click();
     expect(openLink).toHaveBeenCalledWith("Target Note");
   });
 });

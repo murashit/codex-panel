@@ -19,6 +19,11 @@ import type { DisplayItem } from "../../src/display/types";
 import type { ThreadItem } from "../../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
 
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("Expected value to be present");
+  return value;
+}
+
 function commandItem(id: string, text: string, turnId: string): DisplayItem {
   return { id, kind: "command", role: "tool", text, turnId, command: text, cwd: "/vault", status: "completed" };
 }
@@ -835,10 +840,10 @@ describe("streaming updates target item identity without mutating history", () =
     ];
 
     const updated = appendAssistantDelta(items, "a1", "t1", " world");
-    expect(updated[0].text).toBe("hello world");
-    expect(updated[0]).toMatchObject({ copyText: "hello world" });
+    expect(expectPresent(updated[0]).text).toBe("hello world");
+    expect(expectPresent(updated[0])).toMatchObject({ copyText: "hello world" });
     expect(updated).toHaveLength(2);
-    expect(items[0].text).toBe("hello");
+    expect(expectPresent(items[0]).text).toBe("hello");
     expect(updated).not.toBe(items);
   });
 

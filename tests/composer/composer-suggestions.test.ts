@@ -13,6 +13,11 @@ import {
   parseSlashCommand,
 } from "../../src/composer/suggestions";
 
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("Expected value to be present");
+  return value;
+}
+
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "019abcde-0000-7000-8000-000000000001",
@@ -116,7 +121,7 @@ describe("composer suggestions", () => {
       replacement: "019abcde-0000-7000-8000-000000000001",
       appendSpaceOnInsert: true,
     });
-    expect(applyComposerSuggestionInsertion("/resume codex", 13, suggestions[0])).toEqual({
+    expect(applyComposerSuggestionInsertion("/resume codex", 13, expectPresent(suggestions[0]))).toEqual({
       value: "/resume 019abcde-0000-7000-8000-000000000001 ",
       cursor: 45,
     });
@@ -194,17 +199,19 @@ describe("composer suggestions", () => {
   });
 
   it("adds a trailing space for slash command and skill insertions only", () => {
-    const slash = activeComposerSuggestions("/sta", notes, [])[0];
-    const skill = activeComposerSuggestions("$obs", notes, [
-      {
-        name: "obsidian-dataview-read",
-        description: "Read Dataview results",
-        path: "/vault/___/skills/obsidian-dataview-read/SKILL.md",
-        scope: "local",
-        enabled: true,
-      } as never,
-    ])[0];
-    const wikilink = activeComposerSuggestions("[[bet", notes, [])[0];
+    const slash = expectPresent(activeComposerSuggestions("/sta", notes, [])[0]);
+    const skill = expectPresent(
+      activeComposerSuggestions("$obs", notes, [
+        {
+          name: "obsidian-dataview-read",
+          description: "Read Dataview results",
+          path: "/vault/___/skills/obsidian-dataview-read/SKILL.md",
+          scope: "local",
+          enabled: true,
+        } as never,
+      ])[0],
+    );
+    const wikilink = expectPresent(activeComposerSuggestions("[[bet", notes, [])[0]);
 
     expect(slash).toMatchObject({ replacement: "/status", appendSpaceOnInsert: true });
     expect(skill).toMatchObject({ replacement: "$obsidian-dataview-read", appendSpaceOnInsert: true });

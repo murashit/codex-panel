@@ -11,6 +11,8 @@
     "noUncheckedSideEffectImports": true,
     "strict": true,
     "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
