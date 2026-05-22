@@ -10,7 +10,8 @@ export default defineConfig([
     ignores: ["main.js", "node_modules/**", "src/generated/**"],
   },
   js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.strictTypeChecked,
+  ...tseslint.configs.stylisticTypeChecked,
   ...obsidianmd.configs.recommended.map((config) => ({
     ...config,
     basePath: "src",
