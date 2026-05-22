@@ -65,7 +65,9 @@ export class PanelComposerController {
         this.updateSuggestions();
         this.syncControls(parent);
       },
-      onUpdateSuggestions: () => this.updateSuggestions(),
+      onUpdateSuggestions: () => {
+        this.updateSuggestions();
+      },
       onKeydown: (event) => {
         if (this.handleSuggestionKeydown(event)) {
           return;
@@ -75,10 +77,18 @@ export class PanelComposerController {
           this.options.onSubmit();
         }
       },
-      onNewThread: () => this.options.onNewThread(),
-      onSendOrInterrupt: () => this.options.onSubmit(),
-      onSuggestionHover: (index) => this.selectSuggestion(index),
-      onSuggestionInsert: (suggestion) => this.insertSuggestion(suggestion),
+      onNewThread: () => {
+        this.options.onNewThread();
+      },
+      onSendOrInterrupt: () => {
+        this.options.onSubmit();
+      },
+      onSuggestionHover: (index) => {
+        this.selectSuggestion(index);
+      },
+      onSuggestionInsert: (suggestion) => {
+        this.insertSuggestion(suggestion);
+      },
     });
     this.composer = elements.composer;
     this.suggestionsEl = elements.suggestions;
@@ -180,8 +190,12 @@ export class PanelComposerController {
       this.options.state.composerSuggestions,
       this.options.state.composerSuggestSelected,
       {
-        onSuggestionHover: (index) => this.selectSuggestion(index),
-        onSuggestionInsert: (suggestion) => this.insertSuggestion(suggestion),
+        onSuggestionHover: (index) => {
+          this.selectSuggestion(index);
+        },
+        onSuggestionInsert: (suggestion) => {
+          this.insertSuggestion(suggestion);
+        },
       },
     );
   }

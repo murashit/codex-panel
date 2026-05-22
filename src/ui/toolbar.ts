@@ -343,7 +343,9 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
       disabled: thread.disabled,
       title: `${thread.title}\n${thread.threadId}`,
       className: "codex-panel__thread",
-      onClick: () => actions.resumeThread(thread.threadId),
+      onClick: () => {
+        actions.resumeThread(thread.threadId);
+      },
     });
 
     const rename = createToolbarButton(row, "pencil", "Rename thread");
@@ -376,7 +378,9 @@ function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, ac
       "aria-label": `Rename ${thread.title}`,
     },
   });
-  input.oninput = () => actions.updateRenameDraft(thread.threadId, input.value);
+  input.oninput = () => {
+    actions.updateRenameDraft(thread.threadId, input.value);
+  };
   input.onkeydown = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();

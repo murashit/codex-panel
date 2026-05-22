@@ -91,8 +91,12 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
 
   let client!: AppServerClient;
   client = new AppServerClient(options.codexPath, options.cwd, {
-    onNotification: (notification) => handleNotification(notification),
-    onServerRequest: (request) => client.rejectServerRequest(request.id, -32601, "Selection rewrite does not handle server requests."),
+    onNotification: (notification) => {
+      handleNotification(notification);
+    },
+    onServerRequest: (request) => {
+      client.rejectServerRequest(request.id, -32601, "Selection rewrite does not handle server requests.");
+    },
     onLog: () => undefined,
     onExit: () => {
       if (completed) return;
@@ -138,9 +142,13 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Pro
   if (!signal) return promise;
   throwIfAborted(signal);
   return new Promise<T>((resolve, reject) => {
-    const onAbort = (): void => reject(rewriteAbortError());
+    const onAbort = (): void => {
+      reject(rewriteAbortError());
+    };
     signal.addEventListener("abort", onAbort, { once: true });
-    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", onAbort);
+    });
   });
 }
 

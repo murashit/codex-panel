@@ -148,7 +148,9 @@ export function renderComposerSuggestions(
     if (suggestion.detail) {
       option.createSpan({ cls: "suggestion-note codex-panel__suggestion-detail", text: suggestion.detail });
     }
-    option.onmousemove = () => callbacks.onSuggestionHover(index);
+    option.onmousemove = () => {
+      callbacks.onSuggestionHover(index);
+    };
     option.onmousedown = (event) => {
       event.preventDefault();
       callbacks.onSuggestionInsert(suggestion);

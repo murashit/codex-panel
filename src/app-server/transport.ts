@@ -60,7 +60,9 @@ export class StdioAppServerTransport implements AppServerTransport {
     });
 
     this.reader = readline.createInterface({ input: this.process.stdout });
-    this.reader.on("line", (line) => this.handlers.onLine(line));
+    this.reader.on("line", (line) => {
+      this.handlers.onLine(line);
+    });
   }
 
   send(message: RpcOutboundMessage): void {

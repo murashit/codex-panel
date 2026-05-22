@@ -88,7 +88,9 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
       "Save a markdown note before archiving. If saving fails, the thread is not archived. Frontmatter includes title, thread_id, created, and optional tags.",
     )
     .addToggle((toggle) => {
-      toggle.setValue(state.exportEnabled).onChange((value) => state.onExportEnabledChange(value));
+      toggle.setValue(state.exportEnabled).onChange((value) => {
+        state.onExportEnabledChange(value);
+      });
     });
 
   new Setting(containerEl)
@@ -98,7 +100,9 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
       text
         .setPlaceholder("Codex archives")
         .setValue(state.exportFolderTemplate)
-        .onChange((value) => state.onExportFolderTemplateChange(value));
+        .onChange((value) => {
+          state.onExportFolderTemplateChange(value);
+        });
     });
 
   new Setting(containerEl)
@@ -110,7 +114,9 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
       text
         .setPlaceholder("{{date}} {{time}} {{title}} {{shortId}}.md")
         .setValue(state.exportFilenameTemplate)
-        .onChange((value) => state.onExportFilenameTemplateChange(value));
+        .onChange((value) => {
+          state.onExportFilenameTemplateChange(value);
+        });
     });
 
   new Setting(containerEl)
@@ -120,7 +126,9 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
       text
         .setPlaceholder("Codex, archive")
         .setValue(state.exportTags)
-        .onChange((value) => state.onExportTagsChange(value));
+        .onChange((value) => {
+          state.onExportTagsChange(value);
+        });
     });
 }
 
@@ -139,7 +147,9 @@ function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThrea
       .setName(title)
       .setDesc(`Updated ${formatThreadDate(thread.updatedAt)} · ${shortThreadId(thread.id)}`)
       .addExtraButton((button) => {
-        button.setIcon("rotate-ccw").onClick(() => state.onRestore(thread.id));
+        button.setIcon("rotate-ccw").onClick(() => {
+          state.onRestore(thread.id);
+        });
         button.extraSettingsEl.addClass("codex-panel-settings__archived-restore");
         button.extraSettingsEl.setAttr("aria-label", `Restore ${title}`);
       });
@@ -180,13 +190,17 @@ function renderHookRow(list: HTMLElement, hook: HookMetadata, state: HookSection
       button
         .setButtonText("Trust")
         .setDisabled(state.loading || !canTrust)
-        .onClick(() => state.onTrust(hook));
+        .onClick(() => {
+          state.onTrust(hook);
+        });
     })
     .addButton((button) => {
       button
         .setButtonText(hook.enabled ? "Disable" : "Enable")
         .setDisabled(state.loading || hook.isManaged)
-        .onClick(() => state.onToggleEnabled(hook, !hook.enabled));
+        .onClick(() => {
+          state.onToggleEnabled(hook, !hook.enabled);
+        });
     });
   setting.settingEl.addClass("codex-panel-settings__hook-row");
   setting.settingEl.setAttr("title", hook.command ?? hook.key);

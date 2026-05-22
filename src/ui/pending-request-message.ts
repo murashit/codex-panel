@@ -60,7 +60,9 @@ function renderApprovalCard(
   renderApprovalDetails(info, approval, openDetails);
 
   for (const option of approvalActionOptions(approval)) {
-    createActionButton(controls, option.label, option.className, () => actions.resolveApproval(approval, option.action));
+    createActionButton(controls, option.label, option.className, () => {
+      actions.resolveApproval(approval, option.action);
+    });
   }
 }
 
@@ -92,8 +94,12 @@ function renderUserInputCard(
   });
   renderUserInputQuestions(info, input, drafts);
 
-  createActionButton(controls, "Submit", "mod-cta", () => actions.resolveUserInput(input));
-  createActionButton(controls, "Cancel", "", () => actions.cancelUserInput(input));
+  createActionButton(controls, "Submit", "mod-cta", () => {
+    actions.resolveUserInput(input);
+  });
+  createActionButton(controls, "Cancel", "", () => {
+    actions.cancelUserInput(input);
+  });
 }
 
 function createPendingRequestCard(parent: HTMLElement, className: string): { info: HTMLElement; controls: HTMLElement } {

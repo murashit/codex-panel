@@ -120,9 +120,13 @@ export class AppServerClient {
     }
 
     const transportHandlers: AppServerTransportHandlers = {
-      onLine: (line) => this.handleLine(line),
+      onLine: (line) => {
+        this.handleLine(line);
+      },
       onLog: this.handlers.onLog,
-      onError: (error) => this.rejectAll(error),
+      onError: (error) => {
+        this.rejectAll(error);
+      },
       onExit: (code, signal) => {
         this.initialized = false;
         this.initResponse = null;

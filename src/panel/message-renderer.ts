@@ -56,17 +56,27 @@ export class PanelMessageRenderer {
           state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
         });
       },
-      loadOlderTurns: () => this.options.loadOlderTurns(),
-      renderMarkdown: (element, text) => this.renderMarkdownMessage(element, text),
-      renderTextWithWikiLinks: (element, text) => this.renderTextWithWikiLinks(element, text),
+      loadOlderTurns: () => {
+        this.options.loadOlderTurns();
+      },
+      renderMarkdown: (element, text) => {
+        this.renderMarkdownMessage(element, text);
+      },
+      renderTextWithWikiLinks: (element, text) => {
+        this.renderTextWithWikiLinks(element, text);
+      },
       copyText: (text) => void this.copyMessageText(text),
       canImplementPlanItem: (item: DisplayItem) => item.id === implementPlanCandidate?.id,
-      onImplementPlanItem: (item) => this.options.implementPlan(item),
+      onImplementPlanItem: (item) => {
+        this.options.implementPlan(item);
+      },
       canRollbackItem: (item: DisplayItem) => isRollbackCandidateItem(item, rollbackCandidate),
       onRollbackItem: () => {
         if (state.activeThreadId) this.options.rollbackThread(state.activeThreadId);
       },
-      openTurnDiff: (turnDiffState) => this.options.openTurnDiff(turnDiffState),
+      openTurnDiff: (turnDiffState) => {
+        this.options.openTurnDiff(turnDiffState);
+      },
       pendingRequestsSignature: this.options.pendingRequestsSignature(),
       renderPendingRequests: () => this.options.renderPendingRequests(),
     });

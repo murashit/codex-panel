@@ -8,7 +8,9 @@ export async function withAppServerSession<T>(
   let client!: AppServerClient;
   client = new AppServerClient(codexPath, cwd, {
     onNotification: () => undefined,
-    onServerRequest: (request) => client.rejectServerRequest(request.id, -32601, "This Codex Panel view does not handle server requests."),
+    onServerRequest: (request) => {
+      client.rejectServerRequest(request.id, -32601, "This Codex Panel view does not handle server requests.");
+    },
     onLog: () => undefined,
     onExit: () => undefined,
   });

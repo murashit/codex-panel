@@ -51,8 +51,17 @@ export class RewriteSelectionPopover {
     const elements = this.createElements();
     this.elements = elements;
 
-    this.addDomListener(activeWindow, "resize", () => this.position());
-    this.addDomListener(activeWindow, "scroll", () => this.position(), true);
+    this.addDomListener(activeWindow, "resize", () => {
+      this.position();
+    });
+    this.addDomListener(
+      activeWindow,
+      "scroll",
+      () => {
+        this.position();
+      },
+      true,
+    );
     this.addDomListener(activeDocument, "keydown", (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -100,8 +109,12 @@ export class RewriteSelectionPopover {
         cwd: this.options.cwd,
         prompt: buildRewritePrompt(this.options.session),
         runtimeSettings: this.options.runtimeSettings,
-        onActivity: (activity) => this.updateActivity(activity),
-        onPreview: (text) => this.updatePreview(text),
+        onActivity: (activity) => {
+          this.updateActivity(activity);
+        },
+        onPreview: (text) => {
+          this.updatePreview(text);
+        },
         signal: abortController.signal,
       });
       if (abortController.signal.aborted) return;
@@ -176,7 +189,9 @@ export class RewriteSelectionPopover {
       "Cancel rewrite",
       "codex-panel__composer-action codex-panel-rewrite-popover__icon-button",
     );
-    cancelButton.onclick = () => this.cancel();
+    cancelButton.onclick = () => {
+      this.cancel();
+    };
 
     const status = root.createDiv({ cls: "codex-panel-rewrite-popover__status" });
     const streamPreview = root.createEl("pre", { cls: "codex-panel-rewrite-popover__stream-preview is-hidden" });
@@ -188,7 +203,9 @@ export class RewriteSelectionPopover {
       "Apply rewrite",
       "codex-panel__composer-action codex-panel-rewrite-popover__icon-button mod-cta",
     );
-    applyButton.onclick = () => this.apply();
+    applyButton.onclick = () => {
+      this.apply();
+    };
     applyButton.onkeydown = (event) => {
       if (!isRewriteActionKey(event)) return;
       event.preventDefault();
@@ -334,7 +351,9 @@ export class RewriteSelectionPopover {
     options?: boolean | AddEventListenerOptions,
   ): void {
     target.addEventListener(type, callback, options);
-    this.cleanups.push(() => target.removeEventListener(type, callback, options));
+    this.cleanups.push(() => {
+      target.removeEventListener(type, callback, options);
+    });
   }
 }
 

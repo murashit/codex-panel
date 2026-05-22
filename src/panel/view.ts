@@ -130,7 +130,9 @@ export class CodexPanelView extends ItemView {
       sendShortcut: () => this.plugin.settings.sendShortcut,
       canInterrupt: () => this.state.busy && Boolean(this.state.activeThreadId && this.state.activeTurnId),
       currentModelForSuggestions: () => currentModel(this.runtimeSnapshot()),
-      renderIfDetached: () => this.render(),
+      renderIfDetached: () => {
+        this.render();
+      },
       onSubmit: () => void this.submitComposerAction(),
       onNewThread: () => void this.startNewThread(),
     });
@@ -158,7 +160,9 @@ export class CodexPanelView extends ItemView {
     this.controller = new PanelController(this.state, {
       refreshThreads: () => void this.refreshThreads(),
       refreshSkills: (forceReload) => void this.refreshSkills(forceReload),
-      maybeNameThread: (threadId, turn) => this.threadRename.maybeAutoNameThread(threadId, turn),
+      maybeNameThread: (threadId, turn) => {
+        this.threadRename.maybeAutoNameThread(threadId, turn);
+      },
       recordMcpStartupStatus: (name, status, message) => {
         this.session.recordMcpStartupStatus(name, status, message);
         this.scheduleRender();
@@ -171,18 +175,28 @@ export class CodexPanelView extends ItemView {
       vaultPath: this.plugin.vaultPath,
       currentClient: () => this.connection.currentClient(),
       runtimeSnapshot: () => this.runtimeSnapshot(),
-      forceMessagesToBottom: () => this.forceMessagesToBottom(),
+      forceMessagesToBottom: () => {
+        this.forceMessagesToBottom();
+      },
     });
     this.history = new ThreadHistoryLoader({
       state: this.state,
       currentClient: () => this.client,
-      render: () => this.render(),
-      addSystemMessage: (text) => this.addSystemMessage(text),
-      forceMessagesToBottom: () => this.forceMessagesToBottom(),
+      render: () => {
+        this.render();
+      },
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
+      },
+      forceMessagesToBottom: () => {
+        this.forceMessagesToBottom();
+      },
       keepCurrentScrollPosition: () => {
         this.forceScrollMessagesToBottomOnNextRender = false;
       },
-      setThreadTurnPresence: (hadTurns) => this.threadRename.resetThreadTurnPresence(hadTurns),
+      setThreadTurnPresence: (hadTurns) => {
+        this.threadRename.resetThreadTurnPresence(hadTurns);
+      },
     });
     this.threadRename = new ThreadRenameController({
       state: this.state,
@@ -191,8 +205,12 @@ export class CodexPanelView extends ItemView {
       ensureConnected: () => this.ensureConnected(),
       currentClient: () => this.connection.currentClient(),
       refreshThreads: () => this.refreshThreads(),
-      render: () => this.render(),
-      addSystemMessage: (text) => this.addSystemMessage(text),
+      render: () => {
+        this.render();
+      },
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
+      },
     });
   }
 
@@ -221,8 +239,12 @@ export class CodexPanelView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    this.composerController.registerNoteIndexInvalidation((eventRef) => this.registerEvent(eventRef));
-    this.registerDomEvent(this.containerEl.doc, "pointerdown", (event) => this.closeToolbarPanelOnOutsidePointer(event));
+    this.composerController.registerNoteIndexInvalidation((eventRef) => {
+      this.registerEvent(eventRef);
+    });
+    this.registerDomEvent(this.containerEl.doc, "pointerdown", (event) => {
+      this.closeToolbarPanelOnOutsidePointer(event);
+    });
     this.render();
     await this.ensureConnected();
   }
@@ -544,9 +566,15 @@ export class CodexPanelView extends ItemView {
       toggleFastMode: () => this.toggleFastMode(),
       toggleCollaborationMode: () => this.toggleCollaborationMode(),
       toggleAutoReview: () => void this.toggleAutoReview(),
-      addSystemMessage: (text) => this.addSystemMessage(text),
-      addStructuredSystemMessage: (text, details) => this.addStructuredSystemMessage(text, details),
-      setStatus: (status) => this.setStatus(status),
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
+      },
+      addStructuredSystemMessage: (text, details) => {
+        this.addStructuredSystemMessage(text, details);
+      },
+      setStatus: (status) => {
+        this.setStatus(status);
+      },
       setRequestedModel: (model) => this.setRequestedModel(model),
       setRequestedReasoningEffort: (effort) => this.setRequestedReasoningEffort(effort),
       statusSummaryLines: () => this.statusSummaryLines(),
@@ -801,12 +829,18 @@ export class CodexPanelView extends ItemView {
 
     this.toolbarSignature = signature;
     renderToolbar(toolbar, model, {
-      toggleHistory: () => this.toggleHistoryPanel(),
+      toggleHistory: () => {
+        this.toggleHistoryPanel();
+      },
       toggleAutoReview: () => void this.toggleAutoReview(),
-      toggleStatusPanel: () => this.toggleStatusPanel(),
+      toggleStatusPanel: () => {
+        this.toggleStatusPanel();
+      },
       togglePlan: () => void this.toggleCollaborationMode(),
       toggleFast: () => void this.toggleFastMode(),
-      toggleRuntime: () => this.toggleRuntimePicker("model"),
+      toggleRuntime: () => {
+        this.toggleRuntimePicker("model");
+      },
       connect: () => void this.reconnectFromToolbar(),
       refreshDiagnostics: () => void this.refreshDiagnostics(),
       refreshThreads: () => {
@@ -819,10 +853,16 @@ export class CodexPanelView extends ItemView {
         void this.resumeThread(threadId);
       },
       archiveThread: (threadId) => void this.archiveThread(threadId),
-      startRenameThread: (threadId) => this.threadRename.start(threadId),
-      updateRenameDraft: (threadId, value) => this.threadRename.updateDraft(threadId, value),
+      startRenameThread: (threadId) => {
+        this.threadRename.start(threadId);
+      },
+      updateRenameDraft: (threadId, value) => {
+        this.threadRename.updateDraft(threadId, value);
+      },
       saveRenameThread: (threadId, value) => void this.threadRename.save(threadId, value),
-      cancelRenameThread: (threadId) => this.threadRename.cancel(threadId),
+      cancelRenameThread: (threadId) => {
+        this.threadRename.cancel(threadId);
+      },
       autoNameThread: (threadId) => void this.threadRename.autoNameDraft(threadId),
     });
   }
