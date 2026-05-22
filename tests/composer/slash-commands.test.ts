@@ -28,7 +28,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     setRequestedModel: vi.fn(),
     setRequestedReasoningEffort: vi.fn(),
     statusSummaryLines: () => ["status"],
-    connectionDiagnosticLines: () => ["doctor"],
+    connectionDiagnosticDetails: () => [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }],
     mcpStatusLines: vi.fn().mockResolvedValue(["mcp"]),
     modelStatusLines: () => ["model"],
     effortStatusLines: () => ["effort"],
@@ -320,6 +320,16 @@ describe("slash commands", () => {
         ],
       },
     ]);
+  });
+
+  it("shows doctor diagnostics as shared structured sections", async () => {
+    const details = [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }];
+    const ctx = context({ connectionDiagnosticDetails: () => details });
+
+    await executeSlashCommand("doctor", "", ctx);
+
+    expect(ctx.addSystemMessage).not.toHaveBeenCalled();
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Connection diagnostics", details);
   });
 
   it("documents that /plan can take a message", () => {

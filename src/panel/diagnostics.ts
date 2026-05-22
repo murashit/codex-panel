@@ -9,6 +9,11 @@ export interface DiagnosticRow {
   level?: "normal" | "warning" | "error";
 }
 
+export interface DiagnosticSection {
+  title: string;
+  rows: DiagnosticRow[];
+}
+
 export type DiagnosticAlertLevel = "normal" | "warning" | "error";
 
 export interface ConnectionDiagnosticsInput {
@@ -19,22 +24,30 @@ export interface ConnectionDiagnosticsInput {
   diagnostics: AppServerDiagnostics;
 }
 
-export function connectionDiagnosticRows(input: ConnectionDiagnosticsInput): DiagnosticRow[] {
+export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput): DiagnosticSection[] {
+  const mcpRows = mcpServerDiagnosticRows(input.diagnostics.mcpServers);
   return [
-    { label: "connection", value: input.connected ? "connected" : "offline" },
-    { label: "configured command", value: input.configuredCommand },
-    { label: "running app-server", value: appServerIdentity(input.initializeResponse) },
-    { label: "panel client", value: CLIENT_VERSION },
-    { label: "platform", value: appServerPlatform(input.initializeResponse) },
-    { label: "codexHome", value: input.initializeResponse?.codexHome ?? "(not connected)" },
-    { label: "active thread CLI", value: input.activeThreadCliVersion ?? "(none)" },
-    ...CAPABILITY_PROBE_METHODS.map((method) => capabilityDiagnosticRow(input.diagnostics.probes[method])),
-    ...mcpServerDiagnosticRows(input.diagnostics.mcpServers),
+    {
+      title: "Process",
+      rows: [
+        { label: "connection", value: input.connected ? "connected" : "offline" },
+        { label: "configured command", value: input.configuredCommand },
+        { label: "running app-server", value: appServerIdentity(input.initializeResponse) },
+        { label: "panel client", value: CLIENT_VERSION },
+        { label: "platform", value: appServerPlatform(input.initializeResponse) },
+        { label: "codexHome", value: input.initializeResponse?.codexHome ?? "(not connected)" },
+        { label: "active thread CLI", value: input.activeThreadCliVersion ?? "(none)" },
+      ],
+    },
+    {
+      title: "Capabilities",
+      rows: CAPABILITY_PROBE_METHODS.map((method) => capabilityDiagnosticRow(input.diagnostics.probes[method])),
+    },
+    {
+      title: "MCP issues",
+      rows: mcpRows.length > 0 ? mcpRows : [{ label: "issues", value: "(none)" }],
+    },
   ];
-}
-
-export function connectionDiagnosticLines(rows: DiagnosticRow[]): string[] {
-  return ["Connection diagnostics", ...rows.map((row) => `${row.label}: ${row.value}`)];
 }
 
 export function diagnosticAlertLevel(diagnostics: AppServerDiagnostics): DiagnosticAlertLevel {
@@ -52,7 +65,7 @@ export function diagnosticAlertLevel(diagnostics: AppServerDiagnostics): Diagnos
 function capabilityDiagnosticRow(probe: CapabilityProbeResult): DiagnosticRow {
   const detail = probe.message ? ` - ${probe.message}` : probe.summary ? ` (${probe.summary})` : "";
   return {
-    label: `capability ${probe.method}`,
+    label: probe.method,
     value: `${probe.status}${detail}`,
     level: capabilityLevel(probe.status),
   };

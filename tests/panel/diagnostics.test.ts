@@ -6,7 +6,7 @@ import {
   createAppServerDiagnostics,
   upsertMcpServerDiagnostic,
 } from "../../src/app-server/compatibility";
-import { connectionDiagnosticLines, connectionDiagnosticRows, diagnosticAlertLevel } from "../../src/panel/diagnostics";
+import { connectionDiagnosticSections, diagnosticAlertLevel } from "../../src/panel/diagnostics";
 
 describe("connection diagnostics", () => {
   it("formats base rows, capability probes, and MCP issues for /doctor", () => {
@@ -28,7 +28,7 @@ describe("connection diagnostics", () => {
       message: null,
     });
 
-    const rows = connectionDiagnosticRows({
+    const sections = connectionDiagnosticSections({
       connected: true,
       configuredCommand: "/opt/homebrew/bin/codex",
       initializeResponse: {
@@ -41,18 +41,22 @@ describe("connection diagnostics", () => {
       diagnostics,
     });
 
+    const rows = sections.flatMap((section) => section.rows);
+    expect(sections.map((section) => section.title)).toEqual(["Process", "Capabilities", "MCP issues"]);
     expect(rows.map((row) => `${row.label}: ${row.value}`)).toEqual(
       expect.arrayContaining([
         "connection: connected",
-        "capability model/list: ok (12 models)",
-        "capability skills/list: unsupported - unknown method skills/list",
+        "model/list: ok (12 models)",
+        "skills/list: unsupported - unknown method skills/list",
         "mcp docs: ready - auth notLoggedIn",
         "mcp github: failed - missing token",
       ]),
     );
-    expect(rows.find((row) => row.label === "capability skills/list")?.level).toBe("warning");
+    expect(rows.find((row) => row.label === "skills/list")?.level).toBe("warning");
     expect(rows.find((row) => row.label === "mcp github")?.level).toBe("error");
-    expect(connectionDiagnosticLines(rows)[0]).toBe("Connection diagnostics");
+    expect(sections.find((section) => section.title === "MCP issues")?.rows).toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "mcp github", value: "failed - missing token" })]),
+    );
   });
 
   it("derives a top-level diagnostic alert without treating unknown or unsupported probes as warnings", () => {

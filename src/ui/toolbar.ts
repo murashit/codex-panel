@@ -35,6 +35,11 @@ export interface ToolbarDiagnosticRow {
   level?: "normal" | "warning" | "error";
 }
 
+export interface ToolbarDiagnosticSection {
+  title: string;
+  rows: ToolbarDiagnosticRow[];
+}
+
 export interface ToolbarViewModel {
   connected: boolean;
   status: string;
@@ -57,7 +62,7 @@ export interface ToolbarViewModel {
   modelChoices: ToolbarChoice[];
   effortChoices: ToolbarChoice[];
   connectLabel: string;
-  diagnostics: ToolbarDiagnosticRow[];
+  diagnostics: ToolbarDiagnosticSection[];
   diagnosticAlertLevel: ToolbarDiagnosticAlertLevel;
 }
 
@@ -109,7 +114,10 @@ export function toolbarSignature(model: ToolbarViewModel): string {
     modelChoices: model.modelChoices.map((choice) => `${choice.label}:${choice.selected}:${choice.disabled}:${choice.meta ?? ""}`),
     effortChoices: model.effortChoices.map((choice) => `${choice.label}:${choice.selected}:${choice.disabled}:${choice.meta ?? ""}`),
     connectLabel: model.connectLabel,
-    diagnostics: model.diagnostics.map((row) => `${row.label}:${row.value}:${row.level ?? "normal"}`),
+    diagnostics: model.diagnostics.map((section) => ({
+      title: section.title,
+      rows: section.rows.map((row) => `${row.label}:${row.value}:${row.level ?? "normal"}`),
+    })),
     diagnosticAlertLevel: model.diagnosticAlertLevel,
   });
 }
@@ -282,16 +290,19 @@ function renderRateLimitPanel(parent: HTMLElement, rateLimit: RateLimitSummary |
   }
 }
 
-function renderConnectionDiagnostics(parent: HTMLElement, rows: ToolbarDiagnosticRow[]): void {
+function renderConnectionDiagnostics(parent: HTMLElement, sections: ToolbarDiagnosticSection[]): void {
   const diagnostics = parent.createDiv({ cls: "codex-panel__connection-diagnostics" });
-  diagnostics.createDiv({ cls: "codex-panel__connection-diagnostics-title", text: "Connection diagnostics" });
-  const list = diagnostics.createEl("dl", { cls: "codex-panel__connection-diagnostics-list" });
-  for (const row of rows) {
-    const item = list.createDiv({
-      cls: `codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--${row.level ?? "normal"}`,
-    });
-    item.createEl("dt", { text: row.label });
-    item.createEl("dd", { text: row.value });
+  diagnostics.createDiv({ cls: "codex-panel__connection-diagnostics-title", text: "Connection" });
+  for (const section of sections) {
+    diagnostics.createDiv({ cls: "codex-panel__connection-diagnostics-section", text: section.title });
+    const list = diagnostics.createEl("dl", { cls: "codex-panel__connection-diagnostics-list" });
+    for (const row of section.rows) {
+      const item = list.createDiv({
+        cls: `codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--${row.level ?? "normal"}`,
+      });
+      item.createEl("dt", { text: row.label });
+      item.createEl("dd", { text: row.value });
+    }
   }
 }
 

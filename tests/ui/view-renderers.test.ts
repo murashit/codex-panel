@@ -1558,7 +1558,10 @@ describe("toolbar renderer decisions", () => {
       toolbarSignature({ ...baseModel, effortChoices: [...baseModel.effortChoices, { label: "xhigh", onClick: vi.fn() }] }),
     );
     expect(toolbarSignature(baseModel)).not.toBe(
-      toolbarSignature({ ...baseModel, diagnostics: [{ label: "compatibility", value: "model/list failed", level: "error" }] }),
+      toolbarSignature({
+        ...baseModel,
+        diagnostics: [{ title: "Capabilities", rows: [{ label: "compatibility", value: "model/list failed", level: "error" }] }],
+      }),
     );
     expect(toolbarSignature(baseModel)).not.toBe(toolbarSignature({ ...baseModel, autoReviewActive: true }));
     expect(toolbarSignature(baseModel)).not.toBe(
@@ -1628,14 +1631,16 @@ describe("toolbar renderer decisions", () => {
         statusPanelOpen: true,
         openPanel: "status",
         diagnostics: [
-          { label: "running app-server", value: "codex-cli/1.2.3" },
-          { label: "compatibility", value: "model/list failed", level: "error" },
+          { title: "Process", rows: [{ label: "running app-server", value: "codex-cli/1.2.3" }] },
+          { title: "Capabilities", rows: [{ label: "compatibility", value: "model/list failed", level: "error" }] },
         ],
       }),
       toolbarActions({ refreshDiagnostics }),
     );
 
-    expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection diagnostics");
+    expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection");
+    expect(parent.textContent).toContain("Process");
+    expect(parent.textContent).toContain("Capabilities");
     expect(parent.textContent).toContain("Effective Codex config");
     expect(parent.textContent).toContain("Refresh diagnostics");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
@@ -2153,7 +2158,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     modelChoices: [{ label: "Default", selected: true, onClick: vi.fn() }],
     effortChoices: [{ label: "Default", selected: true, onClick: vi.fn() }],
     connectLabel: "Reconnect",
-    diagnostics: [{ label: "running app-server", value: "codex-cli/test" }],
+    diagnostics: [{ title: "Process", rows: [{ label: "running app-server", value: "codex-cli/test" }] }],
     diagnosticAlertLevel: "normal",
     ...overrides,
   };

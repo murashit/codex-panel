@@ -21,7 +21,7 @@ import {
   nextCollaborationMode,
 } from "../runtime/collaboration-mode";
 import { PanelController } from "./controller";
-import { connectionDiagnosticLines, connectionDiagnosticRows, diagnosticAlertLevel } from "./diagnostics";
+import { connectionDiagnosticSections, diagnosticAlertLevel } from "./diagnostics";
 import { rollbackCandidateFromItems } from "./rollback";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../runtime/view";
 import {
@@ -547,7 +547,7 @@ export class CodexPanelView extends ItemView {
       setRequestedModel: (model) => this.setRequestedModel(model),
       setRequestedReasoningEffort: (effort) => this.setRequestedReasoningEffort(effort),
       statusSummaryLines: () => this.statusSummaryLines(),
-      connectionDiagnosticLines: () => this.connectionDiagnosticLines(),
+      connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
       mcpStatusLines: () => this.mcpStatusLines(),
       modelStatusLines: () => this.modelStatusLines(),
       effortStatusLines: () => this.effortStatusLines(),
@@ -864,7 +864,7 @@ export class CodexPanelView extends ItemView {
       modelChoices: this.modelToolbarChoices(),
       effortChoices: this.effortToolbarChoices(),
       connectLabel: this.connection.isConnected() ? "Reconnect" : "Connect",
-      diagnostics: this.connectionDiagnosticRows(),
+      diagnostics: this.connectionDiagnosticSections(),
       diagnosticAlertLevel: diagnosticAlertLevel(this.state.appServerDiagnostics),
     };
   }
@@ -1026,8 +1026,8 @@ export class CodexPanelView extends ItemView {
     ];
   }
 
-  private connectionDiagnosticRows() {
-    return connectionDiagnosticRows({
+  private connectionDiagnosticSections() {
+    return connectionDiagnosticSections({
       connected: this.connection.isConnected(),
       configuredCommand: this.plugin.settings.codexPath,
       initializeResponse: this.state.initializeResponse,
@@ -1036,8 +1036,11 @@ export class CodexPanelView extends ItemView {
     });
   }
 
-  private connectionDiagnosticLines(): string[] {
-    return connectionDiagnosticLines(this.connectionDiagnosticRows());
+  private connectionDiagnosticDetails(): DisplayDetailSection[] {
+    return this.connectionDiagnosticSections().map((section) => ({
+      title: section.title,
+      rows: section.rows.map((row) => ({ key: row.label, value: row.value })),
+    }));
   }
 
   private async mcpStatusLines(): Promise<string[]> {

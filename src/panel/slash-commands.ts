@@ -32,7 +32,7 @@ export interface SlashCommandExecutionContext {
   setRequestedModel: (model: string | null) => void | Promise<void>;
   setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void | Promise<void>;
   statusSummaryLines: () => string[];
-  connectionDiagnosticLines: () => string[];
+  connectionDiagnosticDetails: () => DisplayDetailSection[];
   mcpStatusLines: () => Promise<string[]>;
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
@@ -181,7 +181,7 @@ export async function executeSlashCommand(
   }
 
   if (command === "doctor") {
-    context.addStructuredSystemMessage("Connection diagnostics", detailsFromLines(context.connectionDiagnosticLines()));
+    context.addStructuredSystemMessage("Connection diagnostics", context.connectionDiagnosticDetails());
     return;
   }
 

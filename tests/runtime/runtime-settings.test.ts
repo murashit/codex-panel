@@ -19,6 +19,7 @@ import {
   requestedOrConfiguredServiceTier,
   requestedTurnRuntimeSettings,
   resetRuntimeOverride,
+  runtimeOverridePayload,
   setRuntimeOverride,
   serviceTierLabel,
   type RuntimeSnapshot,
@@ -61,7 +62,7 @@ describe("runtime settings", () => {
     expect(compactContextLabel(null, "1.2K tokens")).toBe("1.2K tokens");
   });
 
-  it("keeps runtime defaults, resets, and turn payload semantics distinct", () => {
+  it("keeps runtime defaults, resets, and collaboration mode semantics distinct", () => {
     const snapshot = runtimeSnapshot({
       requestedModel: resetRuntimeOverride(),
       requestedReasoningEffort: resetRuntimeOverride(),
@@ -70,16 +71,16 @@ describe("runtime settings", () => {
     expect(currentModel(snapshot)).toBe("gpt-5.5");
     expect(currentReasoningEffort(snapshot)).toBe("high");
     expect(requestedTurnRuntimeSettings(snapshot)).toMatchObject({
-      model: null,
-      effort: null,
       collaborationMode: {
         mode: "default",
         settings: { model: "gpt-5.5", reasoning_effort: "high" },
       },
     });
+    expect(runtimeOverridePayload(snapshot.requestedModel)).toBeNull();
+    expect(runtimeOverridePayload(snapshot.requestedReasoningEffort)).toBeNull();
   });
 
-  it("serializes explicit runtime overrides as turn payload values", () => {
+  it("uses explicit runtime overrides as current values and settings payload values", () => {
     const snapshot = runtimeSnapshot({
       requestedModel: setRuntimeOverride("gpt-5.4"),
       requestedReasoningEffort: setRuntimeOverride("low"),
@@ -87,10 +88,8 @@ describe("runtime settings", () => {
 
     expect(currentModel(snapshot)).toBe("gpt-5.4");
     expect(currentReasoningEffort(snapshot)).toBe("low");
-    expect(requestedTurnRuntimeSettings(snapshot)).toMatchObject({
-      model: "gpt-5.4",
-      effort: "low",
-    });
+    expect(runtimeOverridePayload(snapshot.requestedModel)).toBe("gpt-5.4");
+    expect(runtimeOverridePayload(snapshot.requestedReasoningEffort)).toBe("low");
   });
 
   it("resolves approval reviewer from requested, active, then effective config", () => {
@@ -120,13 +119,12 @@ describe("runtime settings", () => {
     ).toBe("guardian_subagent");
   });
 
-  it("serializes requested approval reviewer as a turn override", () => {
+  it("resolves requested approval reviewer without adding it to turn runtime settings", () => {
     const snapshot = runtimeSnapshot({ requestedApprovalsReviewer: "auto_review" });
 
     expect(autoReviewActive(snapshot)).toBe(true);
-    expect(requestedTurnRuntimeSettings(snapshot)).toMatchObject({
-      approvalsReviewer: "auto_review",
-    });
+    expect(currentApprovalsReviewer(snapshot)).toBe("auto_review");
+    expect(requestedTurnRuntimeSettings(snapshot)).not.toHaveProperty("approvalsReviewer");
   });
 
   it("treats active thread runtime as display state without persisting it into turn overrides", () => {
@@ -139,13 +137,13 @@ describe("runtime settings", () => {
     expect(currentModel(snapshot)).toBe("gpt-5-active");
     expect(currentServiceTier(snapshot)).toBe("fast");
     expect(requestedTurnRuntimeSettings(snapshot)).toMatchObject({
-      model: undefined,
-      effort: undefined,
       collaborationMode: {
         mode: "default",
         settings: { model: "gpt-5-active" },
       },
     });
+    expect(requestedTurnRuntimeSettings(snapshot)).not.toHaveProperty("model");
+    expect(requestedTurnRuntimeSettings(snapshot)).not.toHaveProperty("effort");
   });
 
   it("separates effective runtime, config defaults, and pending changes in status details", () => {

@@ -7,8 +7,8 @@ import {
   currentModel,
   currentReasoningEffort,
   fastModeLabel,
+  runtimeOverrideLabel,
   serviceTierLabel,
-  type RuntimeOverride,
   type RuntimeSnapshot,
 } from "./state";
 
@@ -118,10 +118,10 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
       rows: [
         { key: "model", value: currentModel(snapshot, config) ?? "(from default)" },
         { key: "config model", value: configuredModel(snapshot, config) ?? "(not reported)" },
-        { key: "model change", value: pendingRuntimeChangeLabel(snapshot.requestedModel) },
+        { key: "model change", value: runtimeOverrideLabel(snapshot.requestedModel) },
         { key: "effort", value: currentReasoningEffort(snapshot, config) ?? "(from default)" },
         { key: "config effort", value: configuredReasoningEffort(snapshot, config) ?? "(not reported)" },
-        { key: "effort change", value: pendingRuntimeChangeLabel(snapshot.requestedReasoningEffort) },
+        { key: "effort change", value: runtimeOverrideLabel(snapshot.requestedReasoningEffort) },
         { key: "reasoning summary", value: stringValue(config.model_reasoning_summary, "(from default)") },
         { key: "verbosity", value: stringValue(config.model_verbosity, "(from default)") },
         { key: "mode", value: snapshot.activeCollaborationMode === "plan" ? "Plan" : "Default" },
@@ -182,12 +182,6 @@ function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: Record<str
 
 function modeLabel(mode: RuntimeSnapshot["requestedCollaborationMode"]): string {
   return mode === "plan" ? "Plan" : "Default";
-}
-
-function pendingRuntimeChangeLabel<T>(override: RuntimeOverride<T>): string {
-  if (override.kind === "set") return String(override.value);
-  if (override.kind === "resetPending") return "(reset to config)";
-  return "(none)";
 }
 
 function rateLimitWindowSummary(

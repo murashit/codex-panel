@@ -35,9 +35,6 @@ export interface RuntimeSnapshot {
 
 export interface TurnRuntimeSettings {
   collaborationMode: CollaborationMode | null;
-  model: string | null | undefined;
-  effort: ReasoningEffort | null | undefined;
-  approvalsReviewer: ApprovalsReviewer | undefined;
   warning: string | null;
 }
 
@@ -98,9 +95,6 @@ export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRun
     : null;
   return {
     collaborationMode,
-    model: runtimeOverridePayload(snapshot.requestedModel),
-    effort: runtimeOverridePayload(snapshot.requestedReasoningEffort),
-    approvalsReviewer: snapshot.requestedApprovalsReviewer ?? undefined,
     warning: model ? null : "No effective model is available. Sending without a mode override.",
   };
 }
@@ -140,10 +134,6 @@ export function resetRuntimeOverride<T>(): RuntimeOverride<T> {
   return { kind: "resetPending" };
 }
 
-export function commitRuntimeOverride<T>(override: RuntimeOverride<T>): RuntimeOverride<T> {
-  return override.kind === "resetPending" ? defaultRuntimeOverride<T>() : override;
-}
-
 export function runtimeOverridePayload<T>(override: RuntimeOverride<T>): T | null | undefined {
   if (override.kind === "set") return override.value;
   if (override.kind === "resetPending") return null;
@@ -152,8 +142,8 @@ export function runtimeOverridePayload<T>(override: RuntimeOverride<T>): T | nul
 
 export function runtimeOverrideLabel<T>(override: RuntimeOverride<T>): string {
   if (override.kind === "set") return String(override.value);
-  if (override.kind === "resetPending") return "(reset pending)";
-  return "(default)";
+  if (override.kind === "resetPending") return "(reset to config)";
+  return "(none)";
 }
 
 function configuredServiceTier(config: Record<string, unknown>): ServiceTier | null {

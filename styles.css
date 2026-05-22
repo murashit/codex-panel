@@ -560,6 +560,18 @@
   line-height: var(--line-height-tight);
 }
 
+.codex-panel__connection-diagnostics-section {
+  padding: 6px 8px 2px;
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel__connection-diagnostics-title + .codex-panel__connection-diagnostics-section {
+  padding-top: 0;
+}
+
 .codex-panel__connection-diagnostics-list {
   margin: 0;
   cursor: text;
@@ -568,7 +580,7 @@
 
 .codex-panel__connection-diagnostics-row {
   display: grid;
-  grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
   gap: var(--codex-panel-section-gap);
   padding: 4px 8px;
 }
@@ -583,6 +595,7 @@
 
 .codex-panel__connection-diagnostics-row dt {
   color: var(--text-faint);
+  overflow-wrap: anywhere;
 }
 
 .codex-panel__connection-diagnostics-row dd {
