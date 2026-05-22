@@ -95,47 +95,53 @@ describe("approval model", () => {
   });
 
   it("shows approval reasons first in pending request summaries", () => {
-    const command = expectPresent(toPendingApproval({
-      id: 20,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        command: "npm run build",
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "command",
-        startedAtMs: 1,
-        reason: "Needs unsandboxed access",
-        commandActions: [],
-        proposedExecpolicyAmendment: null,
-        proposedNetworkPolicyAmendments: [],
-      },
-    }));
-    const fileChange = expectPresent(toPendingApproval({
-      id: 21,
-      method: "item/fileChange/requestApproval",
-      params: {
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "file",
-        startedAtMs: 1,
-        reason: "Write outside workspace",
-        grantRoot: "/tmp/project",
-      },
-    }));
-    const permissions = expectPresent(toPendingApproval({
-      id: 22,
-      method: "item/permissions/requestApproval",
-      params: {
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "permissions",
-        startedAtMs: 1,
-        reason: "Need network",
-        permissions: { network: { enabled: true }, fileSystem: null },
-      },
-    }));
+    const command = expectPresent(
+      toPendingApproval({
+        id: 20,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          command: "npm run build",
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "command",
+          startedAtMs: 1,
+          reason: "Needs unsandboxed access",
+          commandActions: [],
+          proposedExecpolicyAmendment: null,
+          proposedNetworkPolicyAmendments: [],
+        },
+      }),
+    );
+    const fileChange = expectPresent(
+      toPendingApproval({
+        id: 21,
+        method: "item/fileChange/requestApproval",
+        params: {
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "file",
+          startedAtMs: 1,
+          reason: "Write outside workspace",
+          grantRoot: "/tmp/project",
+        },
+      }),
+    );
+    const permissions = expectPresent(
+      toPendingApproval({
+        id: 22,
+        method: "item/permissions/requestApproval",
+        params: {
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "permissions",
+          startedAtMs: 1,
+          reason: "Need network",
+          permissions: { network: { enabled: true }, fileSystem: null },
+        },
+      }),
+    );
 
     expect(approvalSummary(command)).toBe("Needs unsandboxed access\nnpm run build");
     expect(approvalSummary(fileChange)).toBe("Write outside workspace\ngrant root: /tmp/project");
@@ -143,19 +149,21 @@ describe("approval model", () => {
   });
 
   it("keeps approval details semantic and omits raw payloads", () => {
-    const approval = expectPresent(toPendingApproval({
-      id: 23,
-      method: "item/permissions/requestApproval",
-      params: {
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "permissions",
-        startedAtMs: 1,
-        reason: "Need network",
-        permissions: { network: { enabled: true }, fileSystem: null },
-      },
-    }));
+    const approval = expectPresent(
+      toPendingApproval({
+        id: 23,
+        method: "item/permissions/requestApproval",
+        params: {
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "permissions",
+          startedAtMs: 1,
+          reason: "Need network",
+          permissions: { network: { enabled: true }, fileSystem: null },
+        },
+      }),
+    );
 
     expect(approvalDetails(approval)).toEqual([
       { key: "reason", value: "Need network" },
@@ -165,22 +173,24 @@ describe("approval model", () => {
   });
 
   it("omits empty approval detail rows", () => {
-    const approval = expectPresent(toPendingApproval({
-      id: 24,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        command: "npm test",
-        cwd: "/tmp/project",
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "command",
-        startedAtMs: 1,
-        reason: null,
-        commandActions: [],
-        proposedExecpolicyAmendment: null,
-        proposedNetworkPolicyAmendments: [],
-      },
-    }));
+    const approval = expectPresent(
+      toPendingApproval({
+        id: 24,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          command: "npm test",
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "command",
+          startedAtMs: 1,
+          reason: null,
+          commandActions: [],
+          proposedExecpolicyAmendment: null,
+          proposedNetworkPolicyAmendments: [],
+        },
+      }),
+    );
 
     expect(approvalDetails(approval)).toEqual([
       { key: "command", value: "npm test" },

@@ -310,6 +310,12 @@ function ensureElementHelpers(): void {
   };
 }
 
+function nodeConstructor(): typeof Node {
+  const defaultView = document.defaultView;
+  if (defaultView === null) throw new Error("Expected document.defaultView to install Obsidian DOM helpers.");
+  return (globalThis as typeof globalThis & { Node?: typeof Node }).Node ?? defaultView.Node;
+}
+
 function applyOptions(element: HTMLElement, options: ElementOptions): void {
   if (Array.isArray(options.cls)) {
     element.classList.add(...options.cls.filter(Boolean));

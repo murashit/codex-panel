@@ -201,13 +201,7 @@ export class PanelController {
     } else if (method === "hook/completed") {
       this.upsertHookRun(params.run, params.turnId, params.run.status);
     } else if (method === "item/mcpToolCall/progress") {
-      this.state.displayItems = appendToolOutput(
-        this.state.displayItems,
-        params.itemId,
-        params.turnId,
-        params.message,
-        "mcp progress",
-      );
+      this.state.displayItems = appendToolOutput(this.state.displayItems, params.itemId, params.turnId, params.message, "mcp progress");
     } else if (method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed") {
       const reviewItem = createAutoReviewResultItem(params);
       this.state.displayItems = upsertDisplayItem(removeUnstructuredAutoReviewWarnings(this.state.displayItems), reviewItem);
@@ -427,6 +421,7 @@ export class PanelController {
     this.state.activeReasoningEffort = settings.effort;
     this.state.activeCollaborationMode = settings.collaborationMode.mode;
     this.state.requestedCollaborationMode = settings.collaborationMode.mode;
+    const nullableSettings: ThreadSettingsWithNullableReviewer = settings;
     const serviceTierOverride = this.state.activeServiceTierOverride || this.state.requestedServiceTier !== null;
     const approvalsReviewerOverride = this.state.activeApprovalsReviewerOverride || this.state.requestedApprovalsReviewer !== null;
     this.state.activeServiceTier = settings.serviceTier ?? (serviceTierOverride ? this.state.activeServiceTier : null);
@@ -436,6 +431,11 @@ export class PanelController {
     this.state.activeApprovalsReviewerOverride = approvalsReviewerOverride;
   }
 }
+
+type ThreadSettings = Extract<ServerNotification, { method: "thread/settings/updated" }>["params"]["threadSettings"];
+type ThreadSettingsWithNullableReviewer = Omit<ThreadSettings, "approvalsReviewer"> & {
+  approvalsReviewer: ThreadSettings["approvalsReviewer"] | null;
+};
 
 function removeUnstructuredAutoReviewWarnings(items: DisplayItem[]): DisplayItem[] {
   return items.filter((item) => !isUnstructuredAutoReviewWarning(item));

@@ -48,6 +48,12 @@ export interface MessageStreamContext {
   renderPendingRequests?: () => HTMLElement | null;
 }
 
+type RenderableMessageItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
+
+function isRenderableMessageItem(item: DisplayItem): item is RenderableMessageItem {
+  return item.kind === "message" || item.kind === "system" || item.kind === "userInputResult";
+}
+
 export function messageRenderBlocks(context: MessageStreamContext): MessageRenderBlock[] {
   const blocks: MessageRenderBlock[] = [];
 
@@ -210,6 +216,9 @@ function renderDisplayItem(parent: HTMLElement, item: DisplayItem, context: Mess
   }
   if (item.kind === "approvalResult") {
     renderToolResult(parent, item, context);
+    return;
+  }
+  if (!isRenderableMessageItem(item)) {
     return;
   }
   const messageEl = parent.createDiv({ cls: messageClass(item) });

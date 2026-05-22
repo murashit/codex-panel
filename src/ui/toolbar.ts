@@ -107,12 +107,16 @@ export function toolbarSignature(model: ToolbarViewModel): string {
     openPanel: model.openPanel,
     threads: model.threads.map(
       (thread) =>
-        `${thread.threadId}:${thread.title}:${String(thread.selected)}:${String(thread.disabled)}:${String(thread.canArchive)}:${thread.rename?.draft ?? ""}:${
-          String(thread.rename?.generating ?? false)
-        }`,
+        `${thread.threadId}:${thread.title}:${String(thread.selected)}:${String(thread.disabled)}:${String(thread.canArchive)}:${thread.rename?.draft ?? ""}:${String(
+          thread.rename?.generating ?? false,
+        )}`,
     ),
-    modelChoices: model.modelChoices.map((choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`),
-    effortChoices: model.effortChoices.map((choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`),
+    modelChoices: model.modelChoices.map(
+      (choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`,
+    ),
+    effortChoices: model.effortChoices.map(
+      (choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`,
+    ),
     connectLabel: model.connectLabel,
     diagnostics: model.diagnostics.map((section) => ({
       title: section.title,

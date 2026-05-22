@@ -930,6 +930,7 @@ export class CodexPanelView extends ItemView {
     this.render();
 
     await this.ensureConnected();
+    if (!threadId) return;
     try {
       await this.resumeThread(threadId);
     } catch (error) {

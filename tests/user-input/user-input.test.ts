@@ -40,25 +40,27 @@ describe("user input model", () => {
   });
 
   it("signs pending request content and drafts deterministically", () => {
-    const input = expectPresent(toPendingUserInput({
-      id: 7,
-      method: "item/tool/requestUserInput",
-      params: {
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "item",
-        questions: [
-          {
-            id: "direction",
-            header: "Direction",
-            question: "Which way?",
-            isOther: true,
-            isSecret: false,
-            options: [{ label: "Recommended", description: "Use the default path" }],
-          },
-        ],
-      },
-    }));
+    const input = expectPresent(
+      toPendingUserInput({
+        id: 7,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "item",
+          questions: [
+            {
+              id: "direction",
+              header: "Direction",
+              question: "Which way?",
+              isOther: true,
+              isSecret: false,
+              options: [{ label: "Recommended", description: "Use the default path" }],
+            },
+          ],
+        },
+      }),
+    );
     const drafts = new Map([
       ["z", "last"],
       ["a", "first"],

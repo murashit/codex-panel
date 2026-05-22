@@ -105,9 +105,12 @@ export async function generateThreadTitleWithCodex(
 
   let client!: AppServerClient;
   client = new AppServerClient(codexPath, cwd, {
-    onNotification: (notification) => { handleNamingNotification(notification); },
-    onServerRequest: (request) =>
-      { client.rejectServerRequest(request.id, -32601, "Thread title generation does not handle server requests."); },
+    onNotification: (notification) => {
+      handleNamingNotification(notification);
+    },
+    onServerRequest: (request) => {
+      client.rejectServerRequest(request.id, -32601, "Thread title generation does not handle server requests.");
+    },
     onLog: () => undefined,
     onExit: () => {
       if (completed) return;

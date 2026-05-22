@@ -212,8 +212,12 @@ function renderHookRow(list: HTMLElement, hook: HookMetadata, state: HookSection
   });
 }
 
-function firstNonEmptyString(...values: string[]): string {
-  return values.find((value) => value.length > 0) ?? values.at(-1) ?? "";
+function firstNonEmptyString(...values: (string | null | undefined)[]): string {
+  return (
+    values.find((value): value is string => typeof value === "string" && value.length > 0) ??
+    values.find((value): value is string => typeof value === "string") ??
+    ""
+  );
 }
 
 function formatThreadDate(timestamp: number): string {
