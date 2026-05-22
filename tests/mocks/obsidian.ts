@@ -1,8 +1,8 @@
-type ElementOptions = {
+interface ElementOptions {
   cls?: string | string[];
   text?: string;
   attr?: Record<string, string>;
-};
+}
 
 declare global {
   interface HTMLElement {

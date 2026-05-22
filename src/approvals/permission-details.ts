@@ -1,6 +1,9 @@
 import { jsonPreview } from "../utils";
 
-export type DetailRow = { key: string; value: string };
+export interface DetailRow {
+  key: string;
+  value: string;
+}
 
 export function permissionRows(value: unknown): DetailRow[] {
   const permissions = value as { network?: { enabled?: unknown } | null; fileSystem?: unknown } | null;

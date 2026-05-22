@@ -7,7 +7,10 @@ import { pathsRelativeToRoot } from "./paths";
 import { classifyExecutionState } from "./state";
 
 type AutoReviewNotification = ItemGuardianApprovalReviewStartedNotification | ItemGuardianApprovalReviewCompletedNotification;
-type DisplayRow = { key: string; value: string };
+interface DisplayRow {
+  key: string;
+  value: string;
+}
 
 export function createReviewResultItem(text: string): DisplayItem {
   const parsed = parseAutomaticApprovalReviewMessage(text);
