@@ -259,8 +259,10 @@ export class PanelController {
       this.actions.refreshThreads();
     } else if (method === "thread/settings/updated") {
       this.applyThreadSettings(params.threadSettings);
-    } else if (method === "thread/goal/updated" || method === "thread/goal/cleared") {
-      return;
+    } else if (method === "thread/goal/updated") {
+      this.addSystemMessage(`Thread goal updated: status ${params.goal.status}. Codex Panel does not support goals.`);
+    } else if (method === "thread/goal/cleared") {
+      this.addSystemMessage("Thread goal cleared. Codex Panel does not support goals.");
     }
   }
 

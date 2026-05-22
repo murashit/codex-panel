@@ -49,6 +49,7 @@ Codex Panel supports the app-server-backed Codex workflows that fit a persistent
 - Send steering messages during a running turn, or interrupt when the composer is empty.
 - Respond to command, file, and permission approval requests.
 - Stream assistant messages, reasoning, commands, tool calls, hooks, file changes, and agent activity.
+- Codex goal management is not supported. Incoming goal notifications are shown only as brief system notices.
 - Inspect file changes and roll back the latest turn without reverting local files.
 - Inspect context usage, usage limits, connection diagnostics, MCP server inventory, and effective config (`/status`, `/doctor`, `/mcp`).
 - Inspect and manage discovered Codex hooks from Codex Panel settings.
