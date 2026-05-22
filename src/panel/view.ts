@@ -26,13 +26,11 @@ import { rollbackCandidateFromItems } from "./rollback";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../runtime/view";
 import {
   autoReviewActive,
-  configRecord,
   currentModel,
   currentReasoningEffort,
   currentServiceTier,
   defaultRuntimeOverride,
   requestedTurnRuntimeSettings,
-  resolvedConfigValue,
   resetRuntimeOverride,
   runtimeOverridePayload,
   runtimeOverrideLabel,
@@ -42,6 +40,7 @@ import {
   supportedReasoningEfforts,
   type RuntimeSnapshot,
 } from "../runtime/state";
+import { readRuntimeConfig } from "../runtime/config";
 import { sortedAvailableModels } from "../runtime/model";
 import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessage } from "../runtime/settings";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
@@ -676,7 +675,7 @@ export class CodexPanelView extends ItemView {
   }
 
   private async toggleFastMode(): Promise<void> {
-    const current = currentServiceTier(this.runtimeSnapshot(), configRecord(this.state.effectiveConfig));
+    const current = currentServiceTier(this.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig));
     const next: ServiceTier = current === "fast" ? "standard" : "fast";
     this.state.requestedServiceTier = next;
     this.state.activeServiceTier = next;
@@ -694,7 +693,7 @@ export class CodexPanelView extends ItemView {
   }
 
   private async toggleAutoReview(): Promise<void> {
-    const next: ApprovalsReviewer = autoReviewActive(this.runtimeSnapshot(), configRecord(this.state.effectiveConfig))
+    const next: ApprovalsReviewer = autoReviewActive(this.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig))
       ? "user"
       : "auto_review";
     this.state.requestedApprovalsReviewer = next;
@@ -867,7 +866,7 @@ export class CodexPanelView extends ItemView {
 
   private toolbarViewModel(): ToolbarViewModel {
     const snapshot = this.runtimeSnapshot();
-    const config = configRecord(this.state.effectiveConfig);
+    const config = readRuntimeConfig(this.state.effectiveConfig);
     const context = contextSummary(snapshot);
     const limit = rateLimitSummary(snapshot);
     const historyOpen = this.state.openDetails.has("history");
@@ -938,7 +937,7 @@ export class CodexPanelView extends ItemView {
 
   private modelToolbarChoices(): ToolbarChoice[] {
     const snapshot = this.runtimeSnapshot();
-    const config = configRecord(this.state.effectiveConfig);
+    const config = readRuntimeConfig(this.state.effectiveConfig);
     const activeModel = currentModel(snapshot, config);
     const models = sortedAvailableModels(this.state.availableModels);
     const choices: ToolbarChoice[] = [
@@ -960,7 +959,7 @@ export class CodexPanelView extends ItemView {
 
   private effortToolbarChoices(): ToolbarChoice[] {
     const snapshot = this.runtimeSnapshot();
-    const config = configRecord(this.state.effectiveConfig);
+    const config = readRuntimeConfig(this.state.effectiveConfig);
     const activeEffort = currentReasoningEffort(snapshot, config);
     return supportedReasoningEfforts(snapshot).map((effort) => ({
       label: effort,
@@ -1049,11 +1048,11 @@ export class CodexPanelView extends ItemView {
 
   private modelStatusLines(): string[] {
     const snapshot = this.runtimeSnapshot();
-    const config = configRecord(this.state.effectiveConfig);
+    const config = readRuntimeConfig(this.state.effectiveConfig);
     return [
       `Model: ${currentModel(snapshot, config) ?? "(from default)"}`,
       `Override: ${runtimeOverrideLabel(this.state.requestedModel)}`,
-      `Provider: ${statusValue(resolvedConfigValue(config, "model_provider"), "(from default)")}`,
+      `Provider: ${statusValue(config.modelProvider, "(from default)")}`,
       `Effort: ${currentReasoningEffort(snapshot, config) ?? "(from default)"}`,
       `Mode: ${this.collaborationModeLabel()}`,
       `Service tier: ${serviceTierLabel(snapshot, config)}`,
@@ -1062,7 +1061,7 @@ export class CodexPanelView extends ItemView {
 
   private effortStatusLines(): string[] {
     const snapshot = this.runtimeSnapshot();
-    const config = configRecord(this.state.effectiveConfig);
+    const config = readRuntimeConfig(this.state.effectiveConfig);
     return [
       `Effort: ${currentReasoningEffort(snapshot, config) ?? "(from default)"}`,
       `Override: ${runtimeOverrideLabel(this.state.requestedReasoningEffort)}`,

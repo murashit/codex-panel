@@ -2,16 +2,13 @@ import type { RateLimitWindow } from "../generated/app-server/v2/RateLimitWindow
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
 import { jsonPreview } from "../utils";
 import { sortedAvailableModels } from "./model";
+import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
-  configRecord,
-  configuredApprovalsReviewer,
-  configuredServiceTier,
   currentApprovalsReviewer,
   currentModel,
   currentReasoningEffort,
   autoReviewActive,
   fastModeLabel,
-  resolvedConfigValue,
   runtimeOverrideLabel,
   serviceTierLabel,
   type RuntimeSnapshot,
@@ -46,8 +43,8 @@ export interface EffectiveConfigSection {
 
 export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null {
   const usage = snapshot.tokenUsage;
-  const config = configRecord(snapshot.effectiveConfig);
-  const contextWindow = usage?.modelContextWindow ?? toNumber(config["model_context_window"]);
+  const config = readRuntimeConfig(snapshot.effectiveConfig);
+  const contextWindow = usage?.modelContextWindow ?? config.modelContextWindow;
   if (!usage) {
     if (!snapshot.activeThreadId) return null;
     if (!snapshot.displayItems.some((item) => item.turnId)) {
@@ -105,17 +102,14 @@ export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs = Date.now()):
 }
 
 export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: string): EffectiveConfigSection[] {
-  const config = configRecord(snapshot.effectiveConfig);
-  const features = asRecord(config["features"]);
-  const tools = asRecord(resolvedConfigValue(config, "tools"));
-  const workspaceWrite = asRecord(config["sandbox_workspace_write"]);
+  const config = readRuntimeConfig(snapshot.effectiveConfig);
   return [
     {
       title: "Scope",
       rows: [
         { key: "cwd", value: vaultPath },
-        { key: "profile", value: stringValue(config["profile"], "(default)") },
-        { key: "model provider", value: stringValue(resolvedConfigValue(config, "model_provider"), "(from default)") },
+        { key: "profile", value: config.profile ?? "(default)" },
+        { key: "model provider", value: stringValue(config.modelProvider, "(from default)") },
       ],
     },
     {
@@ -127,8 +121,8 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
         { key: "effort", value: currentReasoningEffort(snapshot, config) ?? "(from default)" },
         { key: "config effort", value: configuredReasoningEffort(snapshot, config) ?? "(not reported)" },
         { key: "effort change", value: runtimeOverrideLabel(snapshot.requestedReasoningEffort) },
-        { key: "reasoning summary", value: stringValue(resolvedConfigValue(config, "model_reasoning_summary"), "(from default)") },
-        { key: "verbosity", value: stringValue(resolvedConfigValue(config, "model_verbosity"), "(from default)") },
+        { key: "reasoning summary", value: stringValue(config.reasoningSummary, "(from default)") },
+        { key: "verbosity", value: stringValue(config.verbosity, "(from default)") },
         { key: "mode", value: snapshot.activeCollaborationMode === "plan" ? "Plan" : "Default" },
         {
           key: "mode change",
@@ -138,37 +132,37 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
               : modeLabel(snapshot.requestedCollaborationMode),
         },
         { key: "service tier", value: serviceTierLabel(snapshot, config) },
-        { key: "config service tier", value: configuredServiceTier(config) ?? "(not reported)" },
+        { key: "config service tier", value: config.serviceTier ?? "(not reported)" },
         { key: "active service tier", value: activeRuntimeValueLabel(snapshot.activeServiceTier) },
         { key: "fast mode", value: fastModeLabel(snapshot, config) },
-        { key: "context window", value: tokenLimitLabel(config["model_context_window"]) },
-        { key: "auto compact limit", value: tokenLimitLabel(config["model_auto_compact_token_limit"]) },
+        { key: "context window", value: tokenLimitLabel(config.modelContextWindow) },
+        { key: "auto compact limit", value: tokenLimitLabel(config.autoCompactTokenLimit) },
       ],
     },
     {
       title: "Policy",
       rows: [
-        { key: "approval", value: stringValue(resolvedConfigValue(config, "approval_policy"), "(from default)") },
+        { key: "approval", value: stringValue(config.approvalPolicy, "(from default)") },
         { key: "reviewer", value: currentApprovalsReviewer(snapshot, config) ?? "(not reported)" },
         { key: "auto-review", value: autoReviewActive(snapshot, config) ? "on" : "off" },
-        { key: "config reviewer", value: configuredApprovalsReviewer(config) ?? "(from default)" },
+        { key: "config reviewer", value: config.approvalsReviewer ?? "(from default)" },
         {
           key: "active reviewer",
           value: activeRuntimeValueLabel(snapshot.activeApprovalsReviewer),
         },
-        { key: "sandbox", value: stringValue(config["sandbox_mode"], "(from default)") },
-        { key: "workspace network", value: stringValue(workspaceWrite["network_access"], "(from default)") },
-        { key: "writable roots", value: writableRootsLabel(workspaceWrite["writable_roots"]) },
-        { key: "web search", value: stringValue(resolvedConfigValue(config, "web_search"), "(from default)") },
+        { key: "sandbox", value: stringValue(config.sandboxMode, "(from default)") },
+        { key: "workspace network", value: stringValue(config.workspaceNetworkAccess, "(from default)") },
+        { key: "writable roots", value: writableRootsLabel(config.writableRoots) },
+        { key: "web search", value: stringValue(config.webSearch, "(from default)") },
       ],
     },
     {
       title: "Features",
       rows: [
-        { key: "hooks", value: stringValue(features["hooks"], "(from default)") },
-        { key: "apply patch freeform", value: stringValue(features["apply_patch_freeform"], "(from default)") },
-        { key: "tool web search", value: stringValue(tools["web_search"], "(from default)") },
-        { key: "apps", value: enabledAppsLabel(config["apps"]) },
+        { key: "hooks", value: stringValue(config.hooksEnabled, "(from default)") },
+        { key: "apply patch freeform", value: stringValue(config.applyPatchFreeformEnabled, "(from default)") },
+        { key: "tool web search", value: stringValue(config.toolWebSearch, "(from default)") },
+        { key: "apps", value: enabledAppsLabel(config.apps) },
       ],
     },
   ];
@@ -178,17 +172,13 @@ function contextUsageTokens(usage: ThreadTokenUsage): number {
   return usage.last.inputTokens > 0 ? usage.last.inputTokens : usage.last.totalTokens;
 }
 
-function configuredModel(snapshot: RuntimeSnapshot, config: Record<string, unknown>): string | null {
-  const model = resolvedConfigValue(config, "model");
-  if (typeof model === "string" && model.length > 0) return model;
+function configuredModel(snapshot: RuntimeSnapshot, config: RuntimeConfigProjection): string | null {
+  if (config.model) return config.model;
   return sortedAvailableModels(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
 }
 
-function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: Record<string, unknown>): string | null {
-  const effort = resolvedConfigValue(config, "model_reasoning_effort");
-  if (typeof effort === "string" && effort.length > 0) {
-    return effort;
-  }
+function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeConfigProjection): string | null {
+  if (config.rawReasoningEffort) return config.rawReasoningEffort;
   const model = configuredModel(snapshot, config);
   return (
     sortedAvailableModels(snapshot.availableModels).find((availableModel) => availableModel.model === model)?.defaultReasoningEffort ?? null
@@ -272,8 +262,7 @@ function writableRootsLabel(value: unknown): string {
   return `${String(value.length)} roots`;
 }
 
-function enabledAppsLabel(value: unknown): string {
-  const apps = asRecord(value);
+function enabledAppsLabel(apps: Record<string, unknown>): string {
   const enabled = Object.entries(apps)
     .filter(([key, app]) => key !== "_default" && asRecord(app)["enabled"] === true)
     .map(([key]) => key)

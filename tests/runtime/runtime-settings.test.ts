@@ -11,7 +11,6 @@ import {
 } from "../../src/runtime/settings";
 import {
   autoReviewActive,
-  configRecord,
   currentApprovalsReviewer,
   currentModel,
   currentReasoningEffort,
@@ -25,6 +24,7 @@ import {
   serviceTierLabel,
   type RuntimeSnapshot,
 } from "../../src/runtime/state";
+import { readRuntimeConfig } from "../../src/runtime/config";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../src/runtime/view";
 
 describe("runtime settings", () => {
@@ -131,7 +131,7 @@ describe("runtime settings", () => {
   });
 
   it("uses raw config layers when typed config omits approval reviewer", () => {
-    const config = configRecord({
+    const effectiveConfig = {
       config: {
         approvals_reviewer: null,
       },
@@ -143,14 +143,15 @@ describe("runtime settings", () => {
           disabledReason: null,
         },
       ],
-    } as unknown as RuntimeSnapshot["effectiveConfig"]);
+    } as unknown as RuntimeSnapshot["effectiveConfig"];
+    const projection = readRuntimeConfig(effectiveConfig);
     const snapshot = runtimeSnapshot({
       activeApprovalsReviewer: "user",
-      effectiveConfig: { config } as unknown as RuntimeSnapshot["effectiveConfig"],
+      effectiveConfig,
     });
 
-    expect(config["approvals_reviewer"]).toBe("auto_review");
-    expect(autoReviewActive(snapshot, config)).toBe(false);
+    expect(projection.approvalsReviewer).toBe("auto_review");
+    expect(autoReviewActive(snapshot, projection)).toBe(false);
   });
 
   it("treats guardian subagent reviewer as active auto-review", () => {
