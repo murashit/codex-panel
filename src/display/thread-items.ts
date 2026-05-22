@@ -370,7 +370,7 @@ function unwrapShellLoginCommand(command: string): string {
 function unquoteShellCommand(value: string): string {
   if (value.length < 2) return value;
   const quote = value[0];
-  if ((quote !== "'" && quote !== '"') || value[value.length - 1] !== quote) return value;
+  if ((quote !== "'" && quote !== '"') || !value.endsWith(quote)) return value;
   const inner = value.slice(1, -1);
   return quote === "'" ? inner.replace(/'\\''/g, "'") : inner.replace(/\\(["\\$`])/g, "$1");
 }
