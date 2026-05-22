@@ -189,7 +189,7 @@ export class AppServerClient {
   }
 
   setHookEnabled(hook: HookMetadata, enabled: boolean): Promise<ConfigWriteResponse> {
-    const state: { [key: string]: JsonValue } = { enabled };
+    const state: Record<string, JsonValue> = { enabled };
     if (hook.trustStatus === "trusted") {
       state.trusted_hash = hook.currentHash;
     }
@@ -384,7 +384,7 @@ export class AppServerClient {
     return this.request("turn/interrupt", { threadId, turnId });
   }
 
-  private writeHookState(key: string, state: { [key: string]: JsonValue }): Promise<ConfigWriteResponse> {
+  private writeHookState(key: string, state: Record<string, JsonValue>): Promise<ConfigWriteResponse> {
     return this.request("config/batchWrite", {
       edits: [
         {
