@@ -53,7 +53,7 @@ export async function executeSlashCommand(
   command: SlashCommandName,
   args: string,
   context: SlashCommandExecutionContext,
-): Promise<SlashCommandExecutionResult | void> {
+): Promise<SlashCommandExecutionResult | undefined> {
   if (command === "new") {
     await context.startNewThread();
     if (args) return { sendText: args };

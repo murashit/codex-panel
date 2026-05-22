@@ -548,7 +548,7 @@ export class CodexPanelView extends ItemView {
     await this.sendMessage();
   }
 
-  private async executeSlashCommand(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | void> {
+  private async executeSlashCommand(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined> {
     if (!this.client) return;
     return runSlashCommand(command, args, {
       activeThreadId: this.state.activeThreadId,
