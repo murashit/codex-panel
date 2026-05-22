@@ -165,7 +165,7 @@ export class AppServerClient {
   }
 
   isConnected(): boolean {
-    return this.initialized && this.transport !== null && this.transport.isRunning();
+    return this.initialized && this.transport?.isRunning() === true;
   }
 
   get initializeResponse(): InitializeResponse {
