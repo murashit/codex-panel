@@ -81,7 +81,7 @@ function mcpServerDiagnosticRows(servers: McpServerDiagnostic[]): DiagnosticRow[
 
 function capabilityLevel(status: CapabilityProbeResult["status"]): DiagnosticRow["level"] {
   if (status === "failed") return "error";
-  if (status === "unsupported" || status === "unknown") return "warning";
+  if (status === "unknown") return "warning";
   return "normal";
 }
 

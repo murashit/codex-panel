@@ -1,27 +1,21 @@
 import { jsonPreview } from "../utils";
+import type { FileSystemPath } from "../generated/app-server/v2/FileSystemPath";
+import type { RequestPermissionProfile } from "../generated/app-server/v2/RequestPermissionProfile";
 
 export interface DetailRow {
   key: string;
   value: string;
 }
 
-export function permissionRows(value: unknown): DetailRow[] {
-  const permissions = value as { network?: { enabled?: unknown } | null; fileSystem?: unknown } | null;
-  if (!permissions || typeof permissions !== "object") return [];
-
+export function permissionRows(permissions: RequestPermissionProfile): DetailRow[] {
   const rows: DetailRow[] = [];
   const networkEnabled = permissions.network?.enabled;
   if (typeof networkEnabled === "boolean") {
     rows.push({ key: "network", value: networkEnabled ? "enabled" : "disabled" });
   }
 
-  const fileSystem = permissions.fileSystem as {
-    read?: unknown;
-    write?: unknown;
-    entries?: { path?: unknown; access?: unknown }[];
-    globScanMaxDepth?: unknown;
-  } | null;
-  if (!fileSystem || typeof fileSystem !== "object") return rows;
+  const fileSystem = permissions.fileSystem;
+  if (!fileSystem) return rows;
 
   if (Array.isArray(fileSystem.entries) && fileSystem.entries.length > 0) {
     rows.push({
@@ -55,25 +49,16 @@ export function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
-function fileSystemPathLabel(path: unknown): string {
-  const value = path as
-    | { type?: "path"; path?: unknown }
-    | { type?: "glob_pattern"; pattern?: unknown }
-    | { type?: "special"; value?: { kind?: unknown; path?: unknown; subpath?: unknown } }
-    | null;
-  if (!value || typeof value !== "object") return "(unknown)";
-  if (value.type === "path") return stringValue(value.path, "(unknown)");
-  if (value.type === "glob_pattern") return stringValue(value.pattern, "(unknown)");
-  if (value.type !== "special") return "(unknown)";
+function fileSystemPathLabel(path: FileSystemPath): string {
+  if (path.type === "path") return path.path;
+  if (path.type === "glob_pattern") return path.pattern;
 
-  const special = value.value;
-  if (!special || typeof special !== "object") return "(unknown)";
-  const kind = stringValue(special.kind, "special");
-  const subpath = nonEmptyString(special.subpath);
-  if (kind === "project_roots") return subpath ? `project_roots/${subpath}` : "project_roots";
-  if (kind === "unknown") {
-    const base = stringValue(special.path, "unknown");
-    return subpath ? `${base}/${subpath}` : base;
+  const special = path.value;
+  if (special.kind === "project_roots") {
+    return special.subpath ? `project_roots/${special.subpath}` : "project_roots";
   }
-  return kind;
+  if (special.kind === "unknown") {
+    return special.subpath ? `${special.path}/${special.subpath}` : special.path;
+  }
+  return special.kind;
 }

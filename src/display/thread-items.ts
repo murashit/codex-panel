@@ -1,4 +1,5 @@
 import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem } from "./types";
+import type { FileUpdateChange } from "../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
@@ -476,18 +477,12 @@ export function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): Di
   };
 }
 
-export function normalizeFileChanges(changes: unknown[]): DisplayFileChange[] {
-  return changes.flatMap((change) => {
-    if (!change || typeof change !== "object") return [];
-    const record = change as { kind?: unknown; path?: unknown; diff?: unknown; unified_diff?: unknown };
-    return [
-      {
-        kind: typeof record.kind === "string" ? record.kind : "changed",
-        path: typeof record.path === "string" && record.path.length > 0 ? record.path : "(unknown)",
-        diff: typeof record.diff === "string" ? record.diff : typeof record.unified_diff === "string" ? record.unified_diff : "",
-      },
-    ];
-  });
+export function normalizeFileChanges(changes: FileUpdateChange[]): DisplayFileChange[] {
+  return changes.map((change) => ({
+    kind: change.kind.type,
+    path: change.path,
+    diff: change.diff,
+  }));
 }
 
 export function shouldSuppressLifecycleItem(item: ThreadItem): boolean {

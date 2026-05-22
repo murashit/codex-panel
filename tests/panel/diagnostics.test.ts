@@ -47,24 +47,20 @@ describe("connection diagnostics", () => {
       expect.arrayContaining([
         "connection: connected",
         "model/list: ok (12 models)",
-        "skills/list: unsupported - unknown method skills/list",
+        "skills/list: failed - unknown method skills/list",
         "mcp docs: ready - auth notLoggedIn",
         "mcp github: failed - missing token",
       ]),
     );
-    expect(rows.find((row) => row.label === "skills/list")?.level).toBe("warning");
+    expect(rows.find((row) => row.label === "skills/list")?.level).toBe("error");
     expect(rows.find((row) => row.label === "mcp github")?.level).toBe("error");
     expect(sections.find((section) => section.title === "MCP issues")?.rows).toEqual(
       expect.arrayContaining([expect.objectContaining({ label: "mcp github", value: "failed - missing token" })]),
     );
   });
 
-  it("derives a top-level diagnostic alert without treating unknown or unsupported probes as warnings", () => {
+  it("derives a top-level diagnostic alert without treating unknown probes as warnings", () => {
     expect(diagnosticAlertLevel(createAppServerDiagnostics())).toBe("normal");
-
-    const unsupported = createAppServerDiagnostics();
-    unsupported.probes["skills/list"] = capabilityProbeError("skills/list", new Error("unknown method skills/list"), 1);
-    expect(diagnosticAlertLevel(unsupported)).toBe("normal");
 
     const failed = createAppServerDiagnostics();
     failed.probes["model/list"] = capabilityProbeError("model/list", new Error("network down"), 1);

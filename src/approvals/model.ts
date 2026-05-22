@@ -5,7 +5,6 @@ import type { CommandExecutionRequestApprovalResponse } from "../generated/app-s
 import type { FileChangeRequestApprovalResponse } from "../generated/app-server/v2/FileChangeRequestApprovalResponse";
 import type { GrantedPermissionProfile } from "../generated/app-server/v2/GrantedPermissionProfile";
 import type { PermissionsRequestApprovalResponse } from "../generated/app-server/v2/PermissionsRequestApprovalResponse";
-import { jsonPreview } from "../utils";
 import { addOptional, nonEmptyString, permissionRows } from "./permission-details";
 
 export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel" | CommandApprovalDecisionAction;
@@ -25,15 +24,14 @@ export type ApprovalRequest = Extract<
   }
 >;
 
-export type PendingApproval = ApprovalRequest extends infer Request
-  ? Request extends ApprovalRequest
-    ? {
-        requestId: RequestId;
-        method: Request["method"];
-        params: Request["params"];
-      }
-    : never
+type PendingApprovalFor<Request extends ApprovalRequest> = Request extends ApprovalRequest
+  ? {
+      requestId: RequestId;
+      method: Request["method"];
+      params: Request["params"];
+    }
   : never;
+export type PendingApproval = PendingApprovalFor<ApprovalRequest>;
 
 interface ApprovalSummaryParts {
   reason: string | null;
@@ -84,10 +82,14 @@ export function approvalResponse(approval: PendingApproval, action: ApprovalActi
 }
 
 export function approvalTitle(approval: PendingApproval): string {
-  if (approval.method.includes("commandExecution")) return "Command approval";
-  if (approval.method.includes("fileChange")) return "File change approval";
-  if (approval.method.includes("permissions")) return "Permission approval";
-  return approval.method;
+  switch (approval.method) {
+    case "item/commandExecution/requestApproval":
+      return "Command approval";
+    case "item/fileChange/requestApproval":
+      return "File change approval";
+    case "item/permissions/requestApproval":
+      return "Permission approval";
+  }
 }
 
 export function approvalActionOptions(approval: PendingApproval): ApprovalActionOption[] {
@@ -111,35 +113,42 @@ export function approvalResultSummary(approval: PendingApproval): string {
 }
 
 function approvalSummaryParts(approval: PendingApproval): ApprovalSummaryParts {
-  const params = approval.params as Record<string, unknown>;
-  const reason = nonEmptyString(params.reason);
-  if (approval.method.includes("commandExecution")) {
-    const target = nonEmptyString(params.command);
-    return summaryParts(reason, target, "Command execution requested.");
+  switch (approval.method) {
+    case "item/commandExecution/requestApproval": {
+      const reason = nonEmptyString(approval.params.reason);
+      const target = nonEmptyString(approval.params.command);
+      return summaryParts(reason, target, "Command execution requested.");
+    }
+    case "item/fileChange/requestApproval": {
+      const reason = nonEmptyString(approval.params.reason);
+      const grantRoot = nonEmptyString(approval.params.grantRoot);
+      return summaryParts(reason, grantRoot ? `grant root: ${grantRoot}` : null, "Allow file changes?");
+    }
+    case "item/permissions/requestApproval": {
+      return summaryParts(approval.params.reason, `cwd: ${approval.params.cwd}`, "Permission change requested.");
+    }
   }
-  if (approval.method.includes("fileChange")) {
-    const grantRoot = nonEmptyString(params.grantRoot);
-    return summaryParts(reason, grantRoot ? `grant root: ${grantRoot}` : null, "Allow file changes?");
-  }
-  if (approval.method.includes("permissions")) {
-    const cwd = `cwd: ${typeof params.cwd === "string" ? params.cwd : "(unknown)"}`;
-    return summaryParts(reason, cwd, "Permission change requested.", jsonPreview(params.permissions));
-  }
-  const fallback = jsonPreview(params);
-  return summaryParts(reason, null, fallback);
 }
 
 export function approvalDetails(approval: PendingApproval): { key: string; value: string }[] {
-  const params = approval.params as Record<string, unknown>;
   const rows: { key: string; value: string }[] = [];
-  addOptional(rows, "reason", params.reason);
-  addOptional(rows, "command", Array.isArray(params.command) ? params.command.join(" ") : params.command);
-  addOptional(rows, "cwd", params.cwd);
-  addOptional(rows, "grant root", params.grantRoot);
-  addOptional(rows, "actions", params.commandActions);
-  rows.push(...permissionRows(params.permissions));
-  addOptional(rows, "future command rule", params.proposedExecpolicyAmendment);
-  addOptional(rows, "future network rules", params.proposedNetworkPolicyAmendments);
+  addOptional(rows, "reason", approval.params.reason);
+  switch (approval.method) {
+    case "item/commandExecution/requestApproval":
+      addOptional(rows, "command", approval.params.command);
+      addOptional(rows, "cwd", approval.params.cwd);
+      addOptional(rows, "actions", approval.params.commandActions);
+      addOptional(rows, "future command rule", approval.params.proposedExecpolicyAmendment);
+      addOptional(rows, "future network rules", approval.params.proposedNetworkPolicyAmendments);
+      break;
+    case "item/fileChange/requestApproval":
+      addOptional(rows, "grant root", approval.params.grantRoot);
+      break;
+    case "item/permissions/requestApproval":
+      addOptional(rows, "cwd", approval.params.cwd);
+      rows.push(...permissionRows(approval.params.permissions));
+      break;
+  }
   return rows;
 }
 
@@ -213,10 +222,11 @@ function fileChangeDecision(action: ApprovalAction): FileChangeRequestApprovalRe
   return "decline";
 }
 
-function grantedPermissions(requested: unknown): GrantedPermissionProfile {
-  const source = requested as { network?: unknown; fileSystem?: unknown } | null;
+function grantedPermissions(
+  requested: Extract<PendingApproval, { method: "item/permissions/requestApproval" }>["params"]["permissions"],
+): GrantedPermissionProfile {
   const granted: GrantedPermissionProfile = {};
-  if (source?.network) granted.network = source.network as GrantedPermissionProfile["network"];
-  if (source?.fileSystem) granted.fileSystem = source.fileSystem as GrantedPermissionProfile["fileSystem"];
+  if (requested.network) granted.network = requested.network;
+  if (requested.fileSystem) granted.fileSystem = requested.fileSystem;
   return granted;
 }

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { AppServerRpcError } from "../../src/app-server/client";
 import {
   CAPABILITY_PROBE_METHODS,
   appServerIdentity,
@@ -39,7 +38,7 @@ describe("app-server compatibility", () => {
     });
   });
 
-  it("classifies ok, failed, and unsupported capability probes", () => {
+  it("classifies ok and failed capability probes", () => {
     expect(capabilityProbeOk("skills/list", "3 skills", 123)).toEqual({
       method: "skills/list",
       status: "ok",
@@ -53,20 +52,8 @@ describe("app-server compatibility", () => {
       message: "boom",
       checkedAt: 456,
     });
-    expect(
-      capabilityProbeError(
-        "collaborationMode/list",
-        new AppServerRpcError("collaborationMode/list", { code: -32601, message: "No method" }),
-        789,
-      ),
-    ).toMatchObject({
-      method: "collaborationMode/list",
-      status: "unsupported",
-      message: "No method",
-      checkedAt: 789,
-    });
-    expect(capabilityProbeError("modelProvider/capabilities/read", new Error("unknown method"), 790).status).toBe("unsupported");
-    expect(capabilityProbeError("modelProvider/capabilities/read", new Error("unsupported RPC method"), 791).status).toBe("unsupported");
+    expect(capabilityProbeError("modelProvider/capabilities/read", new Error("unknown method"), 790).status).toBe("failed");
+    expect(capabilityProbeError("modelProvider/capabilities/read", new Error("unsupported RPC method"), 791).status).toBe("failed");
     expect(capabilityProbeError("model/list", new Error("unknown provider failure"), 792).status).toBe("failed");
   });
 

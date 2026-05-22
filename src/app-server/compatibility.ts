@@ -13,7 +13,7 @@ export const CAPABILITY_PROBE_METHODS = [
 ] as const;
 
 export type CapabilityProbeMethod = (typeof CAPABILITY_PROBE_METHODS)[number];
-export type CapabilityProbeStatus = "unknown" | "ok" | "failed" | "unsupported";
+export type CapabilityProbeStatus = "unknown" | "ok" | "failed";
 
 export interface CapabilityProbeResult {
   method: CapabilityProbeMethod;
@@ -73,7 +73,7 @@ export function capabilityProbeOk(
 export function capabilityProbeError(method: CapabilityProbeMethod, error: unknown, checkedAt = Date.now()): CapabilityProbeResult {
   return {
     method,
-    status: isUnsupportedRpcError(error) ? "unsupported" : "failed",
+    status: "failed",
     message: shortErrorMessage(error),
     summary: null,
     checkedAt,
@@ -105,13 +105,6 @@ export function shortErrorMessage(error: unknown, maxLength = 160): string {
   const message = error instanceof Error ? error.message : String(error);
   const compact = message.replace(/\s+/g, " ").trim() || "Codex app-server request failed.";
   return compact.length > maxLength ? `${compact.slice(0, maxLength - 3)}...` : compact;
-}
-
-function isUnsupportedRpcError(error: unknown): boolean {
-  const maybeCode = typeof error === "object" && error !== null && "code" in error ? (error as { code?: unknown }).code : undefined;
-  if (maybeCode === -32601) return true;
-  const message = error instanceof Error ? error.message : String(error);
-  return /\bmethod not found\b/i.test(message) || /\b(unsupported|unknown)\s+(rpc\s+)?method\b/i.test(message);
 }
 
 function mergeMcpServerDiagnostic(current: McpServerDiagnostic | undefined, update: McpServerDiagnostic): McpServerDiagnostic {

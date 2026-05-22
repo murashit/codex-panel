@@ -21,6 +21,7 @@ import type { DisplayDetailSection, DisplayItem, DisplayKind, MessageDisplayItem
 import type { RequestId } from "../generated/app-server/RequestId";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
+import type { FileUpdateChange } from "../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import { clearActiveThreadState, type PanelState } from "./state";
@@ -353,7 +354,7 @@ export class PanelController {
     this.state.displayItems = [...retainedItems, ...mergedTurnItems];
   }
 
-  private upsertFileChange(itemId: string, turnId: string, changes: unknown[], status: string): void {
+  private upsertFileChange(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): void {
     this.state.displayItems = upsertDisplayItem(this.state.displayItems, {
       id: itemId,
       kind: "fileChange",
