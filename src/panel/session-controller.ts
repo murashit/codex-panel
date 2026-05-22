@@ -48,9 +48,7 @@ export class PanelSessionController {
     this.host.state.activeModel = response.model;
     this.host.state.activeReasoningEffort = response.reasoningEffort;
     this.host.state.activeServiceTier = response.serviceTier;
-    this.host.state.activeServiceTierOverride = false;
     this.host.state.activeApprovalsReviewer = response.approvalsReviewer;
-    this.host.state.activeApprovalsReviewerOverride = false;
     this.host.state.activeThreadCliVersion = response.thread.cliVersion;
     this.host.state.tokenUsage = null;
     this.host.state.historyCursor = null;

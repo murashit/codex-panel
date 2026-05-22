@@ -139,7 +139,7 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
         },
         { key: "service tier", value: serviceTierLabel(snapshot, config) },
         { key: "config service tier", value: configuredServiceTier(config) ?? "(not reported)" },
-        { key: "active service tier", value: activeRuntimeValueLabel(snapshot.activeServiceTier, snapshot.activeServiceTierOverride) },
+        { key: "active service tier", value: activeRuntimeValueLabel(snapshot.activeServiceTier) },
         { key: "fast mode", value: fastModeLabel(snapshot, config) },
         { key: "context window", value: tokenLimitLabel(config.model_context_window) },
         { key: "auto compact limit", value: tokenLimitLabel(config.model_auto_compact_token_limit) },
@@ -154,7 +154,7 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
         { key: "config reviewer", value: configuredApprovalsReviewer(config) ?? "(from default)" },
         {
           key: "active reviewer",
-          value: activeRuntimeValueLabel(snapshot.activeApprovalsReviewer, snapshot.activeApprovalsReviewerOverride),
+          value: activeRuntimeValueLabel(snapshot.activeApprovalsReviewer),
         },
         { key: "sandbox", value: stringValue(config.sandbox_mode, "(from default)") },
         { key: "workspace network", value: stringValue(workspaceWrite.network_access, "(from default)") },
@@ -199,8 +199,8 @@ function modeLabel(mode: RuntimeSnapshot["requestedCollaborationMode"]): string 
   return mode === "plan" ? "Plan" : "Default";
 }
 
-function activeRuntimeValueLabel(value: string | null, override: boolean): string {
-  return `${value ?? "(not reported)"}${override ? " (override)" : ""}`;
+function activeRuntimeValueLabel(value: string | null): string {
+  return value ?? "(not reported)";
 }
 
 function rateLimitWindowSummary(

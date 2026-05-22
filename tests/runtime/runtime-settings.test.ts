@@ -120,15 +120,14 @@ describe("runtime settings", () => {
     ).toBe("guardian_subagent");
   });
 
-  it("lets config auto-review beat an implicit initial user reviewer", () => {
+  it("uses the active reviewer before configured reviewer", () => {
     const snapshot = runtimeSnapshot({
       activeApprovalsReviewer: "user",
-      activeApprovalsReviewerOverride: false,
       effectiveConfig: { config: { approvals_reviewer: "auto_review" } } as unknown as RuntimeSnapshot["effectiveConfig"],
     });
 
-    expect(currentApprovalsReviewer(snapshot)).toBe("auto_review");
-    expect(autoReviewActive(snapshot)).toBe(true);
+    expect(currentApprovalsReviewer(snapshot)).toBe("user");
+    expect(autoReviewActive(snapshot)).toBe(false);
   });
 
   it("uses raw config layers when typed config omits approval reviewer", () => {
@@ -147,28 +146,26 @@ describe("runtime settings", () => {
     } as unknown as RuntimeSnapshot["effectiveConfig"]);
     const snapshot = runtimeSnapshot({
       activeApprovalsReviewer: "user",
-      activeApprovalsReviewerOverride: false,
       effectiveConfig: { config } as unknown as RuntimeSnapshot["effectiveConfig"],
     });
 
     expect(config.approvals_reviewer).toBe("auto_review");
-    expect(autoReviewActive(snapshot, config)).toBe(true);
+    expect(autoReviewActive(snapshot, config)).toBe(false);
   });
 
   it("treats guardian subagent reviewer as active auto-review", () => {
     const snapshot = runtimeSnapshot({
       activeApprovalsReviewer: "guardian_subagent",
-      activeApprovalsReviewerOverride: false,
     });
 
     expect(currentApprovalsReviewer(snapshot)).toBe("guardian_subagent");
     expect(autoReviewActive(snapshot)).toBe(true);
   });
 
-  it("keeps an explicit user reviewer override above config auto-review", () => {
+  it("uses requested reviewer above active and configured reviewers", () => {
     const snapshot = runtimeSnapshot({
+      requestedApprovalsReviewer: "user",
       activeApprovalsReviewer: "user",
-      activeApprovalsReviewerOverride: true,
       effectiveConfig: { config: { approvals_reviewer: "auto_review" } } as unknown as RuntimeSnapshot["effectiveConfig"],
     });
 
@@ -220,21 +217,20 @@ describe("runtime settings", () => {
     expect(requestedOrConfiguredServiceTier(snapshot)).toBe("fast");
   });
 
-  it("lets config fast mode beat an implicit initial standard service tier", () => {
+  it("uses active service tier before configured service tier", () => {
     const snapshot = runtimeSnapshot({
       activeServiceTier: "standard",
-      activeServiceTierOverride: false,
       effectiveConfig: { config: { service_tier: "fast" } } as unknown as RuntimeSnapshot["effectiveConfig"],
     });
 
-    expect(currentServiceTier(snapshot)).toBe("fast");
-    expect(fastModeLabel(snapshot)).toBe("on");
+    expect(currentServiceTier(snapshot)).toBe("standard");
+    expect(fastModeLabel(snapshot)).toBe("off");
   });
 
-  it("keeps an explicit standard service tier override above config fast mode", () => {
+  it("uses requested service tier above active and configured service tiers", () => {
     const snapshot = runtimeSnapshot({
+      requestedServiceTier: "standard",
       activeServiceTier: "standard",
-      activeServiceTierOverride: true,
       effectiveConfig: { config: { service_tier: "fast" } } as unknown as RuntimeSnapshot["effectiveConfig"],
     });
 
@@ -376,7 +372,6 @@ describe("runtime settings", () => {
     const sections = effectiveConfigSections(
       runtimeSnapshot({
         activeApprovalsReviewer: "guardian_subagent",
-        activeApprovalsReviewerOverride: false,
         effectiveConfig: { config: { approvals_reviewer: "auto_review" } } as unknown as RuntimeSnapshot["effectiveConfig"],
       }),
       "/vault",
@@ -533,9 +528,7 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     activeReasoningEffort: null,
     activeCollaborationMode: "default",
     activeServiceTier: null,
-    activeServiceTierOverride: false,
     activeApprovalsReviewer: null,
-    activeApprovalsReviewerOverride: false,
     requestedModel: { kind: "default" },
     requestedReasoningEffort: { kind: "default" },
     requestedApprovalsReviewer: null,

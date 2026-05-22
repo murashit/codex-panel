@@ -421,12 +421,8 @@ export class PanelController {
     this.state.activeReasoningEffort = settings.effort;
     this.state.activeCollaborationMode = settings.collaborationMode.mode;
     this.state.requestedCollaborationMode = settings.collaborationMode.mode;
-    const serviceTierOverride = this.state.activeServiceTierOverride || this.state.requestedServiceTier !== null;
-    const approvalsReviewerOverride = this.state.activeApprovalsReviewerOverride || this.state.requestedApprovalsReviewer !== null;
-    this.state.activeServiceTier = settings.serviceTier ?? (serviceTierOverride ? this.state.activeServiceTier : null);
-    this.state.activeServiceTierOverride = serviceTierOverride;
+    this.state.activeServiceTier = settings.serviceTier;
     this.state.activeApprovalsReviewer = settings.approvalsReviewer;
-    this.state.activeApprovalsReviewerOverride = approvalsReviewerOverride;
   }
 }
 

@@ -1077,11 +1077,10 @@ describe("PanelController", () => {
       expect(state.displayItems).toEqual([]);
     });
 
-    it("preserves explicit standard service tier when settings notifications report null", () => {
+    it("syncs null service tier from settings notifications", () => {
       const state = createPanelState();
       state.activeThreadId = "thread-active";
       state.activeServiceTier = "standard";
-      state.activeServiceTierOverride = true;
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1108,8 +1107,7 @@ describe("PanelController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(state.activeServiceTier).toBe("standard");
-      expect(state.activeServiceTierOverride).toBe(true);
+      expect(state.activeServiceTier).toBeNull();
     });
 
     it("shows unsupported goal update notifications as system messages", () => {

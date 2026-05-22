@@ -21,9 +21,7 @@ export interface RuntimeSnapshot {
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
   activeServiceTier: string | null;
-  activeServiceTierOverride: boolean;
   activeApprovalsReviewer: ApprovalsReviewer | null;
-  activeApprovalsReviewerOverride: boolean;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
   requestedApprovalsReviewer: ApprovalsReviewer | null;
@@ -58,8 +56,6 @@ export function currentServiceTier(snapshot: RuntimeSnapshot, config = configRec
   const active = parseServiceTier(snapshot.activeServiceTier) ?? snapshot.activeServiceTier;
   const configured = configuredServiceTier(config);
   if (snapshot.requestedServiceTier !== null) return snapshot.requestedServiceTier;
-  if (snapshot.activeServiceTierOverride) return active ?? configured;
-  if (configured && (active === null || active === "standard")) return configured;
   return active ?? configured;
 }
 
@@ -91,8 +87,6 @@ export function currentApprovalsReviewer(
 ): ApprovalsReviewer | null {
   const configured = configuredApprovalsReviewer(config);
   if (snapshot.requestedApprovalsReviewer !== null) return snapshot.requestedApprovalsReviewer;
-  if (snapshot.activeApprovalsReviewerOverride) return snapshot.activeApprovalsReviewer ?? configured;
-  if (configured && (!snapshot.activeApprovalsReviewer || snapshot.activeApprovalsReviewer === "user")) return configured;
   return snapshot.activeApprovalsReviewer ?? configured;
 }
 
