@@ -54,6 +54,7 @@ function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Mode
     supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
+    defaultServiceTier: null,
     isDefault: false,
     ...overrides,
   };

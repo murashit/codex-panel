@@ -262,6 +262,7 @@ function model(modelId: string, isDefault = false, hidden = false, efforts: Reas
     supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
+    defaultServiceTier: null,
   } satisfies Model;
 }
 

@@ -190,6 +190,7 @@ function model(name: string, efforts: Model["supportedReasoningEfforts"][number]
     supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
+    defaultServiceTier: null,
     isDefault: false,
   };
 }

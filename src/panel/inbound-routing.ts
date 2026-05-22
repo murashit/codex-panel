@@ -111,6 +111,9 @@ function isThreadLifecycleNotification(notification: ServerNotification): boolea
     case "thread/archived":
     case "thread/unarchived":
     case "thread/name/updated":
+    case "thread/goal/updated":
+    case "thread/goal/cleared":
+    case "thread/settings/updated":
       return true;
     default:
       return false;

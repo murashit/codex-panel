@@ -257,6 +257,10 @@ export class PanelController {
       const name = typeof params.threadName === "string" && params.threadName.trim() ? params.threadName.trim() : null;
       this.state.listedThreads = this.state.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread));
       this.actions.refreshThreads();
+    } else if (method === "thread/settings/updated") {
+      this.applyThreadSettings(params.threadSettings);
+    } else if (method === "thread/goal/updated" || method === "thread/goal/cleared") {
+      return;
     }
   }
 
@@ -413,6 +417,15 @@ export class PanelController {
   private handleMcpStartupStatus(params: Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>["params"]): void {
     if (!params?.name) return;
     this.actions.recordMcpStartupStatus(params.name, params.status, params.error ?? null);
+  }
+
+  private applyThreadSettings(
+    settings: Extract<ServerNotification, { method: "thread/settings/updated" }>["params"]["threadSettings"],
+  ): void {
+    this.state.activeThreadCwd = settings.cwd ?? this.state.activeThreadCwd;
+    this.state.activeModel = settings.model ?? null;
+    this.state.activeServiceTier = settings.serviceTier ?? null;
+    this.state.activeApprovalsReviewer = settings.approvalsReviewer ?? null;
   }
 }
 

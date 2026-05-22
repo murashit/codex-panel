@@ -66,6 +66,8 @@ describe("panel inbound routing", () => {
     expect(routeServerNotification(agentDeltaNotification(), activeScope).kind).toBe("streamUpdate");
     expect(routeServerNotification(turnStartedNotification(), activeScope).kind).toBe("turnLifecycle");
     expect(routeServerNotification(threadArchivedNotification(), activeScope).kind).toBe("threadLifecycle");
+    expect(routeServerNotification(threadSettingsUpdatedNotification(), activeScope).kind).toBe("threadLifecycle");
+    expect(routeServerNotification(threadGoalUpdatedNotification(), activeScope).kind).toBe("threadLifecycle");
     expect(routeServerNotification(serverRequestResolvedNotification(), activeScope).kind).toBe("requestResolved");
     expect(routeServerNotification(mcpStartupStatusNotification(), activeScope).kind).toBe("diagnosticStatus");
     expect(routeServerNotification(warningNotification(), activeScope).kind).toBe("userVisibleNotice");
@@ -162,6 +164,49 @@ function threadArchivedNotification(): ServerNotification {
   return {
     method: "thread/archived",
     params: { threadId: "thread-active" },
+  };
+}
+
+function threadSettingsUpdatedNotification(): ServerNotification {
+  return {
+    method: "thread/settings/updated",
+    params: {
+      threadId: "thread-active",
+      threadSettings: {
+        cwd: "/vault",
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        sandboxPolicy: { type: "readOnly", networkAccess: false },
+        activePermissionProfile: null,
+        model: "gpt-5.5",
+        modelProvider: "openai",
+        serviceTier: null,
+        effort: "medium",
+        summary: null,
+        collaborationMode: { mode: "default", settings: { model: "gpt-5.5", reasoning_effort: "medium", developer_instructions: null } },
+        personality: null,
+      },
+    },
+  };
+}
+
+function threadGoalUpdatedNotification(): ServerNotification {
+  return {
+    method: "thread/goal/updated",
+    params: {
+      threadId: "thread-active",
+      turnId: null,
+      goal: {
+        threadId: "thread-active",
+        objective: "Finish",
+        status: "active",
+        tokenBudget: null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    },
   };
 }
 

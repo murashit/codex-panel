@@ -992,6 +992,68 @@ describe("PanelController", () => {
       expect(state.listedThreads[0]?.name).toBe("Codex Panel自動命名");
       expect(refreshThreads).toHaveBeenCalled();
     });
+
+    it("syncs active runtime state from thread settings notifications", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "thread/settings/updated",
+        params: {
+          threadId: "thread-active",
+          threadSettings: {
+            cwd: "/workspace/active",
+            approvalPolicy: "on-request",
+            approvalsReviewer: "auto_review",
+            sandboxPolicy: { type: "readOnly", networkAccess: false },
+            activePermissionProfile: null,
+            model: "gpt-5.5",
+            modelProvider: "openai",
+            serviceTier: "fast",
+            effort: "high",
+            summary: null,
+            collaborationMode: {
+              mode: "default",
+              settings: { model: "gpt-5.5", reasoning_effort: "high", developer_instructions: null },
+            },
+            personality: null,
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
+
+      expect(state.activeThreadCwd).toBe("/workspace/active");
+      expect(state.activeModel).toBe("gpt-5.5");
+      expect(state.activeServiceTier).toBe("fast");
+      expect(state.activeApprovalsReviewer).toBe("auto_review");
+      expect(state.displayItems).toEqual([]);
+    });
+
+    it("keeps goal notifications out of the message stream", () => {
+      const state = createPanelState();
+      state.activeThreadId = "thread-active";
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: {
+          threadId: "thread-active",
+          turnId: null,
+          goal: {
+            threadId: "thread-active",
+            objective: "Finish",
+            status: "active",
+            tokenBudget: null,
+            tokensUsed: 0,
+            timeUsedSeconds: 0,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+
+      expect(state.displayItems).toEqual([]);
+    });
   });
 
   describe("auto-review display", () => {
