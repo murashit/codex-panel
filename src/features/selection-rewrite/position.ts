@@ -1,6 +1,6 @@
 import type { Editor } from "obsidian";
 
-export function positionRewritePopover(root: HTMLElement, editor: Editor, margin: number): boolean {
+export function positionSelectionRewritePopover(root: HTMLElement, editor: Editor, margin: number): boolean {
   if (!root.isConnected) return false;
 
   const view = editorViewFromEditor(editor);

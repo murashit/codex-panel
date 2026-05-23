@@ -68,7 +68,7 @@ function renderDetailSection(parent: HTMLElement, section: ToolResultDetailSecti
     return;
   }
   if (section.kind === "diff") {
-    const diffBlock = renderOutputSection(parent, section.title, "codex-panel__diff-file");
+    const diffBlock = renderOutputSection(parent, section.title, "codex-panel-diff-file");
     renderDiff(diffBlock, section.diff);
     return;
   }
@@ -95,9 +95,9 @@ function renderOutputSection(parent: HTMLElement, title: string, className: stri
 }
 
 function renderDiff(parent: HTMLElement, diff: string): void {
-  const pre = parent.createEl("pre", { cls: "codex-panel__diff" });
+  const pre = parent.createEl("pre", { cls: "codex-panel-diff" });
   for (const line of diff.split("\n")) {
     const cls = diffLineClassFromText(line);
-    pre.createEl("span", { cls: `codex-panel__diff-line codex-panel__diff-line--${cls}`, text: displayDiffLineText(line, cls) });
+    pre.createEl("span", { cls: `codex-panel-diff__line codex-panel-diff__line--${cls}`, text: displayDiffLineText(line, cls) });
   }
 }

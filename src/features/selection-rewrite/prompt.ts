@@ -1,10 +1,10 @@
-import type { RewriteSession } from "./model";
+import type { SelectionRewriteSession } from "./model";
 
 const MAX_NOTE_CONTEXT_CHARS = 20_000;
 
-export const REWRITE_SERVICE_NAME = "codex-panel-rewrite-selection";
+export const SELECTION_REWRITE_SERVICE_NAME = "codex-panel-rewrite-selection";
 
-export const REWRITE_DEVELOPER_INSTRUCTIONS = [
+export const SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS = [
   "You rewrite selected Obsidian note text.",
   "Return only JSON matching the requested schema.",
   "Do not include Markdown fences, explanations, alternatives, or comments outside JSON.",
@@ -12,7 +12,7 @@ export const REWRITE_DEVELOPER_INSTRUCTIONS = [
   "Preserve Obsidian-specific syntax such as wikilinks, block ids, callouts, frontmatter-like text, and Dataview blocks unless the user's instruction explicitly asks to change them.",
 ].join("\n");
 
-export function buildRewritePrompt(session: RewriteSession): string {
+export function buildSelectionRewritePrompt(session: SelectionRewriteSession): string {
   return [
     "Rewrite the selected text according to the user's instruction.",
     "",

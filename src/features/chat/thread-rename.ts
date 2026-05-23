@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../app-server/client";
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import type { CodexPanelSettings } from "../../settings/model";
-import type { PanelState } from "./state";
+import type { ChatState } from "./chat-state";
 import { getThreadTitle } from "../../domain/threads/model";
 import {
   findThreadNamingContext,
@@ -19,7 +19,7 @@ export interface ThreadRenameEditState {
 }
 
 export interface ThreadRenameControllerHost {
-  state: PanelState;
+  state: ChatState;
   vaultPath: string;
   settings: () => CodexPanelSettings;
   ensureConnected: () => Promise<void>;

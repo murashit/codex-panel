@@ -4,7 +4,7 @@ import { shortThreadId } from "../../../utils";
 
 export { displayDiffLines } from "../../../shared/diff/unified";
 
-export interface TurnDiffViewState {
+export interface ChatTurnDiffViewState {
   threadId: string;
   turnId: string;
   cwd: string | null;
@@ -12,13 +12,13 @@ export interface TurnDiffViewState {
   diff: string;
 }
 
-export type PersistedTurnDiffViewState = Omit<TurnDiffViewState, "diff">;
+export type PersistedChatTurnDiffViewState = Omit<ChatTurnDiffViewState, "diff">;
 
-export interface TurnDiffViewActions {
+export interface ChatTurnDiffViewActions {
   copyDiff?: () => void;
 }
 
-export function persistedTurnDiffViewState(state: TurnDiffViewState): PersistedTurnDiffViewState {
+export function persistedChatTurnDiffViewState(state: ChatTurnDiffViewState): PersistedChatTurnDiffViewState {
   return {
     threadId: state.threadId,
     turnId: state.turnId,
@@ -27,9 +27,9 @@ export function persistedTurnDiffViewState(state: TurnDiffViewState): PersistedT
   };
 }
 
-export function isPersistedTurnDiffViewState(value: unknown): value is PersistedTurnDiffViewState {
+export function isPersistedChatTurnDiffViewState(value: unknown): value is PersistedChatTurnDiffViewState {
   if (!value || typeof value !== "object") return false;
-  const record = value as Partial<PersistedTurnDiffViewState>;
+  const record = value as Partial<PersistedChatTurnDiffViewState>;
   return (
     typeof record.threadId === "string" &&
     typeof record.turnId === "string" &&
@@ -39,20 +39,20 @@ export function isPersistedTurnDiffViewState(value: unknown): value is Persisted
   );
 }
 
-export function renderTurnDiffView(
+export function renderChatTurnDiffView(
   parent: HTMLElement,
-  state: TurnDiffViewState | null,
-  actions: TurnDiffViewActions = {},
-  metadata: PersistedTurnDiffViewState | null = null,
+  state: ChatTurnDiffViewState | null,
+  actions: ChatTurnDiffViewActions = {},
+  metadata: PersistedChatTurnDiffViewState | null = null,
 ): void {
   parent.empty();
-  parent.addClass("codex-panel-turn-diff");
+  parent.addClass("codex-panel-chat-turn-diff");
   if (!state) {
     if (metadata) {
       renderTurnDiffHeader(parent, metadata, null);
-      parent.createDiv({ cls: "codex-panel-turn-diff__empty", text: "Turn diff is no longer available." });
+      parent.createDiv({ cls: "codex-panel-chat-turn-diff__empty", text: "Turn diff is no longer available." });
     } else {
-      parent.createDiv({ cls: "codex-panel-turn-diff__empty", text: "No turn diff selected." });
+      parent.createDiv({ cls: "codex-panel-chat-turn-diff__empty", text: "No turn diff selected." });
     }
     return;
   }
@@ -60,7 +60,7 @@ export function renderTurnDiffView(
   renderTurnDiffHeader(parent, state, actions.copyDiff ?? null);
 
   if (state.files.length > 0) {
-    const files = parent.createEl("details", { cls: "codex-panel-turn-diff__files" });
+    const files = parent.createEl("details", { cls: "codex-panel-chat-turn-diff__files" });
     files.createEl("summary", { text: "Changed files" });
     const list = files.createEl("ul");
     for (const file of state.files) {
@@ -73,29 +73,29 @@ export function renderTurnDiffView(
 
 function renderTurnDiffHeader(
   parent: HTMLElement,
-  state: PersistedTurnDiffViewState,
-  copyDiff: TurnDiffViewActions["copyDiff"] | null,
+  state: PersistedChatTurnDiffViewState,
+  copyDiff: ChatTurnDiffViewActions["copyDiff"] | null,
 ): void {
-  const header = parent.createDiv({ cls: "codex-panel-turn-diff__header" });
-  const titleBlock = header.createDiv({ cls: "codex-panel-turn-diff__title-block" });
-  titleBlock.createDiv({ cls: "codex-panel-turn-diff__title", text: "Turn diff" });
+  const header = parent.createDiv({ cls: "codex-panel-chat-turn-diff__header" });
+  const titleBlock = header.createDiv({ cls: "codex-panel-chat-turn-diff__title-block" });
+  titleBlock.createDiv({ cls: "codex-panel-chat-turn-diff__title", text: "Turn diff" });
   titleBlock.createDiv({
-    cls: "codex-panel-turn-diff__meta",
+    cls: "codex-panel-chat-turn-diff__meta",
     text: `${shortThreadId(state.threadId)} / ${shortThreadId(state.turnId)} · ${fileCountLabel(state.files)}`,
     attr: { title: `Thread ${state.threadId}\nTurn ${state.turnId}${state.cwd ? `\n${state.cwd}` : ""}` },
   });
   if (copyDiff) {
-    const copyButton = createIconButton(header, "copy", "Copy diff", "codex-panel-turn-diff__copy");
+    const copyButton = createIconButton(header, "copy", "Copy diff", "codex-panel-chat-turn-diff__copy");
     copyButton.onclick = copyDiff;
   }
 }
 
 export function renderUnifiedDiff(parent: HTMLElement, diff: string): HTMLElement {
-  const pre = parent.createEl("pre", { cls: "codex-panel__diff codex-panel-turn-diff__diff" });
+  const pre = parent.createEl("pre", { cls: "codex-panel-diff codex-panel-chat-turn-diff__diff" });
   for (const line of displayDiffLines(diff)) {
     const lineClass = diffLineClass(line);
     pre.createEl("span", {
-      cls: `codex-panel__diff-line codex-panel__diff-line--${lineClass}`,
+      cls: `codex-panel-diff__line codex-panel-diff__line--${lineClass}`,
       text: displayDiffLineText(line.text, lineClass),
     });
   }

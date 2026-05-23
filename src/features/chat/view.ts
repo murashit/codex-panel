@@ -20,7 +20,7 @@ import {
   collaborationModeToggleMessage,
   nextCollaborationMode,
 } from "../../runtime/collaboration-mode";
-import { PanelController } from "./controller";
+import { ChatController } from "./chat-controller";
 import { connectionDiagnosticSections, diagnosticAlertLevel } from "./diagnostics";
 import { rollbackCandidateFromItems } from "./rollback";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../runtime/view";
@@ -46,16 +46,16 @@ import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessa
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import type { ThreadReferenceInput } from "./slash-commands";
 import { mcpStatusLines } from "./mcp-status";
-import { PanelSessionController } from "./session-controller";
+import { ChatSessionController } from "./chat-session-controller";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
 import { ThreadHistoryLoader } from "./thread-history";
 import { ThreadRenameController } from "./thread-rename";
 import { pendingRequestsSignature as requestStateSignature, userInputDraftKey, userInputOtherDraftKey } from "./request-state";
 import type { CodexPanelSettings } from "../../settings/model";
 import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
-import { PanelComposerController } from "./composer-controller";
+import { ChatComposerController } from "./chat-composer-controller";
 import { attachHookRunsToTurn } from "./hook-display";
-import { clearActiveThreadState, clearConnectionScopedState, createPanelState, type PanelState } from "./state";
+import { clearActiveThreadState, clearConnectionScopedState, createChatState, type ChatState } from "./chat-state";
 import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName, upsertThread } from "../../domain/threads/model";
 import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import {
@@ -68,28 +68,28 @@ import {
 } from "../../domain/threads/reference";
 import { renderPendingRequestMessage } from "./ui/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
-import type { TurnDiffViewState } from "./ui/turn-diff";
-import { PanelMessageRenderer } from "./message-renderer";
+import type { ChatTurnDiffViewState } from "./ui/turn-diff";
+import { ChatMessageRenderer } from "./chat-message-renderer";
 
-export interface CodexPanelHost {
+export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
   openThreadInNewView(threadId: string): Promise<unknown>;
-  openTurnDiff(state: TurnDiffViewState): Promise<void>;
+  openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
   refreshOpenThreadLists(): void;
 }
 
-export class CodexPanelView extends ItemView {
+export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;
   private readonly connection: ConnectionManager;
-  private readonly controller: PanelController;
-  private readonly session: PanelSessionController;
+  private readonly controller: ChatController;
+  private readonly session: ChatSessionController;
   private readonly history: ThreadHistoryLoader;
   private readonly threadRename: ThreadRenameController;
-  private readonly state: PanelState = createPanelState();
+  private readonly state: ChatState = createChatState();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  private readonly composerController: PanelComposerController;
-  private readonly messageRenderer: PanelMessageRenderer;
+  private readonly composerController: ChatComposerController;
+  private readonly messageRenderer: ChatMessageRenderer;
   private readonly blockSignatures = new Map<string, string>();
   private toolbarEl: HTMLElement | null = null;
   private configSlotEl: HTMLElement | null = null;
@@ -101,10 +101,10 @@ export class CodexPanelView extends ItemView {
 
   constructor(
     leaf: WorkspaceLeaf,
-    private readonly plugin: CodexPanelHost,
+    private readonly plugin: CodexChatHost,
   ) {
     super(leaf);
-    this.messageRenderer = new PanelMessageRenderer({
+    this.messageRenderer = new ChatMessageRenderer({
       app: this.app,
       owner: this,
       state: this.state,
@@ -122,7 +122,7 @@ export class CodexPanelView extends ItemView {
       pendingRequestsSignature: () => this.pendingRequestsSignature(),
       renderPendingRequests: () => this.createPendingRequestsElement(),
     });
-    this.composerController = new PanelComposerController({
+    this.composerController = new ChatComposerController({
       app: this.app,
       state: this.state,
       viewId: this.viewId,
@@ -156,7 +156,7 @@ export class CodexPanelView extends ItemView {
         this.render();
       },
     });
-    this.controller = new PanelController(this.state, {
+    this.controller = new ChatController(this.state, {
       refreshThreads: () => void this.refreshThreads(),
       refreshSkills: (forceReload) => void this.refreshSkills(forceReload),
       maybeNameThread: (threadId, turn) => {
@@ -169,7 +169,7 @@ export class CodexPanelView extends ItemView {
       respondToServerRequest: (requestId, result) => this.respondToServerRequest(requestId, result),
       rejectServerRequest: (requestId, code, message) => this.rejectServerRequest(requestId, code, message),
     });
-    this.session = new PanelSessionController({
+    this.session = new ChatSessionController({
       state: this.state,
       vaultPath: this.plugin.vaultPath,
       currentClient: () => this.connection.currentClient(),
@@ -710,7 +710,7 @@ export class CodexPanelView extends ItemView {
     return latestProposedPlanItem(this.state.displayItems)?.id === item.id;
   }
 
-  private toggleRuntimePicker(picker: NonNullable<PanelState["runtimePicker"]>): void {
+  private toggleRuntimePicker(picker: NonNullable<ChatState["runtimePicker"]>): void {
     this.state.runtimePicker = this.state.runtimePicker === picker ? null : picker;
     if (this.state.runtimePicker !== null) {
       this.state.openDetails.delete("history");

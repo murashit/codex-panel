@@ -4,29 +4,29 @@ import { diffLineClass, displayDiffLineText, displayDiffLines } from "../../shar
 import { createIconButton } from "../../shared/ui/components";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
-import { isRewriteActionKey, isRewriteGenerateKey } from "./keys";
-import { canApplyRewrite, type RewriteRuntimeSettings, type RewriteSession } from "./model";
-import { RewriteOutputError } from "./output";
-import { positionRewritePopover } from "./position";
-import { buildRewritePrompt } from "./prompt";
-import { runRewriteSelection, type RewriteActivity } from "./runner";
+import { isSelectionRewriteActionKey, isSelectionRewriteGenerateKey } from "./keys";
+import { canApplySelectionRewrite, type SelectionRewriteRuntimeSettings, type SelectionRewriteSession } from "./model";
+import { SelectionRewriteOutputError } from "./output";
+import { positionSelectionRewritePopover } from "./position";
+import { buildSelectionRewritePrompt } from "./prompt";
+import { runSelectionRewrite, type SelectionRewriteActivity } from "./runner";
 import type { SendShortcut } from "../../settings/model";
 
 const POPOVER_MARGIN = 8;
 
-export interface RewriteSelectionPopoverOptions {
+export interface SelectionRewritePopoverOptions {
   codexPath: string;
   cwd: string;
   editor: Editor;
   onClose?: () => void;
-  runtimeSettings: RewriteRuntimeSettings;
+  runtimeSettings: SelectionRewriteRuntimeSettings;
   sendShortcut: SendShortcut;
-  session: RewriteSession;
+  session: SelectionRewriteSession;
 }
 
 type Cleanup = () => void;
 
-interface RewritePopoverElements {
+interface SelectionRewriteElements {
   root: HTMLElement;
   instruction: HTMLTextAreaElement;
   generateButton: HTMLButtonElement;
@@ -38,12 +38,12 @@ interface RewritePopoverElements {
   debug: HTMLDetailsElement | null;
 }
 
-export class RewriteSelectionPopover {
-  private elements: RewritePopoverElements | null = null;
+export class SelectionRewritePopover {
+  private elements: SelectionRewriteElements | null = null;
   private abortController: AbortController | null = null;
   private readonly cleanups: Cleanup[] = [];
 
-  constructor(private readonly options: RewriteSelectionPopoverOptions) {}
+  constructor(private readonly options: SelectionRewritePopoverOptions) {}
 
   open(): void {
     this.close();
@@ -104,10 +104,10 @@ export class RewriteSelectionPopover {
     this.abortController = abortController;
 
     try {
-      const output = await runRewriteSelection({
+      const output = await runSelectionRewrite({
         codexPath: this.options.codexPath,
         cwd: this.options.cwd,
-        prompt: buildRewritePrompt(this.options.session),
+        prompt: buildSelectionRewritePrompt(this.options.session),
         runtimeSettings: this.options.runtimeSettings,
         onActivity: (activity) => {
           this.updateActivity(activity);
@@ -118,7 +118,7 @@ export class RewriteSelectionPopover {
         signal: abortController.signal,
       });
       if (abortController.signal.aborted) return;
-      this.showRewritePreview(output.replacementText);
+      this.showSelectionRewritePreview(output.replacementText);
     } catch (error) {
       if (abortController.signal.aborted) {
         this.options.session.status = "cancelled";
@@ -146,17 +146,17 @@ export class RewriteSelectionPopover {
     this.position();
   }
 
-  private updateActivity(activity: RewriteActivity): void {
+  private updateActivity(activity: SelectionRewriteActivity): void {
     this.setStatus(activity === "reasoning" ? "Reasoning" : "Writing replacement", { active: true });
   }
 
-  private createElements(): RewritePopoverElements {
-    const root = activeDocument.body.createDiv({ cls: "codex-panel-rewrite-popover" });
+  private createElements(): SelectionRewriteElements {
+    const root = activeDocument.body.createDiv({ cls: "codex-panel-selection-rewrite" });
     root.setAttr("role", "dialog");
     root.setAttr("aria-label", "Rewrite selection");
 
     const instruction = root.createEl("textarea", {
-      cls: "codex-panel__input codex-panel-rewrite-popover__instruction",
+      cls: "codex-panel__input codex-panel-selection-rewrite__instruction",
       attr: { placeholder: "How should Codex rewrite this selection?" },
     });
     instruction.value = this.options.session.instruction;
@@ -167,42 +167,47 @@ export class RewriteSelectionPopover {
     };
     instruction.onkeydown = (event) => {
       const hasReplacement = this.options.session.replacementText !== null;
-      if (!(hasReplacement ? isRewriteActionKey(event) : isRewriteGenerateKey(event, this.options.sendShortcut))) return;
+      if (!(hasReplacement ? isSelectionRewriteActionKey(event) : isSelectionRewriteGenerateKey(event, this.options.sendShortcut))) return;
       event.preventDefault();
       event.stopPropagation();
       void this.generate();
     };
 
-    const promptRow = root.createDiv({ cls: "codex-panel-rewrite-popover__prompt-row" });
+    const promptRow = root.createDiv({ cls: "codex-panel-selection-rewrite__prompt-row" });
     promptRow.append(instruction);
-    const controls = promptRow.createDiv({ cls: "codex-panel__composer-actions codex-panel-rewrite-popover__controls" });
+    const controls = promptRow.createDiv({ cls: "codex-panel__composer-actions codex-panel-selection-rewrite__controls" });
     const generateButton = createIconButton(
       controls,
       "sparkles",
       "Generate",
-      "codex-panel__composer-action codex-panel-rewrite-popover__icon-button",
+      "codex-panel__composer-action codex-panel-selection-rewrite__icon-button",
     );
     generateButton.onclick = () => void this.generate();
-    const cancelButton = createIconButton(controls, "x", "Cancel", "codex-panel__composer-action codex-panel-rewrite-popover__icon-button");
+    const cancelButton = createIconButton(
+      controls,
+      "x",
+      "Cancel",
+      "codex-panel__composer-action codex-panel-selection-rewrite__icon-button",
+    );
     cancelButton.onclick = () => {
       this.cancel();
     };
 
-    const status = root.createDiv({ cls: "codex-panel-rewrite-popover__status" });
-    const streamPreview = root.createEl("pre", { cls: "codex-panel-rewrite-popover__stream-preview is-hidden" });
-    const resultRow = root.createDiv({ cls: "codex-panel-rewrite-popover__result-row" });
-    const diff = resultRow.createDiv({ cls: "codex-panel-rewrite-popover__diff" });
+    const status = root.createDiv({ cls: "codex-panel-selection-rewrite__status" });
+    const streamPreview = root.createEl("pre", { cls: "codex-panel-selection-rewrite__stream-preview is-hidden" });
+    const resultRow = root.createDiv({ cls: "codex-panel-selection-rewrite__result-row" });
+    const diff = resultRow.createDiv({ cls: "codex-panel-selection-rewrite__diff" });
     const applyButton = createIconButton(
       resultRow,
       "check",
       "Apply",
-      "codex-panel__composer-action codex-panel-rewrite-popover__icon-button mod-cta",
+      "codex-panel__composer-action codex-panel-selection-rewrite__icon-button mod-cta",
     );
     applyButton.onclick = () => {
       this.apply();
     };
     applyButton.onkeydown = (event) => {
-      if (!isRewriteActionKey(event)) return;
+      if (!isSelectionRewriteActionKey(event)) return;
       event.preventDefault();
       this.apply();
     };
@@ -221,7 +226,7 @@ export class RewriteSelectionPopover {
     this.renderDebug(null);
   }
 
-  private showRewritePreview(replacementText: string): void {
+  private showSelectionRewritePreview(replacementText: string): void {
     this.options.session.replacementText = replacementText;
     this.options.session.status = "preview";
     this.options.session.streamText = "";
@@ -232,7 +237,7 @@ export class RewriteSelectionPopover {
 
   private showGenerationFailure(error: unknown): void {
     this.options.session.status = "failed";
-    this.options.session.debugText = error instanceof RewriteOutputError ? error.rawText : null;
+    this.options.session.debugText = error instanceof SelectionRewriteOutputError ? error.rawText : null;
     this.options.session.streamText = "";
     this.renderStreamPreview();
     this.renderDebug(this.options.session.debugText);
@@ -251,7 +256,7 @@ export class RewriteSelectionPopover {
     const replacement = this.options.session.replacementText;
     if (replacement === null || !this.elements) return;
     this.elements.diff.empty();
-    renderRewriteDiff(
+    renderSelectionRewriteDiff(
       this.elements.diff,
       buildSelectionUnifiedDiff(this.options.session.filePath, this.options.session.originalText, replacement),
     );
@@ -263,7 +268,7 @@ export class RewriteSelectionPopover {
     this.elements.debug = null;
     if (!debugText) return;
 
-    const debugEl = this.elements.root.createEl("details", { cls: "codex-panel-rewrite-popover__debug" });
+    const debugEl = this.elements.root.createEl("details", { cls: "codex-panel-selection-rewrite__debug" });
     debugEl.createEl("summary", { text: "Debug output" });
     debugEl.createEl("pre", { text: debugText });
     this.elements.debug = debugEl;
@@ -275,7 +280,7 @@ export class RewriteSelectionPopover {
 
     const { editor, session } = this.options;
     const currentText = editor.getRange(session.targetRange.from, session.targetRange.to);
-    if (!canApplyRewrite(currentText, session.originalText)) {
+    if (!canApplySelectionRewrite(currentText, session.originalText)) {
       new Notice("Selection changed. Generate the rewrite again before applying.");
       this.setStatus("Selection changed. Generate the rewrite again before applying.");
       return;
@@ -299,7 +304,7 @@ export class RewriteSelectionPopover {
     if (!text && !options.active) return;
     status.createSpan({ text });
     if (!options.active) return;
-    const dots = status.createSpan({ cls: "codex-panel-rewrite-popover__status-dots" });
+    const dots = status.createSpan({ cls: "codex-panel-selection-rewrite__status-dots" });
     dots.createSpan({ text: "." });
     dots.createSpan({ text: "." });
     dots.createSpan({ text: "." });
@@ -328,7 +333,7 @@ export class RewriteSelectionPopover {
 
   private position(): void {
     if (!this.elements) return;
-    if (!positionRewritePopover(this.elements.root, this.options.editor, POPOVER_MARGIN)) this.close();
+    if (!positionSelectionRewritePopover(this.elements.root, this.options.editor, POPOVER_MARGIN)) this.close();
   }
 
   private addDomListener<K extends keyof WindowEventMap>(
@@ -356,13 +361,13 @@ export class RewriteSelectionPopover {
   }
 }
 
-function renderRewriteDiff(parent: HTMLElement, diff: string): void {
-  const pre = parent.createEl("pre", { cls: "codex-panel__diff codex-panel-rewrite-popover__diff-body" });
+function renderSelectionRewriteDiff(parent: HTMLElement, diff: string): void {
+  const pre = parent.createEl("pre", { cls: "codex-panel-diff codex-panel-selection-rewrite__diff-body" });
   for (const line of displayDiffLines(diff)) {
     if (line.kind === "file" || line.text.startsWith("@@")) continue;
     const lineClass = diffLineClass(line);
     pre.createEl("span", {
-      cls: `codex-panel__diff-line codex-panel__diff-line--${lineClass}`,
+      cls: `codex-panel-diff__line codex-panel-diff__line--${lineClass}`,
       text: displayDiffLineText(line.text, lineClass),
     });
   }

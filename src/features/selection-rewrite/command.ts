@@ -1,19 +1,19 @@
 import { MarkdownView, Notice, type Editor, type Plugin } from "obsidian";
 
-import type { RewriteRuntimeSettings, RewriteSession } from "./model";
-import { RewriteSelectionPopover } from "./popover";
+import type { SelectionRewriteRuntimeSettings, SelectionRewriteSession } from "./model";
+import { SelectionRewritePopover } from "./popover";
 import type { SendShortcut } from "../../settings/model";
 
-export interface RewriteSelectionCommandHost extends Plugin {
+export interface SelectionRewriteCommandHost extends Plugin {
   settings: {
     codexPath: string;
     sendShortcut: SendShortcut;
-  } & RewriteRuntimeSettings;
+  } & SelectionRewriteRuntimeSettings;
   vaultPath: string;
 }
 
-export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandHost): void {
-  const activePopovers = new Set<RewriteSelectionPopover>();
+export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandHost): void {
+  const activePopovers = new Set<SelectionRewritePopover>();
 
   plugin.register(() => {
     for (const popover of activePopovers) popover.close();
@@ -35,7 +35,7 @@ export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandH
         return;
       }
 
-      const session: RewriteSession = {
+      const session: SelectionRewriteSession = {
         filePath: view.file.path,
         targetRange: {
           from: clonePosition(editor.getCursor("from")),
@@ -50,7 +50,7 @@ export function registerRewriteSelectionCommand(plugin: RewriteSelectionCommandH
         debugText: null,
       };
 
-      const popover = new RewriteSelectionPopover({
+      const popover = new SelectionRewritePopover({
         codexPath: plugin.settings.codexPath,
         cwd: plugin.vaultPath,
         editor,

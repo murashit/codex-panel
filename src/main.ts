@@ -1,12 +1,12 @@
 import { Plugin, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
-import { registerRewriteSelectionCommand } from "./features/selection-rewrite/command";
-import { CodexPanelView } from "./features/chat/view";
-import { CodexTurnDiffView } from "./features/chat/turn-diff-view";
+import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
+import { CodexChatView } from "./features/chat/view";
+import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab";
-import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/chat/ui/turn-diff";
+import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/ui/turn-diff";
 
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
@@ -16,8 +16,8 @@ export default class CodexPanelPlugin extends Plugin {
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
 
-    this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexPanelView(leaf, this));
-    this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexTurnDiffView(leaf));
+    this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this));
+    this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexChatTurnDiffView(leaf));
 
     this.addRibbonIcon("bot-message-square", "Open panel", () => {
       void this.activateView();
@@ -44,40 +44,40 @@ export default class CodexPanelPlugin extends Plugin {
       },
     });
 
-    registerRewriteSelectionCommand(this);
+    registerSelectionRewriteCommand(this);
 
     this.addSettingTab(new CodexPanelSettingTab(this.app, this));
   }
 
-  async activateView(): Promise<CodexPanelView> {
+  async activateView(): Promise<CodexChatView> {
     const leaf = await this.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_PANEL, "right", {
       active: true,
       reveal: true,
     });
-    return leaf.view as CodexPanelView;
+    return leaf.view as CodexChatView;
   }
 
-  async activateNewView(): Promise<CodexPanelView> {
+  async activateNewView(): Promise<CodexChatView> {
     const leaf = this.createRightSidebarTab();
     if (!leaf) throw new Error("Could not create a right sidebar leaf.");
 
     await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
     await this.app.workspace.revealLeaf(leaf);
-    return leaf.view as CodexPanelView;
+    return leaf.view as CodexChatView;
   }
 
-  async openThreadInNewView(threadId: string): Promise<CodexPanelView> {
+  async openThreadInNewView(threadId: string): Promise<CodexChatView> {
     const view = await this.activateNewView();
     await view.openThread(threadId);
     return view;
   }
 
-  async openTurnDiff(state: TurnDiffViewState): Promise<void> {
+  async openTurnDiff(state: ChatTurnDiffViewState): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF).at(0);
     const leaf = existing ?? this.app.workspace.getLeaf("tab");
-    await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true, state: { ...persistedTurnDiffViewState(state) } });
+    await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true, state: { ...persistedChatTurnDiffViewState(state) } });
     await leaf.loadIfDeferred();
-    if (leaf.view instanceof CodexTurnDiffView) {
+    if (leaf.view instanceof CodexChatTurnDiffView) {
       leaf.view.setDiffPayload(state);
     }
     await this.app.workspace.revealLeaf(leaf);
@@ -85,7 +85,7 @@ export default class CodexPanelPlugin extends Plugin {
 
   refreshOpenViews(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
-      if (leaf.view instanceof CodexPanelView) {
+      if (leaf.view instanceof CodexChatView) {
         leaf.view.refreshSettings();
       }
     }
@@ -93,7 +93,7 @@ export default class CodexPanelPlugin extends Plugin {
 
   refreshOpenThreadLists(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
-      if (leaf.view instanceof CodexPanelView) {
+      if (leaf.view instanceof CodexChatView) {
         leaf.view.refreshThreadList();
       }
     }

@@ -1,9 +1,9 @@
 import type { EditorPosition } from "obsidian";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 
-export type RewriteStatus = "editing-prompt" | "generating" | "preview" | "applied" | "cancelled" | "failed";
+export type SelectionRewriteStatus = "editing-prompt" | "generating" | "preview" | "applied" | "cancelled" | "failed";
 
-export interface RewriteSession {
+export interface SelectionRewriteSession {
   filePath: string;
   targetRange: {
     from: EditorPosition;
@@ -12,17 +12,17 @@ export interface RewriteSession {
   originalText: string;
   noteText: string;
   instruction: string;
-  status: RewriteStatus;
+  status: SelectionRewriteStatus;
   streamText: string;
   replacementText: string | null;
   debugText: string | null;
 }
 
-export interface RewriteRuntimeSettings {
+export interface SelectionRewriteRuntimeSettings {
   rewriteSelectionModel: string | null;
   rewriteSelectionEffort: ReasoningEffort | null;
 }
 
-export function canApplyRewrite(currentText: string, originalText: string): boolean {
+export function canApplySelectionRewrite(currentText: string, originalText: string): boolean {
   return currentText === originalText;
 }

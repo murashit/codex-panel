@@ -6,13 +6,13 @@ import type { Model } from "../../generated/app-server/v2/Model";
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import { runtimeOverride, validatedRuntimeOverride } from "../../runtime/model";
-import type { RewriteRuntimeSettings } from "./model";
-import { REWRITE_DEVELOPER_INSTRUCTIONS, REWRITE_SERVICE_NAME } from "./prompt";
-import { RewriteOutputError, rewriteOutputParseResultFromTurn, type RewriteOutput } from "./output";
+import type { SelectionRewriteRuntimeSettings } from "./model";
+import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
+import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromTurn, type SelectionRewriteOutput } from "./output";
 
-const REWRITE_TIMEOUT_MS = 120_000;
+const SELECTION_REWRITE_TIMEOUT_MS = 120_000;
 
-const REWRITE_OUTPUT_SCHEMA: JsonValue = {
+const SELECTION_REWRITE_OUTPUT_SCHEMA: JsonValue = {
   type: "object",
   properties: {
     replacementText: {
@@ -23,19 +23,19 @@ const REWRITE_OUTPUT_SCHEMA: JsonValue = {
   additionalProperties: false,
 };
 
-export interface RunRewriteSelectionOptions {
+export interface RunSelectionRewriteOptions {
   codexPath: string;
   cwd: string;
   prompt: string;
-  runtimeSettings?: RewriteRuntimeSettings;
-  onActivity?: (activity: RewriteActivity) => void;
+  runtimeSettings?: SelectionRewriteRuntimeSettings;
+  onActivity?: (activity: SelectionRewriteActivity) => void;
   onPreview?: (text: string) => void;
   signal?: AbortSignal;
 }
 
-export type RewriteActivity = "reasoning" | "writing";
+export type SelectionRewriteActivity = "reasoning" | "writing";
 
-export async function runRewriteSelection(options: RunRewriteSelectionOptions): Promise<RewriteOutput> {
+export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
   throwIfAborted(options.signal);
   let threadId: string | null = null;
   let expectedTurnId: string | null = null;
@@ -52,7 +52,7 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
       if (completed) return;
       completed = true;
       reject(new Error("Timed out while rewriting the selection."));
-    }, REWRITE_TIMEOUT_MS);
+    }, SELECTION_REWRITE_TIMEOUT_MS);
 
     handleNotification = (notification): void => {
       if (completed) return;
@@ -101,22 +101,22 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
     onExit: () => {
       if (completed) return;
       completed = true;
-      rejectCompletedTurn?.(new Error("Codex rewrite app-server exited."));
+      rejectCompletedTurn?.(new Error("Selection rewrite app-server exited."));
     },
   });
 
   try {
     await abortable(client.connect(), options.signal);
     const runtime = options.runtimeSettings
-      ? await abortable(rewriteRuntimeForClient(client, options.runtimeSettings), options.signal)
+      ? await abortable(selectionRewriteRuntimeForClient(client, options.runtimeSettings), options.signal)
       : {};
     const threadResponse = await abortable(
-      client.startEphemeralThread(options.cwd, REWRITE_SERVICE_NAME, REWRITE_DEVELOPER_INSTRUCTIONS),
+      client.startEphemeralThread(options.cwd, SELECTION_REWRITE_SERVICE_NAME, SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS),
       options.signal,
     );
     threadId = threadResponse.thread.id;
     const turnResponse = await abortable(
-      client.startStructuredTurn(threadId, options.cwd, options.prompt, REWRITE_OUTPUT_SCHEMA, runtime.model, runtime.effort),
+      client.startStructuredTurn(threadId, options.cwd, options.prompt, SELECTION_REWRITE_OUTPUT_SCHEMA, runtime.model, runtime.effort),
       options.signal,
     );
     expectedTurnId = turnResponse.turn.id;
@@ -124,8 +124,8 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
       turnResponse.turn.status === "completed"
         ? turnWithCollectedItems(turnResponse.turn, completedItems)
         : await abortable(completedTurn, options.signal);
-    const { output, rawText } = rewriteOutputParseResultFromTurn(turn);
-    if (!output) throw new RewriteOutputError("Codex did not return a valid rewrite patch.", rawText);
+    const { output, rawText } = selectionRewriteOutputParseResultFromTurn(turn);
+    if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
     return output;
   } finally {
     completed = true;
@@ -135,7 +135,7 @@ export async function runRewriteSelection(options: RunRewriteSelectionOptions): 
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw rewriteAbortError();
+  if (signal?.aborted) throw selectionRewriteAbortError();
 }
 
 function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
@@ -143,7 +143,7 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Pro
   throwIfAborted(signal);
   return new Promise<T>((resolve, reject) => {
     const onAbort = (): void => {
-      reject(rewriteAbortError());
+      reject(selectionRewriteAbortError());
     };
     signal.addEventListener("abort", onAbort, { once: true });
     promise.then(resolve, reject).finally(() => {
@@ -152,7 +152,7 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Pro
   });
 }
 
-function rewriteAbortError(): Error {
+function selectionRewriteAbortError(): Error {
   return new Error("Selection rewrite cancelled.");
 }
 
@@ -161,25 +161,28 @@ function turnWithCollectedItems(turn: Turn, completedItems: ThreadItem[]): Turn 
   return { ...turn, items: completedItems };
 }
 
-export interface RewriteRuntime {
+export interface SelectionRewriteRuntime {
   model?: string;
   effort?: ReasoningEffort;
 }
 
-export function rewriteRuntime(settings: RewriteRuntimeSettings): RewriteRuntime {
+export function selectionRewriteRuntime(settings: SelectionRewriteRuntimeSettings): SelectionRewriteRuntime {
   return runtimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
 }
 
-export function validatedRewriteRuntime(settings: RewriteRuntimeSettings, models: Model[]): RewriteRuntime {
+export function validatedSelectionRewriteRuntime(settings: SelectionRewriteRuntimeSettings, models: Model[]): SelectionRewriteRuntime {
   return validatedRuntimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort }, models);
 }
 
-async function rewriteRuntimeForClient(client: AppServerClient, settings: RewriteRuntimeSettings): Promise<RewriteRuntime> {
-  const runtime = rewriteRuntime(settings);
+async function selectionRewriteRuntimeForClient(
+  client: AppServerClient,
+  settings: SelectionRewriteRuntimeSettings,
+): Promise<SelectionRewriteRuntime> {
+  const runtime = selectionRewriteRuntime(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
     const response = await client.listModels(false);
-    return validatedRewriteRuntime(settings, response.data);
+    return validatedSelectionRewriteRuntime(settings, response.data);
   } catch {
     return runtime;
   }

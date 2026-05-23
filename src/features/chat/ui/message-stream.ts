@@ -13,7 +13,7 @@ import {
   renderReasoningItem,
   renderTaskProgressItem,
 } from "./work-items";
-import type { TurnDiffViewState } from "./turn-diff";
+import type { ChatTurnDiffViewState } from "./turn-diff";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 const MESSAGE_CONTENT_RENDERED_EVENT = "codex-panel:message-content-rendered";
@@ -43,7 +43,7 @@ export interface MessageStreamContext {
   onImplementPlanItem?: (item: DisplayItem) => void;
   canRollbackItem?: (item: DisplayItem) => boolean;
   onRollbackItem?: (item: DisplayItem) => void;
-  openTurnDiff?: (state: TurnDiffViewState) => void;
+  openTurnDiff?: (state: ChatTurnDiffViewState) => void;
   pendingRequestsSignature?: string;
   renderPendingRequests?: () => HTMLElement | null;
 }

@@ -1,9 +1,9 @@
 import type { AppServerClient } from "../../app-server/client";
 import { displayItemsFromTurns } from "./display/thread-items";
-import type { PanelState } from "./state";
+import type { ChatState } from "./chat-state";
 
 export interface ThreadHistoryLoaderHost {
-  state: PanelState;
+  state: ChatState;
   currentClient: () => AppServerClient | null;
   render: () => void;
   addSystemMessage: (text: string) => void;

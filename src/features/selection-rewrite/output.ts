@@ -1,25 +1,25 @@
 import type { Turn } from "../../generated/app-server/v2/Turn";
 
-export interface RewriteOutput {
+export interface SelectionRewriteOutput {
   replacementText: string;
 }
 
-export interface RewriteOutputParseResult {
-  output: RewriteOutput | null;
+export interface SelectionRewriteOutputParseResult {
+  output: SelectionRewriteOutput | null;
   rawText: string | null;
 }
 
-export class RewriteOutputError extends Error {
+export class SelectionRewriteOutputError extends Error {
   constructor(
     message: string,
     readonly rawText: string | null,
   ) {
     super(message);
-    this.name = "RewriteOutputError";
+    this.name = "SelectionRewriteOutputError";
   }
 }
 
-export function parseRewriteOutput(text: string): RewriteOutput | null {
+export function parseSelectionRewriteOutput(text: string): SelectionRewriteOutput | null {
   try {
     const parsed = JSON.parse(text.trim()) as unknown;
     if (!parsed || typeof parsed !== "object") return null;
@@ -31,14 +31,14 @@ export function parseRewriteOutput(text: string): RewriteOutput | null {
   }
 }
 
-export function rewriteOutputFromTurn(turn: Turn): RewriteOutput | null {
-  return rewriteOutputParseResultFromTurn(turn).output;
+export function selectionRewriteOutputFromTurn(turn: Turn): SelectionRewriteOutput | null {
+  return selectionRewriteOutputParseResultFromTurn(turn).output;
 }
 
-export function rewriteOutputParseResultFromTurn(turn: Turn): RewriteOutputParseResult {
+export function selectionRewriteOutputParseResultFromTurn(turn: Turn): SelectionRewriteOutputParseResult {
   const text = lastAgentMessageText(turn);
   if (!text) return { output: null, rawText: null };
-  return { output: parseRewriteOutput(text), rawText: text };
+  return { output: parseSelectionRewriteOutput(text), rawText: text };
 }
 
 function lastAgentMessageText(turn: Turn): string | null {
