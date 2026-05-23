@@ -326,7 +326,7 @@ export class SelectionRewritePopover {
   private syncInstructionHeight(): void {
     const instruction = this.elements?.instruction ?? null;
     syncTextareaHeight(instruction, {
-      minHeightFallback: 52,
+      minHeightFallback: 56,
       maxHeightFallback: instruction ? Math.min(180, instruction.win.innerHeight * 0.3) : 180,
     });
   }

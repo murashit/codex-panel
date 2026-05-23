@@ -1,9 +1,9 @@
 .codex-panel,
 .codex-panel-settings,
 .codex-panel-selection-rewrite {
-  --codex-panel-top-icon-size: var(--icon-s, 16px);
-  --codex-panel-icon-button-inline-size: calc(var(--codex-panel-top-icon-size) + var(--size-2-3, 6px) * 2);
-  --codex-panel-icon-button-block-size: calc(var(--codex-panel-top-icon-size) + var(--size-2-2, 4px) * 2);
+  --codex-panel-control-icon-size: var(--icon-m, 18px);
+  --codex-panel-icon-button-inline-size: calc(var(--codex-panel-control-icon-size) + var(--size-2-3, 6px) * 2);
+  --codex-panel-icon-button-block-size: calc(var(--codex-panel-control-icon-size) + var(--size-2-2, 4px) * 2);
   --codex-panel-status-dot-size: var(--size-4-2, 8px);
   --codex-panel-meter-bar-height: var(--size-2-2, 4px);
   --codex-panel-composer-control-size: var(--codex-panel-icon-button-block-size);
@@ -56,8 +56,8 @@
 
 .codex-panel-ui__toolbar-control {
   box-sizing: border-box;
-  --icon-size: var(--codex-panel-top-icon-size);
-  --icon-stroke: var(--icon-s-stroke-width, 2px);
+  --icon-size: var(--codex-panel-control-icon-size);
+  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
   min-width: var(--codex-panel-icon-button-inline-size);
   width: auto;
   height: auto;
@@ -68,8 +68,8 @@
 
 .codex-panel-ui__icon-button {
   box-sizing: border-box;
-  --icon-size: var(--codex-panel-top-icon-size);
-  --icon-stroke: var(--icon-s-stroke-width, 2px);
+  --icon-size: var(--codex-panel-control-icon-size);
+  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
   min-width: var(--codex-panel-composer-control-size);
   width: auto;
   height: auto;
@@ -118,8 +118,7 @@
 }
 
 .codex-panel__toolbar-primary {
-  display: grid;
-  grid-template-columns: auto auto minmax(42px, 1fr) auto auto;
+  display: flex;
   gap: var(--codex-panel-toolbar-button-gap);
   align-items: center;
   min-width: 0;
@@ -140,26 +139,16 @@
   white-space: nowrap;
 }
 
-.codex-panel__toolbar-control,
 .codex-panel__runtime-area {
   min-width: 0;
 }
 
-.codex-panel__history-menu {
-  grid-column: 1;
-}
-
-.codex-panel__toolbar .codex-panel-ui__icon-button {
-  width: var(--codex-panel-icon-button-inline-size);
-}
-
 .codex-panel__auto-review-toggle {
-  grid-column: 2;
-  justify-self: start;
+  flex: 0 0 auto;
 }
 
 .codex-panel__runtime-area {
-  grid-column: 3;
+  flex: 0 1 auto;
 }
 
 .codex-panel__runtime-strip {
@@ -390,8 +379,9 @@
 }
 
 .codex-panel__status-dot {
-  grid-column: 4;
   cursor: pointer;
+  flex: 0 0 auto;
+  margin-left: auto;
   position: relative;
 }
 
@@ -447,11 +437,11 @@
 }
 
 .codex-panel__context-compact {
-  grid-column: 4;
+  margin-left: auto;
 }
 
-.codex-panel__status-dot {
-  grid-column: 5;
+.codex-panel__context-compact + .codex-panel__status-dot {
+  margin-left: 0;
 }
 
 .codex-panel__meter-compact-bar {
@@ -1810,7 +1800,7 @@
 
 @container (max-width: 280px) {
   .codex-panel__toolbar-primary {
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    flex-wrap: wrap;
   }
 
   .codex-panel__runtime-strip {
@@ -1824,24 +1814,13 @@
   }
 
   .codex-panel__runtime-area {
-    grid-column: 3 / 5;
-    grid-row: 1;
-  }
-
-  .codex-panel__context-compact {
-    grid-column: 3;
-    grid-row: 2;
-  }
-
-  .codex-panel__status-dot {
-    grid-column: 4;
-    grid-row: 2;
+    order: 3;
+    flex: 1 1 100%;
   }
 
   .codex-panel__meter-compact {
-    justify-self: end;
     min-width: 0;
-    height: var(--codex-panel-top-icon-size);
+    height: var(--codex-panel-control-icon-size);
     padding-left: 0;
   }
 

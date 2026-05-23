@@ -139,8 +139,7 @@ export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, act
 }
 
 function renderHistoryButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
-  const history = parent.createDiv({ cls: "codex-panel__toolbar-control codex-panel__history-menu" });
-  const button = createToolbarButton(history, "history", "Chat history");
+  const button = createToolbarButton(parent, "history", "Chat history");
   button.addClass("codex-panel__history-toggle");
   if (model.historyOpen) button.addClass("is-active");
   button.setAttr("aria-pressed", model.historyOpen ? "true" : "false");

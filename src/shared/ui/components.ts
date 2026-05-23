@@ -13,7 +13,7 @@ export function createIconButton(parent: HTMLElement, icon: string, label: strin
 }
 
 export function createToolbarButton(parent: HTMLElement, icon: string, label: string): HTMLButtonElement {
-  return createIconButton(parent, icon, label, "nav-action-button codex-panel-ui__toolbar-control codex-panel-ui__icon-button");
+  return createIconButton(parent, icon, label, "nav-action-button codex-panel-ui__toolbar-control");
 }
 
 export function createRememberedDetails(

@@ -108,7 +108,7 @@ export function syncComposerControls(
 
 export function syncComposerHeight(composer: HTMLTextAreaElement | null): void {
   syncTextareaHeight(composer, {
-    minHeightFallback: 52,
+    minHeightFallback: 56,
     maxHeightFallback: composer ? Math.min(208, composer.win.innerHeight * 0.4) : 208,
   });
 }
