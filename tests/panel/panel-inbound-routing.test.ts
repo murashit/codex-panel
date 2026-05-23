@@ -6,7 +6,7 @@ import {
   messageTurnId,
   routeServerNotification,
   routeServerRequest,
-} from "../../src/panel/inbound-routing";
+} from "../../src/features/chat/inbound-routing";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
 

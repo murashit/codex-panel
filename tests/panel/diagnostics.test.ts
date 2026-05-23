@@ -6,7 +6,7 @@ import {
   createAppServerDiagnostics,
   upsertMcpServerDiagnostic,
 } from "../../src/app-server/compatibility";
-import { connectionDiagnosticSections, diagnosticAlertLevel } from "../../src/panel/diagnostics";
+import { connectionDiagnosticSections, diagnosticAlertLevel } from "../../src/features/chat/diagnostics";
 
 describe("connection diagnostics", () => {
   it("formats base rows, capability probes, and MCP issues for /doctor", () => {

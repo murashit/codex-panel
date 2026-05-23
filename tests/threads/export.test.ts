@@ -8,8 +8,8 @@ import {
   markdownFromThread,
   normalizedArchiveTags,
   type ArchiveExportAdapter,
-} from "../../src/threads/export";
-import { referencedThreadPrompt } from "../../src/threads/reference";
+} from "../../src/domain/threads/export";
+import { referencedThreadPrompt } from "../../src/domain/threads/reference";
 
 describe("thread archive export", () => {
   it("writes frontmatter and readable user/codex turns with turn timestamps", () => {

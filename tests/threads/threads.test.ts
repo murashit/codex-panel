@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
-import { codexPanelDisplayTitle, inheritedForkThreadName, upsertThread } from "../../src/threads/model";
+import { codexPanelDisplayTitle, inheritedForkThreadName, upsertThread } from "../../src/domain/threads/model";
 
 describe("thread helpers", () => {
   it("formats Codex panel display titles from the active thread", () => {

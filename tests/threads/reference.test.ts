@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
-import { referencedThreadDisplayFromPrompt, referencedThreadPrompt, referencedThreadTurns } from "../../src/threads/reference";
+import { referencedThreadDisplayFromPrompt, referencedThreadPrompt, referencedThreadTurns } from "../../src/domain/threads/reference";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {

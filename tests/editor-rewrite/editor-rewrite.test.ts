@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSelectionUnifiedDiff } from "../../src/editor-rewrite/diff";
-import { isRewriteActionKey, isRewriteGenerateKey, type RewriteGenerateKeyEvent } from "../../src/editor-rewrite/keys";
-import { canApplyRewrite, type RewriteSession } from "../../src/editor-rewrite/model";
-import { parseRewriteOutput, rewriteOutputFromTurn, rewriteOutputParseResultFromTurn } from "../../src/editor-rewrite/output";
-import { buildRewritePrompt } from "../../src/editor-rewrite/prompt";
-import { rewriteRuntime, validatedRewriteRuntime } from "../../src/editor-rewrite/runner";
+import { buildSelectionUnifiedDiff } from "../../src/features/selection-rewrite/diff";
+import { isRewriteActionKey, isRewriteGenerateKey, type RewriteGenerateKeyEvent } from "../../src/features/selection-rewrite/keys";
+import { canApplyRewrite, type RewriteSession } from "../../src/features/selection-rewrite/model";
+import { parseRewriteOutput, rewriteOutputFromTurn, rewriteOutputParseResultFromTurn } from "../../src/features/selection-rewrite/output";
+import { buildRewritePrompt } from "../../src/features/selection-rewrite/prompt";
+import { rewriteRuntime, validatedRewriteRuntime } from "../../src/features/selection-rewrite/runner";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
 

@@ -7,7 +7,7 @@ import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
 import { findModelByIdOrName, sortedAvailableModels, supportedEffortsForModel } from "../../src/runtime/model";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
-import { archivedThreadDisplayTitle } from "../../src/threads/model";
+import { archivedThreadDisplayTitle } from "../../src/domain/threads/model";
 import { notices } from "../mocks/obsidian";
 
 const require = createRequire(import.meta.url);

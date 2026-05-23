@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { isRollbackCandidateItem, rollbackCandidateFromItems } from "../../src/panel/rollback";
-import type { DisplayItem } from "../../src/display/types";
+import { isRollbackCandidateItem, rollbackCandidateFromItems } from "../../src/features/chat/rollback";
+import type { DisplayItem } from "../../src/features/chat/display/types";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { questionDefaultAnswer, toPendingUserInput, userInputResponse } from "../../src/user-input/model";
-import { pendingRequestsSignature } from "../../src/panel/request-state";
+import { questionDefaultAnswer, toPendingUserInput, userInputResponse } from "../../src/features/chat/user-input/model";
+import { pendingRequestsSignature } from "../../src/features/chat/request-state";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
 
 function expectPresent<T>(value: T | null | undefined): T {

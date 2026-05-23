@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { statusValue, usageLimitStatusLines } from "../../src/panel/status-lines";
+import { statusValue, usageLimitStatusLines } from "../../src/features/chat/status-lines";
 import type { RateLimitSummary } from "../../src/runtime/view";
 
 describe("status line helpers", () => {

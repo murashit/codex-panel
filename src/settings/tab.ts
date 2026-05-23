@@ -9,7 +9,7 @@ import type { Model } from "../generated/app-server/v2/Model";
 import type { Thread } from "../generated/app-server/v2/Thread";
 import type CodexPanelPlugin from "../main";
 import { findModelByIdOrName, REASONING_EFFORTS, sortedAvailableModels, supportedEffortsForModel } from "../runtime/model";
-import { archivedThreadDisplayTitle } from "../threads/model";
+import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 import { loadHookData, loadSettingsData } from "./data";
 import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";

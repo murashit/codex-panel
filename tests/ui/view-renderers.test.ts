@@ -2,21 +2,21 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { PendingApproval } from "../../src/approvals/model";
-import type { PendingUserInput } from "../../src/user-input/model";
+import type { PendingApproval } from "../../src/features/chat/approvals/model";
+import type { PendingUserInput } from "../../src/features/chat/user-input/model";
 import {
   renderComposerShell,
   renderComposerSuggestions,
   scrollComposerSuggestionIntoView,
   syncComposerControls,
   syncComposerHeight,
-} from "../../src/ui/composer";
-import { renderPendingRequestMessage } from "../../src/ui/pending-request-message";
-import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../../src/ui/toolbar";
-import { displayItemSignature } from "../../src/display/signature";
-import { implementPlanCandidateFromState } from "../../src/panel/message-renderer";
-import { messageRenderBlocks as rawMessageRenderBlocks, syncMessageRenderBlocks } from "../../src/ui/message-stream";
-import { displayDiffLines, persistedTurnDiffViewState, renderTurnDiffView } from "../../src/ui/turn-diff";
+} from "../../src/features/chat/ui/composer";
+import { renderPendingRequestMessage } from "../../src/features/chat/ui/pending-request-message";
+import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../../src/features/chat/ui/toolbar";
+import { displayItemSignature } from "../../src/features/chat/display/signature";
+import { implementPlanCandidateFromState } from "../../src/features/chat/message-renderer";
+import { messageRenderBlocks as rawMessageRenderBlocks, syncMessageRenderBlocks } from "../../src/features/chat/ui/message-stream";
+import { displayDiffLines, persistedTurnDiffViewState, renderTurnDiffView } from "../../src/features/chat/ui/turn-diff";
 import { composerSuggestionScrollFixture, installObsidianDomShims, topLevelDetailsSummaries } from "./dom-test-helpers";
 
 installObsidianDomShims();

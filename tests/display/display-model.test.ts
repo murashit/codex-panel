@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { activeAgentRunSummary } from "../../src/display/agent";
-import { displayBlocksForItems } from "../../src/display/blocks";
+import { activeAgentRunSummary } from "../../src/features/chat/display/agent";
+import { displayBlocksForItems } from "../../src/features/chat/display/blocks";
 import {
   appendAssistantDelta,
   appendItemOutput,
@@ -9,13 +9,13 @@ import {
   appendPlanDelta,
   appendToolOutput,
   upsertDisplayItem,
-} from "../../src/display/stream-updates";
-import { normalizeProposedPlanMarkdown, planProgressDisplayItem } from "../../src/display/plan";
-import { pathRelativeToRoot } from "../../src/display/paths";
-import { createAutoReviewResultItem, createReviewResultItem } from "../../src/display/review";
-import { executionState } from "../../src/display/state";
-import { displayItemFromThreadItem, displayItemsFromTurns } from "../../src/display/thread-items";
-import type { DisplayItem } from "../../src/display/types";
+} from "../../src/features/chat/display/stream-updates";
+import { normalizeProposedPlanMarkdown, planProgressDisplayItem } from "../../src/features/chat/display/plan";
+import { pathRelativeToRoot } from "../../src/features/chat/display/paths";
+import { createAutoReviewResultItem, createReviewResultItem } from "../../src/features/chat/display/review";
+import { executionState } from "../../src/features/chat/display/state";
+import { displayItemFromThreadItem, displayItemsFromTurns } from "../../src/features/chat/display/thread-items";
+import type { DisplayItem } from "../../src/features/chat/display/types";
 import type { ThreadItem } from "../../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
 

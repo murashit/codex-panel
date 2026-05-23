@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { renderTextWithWikiLinks, shortSignature } from "../../src/ui/dom";
+import { renderTextWithWikiLinks, shortSignature } from "../../src/shared/ui/dom";
 import { installObsidianDomShims } from "./dom-test-helpers";
 
 installObsidianDomShims();

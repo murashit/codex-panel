@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { PanelController } from "../../src/panel/controller";
-import { attachHookRunsToTurn } from "../../src/panel/hook-display";
-import { createPanelState } from "../../src/panel/state";
+import { PanelController } from "../../src/features/chat/controller";
+import { attachHookRunsToTurn } from "../../src/features/chat/hook-display";
+import { createPanelState } from "../../src/features/chat/state";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";

@@ -1,12 +1,12 @@
 import { Plugin, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
-import { registerRewriteSelectionCommand } from "./editor-rewrite/command";
-import { CodexPanelView } from "./panel/view";
-import { CodexTurnDiffView } from "./panel/turn-diff-view";
+import { registerRewriteSelectionCommand } from "./features/selection-rewrite/command";
+import { CodexPanelView } from "./features/chat/view";
+import { CodexTurnDiffView } from "./features/chat/turn-diff-view";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab";
-import { persistedTurnDiffViewState, type TurnDiffViewState } from "./ui/turn-diff";
+import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/chat/ui/turn-diff";
 
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;

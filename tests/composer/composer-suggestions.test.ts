@@ -11,7 +11,7 @@ import {
   findWikiLinkSuggestions,
   nextComposerSuggestionIndex,
   parseSlashCommand,
-} from "../../src/composer/suggestions";
+} from "../../src/features/chat/composer/suggestions";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

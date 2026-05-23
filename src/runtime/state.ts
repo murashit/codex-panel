@@ -6,7 +6,7 @@ import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadRe
 import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
-import type { DisplayItem } from "../display/types";
+import type { DisplayItem } from "../features/chat/display/types";
 import { serviceTierRequestValue, type ReportedServiceTier, type ServiceTier, type ServiceTierRequest } from "../app-server/service-tier";
 import { defaultCollaborationMode, planCollaborationMode } from "./collaboration-mode";
 import { findModelByIdOrName, supportedEffortsForModel } from "./model";

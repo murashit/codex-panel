@@ -17,15 +17,14 @@ The source tree is organized by responsibility rather than by the original singl
 
 - `src/main.ts` registers Obsidian views, commands, settings, and lifecycle hooks.
 - `src/app-server/` owns app-server transport, connection lifecycle, compatibility helpers, and RPC facades.
-- `src/panel/` owns Codex panel orchestration, Obsidian `ItemView` classes, request/session controllers, thread actions, and panel-specific state.
+- `src/features/chat/` owns the main Codex chat surface: Obsidian `ItemView` classes, panel orchestration, request/session controllers, composer behavior, display models, chat-only UI renderers, approvals, user input, thread actions, and panel-specific state.
+- `src/features/selection-rewrite/` owns the Markdown editor selection rewrite command, popover, prompt/output handling, and short-lived rewrite session runner.
 - `src/runtime/` owns Codex runtime configuration projection, model metadata, collaboration mode, and compact labels used by views.
-- `src/display/` converts app-server turn items and streaming deltas into display model objects.
-- `src/ui/` contains pure DOM renderers for reusable panel UI pieces.
-- `src/composer/` contains composer input behavior, slash command definitions, suggestions, and Obsidian wikilink resolution.
+- `src/shared/` contains feature-neutral helpers, including reusable DOM pieces and unified diff display helpers shared by chat and selection rewrite.
 - `src/settings/` contains Obsidian settings models, settings-tab rendering, and app-server-backed dynamic settings data.
-- `src/threads/` contains thread title and list presentation helpers shared outside the panel.
+- `src/domain/threads/` contains thread title, reference, and archive export helpers shared outside the chat feature.
 
-Keep new code near the state or API it owns. Shared domain helpers should not be placed under `src/panel/` unless they are panel-specific orchestration.
+Keep new code near the state or API it owns. Feature code should not import from another feature directly; move shared behavior to `src/shared/`, `src/domain/`, `src/app-server/`, or `src/runtime/` when more than one feature needs it.
 
 ## App-Server Bindings
 

@@ -10,7 +10,7 @@ import {
   normalizeGeneratedTitle,
   titleFromNamingTurn,
   validatedNamingRuntime,
-} from "../../src/panel/thread-naming";
+} from "../../src/features/chat/thread-naming";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
 

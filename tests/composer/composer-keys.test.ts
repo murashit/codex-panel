@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isComposerSendKey, type ComposerSendKeyEvent } from "../../src/composer/keys";
+import { isComposerSendKey, type ComposerSendKeyEvent } from "../../src/features/chat/composer/keys";
 
 const baseEvent: ComposerSendKeyEvent = {
   key: "Enter",
