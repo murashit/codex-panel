@@ -41,7 +41,7 @@ Use **Codex Panel: New chat** to start a fresh thread. Use **Codex Panel: Open n
 Codex Panel supports Codex App Server workflows that fit a persistent side panel:
 
 - Start, resume, rename, fork, roll back, compact, and archive threads (`/new`, `/resume`, `/fork`, `/rollback`, `/compact`, `/archive`).
-- Complete slash commands and enabled Codex skills from the composer (`/help`).
+- Complete slash commands with `/` and enabled Codex skills with `$` from the composer (`/help`, `$skill-name`).
 - Reference another non-archived thread without switching away from the current one (`/refer <thread> <message>`). Codex receives up to 20 recent turns, limited to user input and final Codex responses.
 - Toggle Plan mode, optionally sending the same message after switching (`/plan <message>`), then answer questions and copy or implement proposed plans.
 - Toggle fast mode, model, and reasoning effort for subsequent turns (`/fast`, `/model`, `/effort`).
