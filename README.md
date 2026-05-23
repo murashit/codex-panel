@@ -41,29 +41,29 @@ Use **Codex Panel: New chat** to start a fresh thread. Use **Codex Panel: Open n
 Codex Panel supports Codex App Server workflows that fit a persistent side panel:
 
 - Start, resume, rename, fork, roll back, compact, and archive threads (`/new`, `/resume`, `/fork`, `/rollback`, `/compact`, `/archive`).
-- Complete slash commands (`/help`) and enabled Codex skills from the composer.
+- Complete slash commands and enabled Codex skills from the composer (`/help`).
 - Reference another non-archived thread without switching away from the current one (`/refer <thread> <message>`). Codex receives up to 20 recent turns, limited to user input and final Codex responses.
 - Toggle Plan mode, optionally sending the same message after switching (`/plan <message>`), then answer questions and copy or implement proposed plans.
 - Toggle fast mode, model, and reasoning effort for subsequent turns (`/fast`, `/model`, `/effort`).
 - Toggle approval auto-review for subsequent turns (`/auto-review`).
-- Send steering messages during a running turn, or interrupt when the composer is empty.
 - Respond to command, file, and permission approval requests.
+- Send steering messages during a running turn, or interrupt when the composer is empty.
 - Stream assistant messages, reasoning, commands, tool calls, hooks, file changes, and agent activity.
-- Codex goal management is not supported. Incoming goal notifications are shown only as brief system notices.
 - Inspect file changes and roll back the latest turn without reverting local files.
 - Inspect context usage, usage limits, connection diagnostics, MCP servers, and effective config (`/status`, `/doctor`, `/mcp`).
 - Inspect and manage discovered Codex hooks from Codex Panel settings.
-- Rewrite the current Markdown editor selection from an Obsidian editor command.
+
+Codex goal management is not supported. Incoming goal notifications are shown only as brief system notices.
 
 ## Obsidian integration
 
 Codex Panel adds vault-aware behavior where Obsidian benefits from a different surface than the terminal UI:
 
+- Forking a thread opens the fork in a new right-sidebar panel so the source thread stays visible.
+- The composer sends with `Enter` by default, with `Shift+Enter` for a newline. You can switch sending to `Cmd/Ctrl+Enter` in Codex Panel settings.
 - Wikilinks in sent messages resolve to Codex file mentions when the target file exists. The visible message text is preserved, unresolved wikilinks are left alone, and note bodies are not attached automatically.
 - Markdown links in rendered messages that point to existing vault files open in Obsidian. External links and non-vault file paths keep their normal link behavior.
-- Forking a thread opens the fork in a new right-sidebar panel so the source thread stays visible.
 - Thread archiving can save a Markdown note in the vault before the thread is archived. Configure the folder, filename template, and optional fixed tags in Codex Panel settings.
-- The composer sends with `Enter` by default, with `Shift+Enter` for a newline. You can switch sending to `Cmd/Ctrl+Enter` in Codex Panel settings.
 - **Codex Panel: Rewrite selection** rewrites selected text in the active Markdown editor without starting a normal chat turn. The command requires a non-empty selection in an active Markdown note. Codex sees the selection, the current editor buffer as note context, and your instruction, then returns a replacement preview with a selection-scoped diff.
 - Selection rewrites run in a short-lived Codex App Server session, separate from the current panel thread. Nothing is written to the note until you confirm the preview. If the selected text changes before applying, Codex Panel asks you to regenerate so the replacement still matches the editor state you reviewed.
 
