@@ -6,26 +6,19 @@
   --codex-panel-icon-button-block-size: calc(var(--codex-panel-top-icon-size) + var(--size-2-2, 4px) * 2);
   --codex-panel-status-dot-size: var(--size-4-2, 8px);
   --codex-panel-meter-bar-height: var(--size-2-2, 4px);
-  --codex-panel-meter-compact-bar-width: 30px;
-  --codex-panel-meter-compact-gap: 7px;
-  --codex-panel-meter-compact-min-width: 68px;
-  --codex-panel-meter-compact-max-width: 88px;
   --codex-panel-composer-control-size: var(--codex-panel-icon-button-block-size);
-  --codex-panel-composer-default-height: calc((var(--codex-panel-composer-control-size) * 2) + var(--codex-panel-control-gap));
-  --codex-panel-composer-max-height: min(208px, 40vh);
-  --codex-panel-composer-suggestions-max-height: min(168px, 36vh);
+  --codex-panel-composer-min-height: calc((var(--codex-panel-composer-control-size) * 2) + var(--codex-panel-control-gap));
+  --codex-panel-status-bar-clearance: var(--status-bar-height, var(--size-4-6, 24px));
+  --codex-panel-bottom-safe-area: max(env(safe-area-inset-bottom, 0px), var(--codex-panel-status-bar-clearance));
   --codex-panel-toolbar-text-color: var(--text-muted);
   --codex-panel-toolbar-text-size: var(--font-ui-small);
   --codex-panel-toolbar-meta-size: var(--font-ui-smaller);
   --codex-panel-toolbar-line-height: var(--line-height-tight);
-  --codex-panel-toolbar-menu-max-height: min(232px, 45vh);
-  --codex-panel-toolbar-status-max-height: min(384px, 55vh);
   --codex-panel-content-font: var(--font-text);
   --codex-panel-content-font-size: calc(var(--font-text-size, 16px) * 0.9375);
   --codex-panel-surface: var(--background-primary);
   --codex-panel-code-surface: var(--code-background, var(--background-secondary));
   --codex-panel-border-color: var(--background-modifier-border);
-  --codex-panel-border-color-muted: var(--background-modifier-border-hover);
   --codex-panel-text-normal: var(--text-normal);
   --codex-panel-text-muted: var(--text-muted);
   --codex-panel-text-faint: var(--text-faint);
@@ -34,27 +27,18 @@
   --codex-panel-color-warning: var(--text-warning);
   --codex-panel-color-danger: var(--text-error);
   --codex-panel-edge-padding-x: var(--size-4-3, 12px);
-  --codex-panel-toolbar-padding-x: var(--size-4-2, 8px);
-  --codex-panel-toolbar-padding-y: var(--size-4-2, 8px);
   --codex-panel-toolbar-button-gap: var(--size-2-1, 2px);
-  --codex-panel-message-padding-y: var(--size-4-3, 12px);
-  --codex-panel-message-collapse-height: min(360px, 45vh);
-  --codex-panel-composer-padding-y: var(--size-4-2, 8px);
-  --codex-panel-section-padding: var(--codex-panel-edge-padding-x);
   --codex-panel-section-gap: var(--size-4-2, 8px);
   --codex-panel-item-gap: var(--size-2-3, 6px);
   --codex-panel-control-gap: var(--size-2-2, 4px);
   --codex-panel-panel-gap: var(--size-2-1, 2px);
   --codex-panel-message-indent: calc(var(--size-4-2, 8px) + var(--size-2-1, 2px));
   --codex-panel-card-radius: var(--radius-s);
-  --codex-panel-popover-radius: var(--radius-m);
   --codex-panel-control-radius: var(--clickable-icon-radius, var(--codex-panel-card-radius));
   --codex-panel-code-radius: var(--codex-panel-card-radius);
   --codex-panel-border: var(--border-width, 1px) solid var(--codex-panel-border-color);
   --codex-panel-divider: 1px solid var(--codex-panel-border-color);
-  --codex-panel-divider-muted: 1px solid var(--codex-panel-border-color-muted);
-  --codex-panel-popover-width: min(520px, calc(100vw - 24px));
-  --codex-panel-popover-max-height: min(560px, calc(100vh - 24px));
+  --codex-panel-divider-muted: 1px solid var(--background-modifier-border-hover);
 }
 
 .codex-panel {
@@ -130,7 +114,7 @@
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  padding: var(--codex-panel-toolbar-padding-y) var(--codex-panel-toolbar-padding-x);
+  padding: var(--size-4-2, 8px);
 }
 
 .codex-panel__toolbar-primary {
@@ -432,11 +416,11 @@
 
 .codex-panel__status-dot-diagnostic {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 6px;
-  height: 6px;
-  border: 1px solid var(--background-primary);
+  top: var(--size-2-2, 4px);
+  right: var(--size-2-2, 4px);
+  width: var(--size-2-3, 6px);
+  height: var(--size-2-3, 6px);
+  border: var(--border-width, 1px) solid var(--codex-panel-surface);
   border-radius: 999px;
 }
 
@@ -452,11 +436,11 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--codex-panel-meter-compact-gap);
+  gap: var(--codex-panel-item-gap);
   height: var(--codex-panel-icon-button-block-size);
-  min-width: var(--codex-panel-meter-compact-min-width);
-  max-width: var(--codex-panel-meter-compact-max-width);
-  padding: 0 2px;
+  min-width: 0;
+  max-width: calc(var(--codex-panel-icon-button-inline-size) * 3);
+  padding: 0 var(--size-2-1, 2px);
   color: var(--codex-panel-toolbar-text-color);
   font-size: var(--codex-panel-toolbar-text-size);
   line-height: var(--codex-panel-toolbar-line-height);
@@ -471,7 +455,7 @@
 }
 
 .codex-panel__meter-compact-bar {
-  flex: 0 0 var(--codex-panel-meter-compact-bar-width);
+  flex: 0 0 calc(var(--codex-panel-icon-button-inline-size) + var(--size-4-1, 4px));
   height: var(--codex-panel-meter-bar-height);
   overflow: hidden;
   border-radius: 999px;
@@ -497,7 +481,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--codex-panel-panel-gap);
-  max-height: var(--codex-panel-toolbar-menu-max-height);
+  max-height: min(232px, 45vh);
   overflow: auto;
   margin-top: var(--codex-panel-item-gap);
   padding: var(--codex-panel-item-gap) 0 0;
@@ -506,7 +490,7 @@
 }
 
 .codex-panel__toolbar-panel--status {
-  max-height: var(--codex-panel-toolbar-status-max-height);
+  max-height: min(384px, 55vh);
   cursor: text;
   user-select: text;
 }
@@ -912,7 +896,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-anchor: none;
-  padding: var(--codex-panel-message-padding-y) var(--codex-panel-edge-padding-x);
+  padding: var(--size-4-3, 12px) var(--codex-panel-edge-padding-x);
   user-select: text;
 }
 
@@ -1082,7 +1066,7 @@
 
 .codex-panel__message-content--collapsed {
   position: relative;
-  max-height: var(--codex-panel-message-collapse-height);
+  max-height: min(360px, 45vh);
   overflow: hidden;
 }
 
@@ -1568,12 +1552,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--size-4-2, 8px);
-  width: var(--codex-panel-popover-width);
-  max-height: var(--codex-panel-popover-max-height);
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(560px, calc(100vh - 24px));
   padding: var(--size-4-2, 8px);
   overflow: auto;
   border: var(--codex-panel-border);
-  border-radius: var(--codex-panel-popover-radius);
+  border-radius: var(--radius-m);
   background: var(--codex-panel-surface);
   box-shadow: var(--shadow-s);
   color: var(--codex-panel-text-normal);
@@ -1587,7 +1571,7 @@
 }
 
 .codex-panel-selection-rewrite__instruction {
-  min-height: 72px;
+  min-height: var(--codex-panel-composer-min-height);
   max-height: min(180px, 30vh);
 }
 
@@ -1751,12 +1735,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--codex-panel-section-gap);
-  padding: var(--codex-panel-composer-padding-y) var(--codex-panel-edge-padding-x);
+  padding: var(--size-4-2, 8px) var(--codex-panel-edge-padding-x) calc(var(--size-4-2, 8px) + var(--codex-panel-bottom-safe-area));
 }
 
 .codex-panel__composer-input {
-  min-height: var(--codex-panel-composer-default-height);
-  max-height: var(--codex-panel-composer-max-height);
+  min-height: var(--codex-panel-composer-min-height);
+  max-height: min(208px, 40vh);
 }
 
 .codex-panel__composer-action {
@@ -1780,7 +1764,7 @@
   display: flex;
   flex-direction: column;
   width: auto;
-  max-height: var(--codex-panel-composer-suggestions-max-height);
+  max-height: min(168px, 36vh);
   overflow-y: auto;
   margin: 0;
   border: var(--codex-panel-border);
@@ -1830,13 +1814,13 @@
   }
 
   .codex-panel__runtime-strip {
-    gap: 2px;
+    gap: var(--codex-panel-panel-gap);
   }
 
   .codex-panel__runtime-model {
     min-width: 0;
-    max-width: 86px;
-    padding: 0 5px;
+    max-width: calc(var(--codex-panel-icon-button-inline-size) * 3);
+    padding: 0 var(--size-2-3, 6px);
   }
 
   .codex-panel__runtime-area {
@@ -1856,18 +1840,17 @@
 
   .codex-panel__meter-compact {
     justify-self: end;
-    max-width: var(--codex-panel-meter-compact-max-width);
     min-width: 0;
-    height: 16px;
+    height: var(--codex-panel-top-icon-size);
     padding-left: 0;
   }
 
   .codex-panel__meter-compact-label {
-    max-width: 56px;
+    max-width: calc(var(--codex-panel-icon-button-inline-size) * 2);
   }
 
   .codex-panel__meter-compact-bar {
-    flex-basis: 42px;
+    flex-basis: calc(var(--codex-panel-icon-button-inline-size) + var(--size-4-4, 16px));
   }
 
   .codex-panel__composer {
