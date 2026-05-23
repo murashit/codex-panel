@@ -6,6 +6,7 @@ import type { AppServerTransport, AppServerTransportHandlers } from "../../src/a
 import type { RpcOutboundMessage } from "../../src/app-server/types";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
+import manifest from "../../manifest.json";
 
 class FakeTransport implements AppServerTransport {
   readonly sent: RpcOutboundMessage[] = [];
@@ -57,6 +58,25 @@ async function connectedClient(): Promise<{ client: AppServerClient; transport: 
   return { client, transport };
 }
 
+function latestSent(transport: FakeTransport): RpcOutboundMessage {
+  const message = transport.sent.at(-1);
+  if (!message) throw new Error("Expected an outbound app-server message.");
+  return message;
+}
+
+async function expectRequest(
+  transport: FakeTransport,
+  request: Promise<unknown>,
+  expected: Partial<RpcOutboundMessage>,
+  result: unknown,
+): Promise<void> {
+  const sent = latestSent(transport);
+  expect(sent).toMatchObject(expected);
+  if (!("id" in sent) || typeof sent.id !== "number") throw new Error("Expected an app-server request id.");
+  transport.emitLine({ id: sent.id, result });
+  await request;
+}
+
 describe("AppServerClient", () => {
   beforeEach(() => {
     vi.stubGlobal("window", {
@@ -91,6 +111,11 @@ describe("AppServerClient", () => {
       id: 1,
       method: "initialize",
       params: {
+        clientInfo: {
+          name: "obsidian_codex_panel",
+          title: "Codex Panel",
+          version: manifest.version,
+        },
         capabilities: {
           experimentalApi: true,
           requestAttestation: false,
@@ -167,7 +192,13 @@ describe("AppServerClient", () => {
     expect(transport.sent[2]).toMatchObject({
       id: 2,
       method: "thread/start",
-      params: { cwd: "/vault", serviceName: "codex-panel", serviceTier: "fast" },
+      params: {
+        cwd: "/vault",
+        serviceName: "codex-panel",
+        serviceTier: "fast",
+        experimentalRawEvents: false,
+        persistExtendedHistory: false,
+      },
     });
     transport.emitLine({ id: 2, result: { thread: { id: "thread-1", title: null }, serviceTier: "fast" } });
     await startingThread;
@@ -377,61 +408,53 @@ describe("AppServerClient", () => {
     await update;
   });
 
-  it("requests effective config with raw layers for display fallbacks", async () => {
+  it("sends inventory and diagnostic requests with panel-specific query bounds", async () => {
     const { client, transport } = await connectedClient();
 
-    const reading = client.readEffectiveConfig("/vault");
-    expect(transport.sent[2]).toMatchObject({
-      id: 2,
-      method: "config/read",
-      params: { cwd: "/vault", includeLayers: true },
-    });
-    transport.emitLine({ id: 2, result: { config: {}, origins: {}, layers: [] } });
-    await reading;
-  });
-
-  it("sends model list request payloads", async () => {
-    const { client, transport } = await connectedClient();
-
-    const listing = client.listModels();
-    expect(transport.sent[2]).toMatchObject({
-      id: 2,
-      method: "model/list",
-      params: { includeHidden: false, limit: 100 },
-    });
-    transport.emitLine({ id: 2, result: { data: [], nextCursor: null } });
-    await listing;
-  });
-
-  it("sends diagnostic capability request payloads", async () => {
-    const { client, transport } = await connectedClient();
-
-    const mcpStatus = client.listMcpServerStatus();
-    expect(transport.sent[2]).toMatchObject({
-      id: 2,
-      method: "mcpServerStatus/list",
-      params: { detail: "toolsAndAuthOnly", limit: 100 },
-    });
-    transport.emitLine({ id: 2, result: { data: [], nextCursor: null } });
-    await mcpStatus;
-
-    const collaborationModes = client.listCollaborationModes();
-    expect(transport.sent[3]).toMatchObject({
-      id: 3,
-      method: "collaborationMode/list",
-      params: {},
-    });
-    transport.emitLine({ id: 3, result: { data: [] } });
-    await collaborationModes;
-
-    const capabilities = client.readModelProviderCapabilities();
-    expect(transport.sent[4]).toMatchObject({
-      id: 4,
-      method: "modelProvider/capabilities/read",
-      params: {},
-    });
-    transport.emitLine({ id: 4, result: { namespaceTools: true, imageGeneration: false, webSearch: true } });
-    await capabilities;
+    await expectRequest(
+      transport,
+      client.readEffectiveConfig("/vault"),
+      { method: "config/read", params: { cwd: "/vault", includeLayers: true } },
+      { config: {}, origins: {}, layers: [] },
+    );
+    await expectRequest(
+      transport,
+      client.listModels(),
+      { method: "model/list", params: { includeHidden: false, limit: 100 } },
+      { data: [], nextCursor: null },
+    );
+    await expectRequest(
+      transport,
+      client.listThreads("/vault", true),
+      { method: "thread/list", params: { cwd: "/vault", limit: 20, archived: true, sortKey: "updated_at", sortDirection: "desc" } },
+      { data: [], nextCursor: null },
+    );
+    await expectRequest(
+      transport,
+      client.listSkills("/vault"),
+      { method: "skills/list", params: { cwds: ["/vault"], forceReload: false } },
+      { data: [] },
+    );
+    expect((latestSent(transport) as { params?: Record<string, unknown> }).params?.["perCwdExtraUserRoots"]).toBeUndefined();
+    await expectRequest(
+      transport,
+      client.listSkills("/vault", true),
+      { method: "skills/list", params: { cwds: ["/vault"], forceReload: true } },
+      { data: [] },
+    );
+    await expectRequest(
+      transport,
+      client.listMcpServerStatus(),
+      { method: "mcpServerStatus/list", params: { detail: "toolsAndAuthOnly", limit: 100 } },
+      { data: [], nextCursor: null },
+    );
+    await expectRequest(transport, client.listCollaborationModes(), { method: "collaborationMode/list", params: {} }, { data: [] });
+    await expectRequest(
+      transport,
+      client.readModelProviderCapabilities(),
+      { method: "modelProvider/capabilities/read", params: {} },
+      { namespaceTools: true, imageGeneration: false, webSearch: true },
+    );
   });
 
   it("preserves app-server RPC error codes", async () => {
@@ -446,19 +469,6 @@ describe("AppServerClient", () => {
       method: "model/list",
       message: "Method not found",
     } satisfies Partial<AppServerRpcError>);
-  });
-
-  it("lists threads for the active cwd and archive view", async () => {
-    const { client, transport } = await connectedClient();
-
-    const listing = client.listThreads("/vault", true);
-    expect(transport.sent[2]).toMatchObject({
-      id: 2,
-      method: "thread/list",
-      params: { cwd: "/vault", limit: 20, archived: true, sortKey: "updated_at", sortDirection: "desc" },
-    });
-    transport.emitLine({ id: 2, result: { data: [], nextCursor: null } });
-    await listing;
   });
 
   it("resumes and forks threads without loading full turn history", async () => {
@@ -481,29 +491,6 @@ describe("AppServerClient", () => {
     });
     transport.emitLine({ id: 3, result: { thread: { id: "thread-2", title: null }, cwd: "/vault" } });
     await forking;
-  });
-
-  it("lists skills from the active cwd and only reloads on request", async () => {
-    const { client, transport } = await connectedClient();
-
-    const skills = client.listSkills("/vault");
-    expect(transport.sent[2]).toMatchObject({
-      id: 2,
-      method: "skills/list",
-      params: { cwds: ["/vault"], forceReload: false },
-    });
-    expect((transport.sent[2] as { params?: Record<string, unknown> }).params?.["perCwdExtraUserRoots"]).toBeUndefined();
-    transport.emitLine({ id: 2, result: { data: [] } });
-    await skills;
-
-    const reloadedSkills = client.listSkills("/vault", true);
-    expect(transport.sent[3]).toMatchObject({
-      id: 3,
-      method: "skills/list",
-      params: { cwds: ["/vault"], forceReload: true },
-    });
-    transport.emitLine({ id: 3, result: { data: [] } });
-    await reloadedSkills;
   });
 
   it("loads turn history pages in the requested direction with full items", async () => {
@@ -556,6 +543,8 @@ describe("AppServerClient", () => {
         sandbox: "read-only",
         approvalPolicy: "never",
         environments: [],
+        experimentalRawEvents: false,
+        persistExtendedHistory: false,
       },
     });
     transport.emitLine({ id: 2, result: { thread: { id: "naming-thread" } } });
@@ -600,13 +589,11 @@ describe("AppServerClient", () => {
   it("saves the user-confirmed thread title through app-server metadata", async () => {
     const { client, transport } = await connectedClient();
 
-    const setName = client.setThreadName("thread-1", "Codex Panel自動命名");
-    expect(transport.sent[2]).toMatchObject({
-      id: 2,
-      method: "thread/name/set",
-      params: { threadId: "thread-1", name: "Codex Panel自動命名" },
-    });
-    transport.emitLine({ id: 2, result: {} });
-    await setName;
+    await expectRequest(
+      transport,
+      client.setThreadName("thread-1", "Codex Panel自動命名"),
+      { method: "thread/name/set", params: { threadId: "thread-1", name: "Codex Panel自動命名" } },
+      {},
+    );
   });
 });

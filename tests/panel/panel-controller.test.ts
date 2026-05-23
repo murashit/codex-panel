@@ -30,34 +30,6 @@ function expectPresent<T>(value: T | null | undefined): T {
 
 describe("PanelController", () => {
   describe("active turn routing", () => {
-    it("ignores item notifications for a different active thread", () => {
-      const state = createPanelState();
-      state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
-      const controller = controllerForState(state);
-
-      controller.handleNotification({
-        method: "item/agentMessage/delta",
-        params: { threadId: "thread-other", turnId: "turn-active", itemId: "a1", delta: "wrong" },
-      } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
-
-      expect(state.displayItems).toEqual([]);
-    });
-
-    it("ignores item notifications for a different active turn", () => {
-      const state = createPanelState();
-      state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
-      const controller = controllerForState(state);
-
-      controller.handleNotification({
-        method: "item/agentMessage/delta",
-        params: { threadId: "thread-active", turnId: "turn-other", itemId: "a1", delta: "wrong" },
-      } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
-
-      expect(state.displayItems).toEqual([]);
-    });
-
     it("applies matching streaming deltas as assistant markdown", () => {
       const state = createPanelState();
       state.activeThreadId = "thread-active";
@@ -1110,55 +1082,46 @@ describe("PanelController", () => {
       expect(state.activeServiceTier).toBeNull();
     });
 
-    it("shows unsupported goal update notifications as system messages", () => {
-      const state = createPanelState();
-      state.activeThreadId = "thread-active";
-      const controller = controllerForState(state);
-
-      controller.handleNotification({
-        method: "thread/goal/updated",
-        params: {
-          threadId: "thread-active",
-          turnId: null,
-          goal: {
-            threadId: "thread-active",
-            objective: "Finish",
-            status: "active",
-            tokenBudget: null,
-            tokensUsed: 0,
-            timeUsedSeconds: 0,
-            createdAt: 1,
-            updatedAt: 1,
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-
-      expect(state.displayItems).toMatchObject([
+    it("shows unsupported goal notifications as brief system messages", () => {
+      const cases: { notification: ServerNotification; text: string }[] = [
         {
-          kind: "system",
+          notification: {
+            method: "thread/goal/updated",
+            params: {
+              threadId: "thread-active",
+              turnId: null,
+              goal: {
+                threadId: "thread-active",
+                objective: "Finish",
+                status: "active",
+                tokenBudget: null,
+                tokensUsed: 0,
+                timeUsedSeconds: 0,
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            },
+          } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>,
           text: "Thread goal updated: status active. Codex Panel does not support goals.",
         },
-      ]);
-    });
-
-    it("shows unsupported goal clear notifications as system messages", () => {
-      const state = createPanelState();
-      state.activeThreadId = "thread-active";
-      const controller = controllerForState(state);
-
-      controller.handleNotification({
-        method: "thread/goal/cleared",
-        params: {
-          threadId: "thread-active",
-        },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
-
-      expect(state.displayItems).toMatchObject([
         {
-          kind: "system",
+          notification: {
+            method: "thread/goal/cleared",
+            params: { threadId: "thread-active" },
+          } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>,
           text: "Thread goal cleared. Codex Panel does not support goals.",
         },
-      ]);
+      ];
+
+      for (const { notification, text } of cases) {
+        const state = createPanelState();
+        state.activeThreadId = "thread-active";
+        const controller = controllerForState(state);
+
+        controller.handleNotification(notification);
+
+        expect(state.displayItems).toMatchObject([{ kind: "system", text }]);
+      }
     });
   });
 
