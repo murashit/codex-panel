@@ -158,7 +158,7 @@ function renderAutoReviewButton(parent: HTMLElement, model: ToolbarViewModel, ac
 function renderStatusButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
   const alertClass = model.diagnosticAlertLevel === "normal" ? "" : ` codex-panel__status-dot--diagnostic-${model.diagnosticAlertLevel}`;
   const button = parent.createEl("button", {
-    cls: `clickable-icon nav-action-button codex-panel__top-control codex-panel__status-dot codex-panel__status-dot--${model.statusState}${alertClass} ${model.statusPanelOpen ? "is-active" : ""}`,
+    cls: `clickable-icon nav-action-button codex-panel-ui__toolbar-control codex-panel__status-dot codex-panel__status-dot--${model.statusState}${alertClass} ${model.statusPanelOpen ? "is-active" : ""}`,
     attr: {
       type: "button",
       "aria-label": statusButtonLabel(model),
@@ -193,7 +193,7 @@ function renderRuntimeStatus(parent: HTMLElement, model: ToolbarViewModel, actio
 
 function renderRuntimeIcon(parent: HTMLElement, icon: string, label: string, active: boolean, onClick: () => void): void {
   const button = parent.createEl("button", {
-    cls: `clickable-icon nav-action-button codex-panel__top-control codex-panel__runtime-icon ${active ? "is-active" : ""}`,
+    cls: `clickable-icon nav-action-button codex-panel-ui__toolbar-control codex-panel__runtime-icon ${active ? "is-active" : ""}`,
     attr: {
       type: "button",
       "aria-label": label,
@@ -208,7 +208,7 @@ function renderRuntimeModelControl(parent: HTMLElement, model: ToolbarViewModel,
   const cls = [
     "clickable-icon",
     "codex-panel__runtime-model",
-    "codex-panel__top-control",
+    "codex-panel-ui__toolbar-control",
     model.runtimeEmphasized ? "is-emphasized" : "",
     model.runtimeOpen ? "is-active" : "",
   ]

@@ -27,7 +27,7 @@ export function renderComposerShell(
   parent.empty();
   const composerEl = parent.createDiv({ cls: "codex-panel__composer" });
   const composer = composerEl.createEl("textarea", {
-    cls: "codex-panel__input",
+    cls: "codex-panel-ui__text-input codex-panel__composer-input",
     attr: {
       placeholder: "Ask Codex to work...",
       role: "combobox",
@@ -47,17 +47,22 @@ export function renderComposerShell(
   composer.onselect = callbacks.onUpdateSuggestions;
   composer.onkeydown = callbacks.onKeydown;
 
-  const actionsEl = composerEl.createDiv({ cls: "codex-panel__composer-actions" });
+  const actionsEl = composerEl.createDiv({ cls: "codex-panel-ui__action-stack codex-panel__composer-actions" });
   const newThreadButton = createIconButton(
     actionsEl,
     "message-square-plus",
     "New chat",
-    "codex-panel__composer-action codex-panel__new-chat",
+    "codex-panel-ui__icon-button codex-panel__composer-action codex-panel__new-chat",
   );
   newThreadButton.disabled = busy;
   newThreadButton.onclick = callbacks.onNewThread;
 
-  const sendButton = createIconButton(actionsEl, "send", "Send", "codex-panel__composer-action codex-panel__send");
+  const sendButton = createIconButton(
+    actionsEl,
+    "send",
+    "Send",
+    "codex-panel-ui__icon-button codex-panel__composer-action codex-panel__send",
+  );
   sendButton.onclick = callbacks.onSendOrInterrupt;
 
   const suggestions = composerEl.createDiv({

@@ -156,7 +156,7 @@ export class SelectionRewritePopover {
     root.setAttr("aria-label", "Rewrite selection");
 
     const instruction = root.createEl("textarea", {
-      cls: "codex-panel__input codex-panel-selection-rewrite__instruction",
+      cls: "codex-panel-ui__text-input codex-panel-selection-rewrite__instruction",
       attr: { placeholder: "How should Codex rewrite this selection?" },
     });
     instruction.value = this.options.session.instruction;
@@ -175,19 +175,19 @@ export class SelectionRewritePopover {
 
     const promptRow = root.createDiv({ cls: "codex-panel-selection-rewrite__prompt-row" });
     promptRow.append(instruction);
-    const controls = promptRow.createDiv({ cls: "codex-panel__composer-actions codex-panel-selection-rewrite__controls" });
+    const controls = promptRow.createDiv({ cls: "codex-panel-ui__action-stack codex-panel-selection-rewrite__controls" });
     const generateButton = createIconButton(
       controls,
       "sparkles",
       "Generate",
-      "codex-panel__composer-action codex-panel-selection-rewrite__icon-button",
+      "codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button",
     );
     generateButton.onclick = () => void this.generate();
     const cancelButton = createIconButton(
       controls,
       "x",
       "Cancel",
-      "codex-panel__composer-action codex-panel-selection-rewrite__icon-button",
+      "codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button",
     );
     cancelButton.onclick = () => {
       this.cancel();
@@ -201,7 +201,7 @@ export class SelectionRewritePopover {
       resultRow,
       "check",
       "Apply",
-      "codex-panel__composer-action codex-panel-selection-rewrite__icon-button mod-cta",
+      "codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button mod-cta",
     );
     applyButton.onclick = () => {
       this.apply();
