@@ -1625,6 +1625,25 @@ describe("toolbar renderer decisions", () => {
     );
   });
 
+  it("keeps frequently changed effort choices first inside the runtime menu", () => {
+    const parent = document.createElement("div");
+
+    renderToolbar(
+      parent,
+      toolbarModel({
+        modelChoices: [{ label: "gpt-5.5", selected: true, onClick: vi.fn() }],
+        effortChoices: [{ label: "high", selected: true, onClick: vi.fn() }],
+      }),
+      toolbarActions(),
+    );
+
+    expect([...parent.querySelectorAll(".codex-panel__runtime-picker-label")].map((label) => label.textContent)).toEqual([
+      "Reasoning effort",
+      "Model",
+    ]);
+    expect([...parent.querySelectorAll(".codex-panel__runtime-choice")].map((choice) => choice.textContent)).toEqual(["high", "gpt-5.5"]);
+  });
+
   it("renders context as a compact meter and Codex limits only in the status menu", () => {
     const parent = document.createElement("div");
 

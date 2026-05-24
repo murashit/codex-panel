@@ -311,12 +311,12 @@ function renderConnectionDiagnostics(parent: HTMLElement, sections: ToolbarDiagn
 
 function renderRuntimePicker(parent: HTMLElement, model: ToolbarViewModel): void {
   const picker = parent.createDiv({ cls: "codex-panel__runtime-picker", attr: { role: "listbox", "aria-label": "Runtime controls" } });
-  picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Model" });
-  for (const choice of model.modelChoices) {
-    createToolbarPanelItem(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
-  }
   picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Reasoning effort" });
   for (const choice of model.effortChoices) {
+    createToolbarPanelItem(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
+  }
+  picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Model" });
+  for (const choice of model.modelChoices) {
     createToolbarPanelItem(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
   }
 }
