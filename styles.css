@@ -16,9 +16,11 @@
   --codex-panel-toolbar-line-height: var(--line-height-tight);
   --codex-panel-content-font: var(--font-text);
   --codex-panel-content-font-size: calc(var(--font-text-size, 16px) * 0.9375);
+  --codex-panel-compact-line-height: var(--line-height-tight);
   --codex-panel-surface: var(--background-primary);
   --codex-panel-code-surface: var(--code-background, var(--background-secondary));
   --codex-panel-border-color: var(--background-modifier-border);
+  --codex-panel-border-muted-color: var(--background-modifier-border-hover);
   --codex-panel-text-normal: var(--text-normal);
   --codex-panel-text-muted: var(--text-muted);
   --codex-panel-text-faint: var(--text-faint);
@@ -26,6 +28,9 @@
   --codex-panel-color-success: var(--text-success);
   --codex-panel-color-warning: var(--text-warning);
   --codex-panel-color-danger: var(--text-error);
+  --codex-panel-status-ring-faint: color-mix(in srgb, var(--codex-panel-text-faint) 12%, transparent);
+  --codex-panel-status-ring-success: color-mix(in srgb, var(--codex-panel-color-success) 12%, transparent);
+  --codex-panel-status-ring-accent: color-mix(in srgb, var(--codex-panel-color-accent) 14%, transparent);
   --codex-panel-edge-padding-x: var(--size-4-3, 12px);
   --codex-panel-toolbar-button-gap: var(--size-2-1, 2px);
   --codex-panel-section-gap: var(--size-4-2, 8px);
@@ -33,12 +38,29 @@
   --codex-panel-control-gap: var(--size-2-2, 4px);
   --codex-panel-panel-gap: var(--size-2-1, 2px);
   --codex-panel-message-indent: calc(var(--size-4-2, 8px) + var(--size-2-1, 2px));
+  --codex-panel-section-label-color: var(--codex-panel-text-faint);
+  --codex-panel-section-label-size: var(--font-ui-smaller);
+  --codex-panel-section-label-weight: var(--font-semibold);
+  --codex-panel-section-label-line-height: var(--codex-panel-compact-line-height);
+  --codex-panel-section-label-padding: 0 var(--size-4-2, 8px) var(--size-2-2, 4px);
+  --codex-panel-section-label-block-padding: var(--size-2-3, 6px) var(--size-4-2, 8px) var(--size-2-1, 2px);
+  --codex-panel-role-label-color: var(--codex-panel-text-faint);
+  --codex-panel-role-label-size: var(--font-ui-smaller);
+  --codex-panel-role-label-weight: var(--font-semibold);
+  --codex-panel-item-title-color: var(--codex-panel-text-normal);
+  --codex-panel-item-title-size: var(--font-ui-small);
+  --codex-panel-item-title-weight: var(--font-semibold);
+  --codex-panel-secondary-label-size: var(--font-ui-smaller);
+  --codex-panel-secondary-label-weight: var(--font-medium);
   --codex-panel-card-radius: var(--radius-s);
   --codex-panel-control-radius: var(--clickable-icon-radius, var(--codex-panel-card-radius));
   --codex-panel-code-radius: var(--codex-panel-card-radius);
+  --codex-panel-rail-width: 2px;
+  --codex-panel-rail: var(--codex-panel-rail-width) solid var(--codex-panel-border-color);
+  --codex-panel-rail-transparent: var(--codex-panel-rail-width) solid transparent;
   --codex-panel-border: var(--border-width, 1px) solid var(--codex-panel-border-color);
   --codex-panel-divider: 1px solid var(--codex-panel-border-color);
-  --codex-panel-divider-muted: 1px solid var(--background-modifier-border-hover);
+  --codex-panel-divider-muted: 1px solid var(--codex-panel-border-muted-color);
 }
 
 .codex-panel {
@@ -391,17 +413,17 @@
   height: var(--codex-panel-status-dot-size);
   border-radius: 999px;
   background: var(--codex-panel-text-faint);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--codex-panel-text-faint) 12%, transparent);
+  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-faint);
 }
 
 .codex-panel__status-dot--connected::before {
   background: var(--codex-panel-color-success);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--codex-panel-color-success) 12%, transparent);
+  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-success);
 }
 
 .codex-panel__status-dot--running::before {
   background: var(--codex-panel-color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--codex-panel-color-accent) 14%, transparent);
+  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-accent);
 }
 
 .codex-panel__status-dot-diagnostic {
@@ -498,11 +520,11 @@
 }
 
 .codex-panel__limit-panel-title {
-  padding: 0 8px 4px;
-  color: var(--codex-panel-text-faint);
-  font-size: var(--font-ui-smaller);
-  font-weight: var(--font-semibold);
-  line-height: var(--line-height-tight);
+  padding: var(--codex-panel-section-label-padding);
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
 }
 
 .codex-panel__limit-panel-list {
@@ -525,9 +547,9 @@
 .codex-panel__limit-panel-value,
 .codex-panel__limit-panel-reset {
   min-width: 0;
-  color: var(--text-muted);
+  color: var(--codex-panel-text-muted);
   font-size: var(--font-ui-smaller);
-  line-height: var(--line-height-tight);
+  line-height: var(--codex-panel-compact-line-height);
   cursor: text;
   user-select: text;
 }
@@ -538,7 +560,7 @@
 }
 
 .codex-panel__limit-panel-reset {
-  color: var(--text-faint);
+  color: var(--codex-panel-text-faint);
 }
 
 .codex-panel__limit-panel-meter {
@@ -579,19 +601,19 @@
 }
 
 .codex-panel__connection-diagnostics-title {
-  padding: 0 8px 4px;
-  color: var(--text-faint);
-  font-size: var(--font-ui-smaller);
-  font-weight: var(--font-semibold);
-  line-height: var(--line-height-tight);
+  padding: var(--codex-panel-section-label-padding);
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
 }
 
 .codex-panel__connection-diagnostics-section {
-  padding: 6px 8px 2px;
-  color: var(--text-faint);
-  font-size: var(--font-ui-smaller);
-  font-weight: var(--font-semibold);
-  line-height: var(--line-height-tight);
+  padding: var(--codex-panel-section-label-block-padding);
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
 }
 
 .codex-panel__connection-diagnostics-title + .codex-panel__connection-diagnostics-section {
@@ -620,12 +642,12 @@
 }
 
 .codex-panel__connection-diagnostics-row dt {
-  color: var(--text-faint);
+  color: var(--codex-panel-text-faint);
   overflow-wrap: anywhere;
 }
 
 .codex-panel__connection-diagnostics-row dd {
-  color: var(--text-muted);
+  color: var(--codex-panel-text-muted);
   overflow-wrap: anywhere;
   cursor: text;
   user-select: text;
@@ -633,11 +655,11 @@
 }
 
 .codex-panel__connection-diagnostics-row--warning dd {
-  color: var(--text-warning);
+  color: var(--codex-panel-color-warning);
 }
 
 .codex-panel__connection-diagnostics-row--error dd {
-  color: var(--text-error);
+  color: var(--codex-panel-color-danger);
 }
 
 .codex-panel__body {
@@ -675,11 +697,11 @@
 }
 
 .codex-panel__toolbar-panel .codex-panel__config-title {
-  padding: 0 8px 4px;
-  color: var(--codex-panel-text-faint);
-  font-size: var(--font-ui-smaller);
-  font-weight: var(--font-semibold);
-  line-height: var(--line-height-tight);
+  padding: var(--codex-panel-section-label-padding);
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
 }
 
 .codex-panel__toolbar-panel .codex-panel__config-list {
@@ -691,12 +713,12 @@
 }
 
 .codex-panel__toolbar-panel .codex-panel__config-section {
-  padding: 6px 8px 2px;
+  padding: var(--codex-panel-section-label-block-padding);
   border-top: 0;
-  color: var(--codex-panel-text-faint);
-  font-size: var(--font-ui-smaller);
-  font-weight: var(--font-semibold);
-  line-height: var(--line-height-tight);
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
 }
 
 .codex-panel__toolbar-panel .codex-panel__config-section:first-child {
@@ -714,7 +736,7 @@
 .codex-panel__toolbar-panel .codex-panel__config-row dt,
 .codex-panel__toolbar-panel .codex-panel__config-row dd {
   font-size: var(--font-ui-smaller);
-  line-height: var(--line-height-tight);
+  line-height: var(--codex-panel-compact-line-height);
   cursor: text;
   user-select: text;
 }
@@ -756,12 +778,12 @@
 }
 
 .codex-panel__config-section {
-  padding: 7px 8px 4px;
+  padding: var(--codex-panel-section-label-block-padding);
   border-top: var(--codex-panel-divider-muted);
-  color: var(--codex-panel-text-faint);
-  font-size: var(--font-ui-smaller);
-  font-weight: var(--font-semibold);
-  line-height: var(--line-height-tight);
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
 }
 
 .codex-panel__config-section:first-child {
@@ -773,7 +795,7 @@
   margin: 0;
   min-width: 0;
   font-size: var(--font-ui-smaller);
-  line-height: var(--line-height-tight);
+  line-height: var(--codex-panel-compact-line-height);
 }
 
 .codex-panel__config-row dt {
@@ -899,7 +921,7 @@
 .codex-panel__message {
   margin-bottom: 12px;
   padding-left: var(--codex-panel-message-indent);
-  border-left: 2px solid transparent;
+  border-left: var(--codex-panel-rail-transparent);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: text;
@@ -910,9 +932,9 @@
   align-items: center;
   gap: var(--codex-panel-item-gap);
   margin-bottom: 4px;
-  color: var(--text-faint);
-  font-size: var(--font-ui-smaller);
-  font-weight: 600;
+  color: var(--codex-panel-role-label-color);
+  font-size: var(--codex-panel-role-label-size);
+  font-weight: var(--codex-panel-role-label-weight);
 }
 
 .codex-panel__message-action {
@@ -928,15 +950,15 @@
 }
 
 .codex-panel__message--user {
-  border-left-color: var(--interactive-accent);
+  border-left-color: var(--codex-panel-color-accent);
 }
 
 .codex-panel__message--user .codex-panel__message-role {
-  color: var(--interactive-accent);
+  color: var(--codex-panel-color-accent);
 }
 
 .codex-panel__message--assistant {
-  border-left-color: var(--background-modifier-border);
+  border-left-color: var(--codex-panel-border-color);
 }
 
 .codex-panel__message--system,
@@ -947,14 +969,14 @@
 
 .codex-panel__message--system {
   margin-bottom: 8px;
-  border-left-color: var(--background-modifier-border);
+  border-left-color: var(--codex-panel-border-color);
   font-family: var(--font-interface);
   line-height: var(--line-height-tight);
 }
 
 .codex-panel__message--system .codex-panel__message-role {
-  font-size: var(--font-ui-smaller);
-  font-weight: 500;
+  font-size: var(--codex-panel-secondary-label-size);
+  font-weight: var(--codex-panel-secondary-label-weight);
 }
 
 .codex-panel__message--system .codex-panel__message-content {
@@ -974,33 +996,33 @@
 }
 
 .codex-panel__message--review-result {
-  border-left-color: var(--text-warning);
+  border-left-color: var(--codex-panel-color-warning);
 }
 
 .codex-panel__message--review-result .codex-panel__message-role {
-  color: var(--text-warning);
+  color: var(--codex-panel-color-warning);
 }
 
 .codex-panel__message--approval-result.codex-panel__execution--completed .codex-panel__message-role {
-  color: var(--text-success);
+  color: var(--codex-panel-color-success);
 }
 
 .codex-panel__message--approval-result.codex-panel__execution--failed .codex-panel__message-role {
-  color: var(--text-error);
+  color: var(--codex-panel-color-danger);
 }
 
 .codex-panel__message--user-input-result {
-  border-left-color: var(--interactive-accent);
+  border-left-color: var(--codex-panel-color-accent);
 }
 
 .codex-panel__message--user-input-result .codex-panel__message-role {
-  color: var(--interactive-accent);
+  color: var(--codex-panel-color-accent);
 }
 
 .codex-panel__activity-group {
   margin: 0 0 12px;
   padding-left: var(--codex-panel-message-indent);
-  border-left: 2px solid var(--background-modifier-border);
+  border-left: var(--codex-panel-rail);
   color: var(--text-muted);
   font-size: var(--font-ui-small);
 }
@@ -1067,7 +1089,7 @@
   bottom: 0;
   left: 0;
   height: 72px;
-  background: linear-gradient(to bottom, transparent, var(--background-primary));
+  background: linear-gradient(to bottom, transparent, var(--codex-panel-surface));
   pointer-events: none;
 }
 
@@ -1150,7 +1172,7 @@
 .codex-panel__reasoning {
   margin: 0 0 10px;
   padding-left: var(--codex-panel-message-indent);
-  border-left: 2px solid var(--background-modifier-border);
+  border-left: var(--codex-panel-rail);
   color: var(--text-muted);
   font-size: var(--font-ui-small);
   white-space: pre-wrap;
@@ -1161,9 +1183,9 @@
 
 .codex-panel__reasoning-role {
   margin-bottom: 3px;
-  color: var(--text-faint);
-  font-size: var(--font-ui-smaller);
-  font-weight: 600;
+  color: var(--codex-panel-role-label-color);
+  font-size: var(--codex-panel-role-label-size);
+  font-weight: var(--codex-panel-role-label-weight);
 }
 
 .codex-panel__reasoning-content {
@@ -1207,23 +1229,23 @@
   margin-bottom: 8px;
   padding-left: var(--codex-panel-message-indent);
   border: 0;
-  border-left: 2px solid var(--background-modifier-border);
+  border-left: var(--codex-panel-rail);
   border-radius: 0;
   background: transparent;
 }
 
 .codex-panel__work-message .codex-panel__message-role,
 .codex-panel__activity-group > summary {
-  font-size: var(--font-ui-smaller);
-  font-weight: 500;
+  font-size: var(--codex-panel-secondary-label-size);
+  font-weight: var(--codex-panel-secondary-label-weight);
 }
 
 .codex-panel__work-message--warning {
-  border-left: 2px solid var(--text-warning);
+  border-left-color: var(--codex-panel-color-warning);
 }
 
 .codex-panel__work-message--warning > .codex-panel__message-role {
-  color: var(--text-warning);
+  color: var(--codex-panel-color-warning);
 }
 
 .codex-panel__pending-request-message {
@@ -1247,7 +1269,7 @@
 
 .codex-panel__pending-request-card.setting-item + .codex-panel__pending-request-card.setting-item {
   padding-top: var(--codex-panel-item-gap);
-  border-top: 1px solid var(--background-modifier-border-hover);
+  border-top: 1px solid var(--codex-panel-border-muted-color);
 }
 
 .codex-panel__pending-request-info.setting-item-info {
@@ -1290,7 +1312,7 @@
   margin-bottom: 8px;
   padding-left: var(--codex-panel-message-indent);
   border: 0;
-  border-left: 2px solid var(--background-modifier-border);
+  border-left: var(--codex-panel-rail);
   border-radius: 0;
   background: transparent;
 }
@@ -1298,20 +1320,20 @@
 .codex-panel__tool-item .codex-panel__message-role,
 .codex-panel__file-change .codex-panel__message-role,
 .codex-panel__activity-group > summary {
-  font-size: var(--font-ui-smaller);
-  font-weight: 500;
+  font-size: var(--codex-panel-secondary-label-size);
+  font-weight: var(--codex-panel-secondary-label-weight);
 }
 
 .codex-panel__execution--running {
-  border-left-color: var(--interactive-accent);
+  border-left-color: var(--codex-panel-color-accent);
 }
 
 .codex-panel__execution--completed {
-  border-left-color: var(--text-success);
+  border-left-color: var(--codex-panel-color-success);
 }
 
 .codex-panel__execution--failed {
-  border-left-color: var(--text-error);
+  border-left-color: var(--codex-panel-color-danger);
 }
 
 .codex-panel__tool-item--hook:not(.codex-panel__execution) {
@@ -1616,7 +1638,7 @@
   margin: 0;
   padding: var(--size-2-3, 6px) var(--size-4-2, 8px);
   overflow: auto;
-  border-left: 2px solid var(--codex-panel-border-color);
+  border-left: var(--codex-panel-rail);
   color: var(--codex-panel-text-muted);
   font-family: var(--font-monospace);
   font-size: var(--font-smaller);
@@ -1666,9 +1688,9 @@
 }
 
 .codex-panel__user-input-header {
-  color: var(--text-normal);
-  font-size: var(--font-ui-small);
-  font-weight: 600;
+  color: var(--codex-panel-item-title-color);
+  font-size: var(--codex-panel-item-title-size);
+  font-weight: var(--codex-panel-item-title-weight);
 }
 
 .codex-panel__user-input-prompt {
@@ -1783,9 +1805,9 @@
 }
 
 .codex-panel__suggestion-label {
-  color: var(--text-normal);
-  font-size: var(--font-ui-small);
-  font-weight: 600;
+  color: var(--codex-panel-item-title-color);
+  font-size: var(--codex-panel-item-title-size);
+  font-weight: var(--codex-panel-item-title-weight);
 }
 
 .codex-panel__suggestion-detail {
