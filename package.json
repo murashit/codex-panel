@@ -23,7 +23,7 @@
     "api:baseline:check": "node scripts/report-api-baseline.mjs --check",
     "generate:app-server-types": "node scripts/clean-generated-types.mjs && codex app-server generate-ts --experimental --out src/generated/app-server && node scripts/normalize-generated-types.mjs",
     "lint": "npm run lint:ts && npm run lint:css",
-    "lint:css": "stylelint \"*.css\" \"src/**/*.css\"",
+    "lint:css": "stylelint \"*.css\" \"src/**/*.css\" --max-warnings=0",
     "lint:ts": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0",
     "release:check": "node scripts/check-release.mjs",
     "release:preflight": "node scripts/preflight-release.mjs",
