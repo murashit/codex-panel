@@ -162,15 +162,12 @@
 }
 
 .codex-panel__runtime-area {
+  flex: 0 1 auto;
   min-width: 0;
 }
 
 .codex-panel__auto-review-toggle {
   flex: 0 0 auto;
-}
-
-.codex-panel__runtime-area {
-  flex: 0 1 auto;
 }
 
 .codex-panel__runtime-strip {
@@ -1790,7 +1787,7 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--codex-panel-panel-gap);
   width: 100%;
-  line-height: 1.3;
+  line-height: var(--codex-panel-compact-line-height);
   text-align: left;
 }
 
