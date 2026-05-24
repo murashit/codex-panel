@@ -54,7 +54,9 @@ export default class CodexPanelPlugin extends Plugin {
       active: true,
       reveal: true,
     });
-    return leaf.view as CodexChatView;
+    const view = leaf.view as CodexChatView;
+    await view.connect();
+    return view;
   }
 
   async activateNewView(): Promise<CodexChatView> {
@@ -63,7 +65,9 @@ export default class CodexPanelPlugin extends Plugin {
 
     await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
     await this.app.workspace.revealLeaf(leaf);
-    return leaf.view as CodexChatView;
+    const view = leaf.view as CodexChatView;
+    await view.connect();
+    return view;
   }
 
   async openThreadInNewView(threadId: string): Promise<CodexChatView> {

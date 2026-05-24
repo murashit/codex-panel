@@ -44,6 +44,29 @@ export class Notice {
   }
 }
 
+export class ItemView {
+  readonly app: App;
+  readonly containerEl: HTMLElement;
+
+  constructor(readonly leaf: { app?: App; containerEl?: HTMLElement }) {
+    ensureElementHelpers();
+    this.app = leaf.app ?? {};
+    this.containerEl = leaf.containerEl ?? document.createElement("div");
+  }
+
+  registerDomEvent<K extends keyof DocumentEventMap>(element: Document, type: K, callback: (event: DocumentEventMap[K]) => void): void {
+    element.addEventListener(type, callback);
+  }
+
+  registerEvent(_eventRef: unknown): void {
+    // Test mock placeholder.
+  }
+}
+
+export class MarkdownView {
+  file: TFile | null = null;
+}
+
 export class PluginSettingTab {
   containerEl: HTMLElement;
 

@@ -95,7 +95,11 @@ export class CodexChatView extends ItemView {
   private configSlotEl: HTMLElement | null = null;
   private messagesSlotEl: HTMLElement | null = null;
   private composerSlotEl: HTMLElement | null = null;
+  private scheduledConnectionTimer: number | null = null;
   private scheduledRenderTimer: number | null = null;
+  private scheduledDiagnosticsTimer: number | null = null;
+  private connectingPromise: Promise<void> | null = null;
+  private connectionGeneration = 0;
   private toolbarSignature: string | null = null;
   private forceScrollMessagesToBottomOnNextRender = false;
 
@@ -245,14 +249,18 @@ export class CodexChatView extends ItemView {
       this.closeToolbarPanelOnOutsidePointer(event);
     });
     this.render();
-    await this.ensureConnected();
+    this.scheduleDeferredConnection();
   }
 
   override async onClose(): Promise<void> {
+    this.connectionGeneration += 1;
+    this.connectingPromise = null;
+    this.clearDeferredConnection();
     if (this.scheduledRenderTimer !== null) {
       this.containerEl.win.clearTimeout(this.scheduledRenderTimer);
       this.scheduledRenderTimer = null;
     }
+    this.clearDeferredDiagnostics();
     this.connection.disconnect();
     this.client = null;
   }
@@ -261,29 +269,58 @@ export class CodexChatView extends ItemView {
     this.composerController.setDraft(text, { focus: true, renderIfDetached: true });
   }
 
+  async connect(): Promise<void> {
+    this.clearDeferredConnection();
+    await this.ensureConnected();
+  }
+
   private async ensureConnected(): Promise<void> {
     if (this.connection.isConnected()) {
       this.client = this.connection.currentClient();
       return;
     }
+    if (this.connectingPromise) return this.connectingPromise;
 
+    const generation = this.connectionGeneration;
+    const promise = this.initializeConnection(generation);
+    this.connectingPromise = promise;
+    try {
+      await promise;
+    } finally {
+      if (this.connectingPromise === promise) {
+        this.connectingPromise = null;
+      }
+    }
+  }
+
+  private async initializeConnection(generation: number): Promise<void> {
     this.setStatus("Starting Codex app-server...");
     try {
       this.state.initializeResponse = await this.connection.connect();
+      if (this.isStaleConnectionGeneration(generation)) return;
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
       await this.session.refreshSessionMetadata();
-      await this.session.refreshCapabilityDiagnostics();
+      if (this.isStaleConnectionGeneration(generation)) return;
       await this.session.refreshThreadList();
+      if (this.isStaleConnectionGeneration(generation)) return;
+      this.scheduleDeferredDiagnostics();
       this.refreshTabHeader();
       this.setStatus("Connected.");
     } catch (error) {
+      if (this.isStaleConnectionGeneration(generation)) return;
       if (error instanceof StaleConnectionError) return;
       this.setStatus("Connection failed.");
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
       new Notice("Codex app-server connection failed.");
     }
-    this.scheduleRender();
+    if (!this.isStaleConnectionGeneration(generation)) {
+      this.scheduleRender();
+    }
+  }
+
+  private isStaleConnectionGeneration(generation: number): boolean {
+    return generation !== this.connectionGeneration;
   }
 
   async startNewThread(): Promise<void> {
@@ -321,10 +358,11 @@ export class CodexChatView extends ItemView {
   }
 
   private async refreshDiagnostics(): Promise<void> {
-    const alreadyConnected = this.connection.isConnected();
+    this.clearDeferredDiagnostics();
     await this.ensureConnected();
     if (!this.client) return;
-    if (alreadyConnected) await this.session.refreshCapabilityDiagnostics();
+    this.clearDeferredDiagnostics();
+    await this.session.refreshCapabilityDiagnostics();
     this.render();
   }
 
@@ -916,6 +954,10 @@ export class CodexChatView extends ItemView {
   private async reconnectFromToolbar(): Promise<void> {
     const threadId = this.state.activeThreadId;
     this.state.openDetails.delete("status-panel");
+    this.connectionGeneration += 1;
+    this.connectingPromise = null;
+    this.clearDeferredConnection();
+    this.clearDeferredDiagnostics();
     this.connection.reconnect();
     this.client = null;
     this.state.busy = false;
@@ -1011,6 +1053,40 @@ export class CodexChatView extends ItemView {
       this.scheduledRenderTimer = null;
       this.render();
     }, 50);
+  }
+
+  private scheduleDeferredConnection(): void {
+    if (this.scheduledConnectionTimer !== null || this.connection.isConnected()) return;
+    this.scheduledConnectionTimer = this.containerEl.win.setTimeout(() => {
+      this.scheduledConnectionTimer = null;
+      void this.ensureConnected();
+    }, 1_500);
+  }
+
+  private clearDeferredConnection(): void {
+    if (this.scheduledConnectionTimer === null) return;
+    this.containerEl.win.clearTimeout(this.scheduledConnectionTimer);
+    this.scheduledConnectionTimer = null;
+  }
+
+  private scheduleDeferredDiagnostics(): void {
+    if (this.scheduledDiagnosticsTimer !== null) return;
+    this.scheduledDiagnosticsTimer = this.containerEl.win.setTimeout(() => {
+      this.scheduledDiagnosticsTimer = null;
+      void this.refreshDeferredDiagnostics();
+    }, 1_000);
+  }
+
+  private clearDeferredDiagnostics(): void {
+    if (this.scheduledDiagnosticsTimer === null) return;
+    this.containerEl.win.clearTimeout(this.scheduledDiagnosticsTimer);
+    this.scheduledDiagnosticsTimer = null;
+  }
+
+  private async refreshDeferredDiagnostics(): Promise<void> {
+    if (!this.connection.isConnected()) return;
+    await this.session.refreshCapabilityDiagnostics({ cachedSessionMetadata: true });
+    this.render();
   }
 
   private renderShell(root: HTMLElement): void {

@@ -18,6 +18,10 @@ export interface ChatSessionControllerHost {
   forceMessagesToBottom: () => void;
 }
 
+export interface RefreshCapabilityDiagnosticsOptions {
+  cachedSessionMetadata?: boolean;
+}
+
 export class ChatSessionController {
   constructor(private readonly host: ChatSessionControllerHost) {}
 
@@ -33,9 +37,7 @@ export class ChatSessionController {
     const client = this.host.currentClient();
     if (!client) return;
     this.host.state.effectiveConfig = await client.readEffectiveConfig(this.host.vaultPath);
-    await this.refreshModels();
-    await this.refreshSkills();
-    await this.refreshRateLimits();
+    await Promise.all([this.refreshModels(), this.refreshSkills(), this.refreshRateLimits()]);
   }
 
   async startThread(): Promise<Awaited<ReturnType<AppServerClient["startThread"]>> | null> {
@@ -64,8 +66,10 @@ export class ChatSessionController {
     try {
       const response = await client.listModels(false);
       this.host.state.availableModels = response.data;
-    } catch {
+      this.host.state.appServerDiagnostics.probes["model/list"] = capabilityProbeOk("model/list", `${String(response.data.length)} models`);
+    } catch (error) {
       this.host.state.availableModels = [];
+      this.host.state.appServerDiagnostics.probes["model/list"] = capabilityProbeError("model/list", error);
     }
   }
 
@@ -75,8 +79,11 @@ export class ChatSessionController {
     try {
       const response = await client.listSkills(this.host.vaultPath, forceReload);
       this.host.state.availableSkills = response.data.flatMap((entry) => entry.skills).filter((skill) => skill.enabled);
-    } catch {
+      const count = response.data.reduce((total, entry) => total + entry.skills.length, 0);
+      this.host.state.appServerDiagnostics.probes["skills/list"] = capabilityProbeOk("skills/list", `${String(count)} skills`);
+    } catch (error) {
       this.host.state.availableSkills = [];
+      this.host.state.appServerDiagnostics.probes["skills/list"] = capabilityProbeError("skills/list", error);
     }
   }
 
@@ -88,29 +95,45 @@ export class ChatSessionController {
       const rateLimitsByLimitId = response.rateLimitsByLimitId;
       const codexRateLimit = rateLimitsByLimitId && Object.hasOwn(rateLimitsByLimitId, "codex") ? rateLimitsByLimitId["codex"] : undefined;
       this.host.state.rateLimit = codexRateLimit ?? response.rateLimits;
-    } catch {
+      this.host.state.appServerDiagnostics.probes["account/rateLimits/read"] = capabilityProbeOk(
+        "account/rateLimits/read",
+        response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available",
+      );
+    } catch (error) {
       this.host.state.rateLimit = null;
+      this.host.state.appServerDiagnostics.probes["account/rateLimits/read"] = capabilityProbeError("account/rateLimits/read", error);
     }
   }
 
-  async refreshCapabilityDiagnostics(): Promise<void> {
+  async refreshCapabilityDiagnostics(options: RefreshCapabilityDiagnosticsOptions = {}): Promise<void> {
     const client = this.host.currentClient();
     if (!client) return;
 
-    await Promise.all([
-      this.probeCapability(
-        "model/list",
-        () => client.listModels(false),
-        (response) => `${String(response.data.length)} models`,
-      ),
-      this.probeCapability(
-        "skills/list",
-        () => client.listSkills(this.host.vaultPath),
-        (response) => {
-          const count = response.data.reduce((total, entry) => total + entry.skills.length, 0);
-          return `${String(count)} skills`;
-        },
-      ),
+    const probes: Promise<void>[] = [];
+    if (!options.cachedSessionMetadata) {
+      probes.push(
+        this.probeCapability(
+          "model/list",
+          () => client.listModels(false),
+          (response) => `${String(response.data.length)} models`,
+        ),
+        this.probeCapability(
+          "skills/list",
+          () => client.listSkills(this.host.vaultPath),
+          (response) => {
+            const count = response.data.reduce((total, entry) => total + entry.skills.length, 0);
+            return `${String(count)} skills`;
+          },
+        ),
+        this.probeCapability(
+          "account/rateLimits/read",
+          () => client.readAccountRateLimits(),
+          (response) => (response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available"),
+        ),
+      );
+    }
+
+    probes.push(
       this.probeCapability(
         "hooks/list",
         () => client.listHooks(this.host.vaultPath),
@@ -118,11 +141,6 @@ export class ChatSessionController {
           const count = response.data.reduce((total, entry) => total + entry.hooks.length, 0);
           return `${String(count)} hooks`;
         },
-      ),
-      this.probeCapability(
-        "account/rateLimits/read",
-        () => client.readAccountRateLimits(),
-        (response) => (response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available"),
       ),
       this.probeCapability(
         "mcpServerStatus/list",
@@ -152,7 +170,9 @@ export class ChatSessionController {
             .filter(Boolean)
             .join(", ") || "no optional capabilities",
       ),
-    ]);
+    );
+
+    await Promise.all(probes);
   }
 
   recordMcpStartupStatus(name: string, startupStatus: "starting" | "ready" | "failed" | "cancelled", message: string | null): void {
