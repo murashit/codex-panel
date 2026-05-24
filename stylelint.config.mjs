@@ -39,6 +39,16 @@ export default {
         severity: "warning",
       },
     ],
+    "declaration-property-unit-disallowed-list": [
+      {
+        "/^(?:border(?:-(?:block|inline|top|right|bottom|left))?-width|border-radius|bottom|column-gap|gap|height|inset|inset-(?:block|inline)|left|margin|margin-(?:block|inline|top|right|bottom|left)|max-height|max-width|min-height|min-width|padding|padding-(?:block|inline|top|right|bottom|left)|right|row-gap|top|width)$/":
+          ["em", "px", "rem"],
+      },
+      {
+        message: "Prefer Obsidian or Codex Panel spacing/size tokens for layout dimensions.",
+        severity: "warning",
+      },
+    ],
     "function-disallowed-list": [
       ["rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch"],
       {
@@ -65,7 +75,26 @@ export default {
         severity: "warning",
       },
     ],
+    "selector-max-specificity": [
+      "0,4,0",
+      {
+        severity: "warning",
+      },
+    ],
+    "selector-max-type": [
+      0,
+      {
+        ignoreTypes: ["dd", "dt", "pre", "span", "summary", "svg", "ul"],
+        severity: "warning",
+      },
+    ],
     "selector-max-id": [
+      0,
+      {
+        severity: "warning",
+      },
+    ],
+    "selector-max-universal": [
       0,
       {
         severity: "warning",
