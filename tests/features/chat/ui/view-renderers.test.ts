@@ -1864,7 +1864,7 @@ describe("toolbar renderer decisions", () => {
 
     const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
     if (!input) throw new Error("Missing thread rename input");
-    expect(parent.querySelector(".codex-panel__thread-rename-spacer")).not.toBeNull();
+    expect(input.closest(".codex-panel__thread-rename")?.querySelector(".codex-panel__toolbar-panel-check")).not.toBeNull();
     expect(input.value).toBe("Draft title");
     input.value = "New title";
     input.dispatchEvent(new Event("input", { bubbles: true }));

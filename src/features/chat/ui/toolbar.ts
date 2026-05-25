@@ -368,34 +368,37 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
 }
 
 function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, actions: ToolbarActions): void {
-  const form = parent.createDiv({ cls: "menu-item codex-panel__toolbar-panel-item codex-panel__thread codex-panel__thread-rename" });
-  form.createSpan({
-    cls: "codex-panel__toolbar-panel-check codex-panel__thread-rename-spacer",
-    attr: { "aria-hidden": "true" },
-  });
-  const field = form.createDiv({ cls: "codex-panel__thread-rename-field" });
-  const input = field.createEl("input", {
-    cls: "codex-panel__thread-rename-input",
-    attr: {
-      type: "text",
-      value: thread.rename?.draft ?? thread.title,
-      "aria-label": `Rename ${thread.title}`,
+  let input!: HTMLInputElement;
+  createToolbarPanelRow(parent, thread.title, {
+    className: "codex-panel__thread codex-panel__thread-rename",
+    interactive: false,
+    title: `Rename ${thread.title}`,
+    renderContent: (row) => {
+      const field = row.createDiv({ cls: "codex-panel__thread-rename-field" });
+      input = field.createEl("input", {
+        cls: "codex-panel__thread-rename-input",
+        attr: {
+          type: "text",
+          value: thread.rename?.draft ?? thread.title,
+          "aria-label": `Rename ${thread.title}`,
+        },
+      });
+      input.oninput = () => {
+        actions.updateRenameDraft(thread.threadId, input.value);
+      };
+      input.onkeydown = (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          if (!event.isComposing && !(thread.rename?.generating ?? false)) actions.saveRenameThread(thread.threadId, input.value);
+          return;
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          actions.cancelRenameThread(thread.threadId);
+        }
+      };
     },
   });
-  input.oninput = () => {
-    actions.updateRenameDraft(thread.threadId, input.value);
-  };
-  input.onkeydown = (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      if (!event.isComposing && !(thread.rename?.generating ?? false)) actions.saveRenameThread(thread.threadId, input.value);
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      actions.cancelRenameThread(thread.threadId);
-    }
-  };
   input.win.setTimeout(() => {
     if (input.ownerDocument.activeElement !== input) {
       input.focus();
@@ -436,33 +439,43 @@ function createToolbarPanelRow(
     title?: string;
     meta?: string;
     className?: string;
+    interactive?: boolean;
+    renderContent?: (parent: HTMLElement) => void;
     onClick?: () => void;
   } = {},
 ): HTMLElement {
   const selected = Boolean(options.selected);
   const disabled = Boolean(options.disabled);
+  const interactive = options.interactive ?? true;
+  const attr: Record<string, string> = { title: options.title ?? label };
+  if (interactive) {
+    attr["role"] = "button";
+    attr["tabindex"] = disabled ? "-1" : "0";
+    attr["aria-disabled"] = disabled ? "true" : "false";
+    attr["aria-selected"] = selected ? "true" : "false";
+  }
   const item = parent.createDiv({
     cls: ["codex-panel__toolbar-panel-item", options.className ?? "", selected ? "is-checked" : "", disabled ? "is-disabled" : ""]
       .filter(Boolean)
       .join(" "),
-    attr: {
-      role: "button",
-      tabindex: disabled ? "-1" : "0",
-      title: options.title ?? label,
-      "aria-disabled": disabled ? "true" : "false",
-      "aria-selected": selected ? "true" : "false",
-    },
+    attr,
   });
-  item.onclick = () => {
-    if (!disabled) options.onClick?.();
-  };
-  item.onkeydown = (event) => {
-    if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
-    event.preventDefault();
-    options.onClick?.();
-  };
+  if (interactive) {
+    item.onclick = () => {
+      if (!disabled) options.onClick?.();
+    };
+    item.onkeydown = (event) => {
+      if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      options.onClick?.();
+    };
+  }
   const check = item.createSpan({ cls: "codex-panel__toolbar-panel-check" });
   if (selected) setIcon(check, "check");
+  if (options.renderContent) {
+    options.renderContent(item);
+    return item;
+  }
   item.createSpan({ cls: "codex-panel__toolbar-panel-label", text: label });
   if (options.meta) item.createSpan({ cls: "codex-panel__toolbar-panel-meta", text: options.meta });
   return item;

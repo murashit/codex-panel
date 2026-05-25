@@ -1139,7 +1139,7 @@
   background: transparent;
 }
 
-.codex-panel .menu-item.codex-panel__thread-rename {
+.codex-panel__thread-rename {
   position: relative;
   box-sizing: border-box;
   min-height: var(--codex-panel-size-nav-item);
@@ -1147,7 +1147,7 @@
   cursor: text;
 }
 
-.codex-panel .menu-item.codex-panel__thread-rename::before {
+.codex-panel__thread-rename::before {
   position: absolute;
   top: 0;
   right: 0;
@@ -1156,10 +1156,6 @@
   border-radius: var(--radius-s);
   background: var(--background-modifier-hover);
   content: "";
-}
-
-.codex-panel__thread-rename-spacer {
-  align-self: center;
 }
 
 .codex-panel__thread-rename-field {
