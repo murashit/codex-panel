@@ -13,6 +13,25 @@ import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./fe
 const BOOT_RESTORED_PANEL_LOAD_DELAY_MS = 1_000;
 const BOOT_RESTORED_PANEL_LOAD_STAGGER_MS = 250;
 
+type ThreadPanelTarget =
+  | {
+      kind: "open";
+      leaf: WorkspaceLeaf;
+      view: CodexChatView;
+    }
+  | {
+      kind: "restored";
+      leaf: WorkspaceLeaf;
+    }
+  | {
+      kind: "empty";
+      leaf: WorkspaceLeaf;
+      view: CodexChatView;
+    }
+  | {
+      kind: "new";
+    };
+
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
   vaultPath = "";
@@ -84,32 +103,42 @@ export default class CodexPanelPlugin extends Plugin {
     return view;
   }
 
-  async activateNewView(): Promise<CodexChatView> {
+  async activateNewView(options: { connect?: boolean } = {}): Promise<CodexChatView> {
     const leaf = this.createRightSidebarTab();
     if (!leaf) throw new Error("Could not create a right sidebar leaf.");
 
     await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
     await this.app.workspace.revealLeaf(leaf);
     const view = leaf.view as CodexChatView;
-    await view.connect();
+    if (options.connect !== false) await view.connect();
     return view;
   }
 
   async openThreadInNewView(threadId: string): Promise<CodexChatView> {
-    const view = await this.activateNewView();
+    const view = await this.activateThreadResumeView();
     await view.openThread(threadId);
     return view;
   }
 
+  async openThreadInAvailableView(threadId: string): Promise<void> {
+    const target = this.findThreadPanelTarget(threadId);
+    await this.openThreadInTarget(target, threadId);
+  }
+
+  async focusThreadInOpenView(threadId: string): Promise<boolean> {
+    const target = this.findOpenThreadPanelTarget(threadId) ?? this.findRestoredThreadPanelTarget(threadId);
+    if (!target) return false;
+
+    await this.openThreadInTarget(target, threadId);
+    return true;
+  }
+
   async openThreadInIdleEmptyView(threadId: string): Promise<boolean> {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
-      if (!(leaf.view instanceof CodexChatView)) continue;
-      if (!isIdleEmptyPanelSnapshot(leaf.view.openPanelSnapshot())) continue;
-      await this.app.workspace.revealLeaf(leaf);
-      await leaf.view.openThread(threadId);
-      return true;
-    }
-    return false;
+    const target = this.findIdleEmptyThreadPanelTarget();
+    if (!target) return false;
+
+    await this.openThreadInTarget(target, threadId);
+    return true;
   }
 
   async activateThreadsView(): Promise<CodexThreadsView> {
@@ -170,16 +199,31 @@ export default class CodexPanelPlugin extends Plugin {
     }
   }
 
+  notifyThreadArchived(threadId: string): void {
+    this.notifyOpenPanels((view) => {
+      view.notifyThreadArchived(threadId);
+    });
+    this.refreshThreadSurfaces();
+  }
+
+  notifyThreadRenamed(threadId: string, name: string): void {
+    this.notifyOpenPanels((view) => {
+      view.notifyThreadRenamed(threadId, name);
+    });
+    this.refreshThreadSurfaces();
+  }
+
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[] {
     return this.app.workspace
       .getLeavesOfType(VIEW_TYPE_CODEX_PANEL)
       .flatMap((leaf) => (leaf.view instanceof CodexChatView ? [leaf.view.openPanelSnapshot()] : []));
   }
 
-  async focusOpenPanel(viewId: string): Promise<boolean> {
+  async focusOpenPanel(viewId: string, threadId: string | null = null): Promise<boolean> {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
       if (leaf.view instanceof CodexChatView && leaf.view.openPanelSnapshot().viewId === viewId) {
         await this.app.workspace.revealLeaf(leaf);
+        await leaf.view.focusThread(threadId);
         return true;
       }
     }
@@ -204,6 +248,78 @@ export default class CodexPanelPlugin extends Plugin {
     if (!existing) return workspace.getRightLeaf(false);
 
     return workspace.createLeafInParent(existing.parent, Number.MAX_SAFE_INTEGER);
+  }
+
+  private activateThreadResumeView(): Promise<CodexChatView> {
+    return this.activateNewView({ connect: false });
+  }
+
+  private findThreadPanelTarget(threadId: string): ThreadPanelTarget {
+    return (
+      this.findOpenThreadPanelTarget(threadId) ??
+      this.findRestoredThreadPanelTarget(threadId) ??
+      this.findIdleEmptyThreadPanelTarget() ?? { kind: "new" }
+    );
+  }
+
+  private findOpenThreadPanelTarget(threadId: string): ThreadPanelTarget | null {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (!(leaf.view instanceof CodexChatView)) continue;
+      if (leaf.view.openPanelSnapshot().threadId !== threadId) continue;
+      return { kind: "open", leaf, view: leaf.view };
+    }
+    return null;
+  }
+
+  private findRestoredThreadPanelTarget(threadId: string): ThreadPanelTarget | null {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (leaf.view instanceof CodexChatView) continue;
+      if (restoredPanelThreadId(leaf) !== threadId) continue;
+      return { kind: "restored", leaf };
+    }
+    return null;
+  }
+
+  private findIdleEmptyThreadPanelTarget(): ThreadPanelTarget | null {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (!(leaf.view instanceof CodexChatView)) continue;
+      if (!isIdleEmptyPanelSnapshot(leaf.view.openPanelSnapshot())) continue;
+      return { kind: "empty", leaf, view: leaf.view };
+    }
+    return null;
+  }
+
+  private async openThreadInTarget(target: ThreadPanelTarget, threadId: string): Promise<void> {
+    switch (target.kind) {
+      case "open":
+        await this.app.workspace.revealLeaf(target.leaf);
+        await target.view.focusThread(threadId);
+        return;
+      case "restored":
+        await this.app.workspace.revealLeaf(target.leaf);
+        await target.leaf.loadIfDeferred();
+        if (target.leaf.view instanceof CodexChatView) {
+          await target.leaf.view.focusThread(threadId);
+        }
+        return;
+      case "empty":
+        await this.app.workspace.revealLeaf(target.leaf);
+        await target.view.openThread(threadId);
+        return;
+      case "new":
+        await this.openThreadInNewView(threadId);
+        return;
+    }
+  }
+
+  private notifyOpenPanels(callback: (view: CodexChatView) => void): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (leaf.view instanceof CodexChatView) callback(leaf.view);
+    }
+  }
+
+  private refreshThreadSurfaces(): void {
+    this.refreshOpenThreadLists();
   }
 
   private scheduleBootRestoredPanelLoads(): void {
@@ -245,4 +361,11 @@ function isIdleEmptyPanelSnapshot(snapshot: OpenCodexPanelSnapshot): boolean {
     snapshot.pendingUserInputs === 0 &&
     !snapshot.hasComposerDraft
   );
+}
+
+function restoredPanelThreadId(leaf: WorkspaceLeaf): string | null {
+  const state = leaf.getViewState().state;
+  if (!state || typeof state !== "object") return null;
+  const threadId = (state as { threadId?: unknown }).threadId;
+  return typeof threadId === "string" && threadId.length > 0 ? threadId : null;
 }

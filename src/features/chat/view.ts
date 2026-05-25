@@ -13,6 +13,7 @@ import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { ApprovalsReviewer } from "../../generated/app-server/v2/ApprovalsReviewer";
 import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { ThreadResumeResponse } from "../../generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import {
@@ -69,14 +70,17 @@ import {
 import { renderPendingRequestMessage } from "./ui/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
-import { ChatMessageRenderer } from "./chat-message-renderer";
+import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "./panel-snapshot";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
   openThreadInNewView(threadId: string): Promise<unknown>;
+  openThreadInAvailableView(threadId: string): Promise<void>;
   openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
+  notifyThreadArchived(threadId: string): void;
+  notifyThreadRenamed(threadId: string, name: string): void;
   refreshOpenThreadLists(): void;
   refreshThreadsViewLiveState(): void;
   refreshThreadsViewThreadList(): void;
@@ -103,18 +107,18 @@ export class CodexChatView extends ItemView {
   private configSlotEl: HTMLElement | null = null;
   private messagesSlotEl: HTMLElement | null = null;
   private composerSlotEl: HTMLElement | null = null;
-  private scheduledConnectionTimer: number | null = null;
   private scheduledRestoredThreadHydrationTimer: number | null = null;
   private scheduledRenderTimer: number | null = null;
   private scheduledDiagnosticsTimer: number | null = null;
   private connectingPromise: Promise<void> | null = null;
   private connectionGeneration = 0;
+  private resumeGeneration = 0;
   private restoredThread: RestoredThreadState | null = null;
   private restoredThreadLoading: Promise<void> | null = null;
   private opened = false;
   private closing = false;
   private toolbarSignature: string | null = null;
-  private forceScrollMessagesToBottomOnNextRender = false;
+  private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -127,9 +131,9 @@ export class CodexChatView extends ItemView {
       state: this.state,
       vaultPath: this.plugin.vaultPath,
       blockSignatures: this.blockSignatures,
-      consumeForceScrollToBottom: () => {
-        const value = this.forceScrollMessagesToBottomOnNextRender;
-        this.forceScrollMessagesToBottomOnNextRender = false;
+      consumeScrollIntent: () => {
+        const value = this.nextMessageScrollIntent;
+        this.nextMessageScrollIntent = "auto";
         return value;
       },
       loadOlderTurns: () => void this.history.loadOlder(),
@@ -171,6 +175,7 @@ export class CodexChatView extends ItemView {
         this.render();
       },
       onExit: () => {
+        this.invalidateResumeWork();
         this.setStatus("Codex app-server stopped.");
         clearConnectionScopedState(this.state);
         this.threadRename.resetThreadTurnPresence(false);
@@ -201,7 +206,7 @@ export class CodexChatView extends ItemView {
       currentClient: () => this.connection.currentClient(),
       runtimeSnapshot: () => this.runtimeSnapshot(),
       forceMessagesToBottom: () => {
-        this.forceMessagesToBottom();
+        this.queueMessagesBottomScroll();
       },
     });
     this.history = new ThreadHistoryLoader({
@@ -214,10 +219,10 @@ export class CodexChatView extends ItemView {
         this.addSystemMessage(text);
       },
       forceMessagesToBottom: () => {
-        this.forceMessagesToBottom();
+        this.queueMessagesBottomScroll();
       },
       keepCurrentScrollPosition: () => {
-        this.forceScrollMessagesToBottomOnNextRender = false;
+        this.preserveMessagesScrollPosition();
       },
       setThreadTurnPresence: (hadTurns) => {
         this.threadRename.resetThreadTurnPresence(hadTurns);
@@ -235,6 +240,9 @@ export class CodexChatView extends ItemView {
       },
       addSystemMessage: (text) => {
         this.addSystemMessage(text);
+      },
+      notifyThreadRenamed: (threadId, name) => {
+        this.plugin.notifyThreadRenamed(threadId, name);
       },
     });
   }
@@ -267,6 +275,7 @@ export class CodexChatView extends ItemView {
     await super.setState(state, result);
     const restoredThread = parseRestoredThreadState(state);
     if (!restoredThread) {
+      this.invalidateResumeWork();
       this.restoredThread = null;
       this.clearDeferredRestoredThreadHydration();
       return;
@@ -300,6 +309,40 @@ export class CodexChatView extends ItemView {
     await this.resumeThread(threadId);
   }
 
+  async focusThread(threadId: string | null = null): Promise<void> {
+    if (threadId && this.isRestoredThreadPending(threadId)) {
+      await this.ensureRestoredThreadLoaded();
+    }
+    this.scrollMessagesToBottomOnFocus();
+  }
+
+  notifyThreadArchived(threadId: string): void {
+    if (this.clearArchivedActiveThread(threadId)) {
+      this.render();
+    }
+  }
+
+  notifyThreadRenamed(threadId: string, name: string): void {
+    let changed = false;
+    this.state.listedThreads = this.state.listedThreads.map((thread) => {
+      if (thread.id !== threadId) return thread;
+      changed = true;
+      return { ...thread, name };
+    });
+    if (this.restoredThread?.threadId === threadId && this.restoredThread.title !== name) {
+      this.restoredThread = { ...this.restoredThread, title: name };
+      changed = true;
+    }
+    const activeThreadChanged = this.state.activeThreadId === threadId || this.restoredThread?.threadId === threadId;
+    if (!changed && !activeThreadChanged) return;
+    if (activeThreadChanged) {
+      this.notifyActiveThreadIdentityChanged();
+    } else {
+      this.refreshTabHeader();
+    }
+    this.render();
+  }
+
   override async onOpen(): Promise<void> {
     this.opened = true;
     this.closing = false;
@@ -315,7 +358,6 @@ export class CodexChatView extends ItemView {
       }),
     );
     this.render();
-    this.scheduleDeferredConnection();
     this.scheduleDeferredRestoredThreadHydration();
   }
 
@@ -323,8 +365,8 @@ export class CodexChatView extends ItemView {
     this.opened = false;
     this.closing = true;
     this.connectionGeneration += 1;
+    this.invalidateResumeWork();
     this.connectingPromise = null;
-    this.clearDeferredConnection();
     this.clearDeferredRestoredThreadHydration();
     if (this.scheduledRenderTimer !== null) {
       this.containerEl.win.clearTimeout(this.scheduledRenderTimer);
@@ -344,7 +386,6 @@ export class CodexChatView extends ItemView {
   }
 
   async connect(): Promise<void> {
-    this.clearDeferredConnection();
     await this.ensureConnected();
   }
 
@@ -400,26 +441,17 @@ export class CodexChatView extends ItemView {
   async startNewThread(): Promise<void> {
     if (this.state.busy) return;
 
+    this.invalidateResumeWork();
     this.restoredThread = null;
     this.clearDeferredRestoredThreadHydration();
-    await this.ensureConnected();
-    if (!this.client) return;
-
-    try {
-      const response = await this.session.startThread();
-      if (!response) return;
-      this.threadRename.resetThreadTurnPresence(false);
-      this.state.turnDiffs.clear();
-      this.state.displayItems = [this.systemItem(`Started thread ${response.thread.id}`)];
-      this.forceMessagesToBottom();
-      await this.refreshThreads();
-      this.plugin.refreshThreadsViewThreadList();
-      this.refreshTabHeader();
-      this.requestWorkspaceLayoutSave();
-      this.render();
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
+    clearActiveThreadState(this.state);
+    this.threadRename.resetThreadTurnPresence(false);
+    this.state.openDetails.delete("history");
+    this.setStatus("New chat.");
+    this.queueMessagesBottomScroll();
+    this.plugin.refreshThreadsViewLiveState();
+    this.notifyActiveThreadIdentityChanged();
+    this.render();
   }
 
   private async refreshThreads(): Promise<void> {
@@ -456,38 +488,24 @@ export class CodexChatView extends ItemView {
       this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
+    const resumeGeneration = this.beginResumeWork();
     await this.ensureConnected();
-    if (!this.client) return;
+    if (!this.client || this.isStaleResumeWork(resumeGeneration)) return;
 
     try {
       const response = await this.client.resumeThread(threadId, this.plugin.vaultPath);
-      this.state.activeThreadId = response.thread.id;
-      this.state.activeThreadCwd = response.cwd;
-      this.state.activeTurnId = null;
-      this.state.activeModel = response.model;
-      this.state.activeReasoningEffort = response.reasoningEffort;
-      this.state.activeServiceTier = reportedServiceTier(response.serviceTier);
-      this.state.activeApprovalsReviewer = response.approvalsReviewer;
-      this.state.activeThreadCliVersion = response.thread.cliVersion;
-      this.state.tokenUsage = null;
-      this.state.displayItems = [];
-      this.state.turnDiffs.clear();
-      this.state.historyCursor = null;
-      this.state.listedThreads = upsertThread(this.state.listedThreads, response.thread);
-      this.restoredThread = null;
-      this.clearDeferredRestoredThreadHydration();
-      this.threadRename.resetThreadTurnPresence(false);
-      this.refreshTabHeader();
-      this.requestWorkspaceLayoutSave();
-      this.forceMessagesToBottom();
+      if (this.isStaleResumeWork(resumeGeneration)) return;
+      this.applyResumedThread(response);
       await this.history.loadLatest(response.thread.id);
+      if (this.isStaleResumeWork(resumeGeneration)) return;
       if (this.state.displayItems.length === 0) {
         this.state.displayItems.push(this.systemItem(`Resumed thread ${response.thread.id}`));
-        this.forceMessagesToBottom();
+        this.queueMessagesBottomScroll();
         this.render();
       }
       this.plugin.refreshThreadsViewLiveState();
     } catch (error) {
+      if (this.isStaleResumeWork(resumeGeneration)) return;
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
   }
@@ -502,6 +520,33 @@ export class CodexChatView extends ItemView {
     } else if (typeof leaf.updateDisplay === "function") {
       leaf.updateDisplay();
     }
+  }
+
+  private applyResumedThread(response: ThreadResumeResponse): void {
+    this.state.activeThreadId = response.thread.id;
+    this.state.activeThreadCwd = response.cwd;
+    this.state.activeTurnId = null;
+    this.state.activeModel = response.model;
+    this.state.activeReasoningEffort = response.reasoningEffort;
+    this.state.activeServiceTier = reportedServiceTier(response.serviceTier);
+    this.state.activeApprovalsReviewer = response.approvalsReviewer;
+    this.state.activeThreadCliVersion = response.thread.cliVersion;
+    this.state.tokenUsage = null;
+    this.state.displayItems = [this.systemItem("Loading thread...")];
+    this.state.turnDiffs.clear();
+    this.state.historyCursor = null;
+    this.state.listedThreads = upsertThread(this.state.listedThreads, response.thread);
+    this.restoredThread = null;
+    this.clearDeferredRestoredThreadHydration();
+    this.threadRename.resetThreadTurnPresence(false);
+    this.notifyActiveThreadIdentityChanged();
+    this.render();
+    this.plugin.refreshThreadsViewLiveState();
+  }
+
+  private notifyActiveThreadIdentityChanged(): void {
+    this.refreshTabHeader();
+    this.requestWorkspaceLayoutSave();
   }
 
   private requestWorkspaceLayoutSave(): void {
@@ -522,7 +567,6 @@ export class CodexChatView extends ItemView {
       if (result?.sendText) {
         await this.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
       }
-      this.render();
       return;
     }
 
@@ -544,8 +588,7 @@ export class CodexChatView extends ItemView {
       if (!this.state.activeThreadId) {
         const threadResponse = await this.session.startThread();
         if (!threadResponse) return;
-        this.refreshTabHeader();
-        this.requestWorkspaceLayoutSave();
+        this.notifyActiveThreadIdentityChanged();
         this.threadRename.resetThreadTurnPresence(false);
       }
       const activeThreadId = this.state.activeThreadId;
@@ -566,7 +609,7 @@ export class CodexChatView extends ItemView {
         markdown: true,
       });
       this.state.pendingTurnStart = { anchorItemId: optimisticUserId, promptSubmitHookItemIds: [] };
-      this.forceMessagesToBottom();
+      this.queueMessagesBottomScroll();
       this.composerController.setDraft("");
       this.state.busy = true;
       this.render();
@@ -632,7 +675,7 @@ export class CodexChatView extends ItemView {
         ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
         markdown: true,
       });
-      this.forceMessagesToBottom();
+      this.queueMessagesBottomScroll();
       this.setStatus("Steered current turn.");
     } catch (error) {
       this.composerController.setDraft(text, { focus: true });
@@ -677,7 +720,7 @@ export class CodexChatView extends ItemView {
       activeThreadId: this.state.activeThreadId,
       listedThreads: this.state.listedThreads,
       startNewThread: () => this.startNewThread(),
-      resumeThread: (threadId) => this.resumeThread(threadId),
+      resumeThread: (threadId) => this.selectThread(threadId),
       referThread: (thread, message) => this.referencedThreadInput(thread, message),
       forkThread: (threadId) => this.forkThread(threadId),
       rollbackThread: (threadId) => this.rollbackThread(threadId),
@@ -927,6 +970,7 @@ export class CodexChatView extends ItemView {
   }
 
   private restoreThreadPlaceholder(restoredThread: RestoredThreadState): void {
+    this.invalidateResumeWork();
     this.restoredThread = restoredThread;
     this.state.activeThreadId = restoredThread.threadId;
     this.state.activeThreadCwd = null;
@@ -951,6 +995,21 @@ export class CodexChatView extends ItemView {
     this.setStatus("Thread ready to resume.");
     this.refreshTabHeader();
     this.scheduleDeferredRestoredThreadHydration();
+  }
+
+  private beginResumeWork(): number {
+    this.resumeGeneration += 1;
+    this.history.invalidate();
+    return this.resumeGeneration;
+  }
+
+  private invalidateResumeWork(): void {
+    this.resumeGeneration += 1;
+    this.history.invalidate();
+  }
+
+  private isStaleResumeWork(generation: number): boolean {
+    return generation !== this.resumeGeneration || this.closing;
   }
 
   private async ensureRestoredThreadLoaded(): Promise<boolean> {
@@ -1052,7 +1111,7 @@ export class CodexChatView extends ItemView {
       resumeThread: (threadId) => {
         if (this.state.busy && threadId !== this.state.activeThreadId) return;
         this.state.openDetails.delete("history");
-        void this.resumeThread(threadId);
+        void this.selectThread(threadId);
       },
       archiveThread: (threadId) => void this.archiveThread(threadId),
       startRenameThread: (threadId) => {
@@ -1122,8 +1181,8 @@ export class CodexChatView extends ItemView {
     const threadId = this.state.activeThreadId;
     this.state.openDetails.delete("status-panel");
     this.connectionGeneration += 1;
+    this.invalidateResumeWork();
     this.connectingPromise = null;
-    this.clearDeferredConnection();
     this.clearDeferredDiagnostics();
     this.connection.reconnect();
     this.client = null;
@@ -1188,6 +1247,14 @@ export class CodexChatView extends ItemView {
     this.scheduleRender();
   }
 
+  private async selectThread(threadId: string): Promise<void> {
+    if (this.state.busy && threadId !== this.state.activeThreadId) {
+      this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
+      return;
+    }
+    await this.plugin.openThreadInAvailableView(threadId);
+  }
+
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {
     if (!this.hasOpenToolbarPanel()) return;
 
@@ -1220,20 +1287,6 @@ export class CodexChatView extends ItemView {
       this.scheduledRenderTimer = null;
       this.render();
     }, 50);
-  }
-
-  private scheduleDeferredConnection(): void {
-    if (this.scheduledConnectionTimer !== null || this.connection.isConnected()) return;
-    this.scheduledConnectionTimer = this.containerEl.win.setTimeout(() => {
-      this.scheduledConnectionTimer = null;
-      void this.ensureConnected();
-    }, 1_500);
-  }
-
-  private clearDeferredConnection(): void {
-    if (this.scheduledConnectionTimer === null) return;
-    this.containerEl.win.clearTimeout(this.scheduledConnectionTimer);
-    this.scheduledConnectionTimer = null;
   }
 
   private scheduleDeferredDiagnostics(): void {
@@ -1407,14 +1460,7 @@ export class CodexChatView extends ItemView {
         new Notice(`Saved archived thread to ${result.path}.`);
       }
       await this.client.archiveThread(threadId);
-      if (this.state.activeThreadId === threadId) {
-        this.restoredThread = null;
-        clearActiveThreadState(this.state);
-        this.threadRename.resetThreadTurnPresence(false);
-        this.requestWorkspaceLayoutSave();
-      }
-      await this.refreshThreads();
-      this.render();
+      this.plugin.notifyThreadArchived(threadId);
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -1435,7 +1481,7 @@ export class CodexChatView extends ItemView {
       if (sourceName) {
         try {
           await this.client.setThreadName(forkedThreadId, sourceName);
-          this.plugin.refreshOpenThreadLists();
+          this.plugin.notifyThreadRenamed(forkedThreadId, sourceName);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           this.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
@@ -1480,23 +1526,39 @@ export class CodexChatView extends ItemView {
       this.setComposerText(candidate.text);
       this.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
       this.setStatus("Rolled back latest turn.");
-      this.refreshTabHeader();
-      this.requestWorkspaceLayoutSave();
+      this.notifyActiveThreadIdentityChanged();
       await this.refreshThreads();
+      this.plugin.refreshOpenThreadLists();
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
       this.setStatus("Rollback failed.");
     }
   }
 
-  private forceMessagesToBottom(): void {
+  private queueMessagesBottomScroll(): void {
     this.state.messagesPinnedToBottom = true;
-    this.forceScrollMessagesToBottomOnNextRender = true;
+    this.nextMessageScrollIntent = "force-bottom";
+  }
+
+  private preserveMessagesScrollPosition(): void {
+    this.nextMessageScrollIntent = "preserve";
   }
 
   private scrollMessagesToBottomOnFocus(): void {
-    this.forceMessagesToBottom();
+    this.queueMessagesBottomScroll();
     this.render();
+  }
+
+  private clearArchivedActiveThread(threadId: string): boolean {
+    if (this.state.activeThreadId !== threadId) return false;
+    this.invalidateResumeWork();
+    this.restoredThread = null;
+    this.clearDeferredRestoredThreadHydration();
+    clearActiveThreadState(this.state);
+    this.threadRename.resetThreadTurnPresence(false);
+    this.notifyActiveThreadIdentityChanged();
+    this.plugin.refreshThreadsViewLiveState();
+    return true;
   }
 
   private renderMessages(parent: HTMLElement): void {

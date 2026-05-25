@@ -13,11 +13,10 @@ import { threadRows } from "./state";
 export interface CodexThreadsHost {
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
-  openThreadInNewView(threadId: string): Promise<unknown>;
-  openThreadInIdleEmptyView(threadId: string): Promise<boolean>;
+  openThreadInAvailableView(threadId: string): Promise<void>;
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
-  focusOpenPanel(viewId: string): Promise<boolean>;
-  refreshOpenThreadLists(): void;
+  notifyThreadArchived(threadId: string): void;
+  notifyThreadRenamed(threadId: string, name: string): void;
 }
 
 export class CodexThreadsView extends ItemView {
@@ -25,6 +24,7 @@ export class CodexThreadsView extends ItemView {
   private client: AppServerClient | null = null;
   private connectingPromise: Promise<void> | null = null;
   private connectionGeneration = 0;
+  private refreshGeneration = 0;
   private renderTimer: number | null = null;
   private refreshTimer: number | null = null;
   private status: string | null = null;
@@ -76,6 +76,7 @@ export class CodexThreadsView extends ItemView {
 
   override async onClose(): Promise<void> {
     this.connectionGeneration += 1;
+    this.refreshGeneration += 1;
     this.connectingPromise = null;
     if (this.renderTimer !== null) {
       this.containerEl.win.clearTimeout(this.renderTimer);
@@ -90,26 +91,31 @@ export class CodexThreadsView extends ItemView {
   }
 
   async refresh(): Promise<void> {
-    const generation = this.connectionGeneration;
+    const connectionGeneration = this.connectionGeneration;
+    const refreshGeneration = ++this.refreshGeneration;
     this.loading = true;
     this.status = this.threads.length === 0 ? "Loading threads..." : null;
     this.render();
     try {
       await this.ensureConnected();
-      if (generation !== this.connectionGeneration || !this.client) return;
+      if (this.isStaleRefresh(connectionGeneration, refreshGeneration) || !this.client) return;
       const response = await this.client.listThreads(this.plugin.vaultPath);
-      if (generation !== this.connectionGeneration) return;
+      if (this.isStaleRefresh(connectionGeneration, refreshGeneration)) return;
       this.threads = response.data;
       this.status = response.data.length === 0 ? "No threads" : null;
     } catch (error) {
       if (error instanceof StaleConnectionError) return;
       this.status = error instanceof Error ? error.message : String(error);
     } finally {
-      if (generation === this.connectionGeneration) {
+      if (!this.isStaleRefresh(connectionGeneration, refreshGeneration)) {
         this.loading = false;
         this.render();
       }
     }
+  }
+
+  private isStaleRefresh(connectionGeneration: number, refreshGeneration: number): boolean {
+    return connectionGeneration !== this.connectionGeneration || refreshGeneration !== this.refreshGeneration;
   }
 
   private async ensureConnected(): Promise<void> {
@@ -180,12 +186,7 @@ export class CodexThreadsView extends ItemView {
   }
 
   private async openThread(threadId: string): Promise<void> {
-    const live = threadRows(this.threads, this.plugin.getOpenPanelSnapshots(), this.renameDrafts).find(
-      (row) => row.thread.id === threadId,
-    )?.live;
-    if (live && (await this.plugin.focusOpenPanel(live.viewId))) return;
-    if (await this.plugin.openThreadInIdleEmptyView(threadId)) return;
-    await this.plugin.openThreadInNewView(threadId);
+    await this.plugin.openThreadInAvailableView(threadId);
   }
 
   private startRename(threadId: string, value: string): void {
@@ -213,8 +214,7 @@ export class CodexThreadsView extends ItemView {
       if (!this.client) return;
       await this.client.setThreadName(threadId, name);
       this.renameDrafts.delete(threadId);
-      this.plugin.refreshOpenThreadLists();
-      await this.refresh();
+      this.plugin.notifyThreadRenamed(threadId, name);
     } catch (error) {
       this.status = error instanceof Error ? error.message : String(error);
       this.render();
@@ -232,8 +232,7 @@ export class CodexThreadsView extends ItemView {
       }
       await this.client.archiveThread(threadId);
       this.renameDrafts.delete(threadId);
-      this.plugin.refreshOpenThreadLists();
-      await this.refresh();
+      this.plugin.notifyThreadArchived(threadId);
     } catch (error) {
       this.status = error instanceof Error ? error.message : String(error);
       this.render();

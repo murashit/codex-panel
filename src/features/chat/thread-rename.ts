@@ -27,6 +27,7 @@ export interface ThreadRenameControllerHost {
   refreshThreads: () => Promise<void>;
   render: () => void;
   addSystemMessage: (text: string) => void;
+  notifyThreadRenamed: (threadId: string, name: string) => void;
 }
 
 export class ThreadRenameController {
@@ -91,7 +92,7 @@ export class ThreadRenameController {
         thread.id === threadId ? { ...thread, name: title } : thread,
       );
       this.clear();
-      await this.host.refreshThreads();
+      this.host.notifyThreadRenamed(threadId, title);
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -155,7 +156,7 @@ export class ThreadRenameController {
       this.host.state.listedThreads = this.host.state.listedThreads.map((thread) =>
         thread.id === threadId ? { ...thread, name: title } : thread,
       );
-      await this.host.refreshThreads();
+      this.host.notifyThreadRenamed(threadId, title);
     } catch {
       // Auto-naming is best-effort metadata. Leave the thread preview untouched on failure.
     } finally {

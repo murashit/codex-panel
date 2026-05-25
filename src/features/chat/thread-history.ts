@@ -17,6 +17,11 @@ export class ThreadHistoryLoader {
 
   constructor(private readonly host: ThreadHistoryLoaderHost) {}
 
+  invalidate(): void {
+    this.generation += 1;
+    this.host.state.loadingHistory = false;
+  }
+
   async loadLatest(threadId = this.host.state.activeThreadId): Promise<void> {
     const client = this.host.currentClient();
     if (!client || !threadId) return;

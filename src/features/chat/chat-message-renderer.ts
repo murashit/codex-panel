@@ -16,7 +16,7 @@ export interface ChatMessageRendererOptions {
   state: ChatState;
   vaultPath: string;
   blockSignatures: Map<string, string>;
-  consumeForceScrollToBottom: () => boolean;
+  consumeScrollIntent: () => ChatMessageScrollIntent;
   loadOlderTurns: () => void;
   rollbackThread: (threadId: string) => void;
   implementPlan: (item: DisplayItem) => void;
@@ -25,17 +25,24 @@ export interface ChatMessageRendererOptions {
   renderPendingRequests: () => HTMLElement | null;
 }
 
+export type ChatMessageScrollIntent = "auto" | "force-bottom" | "preserve";
+
 export class ChatMessageRenderer {
+  private renderGeneration = 0;
+
   constructor(private readonly options: ChatMessageRendererOptions) {}
 
   render(parent: HTMLElement): void {
+    const generation = ++this.renderGeneration;
     const { state } = this.options;
     const messagesEl = parent.querySelector<HTMLElement>(".codex-panel__messages") ?? parent.createDiv({ cls: "codex-panel__messages" });
     messagesEl.onscroll = () => {
       state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
     };
-    const wasNearBottom = isNearScrollBottom(messagesEl);
-    const shouldScrollToBottom = this.options.consumeForceScrollToBottom() || wasNearBottom;
+    const scrollIntent = this.options.consumeScrollIntent();
+    const shouldPreserveScroll = scrollIntent === "preserve";
+    const wasNearBottom = shouldPreserveScroll ? false : isNearScrollBottom(messagesEl);
+    const shouldScrollToBottom = scrollIntent === "force-bottom" || wasNearBottom;
     const scrollAnchor = shouldScrollToBottom ? null : captureScrollAnchor(messagesEl);
     state.messagesPinnedToBottom = shouldScrollToBottom;
     const rollbackCandidate = state.busy ? null : rollbackCandidateFromItems(state.displayItems);
@@ -83,12 +90,14 @@ export class ChatMessageRenderer {
     syncMessageRenderBlocks(messagesEl, blocks, this.options.blockSignatures);
 
     messagesEl.win.requestAnimationFrame(() => {
+      if (generation !== this.renderGeneration) return;
       if (shouldScrollToBottom) {
-        messagesEl.scrollTop = bottomScrollTop(messagesEl);
+        if (!state.messagesPinnedToBottom) return;
+        this.pinMessagesToBottom(messagesEl);
       } else {
         restoreScrollAnchor(messagesEl, scrollAnchor);
+        state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
       }
-      state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
     });
   }
 
@@ -113,9 +122,14 @@ export class ChatMessageRenderer {
     if (!messagesEl) return;
     messagesEl.win.requestAnimationFrame(() => {
       if (!this.options.state.messagesPinnedToBottom) return;
-      messagesEl.scrollTop = bottomScrollTop(messagesEl);
-      this.options.state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
+      this.pinMessagesToBottom(messagesEl);
     });
+  }
+
+  private pinMessagesToBottom(messagesEl: HTMLElement): void {
+    messagesEl.scrollTop = bottomScrollTop(messagesEl);
+    messagesEl.lastElementChild?.scrollIntoView({ block: "end" });
+    this.options.state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
   }
 
   private bindRenderedWikiLinks(parent: HTMLElement, sourcePath: string): void {
