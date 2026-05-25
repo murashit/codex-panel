@@ -1707,6 +1707,11 @@ describe("toolbar renderer decisions", () => {
       "Model",
     ]);
     expect([...parent.querySelectorAll(".codex-panel__runtime-choice")].map((choice) => choice.textContent)).toEqual(["high", "gpt-5.5"]);
+    for (const choice of parent.querySelectorAll(".codex-panel__runtime-choice")) {
+      expect(choice.querySelector<HTMLElement>(".codex-panel__toolbar-panel-check")?.dataset["icon"]).toBe("check");
+      expect(choice.classList.contains("selected")).toBe(false);
+      expect(choice.classList.contains("is-selected")).toBe(false);
+    }
   });
 
   it("renders context as a compact meter and Codex limits only in the status menu", () => {
