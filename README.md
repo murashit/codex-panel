@@ -34,7 +34,7 @@ Each open panel has its own Codex App Server connection, active thread, pending 
 
 Open the command palette and run **Codex Panel: Open panel**, or select the ribbon icon. If Obsidian cannot find `codex`, set **Settings → Codex Panel → Codex executable** to an absolute path, such as `/opt/homebrew/bin/codex`.
 
-Use **Codex Panel: New chat** to start a fresh thread. Use **Codex Panel: Open new panel** when you want multiple Codex threads side by side. Use **Codex Panel: Open threads view** to open a left-sidebar list of non-archived threads; selecting a row focuses an already open panel for that thread or resumes it in an available panel.
+Use **Codex Panel: Start new chat** to start a fresh thread in the current panel. Use **Codex Panel: Open new panel** when you want multiple Codex threads side by side. Use **Codex Panel: Open threads view** to open a left-sidebar list of non-archived threads; selecting a row focuses an already open panel for that thread or resumes it in an available panel.
 
 ## Supported Codex workflows
 

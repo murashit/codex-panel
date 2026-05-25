@@ -51,7 +51,7 @@ export function renderComposerShell(
   const newThreadButton = createIconButton(
     actionsEl,
     "message-square-plus",
-    "New chat",
+    "Start new chat",
     "codex-panel-ui__icon-button codex-panel__composer-action codex-panel__new-chat",
   );
   newThreadButton.disabled = busy;

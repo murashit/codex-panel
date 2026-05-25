@@ -71,7 +71,7 @@ export default class CodexPanelPlugin extends Plugin {
 
     this.addCommand({
       id: "new-chat",
-      name: "New chat",
+      name: "Start new chat",
       callback: async () => {
         const view = await this.activateView();
         await view.startNewThread();
