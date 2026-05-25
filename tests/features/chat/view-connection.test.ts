@@ -122,6 +122,13 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.resumeThread).not.toHaveBeenCalled();
     expect(view.containerEl.textContent).toContain("Thread restored. Send a message to resume it.");
 
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(connectionMock.state.connectCalls).toBe(1);
+    expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+    expect(client.listThreads).toHaveBeenCalledOnce();
+    expect(client.resumeThread).not.toHaveBeenCalled();
+
     await vi.advanceTimersByTimeAsync(1_500);
 
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
@@ -135,8 +142,10 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await vi.advanceTimersByTimeAsync(1_500);
-    expect(connectionMock.state.connectCalls).toBe(0);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(connectionMock.state.connectCalls).toBe(1);
+    expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+    expect(client.listThreads).toHaveBeenCalledOnce();
     expect(client.resumeThread).not.toHaveBeenCalled();
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
@@ -144,6 +153,28 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
+  });
+
+  it("warms session metadata for an empty restored panel after the shell is open", async () => {
+    vi.useFakeTimers();
+    const client = connectedClient({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.onOpen();
+
+    expect(connectionMock.state.connectCalls).toBe(0);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(connectionMock.state.connectCalls).toBe(1);
+    expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+    expect(client.listModels).toHaveBeenCalledOnce();
+    expect(client.listSkills).toHaveBeenCalledOnce();
+    expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
+    expect(client.listThreads).toHaveBeenCalledWith("/vault");
+    expect((view as unknown as { state: { listedThreads: unknown[] } }).state.listedThreads).toEqual([threadFixture("thread-1")]);
   });
 
   it("hydrates a focused restored thread immediately", async () => {
@@ -453,7 +484,8 @@ describe("CodexChatView connection lifecycle", () => {
       });
     });
 
-    expect(messages.scrollTop).toBe(1000);
+    const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
+    expect(renderedMessages?.scrollTop).toBe(1000);
   });
 });
 

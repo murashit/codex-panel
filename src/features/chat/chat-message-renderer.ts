@@ -42,7 +42,8 @@ export class ChatMessageRenderer {
     const scrollIntent = this.options.consumeScrollIntent();
     const shouldPreserveScroll = scrollIntent === "preserve";
     const wasNearBottom = shouldPreserveScroll ? false : isNearScrollBottom(messagesEl);
-    const shouldScrollToBottom = scrollIntent === "force-bottom" || wasNearBottom;
+    const shouldScrollToBottom =
+      !shouldPreserveScroll && (scrollIntent === "force-bottom" || state.messagesPinnedToBottom || wasNearBottom);
     const scrollAnchor = shouldScrollToBottom ? null : captureScrollAnchor(messagesEl);
     state.messagesPinnedToBottom = shouldScrollToBottom;
     const rollbackCandidate = state.busy ? null : rollbackCandidateFromItems(state.displayItems);

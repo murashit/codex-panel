@@ -120,6 +120,7 @@ export class CodexChatView extends ItemView {
   private closing = false;
   private toolbarSignature: string | null = null;
   private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
+  private scheduledSessionWarmupTimer: number | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -279,6 +280,7 @@ export class CodexChatView extends ItemView {
       this.invalidateResumeWork();
       this.restoredThread = null;
       this.clearDeferredRestoredThreadHydration();
+      this.scheduleDeferredSessionWarmup();
       return;
     }
 
@@ -359,6 +361,7 @@ export class CodexChatView extends ItemView {
       }),
     );
     this.render();
+    this.scheduleDeferredSessionWarmup();
     this.scheduleDeferredRestoredThreadHydration();
   }
 
@@ -369,6 +372,7 @@ export class CodexChatView extends ItemView {
     this.invalidateResumeWork();
     this.connectingPromise = null;
     this.clearDeferredRestoredThreadHydration();
+    this.clearDeferredSessionWarmup();
     if (this.scheduledRenderTimer !== null) {
       this.containerEl.win.clearTimeout(this.scheduledRenderTimer);
       this.scheduledRenderTimer = null;
@@ -1053,6 +1057,21 @@ export class CodexChatView extends ItemView {
     if (this.scheduledRestoredThreadHydrationTimer === null) return;
     this.containerEl.win.clearTimeout(this.scheduledRestoredThreadHydrationTimer);
     this.scheduledRestoredThreadHydrationTimer = null;
+  }
+
+  private scheduleDeferredSessionWarmup(): void {
+    if (!this.opened || this.connection.isConnected() || this.scheduledSessionWarmupTimer !== null) return;
+    this.scheduledSessionWarmupTimer = this.containerEl.win.setTimeout(() => {
+      this.scheduledSessionWarmupTimer = null;
+      if (!this.opened || this.closing || this.connection.isConnected()) return;
+      void this.ensureConnected();
+    }, 0);
+  }
+
+  private clearDeferredSessionWarmup(): void {
+    if (this.scheduledSessionWarmupTimer === null) return;
+    this.containerEl.win.clearTimeout(this.scheduledSessionWarmupTimer);
+    this.scheduledSessionWarmupTimer = null;
   }
 
   private activeThreadTitle(): string | null {
