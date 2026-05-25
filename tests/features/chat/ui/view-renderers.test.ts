@@ -1783,8 +1783,8 @@ describe("toolbar renderer decisions", () => {
     expect(parent.textContent).toContain("Refresh diagnostics");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
     expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")?.textContent).toContain("model/list failed");
-    [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")]
-      .find((button) => button.textContent.includes("Refresh diagnostics"))
+    [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")]
+      .find((item) => item.textContent.includes("Refresh diagnostics"))
       ?.click();
     expect(refreshDiagnostics).toHaveBeenCalled();
   });

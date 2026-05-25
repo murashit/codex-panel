@@ -490,13 +490,13 @@
   gap: var(--codex-panel-toolbar-panel-row-gap);
 }
 
-.codex-panel .menu-item.codex-panel__toolbar-panel-item {
+.codex-panel__toolbar-panel-item {
   display: flex;
   align-items: center;
   gap: var(--size-4-2);
   width: 100%;
   min-width: 0;
-  height: auto;
+  min-height: var(--codex-panel-size-nav-item);
   padding: var(--size-4-1) var(--size-4-2);
   border: 0;
   border-radius: var(--radius-s);
@@ -509,12 +509,18 @@
   line-height: var(--codex-panel-toolbar-line-height);
   text-align: left;
   cursor: pointer;
+  transform: none;
   user-select: none;
 }
 
 .codex-panel__toolbar-panel-check {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: var(--codex-panel-size-icon-s);
+  width: var(--codex-panel-size-icon-s);
+  height: var(--codex-panel-size-icon-s);
   color: var(--text-accent);
 }
 
@@ -539,23 +545,28 @@
   font-size: var(--codex-panel-toolbar-meta-size);
 }
 
-.codex-panel .menu-item.codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)),
-.codex-panel .menu-item.codex-panel__toolbar-panel-item.selected,
-.codex-panel .menu-item.codex-panel__toolbar-panel-item.is-selected,
-.codex-panel .menu-item.codex-panel__toolbar-panel-item.is-active {
+.codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)) {
   color: var(--text-normal);
-}
-
-.codex-panel .menu-item.codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)) {
   background: var(--background-modifier-hover);
+  box-shadow: none;
+  transform: none;
 }
 
-.codex-panel .menu-item.codex-panel__toolbar-panel-item.is-disabled {
+.codex-panel__toolbar-panel-item:focus,
+.codex-panel__toolbar-panel-item:focus-visible,
+.codex-panel__toolbar-panel-item:active {
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  transform: none;
+}
+
+.codex-panel__toolbar-panel-item.is-disabled {
   cursor: default;
   opacity: 0.45;
 }
 
-.codex-panel .menu-item.codex-panel__toolbar-panel-item:disabled {
+.codex-panel__toolbar-panel-item:disabled {
   cursor: default;
   opacity: 0.45;
 }
@@ -1123,16 +1134,14 @@
   grid-template-columns: minmax(0, 1fr) auto auto auto;
 }
 
-.codex-panel .menu-item.codex-panel__thread:hover:not(:where(:disabled, .is-disabled)),
-.codex-panel .menu-item.codex-panel__thread.selected,
-.codex-panel .menu-item.codex-panel__thread.is-selected {
+.codex-panel__thread:hover:not(:where(:disabled, .is-disabled)),
+.codex-panel__thread.is-checked {
   background: transparent;
 }
 
 .codex-panel .menu-item.codex-panel__thread-rename {
   position: relative;
   box-sizing: border-box;
-  height: auto;
   min-height: var(--codex-panel-size-nav-item);
   padding-block: var(--size-4-1);
   cursor: text;

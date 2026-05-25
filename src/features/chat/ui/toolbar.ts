@@ -257,12 +257,12 @@ function renderToolbarPanel(toolbar: HTMLElement, model: ToolbarViewModel, actio
 
 function renderStatusPanel(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
   const statusItems = parent.createDiv({ cls: "codex-panel__status-panel-items", attr: { role: "menu" } });
-  createToolbarPanelItem(statusItems, model.connectLabel, { onClick: actions.connect, className: "codex-panel__status-panel-item" });
-  createToolbarPanelItem(statusItems, "Refresh diagnostics", {
+  createToolbarPanelRow(statusItems, model.connectLabel, { onClick: actions.connect, className: "codex-panel__status-panel-item" });
+  createToolbarPanelRow(statusItems, "Refresh diagnostics", {
     onClick: actions.refreshDiagnostics,
     className: "codex-panel__status-panel-item",
   });
-  createToolbarPanelItem(statusItems, "Refresh thread list", {
+  createToolbarPanelRow(statusItems, "Refresh thread list", {
     onClick: actions.refreshThreads,
     className: "codex-panel__status-panel-item",
   });
@@ -310,25 +310,21 @@ function renderConnectionDiagnostics(parent: HTMLElement, sections: ToolbarDiagn
 }
 
 function renderRuntimePicker(parent: HTMLElement, model: ToolbarViewModel): void {
-  const picker = parent.createDiv({ cls: "codex-panel__runtime-picker", attr: { role: "listbox", "aria-label": "Runtime controls" } });
+  const picker = parent.createDiv({ cls: "codex-panel__runtime-picker", attr: { role: "listbox" } });
   picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Reasoning effort" });
   for (const choice of model.effortChoices) {
-    createToolbarPanelItem(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice", highlightSelected: false });
+    createToolbarPanelRow(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
   }
   picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Model" });
   for (const choice of model.modelChoices) {
-    createToolbarPanelItem(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice", highlightSelected: false });
+    createToolbarPanelRow(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
   }
 }
 
 function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], actions: ToolbarActions): void {
   const threadsEl = parent.createDiv({ cls: "codex-panel__threads" });
   if (threads.length === 0) {
-    const empty = threadsEl.createDiv({
-      cls: "menu-item codex-panel__toolbar-panel-item codex-panel__thread codex-panel__thread--empty is-disabled",
-    });
-    empty.createSpan({ cls: "menu-item-icon codex-panel__toolbar-panel-check" });
-    empty.createSpan({ cls: "menu-item-title codex-panel__toolbar-panel-label", text: "No threads" });
+    createToolbarPanelRow(threadsEl, "No threads", { disabled: true, className: "codex-panel__thread codex-panel__thread--empty" });
     return;
   }
 
@@ -341,7 +337,7 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
       continue;
     }
 
-    createToolbarPanelItem(row, thread.title, {
+    createToolbarPanelRow(row, thread.title, {
       selected: thread.selected,
       disabled: thread.disabled,
       title: `${thread.title}\n${thread.threadId}`,
@@ -374,7 +370,7 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
 function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, actions: ToolbarActions): void {
   const form = parent.createDiv({ cls: "menu-item codex-panel__toolbar-panel-item codex-panel__thread codex-panel__thread-rename" });
   form.createSpan({
-    cls: "menu-item-icon codex-panel__toolbar-panel-check codex-panel__thread-rename-spacer",
+    cls: "codex-panel__toolbar-panel-check codex-panel__thread-rename-spacer",
     attr: { "aria-hidden": "true" },
   });
   const field = form.createDiv({ cls: "codex-panel__thread-rename-field" });
@@ -431,7 +427,7 @@ function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, ac
   };
 }
 
-function createToolbarPanelItem(
+function createToolbarPanelRow(
   parent: HTMLElement,
   label: string,
   options: {
@@ -440,37 +436,34 @@ function createToolbarPanelItem(
     title?: string;
     meta?: string;
     className?: string;
-    highlightSelected?: boolean;
     onClick?: () => void;
   } = {},
 ): HTMLElement {
   const selected = Boolean(options.selected);
   const disabled = Boolean(options.disabled);
-  const highlightSelected = options.highlightSelected ?? true;
-  const item = parent.createEl("button", {
-    cls: [
-      "menu-item",
-      "tappable",
-      "codex-panel__toolbar-panel-item",
-      options.className ?? "",
-      selected && highlightSelected ? "selected is-selected" : "",
-      disabled ? "is-disabled" : "",
-    ]
+  const item = parent.createDiv({
+    cls: ["codex-panel__toolbar-panel-item", options.className ?? "", selected ? "is-checked" : "", disabled ? "is-disabled" : ""]
       .filter(Boolean)
       .join(" "),
     attr: {
-      type: "button",
+      role: "button",
+      tabindex: disabled ? "-1" : "0",
       title: options.title ?? label,
+      "aria-disabled": disabled ? "true" : "false",
       "aria-selected": selected ? "true" : "false",
     },
   });
-  item.disabled = disabled;
   item.onclick = () => {
     if (!disabled) options.onClick?.();
   };
-  const check = item.createSpan({ cls: "menu-item-icon codex-panel__toolbar-panel-check" });
+  item.onkeydown = (event) => {
+    if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    options.onClick?.();
+  };
+  const check = item.createSpan({ cls: "codex-panel__toolbar-panel-check" });
   if (selected) setIcon(check, "check");
-  item.createSpan({ cls: "menu-item-title codex-panel__toolbar-panel-label", text: label });
+  item.createSpan({ cls: "codex-panel__toolbar-panel-label", text: label });
   if (options.meta) item.createSpan({ cls: "codex-panel__toolbar-panel-meta", text: options.meta });
   return item;
 }
