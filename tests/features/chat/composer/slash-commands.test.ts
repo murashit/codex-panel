@@ -131,7 +131,7 @@ describe("slash commands", () => {
     await executeSlashCommand("refer", "thread-2", ctx);
 
     expect(ctx.referThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Usage: /refer <thread> <message>");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/refer requires a thread and a message. Usage: /refer <thread> <message>");
   });
 
   it("rejects /refer for the active thread", async () => {
@@ -160,7 +160,7 @@ describe("slash commands", () => {
     await executeSlashCommand("fork", "anything", ctx);
 
     expect(ctx.forkThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported slash command arguments: anything");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fork does not take arguments. Usage: /fork");
   });
 
   it("rolls back the active thread for /rollback", async () => {
@@ -195,7 +195,7 @@ describe("slash commands", () => {
     await executeSlashCommand("rollback", "2", ctx);
 
     expect(ctx.rollbackThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported slash command arguments: 2");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rollback does not take arguments. Usage: /rollback");
   });
 
   it("toggles Plan mode without sending text for bare /plan", async () => {
@@ -234,13 +234,13 @@ describe("slash commands", () => {
     expect(result).toEqual({ sendText: "この依頼からお願いします" });
   });
 
-  it("keeps /compact behavior unchanged", async () => {
+  it("rejects /compact arguments", async () => {
     const ctx = context();
 
     await executeSlashCommand("compact", "ignored for now", ctx);
 
-    expect(ctx.compactThread).toHaveBeenCalledWith("thread-1");
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Compaction requested.");
+    expect(ctx.compactThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/compact does not take arguments. Usage: /compact");
   });
 
   it("archives the active thread for bare /archive", async () => {
@@ -305,6 +305,15 @@ describe("slash commands", () => {
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Available slash commands", [{ rows: slashCommandHelpRows() }]);
   });
 
+  it("rejects /help arguments", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("help", "anything", ctx);
+
+    expect(ctx.addStructuredSystemMessage).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/help does not take arguments. Usage: /help");
+  });
+
   it("shows status as a structured system result", async () => {
     const ctx = context({ statusSummaryLines: () => ["Session status", "Session: thread-1", "Usage limits", "5h: 42%"] });
 
@@ -322,6 +331,15 @@ describe("slash commands", () => {
     ]);
   });
 
+  it("rejects /status arguments", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("status", "anything", ctx);
+
+    expect(ctx.addStructuredSystemMessage).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/status does not take arguments. Usage: /status");
+  });
+
   it("shows doctor diagnostics as shared structured sections", async () => {
     const details = [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }];
     const ctx = context({ connectionDiagnosticDetails: () => details });
@@ -330,6 +348,16 @@ describe("slash commands", () => {
 
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Connection diagnostics", details);
+  });
+
+  it("rejects /doctor arguments", async () => {
+    const details = [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }];
+    const ctx = context({ connectionDiagnosticDetails: () => details });
+
+    await executeSlashCommand("doctor", "anything", ctx);
+
+    expect(ctx.addStructuredSystemMessage).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/doctor does not take arguments. Usage: /doctor");
   });
 
   it("documents that /plan can take a message", () => {
@@ -365,6 +393,15 @@ describe("slash commands", () => {
     );
   });
 
+  it("rejects unsupported reasoning effort with usage", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("effort", "extreme", ctx);
+
+    expect(ctx.setRequestedReasoningEffort).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported effort: extreme. Usage: /effort [effort|default]");
+  });
+
   it("shows MCP server status", async () => {
     const ctx = context();
 
@@ -380,7 +417,16 @@ describe("slash commands", () => {
     await executeSlashCommand("mcp", "enable github", ctx);
 
     expect(ctx.mcpStatusLines).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported slash command arguments: enable github");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/mcp does not take arguments. Usage: /mcp");
+  });
+
+  it("rejects /fast arguments before toggling", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("fast", "now", ctx);
+
+    expect(ctx.toggleFastMode).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fast does not take arguments. Usage: /fast");
   });
 
   it("documents MCP status", () => {

@@ -3,7 +3,7 @@ import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { ReferencedThreadDisplay } from "../../domain/threads/reference";
-import { slashCommandHelpRows, type SlashCommandName } from "./composer/slash-commands";
+import { slashCommandDefinition, slashCommandHelpRows, type SlashCommandName } from "./composer/slash-commands";
 import type { DisplayDetailSection, DisplayDetailMetaRow } from "./display/types";
 import {
   modelOverrideMessage,
@@ -54,6 +54,12 @@ export async function executeSlashCommand(
   args: string,
   context: SlashCommandExecutionContext,
 ): Promise<SlashCommandExecutionResult | undefined> {
+  const argumentError = validateSlashCommandArguments(command, args);
+  if (argumentError) {
+    context.addSystemMessage(argumentError);
+    return;
+  }
+
   if (command === "new") {
     await context.startNewThread();
     if (args) return { sendText: args };
@@ -73,7 +79,7 @@ export async function executeSlashCommand(
   if (command === "refer") {
     const parsed = parseReferArgs(args);
     if (!parsed) {
-      context.addSystemMessage("Usage: /refer <thread> <message>");
+      context.addSystemMessage(usageError(command, "requires a thread and a message"));
       return;
     }
     const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
@@ -91,10 +97,6 @@ export async function executeSlashCommand(
   }
 
   if (command === "fork") {
-    if (args) {
-      context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
-      return;
-    }
     if (!context.activeThreadId) {
       context.addSystemMessage("No active thread to fork.");
       return;
@@ -104,10 +106,6 @@ export async function executeSlashCommand(
   }
 
   if (command === "rollback") {
-    if (args) {
-      context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
-      return;
-    }
     if (!context.activeThreadId) {
       context.addSystemMessage("No active thread to roll back.");
       return;
@@ -186,10 +184,6 @@ export async function executeSlashCommand(
   }
 
   if (command === "mcp") {
-    if (args) {
-      context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
-      return;
-    }
     context.addStructuredSystemMessage("MCP servers", detailsFromLines(await context.mcpStatusLines()));
     return;
   }
@@ -213,7 +207,7 @@ export async function executeSlashCommand(
       return;
     }
     if (args) {
-      context.addSystemMessage(`Unsupported effort: ${args}`);
+      context.addSystemMessage(`Unsupported effort: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
       return;
     }
     context.addStructuredSystemMessage("Reasoning effort", detailsFromLines(context.effortStatusLines()));
@@ -221,10 +215,18 @@ export async function executeSlashCommand(
   }
 
   context.addStructuredSystemMessage("Available slash commands", [{ rows: slashCommandHelpRows() }]);
+}
 
-  if (args) {
-    context.addSystemMessage(`Unsupported slash command arguments: ${args}`);
-  }
+function validateSlashCommandArguments(command: SlashCommandName, args: string): string | null {
+  const definition = slashCommandDefinition(command);
+  if (definition.argsKind === "none" && args) return usageError(command, "does not take arguments");
+  if (definition.argsKind === "threadAndMessage" && !parseReferArgs(args)) return usageError(command, "requires a thread and a message");
+  return null;
+}
+
+function usageError(command: SlashCommandName, message: string): string {
+  const definition = slashCommandDefinition(command);
+  return `${definition.command} ${message}. Usage: ${definition.usage}`;
 }
 
 function detailsFromLines(lines: string[]): DisplayDetailSection[] {
