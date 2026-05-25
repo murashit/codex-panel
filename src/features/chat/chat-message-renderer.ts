@@ -129,7 +129,6 @@ export class ChatMessageRenderer {
 
   private pinMessagesToBottom(messagesEl: HTMLElement): void {
     messagesEl.scrollTop = bottomScrollTop(messagesEl);
-    messagesEl.lastElementChild?.scrollIntoView({ block: "end" });
     this.options.state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
   }
 

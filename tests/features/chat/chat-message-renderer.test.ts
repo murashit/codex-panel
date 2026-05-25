@@ -9,6 +9,28 @@ import { installObsidianDomShims } from "./ui/dom-test-helpers";
 installObsidianDomShims();
 
 describe("ChatMessageRenderer scroll pinning", () => {
+  it("pins to the scroll container bottom without aligning the last message element", async () => {
+    const state = createChatState();
+    state.activeThreadId = "thread";
+    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Streaming message", turnId: "turn" }];
+    const parent = document.createElement("div");
+    const renderer = chatMessageRenderer(state);
+
+    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
+    messages.scrollTop = 920;
+
+    const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
+    scrollIntoView.mockClear();
+    renderer.render(parent);
+    await settleMessageRender(messages);
+
+    expect(messages.scrollTop).toBe(1000);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(state.messagesPinnedToBottom).toBe(true);
+  });
+
   it("does not force the bottom into view when the user is reading older messages", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
