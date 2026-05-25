@@ -229,10 +229,10 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const input = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__rename-input");
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
     expect(input).not.toBeNull();
     if (!input) return;
-    input.textContent = "Renamed thread";
+    input.value = "Renamed thread";
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.click();
 
     await vi.waitFor(() => {
@@ -265,7 +265,7 @@ describe("CodexThreadsView", () => {
     await vi.waitFor(() => {
       expect(threadTurnsList).toHaveBeenCalledWith("thread", null, 20, "asc");
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
-      expect(view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__rename-input")?.textContent).toBe("Threads rename UI");
+      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
     });
   });
 });

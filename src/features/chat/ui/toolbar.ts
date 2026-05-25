@@ -2,7 +2,6 @@ import { setIcon } from "obsidian";
 
 import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/view";
 import { createToolbarButton } from "../../../shared/ui/components";
-import { createInlineRenameEditor } from "../../../shared/ui/inline-rename";
 import { renderEffectiveConfig } from "./config";
 
 export type ToolbarPanelKind = "history" | "status" | "runtime";
@@ -373,39 +372,57 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
 }
 
 function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, actions: ToolbarActions): void {
-  const form = parent.createDiv({ cls: "codex-panel__thread-rename" });
-  const editor = createInlineRenameEditor(form, {
-    className: "codex-panel__thread-rename-input",
-    value: thread.rename?.draft ?? thread.title,
-    ariaLabel: `Rename ${thread.title}`,
-    onUpdate: (value) => {
-      actions.updateRenameDraft(thread.threadId, value);
-    },
-    onSave: (value) => {
-      actions.saveRenameThread(thread.threadId, value);
-    },
-    onCancel: () => {
-      actions.cancelRenameThread(thread.threadId);
-    },
-    canSave: () => !(thread.rename?.generating ?? false),
+  const form = parent.createDiv({ cls: "menu-item codex-panel__toolbar-panel-item codex-panel__thread codex-panel__thread-rename" });
+  form.createSpan({
+    cls: "menu-item-icon codex-panel__toolbar-panel-check codex-panel__thread-rename-spacer",
+    attr: { "aria-hidden": "true" },
   });
+  const field = form.createDiv({ cls: "codex-panel__thread-rename-field" });
+  const input = field.createEl("input", {
+    cls: "codex-panel__thread-rename-input",
+    attr: {
+      type: "text",
+      value: thread.rename?.draft ?? thread.title,
+      "aria-label": `Rename ${thread.title}`,
+    },
+  });
+  input.oninput = () => {
+    actions.updateRenameDraft(thread.threadId, input.value);
+  };
+  input.onkeydown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (!event.isComposing && !(thread.rename?.generating ?? false)) actions.saveRenameThread(thread.threadId, input.value);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      actions.cancelRenameThread(thread.threadId);
+    }
+  };
+  input.win.setTimeout(() => {
+    if (input.ownerDocument.activeElement !== input) {
+      input.focus();
+      input.select();
+    }
+  }, 0);
 
-  const save = createToolbarButton(form, "check", "Save thread name");
+  const save = createToolbarButton(parent, "check", "Save thread name");
   save.addClass("codex-panel__thread-action");
   save.disabled = thread.rename?.generating ?? false;
   save.onclick = (event) => {
     event.stopPropagation();
-    actions.saveRenameThread(thread.threadId, editor.value());
+    actions.saveRenameThread(thread.threadId, input.value);
   };
 
-  const cancel = createToolbarButton(form, "x", "Cancel rename");
+  const cancel = createToolbarButton(parent, "x", "Cancel rename");
   cancel.addClass("codex-panel__thread-action");
   cancel.onclick = (event) => {
     event.stopPropagation();
     actions.cancelRenameThread(thread.threadId);
   };
 
-  const autoName = createToolbarButton(form, thread.rename?.generating ? "loader" : "sparkles", "Auto-name thread");
+  const autoName = createToolbarButton(parent, thread.rename?.generating ? "loader" : "sparkles", "Auto-name thread");
   autoName.addClass("codex-panel__thread-action");
   autoName.disabled = thread.rename?.generating ?? false;
   autoName.onclick = (event) => {
