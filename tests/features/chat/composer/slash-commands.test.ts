@@ -292,7 +292,7 @@ describe("slash commands", () => {
 
   it("documents archive", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/archive"))).toBe(
-      "/archive - Archive the active or selected Codex thread.",
+      "/archive [thread] - Archive the active or selected Codex thread.",
     );
   });
 
@@ -333,12 +333,14 @@ describe("slash commands", () => {
   });
 
   it("documents that /plan can take a message", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/plan"))).toBe("/plan - Toggle Plan mode, optionally with a message.");
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/plan"))).toBe(
+      "/plan [message] - Toggle Plan mode, optionally with a message.",
+    );
   });
 
   it("documents that /auto-review can take a message", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/auto-review"))).toBe(
-      "/auto-review - Toggle approval auto-review, optionally with a message.",
+      "/auto-review [message] - Toggle approval auto-review, optionally with a message.",
     );
   });
 
@@ -350,7 +352,7 @@ describe("slash commands", () => {
 
   it("documents refer history size", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/refer"))).toBe(
-      "/refer - Send a message with recent turns from another non-archived thread.",
+      "/refer <thread> <message> - Send a message with recent turns from another non-archived thread.",
     );
   });
 

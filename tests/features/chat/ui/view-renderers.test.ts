@@ -299,7 +299,7 @@ describe("message stream block identity and message actions", () => {
             {
               rows: [
                 { key: "/help", value: "Show available Codex slash commands." },
-                { key: "/status", value: "Show current session, context, and usage limits." },
+                { key: "/resume [thread]", value: "Resume a recent Codex thread." },
               ],
             },
           ],
@@ -318,9 +318,7 @@ describe("message stream block identity and message actions", () => {
     expect(element.querySelector("details")).toBeNull();
     expect(element.querySelector(".codex-panel__output-title")).toBeNull();
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("/helpShow available Codex slash commands.");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain(
-      "/statusShow current session, context, and usage limits.",
-    );
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("/resume [thread]Resume a recent Codex thread.");
   });
 
   it("renders rollback action only for the eligible user message", () => {

@@ -213,7 +213,11 @@ describe("composer suggestions", () => {
     );
     const wikilink = expectPresent(activeComposerSuggestions("[[bet", notes, [])[0]);
 
-    expect(slash).toMatchObject({ replacement: "/status", appendSpaceOnInsert: true });
+    expect(slash).toMatchObject({
+      detail: "/status - Show current session, context, and usage limits.",
+      replacement: "/status",
+      appendSpaceOnInsert: true,
+    });
     expect(skill).toMatchObject({ replacement: "$obsidian-dataview-read", appendSpaceOnInsert: true });
     expect(wikilink).toMatchObject({ replacement: "[[Beta Note]]" });
     expect(wikilink.appendSpaceOnInsert).toBeUndefined();

@@ -140,7 +140,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
     .slice(0, 8)
     .map((item) => ({
       display: item.command,
-      detail: item.detail,
+      detail: `${item.usage} - ${item.detail}`,
       replacement: item.command,
       start,
       appendSpaceOnInsert: true,
