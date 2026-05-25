@@ -220,10 +220,10 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.startTurn).toHaveBeenCalledWith("thread-new", "/vault", [{ type: "text", text: "hello", text_elements: [] }]);
   });
 
-  it("routes slash resume through the shared panel selection path", async () => {
-    const openThreadInAvailableView = vi.fn().mockResolvedValue(undefined);
+  it("focuses an open panel instead of resuming a duplicate slash resume thread", async () => {
+    const focusThreadInOpenView = vi.fn().mockResolvedValue(true);
     const host = chatHost({
-      openThreadInAvailableView,
+      focusThreadInOpenView,
     });
     connectionMock.state.client = connectedClient({
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
@@ -234,8 +234,29 @@ describe("CodexChatView connection lifecycle", () => {
     view.setComposerText("/resume thread-1");
     await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
 
-    expect(openThreadInAvailableView).toHaveBeenCalledWith("thread-1");
+    expect(focusThreadInOpenView).toHaveBeenCalledWith("thread-1");
     expect(connectionMock.state.client["resumeThread"]).not.toHaveBeenCalled();
+  });
+
+  it("resumes slash resume threads in the current panel when they are not already open", async () => {
+    const focusThreadInOpenView = vi.fn().mockResolvedValue(false);
+    const client = connectedClient({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
+      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView({
+      host: chatHost({
+        focusThreadInOpenView,
+      }),
+    });
+
+    await view.connect();
+    view.setComposerText("/resume thread-1");
+    await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+
+    expect(focusThreadInOpenView).toHaveBeenCalledWith("thread-1");
+    expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
   });
 
   it("keeps resumed messages pinned to bottom after slash resume in the same empty panel", async () => {
@@ -244,13 +265,7 @@ describe("CodexChatView connection lifecycle", () => {
       threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
     });
     connectionMock.state.client = client;
-    const view = await chatView({
-      host: chatHost({
-        openThreadInAvailableView: async (threadId) => {
-          await view.openThread(threadId);
-        },
-      }),
-    });
+    const view = await chatView();
 
     await view.onOpen();
     await view.connect();
@@ -549,6 +564,7 @@ function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
     vaultPath: "/vault",
     openThreadInNewView: vi.fn(),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
+    focusThreadInOpenView: vi.fn().mockResolvedValue(false),
     openTurnDiff: vi.fn(),
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),

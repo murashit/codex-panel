@@ -234,9 +234,9 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
     {
       settings: { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" },
       vaultPath: "/vault",
-      openNewPanel: vi.fn(),
       openThreadInNewView: vi.fn(),
       openThreadInAvailableView: vi.fn(),
+      focusThreadInOpenView: vi.fn(),
       openTurnDiff: vi.fn(),
       notifyThreadArchived: vi.fn(),
       notifyThreadRenamed: vi.fn(),

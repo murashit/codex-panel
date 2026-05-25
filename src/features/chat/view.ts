@@ -78,6 +78,7 @@ export interface CodexChatHost {
   readonly vaultPath: string;
   openThreadInNewView(threadId: string): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
+  focusThreadInOpenView(threadId: string): Promise<boolean>;
   openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
   notifyThreadArchived(threadId: string): void;
   notifyThreadRenamed(threadId: string, name: string): void;
@@ -1252,7 +1253,8 @@ export class CodexChatView extends ItemView {
       this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
-    await this.plugin.openThreadInAvailableView(threadId);
+    if (await this.plugin.focusThreadInOpenView(threadId)) return;
+    await this.resumeThread(threadId);
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {
