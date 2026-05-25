@@ -138,14 +138,6 @@ export async function executeSlashCommand(
       context.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
       return;
     }
-    if (!args) {
-      if (!context.activeThreadId) {
-        context.addSystemMessage("No active thread to archive.");
-        return;
-      }
-      await context.archiveThread(context.activeThreadId);
-      return;
-    }
 
     const thread = resolveThreadArgument(args, context.listedThreads);
     if (!thread.ok) {
@@ -220,6 +212,7 @@ export async function executeSlashCommand(
 function validateSlashCommandArguments(command: SlashCommandName, args: string): string | null {
   const definition = slashCommandDefinition(command);
   if (definition.argsKind === "none" && args) return usageError(command, "does not take arguments");
+  if (definition.argsKind === "requiredThread" && !args) return usageError(command, "requires a thread");
   if (definition.argsKind === "threadAndMessage" && !parseReferArgs(args)) return usageError(command, "requires a thread and a message");
   return null;
 }

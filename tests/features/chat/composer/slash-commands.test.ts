@@ -243,12 +243,13 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/compact does not take arguments. Usage: /compact");
   });
 
-  it("archives the active thread for bare /archive", async () => {
+  it("rejects bare /archive", async () => {
     const ctx = context({ activeThreadId: "active-thread" });
 
     await executeSlashCommand("archive", "", ctx);
 
-    expect(ctx.archiveThread).toHaveBeenCalledWith("active-thread");
+    expect(ctx.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/archive requires a thread. Usage: /archive <thread>");
   });
 
   it("archives a selected thread by id argument", async () => {
@@ -261,13 +262,13 @@ describe("slash commands", () => {
     expect(ctx.archiveThread).toHaveBeenCalledWith("thread-beta");
   });
 
-  it("rejects /archive without an active thread", async () => {
+  it("rejects /archive without a thread before active-thread checks", async () => {
     const ctx = context({ activeThreadId: null });
 
     await executeSlashCommand("archive", "", ctx);
 
     expect(ctx.archiveThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread to archive.");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/archive requires a thread. Usage: /archive <thread>");
   });
 
   it("rejects /archive while a turn is running", async () => {
@@ -292,7 +293,7 @@ describe("slash commands", () => {
 
   it("documents archive", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/archive"))).toBe(
-      "/archive [thread] - Archive the active or selected Codex thread.",
+      "/archive <thread> - Archive the selected Codex thread.",
     );
   });
 

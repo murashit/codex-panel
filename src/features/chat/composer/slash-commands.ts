@@ -1,4 +1,4 @@
-export type SlashCommandArgsKind = "none" | "optionalThread" | "optionalMessage" | "threadAndMessage" | "showOrSet";
+export type SlashCommandArgsKind = "none" | "optionalThread" | "requiredThread" | "optionalMessage" | "threadAndMessage" | "showOrSet";
 
 export const SLASH_COMMANDS = [
   {
@@ -17,7 +17,7 @@ export const SLASH_COMMANDS = [
   { command: "/fork", usage: "/fork", argsKind: "none", detail: "Fork the active Codex thread." },
   { command: "/rollback", usage: "/rollback", argsKind: "none", detail: "Roll back the latest turn and restore its prompt." },
   { command: "/compact", usage: "/compact", argsKind: "none", detail: "Compact the current conversation context." },
-  { command: "/archive", usage: "/archive [thread]", argsKind: "optionalThread", detail: "Archive the active or selected Codex thread." },
+  { command: "/archive", usage: "/archive <thread>", argsKind: "requiredThread", detail: "Archive the selected Codex thread." },
   {
     command: "/auto-review",
     usage: "/auto-review [message]",
