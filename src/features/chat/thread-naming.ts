@@ -34,7 +34,7 @@ const TITLE_OUTPUT_SCHEMA: JsonValue = {
 };
 
 const TITLE_DEVELOPER_INSTRUCTIONS = [
-  "You generate short titles for Codex chat history.",
+  "You generate short titles for Codex thread history.",
   "Infer the main language of the user's initial request and write the title in that language.",
   "Return only a JSON object matching the requested schema.",
   "Do not include Markdown, quotes around the whole response, explanations, or alternatives.",

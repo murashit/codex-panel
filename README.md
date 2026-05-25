@@ -34,13 +34,14 @@ Each open panel has its own Codex App Server connection, active thread, pending 
 
 Open the command palette and run **Codex Panel: Open panel**, or select the ribbon icon. If Obsidian cannot find `codex`, set **Settings → Codex Panel → Codex executable** to an absolute path, such as `/opt/homebrew/bin/codex`.
 
-Use **Codex Panel: New chat** to start a fresh thread. Use **Codex Panel: Open new panel** when you want multiple Codex threads side by side.
+Use **Codex Panel: New chat** to start a fresh thread. Use **Codex Panel: Open new panel** when you want multiple Codex threads side by side. Use **Codex Panel: Open threads view** to open a left-sidebar list of non-archived threads; selecting a row focuses an already open panel for that thread or resumes it in an available panel.
 
 ## Supported Codex workflows
 
 Codex Panel supports Codex App Server workflows that fit a persistent side panel:
 
 - Start, resume, rename, fork, roll back, compact, and archive threads (`/new`, `/resume`, `/fork`, `/rollback`, `/compact`, `/archive`).
+- Browse non-archived threads in a dedicated Obsidian sidebar view, with live gutter status for threads that are currently open in a Codex Panel.
 - Complete slash commands with `/` and enabled Codex skills with `$` from the composer (`/help`, `$skill-name`).
 - Reference another non-archived thread without switching away from the current one (`/refer <thread> <message>`). Codex receives up to 20 recent turns, limited to user input and final Codex responses.
 - Toggle Plan mode, optionally sending the same message after switching (`/plan <message>`), then answer questions and copy or implement proposed plans.

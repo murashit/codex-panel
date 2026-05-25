@@ -26,7 +26,7 @@ export const SLASH_COMMANDS = [
   },
   { command: "/fast", usage: "/fast", argsKind: "none", detail: "Toggle fast service tier for subsequent turns." },
   { command: "/plan", usage: "/plan [message]", argsKind: "optionalMessage", detail: "Toggle Plan mode, optionally with a message." },
-  { command: "/status", usage: "/status", argsKind: "none", detail: "Show current session, context, and usage limits." },
+  { command: "/status", usage: "/status", argsKind: "none", detail: "Show current thread, context, and usage limits." },
   { command: "/doctor", usage: "/doctor", argsKind: "none", detail: "Show Codex CLI and Codex App Server diagnostics." },
   { command: "/mcp", usage: "/mcp", argsKind: "none", detail: "Show MCP servers reported by Codex App Server." },
   { command: "/model", usage: "/model [model|default]", argsKind: "showOrSet", detail: "Show or set the model for subsequent turns." },

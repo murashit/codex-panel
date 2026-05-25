@@ -1,9 +1,11 @@
 import { Plugin, type WorkspaceLeaf } from "obsidian";
 
-import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
+import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
 import { CodexChatView } from "./features/chat/view";
 import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
+import type { OpenCodexPanelSnapshot } from "./features/chat/panel-snapshot";
+import { CodexThreadsView } from "./features/threads-view/view";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab";
 import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/ui/turn-diff";
@@ -24,6 +26,7 @@ export default class CodexPanelPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this));
     this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexChatTurnDiffView(leaf));
+    this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this));
 
     this.addRibbonIcon("bot-message-square", "Open panel", () => {
       void this.activateView();
@@ -39,6 +42,12 @@ export default class CodexPanelPlugin extends Plugin {
       id: "open-new-panel",
       name: "Open new panel",
       callback: () => void this.activateNewView(),
+    });
+
+    this.addCommand({
+      id: "open-threads-view",
+      name: "Open threads view",
+      callback: () => void this.activateThreadsView(),
     });
 
     this.addCommand({
@@ -92,6 +101,27 @@ export default class CodexPanelPlugin extends Plugin {
     return view;
   }
 
+  async openThreadInIdleEmptyView(threadId: string): Promise<boolean> {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (!(leaf.view instanceof CodexChatView)) continue;
+      if (!isIdleEmptyPanelSnapshot(leaf.view.openPanelSnapshot())) continue;
+      await this.app.workspace.revealLeaf(leaf);
+      await leaf.view.openThread(threadId);
+      return true;
+    }
+    return false;
+  }
+
+  async activateThreadsView(): Promise<CodexThreadsView> {
+    const leaf = await this.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_THREADS, "left", {
+      active: true,
+      reveal: true,
+    });
+    const view = leaf.view as CodexThreadsView;
+    await view.refresh();
+    return view;
+  }
+
   async openTurnDiff(state: ChatTurnDiffViewState): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF).at(0);
     const leaf = existing ?? this.app.workspace.getLeaf("tab");
@@ -117,6 +147,43 @@ export default class CodexPanelPlugin extends Plugin {
         leaf.view.refreshThreadList();
       }
     }
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_THREADS)) {
+      if (leaf.view instanceof CodexThreadsView) {
+        void leaf.view.refresh();
+      }
+    }
+  }
+
+  refreshThreadsViewLiveState(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_THREADS)) {
+      if (leaf.view instanceof CodexThreadsView) {
+        leaf.view.refreshLiveState();
+      }
+    }
+  }
+
+  refreshThreadsViewThreadList(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_THREADS)) {
+      if (leaf.view instanceof CodexThreadsView) {
+        void leaf.view.refresh();
+      }
+    }
+  }
+
+  getOpenPanelSnapshots(): OpenCodexPanelSnapshot[] {
+    return this.app.workspace
+      .getLeavesOfType(VIEW_TYPE_CODEX_PANEL)
+      .flatMap((leaf) => (leaf.view instanceof CodexChatView ? [leaf.view.openPanelSnapshot()] : []));
+  }
+
+  async focusOpenPanel(viewId: string): Promise<boolean> {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (leaf.view instanceof CodexChatView && leaf.view.openPanelSnapshot().viewId === viewId) {
+        await this.app.workspace.revealLeaf(leaf);
+        return true;
+      }
+    }
+    return false;
   }
 
   async loadSettings(): Promise<void> {
@@ -167,4 +234,15 @@ export default class CodexPanelPlugin extends Plugin {
       console.warn("Codex Panel could not hydrate a restored panel leaf.", error);
     }
   }
+}
+
+function isIdleEmptyPanelSnapshot(snapshot: OpenCodexPanelSnapshot): boolean {
+  return (
+    snapshot.threadId === null &&
+    !snapshot.busy &&
+    snapshot.activeTurnId === null &&
+    snapshot.pendingApprovals === 0 &&
+    snapshot.pendingUserInputs === 0 &&
+    !snapshot.hasComposerDraft
+  );
 }

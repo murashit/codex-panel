@@ -166,7 +166,7 @@ export async function executeSlashCommand(
   }
 
   if (command === "status") {
-    context.addStructuredSystemMessage("Session status", detailsFromLines(context.statusSummaryLines()));
+    context.addStructuredSystemMessage("Thread status", detailsFromLines(context.statusSummaryLines()));
     return;
   }
 

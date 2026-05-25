@@ -139,7 +139,7 @@ export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, act
 }
 
 function renderHistoryButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
-  const button = createToolbarButton(parent, "history", "Chat history");
+  const button = createToolbarButton(parent, "history", "Threads");
   button.addClass("codex-panel__history-toggle");
   if (model.historyOpen) button.addClass("is-active");
   button.setAttr("aria-pressed", model.historyOpen ? "true" : "false");
@@ -322,7 +322,7 @@ function renderRuntimePicker(parent: HTMLElement, model: ToolbarViewModel): void
 }
 
 function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], actions: ToolbarActions): void {
-  const threadsEl = parent.createDiv({ cls: "codex-panel__threads", attr: { role: "listbox", "aria-label": "Chat history" } });
+  const threadsEl = parent.createDiv({ cls: "codex-panel__threads" });
   if (threads.length === 0) {
     const empty = threadsEl.createDiv({
       cls: "menu-item codex-panel__toolbar-panel-item codex-panel__thread codex-panel__thread--empty is-disabled",
@@ -334,7 +334,7 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
 
   for (const thread of threads) {
     const row = threadsEl.createDiv({
-      cls: `codex-panel__thread-row ${thread.rename ? "codex-panel__thread-row--renaming" : ""}`,
+      cls: ["codex-panel__thread-row", thread.rename ? "codex-panel__thread-row--renaming" : ""].filter(Boolean).join(" "),
     });
     if (thread.rename) {
       renderThreadRenameRow(row, thread, actions);

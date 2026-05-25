@@ -70,6 +70,7 @@ import { renderPendingRequestMessage } from "./ui/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer } from "./chat-message-renderer";
+import type { OpenCodexPanelSnapshot } from "./panel-snapshot";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -77,6 +78,8 @@ export interface CodexChatHost {
   openThreadInNewView(threadId: string): Promise<unknown>;
   openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
   refreshOpenThreadLists(): void;
+  refreshThreadsViewLiveState(): void;
+  refreshThreadsViewThreadList(): void;
 }
 
 interface RestoredThreadState {
@@ -109,6 +112,7 @@ export class CodexChatView extends ItemView {
   private restoredThread: RestoredThreadState | null = null;
   private restoredThreadLoading: Promise<void> | null = null;
   private opened = false;
+  private closing = false;
   private toolbarSignature: string | null = null;
   private forceScrollMessagesToBottomOnNextRender = false;
 
@@ -145,16 +149,21 @@ export class CodexChatView extends ItemView {
       renderIfDetached: () => {
         this.render();
       },
+      onDraftChange: () => {
+        this.plugin.refreshThreadsViewLiveState();
+      },
       onSubmit: () => void this.submitComposerAction(),
       onNewThread: () => void this.startNewThread(),
     });
     this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath, {
       onNotification: (notification) => {
         this.controller.handleNotification(notification);
+        this.plugin.refreshThreadsViewLiveState();
         this.scheduleRender();
       },
       onServerRequest: (request) => {
         this.controller.handleServerRequest(request);
+        this.plugin.refreshThreadsViewLiveState();
         this.render();
       },
       onLog: (message) => {
@@ -166,11 +175,15 @@ export class CodexChatView extends ItemView {
         clearConnectionScopedState(this.state);
         this.threadRename.resetThreadTurnPresence(false);
         this.client = null;
+        this.plugin.refreshThreadsViewLiveState();
         this.render();
       },
     });
     this.controller = new ChatController(this.state, {
-      refreshThreads: () => void this.refreshThreads(),
+      refreshThreads: () => {
+        void this.refreshThreads();
+        this.plugin.refreshThreadsViewThreadList();
+      },
       refreshSkills: (forceReload) => void this.refreshSkills(forceReload),
       maybeNameThread: (threadId, turn) => {
         this.threadRename.maybeAutoNameThread(threadId, turn);
@@ -270,12 +283,26 @@ export class CodexChatView extends ItemView {
     void this.refreshThreads();
   }
 
+  openPanelSnapshot(): OpenCodexPanelSnapshot {
+    return {
+      viewId: this.viewId,
+      threadId: this.closing ? null : this.state.activeThreadId,
+      busy: this.state.busy,
+      activeTurnId: this.state.activeTurnId,
+      pendingApprovals: this.state.approvals.length,
+      pendingUserInputs: this.state.pendingUserInputs.length,
+      hasComposerDraft: this.state.composerDraft.trim().length > 0,
+      connected: this.connection.isConnected(),
+    };
+  }
+
   async openThread(threadId: string): Promise<void> {
     await this.resumeThread(threadId);
   }
 
   override async onOpen(): Promise<void> {
     this.opened = true;
+    this.closing = false;
     this.composerController.registerNoteIndexInvalidation((eventRef) => {
       this.registerEvent(eventRef);
     });
@@ -294,6 +321,7 @@ export class CodexChatView extends ItemView {
 
   override async onClose(): Promise<void> {
     this.opened = false;
+    this.closing = true;
     this.connectionGeneration += 1;
     this.connectingPromise = null;
     this.clearDeferredConnection();
@@ -305,6 +333,10 @@ export class CodexChatView extends ItemView {
     this.clearDeferredDiagnostics();
     this.connection.disconnect();
     this.client = null;
+    this.plugin.refreshThreadsViewLiveState();
+    this.containerEl.win.setTimeout(() => {
+      this.plugin.refreshThreadsViewLiveState();
+    }, 0);
   }
 
   setComposerText(text: string): void {
@@ -381,6 +413,7 @@ export class CodexChatView extends ItemView {
       this.state.displayItems = [this.systemItem(`Started thread ${response.thread.id}`)];
       this.forceMessagesToBottom();
       await this.refreshThreads();
+      this.plugin.refreshThreadsViewThreadList();
       this.refreshTabHeader();
       this.requestWorkspaceLayoutSave();
       this.render();
@@ -453,6 +486,7 @@ export class CodexChatView extends ItemView {
         this.forceMessagesToBottom();
         this.render();
       }
+      this.plugin.refreshThreadsViewLiveState();
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -835,6 +869,7 @@ export class CodexChatView extends ItemView {
 
   private async resolveApproval(approval: PendingApproval, action: ApprovalAction): Promise<void> {
     this.controller.resolveApproval(approval, action);
+    this.plugin.refreshThreadsViewLiveState();
     this.render();
   }
 
@@ -858,11 +893,13 @@ export class CodexChatView extends ItemView {
 
   private async resolveUserInput(input: PendingUserInput): Promise<void> {
     this.controller.resolveUserInput(input, this.answersForUserInput(input));
+    this.plugin.refreshThreadsViewLiveState();
     this.render();
   }
 
   private async cancelUserInput(input: PendingUserInput): Promise<void> {
     this.controller.cancelUserInput(input);
+    this.plugin.refreshThreadsViewLiveState();
     this.render();
   }
 
@@ -1245,8 +1282,8 @@ export class CodexChatView extends ItemView {
     const context = contextSummary(snapshot);
     const limit = rateLimitSummary(snapshot);
     return [
-      "Session status",
-      `Session: ${this.state.activeThreadId ?? "(none)"}`,
+      "Thread status",
+      `Thread: ${this.state.activeThreadId ?? "(none)"}`,
       context ? context.title : "Context: not available",
       ...(limit ? usageLimitStatusLines(limit) : ["Usage limits: not available"]),
     ];

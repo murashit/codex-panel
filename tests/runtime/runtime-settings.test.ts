@@ -386,8 +386,23 @@ describe("runtime settings", () => {
     expect(fastModeLabel(snapshot)).toBe("on");
     expect(contextSummary(snapshot)).toMatchObject({
       label: "Context 0%",
+      title: "Context: 0 / 100,000 (0%). No turns in this thread yet.",
       percent: 0,
       level: "ok",
+    });
+    expect(
+      contextSummary(
+        runtimeSnapshot({
+          activeThreadId: "thread",
+          tokenUsage: {
+            last: { inputTokens: 1000, cachedInputTokens: 0, outputTokens: 200, reasoningOutputTokens: 50, totalTokens: 1250 },
+            total: { inputTokens: 2000, cachedInputTokens: 0, outputTokens: 500, reasoningOutputTokens: 100, totalTokens: 2600 },
+            modelContextWindow: 100_000,
+          },
+        }),
+      ),
+    ).toMatchObject({
+      title: "Context: 1,000 / 100,000 (1%). Last request: 1,000 input, 200 output, 50 reasoning. Total: 2,600 tokens.",
     });
     expect(
       contextSummary(

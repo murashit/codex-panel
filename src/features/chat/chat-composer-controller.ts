@@ -25,6 +25,7 @@ export interface ChatComposerControllerOptions {
   canInterrupt: () => boolean;
   currentModelForSuggestions: () => string | null;
   renderIfDetached: () => void;
+  onDraftChange: () => void;
   onSubmit: () => void;
   onNewThread: () => void;
 }
@@ -62,6 +63,7 @@ export class ChatComposerController {
       onInput: () => {
         this.options.state.composerDraft = this.composer?.value ?? "";
         this.options.state.composerSuggestionsDismissedSignature = null;
+        this.options.onDraftChange();
         this.updateSuggestions();
         this.syncControls(parent);
       },
@@ -97,6 +99,7 @@ export class ChatComposerController {
 
   setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean; renderIfDetached?: boolean } = {}): void {
     this.options.state.composerDraft = text;
+    this.options.onDraftChange();
     if (options.clearSuggestions) this.clearSuggestions();
     if (!this.composer) {
       if (options.renderIfDetached) this.options.renderIfDetached();
@@ -214,6 +217,7 @@ export class ChatComposerController {
     const insertion = applyComposerSuggestionInsertion(value, cursor, suggestion);
 
     this.options.state.composerDraft = insertion.value;
+    this.options.onDraftChange();
     this.composer.value = insertion.value;
     syncComposerHeight(this.composer);
     this.composer.focus();

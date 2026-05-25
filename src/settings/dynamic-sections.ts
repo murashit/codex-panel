@@ -133,7 +133,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
   containerEl.createEl("p", {
     cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-    text: `Restore archived threads to chat history. Loaded ${String(state.threads.length)} archived thread${
+    text: `Restore archived threads to the thread list. Loaded ${String(state.threads.length)} archived thread${
       state.threads.length === 1 ? "" : "s"
     } from Codex app server.`,
   });

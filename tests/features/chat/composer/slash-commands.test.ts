@@ -316,15 +316,15 @@ describe("slash commands", () => {
   });
 
   it("shows status as a structured system result", async () => {
-    const ctx = context({ statusSummaryLines: () => ["Session status", "Session: thread-1", "Usage limits", "5h: 42%"] });
+    const ctx = context({ statusSummaryLines: () => ["Thread status", "Thread: thread-1", "Usage limits", "5h: 42%"] });
 
     await executeSlashCommand("status", "", ctx);
 
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Session status", [
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Thread status", [
       {
         rows: [
-          { key: "Session", value: "thread-1" },
+          { key: "Thread", value: "thread-1" },
           { key: "message", value: "Usage limits" },
           { key: "5h", value: "42%" },
         ],
@@ -387,7 +387,7 @@ describe("slash commands", () => {
 
   it("documents status and doctor as separate commands", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/status"))).toBe(
-      "/status - Show current session, context, and usage limits.",
+      "/status - Show current thread, context, and usage limits.",
     );
     expect(slashCommandHelpLines().find((line) => line.startsWith("/doctor"))).toBe(
       "/doctor - Show Codex CLI and Codex App Server diagnostics.",

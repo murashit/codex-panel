@@ -207,7 +207,7 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(tab.containerEl.textContent).toContain("Loaded 1 hook from Codex app server.");
-    expect(tab.containerEl.textContent).toContain("Restore archived threads to chat history.");
+    expect(tab.containerEl.textContent).toContain("Restore archived threads to the thread list.");
     expect(tab.containerEl.textContent).toContain("Loaded 1 archived thread from Codex app server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
       "Hook status",
