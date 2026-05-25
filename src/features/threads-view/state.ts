@@ -15,7 +15,7 @@ export interface ThreadsRowModel {
   thread: Thread;
   title: string;
   live: ThreadsLiveState | null;
-  rename: { active: boolean; draft: string };
+  rename: { active: boolean; draft: string; generating: boolean };
 }
 
 const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
@@ -30,6 +30,7 @@ export function threadRows(
   threads: Thread[],
   snapshots: OpenCodexPanelSnapshot[],
   renameDrafts: ReadonlyMap<string, string>,
+  autoNameThreadId: string | null = null,
 ): ThreadsRowModel[] {
   const snapshotsByThread = snapshotsForThreads(snapshots);
   return [...threads]
@@ -43,6 +44,7 @@ export function threadRows(
         rename: {
           active: renameDrafts.has(thread.id),
           draft: renameDrafts.get(thread.id) ?? thread.name ?? getThreadTitle(thread),
+          generating: autoNameThreadId === thread.id,
         },
       };
     });

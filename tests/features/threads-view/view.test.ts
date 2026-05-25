@@ -3,6 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
+import type { Turn } from "../../../src/generated/app-server/v2/Turn";
+import type * as ThreadNamingModule from "../../../src/features/chat/thread-naming";
 import { installObsidianDomShims } from "../chat/ui/dom-test-helpers";
 
 const connectionMock = vi.hoisted(() => {
@@ -21,6 +23,10 @@ const connectionMock = vi.hoisted(() => {
     },
   };
 });
+
+const namingMock = vi.hoisted(() => ({
+  generateThreadTitleWithCodex: vi.fn(),
+}));
 
 vi.mock("../../../src/app-server/connection-manager", () => {
   class StaleConnectionError extends Error {}
@@ -48,12 +54,21 @@ vi.mock("../../../src/app-server/connection-manager", () => {
   return { ConnectionManager, StaleConnectionError };
 });
 
+vi.mock("../../../src/features/chat/thread-naming", async (importOriginal) => {
+  const actual = await importOriginal<typeof ThreadNamingModule>();
+  return {
+    ...actual,
+    generateThreadTitleWithCodex: namingMock.generateThreadTitleWithCodex,
+  };
+});
+
 installObsidianDomShims();
 
 describe("CodexThreadsView", () => {
   beforeEach(() => {
     vi.useRealTimers();
     connectionMock.reset();
+    namingMock.generateThreadTitleWithCodex.mockReset();
   });
 
   it("renders thread list from app-server history", async () => {
@@ -214,15 +229,43 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
-    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    const input = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__rename-input");
     expect(input).not.toBeNull();
     if (!input) return;
-    input.value = "Renamed thread";
+    input.textContent = "Renamed thread";
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.click();
 
     await vi.waitFor(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
       expect(host.notifyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed thread");
+    });
+  });
+
+  it("auto-names a thread rename draft from completed history", async () => {
+    const threadTurnsList = vi.fn().mockResolvedValue({
+      data: [
+        turnFixture([
+          { type: "userMessage", id: "u1", content: [{ type: "text", text: "threads viewのrenameを直したい", text_elements: [] }] },
+          { type: "agentMessage", id: "a1", text: "rename UIを調整しました。", phase: "final_answer", memoryCitation: null },
+        ]),
+      ],
+      nextCursor: null,
+    });
+    namingMock.generateThreadTitleWithCodex.mockResolvedValue("Threads rename UI");
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      threadTurnsList,
+    });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+
+    await vi.waitFor(() => {
+      expect(threadTurnsList).toHaveBeenCalledWith("thread", null, 20, "asc");
+      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+      expect(view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__rename-input")?.textContent).toBe("Threads rename UI");
     });
   });
 });
@@ -232,6 +275,7 @@ function clientFixture(overrides: Record<string, unknown> = {}): Record<string, 
     listThreads: vi.fn().mockResolvedValue({ data: [] }),
     archiveThread: vi.fn().mockResolvedValue({}),
     setThreadName: vi.fn().mockResolvedValue({}),
+    threadTurnsList: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     rejectServerRequest: vi.fn(),
     ...overrides,
   };
@@ -291,6 +335,20 @@ function threadFixture(overrides: Record<string, unknown> = {}): Record<string, 
     gitInfo: null,
     name: null,
     turns: [],
+    ...overrides,
+  };
+}
+
+function turnFixture(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
+  return {
+    id: "turn",
+    items,
+    itemsView: "full",
+    status: "completed",
+    error: null,
+    startedAt: 1,
+    completedAt: 2,
+    durationMs: 1,
     ...overrides,
   };
 }

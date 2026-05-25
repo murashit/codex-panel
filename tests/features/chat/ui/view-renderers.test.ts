@@ -115,6 +115,7 @@ function threadsViewActions() {
     updateRename: vi.fn(),
     saveRename: vi.fn(),
     cancelRename: vi.fn(),
+    autoNameThread: vi.fn(),
     archiveThread: vi.fn(),
   };
 }
@@ -1856,10 +1857,10 @@ describe("toolbar renderer decisions", () => {
     parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
     expect(startRenameThread).toHaveBeenCalledWith("thread");
 
-    const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
+    const input = parent.querySelector<HTMLElement>(".codex-panel__thread-rename-input");
     if (!input) throw new Error("Missing thread rename input");
-    expect(input.value).toBe("Draft title");
-    input.value = "New title";
+    expect(input.textContent).toBe("Draft title");
+    input.textContent = "New title";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
 
@@ -1893,7 +1894,7 @@ describe("toolbar renderer decisions", () => {
       toolbarActions(),
     );
 
-    expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")?.disabled).toBe(false);
+    expect(parent.querySelector<HTMLElement>(".codex-panel__thread-rename-input")?.getAttribute("contenteditable")).toBe("plaintext-only");
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.disabled).toBe(true);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')?.disabled).toBe(false);
@@ -1958,18 +1959,55 @@ describe("threads view renderer decisions", () => {
       thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
       live: null,
-      rename: { active: true, draft: "Old name" },
+      rename: { active: true, draft: "Old name", generating: false },
     };
 
     renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
 
-    const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
-    input.value = "New name";
+    const input = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__rename-input"));
+    input.textContent = "New name";
     input.dispatchEvent(new Event("input"));
     parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.click();
 
     expect(actions.updateRename).toHaveBeenCalledWith("thread", "New name");
     expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
+  });
+
+  it("renders threads view rename actions inline with auto-name", () => {
+    const parent = document.createElement("div");
+    const actions = threadsViewActions();
+    const row: ThreadsRowModel = {
+      thread: threadFixture({ id: "thread", name: "Old name" }),
+      title: "Old name",
+      live: null,
+      rename: { active: true, draft: "Old name", generating: false },
+    };
+
+    renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
+
+    const form = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__rename-form"));
+    expect(form.querySelectorAll(".codex-panel-threads__row-button")).toHaveLength(3);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.disabled).toBe(false);
+    parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+
+    expect(actions.autoNameThread).toHaveBeenCalledWith("thread");
+  });
+
+  it("renders threads view rename auto-name loading state", () => {
+    const parent = document.createElement("div");
+    const row: ThreadsRowModel = {
+      thread: threadFixture({ id: "thread", name: "Old name" }),
+      title: "Old name",
+      live: null,
+      rename: { active: true, draft: "Old name", generating: true },
+    };
+
+    renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, threadsViewActions());
+
+    expect(parent.querySelector<HTMLElement>(".codex-panel-threads__rename-input")?.getAttribute("contenteditable")).toBe("plaintext-only");
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')?.disabled).toBe(false);
   });
 });
 

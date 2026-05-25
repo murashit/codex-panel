@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian";
 
+import { createInlineRenameEditor } from "../../shared/ui/inline-rename";
 import type { ThreadsRowModel } from "./state";
 
 export interface ThreadsViewModel {
@@ -16,6 +17,7 @@ export interface ThreadsViewActions {
   updateRename: (threadId: string, value: string) => void;
   saveRename: (threadId: string, value: string) => void;
   cancelRename: (threadId: string) => void;
+  autoNameThread: (threadId: string) => void;
   archiveThread: (threadId: string) => void;
 }
 
@@ -55,10 +57,12 @@ function renderThreadRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
     attr: { role: "button", tabindex: "0", "aria-label": `Open thread: ${row.title}` },
   });
   if (row.live) item.addClass(`codex-panel-threads__row--${row.live.status}`);
+  if (row.rename.active) item.addClass("codex-panel-threads__row--renaming");
   item.onclick = () => {
     actions.openThread(row.thread.id);
   };
   item.onkeydown = (event) => {
+    if (row.rename.active) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     actions.openThread(row.thread.id);
@@ -89,32 +93,37 @@ function renderRenameRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
   parent.onclick = (event) => {
     event.stopPropagation();
   };
-  const input = parent.createEl("input", {
-    cls: "codex-panel-threads__rename-input",
-    attr: { type: "text", value: row.rename.draft, "aria-label": "Thread name" },
-  });
-  input.oninput = () => {
-    actions.updateRename(row.thread.id, input.value);
-  };
-  input.onkeydown = (event) => {
-    if (event.key === "Enter") {
-      actions.saveRename(row.thread.id, input.value);
-    }
-    if (event.key === "Escape") {
+  const form = parent.createDiv({ cls: "codex-panel-threads__rename-form" });
+  const editor = createInlineRenameEditor(form, {
+    className: "codex-panel-threads__rename-input",
+    value: row.rename.draft,
+    ariaLabel: "Thread name",
+    onUpdate: (value) => {
+      actions.updateRename(row.thread.id, value);
+    },
+    onSave: (value) => {
+      actions.saveRename(row.thread.id, value);
+    },
+    onCancel: () => {
       actions.cancelRename(row.thread.id);
-    }
-  };
+    },
+    canSave: () => !row.rename.generating,
+  });
 
-  const save = iconButton(parent, "check", "Save thread name", "codex-panel-threads__row-button");
+  const save = iconButton(form, "check", "Save thread name", "codex-panel-threads__row-button");
+  save.disabled = row.rename.generating;
   save.onclick = () => {
-    actions.saveRename(row.thread.id, input.value);
+    actions.saveRename(row.thread.id, editor.value());
   };
-  const cancel = iconButton(parent, "x", "Cancel rename", "codex-panel-threads__row-button");
+  const cancel = iconButton(form, "x", "Cancel rename", "codex-panel-threads__row-button");
   cancel.onclick = () => {
     actions.cancelRename(row.thread.id);
   };
-  input.focus();
-  input.select();
+  const autoName = iconButton(form, row.rename.generating ? "loader" : "sparkles", "Auto-name thread", "codex-panel-threads__row-button");
+  autoName.disabled = row.rename.generating;
+  autoName.onclick = () => {
+    actions.autoNameThread(row.thread.id);
+  };
 }
 
 function iconButton(parent: HTMLElement, icon: string, label: string, className: string): HTMLButtonElement {
