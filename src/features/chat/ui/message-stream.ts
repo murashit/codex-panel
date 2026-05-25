@@ -72,7 +72,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
       render: () =>
         createDiv({
           cls: "codex-panel__message codex-panel__message--system",
-          text: "Start a new thread or send a message.",
+          text: "Send a message to start a new thread.",
         }),
     });
     return blocks;
