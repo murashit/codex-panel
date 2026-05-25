@@ -108,11 +108,7 @@
 }
 
 .codex-panel-threads__toolbar {
-  display: flex;
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: flex-end;
-  padding: var(--codex-panel-control-gap) var(--codex-panel-control-gap) 0;
 }
 
 .codex-panel-threads__list {
@@ -210,10 +206,18 @@
 }
 
 .codex-panel-threads__icon-button {
-  --icon-size: var(--codex-panel-size-icon-s);
-  --icon-stroke: var(--icon-s-stroke-width, 1.75px);
   flex: 0 0 auto;
   padding: var(--codex-panel-control-gap);
+}
+
+.codex-panel-threads__toolbar-button {
+  --icon-size: var(--codex-panel-control-icon-size);
+  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
+}
+
+.codex-panel-threads__row-button {
+  --icon-size: var(--codex-panel-size-icon-s);
+  --icon-stroke: var(--icon-s-stroke-width, 1.75px);
 }
 
 .codex-panel-threads__icon-button svg {

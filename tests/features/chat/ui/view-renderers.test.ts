@@ -1932,7 +1932,16 @@ describe("threads view renderer decisions", () => {
     expect(parent.querySelector(".codex-panel-threads__badge")).toBeNull();
     const row = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--approval"));
     expect(row.getAttribute("title")).toBeNull();
-    parent.querySelector<HTMLButtonElement>('[aria-label="Open new panel"]')?.click();
+    const toolbarButtons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel-threads__toolbar-button")];
+    expect(toolbarButtons.map((button) => button.getAttribute("aria-label"))).toEqual(["Open new panel", "Refresh threads"]);
+    const refresh = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Refresh threads"]'));
+    expect(refresh.classList.contains("codex-panel-threads__toolbar-button")).toBe(true);
+    refresh.click();
+    expect(actions.refresh).toHaveBeenCalledOnce();
+    const openNewPanel = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Open new panel"]'));
+    expect(openNewPanel.classList.contains("codex-panel-threads__toolbar-button")).toBe(true);
+    expect(openNewPanel.classList.contains("codex-panel-threads__row-button")).toBe(false);
+    openNewPanel.click();
     expect(actions.openNewPanel).toHaveBeenCalledOnce();
     row.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");

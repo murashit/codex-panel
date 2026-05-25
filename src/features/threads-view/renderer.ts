@@ -23,10 +23,15 @@ export function renderThreadsView(parent: HTMLElement, model: ThreadsViewModel, 
   parent.empty();
   parent.addClass("codex-panel-threads");
 
-  const toolbar = parent.createDiv({ cls: "codex-panel-threads__toolbar" });
-  const openPanel = iconButton(toolbar, "panel-right-open", "Open new panel");
+  const toolbar = parent.createDiv({ cls: "nav-header codex-panel-threads__toolbar" });
+  const toolbarActions = toolbar.createDiv({ cls: "nav-buttons-container codex-panel-threads__toolbar-actions" });
+  const openPanel = iconButton(toolbarActions, "message-square-plus", "Open new panel", "codex-panel-threads__toolbar-button");
   openPanel.onclick = () => {
     actions.openNewPanel();
+  };
+  const refresh = iconButton(toolbarActions, "refresh-cw", "Refresh threads", "codex-panel-threads__toolbar-button");
+  refresh.onclick = () => {
+    actions.refresh();
   };
 
   const list = parent.createDiv({ cls: "codex-panel-threads__list", attr: { role: "list" } });
@@ -68,12 +73,12 @@ function renderThreadRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
   titleLine.createSpan({ cls: "codex-panel-threads__row-title", text: row.title });
 
   const controls = item.createDiv({ cls: "codex-panel-threads__actions" });
-  const rename = iconButton(controls, "pencil", "Rename thread");
+  const rename = iconButton(controls, "pencil", "Rename thread", "codex-panel-threads__row-button");
   rename.onclick = (event) => {
     event.stopPropagation();
     actions.startRename(row.thread.id, row.thread.name ?? row.title);
   };
-  const archive = iconButton(controls, "archive", "Archive thread");
+  const archive = iconButton(controls, "archive", "Archive thread", "codex-panel-threads__row-button");
   archive.onclick = (event) => {
     event.stopPropagation();
     actions.archiveThread(row.thread.id);
@@ -100,11 +105,11 @@ function renderRenameRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
     }
   };
 
-  const save = iconButton(parent, "check", "Save thread name");
+  const save = iconButton(parent, "check", "Save thread name", "codex-panel-threads__row-button");
   save.onclick = () => {
     actions.saveRename(row.thread.id, input.value);
   };
-  const cancel = iconButton(parent, "x", "Cancel rename");
+  const cancel = iconButton(parent, "x", "Cancel rename", "codex-panel-threads__row-button");
   cancel.onclick = () => {
     actions.cancelRename(row.thread.id);
   };
@@ -112,9 +117,9 @@ function renderRenameRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
   input.select();
 }
 
-function iconButton(parent: HTMLElement, icon: string, label: string): HTMLButtonElement {
+function iconButton(parent: HTMLElement, icon: string, label: string, className: string): HTMLButtonElement {
   const button = parent.createEl("button", {
-    cls: "clickable-icon nav-action-button codex-panel-threads__icon-button",
+    cls: `clickable-icon nav-action-button codex-panel-threads__icon-button ${className}`,
     attr: { "aria-label": label, type: "button" },
   });
   setIcon(button, icon);

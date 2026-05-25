@@ -168,6 +168,19 @@ describe("CodexThreadsView", () => {
     expect(host.openThreadInAvailableView).not.toHaveBeenCalled();
   });
 
+  it("refreshes threads from the threads view toolbar", async () => {
+    const listThreads = vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] });
+    connectionMock.state.client = clientFixture({ listThreads });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Refresh threads"]')?.click();
+
+    await vi.waitFor(() => {
+      expect(listThreads).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("notifies open panels after archiving a thread", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
