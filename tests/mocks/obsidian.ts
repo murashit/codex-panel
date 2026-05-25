@@ -21,7 +21,7 @@ export type App = Record<string, never>;
 export const notices: string[] = [];
 
 export class FileSystemAdapter {
-  constructor(readonly basePath: string) {}
+  constructor(readonly basePath = "") {}
 
   getBasePath(): string {
     return this.basePath;
@@ -61,11 +61,58 @@ export class ItemView {
   registerEvent(_eventRef: unknown): void {
     // Test mock placeholder.
   }
+
+  getState(): Record<string, unknown> {
+    return {};
+  }
+
+  setState(_state: unknown, _result: unknown): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 export class MarkdownView {
   file: TFile | null = null;
 }
+
+export class Plugin {
+  constructor(readonly app: App) {}
+
+  register(_callback: () => void): void {
+    // Test mock placeholder.
+  }
+
+  addCommand(_command: unknown): void {
+    // Test mock placeholder.
+  }
+
+  addRibbonIcon(_icon: string, _title: string, _callback: () => void): void {
+    // Test mock placeholder.
+  }
+
+  addSettingTab(_tab: unknown): void {
+    // Test mock placeholder.
+  }
+
+  registerView(_type: string, _factory: unknown): void {
+    // Test mock placeholder.
+  }
+
+  loadData(): Promise<unknown> {
+    return Promise.resolve(null);
+  }
+
+  saveData(_data: unknown): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+export const MarkdownRenderer = {
+  render(_app: unknown, text: string, parent: HTMLElement): Promise<void> {
+    parent.textContent = text;
+    return Promise.resolve();
+  },
+};
 
 export class PluginSettingTab {
   containerEl: HTMLElement;

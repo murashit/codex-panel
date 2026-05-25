@@ -10,11 +10,11 @@ export function getThreadTitle(thread: Thread): string {
   );
 }
 
-export function codexPanelDisplayTitle(activeThreadId: string | null, threads: Thread[]): string {
+export function codexPanelDisplayTitle(activeThreadId: string | null, threads: Thread[], fallbackTitle?: string | null): string {
   if (!activeThreadId) return "Codex";
 
   const thread = threads.find((item) => item.id === activeThreadId);
-  const title = thread ? fullThreadTitle(thread) : shortThreadId(activeThreadId);
+  const title = thread ? fullThreadTitle(thread) : (fallbackTitle ?? shortThreadId(activeThreadId));
   return title ? `Codex: ${title}` : "Codex";
 }
 

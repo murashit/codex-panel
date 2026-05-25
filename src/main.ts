@@ -8,11 +8,17 @@ import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormali
 import { CodexPanelSettingTab } from "./settings/tab";
 import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/ui/turn-diff";
 
+const BOOT_RESTORED_PANEL_LOAD_DELAY_MS = 1_000;
+const BOOT_RESTORED_PANEL_LOAD_STAGGER_MS = 250;
+
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
   vaultPath = "";
+  private bootRestoredPanelLoadCancelled = false;
+  private readonly bootRestoredPanelLoadTimers = new Set<number>();
 
   override async onload(): Promise<void> {
+    this.bootRestoredPanelLoadCancelled = false;
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
 
@@ -47,6 +53,16 @@ export default class CodexPanelPlugin extends Plugin {
     registerSelectionRewriteCommand(this);
 
     this.addSettingTab(new CodexPanelSettingTab(this.app, this));
+
+    this.scheduleBootRestoredPanelLoads();
+  }
+
+  override onunload(): void {
+    this.bootRestoredPanelLoadCancelled = true;
+    for (const timer of this.bootRestoredPanelLoadTimers) {
+      window.clearTimeout(timer);
+    }
+    this.bootRestoredPanelLoadTimers.clear();
   }
 
   async activateView(): Promise<CodexChatView> {
@@ -121,5 +137,34 @@ export default class CodexPanelPlugin extends Plugin {
     if (!existing) return workspace.getRightLeaf(false);
 
     return workspace.createLeafInParent(existing.parent, Number.MAX_SAFE_INTEGER);
+  }
+
+  private scheduleBootRestoredPanelLoads(): void {
+    this.scheduleBootRestoredPanelLoadTimer(() => {
+      const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL);
+      leaves.forEach((leaf, index) => {
+        this.scheduleBootRestoredPanelLoadTimer(() => {
+          void this.loadRestoredPanelLeaf(leaf);
+        }, index * BOOT_RESTORED_PANEL_LOAD_STAGGER_MS);
+      });
+    }, BOOT_RESTORED_PANEL_LOAD_DELAY_MS);
+  }
+
+  private scheduleBootRestoredPanelLoadTimer(callback: () => void, delay: number): void {
+    const timer = window.setTimeout(() => {
+      this.bootRestoredPanelLoadTimers.delete(timer);
+      if (this.bootRestoredPanelLoadCancelled) return;
+      callback();
+    }, delay);
+    this.bootRestoredPanelLoadTimers.add(timer);
+  }
+
+  private async loadRestoredPanelLeaf(leaf: WorkspaceLeaf): Promise<void> {
+    if (this.bootRestoredPanelLoadCancelled) return;
+    try {
+      await leaf.loadIfDeferred();
+    } catch (error) {
+      console.warn("Codex Panel could not hydrate a restored panel leaf.", error);
+    }
   }
 }
