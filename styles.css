@@ -108,6 +108,14 @@
   line-height: var(--line-height-tight);
 }
 
+.codex-panel-threads__empty {
+  box-sizing: border-box;
+  min-height: var(--codex-panel-size-nav-item);
+  padding: var(--nav-item-padding, var(--codex-panel-control-gap) var(--codex-panel-item-gap));
+  color: var(--codex-panel-text-faint);
+  font-size: var(--font-ui-small);
+}
+
 .codex-panel-threads__toolbar {
   flex: 0 0 auto;
 }
