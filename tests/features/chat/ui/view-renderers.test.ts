@@ -109,6 +109,7 @@ function threadFixture(overrides: Partial<Thread> = {}): Thread {
 function threadsViewActions() {
   return {
     refresh: vi.fn(),
+    openNewPanel: vi.fn(),
     openThread: vi.fn(),
     startRename: vi.fn(),
     updateRename: vi.fn(),
@@ -1931,6 +1932,8 @@ describe("threads view renderer decisions", () => {
     expect(parent.querySelector(".codex-panel-threads__badge")).toBeNull();
     const row = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--approval"));
     expect(row.getAttribute("title")).toBeNull();
+    parent.querySelector<HTMLButtonElement>('[aria-label="Open new panel"]')?.click();
+    expect(actions.openNewPanel).toHaveBeenCalledOnce();
     row.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");
     row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));

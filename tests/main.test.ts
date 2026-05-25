@@ -143,6 +143,24 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(openThread).toHaveBeenCalledWith("thread-1");
   });
 
+  it("opens an empty new panel from the threads view action", async () => {
+    const newLeaf = leaf();
+    const plugin = await pluginWithLeaves([]);
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(newLeaf);
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const view = chatView(CodexChatView, newLeaf);
+    newLeaf.setViewState.mockImplementation(async () => {
+      newLeaf.view = view;
+    });
+    const connect = vi.spyOn(view, "connect").mockResolvedValue(undefined);
+    const openThread = vi.spyOn(view, "openThread").mockResolvedValue(undefined);
+
+    await plugin.openNewPanel();
+
+    expect(connect).toHaveBeenCalledOnce();
+    expect(openThread).not.toHaveBeenCalled();
+  });
+
   it("refreshes open thread lists after archive lifecycle notifications", async () => {
     const plugin = await pluginWithLeaves([]);
     const refreshOpenThreadLists = vi.spyOn(plugin, "refreshOpenThreadLists").mockImplementation(() => undefined);
@@ -216,6 +234,7 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
     {
       settings: { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" },
       vaultPath: "/vault",
+      openNewPanel: vi.fn(),
       openThreadInNewView: vi.fn(),
       openThreadInAvailableView: vi.fn(),
       openTurnDiff: vi.fn(),

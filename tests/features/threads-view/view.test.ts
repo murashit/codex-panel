@@ -150,6 +150,24 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("opens a new panel from the threads view toolbar", async () => {
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+    });
+    const host = threadsHost({
+      openNewPanel: vi.fn().mockResolvedValue(undefined),
+    });
+    const view = await threadsView(host);
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Open new panel"]')?.click();
+
+    await vi.waitFor(() => {
+      expect(host.openNewPanel).toHaveBeenCalledOnce();
+    });
+    expect(host.openThreadInAvailableView).not.toHaveBeenCalled();
+  });
+
   it("notifies open panels after archiving a thread", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
@@ -213,6 +231,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       codexPath: "codex",
     },
     vaultPath: "/vault",
+    openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     getOpenPanelSnapshots: vi.fn(() => []),
     notifyThreadArchived: vi.fn(),

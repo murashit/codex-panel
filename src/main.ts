@@ -120,6 +120,10 @@ export default class CodexPanelPlugin extends Plugin {
     return view;
   }
 
+  async openNewPanel(): Promise<void> {
+    await this.activateNewView();
+  }
+
   async openThreadInAvailableView(threadId: string): Promise<void> {
     const target = this.findThreadPanelTarget(threadId);
     await this.openThreadInTarget(target, threadId);

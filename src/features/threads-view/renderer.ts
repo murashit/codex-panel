@@ -10,6 +10,7 @@ export interface ThreadsViewModel {
 
 export interface ThreadsViewActions {
   refresh: () => void;
+  openNewPanel: () => void;
   openThread: (threadId: string) => void;
   startRename: (threadId: string, value: string) => void;
   updateRename: (threadId: string, value: string) => void;
@@ -21,6 +22,12 @@ export interface ThreadsViewActions {
 export function renderThreadsView(parent: HTMLElement, model: ThreadsViewModel, actions: ThreadsViewActions): void {
   parent.empty();
   parent.addClass("codex-panel-threads");
+
+  const toolbar = parent.createDiv({ cls: "codex-panel-threads__toolbar" });
+  const openPanel = iconButton(toolbar, "panel-right-open", "Open new panel");
+  openPanel.onclick = () => {
+    actions.openNewPanel();
+  };
 
   const list = parent.createDiv({ cls: "codex-panel-threads__list", attr: { role: "list" } });
   if (model.rows.length === 0) {

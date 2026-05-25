@@ -107,6 +107,14 @@
   line-height: var(--line-height-tight);
 }
 
+.codex-panel-threads__toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--codex-panel-control-gap) var(--codex-panel-control-gap) 0;
+}
+
 .codex-panel-threads__list {
   display: flex;
   flex: 1 1 auto;

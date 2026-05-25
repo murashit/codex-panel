@@ -13,6 +13,7 @@ import { threadRows } from "./state";
 export interface CodexThreadsHost {
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
+  openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
   notifyThreadArchived(threadId: string): void;
@@ -149,6 +150,7 @@ export class CodexThreadsView extends ItemView {
       },
       {
         refresh: () => void this.refresh(),
+        openNewPanel: () => void this.openNewPanel(),
         openThread: (threadId) => void this.openThread(threadId),
         startRename: (threadId, value) => {
           this.startRename(threadId, value);
@@ -187,6 +189,10 @@ export class CodexThreadsView extends ItemView {
 
   private async openThread(threadId: string): Promise<void> {
     await this.plugin.openThreadInAvailableView(threadId);
+  }
+
+  private async openNewPanel(): Promise<void> {
+    await this.plugin.openNewPanel();
   }
 
   private startRename(threadId: string, value: string): void {
