@@ -36,6 +36,10 @@ Open the command palette and run **Codex Panel: Open panel**, or select the ribb
 
 Use **Codex Panel: Start new chat** to start a fresh thread in the current panel. Use **Codex Panel: Open new panel** when you want multiple Codex threads side by side. Use **Codex Panel: Open threads view** to open a left-sidebar list of non-archived threads; selecting a row focuses an already open panel for that thread or resumes it in an available panel.
 
+Starting a new chat clears the current panel for the next message; it does not create a thread until you send that message. Resuming from inside a chat panel reuses that panel unless the thread is already open elsewhere.
+
+The Threads view is a dashboard for multiple panels: selecting a thread focuses an open panel for it or opens it in an available panel, and the view also has an action for opening a new empty panel.
+
 ## Supported Codex workflows
 
 Codex Panel supports Codex App Server workflows that fit a persistent side panel:
