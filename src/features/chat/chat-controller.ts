@@ -38,6 +38,8 @@ export interface ChatControllerActions {
   refreshSkills: (forceReload?: boolean) => void;
   publishSessionMetadata: () => void;
   maybeNameThread: (threadId: string, turn: Turn) => void;
+  notifyThreadArchived: (threadId: string) => void;
+  notifyThreadRenamed: (threadId: string, name: string | null) => void;
   recordMcpStartupStatus: (name: string, status: "starting" | "ready" | "failed" | "cancelled", message: string | null) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
@@ -245,13 +247,13 @@ export class ChatController {
       if (this.state.activeThreadId === params.threadId) {
         clearActiveThreadState(this.state);
       }
-      this.actions.refreshThreads();
+      this.actions.notifyThreadArchived(params.threadId);
     } else if (method === "thread/unarchived") {
       this.actions.refreshThreads();
     } else if (method === "thread/name/updated") {
       const name = typeof params.threadName === "string" && params.threadName.trim() ? params.threadName.trim() : null;
       this.state.listedThreads = this.state.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread));
-      this.actions.refreshThreads();
+      this.actions.notifyThreadRenamed(params.threadId, name);
     } else if (method === "thread/settings/updated") {
       this.applyThreadSettings(params.threadSettings);
     } else if (method === "thread/goal/updated") {

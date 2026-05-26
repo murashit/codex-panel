@@ -83,7 +83,7 @@ export interface CodexChatHost {
   focusThreadInOpenView(threadId: string): Promise<boolean>;
   openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
   notifyThreadArchived(threadId: string): void;
-  notifyThreadRenamed(threadId: string, name: string): void;
+  notifyThreadRenamed(threadId: string, name: string | null): void;
   refreshThreadsViewLiveState(): void;
   refreshSharedThreadListFromOpenSurface(): void;
   refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]>;
@@ -201,6 +201,12 @@ export class CodexChatView extends ItemView {
       },
       maybeNameThread: (threadId, turn) => {
         this.threadRename.maybeAutoNameThread(threadId, turn);
+      },
+      notifyThreadArchived: (threadId) => {
+        this.plugin.notifyThreadArchived(threadId);
+      },
+      notifyThreadRenamed: (threadId, name) => {
+        this.plugin.notifyThreadRenamed(threadId, name);
       },
       recordMcpStartupStatus: (name, status, message) => {
         this.session.recordMcpStartupStatus(name, status, message);
@@ -348,7 +354,7 @@ export class CodexChatView extends ItemView {
     }
   }
 
-  notifyThreadRenamed(threadId: string, name: string): void {
+  notifyThreadRenamed(threadId: string, name: string | null): void {
     let changed = false;
     this.state.listedThreads = this.state.listedThreads.map((thread) => {
       if (thread.id !== threadId) return thread;

@@ -18,7 +18,7 @@ export interface CodexThreadsHost {
   openThreadInAvailableView(threadId: string): Promise<void>;
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
   notifyThreadArchived(threadId: string): void;
-  notifyThreadRenamed(threadId: string, name: string): void;
+  notifyThreadRenamed(threadId: string, name: string | null): void;
   refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]>;
   cachedThreadList(): Thread[] | null;
 }

@@ -283,7 +283,7 @@ export default class CodexPanelPlugin extends Plugin {
     this.refreshThreadSurfaces();
   }
 
-  notifyThreadRenamed(threadId: string, name: string): void {
+  notifyThreadRenamed(threadId: string, name: string | null): void {
     this.notifyOpenPanels((view) => {
       view.notifyThreadRenamed(threadId, name);
     });

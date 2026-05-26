@@ -17,6 +17,8 @@ function controllerForState(
     refreshSkills: vi.fn(),
     publishSessionMetadata: vi.fn(),
     maybeNameThread: vi.fn(),
+    notifyThreadArchived: vi.fn(),
+    notifyThreadRenamed: vi.fn(),
     recordMcpStartupStatus: vi.fn(),
     respondToServerRequest: vi.fn(() => true),
     rejectServerRequest: vi.fn(() => true),
@@ -878,7 +880,8 @@ describe("ChatController", () => {
         },
       ];
       state.userInputDrafts.set("20:note", "draft");
-      const controller = controllerForState(state);
+      const notifyThreadArchived = vi.fn();
+      const controller = controllerForState(state, { notifyThreadArchived });
 
       controller.handleNotification({
         method: "thread/archived",
@@ -900,6 +903,7 @@ describe("ChatController", () => {
       expect(state.approvals).toEqual([]);
       expect(state.pendingUserInputs).toEqual([]);
       expect(state.userInputDrafts.size).toBe(0);
+      expect(notifyThreadArchived).toHaveBeenCalledWith("thread-active");
     });
 
     it("does not replace the active cwd from unrelated thread-started notifications", () => {
@@ -1006,8 +1010,8 @@ describe("ChatController", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
       state.listedThreads = [thread("thread-active", "/workspace/active")];
-      const refreshThreads = vi.fn();
-      const controller = controllerForState(state, { refreshThreads });
+      const notifyThreadRenamed = vi.fn();
+      const controller = controllerForState(state, { notifyThreadRenamed });
 
       controller.handleNotification({
         method: "thread/name/updated",
@@ -1015,7 +1019,7 @@ describe("ChatController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>);
 
       expect(state.listedThreads[0]?.name).toBe("Codex Panel自動命名");
-      expect(refreshThreads).toHaveBeenCalled();
+      expect(notifyThreadRenamed).toHaveBeenCalledWith("thread-active", "Codex Panel自動命名");
     });
 
     it("syncs active runtime state from thread settings notifications", () => {
