@@ -3,6 +3,7 @@ import { FileSystemAdapter, type App } from "obsidian";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import { normalizeReasoningEffort } from "../runtime/model";
+import type { SendShortcut } from "../shared/ui/keyboard";
 
 export interface CodexPanelSettings {
   codexPath: string;
@@ -16,8 +17,6 @@ export interface CodexPanelSettings {
   archiveExportFilenameTemplate: string;
   archiveExportTags: string;
 }
-
-export type SendShortcut = "enter" | "mod-enter";
 
 export const DEFAULT_SETTINGS: CodexPanelSettings = {
   codexPath: DEFAULT_CODEX_PATH,

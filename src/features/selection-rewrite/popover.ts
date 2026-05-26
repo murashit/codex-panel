@@ -10,7 +10,7 @@ import { SelectionRewriteOutputError } from "./output";
 import { positionSelectionRewritePopover } from "./position";
 import { buildSelectionRewritePrompt } from "./prompt";
 import { runSelectionRewrite, type SelectionRewriteActivity } from "./runner";
-import type { SendShortcut } from "../../settings/model";
+import type { SendShortcut } from "../../shared/ui/keyboard";
 
 const POPOVER_MARGIN = 8;
 

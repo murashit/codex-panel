@@ -2,15 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   findThreadNamingContext,
-  firstNamingContextFromDisplayItems,
   namingRuntime,
   namingPrompt,
-  namingContextFromDisplayItems,
   namingContextFromTurn,
   normalizeGeneratedTitle,
   titleFromNamingTurn,
   validatedNamingRuntime,
-} from "../../../src/features/chat/thread-naming";
+} from "../../../src/domain/threads/naming";
+import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../src/features/chat/thread-naming";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 
@@ -109,19 +108,13 @@ describe("thread naming", () => {
     ]);
   });
 
-  it("falls back to visible display items after bounded history scanning", async () => {
-    await expect(
-      findThreadNamingContext({
-        threadId: "thread",
-        pageLimit: 1,
-        maxPages: 1,
-        readTurns: async () => ({ data: [], nextCursor: "ignored" }),
-        fallbackDisplayItems: [
-          { id: "u1", kind: "message", role: "user", text: "表示済み履歴から命名したい", turnId: "visible", markdown: true },
-          { id: "a1", kind: "message", role: "assistant", text: "表示済み履歴を使います。", turnId: "visible", markdown: false },
-        ],
-      }),
-    ).resolves.toEqual({
+  it("finds the first visible display item naming context", () => {
+    expect(
+      firstNamingContextFromDisplayItems([
+        { id: "u1", kind: "message", role: "user", text: "表示済み履歴から命名したい", turnId: "visible", markdown: true },
+        { id: "a1", kind: "message", role: "assistant", text: "表示済み履歴を使います。", turnId: "visible", markdown: false },
+      ]),
+    ).toEqual({
       userRequest: "表示済み履歴から命名したい",
       assistantResponse: "表示済み履歴を使います。",
     });

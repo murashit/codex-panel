@@ -7,11 +7,11 @@ import { getThreadTitle } from "../../domain/threads/model";
 import {
   findThreadNamingContext,
   generateThreadTitleWithCodex,
-  namingContextFromDisplayItems,
   namingContextFromTurn,
   THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE,
   type ThreadNamingContext,
-} from "./thread-naming";
+} from "../../domain/threads/naming";
+import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";
 
 export interface ThreadRenameEditState {
   draft: string;
@@ -168,11 +168,11 @@ export class ThreadRenameController {
   private async resolveNamingContext(threadId: string): Promise<ThreadNamingContext | null> {
     const client = this.host.currentClient();
     if (!client) return null;
-    return findThreadNamingContext({
+    const context = await findThreadNamingContext({
       threadId,
       readTurns: (id, cursor, limit, sortDirection) => client.threadTurnsList(id, cursor, limit, sortDirection),
-      fallbackDisplayItems: this.host.state.activeThreadId === threadId ? this.host.state.displayItems : null,
     });
+    return context ?? (this.host.state.activeThreadId === threadId ? firstNamingContextFromDisplayItems(this.host.state.displayItems) : null);
   }
 
   private async generateTitle(context: ThreadNamingContext): Promise<string | null> {

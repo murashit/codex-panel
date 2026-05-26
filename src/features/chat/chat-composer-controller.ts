@@ -1,6 +1,6 @@
 import type { App, EventRef } from "obsidian";
 
-import { isComposerSendKey } from "./composer/keys";
+import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
 import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./composer/obsidian-context";
 import {
   activeComposerSuggestions,
@@ -13,7 +13,6 @@ import {
 } from "./composer/suggestions";
 import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-context";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
-import type { SendShortcut } from "../../settings/model";
 import { renderComposerShell, renderComposerSuggestions, syncComposerControls, syncComposerHeight } from "./ui/composer";
 import type { ChatState } from "./chat-state";
 

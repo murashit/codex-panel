@@ -2,7 +2,7 @@ import { MarkdownView, Notice, type Editor, type Plugin } from "obsidian";
 
 import type { SelectionRewriteRuntimeSettings, SelectionRewriteSession } from "./model";
 import { SelectionRewritePopover } from "./popover";
-import type { SendShortcut } from "../../settings/model";
+import type { SendShortcut } from "../../shared/ui/keyboard";
 
 export interface SelectionRewriteCommandHost extends Plugin {
   settings: {

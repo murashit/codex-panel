@@ -1,4 +1,4 @@
-import type { SendShortcut } from "../../../settings/model";
+export type SendShortcut = "enter" | "mod-enter";
 
 export interface ComposerSendKeyEvent {
   key: string;

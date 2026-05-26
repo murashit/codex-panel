@@ -1,5 +1,4 @@
-import { isComposerSendKey, type ComposerSendKeyEvent } from "../chat/composer/keys";
-import type { SendShortcut } from "../../settings/model";
+import { isComposerSendKey, type ComposerSendKeyEvent, type SendShortcut } from "../../shared/ui/keyboard";
 
 export type SelectionRewriteGenerateKeyEvent = ComposerSendKeyEvent;
 

@@ -7,7 +7,11 @@ import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { CodexPanelSettings } from "../../settings/model";
 import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
-import { findThreadNamingContext, generateThreadTitleWithCodex, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } from "../chat/thread-naming";
+import {
+  findThreadNamingContext,
+  generateThreadTitleWithCodex,
+  THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE,
+} from "../../domain/threads/naming";
 import { renderThreadsView } from "./renderer";
 import { threadRows } from "./state";
 
