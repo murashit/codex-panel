@@ -126,6 +126,64 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(openEmptyThread).toHaveBeenCalledWith("thread-1");
   });
 
+  it("opens picker Enter selections in the most recent panel when the thread is not already open", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const olderLeaf = leaf();
+    olderLeaf.view = chatView(CodexChatView, olderLeaf);
+    const olderView = olderLeaf.view as CodexChatView;
+    const openOlderThread = vi.spyOn(olderView, "openThread").mockResolvedValue(undefined);
+    const currentLeaf = leaf();
+    currentLeaf.view = chatView(CodexChatView, currentLeaf);
+    const currentView = currentLeaf.view as CodexChatView;
+    const openCurrentThread = vi.spyOn(currentView, "openThread").mockResolvedValue(undefined);
+    const plugin = await pluginWithLeaves([olderLeaf, currentLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(currentLeaf);
+
+    await plugin.openThreadInCurrentView("thread-1");
+
+    expect(openCurrentThread).toHaveBeenCalledWith("thread-1");
+    expect(openOlderThread).not.toHaveBeenCalled();
+  });
+
+  it("focuses an already open thread before picker Enter overwrites the current panel", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const openLeaf = leaf();
+    openLeaf.view = chatView(CodexChatView, openLeaf);
+    const openView = openLeaf.view as CodexChatView;
+    vi.spyOn(openView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "open-view", threadId: "thread-1" }));
+    const focusOpenThread = vi.spyOn(openView, "focusThread").mockResolvedValue(undefined);
+    const currentLeaf = leaf();
+    currentLeaf.view = chatView(CodexChatView, currentLeaf);
+    const currentView = currentLeaf.view as CodexChatView;
+    const openCurrentThread = vi.spyOn(currentView, "openThread").mockResolvedValue(undefined);
+    const plugin = await pluginWithLeaves([openLeaf, currentLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(currentLeaf);
+
+    await plugin.openThreadInCurrentView("thread-1");
+
+    expect(focusOpenThread).toHaveBeenCalledWith("thread-1");
+    expect(openCurrentThread).not.toHaveBeenCalled();
+  });
+
+  it("opens picker Enter selections in a deferred current panel even when it restored another thread", async () => {
+    const restoredLeaf = leaf({ state: { threadId: "restored-thread", threadTitle: "Restored thread" } });
+    const plugin = await pluginWithLeaves([restoredLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(restoredLeaf);
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const view = chatView(CodexChatView, restoredLeaf);
+    const openThread = vi.spyOn(view, "openThread").mockResolvedValue(undefined);
+    const focusThread = vi.spyOn(view, "focusThread").mockResolvedValue(undefined);
+    restoredLeaf.loadIfDeferred.mockImplementation(async () => {
+      restoredLeaf.view = view;
+    });
+
+    await plugin.openThreadInCurrentView("selected-thread");
+
+    expect(restoredLeaf.loadIfDeferred).toHaveBeenCalledOnce();
+    expect(openThread).toHaveBeenCalledWith("selected-thread");
+    expect(focusThread).not.toHaveBeenCalled();
+  });
+
   it("opens a thread in a new panel without a separate pre-connect", async () => {
     const newLeaf = leaf();
     const plugin = await pluginWithLeaves([]);
@@ -248,6 +306,8 @@ async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
         getLeavesOfType: vi.fn((type: string) => (type === VIEW_TYPE_CODEX_PANEL ? leaves : [])),
         revealLeaf: vi.fn().mockResolvedValue(undefined),
         getRightLeaf: vi.fn(() => null),
+        getMostRecentLeaf: vi.fn(() => null),
+        rightSplit: {},
       },
     } as never,
     {} as never,

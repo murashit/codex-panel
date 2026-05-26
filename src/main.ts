@@ -4,6 +4,7 @@ import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DI
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
 import { CodexChatView } from "./features/chat/view";
 import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
+import { openThreadPicker } from "./features/thread-picker/modal";
 import type { OpenCodexPanelSnapshot } from "./runtime/open-panel-snapshot";
 import { CodexThreadsView } from "./features/threads-view/view";
 import type { Thread } from "./generated/app-server/v2/Thread";
@@ -34,7 +35,16 @@ type ThreadPanelTarget =
       leaf: WorkspaceLeaf;
     }
   | {
+      kind: "restored-reuse";
+      leaf: WorkspaceLeaf;
+    }
+  | {
       kind: "empty";
+      leaf: WorkspaceLeaf;
+      view: CodexChatView;
+    }
+  | {
+      kind: "reuse";
       leaf: WorkspaceLeaf;
       view: CodexChatView;
     }
@@ -79,6 +89,12 @@ export default class CodexPanelPlugin extends Plugin {
       id: "open-threads-view",
       name: "Open threads view",
       callback: () => void this.activateThreadsView(),
+    });
+
+    this.addCommand({
+      id: "open-thread",
+      name: "Open thread...",
+      callback: () => void openThreadPicker(this),
     });
 
     this.addCommand({
@@ -139,6 +155,12 @@ export default class CodexPanelPlugin extends Plugin {
   async openThreadInAvailableView(threadId: string): Promise<void> {
     const target = this.findThreadPanelTarget(threadId);
     await this.openThreadInTarget(target, threadId);
+  }
+
+  async openThreadInCurrentView(threadId: string): Promise<void> {
+    const target =
+      this.findOpenThreadPanelTarget(threadId) ?? this.findRestoredThreadPanelTarget(threadId) ?? this.findCurrentThreadPanelTarget();
+    await this.openThreadInTarget(target ?? { kind: "new" }, threadId);
   }
 
   async focusThreadInOpenView(threadId: string): Promise<boolean> {
@@ -366,6 +388,25 @@ export default class CodexPanelPlugin extends Plugin {
     return null;
   }
 
+  private findCurrentThreadPanelTarget(): ThreadPanelTarget | null {
+    const { workspace } = this.app;
+    const mostRecent = workspace.getMostRecentLeaf(workspace.rightSplit);
+    const target = mostRecent ? this.threadPanelTargetFromLeaf(mostRecent) : null;
+    if (target) return target;
+
+    for (const leaf of workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      const fallback = this.threadPanelTargetFromLeaf(leaf);
+      if (fallback) return fallback;
+    }
+    return null;
+  }
+
+  private threadPanelTargetFromLeaf(leaf: WorkspaceLeaf): ThreadPanelTarget | null {
+    if (leaf.view instanceof CodexChatView) return { kind: "reuse", leaf, view: leaf.view };
+    if (leaf.getViewState().type === VIEW_TYPE_CODEX_PANEL) return { kind: "restored-reuse", leaf };
+    return null;
+  }
+
   private async openThreadInTarget(target: ThreadPanelTarget, threadId: string): Promise<void> {
     switch (target.kind) {
       case "open":
@@ -379,7 +420,15 @@ export default class CodexPanelPlugin extends Plugin {
           await target.leaf.view.focusThread(threadId);
         }
         return;
+      case "restored-reuse":
+        await this.app.workspace.revealLeaf(target.leaf);
+        await target.leaf.loadIfDeferred();
+        if (target.leaf.view instanceof CodexChatView) {
+          await target.leaf.view.openThread(threadId);
+        }
+        return;
       case "empty":
+      case "reuse":
         await this.app.workspace.revealLeaf(target.leaf);
         await target.view.openThread(threadId);
         return;

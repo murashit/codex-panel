@@ -1,9 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import { codexPanelDisplayTitle, explicitThreadName, inheritedForkThreadName, upsertThread } from "../../../src/domain/threads/model";
+import {
+  codexPanelDisplayTitle,
+  explicitThreadName,
+  getThreadTitle,
+  inheritedForkThreadName,
+  upsertThread,
+} from "../../../src/domain/threads/model";
 
 describe("thread helpers", () => {
+  it("resolves display titles from explicit names, previews, then ids", () => {
+    expect(getThreadTitle(thread({ name: "  Named   thread  ", preview: "Preview" }))).toBe("Named thread");
+    expect(getThreadTitle(thread({ name: "  ", preview: "  Preview   only  " }))).toBe("Preview only");
+    expect(getThreadTitle(thread({ id: "thread-id", name: null, preview: "" }))).toBe("thread-id");
+  });
+
   it("formats Codex panel display titles from the active thread", () => {
     expect(codexPanelDisplayTitle(null, [])).toBe("Codex");
     expect(codexPanelDisplayTitle("thread-named", [thread({ id: "thread-named", name: "作業メモ" })])).toBe("Codex: 作業メモ");

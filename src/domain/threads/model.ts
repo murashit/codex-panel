@@ -6,7 +6,8 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 export function getThreadTitle(thread: Thread): string {
   return (
-    [thread.name, thread.preview, thread.id].find((value): value is string => typeof value === "string" && value.length > 0) ?? thread.id
+    [thread.name, thread.preview, thread.id].map((value) => (typeof value === "string" ? normalizeTitle(value) : "")).find(Boolean) ??
+    thread.id
   );
 }
 

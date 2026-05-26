@@ -20,6 +20,20 @@ export type App = Record<string, never>;
 
 export const notices: string[] = [];
 
+export const Platform = {
+  isDesktop: true,
+  isMobile: false,
+  isDesktopApp: true,
+  isMobileApp: false,
+  isIosApp: false,
+  isAndroidApp: false,
+  isPhone: false,
+  isTablet: false,
+  isMacOS: true,
+  isWin: false,
+  isLinux: false,
+};
+
 export class FileSystemAdapter {
   constructor(readonly basePath = "") {}
 
@@ -42,6 +56,63 @@ export class Notice {
     this.message = message;
     notices.push(message);
   }
+}
+
+export class Modal {
+  readonly contentEl: HTMLElement;
+
+  constructor(readonly app: App) {
+    ensureElementHelpers();
+    this.contentEl = document.createElement("div");
+  }
+
+  open(): void {
+    void this.onOpen();
+  }
+
+  close(): void {
+    this.onClose();
+  }
+
+  onOpen(): Promise<void> | void {
+    // Test mock placeholder.
+  }
+
+  onClose(): void {
+    // Test mock placeholder.
+  }
+}
+
+export abstract class SuggestModal<T> extends Modal {
+  limit = 100;
+  emptyStateText = "";
+  readonly inputEl: HTMLInputElement;
+  readonly resultContainerEl: HTMLElement;
+
+  constructor(app: App) {
+    super(app);
+    this.inputEl = document.createElement("input");
+    this.resultContainerEl = document.createElement("div");
+  }
+
+  setPlaceholder(placeholder: string): void {
+    this.inputEl.placeholder = placeholder;
+  }
+
+  setInstructions(_instructions: { command: string; purpose: string }[]): void {
+    // Test mock placeholder.
+  }
+
+  selectActiveSuggestion(evt: MouseEvent | KeyboardEvent): void {
+    const suggestions = this.getSuggestions(this.inputEl.value);
+    if (!Array.isArray(suggestions)) return;
+    const suggestion = suggestions.at(0);
+    if (suggestion) this.onChooseSuggestion(suggestion, evt);
+  }
+
+  abstract getSuggestions(query: string): T[] | Promise<T[]>;
+  abstract renderSuggestion(value: T, el: HTMLElement): void;
+  abstract onChooseSuggestion(item: T, evt: MouseEvent | KeyboardEvent): void;
 }
 
 export class ItemView {
