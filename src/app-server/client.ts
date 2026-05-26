@@ -23,11 +23,13 @@ import type { ThreadRollbackResponse } from "../generated/app-server/v2/ThreadRo
 import type { ThreadSetNameResponse } from "../generated/app-server/v2/ThreadSetNameResponse";
 import type { ThreadSettingsUpdateParams } from "../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { ThreadSettingsUpdateResponse } from "../generated/app-server/v2/ThreadSettingsUpdateResponse";
+import type { ThreadCompactStartResponse } from "../generated/app-server/v2/ThreadCompactStartResponse";
 import type { SortDirection } from "../generated/app-server/v2/SortDirection";
 import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
 import type { ThreadTurnsListResponse } from "../generated/app-server/v2/ThreadTurnsListResponse";
 import type { ThreadUnarchiveResponse } from "../generated/app-server/v2/ThreadUnarchiveResponse";
 import type { TurnItemsView } from "../generated/app-server/v2/TurnItemsView";
+import type { TurnInterruptResponse } from "../generated/app-server/v2/TurnInterruptResponse";
 import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
 import type { TurnSteerResponse } from "../generated/app-server/v2/TurnSteerResponse";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
@@ -90,10 +92,10 @@ interface ClientResponseByMethod {
   "mcpServerStatus/list": ListMcpServerStatusResponse;
   "collaborationMode/list": CollaborationModeListResponse;
   "modelProvider/capabilities/read": ModelProviderCapabilitiesReadResponse;
-  "thread/compact/start": Record<string, never>;
+  "thread/compact/start": ThreadCompactStartResponse;
   "turn/start": TurnStartResponse;
   "turn/steer": TurnSteerResponse;
-  "turn/interrupt": unknown;
+  "turn/interrupt": TurnInterruptResponse;
 }
 
 type TypedClientRequestMethod = Extract<ClientRequestMethod, keyof ClientResponseByMethod>;
@@ -321,7 +323,7 @@ export class AppServerClient {
     return this.request("modelProvider/capabilities/read", {});
   }
 
-  compactThread(threadId: string): Promise<Record<string, never>> {
+  compactThread(threadId: string): Promise<ThreadCompactStartResponse> {
     return this.request("thread/compact/start", { threadId });
   }
 
@@ -381,7 +383,7 @@ export class AppServerClient {
     });
   }
 
-  interruptTurn(threadId: string, turnId: string): Promise<unknown> {
+  interruptTurn(threadId: string, turnId: string): Promise<TurnInterruptResponse> {
     return this.request("turn/interrupt", { threadId, turnId });
   }
 

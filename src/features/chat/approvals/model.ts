@@ -23,6 +23,10 @@ export type ApprovalRequest = Extract<
     method: "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" | "item/permissions/requestApproval";
   }
 >;
+export type ApprovalResponse =
+  | CommandExecutionRequestApprovalResponse
+  | FileChangeRequestApprovalResponse
+  | PermissionsRequestApprovalResponse;
 
 type PendingApprovalFor<Request extends ApprovalRequest> = Request extends ApprovalRequest
   ? {
@@ -89,7 +93,7 @@ function pendingApproval(request: ApprovalRequest): PendingApproval {
   }
 }
 
-export function approvalResponse(approval: PendingApproval, action: ApprovalAction): unknown {
+export function approvalResponse(approval: PendingApproval, action: ApprovalAction): ApprovalResponse {
   if (approval.method === "item/commandExecution/requestApproval") {
     return {
       decision: isCommandDecisionAction(action) ? action.decision : commandDecision(action),
