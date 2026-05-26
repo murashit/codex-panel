@@ -75,7 +75,6 @@ export function renderAgentItem(parent: HTMLElement, item: AgentDisplayItem, con
     const list = messageEl.createEl("ul", { cls: "codex-panel__agent-list" });
     for (const agent of item.agents) {
       const row = list.createEl("li", { cls: "codex-panel__agent-row" });
-      row.title = agent.threadId;
       row.createSpan({ cls: "codex-panel__agent-thread", text: shortThreadId(agent.threadId) });
       row.createSpan({ cls: "codex-panel__agent-status", text: agentStatusLabel(agent.status, agent.message) });
     }
@@ -129,7 +128,6 @@ function renderAgentSummaryRows(parent: HTMLElement, summary: AgentRunSummary): 
   const list = parent.createEl("ul", { cls: "codex-panel__agent-list codex-panel__agent-list--summary" });
   for (const agent of summary.agents) {
     const row = list.createEl("li", { cls: "codex-panel__agent-row" });
-    row.title = agent.threadId;
     row.createSpan({ cls: "codex-panel__agent-thread", text: shortThreadId(agent.threadId) });
     row.createSpan({ cls: "codex-panel__agent-status", text: agentSummaryStatusLabel(agent) });
   }

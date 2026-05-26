@@ -82,7 +82,6 @@ function renderTurnDiffHeader(
   titleBlock.createDiv({
     cls: "codex-panel-chat-turn-diff__meta",
     text: `${shortThreadId(state.threadId)} / ${shortThreadId(state.turnId)} · ${fileCountLabel(state.files)}`,
-    attr: { title: `Thread ${state.threadId}\nTurn ${state.turnId}${state.cwd ? `\n${state.cwd}` : ""}` },
   });
   if (copyDiff) {
     const copyButton = createIconButton(header, "copy", "Copy diff", "codex-panel-chat-turn-diff__copy");

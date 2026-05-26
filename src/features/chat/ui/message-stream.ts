@@ -323,7 +323,6 @@ function renderReferencedThread(parent: HTMLElement, item: Extract<DisplayItem, 
   label.createSpan({ text: reference.title });
   label.createSpan({ cls: "codex-panel__edited-files-separator", text: "·" });
   label.createSpan({ text: `${String(reference.includedTurns)}/${String(reference.turnLimit)} turns` });
-  wrapper.title = reference.threadId;
 }
 
 function renderEditedFiles(parent: HTMLElement, item: Extract<DisplayItem, { kind: "message" }>, context: MessageStreamContext): void {

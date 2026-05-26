@@ -12,7 +12,6 @@ export interface ToolbarChoice {
   label: string;
   selected?: boolean;
   disabled?: boolean;
-  title?: string;
   meta?: string;
   onClick: () => void;
 }
@@ -52,7 +51,6 @@ export interface ToolbarViewModel {
   fastActive: boolean;
   runtimeSummary: string;
   runtimeTitle: string;
-  runtimeAriaLabel: string;
   runtimeEmphasized: boolean;
   context: { level: "ok" | "warn" | "danger"; title: string; label: string; percent: number | null } | null;
   rateLimit: RateLimitSummary | null;
@@ -139,7 +137,7 @@ export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, act
 }
 
 function renderHistoryButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
-  const button = createToolbarButton(parent, "history", "Threads");
+  const button = createToolbarButton(parent, "history", "Toggle thread list");
   button.addClass("codex-panel__history-toggle");
   if (model.historyOpen) button.addClass("is-active");
   button.setAttr("aria-pressed", model.historyOpen ? "true" : "false");
@@ -147,7 +145,7 @@ function renderHistoryButton(parent: HTMLElement, model: ToolbarViewModel, actio
 }
 
 function renderAutoReviewButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
-  const button = createToolbarButton(parent, "shield", `Auto-review: ${model.autoReviewActive ? "on" : "off"}`);
+  const button = createToolbarButton(parent, "shield", "Toggle auto-review");
   button.addClass("codex-panel__auto-review-toggle");
   if (model.autoReviewActive) button.addClass("is-active");
   button.setAttr("aria-pressed", model.autoReviewActive ? "true" : "false");
@@ -160,7 +158,7 @@ function renderStatusButton(parent: HTMLElement, model: ToolbarViewModel, action
     cls: `clickable-icon nav-action-button codex-panel-ui__toolbar-control codex-panel__status-dot codex-panel__status-dot--${model.statusState}${alertClass} ${model.statusPanelOpen ? "is-active" : ""}`,
     attr: {
       type: "button",
-      "aria-label": statusButtonLabel(model),
+      "aria-label": "Toggle connection status",
       "aria-expanded": model.statusPanelOpen ? "true" : "false",
     },
   });
@@ -173,20 +171,10 @@ function renderStatusButton(parent: HTMLElement, model: ToolbarViewModel, action
   button.onclick = actions.toggleStatusPanel;
 }
 
-function statusButtonLabel(model: ToolbarViewModel): string {
-  const status = model.status.trim() || (model.connected ? "Connected" : "Not connected");
-  const connection = model.connected ? "connected" : "not connected";
-  const normalizedStatus = status.toLowerCase().replace(/[.!…]+$/u, "");
-  const parts = [`Status: ${status}`];
-  if (normalizedStatus !== connection) parts.push(`Connection: ${connection}`);
-  parts.push(`Diagnostics: ${model.diagnosticAlertLevel}`);
-  return parts.join("; ");
-}
-
 function renderRuntimeStatus(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
   const row = parent.createDiv({ cls: "codex-panel__runtime-strip" });
-  renderRuntimeIcon(row, "list-checks", `Plan mode: ${model.planActive ? "on" : "off"}`, model.planActive, actions.togglePlan);
-  renderRuntimeIcon(row, "zap", `Fast mode: ${model.fastActive ? "on" : "off"}`, model.fastActive, actions.toggleFast);
+  renderRuntimeIcon(row, "list-checks", "Toggle plan mode", model.planActive, actions.togglePlan);
+  renderRuntimeIcon(row, "zap", "Toggle fast mode", model.fastActive, actions.toggleFast);
   renderRuntimeModelControl(row, model, actions);
 }
 
@@ -217,7 +205,7 @@ function renderRuntimeModelControl(parent: HTMLElement, model: ToolbarViewModel,
     cls,
     attr: {
       type: "button",
-      "aria-label": model.runtimeAriaLabel,
+      "aria-label": "Change runtime settings",
       "aria-expanded": model.runtimeOpen ? "true" : "false",
     },
   });
@@ -231,7 +219,6 @@ function renderContextMeter(parent: HTMLElement, model: ToolbarViewModel): void 
   const context = parent.createDiv({
     cls: `codex-panel__meter-compact codex-panel__context-compact codex-panel__meter-compact--${model.context.level}`,
   });
-  context.title = model.context.title;
   context.createSpan({ cls: "codex-panel__meter-compact-label codex-panel__context-compact-label", text: model.context.label });
   const bar = context.createSpan({ cls: "codex-panel__meter-compact-bar codex-panel__context-compact-bar" });
   bar.createSpan({
@@ -257,14 +244,20 @@ function renderToolbarPanel(toolbar: HTMLElement, model: ToolbarViewModel, actio
 
 function renderStatusPanel(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
   const statusItems = parent.createDiv({ cls: "codex-panel__status-panel-items", attr: { role: "menu" } });
-  createToolbarPanelRow(statusItems, model.connectLabel, { onClick: actions.connect, className: "codex-panel__status-panel-item" });
+  createToolbarPanelRow(statusItems, model.connectLabel, {
+    onClick: actions.connect,
+    className: "codex-panel__status-panel-item",
+    role: "menuitem",
+  });
   createToolbarPanelRow(statusItems, "Refresh diagnostics", {
     onClick: actions.refreshDiagnostics,
     className: "codex-panel__status-panel-item",
+    role: "menuitem",
   });
   createToolbarPanelRow(statusItems, "Refresh thread list", {
     onClick: actions.refreshThreads,
     className: "codex-panel__status-panel-item",
+    role: "menuitem",
   });
   renderRateLimitPanel(parent, model.rateLimit);
   renderConnectionDiagnostics(parent, model.diagnostics);
@@ -280,7 +273,6 @@ function renderRateLimitPanel(parent: HTMLElement, rateLimit: RateLimitSummary |
   for (const row of rateLimit.rows) {
     const item = list.createDiv({
       cls: `codex-panel__limit-panel-row codex-panel__limit-panel-row--${row.level}`,
-      attr: { title: row.title },
     });
     item.createDiv({ cls: "codex-panel__limit-panel-label", text: row.label });
     item.createDiv({ cls: "codex-panel__limit-panel-value", text: row.value });
@@ -313,18 +305,22 @@ function renderRuntimePicker(parent: HTMLElement, model: ToolbarViewModel): void
   const picker = parent.createDiv({ cls: "codex-panel__runtime-picker", attr: { role: "listbox" } });
   picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Reasoning effort" });
   for (const choice of model.effortChoices) {
-    createToolbarPanelRow(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
+    createToolbarPanelRow(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice", role: "option" });
   }
   picker.createDiv({ cls: "codex-panel__runtime-picker-label", text: "Model" });
   for (const choice of model.modelChoices) {
-    createToolbarPanelRow(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice" });
+    createToolbarPanelRow(picker, choice.label, { ...choice, className: "codex-panel__runtime-choice", role: "option" });
   }
 }
 
 function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], actions: ToolbarActions): void {
   const threadsEl = parent.createDiv({ cls: "codex-panel__threads" });
   if (threads.length === 0) {
-    createToolbarPanelRow(threadsEl, "No threads", { disabled: true, className: "codex-panel__thread codex-panel__thread--empty" });
+    createToolbarPanelRow(threadsEl, "No threads", {
+      disabled: true,
+      className: "codex-panel__thread codex-panel__thread--empty",
+      interactive: false,
+    });
     return;
   }
 
@@ -340,7 +336,6 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
     createToolbarPanelRow(row, thread.title, {
       selected: thread.selected,
       disabled: thread.disabled,
-      title: `${thread.title}\n${thread.threadId}`,
       className: "codex-panel__thread",
       onClick: () => {
         actions.resumeThread(thread.threadId);
@@ -372,7 +367,6 @@ function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, ac
   createToolbarPanelRow(parent, thread.title, {
     className: "codex-panel__thread codex-panel__thread-rename",
     interactive: false,
-    title: `Rename ${thread.title}`,
     renderContent: (row) => {
       const field = row.createDiv({ cls: "codex-panel__thread-rename-field" });
       input = field.createEl("input", {
@@ -436,10 +430,10 @@ function createToolbarPanelRow(
   options: {
     selected?: boolean;
     disabled?: boolean;
-    title?: string;
     meta?: string;
     className?: string;
     interactive?: boolean;
+    role?: "button" | "menuitem" | "option";
     renderContent?: (parent: HTMLElement) => void;
     onClick?: () => void;
   } = {},
@@ -447,12 +441,17 @@ function createToolbarPanelRow(
   const selected = Boolean(options.selected);
   const disabled = Boolean(options.disabled);
   const interactive = options.interactive ?? true;
-  const attr: Record<string, string> = { title: options.title ?? label };
+  const role = options.role ?? "button";
+  const attr: Record<string, string> = {};
   if (interactive) {
-    attr["role"] = "button";
+    attr["role"] = role;
     attr["tabindex"] = disabled ? "-1" : "0";
     attr["aria-disabled"] = disabled ? "true" : "false";
-    attr["aria-selected"] = selected ? "true" : "false";
+    if (role === "option") {
+      attr["aria-selected"] = selected ? "true" : "false";
+    } else if (role === "button" && selected) {
+      attr["aria-current"] = "true";
+    }
   }
   const item = parent.createDiv({
     cls: ["codex-panel__toolbar-panel-item", options.className ?? "", selected ? "is-checked" : "", disabled ? "is-disabled" : ""]

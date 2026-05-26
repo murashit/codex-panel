@@ -16,7 +16,7 @@ export function renderToolResult(parent: HTMLElement, item: ToolResultDisplayIte
   const messageEl = root;
   applyExecutionStateClass(messageEl, view.state);
   createToolResultHeader(messageEl, view);
-  const content = messageEl.createDiv({ cls: "codex-panel__tool-summary", attr: { title: view.summary } });
+  const content = messageEl.createDiv({ cls: "codex-panel__tool-summary" });
   context.renderTextWithWikiLinks(content, view.summary);
 
   for (const section of view.details) {

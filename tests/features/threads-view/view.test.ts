@@ -158,7 +158,9 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(host);
 
     await view.refresh();
-    view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__row")?.click();
+    const row = view.containerEl.querySelector<HTMLElement>(".codex-panel-threads__row");
+    expect(row?.getAttribute("aria-label")).toBeNull();
+    row?.click();
 
     await vi.waitFor(() => {
       expect(host.openThreadInAvailableView).toHaveBeenCalledWith("thread");

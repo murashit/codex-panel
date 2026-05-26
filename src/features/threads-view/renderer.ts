@@ -53,7 +53,7 @@ export function renderThreadsView(parent: HTMLElement, model: ThreadsViewModel, 
 function renderThreadRow(parent: HTMLElement, row: ThreadsRowModel, actions: ThreadsViewActions): void {
   const item = parent.createDiv({
     cls: "codex-panel-threads__row",
-    attr: { role: "button", tabindex: "0", "aria-label": `Open thread: ${row.title}` },
+    attr: { role: "button", tabindex: "0" },
   });
   if (row.live) item.addClass(`codex-panel-threads__row--${row.live.status}`);
   if (row.rename.active) item.addClass("codex-panel-threads__row--renaming");

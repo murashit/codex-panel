@@ -1277,7 +1277,6 @@ export class CodexChatView extends ItemView {
       fastActive: currentServiceTier(snapshot, config) === "fast",
       runtimeSummary: runtimeSummaryLabel(model, effort),
       runtimeTitle: `Model: ${model ?? "(from default)"}; Effort: ${effort ?? "(from default)"}`,
-      runtimeAriaLabel: `Runtime: ${model ?? "default"} ${effort ?? "default"}`,
       runtimeEmphasized: false,
       context: context ? { ...context, label: compactContextLabel(context.percent, context.label) } : null,
       rateLimit: limit,

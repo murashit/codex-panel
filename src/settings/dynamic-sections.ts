@@ -2,7 +2,7 @@ import { Setting } from "obsidian";
 
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
 import type { Thread } from "../generated/app-server/v2/Thread";
-import { archivedThreadDisplayTitle, fullThreadTitle } from "../domain/threads/model";
+import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { shortThreadId } from "../utils";
 
 export interface ArchivedThreadSectionState {
@@ -152,7 +152,6 @@ function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThrea
         button.extraSettingsEl.setAttr("aria-label", `Restore ${title}`);
       });
     setting.settingEl.addClass("codex-panel-settings__archived-row");
-    setting.settingEl.setAttr("title", fullThreadTitle(thread));
   }
 }
 
@@ -202,11 +201,9 @@ function renderHookRow(list: HTMLElement, hook: HookMetadata, state: HookSection
         });
     });
   setting.settingEl.addClass("codex-panel-settings__hook-row");
-  setting.settingEl.setAttr("title", hook.command ?? hook.key);
   setting.descEl.createDiv({
     cls: "codex-panel-settings__hook-hash",
     text: hook.currentHash,
-    attr: { title: hook.key },
   });
 }
 

@@ -752,7 +752,7 @@ describe("message stream block identity and message actions", () => {
     const element = block.render();
 
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("npm run check (exit 1)");
-    expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBe("npm run check (exit 1)");
+    expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBeNull();
     expect(topLevelDetailsSummaries(element)).toEqual(["command"]);
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["command"]);
     expect(element.textContent).not.toContain("Details");
@@ -947,7 +947,7 @@ describe("message stream block identity and message actions", () => {
     expect(user?.querySelector(".codex-panel__message-content")?.textContent).toBe("この続きです");
     expect(user?.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("Referenced 参照元");
     expect(user?.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("2/20 turns");
-    expect(user?.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.title).toBe("thread-reference");
+    expect(user?.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.getAttribute("title")).toBeNull();
   });
 
   it("renders resolved file mentions as a collapsed user message attachment", () => {
@@ -1238,7 +1238,7 @@ describe("work log renderer decisions", () => {
     const element = block.render();
 
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("assets/image.png");
-    expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBe("assets/image.png");
+    expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBeNull();
   });
 
   it("keeps path summary tools absolute outside the workspace root", () => {
@@ -1651,20 +1651,18 @@ describe("toolbar renderer decisions", () => {
     const statusButton = parent.querySelector(".codex-panel__status-dot");
     expect(statusButton?.tagName).toBe("BUTTON");
     expect(statusButton?.getAttribute("role")).toBeNull();
-    expect(statusButton?.getAttribute("aria-label")).toBe("Status: Connected.; Diagnostics: normal");
+    expect(statusButton?.getAttribute("aria-label")).toBe("Toggle connection status");
     parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle")?.click();
     expect(toggleHistory).toHaveBeenCalled();
     const autoReviewButton = parent.querySelector<HTMLButtonElement>(".codex-panel__auto-review-toggle");
-    expect(autoReviewButton?.getAttribute("aria-label")).toBe("Auto-review: off");
+    expect(autoReviewButton?.getAttribute("aria-label")).toBe("Toggle auto-review");
     expect(autoReviewButton?.getAttribute("aria-pressed")).toBe("false");
     autoReviewButton?.click();
     expect(toggleAutoReview).toHaveBeenCalled();
 
     parent.empty();
     renderToolbar(parent, toolbarModel({ status: "Turn running...", statusState: "running", autoReviewActive: true }), toolbarActions());
-    expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe(
-      "Status: Turn running...; Connection: connected; Diagnostics: normal",
-    );
+    expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Toggle connection status");
     expect(parent.querySelector(".codex-panel__auto-review-toggle")?.getAttribute("aria-pressed")).toBe("true");
 
     expect(toolbarSignature(baseModel)).not.toBe(toolbarSignature({ ...baseModel, status: "Turn running..." }));
@@ -1708,6 +1706,8 @@ describe("toolbar renderer decisions", () => {
     ]);
     expect([...parent.querySelectorAll(".codex-panel__runtime-choice")].map((choice) => choice.textContent)).toEqual(["high", "gpt-5.5"]);
     for (const choice of parent.querySelectorAll(".codex-panel__runtime-choice")) {
+      expect(choice.getAttribute("role")).toBe("option");
+      expect(choice.getAttribute("aria-selected")).toBe("true");
       expect(choice.querySelector<HTMLElement>(".codex-panel__toolbar-panel-check")?.dataset["icon"]).toBe("check");
       expect(choice.classList.contains("selected")).toBe(false);
       expect(choice.classList.contains("is-selected")).toBe(false);
@@ -1783,9 +1783,10 @@ describe("toolbar renderer decisions", () => {
     expect(parent.textContent).toContain("Refresh diagnostics");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
     expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")?.textContent).toContain("model/list failed");
-    [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")]
-      .find((item) => item.textContent.includes("Refresh diagnostics"))
-      ?.click();
+    const statusItems = [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")];
+    expect(statusItems.map((item) => item.getAttribute("role"))).toEqual(["menuitem", "menuitem", "menuitem"]);
+    expect(statusItems.every((item) => item.getAttribute("aria-selected") === null)).toBe(true);
+    statusItems.find((item) => item.textContent.includes("Refresh diagnostics"))?.click();
     expect(refreshDiagnostics).toHaveBeenCalled();
   });
 
@@ -1794,21 +1795,21 @@ describe("toolbar renderer decisions", () => {
     renderToolbar(normal, toolbarModel({ diagnosticAlertLevel: "normal" }), toolbarActions());
     const normalStatus = normal.querySelector(".codex-panel__status-dot");
     expect(normalStatus?.querySelector(".codex-panel__status-dot-diagnostic")).toBeNull();
-    expect(normalStatus?.getAttribute("aria-label")).toContain("Diagnostics: normal");
+    expect(normalStatus?.getAttribute("aria-label")).toBe("Toggle connection status");
 
     const warning = document.createElement("div");
     renderToolbar(warning, toolbarModel({ diagnosticAlertLevel: "warning" }), toolbarActions());
     const warningStatus = warning.querySelector(".codex-panel__status-dot");
     expect(warningStatus?.classList.contains("codex-panel__status-dot--diagnostic-warning")).toBe(true);
     expect(warningStatus?.querySelector(".codex-panel__status-dot-diagnostic--warning")).not.toBeNull();
-    expect(warningStatus?.getAttribute("aria-label")).toContain("Diagnostics: warning");
+    expect(warningStatus?.getAttribute("aria-label")).toBe("Toggle connection status");
 
     const error = document.createElement("div");
     renderToolbar(error, toolbarModel({ diagnosticAlertLevel: "error" }), toolbarActions());
     const errorStatus = error.querySelector(".codex-panel__status-dot");
     expect(errorStatus?.classList.contains("codex-panel__status-dot--diagnostic-error")).toBe(true);
     expect(errorStatus?.querySelector(".codex-panel__status-dot-diagnostic--error")).not.toBeNull();
-    expect(errorStatus?.getAttribute("aria-label")).toContain("Diagnostics: error");
+    expect(errorStatus?.getAttribute("aria-label")).toBe("Toggle connection status");
   });
 
   it("renders effective config inside the status menu without a separate toggle", () => {
@@ -2426,7 +2427,6 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     fastActive: false,
     runtimeSummary: "5.5 high",
     runtimeTitle: "Model: gpt-5.5; Effort: high",
-    runtimeAriaLabel: "Runtime: gpt-5.5 high",
     runtimeEmphasized: false,
     context: null,
     rateLimit: null,

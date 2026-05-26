@@ -33,7 +33,6 @@ export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openL
         text: label,
         attr: {
           href: target,
-          title: target,
         },
       });
       link.onclick = (event) => {
