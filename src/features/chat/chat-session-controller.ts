@@ -37,7 +37,7 @@ export class ChatSessionController {
 
   async loadThreadList(): Promise<ChatState["listedThreads"]> {
     const client = this.host.currentClient();
-    if (!client) return [];
+    if (!client) throw new Error("Codex app-server is not connected.");
     const response = await client.listThreads(this.host.vaultPath);
     return response.data;
   }

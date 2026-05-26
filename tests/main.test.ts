@@ -211,6 +211,28 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     expect(plugin.cachedThreadList()).toEqual([thread("cached")]);
   });
+
+  it("refreshes shared thread lists from a connected chat panel", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const disconnectedLeaf = leaf();
+    disconnectedLeaf.view = chatView(CodexChatView, disconnectedLeaf);
+    const disconnectedView = disconnectedLeaf.view as CodexChatView;
+    vi.spyOn(disconnectedView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "disconnected", connected: false }));
+    const disconnectedRefresh = vi.spyOn(disconnectedView, "refreshSharedThreadList").mockResolvedValue(undefined);
+
+    const connectedLeaf = leaf();
+    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
+    const connectedView = connectedLeaf.view as CodexChatView;
+    vi.spyOn(connectedView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    const connectedRefresh = vi.spyOn(connectedView, "refreshSharedThreadList").mockResolvedValue(undefined);
+
+    const plugin = await pluginWithLeaves([disconnectedLeaf, connectedLeaf]);
+
+    plugin.refreshSharedThreadListFromOpenSurface();
+
+    expect(disconnectedRefresh).not.toHaveBeenCalled();
+    expect(connectedRefresh).toHaveBeenCalledOnce();
+  });
 });
 
 async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
@@ -305,4 +327,20 @@ function thread(id: string): Thread {
     name: null,
     turns: [],
   } as Thread;
+}
+
+function panelSnapshot(
+  overrides: Partial<ReturnType<CodexChatView["openPanelSnapshot"]>> = {},
+): ReturnType<CodexChatView["openPanelSnapshot"]> {
+  return {
+    viewId: "view",
+    threadId: "thread",
+    busy: false,
+    activeTurnId: null,
+    pendingApprovals: 0,
+    pendingUserInputs: 0,
+    hasComposerDraft: false,
+    connected: true,
+    ...overrides,
+  };
 }

@@ -190,7 +190,7 @@ export default class CodexPanelPlugin extends Plugin {
     const chatView = this.app.workspace
       .getLeavesOfType(VIEW_TYPE_CODEX_PANEL)
       .map((leaf) => leaf.view)
-      .find((view): view is CodexChatView => view instanceof CodexChatView);
+      .find((view): view is CodexChatView => view instanceof CodexChatView && view.openPanelSnapshot().connected);
     if (chatView) {
       void chatView.refreshSharedThreadList();
       return;
