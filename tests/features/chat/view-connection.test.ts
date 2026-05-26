@@ -791,6 +791,7 @@ async function chatView(
       app: {
         workspace: {
           getActiveFile: vi.fn(() => null),
+          getLastOpenFiles: vi.fn(() => []),
           on: vi.fn((eventName: string, callback: (leaf: unknown) => void) => {
             if (eventName === "active-leaf-change") options.activeLeafChangeListeners?.push(callback);
             return {};

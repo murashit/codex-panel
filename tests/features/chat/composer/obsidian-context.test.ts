@@ -10,11 +10,12 @@ describe("Obsidian composer context", () => {
         { basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } },
         { basename: "Beta", path: "Beta.md", stat: { mtime: 200 } },
       ],
+      lastOpenFiles: ["Beta.md"],
     });
 
     expect(noteCandidates(app)).toEqual([
-      { basename: "Alpha", path: "notes/Alpha.md", mtime: 100 },
-      { basename: "Beta", path: "Beta.md", mtime: 200 },
+      { basename: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "notes/Alpha", recentIndex: null },
+      { basename: "Beta", path: "Beta.md", mtime: 200, linktext: "Beta", recentIndex: 0 },
     ]);
   });
 
@@ -57,15 +58,19 @@ function appFixture(options: {
   activePath?: string;
   linkDestination?: TFile | null;
   getFirstLinkpathDest?: (target: string, sourcePath: string) => TFile | null;
+  lastOpenFiles?: string[];
   markdownFiles?: { basename: string; path: string; stat: { mtime: number } }[];
   abstractFiles?: Map<string, TFile>;
 }): App {
   return {
     workspace: {
       getActiveFile: () => (options.activePath ? { path: options.activePath } : null),
+      getLastOpenFiles: () => options.lastOpenFiles ?? [],
     },
     metadataCache: {
       getFirstLinkpathDest: options.getFirstLinkpathDest ?? (() => options.linkDestination ?? null),
+      fileToLinktext: (file: TFile, _sourcePath: string, omitMdExtension?: boolean) =>
+        omitMdExtension === true ? file.path.replace(/\.md$/i, "") : file.path,
     },
     vault: {
       getMarkdownFiles: () => options.markdownFiles ?? [],

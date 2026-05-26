@@ -58,6 +58,37 @@ export class Notice {
   }
 }
 
+export function prepareFuzzySearch(query: string): (text: string) => { score: number; matches: unknown[] } | null {
+  const normalizedQuery = query.toLowerCase();
+  return (text: string) => {
+    const normalizedText = text.toLowerCase();
+    if (normalizedQuery.length === 0) return { score: 0, matches: [] };
+
+    const startsAt = normalizedText.indexOf(normalizedQuery);
+    if (startsAt !== -1) {
+      return { score: 10_000 - startsAt * 10 - normalizedText.length, matches: [[startsAt, startsAt + normalizedQuery.length]] };
+    }
+
+    let textIndex = 0;
+    let firstMatch = -1;
+    let lastMatch = -1;
+    for (const char of normalizedQuery) {
+      const foundAt = normalizedText.indexOf(char, textIndex);
+      if (foundAt === -1) return null;
+      if (firstMatch === -1) firstMatch = foundAt;
+      lastMatch = foundAt;
+      textIndex = foundAt + 1;
+    }
+
+    const spread = lastMatch - firstMatch;
+    return { score: 5_000 - firstMatch * 10 - spread - normalizedText.length, matches: [] };
+  };
+}
+
+export function sortSearchResults(results: { match: { score: number } }[]): void {
+  results.sort((a, b) => b.match.score - a.match.score);
+}
+
 export class Modal {
   readonly contentEl: HTMLElement;
 

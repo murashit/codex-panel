@@ -9,10 +9,14 @@ export interface WikiLinkMention {
 }
 
 export function noteCandidates(app: App): NoteCandidate[] {
+  const sourcePath = app.workspace.getActiveFile()?.path ?? "";
+  const recentPaths = new Map(app.workspace.getLastOpenFiles().map((path, index) => [path, index]));
   return app.vault.getMarkdownFiles().map((file) => ({
     basename: file.basename,
     path: file.path,
     mtime: file.stat.mtime,
+    linktext: app.metadataCache.fileToLinktext(file, sourcePath, true),
+    recentIndex: recentPaths.get(file.path) ?? null,
   }));
 }
 

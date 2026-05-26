@@ -33,7 +33,7 @@ export interface ChatComposerControllerOptions {
 export class ChatComposerController {
   private composer: HTMLTextAreaElement | null = null;
   private suggestionsEl: HTMLElement | null = null;
-  private noteCandidatesCache: NoteCandidate[] | null = null;
+  private noteCandidatesCache: { sourcePath: string; notes: NoteCandidate[] } | null = null;
   private noteEventsRegistered = false;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
@@ -256,7 +256,10 @@ export class ChatComposerController {
   }
 
   private noteCandidates(): NoteCandidate[] {
-    this.noteCandidatesCache ??= appNoteCandidates(this.options.app);
-    return this.noteCandidatesCache;
+    const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
+    if (this.noteCandidatesCache?.sourcePath !== sourcePath) {
+      this.noteCandidatesCache = { sourcePath, notes: appNoteCandidates(this.options.app) };
+    }
+    return this.noteCandidatesCache.notes;
   }
 }

@@ -67,9 +67,9 @@ function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Mode
 
 describe("composer suggestions", () => {
   const notes = [
-    { basename: "Alpha", path: "thoughts/Alpha.md", mtime: 10 },
-    { basename: "Alpha", path: "projects/Alpha.md", mtime: 20 },
-    { basename: "Beta Note", path: "topics/Beta Note.md", mtime: 30 },
+    { basename: "Alpha", path: "thoughts/Alpha.md", mtime: 10, linktext: "thoughts/Alpha", recentIndex: 1 },
+    { basename: "Alpha", path: "projects/Alpha.md", mtime: 20, linktext: "projects/Alpha", recentIndex: 0 },
+    { basename: "Beta Note", path: "topics/Beta Note.md", mtime: 30, linktext: "Beta Note", recentIndex: null },
   ];
 
   it("parses supported slash commands only", () => {
@@ -88,13 +88,24 @@ describe("composer suggestions", () => {
     expect(parseSlashCommand("/unknown")).toBeNull();
   });
 
-  it("ranks wikilinks and disambiguates duplicate basenames", () => {
+  it("ranks wikilinks with Obsidian fuzzy search and uses Obsidian linktext", () => {
     const suggestions = findWikiLinkSuggestions("alp", 0, notes);
     expect(suggestions[0]).toMatchObject({
       display: "Alpha",
       detail: "projects/Alpha.md",
       replacement: "[[projects/Alpha]]",
     });
+    expect(findWikiLinkSuggestions("btnt", 0, notes)[0]).toMatchObject({
+      display: "Beta Note",
+      replacement: "[[Beta Note]]",
+    });
+  });
+
+  it("uses recent files only for empty wikilink suggestions", () => {
+    expect(findWikiLinkSuggestions("", 0, notes).map((suggestion) => suggestion.replacement)).toEqual([
+      "[[projects/Alpha]]",
+      "[[thoughts/Alpha]]",
+    ]);
   });
 
   it("uses one active suggestion family at a time", () => {

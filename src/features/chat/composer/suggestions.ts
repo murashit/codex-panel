@@ -1,6 +1,7 @@
 import type { Model } from "../../../generated/app-server/v2/Model";
 import type { SkillMetadata } from "../../../generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../../../generated/app-server/v2/Thread";
+import { prepareFuzzySearch, sortSearchResults, type SearchResult } from "obsidian";
 import {
   findModelByIdOrName,
   isReasoningEffort,
@@ -24,6 +25,16 @@ export interface NoteCandidate {
   basename: string;
   path: string;
   mtime: number;
+  linktext: string;
+  recentIndex: number | null;
+}
+
+interface NoteCandidateMatch {
+  file: NoteCandidate;
+  match: SearchResult;
+  mtime: number;
+  basename: string;
+  path: string;
 }
 
 export function parseSlashCommand(text: string): { command: SlashCommandName; args: string } | null {
@@ -94,37 +105,55 @@ export function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandi
 
 export function findWikiLinkSuggestions(queryText: string, start: number, notes: NoteCandidate[]): ComposerSuggestion[] {
   const query = queryText.toLowerCase().trim();
-  const basenameCounts = new Map<string, number>();
-  for (const file of notes) {
-    basenameCounts.set(file.basename, (basenameCounts.get(file.basename) ?? 0) + 1);
-  }
+  const suggestions = query.length === 0 ? emptyWikiLinkSuggestions(notes) : fuzzyWikiLinkSuggestions(query, notes);
 
+  return suggestions.slice(0, 8).map(({ file }) => ({
+    display: file.basename,
+    detail: file.path,
+    replacement: `[[${file.linktext}]]`,
+    start,
+  }));
+}
+
+function emptyWikiLinkSuggestions(notes: NoteCandidate[]): NoteCandidateMatch[] {
   return notes
+    .filter((file) => file.recentIndex !== null)
+    .map((file) => ({
+      file,
+      match: { score: 0, matches: [] },
+      mtime: -(file.recentIndex ?? 0),
+      basename: file.basename,
+      path: file.path,
+    }))
+    .sort(compareWikiLinkSuggestionTiebreakers);
+}
+
+function fuzzyWikiLinkSuggestions(query: string, notes: NoteCandidate[]): NoteCandidateMatch[] {
+  const search = prepareFuzzySearch(query);
+  const results = notes
     .map((file) => {
-      const basename = file.basename.toLowerCase();
-      const path = file.path.toLowerCase();
-      const score = query.length === 0 ? 3 : basename.startsWith(query) ? 0 : basename.includes(query) ? 1 : path.includes(query) ? 2 : -1;
-      return { file, score };
+      const basenameMatch = search(file.basename);
+      const pathMatch = search(file.path);
+      const match = bestSearchResult(basenameMatch, pathMatch);
+      return match ? { file, match, mtime: file.mtime, basename: file.basename, path: file.path } : null;
     })
-    .filter((item) => item.score !== -1)
-    .sort(
-      (a, b) =>
-        a.score - b.score ||
-        b.file.mtime - a.file.mtime ||
-        a.file.basename.localeCompare(b.file.basename) ||
-        a.file.path.localeCompare(b.file.path),
-    )
-    .slice(0, 8)
-    .map(({ file }) => {
-      const duplicateBasename = (basenameCounts.get(file.basename) ?? 0) > 1;
-      const target = duplicateBasename ? file.path.replace(/\.md$/i, "") : file.basename;
-      return {
-        display: file.basename,
-        detail: file.path,
-        replacement: `[[${target}]]`,
-        start,
-      };
-    });
+    .filter((item): item is NoteCandidateMatch => item !== null);
+
+  sortSearchResults(results);
+  return results.sort(compareWikiLinkSuggestionTiebreakers);
+}
+
+function bestSearchResult(a: SearchResult | null, b: SearchResult | null): SearchResult | null {
+  if (!a) return b;
+  if (!b) return a;
+  const ranked = [{ match: a }, { match: b }];
+  sortSearchResults(ranked);
+  return ranked[0]?.match ?? a;
+}
+
+function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCandidateMatch): number {
+  if (a.match.score !== b.match.score) return 0;
+  return b.mtime - a.mtime || a.basename.localeCompare(b.basename) || a.path.localeCompare(b.path);
 }
 
 export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {

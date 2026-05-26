@@ -339,6 +339,7 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
       app: {
         workspace: {
           getActiveFile: vi.fn(() => null),
+          getLastOpenFiles: vi.fn(() => []),
           on: vi.fn(() => ({})),
           openLinkText: vi.fn(),
           requestSaveLayout: vi.fn(),
