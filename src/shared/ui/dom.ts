@@ -1,3 +1,5 @@
+import { parseObsidianWikiLink } from "../obsidian/wikilinks";
+
 export function shortSignature(value: string): string {
   let hash = 0;
   for (let index = 0; index < value.length; index += 1) {
@@ -19,13 +21,13 @@ export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openL
     const rawLink = match[1];
     const rawMatch = match[0];
     if (rawLink === undefined) continue;
-    const separator = rawLink.indexOf("|");
-    const target = (separator === -1 ? rawLink : rawLink.slice(0, separator)).trim();
-    const label = (separator === -1 ? rawLink : rawLink.slice(separator + 1)).trim() || target;
+    const parsed = parseObsidianWikiLink(rawLink);
 
-    if (target.length === 0) {
+    if (!parsed) {
       parent.appendChild(doc.createTextNode(rawMatch));
     } else {
+      const target = `${parsed.target}${parsed.subpath}`;
+      const label = parsed.display || target;
       const link = parent.createEl("a", {
         cls: "internal-link codex-panel__wikilink",
         text: label,

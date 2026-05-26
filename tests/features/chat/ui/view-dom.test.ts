@@ -24,15 +24,15 @@ describe("view DOM helpers", () => {
     const parent = document.createElement("div");
     const openLink = vi.fn();
 
-    renderTextWithWikiLinks(parent, "See [[Target Note|label]] and [[Other]].", openLink);
+    renderTextWithWikiLinks(parent, "See [[Target Note#Heading|label]] and [[Other]].", openLink);
 
     const links = parent.querySelectorAll<HTMLAnchorElement>("a.internal-link");
     const firstLink = expectPresent(links[0]);
     expect(links).toHaveLength(2);
     expect(firstLink.textContent).toBe("label");
-    expect(firstLink.getAttribute("href")).toBe("Target Note");
+    expect(firstLink.getAttribute("href")).toBe("Target Note#Heading");
 
     firstLink.click();
-    expect(openLink).toHaveBeenCalledWith("Target Note");
+    expect(openLink).toHaveBeenCalledWith("Target Note#Heading");
   });
 });

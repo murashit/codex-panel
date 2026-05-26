@@ -1,5 +1,6 @@
 import type { SkillMetadata } from "../../../generated/app-server/v2/SkillMetadata";
 import type { UserInput } from "../../../generated/app-server/v2/UserInput";
+import { parseObsidianWikiLink } from "../../../shared/obsidian/wikilinks";
 
 export interface ParsedWikiLink {
   raw: string;
@@ -76,24 +77,8 @@ export function parsedSkillReferences(text: string): string[] {
 }
 
 function parseWikiLink(raw: string): ParsedWikiLink | null {
-  const separator = raw.indexOf("|");
-  const linkPart = (separator === -1 ? raw : raw.slice(0, separator)).trim();
-  const display = separator === -1 ? "" : raw.slice(separator + 1).trim();
-  if (!linkPart) return null;
-
-  const subpathStart = firstSubpathIndex(linkPart);
-  const target = subpathStart === -1 ? linkPart : linkPart.slice(0, subpathStart).trim();
-  const subpath = subpathStart === -1 ? "" : linkPart.slice(subpathStart).trim();
-  if (!target) return null;
-  return { raw, target, subpath, display };
-}
-
-function firstSubpathIndex(linkPart: string): number {
-  const headingIndex = linkPart.indexOf("#");
-  const blockIndex = linkPart.indexOf("^");
-  if (headingIndex === -1) return blockIndex;
-  if (blockIndex === -1) return headingIndex;
-  return Math.min(headingIndex, blockIndex);
+  const parsed = parseObsidianWikiLink(raw);
+  return parsed ? { raw, ...parsed } : null;
 }
 
 function firstEnabledSkillByName(skills: SkillMetadata[]): Map<string, SkillMetadata> {

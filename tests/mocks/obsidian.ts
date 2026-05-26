@@ -89,6 +89,15 @@ export function sortSearchResults(results: { match: { score: number } }[]): void
   results.sort((a, b) => b.match.score - a.match.score);
 }
 
+export function parseLinktext(linktext: string): { path: string; subpath: string } {
+  const headingIndex = linktext.indexOf("#");
+  const blockIndex = linktext.indexOf("^");
+  const subpathStart = headingIndex === -1 ? blockIndex : blockIndex === -1 ? headingIndex : Math.min(headingIndex, blockIndex);
+  return subpathStart === -1
+    ? { path: linktext, subpath: "" }
+    : { path: linktext.slice(0, subpathStart), subpath: linktext.slice(subpathStart) };
+}
+
 export class Modal {
   readonly contentEl: HTMLElement;
 
