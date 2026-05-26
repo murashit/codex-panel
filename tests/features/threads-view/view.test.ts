@@ -196,6 +196,41 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("publishes refreshed thread lists to other thread surfaces", async () => {
+    const threads = [threadFixture({ id: "thread", preview: "Thread preview" })];
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn().mockResolvedValue({ data: threads }),
+    });
+    const host = threadsHost({
+      publishThreadList: vi.fn(),
+    });
+    const view = await threadsView(host);
+
+    await view.refresh();
+
+    expect(host.publishThreadList).toHaveBeenCalledWith(threads);
+  });
+
+  it("renders cached thread lists before refreshing", async () => {
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn(
+        () =>
+          new Promise(() => {
+            // Keep the app-server refresh pending so the cached snapshot remains visible for this assertion.
+          }),
+      ),
+    });
+    const view = await threadsView(
+      threadsHost({
+        cachedThreadList: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
+      }),
+    );
+
+    await view.onOpen();
+
+    expect(view.containerEl.textContent).toContain("Cached thread");
+  });
+
   it("notifies open panels after archiving a thread", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
@@ -294,6 +329,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),
     refreshOpenThreadLists: vi.fn(),
+    publishThreadList: vi.fn(),
+    cachedThreadList: vi.fn(() => null),
     ...overrides,
   };
 }

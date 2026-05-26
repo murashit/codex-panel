@@ -243,6 +243,7 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
       refreshOpenThreadLists: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
       refreshThreadsViewThreadList: vi.fn(),
+      publishThreadList: vi.fn(),
     },
   );
 }

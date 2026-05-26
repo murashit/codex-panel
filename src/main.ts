@@ -6,6 +6,7 @@ import { CodexChatView } from "./features/chat/view";
 import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
 import type { OpenCodexPanelSnapshot } from "./features/chat/panel-snapshot";
 import { CodexThreadsView } from "./features/threads-view/view";
+import type { Thread } from "./generated/app-server/v2/Thread";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab";
 import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/ui/turn-diff";
@@ -37,6 +38,7 @@ export default class CodexPanelPlugin extends Plugin {
   vaultPath = "";
   private bootRestoredPanelLoadCancelled = false;
   private readonly bootRestoredPanelLoadTimers = new Set<number>();
+  private latestThreadList: Thread[] | null = null;
 
   override async onload(): Promise<void> {
     this.bootRestoredPanelLoadCancelled = false;
@@ -185,6 +187,24 @@ export default class CodexPanelPlugin extends Plugin {
         void leaf.view.refresh();
       }
     }
+  }
+
+  publishThreadList(threads: Thread[]): void {
+    this.latestThreadList = threads;
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (leaf.view instanceof CodexChatView) {
+        leaf.view.applyThreadListSnapshot(threads);
+      }
+    }
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_THREADS)) {
+      if (leaf.view instanceof CodexThreadsView) {
+        leaf.view.applyThreadListSnapshot(threads);
+      }
+    }
+  }
+
+  cachedThreadList(): Thread[] | null {
+    return this.latestThreadList;
   }
 
   refreshThreadsViewLiveState(): void {

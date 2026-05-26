@@ -19,6 +19,8 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
   notifyThreadArchived(threadId: string): void;
   notifyThreadRenamed(threadId: string, name: string): void;
+  publishThreadList(threads: Thread[]): void;
+  cachedThreadList(): Thread[] | null;
 }
 
 export class CodexThreadsView extends ItemView {
@@ -74,6 +76,10 @@ export class CodexThreadsView extends ItemView {
   }
 
   override async onOpen(): Promise<void> {
+    const cachedThreads = this.plugin.cachedThreadList();
+    if (cachedThreads) {
+      this.threads = cachedThreads;
+    }
     this.render();
     void this.refresh();
   }
@@ -106,6 +112,7 @@ export class CodexThreadsView extends ItemView {
       const response = await this.client.listThreads(this.plugin.vaultPath);
       if (this.isStaleRefresh(connectionGeneration, refreshGeneration)) return;
       this.threads = response.data;
+      this.plugin.publishThreadList(response.data);
       this.status = response.data.length === 0 ? "No threads" : null;
     } catch (error) {
       if (error instanceof StaleConnectionError) return;
@@ -181,6 +188,12 @@ export class CodexThreadsView extends ItemView {
 
   refreshLiveState(): void {
     this.scheduleRender();
+  }
+
+  applyThreadListSnapshot(threads: Thread[]): void {
+    this.threads = threads;
+    this.status = threads.length === 0 ? "No threads" : null;
+    this.render();
   }
 
   private scheduleRefresh(): void {

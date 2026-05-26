@@ -85,6 +85,7 @@ export interface CodexChatHost {
   refreshOpenThreadLists(): void;
   refreshThreadsViewLiveState(): void;
   refreshThreadsViewThreadList(): void;
+  publishThreadList(threads: Thread[]): void;
 }
 
 interface RestoredThreadState {
@@ -295,6 +296,13 @@ export class CodexChatView extends ItemView {
     void this.refreshThreads();
   }
 
+  applyThreadListSnapshot(threads: Thread[]): void {
+    this.state.listedThreads = threads;
+    this.state.threadsLoaded = true;
+    this.refreshTabHeader();
+    this.render();
+  }
+
   openPanelSnapshot(): OpenCodexPanelSnapshot {
     return {
       viewId: this.viewId,
@@ -424,6 +432,7 @@ export class CodexChatView extends ItemView {
       if (this.isStaleConnectionGeneration(generation)) return;
       await this.session.refreshThreadList();
       if (this.isStaleConnectionGeneration(generation)) return;
+      this.publishThreadListSnapshot();
       this.scheduleDeferredDiagnostics();
       this.refreshTabHeader();
       this.setStatus("Connected.");
@@ -464,6 +473,7 @@ export class CodexChatView extends ItemView {
     if (!this.client) return;
     try {
       await this.session.refreshThreadList();
+      this.publishThreadListSnapshot();
       await this.session.refreshSessionMetadata();
       this.refreshTabHeader();
       this.render();
@@ -552,6 +562,10 @@ export class CodexChatView extends ItemView {
   private notifyActiveThreadIdentityChanged(): void {
     this.refreshTabHeader();
     this.requestWorkspaceLayoutSave();
+  }
+
+  private publishThreadListSnapshot(): void {
+    this.plugin.publishThreadList(this.state.listedThreads);
   }
 
   private requestWorkspaceLayoutSave(): void {

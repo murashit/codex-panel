@@ -83,6 +83,22 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.listThreads).toHaveBeenCalledTimes(1);
   });
 
+  it("publishes refreshed thread lists after connecting", async () => {
+    const publishThreadList = vi.fn();
+    const threads = [threadFixture("thread-1")];
+    const client = connectedClient({
+      listThreads: vi.fn().mockResolvedValue({ data: threads }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView({
+      host: chatHost({ publishThreadList }),
+    });
+
+    await view.connect();
+
+    expect(publishThreadList).toHaveBeenCalledWith(threads);
+  });
+
   it("ignores stale connection work after the view closes", async () => {
     let resolveConfig!: (value: unknown) => void;
     const client = connectedClient({
@@ -603,6 +619,7 @@ function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
     refreshOpenThreadLists: vi.fn(),
     refreshThreadsViewLiveState: vi.fn(),
     refreshThreadsViewThreadList: vi.fn(),
+    publishThreadList: vi.fn(),
     ...overrides,
   };
 }
