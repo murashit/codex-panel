@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   findThreadNamingContext,
-  namingRuntime,
   namingPrompt,
   namingContextFromTurn,
   normalizeGeneratedTitle,
   titleFromNamingTurn,
-  validatedNamingRuntime,
 } from "../../../src/domain/threads/naming";
+import { namingRuntime, validatedNamingRuntime } from "../../../src/app-server/thread-naming";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../src/features/chat/thread-naming";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";

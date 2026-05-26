@@ -6,11 +6,11 @@ import type { ChatState } from "./chat-state";
 import { getThreadTitle } from "../../domain/threads/model";
 import {
   findThreadNamingContext,
-  generateThreadTitleWithCodex,
   namingContextFromTurn,
   THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE,
   type ThreadNamingContext,
 } from "../../domain/threads/naming";
+import { generateThreadTitleWithCodex } from "../../app-server/thread-naming";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";
 
 export interface ThreadRenameEditState {

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
-import type * as ThreadNamingModule from "../../../src/domain/threads/naming";
+import type * as ThreadNamingModule from "../../../src/app-server/thread-naming";
 import { installObsidianDomShims } from "../chat/ui/dom-test-helpers";
 
 const connectionMock = vi.hoisted(() => {
@@ -54,7 +54,7 @@ vi.mock("../../../src/app-server/connection-manager", () => {
   return { ConnectionManager, StaleConnectionError };
 });
 
-vi.mock("../../../src/domain/threads/naming", async (importOriginal) => {
+vi.mock("../../../src/app-server/thread-naming", async (importOriginal) => {
   const actual = await importOriginal<typeof ThreadNamingModule>();
   return {
     ...actual,
