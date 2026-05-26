@@ -274,36 +274,20 @@
   box-sizing: border-box;
   min-width: 0;
   width: 100%;
-  height: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2);
-  padding-right: calc(
-    var(--codex-panel-size-icon-s) * 3 + var(--codex-panel-panel-gap) * 6 + var(--codex-panel-toolbar-button-gap) * 2 +
-      var(--codex-panel-item-gap)
-  );
+  min-height: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2);
+  padding-right: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2 + var(--codex-panel-item-gap));
 }
 
 .codex-panel-threads__rename-field {
-  position: relative;
   display: flex;
   flex: 1 1 auto;
   align-items: center;
   min-width: 0;
   min-height: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2);
-  height: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2);
-  margin-left: calc(var(--codex-panel-item-gap) * -1);
-  margin-right: var(--codex-panel-item-gap);
-  padding: 0 var(--codex-panel-item-gap);
   overflow: visible;
   font-size: var(--font-ui-small);
   font-weight: var(--nav-item-weight, var(--font-normal));
   line-height: var(--line-height-tight);
-}
-
-.codex-panel-threads__rename-field::before {
-  position: absolute;
-  inset: calc(var(--codex-panel-control-gap) * -1) 0;
-  border-radius: var(--nav-item-radius, var(--codex-panel-card-radius));
-  background: var(--background-modifier-hover);
-  content: "";
 }
 
 .codex-panel-threads__rename-actions {
@@ -334,9 +318,12 @@
 }
 
 .codex-panel-threads__rename-input.codex-panel-threads__rename-input:focus,
-.codex-panel-threads__rename-input.codex-panel-threads__rename-input:focus-visible {
+.codex-panel-threads__rename-input.codex-panel-threads__rename-input:focus-visible,
+.codex-panel-threads__rename-input.codex-panel-threads__rename-input:hover,
+.codex-panel-threads__rename-input.codex-panel-threads__rename-input:active {
   border: 0;
   box-shadow: none;
+  background: transparent;
   outline: none;
 }
 
@@ -1162,7 +1149,7 @@
 }
 
 .codex-panel__thread-row--renaming {
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .codex-panel__thread:hover:not(:where(:disabled, .is-disabled)),
@@ -1176,26 +1163,12 @@
 }
 
 .codex-panel__thread-rename {
-  position: relative;
   box-sizing: border-box;
   min-height: var(--codex-panel-size-nav-item);
-  padding-block: var(--size-4-1);
   cursor: text;
 }
 
-.codex-panel__thread-rename::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: calc(var(--codex-panel-size-icon-s) + var(--size-4-2));
-  border-radius: var(--radius-s);
-  background: var(--background-modifier-hover);
-  content: "";
-}
-
 .codex-panel__thread-rename-field {
-  position: relative;
   display: flex;
   flex: 1 1 auto;
   align-self: stretch;
@@ -1203,9 +1176,6 @@
   min-width: 0;
   min-height: 0;
   height: auto;
-  margin-left: calc(var(--codex-panel-item-gap) * -1);
-  margin-right: 0;
-  padding: 0 var(--codex-panel-item-gap);
   overflow: visible;
   font-size: var(--codex-panel-toolbar-text-size);
   line-height: var(--codex-panel-toolbar-line-height);

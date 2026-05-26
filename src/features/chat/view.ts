@@ -1390,6 +1390,8 @@ export class CodexChatView extends ItemView {
       if (insideToolbarPanel && this.containerEl.contains(insideToolbarPanel)) return;
     }
 
+    if (this.threadRename.isEditing()) return;
+
     this.closeToolbarPanel();
   }
 

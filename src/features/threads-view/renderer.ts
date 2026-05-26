@@ -112,18 +112,12 @@ function renderRenameRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
       actions.cancelRename(row.thread.id);
     }
   };
+  input.onblur = () => {
+    if (!row.rename.generating) actions.saveRename(row.thread.id, input.value);
+  };
 
   const actionsGroup = parent.createDiv({ cls: "codex-panel-threads__actions codex-panel-threads__rename-actions" });
 
-  const save = iconButton(actionsGroup, "check", "Save thread name", "codex-panel-threads__row-button");
-  save.disabled = row.rename.generating;
-  save.onclick = () => {
-    actions.saveRename(row.thread.id, input.value);
-  };
-  const cancel = iconButton(actionsGroup, "x", "Cancel rename", "codex-panel-threads__row-button");
-  cancel.onclick = () => {
-    actions.cancelRename(row.thread.id);
-  };
   const autoName = iconButton(
     actionsGroup,
     row.rename.generating ? "loader" : "sparkles",
@@ -131,7 +125,12 @@ function renderRenameRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
     "codex-panel-threads__row-button",
   );
   autoName.disabled = row.rename.generating;
-  autoName.onclick = () => {
+  autoName.onpointerdown = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  autoName.onclick = (event) => {
+    event.stopPropagation();
     actions.autoNameThread(row.thread.id);
   };
   input.win.setTimeout(() => {

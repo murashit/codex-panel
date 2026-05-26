@@ -1871,10 +1871,12 @@ describe("toolbar renderer decisions", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
 
-    parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.click();
+    input.dispatchEvent(new FocusEvent("blur"));
     expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
-    parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')?.click();
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(cancelRenameThread).toHaveBeenCalledWith("editing");
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     expect(autoNameThread).toHaveBeenCalledWith("editing");
   });
@@ -1902,9 +1904,9 @@ describe("toolbar renderer decisions", () => {
     );
 
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")?.disabled).toBe(false);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')?.disabled).toBe(false);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
   });
 });
 
@@ -1978,7 +1980,7 @@ describe("threads view renderer decisions", () => {
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
     input.value = "New name";
     input.dispatchEvent(new Event("input"));
-    parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.click();
+    input.dispatchEvent(new FocusEvent("blur"));
 
     expect(actions.updateRename).toHaveBeenCalledWith("thread", "New name");
     expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
@@ -1998,8 +2000,9 @@ describe("threads view renderer decisions", () => {
 
     expect(parent.querySelector<HTMLElement>(".codex-panel-threads__rename-form")).toBeTruthy();
     const actionsGroup = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__rename-actions"));
-    expect(actionsGroup.querySelectorAll(".codex-panel-threads__row-button")).toHaveLength(3);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.disabled).toBe(false);
+    expect(actionsGroup.querySelectorAll(".codex-panel-threads__row-button")).toHaveLength(1);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     expect(actions.autoNameThread).toHaveBeenCalledWith("thread");
@@ -2017,9 +2020,9 @@ describe("threads view renderer decisions", () => {
     renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, threadsViewActions());
 
     expect(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(false);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')?.disabled).toBe(false);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
   });
 });
 

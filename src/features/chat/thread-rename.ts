@@ -53,6 +53,10 @@ export class ThreadRenameController {
     };
   }
 
+  isEditing(): boolean {
+    return this.renameThreadId !== null;
+  }
+
   start(threadId: string): void {
     const thread = this.thread(threadId);
     if (!thread) return;

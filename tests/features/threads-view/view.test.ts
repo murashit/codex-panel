@@ -272,7 +272,7 @@ describe("CodexThreadsView", () => {
     expect(input).not.toBeNull();
     if (!input) return;
     input.value = "Renamed thread";
-    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')?.click();
+    input.dispatchEvent(new FocusEvent("blur"));
 
     await vi.waitFor(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
