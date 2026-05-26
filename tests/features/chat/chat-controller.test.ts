@@ -15,6 +15,7 @@ function controllerForState(
   return new ChatController(state, {
     refreshThreads: vi.fn(),
     refreshSkills: vi.fn(),
+    publishSessionMetadata: vi.fn(),
     maybeNameThread: vi.fn(),
     recordMcpStartupStatus: vi.fn(),
     respondToServerRequest: vi.fn(() => true),
@@ -531,7 +532,8 @@ describe("ChatController", () => {
 
     it("stores account rate limit updates outside thread scope", () => {
       const state = createChatState();
-      const controller = controllerForState(state);
+      const publishSessionMetadata = vi.fn();
+      const controller = controllerForState(state, { publishSessionMetadata });
 
       controller.handleNotification({
         method: "account/rateLimits/updated",
@@ -552,12 +554,14 @@ describe("ChatController", () => {
         limitId: "codex",
         primary: { usedPercent: 64 },
       });
+      expect(publishSessionMetadata).toHaveBeenCalledOnce();
     });
 
     it("records MCP startup status for diagnostics without a chat system message", () => {
       const state = createChatState();
       const recordMcpStartupStatus = vi.fn();
-      const controller = controllerForState(state, { recordMcpStartupStatus });
+      const publishSessionMetadata = vi.fn();
+      const controller = controllerForState(state, { recordMcpStartupStatus, publishSessionMetadata });
 
       controller.handleNotification({
         method: "mcpServer/startupStatus/updated",
@@ -569,6 +573,7 @@ describe("ChatController", () => {
       } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
 
       expect(recordMcpStartupStatus).toHaveBeenCalledWith("github", "failed", "missing token");
+      expect(publishSessionMetadata).toHaveBeenCalledOnce();
       expect(state.displayItems).toEqual([]);
     });
   });

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/view";
+import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
 import { notices } from "../../mocks/obsidian";
 import { installObsidianDomShims } from "./ui/dom-test-helpers";
 
@@ -83,20 +84,39 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.listThreads).toHaveBeenCalledTimes(1);
   });
 
-  it("publishes refreshed thread lists after connecting", async () => {
-    const publishThreadList = vi.fn();
+  it("refreshes shared thread lists after connecting", async () => {
+    const refreshThreadList = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
     const threads = [threadFixture("thread-1")];
     const client = connectedClient({
       listThreads: vi.fn().mockResolvedValue({ data: threads }),
     });
     connectionMock.state.client = client;
     const view = await chatView({
-      host: chatHost({ publishThreadList }),
+      host: chatHost({ refreshThreadList }),
     });
 
     await view.connect();
 
-    expect(publishThreadList).toHaveBeenCalledWith(threads);
+    expect(refreshThreadList).toHaveBeenCalledOnce();
+    expect((view as unknown as { state: { listedThreads: unknown[] } }).state.listedThreads).toEqual(threads);
+  });
+
+  it("publishes session metadata after connecting", async () => {
+    const publishSessionMetadata = vi.fn();
+    connectionMock.state.client = connectedClient();
+    const view = await chatView({
+      host: chatHost({ publishSessionMetadata }),
+    });
+
+    await view.connect();
+
+    expect(publishSessionMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        effectiveConfig: {},
+        availableModels: [],
+        availableSkills: [],
+      }),
+    );
   });
 
   it("ignores stale connection work after the view closes", async () => {
@@ -191,6 +211,37 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledWith("/vault");
     expect((view as unknown as { state: { listedThreads: unknown[] } }).state.listedThreads).toEqual([threadFixture("thread-1")]);
+  });
+
+  it("applies cached shared thread list and metadata when opened", async () => {
+    const cachedThread = threadFixture("thread-cached");
+    const view = await chatView({
+      host: chatHost({
+        cachedThreadList: vi.fn(() => [cachedThread] as never[]),
+        cachedSessionMetadata: vi.fn(
+          () =>
+            ({
+              effectiveConfig: { config: { model: "gpt-cached" }, origins: {}, layers: [] },
+              availableModels: [],
+              availableSkills: [{ name: "writer", enabled: true }],
+              rateLimit: null,
+              appServerDiagnostics: createAppServerDiagnostics(),
+            }) as never,
+        ),
+      }),
+    });
+
+    await view.onOpen();
+
+    const state = (
+      view as unknown as {
+        state: { listedThreads: unknown[]; effectiveConfig: unknown; availableModels: unknown[]; availableSkills: unknown[] };
+      }
+    ).state;
+    expect(state.listedThreads).toEqual([cachedThread]);
+    expect(state.effectiveConfig).toEqual({ config: { model: "gpt-cached" }, origins: {}, layers: [] });
+    expect(state.availableModels).toEqual([]);
+    expect(state.availableSkills).toEqual([{ name: "writer", enabled: true }]);
   });
 
   it("hydrates a focused restored thread immediately", async () => {
@@ -616,10 +667,14 @@ function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
     openTurnDiff: vi.fn(),
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),
-    refreshOpenThreadLists: vi.fn(),
+    refreshSharedThreadListFromOpenSurface: vi.fn(),
     refreshThreadsViewLiveState: vi.fn(),
-    refreshThreadsViewThreadList: vi.fn(),
-    publishThreadList: vi.fn(),
+    refreshThreadList: vi.fn(
+      (fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>,
+    ) as CodexChatHost["refreshThreadList"],
+    cachedThreadList: vi.fn(() => null),
+    publishSessionMetadata: vi.fn(),
+    cachedSessionMetadata: vi.fn(() => null),
     ...overrides,
   };
 }

@@ -19,7 +19,7 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
   notifyThreadArchived(threadId: string): void;
   notifyThreadRenamed(threadId: string, name: string): void;
-  publishThreadList(threads: Thread[]): void;
+  refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]>;
   cachedThreadList(): Thread[] | null;
 }
 
@@ -109,11 +109,14 @@ export class CodexThreadsView extends ItemView {
     try {
       await this.ensureConnected();
       if (this.isStaleRefresh(connectionGeneration, refreshGeneration) || !this.client) return;
-      const response = await this.client.listThreads(this.plugin.vaultPath);
+      const threads = await this.plugin.refreshThreadList(async () => {
+        if (!this.client) return [];
+        const response = await this.client.listThreads(this.plugin.vaultPath);
+        return response.data;
+      });
       if (this.isStaleRefresh(connectionGeneration, refreshGeneration)) return;
-      this.threads = response.data;
-      this.plugin.publishThreadList(response.data);
-      this.status = response.data.length === 0 ? "No threads" : null;
+      this.threads = threads;
+      this.status = threads.length === 0 ? "No threads" : null;
     } catch (error) {
       if (error instanceof StaleConnectionError) return;
       this.status = error instanceof Error ? error.message : String(error);

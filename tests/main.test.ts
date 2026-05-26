@@ -6,6 +6,7 @@ import { FileSystemAdapter } from "obsidian";
 import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import type { CodexChatView } from "../src/features/chat/view";
+import type { Thread } from "../src/generated/app-server/v2/Thread";
 import { installObsidianDomShims } from "./features/chat/ui/dom-test-helpers";
 
 installObsidianDomShims();
@@ -161,22 +162,54 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(openThread).not.toHaveBeenCalled();
   });
 
-  it("refreshes open thread lists after archive lifecycle notifications", async () => {
+  it("refreshes shared thread lists after archive lifecycle notifications", async () => {
     const plugin = await pluginWithLeaves([]);
-    const refreshOpenThreadLists = vi.spyOn(plugin, "refreshOpenThreadLists").mockImplementation(() => undefined);
+    const refreshSharedThreadList = vi.spyOn(plugin, "refreshSharedThreadListFromOpenSurface").mockImplementation(() => undefined);
 
     plugin.notifyThreadArchived("thread-1");
 
-    expect(refreshOpenThreadLists).toHaveBeenCalledOnce();
+    expect(refreshSharedThreadList).toHaveBeenCalledOnce();
   });
 
-  it("refreshes open thread lists after rename lifecycle notifications", async () => {
+  it("refreshes shared thread lists after rename lifecycle notifications", async () => {
     const plugin = await pluginWithLeaves([]);
-    const refreshOpenThreadLists = vi.spyOn(plugin, "refreshOpenThreadLists").mockImplementation(() => undefined);
+    const refreshSharedThreadList = vi.spyOn(plugin, "refreshSharedThreadListFromOpenSurface").mockImplementation(() => undefined);
 
     plugin.notifyThreadRenamed("thread-1", "Renamed thread");
 
-    expect(refreshOpenThreadLists).toHaveBeenCalledOnce();
+    expect(refreshSharedThreadList).toHaveBeenCalledOnce();
+  });
+
+  it("single-flights shared thread list refreshes and caches successful results", async () => {
+    const plugin = await pluginWithLeaves([]);
+    let resolveThreads!: (threads: Thread[]) => void;
+    const fetchThreads = vi.fn(
+      () =>
+        new Promise<Thread[]>((resolve) => {
+          resolveThreads = resolve;
+        }),
+    );
+    const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
+
+    const first = plugin.refreshThreadList(fetchThreads);
+    const second = plugin.refreshThreadList(secondFetch);
+
+    expect(fetchThreads).toHaveBeenCalledOnce();
+    expect(secondFetch).not.toHaveBeenCalled();
+    resolveThreads([thread("first")]);
+
+    await expect(first).resolves.toEqual([thread("first")]);
+    await expect(second).resolves.toEqual([thread("first")]);
+    expect(plugin.cachedThreadList()).toEqual([thread("first")]);
+  });
+
+  it("keeps the previous shared thread list when refresh fails", async () => {
+    const plugin = await pluginWithLeaves([]);
+    await plugin.refreshThreadList(() => Promise.resolve([thread("cached")]));
+
+    await expect(plugin.refreshThreadList(() => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
+
+    expect(plugin.cachedThreadList()).toEqual([thread("cached")]);
   });
 });
 
@@ -240,10 +273,36 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
       openTurnDiff: vi.fn(),
       notifyThreadArchived: vi.fn(),
       notifyThreadRenamed: vi.fn(),
-      refreshOpenThreadLists: vi.fn(),
+      refreshSharedThreadListFromOpenSurface: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
-      refreshThreadsViewThreadList: vi.fn(),
-      publishThreadList: vi.fn(),
+      refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
+      cachedThreadList: vi.fn(() => null),
+      publishSessionMetadata: vi.fn(),
+      cachedSessionMetadata: vi.fn(() => null),
     },
   );
+}
+
+function thread(id: string): Thread {
+  return {
+    id,
+    sessionId: "session",
+    forkedFromId: null,
+    preview: id,
+    ephemeral: false,
+    modelProvider: "openai",
+    createdAt: 1,
+    updatedAt: 1,
+    status: { type: "idle" },
+    path: null,
+    cwd: "/vault",
+    cliVersion: "0.0.0",
+    source: "appServer",
+    threadSource: null,
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: null,
+    turns: [],
+  } as Thread;
 }

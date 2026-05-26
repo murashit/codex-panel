@@ -196,19 +196,21 @@ describe("CodexThreadsView", () => {
     });
   });
 
-  it("publishes refreshed thread lists to other thread surfaces", async () => {
+  it("refreshes thread lists through the plugin coordinator", async () => {
     const threads = [threadFixture({ id: "thread", preview: "Thread preview" })];
+    const refreshThreadList = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
     connectionMock.state.client = clientFixture({
       listThreads: vi.fn().mockResolvedValue({ data: threads }),
     });
     const host = threadsHost({
-      publishThreadList: vi.fn(),
+      refreshThreadList,
     });
     const view = await threadsView(host);
 
     await view.refresh();
 
-    expect(host.publishThreadList).toHaveBeenCalledWith(threads);
+    expect(refreshThreadList).toHaveBeenCalledOnce();
+    expect(view.containerEl.textContent).toContain("Thread preview");
   });
 
   it("renders cached thread lists before refreshing", async () => {
@@ -328,8 +330,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     getOpenPanelSnapshots: vi.fn(() => []),
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),
-    refreshOpenThreadLists: vi.fn(),
-    publishThreadList: vi.fn(),
+    refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
     cachedThreadList: vi.fn(() => null),
     ...overrides,
   };

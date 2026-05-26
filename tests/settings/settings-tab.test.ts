@@ -173,6 +173,24 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).not.toContain("Old");
   });
 
+  it("uses cached models initially and publishes refreshed models", async () => {
+    const publishModels = vi.fn();
+    const client = settingsClient({ models: [model("gpt-5.5")] });
+    withAppServerSessionMock.mockImplementation((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+      operation(client),
+    );
+    const tab = newSettingsTab({ cachedModels: [model("gpt-cached")], publishModels });
+
+    tab.display();
+
+    expect(tab.containerEl.textContent).toContain("gpt-cached");
+
+    await flushPromises();
+
+    expect(publishModels).toHaveBeenCalledWith([model("gpt-5.5")]);
+    expect(tab.containerEl.textContent).toContain("gpt-5.5");
+  });
+
   it("keeps successful sections when one settings data request fails", async () => {
     const client = settingsClient({
       models: [model("gpt-5.4")],
@@ -309,7 +327,14 @@ function settingsClient(options: { models?: Model[]; hooks?: HookMetadata[]; hoo
   };
 }
 
-function newSettingsTab(options: { saveSettings?: () => Promise<void>; sendShortcut?: "enter" | "mod-enter" } = {}): CodexPanelSettingTab {
+function newSettingsTab(
+  options: {
+    saveSettings?: () => Promise<void>;
+    sendShortcut?: "enter" | "mod-enter";
+    cachedModels?: Model[];
+    publishModels?: (models: Model[]) => void;
+  } = {},
+): CodexPanelSettingTab {
   return new CodexPanelSettingTab(
     {} as never,
     {
@@ -327,7 +352,9 @@ function newSettingsTab(options: { saveSettings?: () => Promise<void>; sendShort
       },
       vaultPath: "/vault",
       saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
-      refreshOpenThreadLists: vi.fn(),
+      refreshSharedThreadListFromOpenSurface: vi.fn(),
+      cachedModels: vi.fn(() => options.cachedModels ?? []),
+      publishModels: options.publishModels ?? vi.fn(),
     } as never,
   );
 }

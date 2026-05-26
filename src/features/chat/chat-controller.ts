@@ -36,6 +36,7 @@ import { clearUserInputDrafts, createApprovalResultItem, createUserInputResultIt
 export interface ChatControllerActions {
   refreshThreads: () => void;
   refreshSkills: (forceReload?: boolean) => void;
+  publishSessionMetadata: () => void;
   maybeNameThread: (threadId: string, turn: Turn) => void;
   recordMcpStartupStatus: (name: string, status: "starting" | "ready" | "failed" | "cancelled", message: string | null) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
@@ -244,6 +245,7 @@ export class ChatController {
       if (this.state.activeThreadId === params.threadId) {
         clearActiveThreadState(this.state);
       }
+      this.actions.refreshThreads();
     } else if (method === "thread/unarchived") {
       this.actions.refreshThreads();
     } else if (method === "thread/name/updated") {
@@ -273,10 +275,12 @@ export class ChatController {
       this.state.tokenUsage = params.tokenUsage;
     } else if (method === "account/rateLimits/updated") {
       this.state.rateLimit = params.rateLimits;
+      this.actions.publishSessionMetadata();
     } else if (method === "skills/changed") {
       this.actions.refreshSkills(true);
     } else if (method === "mcpServer/startupStatus/updated") {
       this.handleMcpStartupStatus(params);
+      this.actions.publishSessionMetadata();
     }
   }
 

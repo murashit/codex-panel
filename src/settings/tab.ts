@@ -46,6 +46,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     private readonly plugin: CodexPanelPlugin,
   ) {
     super(app, plugin);
+    this.models = plugin.cachedModels();
   }
 
   display(): void {
@@ -234,6 +235,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
       if (result.models.ok) {
         this.models = result.models.data;
+        this.plugin.publishModels(result.models.data);
         this.modelsStatus = result.models.status;
       } else {
         failedCount += 1;
@@ -359,7 +361,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
       this.archivedThreadsLoaded = true;
       this.archivedThreadsStatus = `Restored "${archivedThreadDisplayTitle(response.thread)}".`;
-      this.plugin.refreshOpenThreadLists();
+      this.plugin.refreshSharedThreadListFromOpenSurface();
     } catch (error) {
       this.archivedThreadsStatus = `Could not restore archived thread: ${errorMessage(error)}`;
       new Notice("Could not restore archived Codex thread.");

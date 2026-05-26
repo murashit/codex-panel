@@ -7,6 +7,15 @@ import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
 import type { OpenCodexPanelSnapshot } from "./features/chat/panel-snapshot";
 import { CodexThreadsView } from "./features/threads-view/view";
 import type { Thread } from "./generated/app-server/v2/Thread";
+import type { Model } from "./generated/app-server/v2/Model";
+import {
+  applySharedModels,
+  applySharedSessionMetadata,
+  applySharedThreadList,
+  createSharedAppServerState,
+  type SharedAppServerState,
+  type SharedSessionMetadata,
+} from "./runtime/shared-app-server-state";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab";
 import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/ui/turn-diff";
@@ -38,7 +47,8 @@ export default class CodexPanelPlugin extends Plugin {
   vaultPath = "";
   private bootRestoredPanelLoadCancelled = false;
   private readonly bootRestoredPanelLoadTimers = new Set<number>();
-  private latestThreadList: Thread[] | null = null;
+  private sharedAppServerState: SharedAppServerState = createSharedAppServerState();
+  private threadListRefreshPromise: Promise<Thread[]> | null = null;
 
   override async onload(): Promise<void> {
     this.bootRestoredPanelLoadCancelled = false;
@@ -176,21 +186,39 @@ export default class CodexPanelPlugin extends Plugin {
     }
   }
 
-  refreshOpenThreadLists(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
-      if (leaf.view instanceof CodexChatView) {
-        leaf.view.refreshThreadList();
-      }
+  refreshSharedThreadListFromOpenSurface(): void {
+    const chatView = this.app.workspace
+      .getLeavesOfType(VIEW_TYPE_CODEX_PANEL)
+      .map((leaf) => leaf.view)
+      .find((view): view is CodexChatView => view instanceof CodexChatView);
+    if (chatView) {
+      void chatView.refreshSharedThreadList();
+      return;
     }
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_THREADS)) {
-      if (leaf.view instanceof CodexThreadsView) {
-        void leaf.view.refresh();
-      }
-    }
+
+    const threadsView = this.app.workspace
+      .getLeavesOfType(VIEW_TYPE_CODEX_THREADS)
+      .map((leaf) => leaf.view)
+      .find((view): view is CodexThreadsView => view instanceof CodexThreadsView);
+    if (threadsView) void threadsView.refresh();
   }
 
-  publishThreadList(threads: Thread[]): void {
-    this.latestThreadList = threads;
+  refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]> {
+    if (this.threadListRefreshPromise) return this.threadListRefreshPromise;
+    const promise = fetchThreads()
+      .then((threads) => {
+        this.applyThreadListSnapshot(threads);
+        return threads;
+      })
+      .finally(() => {
+        if (this.threadListRefreshPromise === promise) this.threadListRefreshPromise = null;
+      });
+    this.threadListRefreshPromise = promise;
+    return promise;
+  }
+
+  applyThreadListSnapshot(threads: Thread[]): void {
+    this.sharedAppServerState = applySharedThreadList(this.sharedAppServerState, threads);
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
       if (leaf.view instanceof CodexChatView) {
         leaf.view.applyThreadListSnapshot(threads);
@@ -204,21 +232,46 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   cachedThreadList(): Thread[] | null {
-    return this.latestThreadList;
+    return this.sharedAppServerState.threads;
+  }
+
+  publishSessionMetadata(metadata: SharedSessionMetadata): void {
+    this.sharedAppServerState = applySharedSessionMetadata(this.sharedAppServerState, metadata);
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (leaf.view instanceof CodexChatView) {
+        leaf.view.applySessionMetadataSnapshot(metadata);
+      }
+    }
+  }
+
+  publishModels(models: Model[]): void {
+    this.sharedAppServerState = applySharedModels(this.sharedAppServerState, models);
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (leaf.view instanceof CodexChatView) {
+        leaf.view.applyAvailableModelsSnapshot(models);
+      }
+    }
+  }
+
+  cachedSessionMetadata(): SharedSessionMetadata | null {
+    if (!this.sharedAppServerState.sessionMetadataLoaded) return null;
+    return {
+      effectiveConfig: this.sharedAppServerState.effectiveConfig,
+      availableModels: this.sharedAppServerState.availableModels,
+      availableSkills: this.sharedAppServerState.availableSkills,
+      rateLimit: this.sharedAppServerState.rateLimit,
+      appServerDiagnostics: this.sharedAppServerState.appServerDiagnostics,
+    };
+  }
+
+  cachedModels(): Model[] {
+    return this.sharedAppServerState.availableModels;
   }
 
   refreshThreadsViewLiveState(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_THREADS)) {
       if (leaf.view instanceof CodexThreadsView) {
         leaf.view.refreshLiveState();
-      }
-    }
-  }
-
-  refreshThreadsViewThreadList(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_THREADS)) {
-      if (leaf.view instanceof CodexThreadsView) {
-        void leaf.view.refresh();
       }
     }
   }
@@ -343,7 +396,7 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   private refreshThreadSurfaces(): void {
-    this.refreshOpenThreadLists();
+    this.refreshSharedThreadListFromOpenSurface();
   }
 
   private scheduleBootRestoredPanelLoads(): void {

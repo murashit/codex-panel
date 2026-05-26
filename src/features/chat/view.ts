@@ -12,6 +12,7 @@ import { fileMentionsFromInput } from "./display/thread-items";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { ApprovalsReviewer } from "../../generated/app-server/v2/ApprovalsReviewer";
+import type { Model } from "../../generated/app-server/v2/Model";
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { ThreadResumeResponse } from "../../generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
@@ -72,6 +73,7 @@ import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewMo
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "./panel-snapshot";
+import type { SharedSessionMetadata } from "../../runtime/shared-app-server-state";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -82,10 +84,12 @@ export interface CodexChatHost {
   openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
   notifyThreadArchived(threadId: string): void;
   notifyThreadRenamed(threadId: string, name: string): void;
-  refreshOpenThreadLists(): void;
   refreshThreadsViewLiveState(): void;
-  refreshThreadsViewThreadList(): void;
-  publishThreadList(threads: Thread[]): void;
+  refreshSharedThreadListFromOpenSurface(): void;
+  refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]>;
+  cachedThreadList(): Thread[] | null;
+  publishSessionMetadata(metadata: SharedSessionMetadata): void;
+  cachedSessionMetadata(): SharedSessionMetadata | null;
 }
 
 interface RestoredThreadState {
@@ -190,9 +194,11 @@ export class CodexChatView extends ItemView {
     this.controller = new ChatController(this.state, {
       refreshThreads: () => {
         void this.refreshThreads();
-        this.plugin.refreshThreadsViewThreadList();
       },
       refreshSkills: (forceReload) => void this.refreshSkills(forceReload),
+      publishSessionMetadata: () => {
+        this.publishSessionMetadataSnapshot();
+      },
       maybeNameThread: (threadId, turn) => {
         this.threadRename.maybeAutoNameThread(threadId, turn);
       },
@@ -292,14 +298,23 @@ export class CodexChatView extends ItemView {
     this.render();
   }
 
-  refreshThreadList(): void {
-    void this.refreshThreads();
+  refreshSharedThreadList(): Promise<void> {
+    return this.loadSharedThreadList();
   }
 
   applyThreadListSnapshot(threads: Thread[]): void {
-    this.state.listedThreads = threads;
-    this.state.threadsLoaded = true;
+    this.session.applyThreadList(threads);
     this.refreshTabHeader();
+    this.render();
+  }
+
+  applySessionMetadataSnapshot(metadata: SharedSessionMetadata): void {
+    this.session.applySessionMetadata(metadata);
+    this.render();
+  }
+
+  applyAvailableModelsSnapshot(models: Model[]): void {
+    this.state.availableModels = models;
     this.render();
   }
 
@@ -368,6 +383,7 @@ export class CodexChatView extends ItemView {
         if (leaf === this.leaf) this.scrollMessagesToBottomOnFocus();
       }),
     );
+    this.applyCachedSharedAppServerState();
     this.render();
     this.scheduleDeferredSessionWarmup();
     this.scheduleDeferredRestoredThreadHydration();
@@ -428,11 +444,11 @@ export class CodexChatView extends ItemView {
       if (this.isStaleConnectionGeneration(generation)) return;
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
-      await this.session.refreshSessionMetadata();
+      const metadata = await this.session.refreshSessionMetadata();
       if (this.isStaleConnectionGeneration(generation)) return;
-      await this.session.refreshThreadList();
+      if (metadata) this.plugin.publishSessionMetadata(metadata);
+      await this.loadSharedThreadList();
       if (this.isStaleConnectionGeneration(generation)) return;
-      this.publishThreadListSnapshot();
       this.scheduleDeferredDiagnostics();
       this.refreshTabHeader();
       this.setStatus("Connected.");
@@ -472,9 +488,9 @@ export class CodexChatView extends ItemView {
     this.client = this.connection.currentClient();
     if (!this.client) return;
     try {
-      await this.session.refreshThreadList();
-      this.publishThreadListSnapshot();
-      await this.session.refreshSessionMetadata();
+      await this.loadSharedThreadList();
+      const metadata = await this.session.refreshSessionMetadata();
+      if (metadata) this.plugin.publishSessionMetadata(metadata);
       this.refreshTabHeader();
       this.render();
     } catch (error) {
@@ -488,6 +504,7 @@ export class CodexChatView extends ItemView {
     if (!this.client) return;
     this.clearDeferredDiagnostics();
     await this.session.refreshCapabilityDiagnostics();
+    this.publishSessionMetadataSnapshot();
     this.render();
   }
 
@@ -495,6 +512,7 @@ export class CodexChatView extends ItemView {
     this.client = this.connection.currentClient();
     if (!this.client) return;
     await this.session.refreshSkills(forceReload);
+    this.publishSessionMetadataSnapshot();
     this.render();
   }
 
@@ -564,8 +582,20 @@ export class CodexChatView extends ItemView {
     this.requestWorkspaceLayoutSave();
   }
 
-  private publishThreadListSnapshot(): void {
-    this.plugin.publishThreadList(this.state.listedThreads);
+  private async loadSharedThreadList(): Promise<void> {
+    const threads = await this.plugin.refreshThreadList(() => this.session.loadThreadList());
+    this.session.applyThreadList(threads);
+  }
+
+  private publishSessionMetadataSnapshot(): void {
+    this.plugin.publishSessionMetadata(this.session.sessionMetadataSnapshot());
+  }
+
+  private applyCachedSharedAppServerState(): void {
+    const threads = this.plugin.cachedThreadList();
+    if (threads) this.session.applyThreadList(threads);
+    const metadata = this.plugin.cachedSessionMetadata();
+    if (metadata) this.session.applySessionMetadata(metadata);
   }
 
   private requestWorkspaceLayoutSave(): void {
@@ -1341,6 +1371,7 @@ export class CodexChatView extends ItemView {
   private async refreshDeferredDiagnostics(): Promise<void> {
     if (!this.connection.isConnected()) return;
     await this.session.refreshCapabilityDiagnostics({ cachedSessionMetadata: true });
+    this.publishSessionMetadataSnapshot();
     this.render();
   }
 
@@ -1563,7 +1594,7 @@ export class CodexChatView extends ItemView {
       this.setStatus("Rolled back latest turn.");
       this.notifyActiveThreadIdentityChanged();
       await this.refreshThreads();
-      this.plugin.refreshOpenThreadLists();
+      this.plugin.refreshSharedThreadListFromOpenSurface();
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
       this.setStatus("Rollback failed.");
