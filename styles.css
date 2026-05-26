@@ -159,12 +159,11 @@
 .codex-panel-threads__row:hover,
 .codex-panel-threads__row:focus-within {
   background: var(--background-modifier-hover);
-  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
-.codex-panel-threads__row--renaming:hover,
-.codex-panel-threads__row--renaming:focus-within {
-  background: transparent;
+.codex-panel-threads__row:hover .codex-panel-threads__row-title,
+.codex-panel-threads__row:focus-within .codex-panel-threads__row-title {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel-threads__row--needs-input,
@@ -237,6 +236,15 @@
 .codex-panel-threads__row:hover .codex-panel-threads__actions,
 .codex-panel-threads__row:focus-within .codex-panel-threads__actions {
   opacity: 1;
+}
+
+.codex-panel-threads__icon-button:hover,
+.codex-panel-threads__icon-button:focus,
+.codex-panel-threads__icon-button:focus-visible,
+.codex-panel-threads__icon-button:active {
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color-active);
 }
 
 .codex-panel-threads__icon-button {
@@ -560,10 +568,24 @@
 }
 
 .codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)) {
-  color: var(--text-normal);
+  color: var(--nav-item-color-hover, var(--text-normal));
   background: var(--background-modifier-hover);
   box-shadow: none;
   transform: none;
+}
+
+.codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-item:focus:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-item:focus-visible:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-item:active:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-label {
+  color: var(--nav-item-color-hover, var(--text-normal));
+}
+
+.codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-meta,
+.codex-panel__toolbar-panel-item:focus:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-meta,
+.codex-panel__toolbar-panel-item:focus-visible:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-meta,
+.codex-panel__toolbar-panel-item:active:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-meta {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel__toolbar-panel-item:focus,
@@ -1139,11 +1161,6 @@
   background: var(--background-modifier-hover);
 }
 
-.codex-panel__thread-row--renaming:hover,
-.codex-panel__thread-row--renaming:focus-within {
-  background: transparent;
-}
-
 .codex-panel__thread-row--renaming {
   grid-template-columns: minmax(0, 1fr) auto auto auto;
 }
@@ -1151,6 +1168,11 @@
 .codex-panel__thread:hover:not(:where(:disabled, .is-disabled)),
 .codex-panel__thread.is-checked {
   background: transparent;
+}
+
+.codex-panel__thread-row:hover .codex-panel__thread,
+.codex-panel__thread-row:focus-within .codex-panel__thread {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel__thread-rename {
@@ -1248,6 +1270,15 @@
 .codex-panel__thread-action:disabled {
   visibility: visible;
   opacity: 0.4;
+}
+
+.codex-panel__thread-action:hover,
+.codex-panel__thread-action:focus,
+.codex-panel__thread-action:focus-visible,
+.codex-panel__thread-action:active {
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color-active);
 }
 
 .codex-panel__thread--empty {
