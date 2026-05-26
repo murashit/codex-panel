@@ -1,4 +1,4 @@
-import { type App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { type App, Notice, type Plugin, PluginSettingTab, Setting } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
 import { withAppServerSession } from "../app-server/session-client";
@@ -7,12 +7,12 @@ import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
 import type { Model } from "../generated/app-server/v2/Model";
 import type { Thread } from "../generated/app-server/v2/Thread";
-import type CodexPanelPlugin from "../main";
 import { findModelByIdOrName, REASONING_EFFORTS, sortedAvailableModels, supportedEffortsForModel } from "../runtime/model";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 import { loadHookData, loadSettingsData } from "./data";
 import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
+import type { CodexPanelSettings } from "./model";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";
 const SEND_SHORTCUT_LABELS = {
@@ -43,7 +43,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   constructor(
     app: App,
-    private readonly plugin: CodexPanelPlugin,
+    private readonly plugin: CodexPanelSettingTabHost,
   ) {
     super(app, plugin);
     this.models = plugin.cachedModels();
@@ -395,4 +395,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private selectedModel(modelIdOrName: string | null): Model | null {
     return findModelByIdOrName(this.models, modelIdOrName);
   }
+}
+
+export interface CodexPanelSettingTabHost extends Plugin {
+  settings: CodexPanelSettings;
+  vaultPath: string;
+  saveSettings(): Promise<void>;
+  refreshSharedThreadListFromOpenSurface(): void;
+  cachedModels(): Model[];
+  publishModels(models: Model[]): void;
 }
