@@ -37,6 +37,7 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
 }
 
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {
+  if (isGlobalThreadLifecycleNotification(notification)) return { kind: "threadLifecycle", notification };
   if (!isMessageInActiveScope(notification, scope)) return { kind: "inactive", notification };
 
   if (isStreamUpdateNotification(notification)) return { kind: "streamUpdate", notification };
@@ -67,6 +68,17 @@ export function messageTurnId(message: ServerNotification | ServerRequest): stri
   const params = message.params as { turnId?: unknown; turn?: { id?: unknown } };
   if (typeof params.turnId === "string") return params.turnId;
   return typeof params.turn?.id === "string" ? params.turn.id : null;
+}
+
+function isGlobalThreadLifecycleNotification(notification: ServerNotification): boolean {
+  switch (notification.method) {
+    case "thread/archived":
+    case "thread/unarchived":
+    case "thread/name/updated":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function isStreamUpdateNotification(notification: ServerNotification): boolean {

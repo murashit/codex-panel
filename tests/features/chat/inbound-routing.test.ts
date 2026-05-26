@@ -50,6 +50,32 @@ describe("chat inbound routing", () => {
     expect(routeServerNotification(otherTurn, activeScope).kind).toBe("inactive");
   });
 
+  it("routes global thread lifecycle notifications even when another thread is active", () => {
+    expect(routeServerNotification({ method: "thread/archived", params: { threadId: "thread-other" } }, activeScope).kind).toBe(
+      "threadLifecycle",
+    );
+    expect(
+      routeServerNotification({ method: "thread/name/updated", params: { threadId: "thread-other", threadName: "Renamed" } }, activeScope)
+        .kind,
+    ).toBe("threadLifecycle");
+    expect(routeServerNotification({ method: "thread/unarchived", params: { threadId: "thread-other" } }, activeScope).kind).toBe(
+      "threadLifecycle",
+    );
+  });
+
+  it("keeps active-thread-only lifecycle notifications scoped to the active thread", () => {
+    const notification = threadSettingsUpdatedNotification();
+    expect(
+      routeServerNotification(
+        {
+          method: "thread/settings/updated",
+          params: { ...notification.params, threadId: "thread-other" },
+        },
+        activeScope,
+      ).kind,
+    ).toBe("inactive");
+  });
+
   it("classifies supported server request families before unsupported requests", () => {
     expect(routeServerRequest(commandApprovalRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("approval");
     expect(routeServerRequest(userInputRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("userInput");
@@ -167,7 +193,7 @@ function threadArchivedNotification(): ServerNotification {
   };
 }
 
-function threadSettingsUpdatedNotification(): ServerNotification {
+function threadSettingsUpdatedNotification(): Extract<ServerNotification, { method: "thread/settings/updated" }> {
   return {
     method: "thread/settings/updated",
     params: {
