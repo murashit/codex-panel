@@ -22,6 +22,7 @@ export interface ChatComposerControllerOptions {
   viewId: string;
   sendShortcut: () => SendShortcut;
   canInterrupt: () => boolean;
+  composerPlaceholder: () => string;
   currentModelForSuggestions: () => string | null;
   renderIfDetached: () => void;
   onDraftChange: () => void;
@@ -58,39 +59,46 @@ export class ChatComposerController {
       return;
     }
 
-    const elements = renderComposerShell(parent, this.options.viewId, this.options.state.composerDraft, this.options.state.busy, {
-      onInput: () => {
-        this.options.state.composerDraft = this.composer?.value ?? "";
-        this.options.state.composerSuggestionsDismissedSignature = null;
-        this.options.onDraftChange();
-        this.updateSuggestions();
-        this.syncControls(parent);
-      },
-      onUpdateSuggestions: () => {
-        this.updateSuggestions();
-      },
-      onKeydown: (event) => {
-        if (this.handleSuggestionKeydown(event)) {
-          return;
-        }
-        if (isComposerSendKey(event, this.options.sendShortcut())) {
-          event.preventDefault();
+    const elements = renderComposerShell(
+      parent,
+      this.options.viewId,
+      this.options.state.composerDraft,
+      this.options.state.busy,
+      this.options.composerPlaceholder(),
+      {
+        onInput: () => {
+          this.options.state.composerDraft = this.composer?.value ?? "";
+          this.options.state.composerSuggestionsDismissedSignature = null;
+          this.options.onDraftChange();
+          this.updateSuggestions();
+          this.syncControls(parent);
+        },
+        onUpdateSuggestions: () => {
+          this.updateSuggestions();
+        },
+        onKeydown: (event) => {
+          if (this.handleSuggestionKeydown(event)) {
+            return;
+          }
+          if (isComposerSendKey(event, this.options.sendShortcut())) {
+            event.preventDefault();
+            this.options.onSubmit();
+          }
+        },
+        onNewThread: () => {
+          this.options.onNewThread();
+        },
+        onSendOrInterrupt: () => {
           this.options.onSubmit();
-        }
+        },
+        onSuggestionHover: (index) => {
+          this.selectSuggestion(index);
+        },
+        onSuggestionInsert: (suggestion) => {
+          this.insertSuggestion(suggestion);
+        },
       },
-      onNewThread: () => {
-        this.options.onNewThread();
-      },
-      onSendOrInterrupt: () => {
-        this.options.onSubmit();
-      },
-      onSuggestionHover: (index) => {
-        this.selectSuggestion(index);
-      },
-      onSuggestionInsert: (suggestion) => {
-        this.insertSuggestion(suggestion);
-      },
-    });
+    );
     this.composer = elements.composer;
     this.suggestionsEl = elements.suggestions;
     this.updateSuggestions();
@@ -111,7 +119,7 @@ export class ChatComposerController {
   }
 
   syncControls(parent: HTMLElement | null): void {
-    syncComposerControls(parent, this.composer, this.options.state.busy, this.options.canInterrupt());
+    syncComposerControls(parent, this.composer, this.options.state.busy, this.options.canInterrupt(), this.options.composerPlaceholder());
   }
 
   codexInput(text: string): UserInput[] {

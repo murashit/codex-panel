@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import { codexPanelDisplayTitle, inheritedForkThreadName, upsertThread } from "../../../src/domain/threads/model";
+import { codexPanelDisplayTitle, explicitThreadName, inheritedForkThreadName, upsertThread } from "../../../src/domain/threads/model";
 
 describe("thread helpers", () => {
   it("formats Codex panel display titles from the active thread", () => {
@@ -15,6 +15,15 @@ describe("thread helpers", () => {
     expect(inheritedForkThreadName("named", [thread({ id: "named", name: "親スレッド", preview: "Preview" })])).toBe("親スレッド");
     expect(inheritedForkThreadName("preview-only", [thread({ id: "preview-only", preview: "Preview" })])).toBeNull();
     expect(inheritedForkThreadName("blank-name", [thread({ id: "blank-name", name: "  ", preview: "Preview" })])).toBeNull();
+  });
+
+  it("resolves only explicit thread names for composer context", () => {
+    expect(explicitThreadName(thread({ name: "  Refactor   terminal streaming  ", preview: "Preview" }))).toBe(
+      "Refactor terminal streaming",
+    );
+    expect(explicitThreadName(thread({ name: "  ", preview: "Preview" }))).toBeNull();
+    expect(explicitThreadName(thread({ name: null, preview: "Preview" }))).toBeNull();
+    expect(explicitThreadName(thread({ name: null, preview: "", id: "thread-id" }))).toBeNull();
   });
 
   it("upserts resumed thread metadata without reordering existing rows", () => {

@@ -2276,10 +2276,29 @@ describe("pending request renderer decisions", () => {
 });
 
 describe("composer renderer decisions", () => {
+  it("uses the provided composer placeholder for normal input", () => {
+    const parent = document.createElement("div");
+    const { composer } = renderComposerShell(parent, "view", "", false, "Ask Codex to work on “Refactor terminal streaming”...", {
+      onInput: vi.fn(),
+      onUpdateSuggestions: vi.fn(),
+      onKeydown: vi.fn(),
+      onNewThread: vi.fn(),
+      onSendOrInterrupt: vi.fn(),
+      onSuggestionHover: vi.fn(),
+      onSuggestionInsert: vi.fn(),
+    });
+
+    expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Refactor terminal streaming”...");
+
+    syncComposerControls(parent, composer, false, false, "Ask Codex to work on “Renamed thread”...");
+
+    expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
+  });
+
   it("renders composer suggestions outside normal input flow callbacks", () => {
     const parent = document.createElement("div");
     const onSuggestionInsert = vi.fn();
-    const { composer, suggestions } = renderComposerShell(parent, "view", "", false, {
+    const { composer, suggestions } = renderComposerShell(parent, "view", "", false, "Ask Codex to work on this task...", {
       onInput: vi.fn(),
       onUpdateSuggestions: vi.fn(),
       onKeydown: vi.fn(),
@@ -2347,7 +2366,7 @@ describe("composer renderer decisions", () => {
 
   it("uses the composer action for interrupt only when a running turn has no steering text", () => {
     const parent = document.createElement("div");
-    const { composer } = renderComposerShell(parent, "view", "", true, {
+    const { composer } = renderComposerShell(parent, "view", "", true, "Ask Codex to work on this task...", {
       onInput: vi.fn(),
       onUpdateSuggestions: vi.fn(),
       onKeydown: vi.fn(),
@@ -2358,15 +2377,17 @@ describe("composer renderer decisions", () => {
     });
     const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
 
-    syncComposerControls(parent, composer, true, true);
+    syncComposerControls(parent, composer, true, true, "Ask Codex to work on this task...");
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
+    expect(composer.getAttribute("placeholder")).toBe("Add steering message...");
     expect(sendButton?.classList.contains("is-interrupt")).toBe(true);
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");
 
     composer.value = "adjust course";
-    syncComposerControls(parent, composer, true, true);
+    syncComposerControls(parent, composer, true, true, "Ask Codex to work on this task...");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
+    expect(composer.getAttribute("placeholder")).toBe("Add steering message...");
     expect(sendButton?.classList.contains("is-interrupt")).toBe(false);
     expect(sendButton?.classList.contains("is-steer")).toBe(true);
     expect(sendButton?.dataset["icon"]).toBe("corner-down-right");

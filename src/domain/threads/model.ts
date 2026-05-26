@@ -10,6 +10,11 @@ export function getThreadTitle(thread: Thread): string {
   );
 }
 
+export function explicitThreadName(thread: Thread): string | null {
+  const name = typeof thread.name === "string" ? normalizeTitle(thread.name) : "";
+  return name.length > 0 ? name : null;
+}
+
 export function codexPanelDisplayTitle(activeThreadId: string | null, threads: Thread[], fallbackTitle?: string | null): string {
   if (!activeThreadId) return "Codex";
 
@@ -19,8 +24,8 @@ export function codexPanelDisplayTitle(activeThreadId: string | null, threads: T
 }
 
 export function inheritedForkThreadName(threadId: string, threads: Thread[]): string | null {
-  const name = threads.find((thread) => thread.id === threadId)?.name?.trim();
-  return name !== undefined && name.length > 0 ? name : null;
+  const thread = threads.find((item) => item.id === threadId);
+  return thread ? explicitThreadName(thread) : null;
 }
 
 export function upsertThread(threads: Thread[], thread: Thread): Thread[] {

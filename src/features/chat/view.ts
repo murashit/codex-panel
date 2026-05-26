@@ -57,7 +57,7 @@ import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model
 import { ChatComposerController } from "./chat-composer-controller";
 import { attachHookRunsToTurn } from "./hook-display";
 import { clearActiveThreadState, clearConnectionScopedState, createChatState, type ChatState } from "./chat-state";
-import { codexPanelDisplayTitle, getThreadTitle, upsertThread } from "../../domain/threads/model";
+import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle, upsertThread } from "../../domain/threads/model";
 import {
   referencedThreadDisplay,
   referencedThreadPrompt,
@@ -94,6 +94,7 @@ export interface CodexChatHost {
 interface RestoredThreadState {
   threadId: string;
   title: string | null;
+  explicitName: string | null;
 }
 
 export class CodexChatView extends ItemView {
@@ -156,6 +157,7 @@ export class CodexChatView extends ItemView {
       viewId: this.viewId,
       sendShortcut: () => this.plugin.settings.sendShortcut,
       canInterrupt: () => this.state.busy && Boolean(this.state.activeThreadId && this.state.activeTurnId),
+      composerPlaceholder: () => this.composerPlaceholder(),
       currentModelForSuggestions: () => currentModel(this.runtimeSnapshot()),
       renderIfDetached: () => {
         this.render();
@@ -393,8 +395,8 @@ export class CodexChatView extends ItemView {
       changed = true;
       return { ...thread, name };
     });
-    if (this.restoredThread?.threadId === threadId && this.restoredThread.title !== name) {
-      this.restoredThread = { ...this.restoredThread, title: name };
+    if (this.restoredThread?.threadId === threadId && (this.restoredThread.title !== name || this.restoredThread.explicitName !== name)) {
+      this.restoredThread = { ...this.restoredThread, title: name, explicitName: name };
       changed = true;
     }
     const activeThreadChanged = this.state.activeThreadId === threadId || this.restoredThread?.threadId === threadId;
@@ -1163,6 +1165,20 @@ export class CodexChatView extends ItemView {
     return thread ? getThreadTitle(thread) : null;
   }
 
+  private composerPlaceholder(): string {
+    const threadName = this.activeComposerThreadName();
+    return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
+  }
+
+  private activeComposerThreadName(): string | null {
+    const threadId = this.state.activeThreadId;
+    if (!threadId) return null;
+    const thread = this.state.listedThreads.find((item) => item.id === threadId);
+    const listedName = thread ? explicitThreadName(thread) : null;
+    if (listedName) return listedName;
+    return this.restoredThread?.threadId === threadId ? this.restoredThread.explicitName : null;
+  }
+
   private render(): void {
     if (this.scheduledRenderTimer !== null) {
       window.clearTimeout(this.scheduledRenderTimer);
@@ -1614,5 +1630,6 @@ function parseRestoredThreadState(state: unknown): RestoredThreadState | null {
   return {
     threadId,
     title: typeof title === "string" && title.trim().length > 0 ? title : null,
+    explicitName: null,
   };
 }

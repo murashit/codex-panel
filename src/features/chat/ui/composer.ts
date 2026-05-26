@@ -22,6 +22,7 @@ export function renderComposerShell(
   viewId: string,
   draft: string,
   busy: boolean,
+  normalPlaceholder: string,
   callbacks: ComposerCallbacks,
 ): ComposerElements {
   parent.empty();
@@ -29,7 +30,7 @@ export function renderComposerShell(
   const composer = composerEl.createEl("textarea", {
     cls: "codex-panel-ui__text-input codex-panel__composer-input",
     attr: {
-      placeholder: "Ask Codex to work...",
+      placeholder: normalPlaceholder,
       role: "combobox",
       "aria-autocomplete": "list",
       "aria-expanded": "false",
@@ -81,6 +82,7 @@ export function syncComposerControls(
   composer: HTMLTextAreaElement | null,
   busy: boolean,
   canInterrupt: boolean,
+  normalPlaceholder: string,
 ): void {
   const newThreadButton = parent?.querySelector<HTMLButtonElement>(".codex-panel__new-chat");
   if (newThreadButton) newThreadButton.disabled = busy;
@@ -101,7 +103,7 @@ export function syncComposerControls(
     }
   }
   if (composer) {
-    composer.setAttr("placeholder", canInterrupt ? "Add steering message..." : "Ask Codex to work...");
+    composer.setAttr("placeholder", canInterrupt ? "Add steering message..." : normalPlaceholder);
     syncComposerHeight(composer);
   }
 }

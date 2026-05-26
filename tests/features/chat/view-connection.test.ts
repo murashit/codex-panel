@@ -428,6 +428,78 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "After rename" });
   });
 
+  it("does not use restored thread title as a composer name before an explicit rename notification", async () => {
+    const view = await chatView();
+
+    await view.setState({ threadId: "thread-1", threadTitle: "Restored title" }, {} as never);
+    await view.onOpen();
+
+    expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+
+    view.notifyThreadRenamed("thread-1", "Explicit name");
+
+    expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Explicit name”...");
+  });
+
+  it("uses the active explicit thread name in the composer placeholder", async () => {
+    const client = connectedClient();
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.openThread("thread-1");
+
+    expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Restored thread”...");
+  });
+
+  it("does not use preview-only thread text in the composer placeholder", async () => {
+    const client = connectedClient({
+      resumeThread: vi.fn().mockResolvedValue({
+        ...resumedThread("thread-1"),
+        thread: { ...resumedThread("thread-1").thread, name: null, preview: "Restored preview" },
+      }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.openThread("thread-1");
+
+    expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+  });
+
+  it("updates the composer placeholder from shared rename notifications", async () => {
+    const client = connectedClient();
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.openThread("thread-1");
+    view.notifyThreadRenamed("thread-1", "Renamed thread");
+
+    expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Renamed thread”...");
+
+    view.notifyThreadRenamed("thread-1", null);
+
+    expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+  });
+
+  it("keeps composer draft and selection while updating the placeholder", async () => {
+    const client = connectedClient();
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.openThread("thread-1");
+    view.setComposerText("keep this draft");
+    const composer = composerElement(view);
+    composer.setSelectionRange(5, 9);
+
+    view.notifyThreadRenamed("thread-1", "Renamed thread");
+
+    expect(composerElement(view)).toBe(composer);
+    expect(composer.value).toBe("keep this draft");
+    expect(composer.selectionStart).toBe(5);
+    expect(composer.selectionEnd).toBe(9);
+    expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
+  });
+
   it("scrolls resumed messages to the bottom after history hydrates", async () => {
     const client = connectedClient({
       threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
@@ -651,6 +723,16 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     resolve = innerResolve;
   });
   return { promise, resolve };
+}
+
+function composerElement(view: { containerEl: HTMLElement }): HTMLTextAreaElement {
+  const composer = view.containerEl.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input");
+  if (!composer) throw new Error("Expected composer input");
+  return composer;
+}
+
+function composerPlaceholder(view: { containerEl: HTMLElement }): string | null {
+  return composerElement(view).getAttribute("placeholder");
 }
 
 function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
