@@ -1,4 +1,4 @@
-import type { OpenCodexPanelSnapshot } from "../chat/panel-snapshot";
+import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import { getThreadTitle } from "../../domain/threads/model";
 

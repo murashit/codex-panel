@@ -47,7 +47,7 @@ export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null
   const contextWindow = usage?.modelContextWindow ?? config.modelContextWindow;
   if (!usage) {
     if (!snapshot.activeThreadId) return null;
-    if (!snapshot.displayItems.some((item) => item.turnId)) {
+    if (!snapshot.hasThreadTurns) {
       return {
         label: "Context 0%",
         title: contextWindow

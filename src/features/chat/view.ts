@@ -72,7 +72,7 @@ import { renderPendingRequestMessage } from "./ui/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
-import type { OpenCodexPanelSnapshot } from "./panel-snapshot";
+import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedSessionMetadata } from "../../runtime/shared-app-server-state";
 
 export interface CodexChatHost {
@@ -1486,7 +1486,7 @@ export class CodexChatView extends ItemView {
       requestedServiceTier: this.state.requestedServiceTier,
       tokenUsage: this.state.tokenUsage,
       rateLimit: this.state.rateLimit,
-      displayItems: this.state.displayItems,
+      hasThreadTurns: this.state.displayItems.some((item) => item.turnId),
       availableModels: this.state.availableModels,
     };
   }

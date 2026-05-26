@@ -4,7 +4,7 @@ import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DI
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
 import { CodexChatView } from "./features/chat/view";
 import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
-import type { OpenCodexPanelSnapshot } from "./features/chat/panel-snapshot";
+import type { OpenCodexPanelSnapshot } from "./runtime/open-panel-snapshot";
 import { CodexThreadsView } from "./features/threads-view/view";
 import type { Thread } from "./generated/app-server/v2/Thread";
 import type { Model } from "./generated/app-server/v2/Model";

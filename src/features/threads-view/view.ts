@@ -6,7 +6,7 @@ import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { CodexPanelSettings } from "../../settings/model";
 import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
-import type { OpenCodexPanelSnapshot } from "../chat/panel-snapshot";
+import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import { findThreadNamingContext, generateThreadTitleWithCodex, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } from "../chat/thread-naming";
 import { renderThreadsView } from "./renderer";
 import { threadRows } from "./state";

@@ -408,7 +408,7 @@ describe("runtime settings", () => {
       contextSummary(
         runtimeSnapshot({
           activeThreadId: "thread",
-          displayItems: [{ id: "u1", kind: "message", role: "user", text: "hi", turnId: "t1" }],
+          hasThreadTurns: true,
         }),
       ),
     ).toMatchObject({
@@ -536,7 +536,7 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     requestedServiceTier: null,
     tokenUsage: null,
     rateLimit: null,
-    displayItems: [],
+    hasThreadTurns: false,
     availableModels: [],
     ...overrides,
   };
