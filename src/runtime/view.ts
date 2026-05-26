@@ -262,13 +262,14 @@ function writableRootsLabel(value: unknown): string {
   return `${String(value.length)} roots`;
 }
 
-function enabledAppsLabel(apps: Record<string, unknown>): string {
-  const enabled = Object.entries(apps)
+function enabledAppsLabel(apps: unknown): string {
+  const appConfig = asRecord(apps);
+  const enabled = Object.entries(appConfig)
     .filter(([key, app]) => key !== "_default" && asRecord(app)["enabled"] === true)
     .map(([key]) => key)
     .sort();
   if (enabled.length > 0) return enabled.join(", ");
-  const defaultConfig = asRecord(apps["_default"]);
+  const defaultConfig = asRecord(appConfig["_default"]);
   return stringValue(defaultConfig["enabled"], "(from default)");
 }
 
