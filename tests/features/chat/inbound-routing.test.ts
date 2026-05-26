@@ -36,6 +36,24 @@ describe("chat inbound routing", () => {
     expect(isMessageInActiveScope(notification, activeScope)).toBe(true);
   });
 
+  it("extracts the thread id from thread started notifications", () => {
+    const notification = {
+      method: "thread/started",
+      params: { thread: threadSnapshot("thread-active") },
+    } satisfies Extract<ServerNotification, { method: "thread/started" }>;
+
+    expect(messageThreadId(notification)).toBe("thread-active");
+    expect(messageTurnId(notification)).toBeNull();
+    expect(isMessageInActiveScope(notification, activeScope)).toBe(true);
+  });
+
+  it("extracts thread and turn ids from approval and user input requests", () => {
+    expect(messageThreadId(commandApprovalRequest())).toBe("thread-active");
+    expect(messageTurnId(commandApprovalRequest())).toBe("turn-active");
+    expect(messageThreadId(userInputRequest())).toBe("thread-other");
+    expect(messageTurnId(userInputRequest())).toBe("turn-active");
+  });
+
   it("marks scoped messages inactive when the thread or turn does not match", () => {
     const otherThread = {
       method: "item/agentMessage/delta",
@@ -254,5 +272,29 @@ function warningNotification(): ServerNotification {
   return {
     method: "warning",
     params: { threadId: null, message: "careful" },
+  };
+}
+
+function threadSnapshot(id: string): Extract<ServerNotification, { method: "thread/started" }>["params"]["thread"] {
+  return {
+    id,
+    sessionId: "session",
+    forkedFromId: null,
+    preview: "Preview",
+    ephemeral: false,
+    modelProvider: "openai",
+    createdAt: 1,
+    updatedAt: 1,
+    status: { type: "idle" },
+    path: null,
+    cwd: "/vault",
+    cliVersion: "0.0.0",
+    source: "appServer",
+    threadSource: null,
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: null,
+    turns: [],
   };
 }
