@@ -24,7 +24,6 @@ import {
 } from "../../runtime/collaboration-mode";
 import { ChatController } from "./chat-controller";
 import { connectionDiagnosticSections, diagnosticAlertLevel } from "./diagnostics";
-import { rollbackCandidateFromItems } from "./rollback";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../runtime/view";
 import {
   autoReviewActive,
@@ -58,8 +57,7 @@ import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model
 import { ChatComposerController } from "./chat-composer-controller";
 import { attachHookRunsToTurn } from "./hook-display";
 import { clearActiveThreadState, clearConnectionScopedState, createChatState, type ChatState } from "./chat-state";
-import { codexPanelDisplayTitle, getThreadTitle, inheritedForkThreadName, upsertThread } from "../../domain/threads/model";
-import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
+import { codexPanelDisplayTitle, getThreadTitle, upsertThread } from "../../domain/threads/model";
 import {
   referencedThreadDisplay,
   referencedThreadPrompt,
@@ -74,6 +72,7 @@ import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedSessionMetadata } from "../../runtime/shared-app-server-state";
+import { ChatThreadActionController } from "./thread-actions";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -103,6 +102,7 @@ export class CodexChatView extends ItemView {
   private readonly controller: ChatController;
   private readonly session: ChatSessionController;
   private readonly history: ThreadHistoryLoader;
+  private readonly threadActions: ChatThreadActionController;
   private readonly threadRename: ThreadRenameController;
   private readonly state: ChatState = createChatState();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -144,7 +144,7 @@ export class CodexChatView extends ItemView {
         return value;
       },
       loadOlderTurns: () => void this.history.loadOlder(),
-      rollbackThread: (threadId) => void this.rollbackThread(threadId),
+      rollbackThread: (threadId) => void this.threadActions.rollbackThread(threadId),
       implementPlan: (item) => void this.implementPlan(item),
       openTurnDiff: (state) => void this.plugin.openTurnDiff(state),
       pendingRequestsSignature: () => this.pendingRequestsSignature(),
@@ -241,6 +241,38 @@ export class CodexChatView extends ItemView {
       },
       setThreadTurnPresence: (hadTurns) => {
         this.threadRename.resetThreadTurnPresence(hadTurns);
+      },
+    });
+    this.threadActions = new ChatThreadActionController({
+      state: this.state,
+      vaultPath: this.plugin.vaultPath,
+      settings: () => this.plugin.settings,
+      archiveAdapter: () => this.app.vault.adapter,
+      ensureConnected: () => this.ensureConnected(),
+      currentClient: () => this.client,
+      history: this.history,
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
+      },
+      setStatus: (status) => {
+        this.setStatus(status);
+      },
+      setComposerText: (text) => {
+        this.setComposerText(text);
+      },
+      openThreadInNewView: (threadId) => this.plugin.openThreadInNewView(threadId),
+      notifyThreadArchived: (threadId) => {
+        this.plugin.notifyThreadArchived(threadId);
+      },
+      notifyThreadRenamed: (threadId, name) => {
+        this.plugin.notifyThreadRenamed(threadId, name);
+      },
+      notifyActiveThreadIdentityChanged: () => {
+        this.notifyActiveThreadIdentityChanged();
+      },
+      refreshThreads: () => this.refreshThreads(),
+      refreshSharedThreadListFromOpenSurface: () => {
+        this.plugin.refreshSharedThreadListFromOpenSurface();
       },
     });
     this.threadRename = new ThreadRenameController({
@@ -777,12 +809,12 @@ export class CodexChatView extends ItemView {
       startNewThread: () => this.startNewThread(),
       resumeThread: (threadId) => this.selectThread(threadId),
       referThread: (thread, message) => this.referencedThreadInput(thread, message),
-      forkThread: (threadId) => this.forkThread(threadId),
-      rollbackThread: (threadId) => this.rollbackThread(threadId),
+      forkThread: (threadId) => this.threadActions.forkThread(threadId),
+      rollbackThread: (threadId) => this.threadActions.rollbackThread(threadId),
       compactThread: async (threadId) => {
         await this.client?.compactThread(threadId);
       },
-      archiveThread: (threadId) => this.archiveThread(threadId),
+      archiveThread: (threadId) => this.threadActions.archiveThread(threadId),
       busy: this.state.busy,
       toggleFastMode: () => this.toggleFastMode(),
       toggleCollaborationMode: () => this.toggleCollaborationMode(),
@@ -1183,7 +1215,7 @@ export class CodexChatView extends ItemView {
         this.state.openDetails.delete("history");
         void this.selectThread(threadId);
       },
-      archiveThread: (threadId) => void this.archiveThread(threadId),
+      archiveThread: (threadId) => void this.threadActions.archiveThread(threadId),
       startRenameThread: (threadId) => {
         this.threadRename.start(threadId);
       },
@@ -1517,94 +1549,6 @@ export class CodexChatView extends ItemView {
         this.state.userInputDrafts.get(userInputDraftKey(input.requestId, question.id)) ?? questionDefaultAnswer(question),
       ]),
     );
-  }
-
-  private async archiveThread(threadId: string): Promise<void> {
-    if (this.state.busy) {
-      this.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
-      return;
-    }
-    if (!this.client) return;
-    try {
-      if (this.plugin.settings.archiveExportEnabled) {
-        const response = await this.client.readThread(threadId, true);
-        const result = await exportArchivedThreadMarkdown(response.thread, this.plugin.settings, this.app.vault.adapter);
-        new Notice(`Saved archived thread to ${result.path}.`);
-      }
-      await this.client.archiveThread(threadId);
-      this.plugin.notifyThreadArchived(threadId);
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  private async forkThread(threadId: string): Promise<void> {
-    if (this.state.busy) {
-      this.addSystemMessage("Finish or interrupt the current turn before forking threads.");
-      return;
-    }
-    await this.ensureConnected();
-    if (!this.client) return;
-
-    try {
-      const sourceName = inheritedForkThreadName(threadId, this.state.listedThreads);
-      const response = await this.client.forkThread(threadId, this.plugin.vaultPath);
-      const forkedThreadId = response.thread.id;
-      if (sourceName) {
-        try {
-          await this.client.setThreadName(forkedThreadId, sourceName);
-          this.plugin.notifyThreadRenamed(forkedThreadId, sourceName);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          this.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
-        }
-      }
-      try {
-        await this.plugin.openThreadInNewView(forkedThreadId);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in a new panel: ${message}`);
-      }
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  private async rollbackThread(threadId: string): Promise<void> {
-    if (this.state.busy) {
-      this.addSystemMessage("Interrupt the current turn before rolling back.");
-      return;
-    }
-    await this.ensureConnected();
-    if (!this.client) return;
-
-    const candidate = rollbackCandidateFromItems(this.state.displayItems);
-    if (!candidate) {
-      this.addSystemMessage("No completed turn to roll back.");
-      return;
-    }
-
-    try {
-      this.setStatus("Rolling back latest turn...");
-      const response = await this.client.rollbackThread(threadId);
-      this.state.activeThreadId = response.thread.id;
-      this.state.activeThreadCwd = response.thread.cwd;
-      this.state.activeTurnId = null;
-      this.state.tokenUsage = null;
-      this.state.historyCursor = null;
-      this.state.turnDiffs.clear();
-      this.state.listedThreads = upsertThread(this.state.listedThreads, response.thread);
-      await this.history.loadLatest(response.thread.id);
-      this.setComposerText(candidate.text);
-      this.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
-      this.setStatus("Rolled back latest turn.");
-      this.notifyActiveThreadIdentityChanged();
-      await this.refreshThreads();
-      this.plugin.refreshSharedThreadListFromOpenSurface();
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-      this.setStatus("Rollback failed.");
-    }
   }
 
   private queueMessagesBottomScroll(): void {

@@ -172,7 +172,9 @@ export class ThreadRenameController {
       threadId,
       readTurns: (id, cursor, limit, sortDirection) => client.threadTurnsList(id, cursor, limit, sortDirection),
     });
-    return context ?? (this.host.state.activeThreadId === threadId ? firstNamingContextFromDisplayItems(this.host.state.displayItems) : null);
+    return (
+      context ?? (this.host.state.activeThreadId === threadId ? firstNamingContextFromDisplayItems(this.host.state.displayItems) : null)
+    );
   }
 
   private async generateTitle(context: ThreadNamingContext): Promise<string | null> {
