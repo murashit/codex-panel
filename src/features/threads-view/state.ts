@@ -2,7 +2,7 @@ import type { OpenCodexPanelSnapshot } from "../chat/panel-snapshot";
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import { getThreadTitle } from "../../domain/threads/model";
 
-export type ThreadsLiveStatus = "needs-input" | "approval" | "running" | "draft" | "open";
+export type ThreadsLiveStatus = "needs-input" | "approval" | "running" | "draft" | "offline" | "open";
 
 export interface ThreadsLiveState {
   status: ThreadsLiveStatus;
@@ -23,7 +23,8 @@ const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
   approval: 4,
   running: 3,
   draft: 2,
-  open: 1,
+  offline: 1,
+  open: 0,
 };
 
 export function threadRows(
@@ -80,6 +81,7 @@ function snapshotStatus(snapshot: OpenCodexPanelSnapshot): ThreadsLiveStatus {
   if (snapshot.pendingApprovals > 0) return "approval";
   if (snapshot.busy) return "running";
   if (snapshot.hasComposerDraft) return "draft";
+  if (!snapshot.connected) return "offline";
   return "open";
 }
 
@@ -93,6 +95,8 @@ function statusLabel(status: ThreadsLiveStatus): string {
       return "Running";
     case "draft":
       return "Draft";
+    case "offline":
+      return "Offline";
     case "open":
       return "Open";
   }

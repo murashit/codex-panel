@@ -180,6 +180,10 @@
   --codex-panel-threads-gutter-color: color-mix(in srgb, var(--codex-panel-color-accent) 36%, transparent);
 }
 
+.codex-panel-threads__row--offline {
+  --codex-panel-threads-gutter-color: var(--text-muted);
+}
+
 .codex-panel-threads__row--open {
   --codex-panel-threads-gutter-color: var(--codex-panel-border-muted-color);
 }
@@ -188,6 +192,7 @@
 .codex-panel-threads__row--approval::before,
 .codex-panel-threads__row--running::before,
 .codex-panel-threads__row--draft::before,
+.codex-panel-threads__row--offline::before,
 .codex-panel-threads__row--open::before {
   background: var(--codex-panel-threads-gutter-color);
 }

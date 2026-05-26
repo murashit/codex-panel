@@ -1922,6 +1922,10 @@ describe("threads view renderer decisions", () => {
       status: "draft",
       label: "Draft",
     });
+    expect(liveStateForSnapshots([openPanelSnapshot({ viewId: "offline", threadId: "thread", connected: false })])).toMatchObject({
+      status: "offline",
+      label: "Offline",
+    });
     expect(liveStateForSnapshots([openPanelSnapshot({ viewId: "none", threadId: null, busy: true })])).toBeNull();
   });
 
