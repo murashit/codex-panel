@@ -194,11 +194,13 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       newLeaf.view = view;
     });
     const connect = vi.spyOn(view, "connect").mockResolvedValue(undefined);
+    const focusComposer = vi.spyOn(view, "focusComposer").mockImplementation(() => undefined);
     const openThread = vi.spyOn(view, "openThread").mockResolvedValue(undefined);
 
     await plugin.openThreadInNewView("thread-1");
 
     expect(connect).not.toHaveBeenCalled();
+    expect(focusComposer).toHaveBeenCalledOnce();
     expect(openThread).toHaveBeenCalledWith("thread-1");
   });
 
@@ -212,11 +214,13 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       newLeaf.view = view;
     });
     const connect = vi.spyOn(view, "connect").mockResolvedValue(undefined);
+    const focusComposer = vi.spyOn(view, "focusComposer").mockImplementation(() => undefined);
     const openThread = vi.spyOn(view, "openThread").mockResolvedValue(undefined);
 
     await plugin.openNewPanel();
 
     expect(connect).toHaveBeenCalledOnce();
+    expect(focusComposer).toHaveBeenCalledOnce();
     expect(openThread).not.toHaveBeenCalled();
   });
 

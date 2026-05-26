@@ -118,6 +118,10 @@ export class ChatComposerController {
     if (options.focus) this.composer.focus();
   }
 
+  focus(): void {
+    this.composer?.focus({ preventScroll: true });
+  }
+
   syncControls(parent: HTMLElement | null): void {
     syncComposerControls(parent, this.composer, this.options.state.busy, this.options.canInterrupt(), this.options.composerPlaceholder());
   }

@@ -373,6 +373,7 @@ export class CodexChatView extends ItemView {
 
   async openThread(threadId: string): Promise<void> {
     await this.resumeThread(threadId);
+    this.focusComposer();
   }
 
   async focusThread(threadId: string | null = null): Promise<void> {
@@ -380,6 +381,11 @@ export class CodexChatView extends ItemView {
       await this.ensureRestoredThreadLoaded();
     }
     this.scrollMessagesToBottomOnFocus();
+    this.focusComposer();
+  }
+
+  focusComposer(): void {
+    this.composerController.focus();
   }
 
   notifyThreadArchived(threadId: string): void {
@@ -522,6 +528,7 @@ export class CodexChatView extends ItemView {
     this.plugin.refreshThreadsViewLiveState();
     this.notifyActiveThreadIdentityChanged();
     this.render();
+    this.focusComposer();
   }
 
   private async refreshThreads(): Promise<void> {

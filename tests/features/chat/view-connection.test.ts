@@ -301,6 +301,23 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
   });
 
+  it("focuses the composer after panel thread actions", async () => {
+    const client = connectedClient();
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.onOpen();
+    const composer = composerElement(view);
+    const focus = vi.spyOn(composer, "focus");
+
+    await view.openThread("thread-1");
+    await view.focusThread("thread-1");
+    await view.startNewThread();
+
+    expect(focus).toHaveBeenCalledTimes(3);
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
   it("starts a thread only when /new includes a message to send", async () => {
     const client = connectedClient({
       startThread: vi.fn().mockResolvedValue(startedThread("thread-new")),

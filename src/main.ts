@@ -128,6 +128,7 @@ export default class CodexPanelPlugin extends Plugin {
     });
     const view = leaf.view as CodexChatView;
     await view.connect();
+    view.focusComposer();
     return view;
   }
 
@@ -139,6 +140,7 @@ export default class CodexPanelPlugin extends Plugin {
     await this.app.workspace.revealLeaf(leaf);
     const view = leaf.view as CodexChatView;
     if (options.connect !== false) await view.connect();
+    view.focusComposer();
     return view;
   }
 
