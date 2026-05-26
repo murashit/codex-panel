@@ -22,6 +22,7 @@ export interface ToolbarThreadRow {
   selected: boolean;
   disabled: boolean;
   canArchive: boolean;
+  archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
   rename: {
     draft: string;
     generating: boolean;
@@ -75,7 +76,8 @@ export interface ToolbarActions {
   refreshDiagnostics: () => void;
   refreshThreads: () => void;
   resumeThread: (threadId: string) => void;
-  archiveThread: (threadId: string) => void;
+  startArchiveThread: (threadId: string) => void;
+  archiveThread: (threadId: string, saveMarkdown: boolean) => void;
   startRenameThread: (threadId: string) => void;
   updateRenameDraft: (threadId: string, value: string) => void;
   saveRenameThread: (threadId: string, value: string) => void;
@@ -107,7 +109,7 @@ export function toolbarSignature(model: ToolbarViewModel): string {
       (thread) =>
         `${thread.threadId}:${thread.title}:${String(thread.selected)}:${String(thread.disabled)}:${String(thread.canArchive)}:${thread.rename?.draft ?? ""}:${String(
           thread.rename?.generating ?? false,
-        )}`,
+        )}:${String(thread.archiveConfirm?.active ?? false)}:${String(thread.archiveConfirm?.defaultSaveMarkdown ?? false)}`,
     ),
     modelChoices: model.modelChoices.map(
       (choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`,
@@ -326,7 +328,13 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
 
   for (const thread of threads) {
     const row = threadsEl.createDiv({
-      cls: ["codex-panel__thread-row", thread.rename ? "codex-panel__thread-row--renaming" : ""].filter(Boolean).join(" "),
+      cls: [
+        "codex-panel__thread-row",
+        thread.rename ? "codex-panel__thread-row--renaming" : "",
+        archiveConfirmState(thread).active ? "codex-panel__thread-row--archive-confirming" : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
     });
     if (thread.rename) {
       renderThreadRenameRow(row, thread, actions);
@@ -342,24 +350,59 @@ function renderThreadList(parent: HTMLElement, threads: ToolbarThreadRow[], acti
       },
     });
 
-    const rename = createToolbarButton(row, "pencil", "Rename thread");
-    rename.addClass("codex-panel__thread-action");
-    rename.disabled = thread.disabled;
-    rename.onclick = (event) => {
-      event.stopPropagation();
-      actions.startRenameThread(thread.threadId);
-    };
-
-    if (thread.canArchive) {
-      const action = createToolbarButton(row, "archive", "Archive thread");
-      action.addClass("codex-panel__thread-action");
-      action.disabled = thread.disabled;
-      action.onclick = (event) => {
+    if (!archiveConfirmState(thread).active) {
+      const rename = createToolbarButton(row, "pencil", "Rename thread");
+      rename.addClass("codex-panel__thread-action");
+      rename.disabled = thread.disabled;
+      rename.onclick = (event) => {
         event.stopPropagation();
-        actions.archiveThread(thread.threadId);
+        actions.startRenameThread(thread.threadId);
       };
     }
+
+    if (thread.canArchive) renderArchiveActions(row, thread, actions);
   }
+}
+
+function renderArchiveActions(parent: HTMLElement, thread: ToolbarThreadRow, actions: ToolbarActions): void {
+  const archiveConfirm = archiveConfirmState(thread);
+  if (!archiveConfirm.active) {
+    const action = createToolbarButton(parent, "archive", "Archive thread");
+    action.addClass("codex-panel__thread-action");
+    action.disabled = thread.disabled;
+    action.onclick = (event) => {
+      event.stopPropagation();
+      actions.startArchiveThread(thread.threadId);
+    };
+    return;
+  }
+
+  parent.addClass("codex-panel__archive-confirm");
+  const defaultSaveMarkdown = archiveConfirm.defaultSaveMarkdown;
+  const alternate = archiveModeButton(parent, !defaultSaveMarkdown, false);
+  alternate.disabled = thread.disabled;
+  alternate.onclick = (event) => {
+    event.stopPropagation();
+    actions.archiveThread(thread.threadId, !defaultSaveMarkdown);
+  };
+  const primary = archiveModeButton(parent, defaultSaveMarkdown, true);
+  primary.disabled = thread.disabled;
+  primary.onclick = (event) => {
+    event.stopPropagation();
+    actions.archiveThread(thread.threadId, defaultSaveMarkdown);
+  };
+}
+
+function archiveConfirmState(thread: ToolbarThreadRow): { active: boolean; defaultSaveMarkdown: boolean } {
+  return thread.archiveConfirm ?? { active: false, defaultSaveMarkdown: false };
+}
+
+function archiveModeButton(parent: HTMLElement, saveMarkdown: boolean, primary: boolean): HTMLButtonElement {
+  const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
+  const button = createToolbarButton(parent, saveMarkdown ? "save" : "trash", label);
+  button.addClass("codex-panel__thread-action");
+  button.addClass(primary ? "codex-panel__archive-default" : "codex-panel__archive-alternate");
+  return button;
 }
 
 function renderThreadRenameRow(parent: HTMLElement, thread: ToolbarThreadRow, actions: ToolbarActions): void {

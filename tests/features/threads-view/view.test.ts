@@ -248,6 +248,7 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
 
     await vi.waitFor(() => {
       expect(archiveThread).toHaveBeenCalledWith("thread");

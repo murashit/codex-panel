@@ -22,7 +22,7 @@ export interface SlashCommandExecutionContext {
   forkThread: (threadId: string) => Promise<void>;
   rollbackThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
-  archiveThread: (threadId: string) => Promise<void>;
+  archiveThread: (threadId: string, saveMarkdown?: boolean) => Promise<void>;
   toggleFastMode: () => void | Promise<void>;
   toggleCollaborationMode: () => void | Promise<void>;
   toggleAutoReview: () => void | Promise<void>;

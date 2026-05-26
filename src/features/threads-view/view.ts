@@ -38,6 +38,7 @@ export class CodexThreadsView extends ItemView {
   private readonly renameDrafts = new Map<string, string>();
   private renameAutoNameThreadId: string | null = null;
   private renameAutoNameGeneration = 0;
+  private archiveConfirmThreadId: string | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -77,6 +78,9 @@ export class CodexThreadsView extends ItemView {
   }
 
   override async onOpen(): Promise<void> {
+    this.registerDomEvent(this.containerEl.doc, "pointerdown", (event) => {
+      this.cancelArchiveConfirmOnOutsidePointer(event);
+    });
     const cachedThreads = this.plugin.cachedThreadList();
     if (cachedThreads) {
       this.threads = cachedThreads;
@@ -160,7 +164,14 @@ export class CodexThreadsView extends ItemView {
       {
         status: this.status,
         loading: this.loading,
-        rows: threadRows(this.threads, this.plugin.getOpenPanelSnapshots(), this.renameDrafts, this.renameAutoNameThreadId),
+        rows: threadRows(
+          this.threads,
+          this.plugin.getOpenPanelSnapshots(),
+          this.renameDrafts,
+          this.renameAutoNameThreadId,
+          this.archiveConfirmThreadId,
+          this.plugin.settings.archiveExportEnabled,
+        ),
       },
       {
         refresh: () => void this.refresh(),
@@ -177,7 +188,10 @@ export class CodexThreadsView extends ItemView {
           this.cancelRename(threadId);
         },
         autoNameThread: (threadId) => void this.autoNameThread(threadId),
-        archiveThread: (threadId) => void this.archiveThread(threadId),
+        startArchive: (threadId) => {
+          this.startArchive(threadId);
+        },
+        archiveThread: (threadId, saveMarkdown) => void this.archiveThread(threadId, saveMarkdown),
       },
     );
   }
@@ -209,6 +223,7 @@ export class CodexThreadsView extends ItemView {
   }
 
   private async openThread(threadId: string): Promise<void> {
+    this.archiveConfirmThreadId = null;
     await this.plugin.openThreadInAvailableView(threadId);
   }
 
@@ -217,6 +232,7 @@ export class CodexThreadsView extends ItemView {
   }
 
   private startRename(threadId: string, value: string): void {
+    this.archiveConfirmThreadId = null;
     this.renameAutoNameGeneration += 1;
     this.renameAutoNameThreadId = null;
     this.renameDrafts.set(threadId, value);
@@ -291,16 +307,34 @@ export class CodexThreadsView extends ItemView {
     }
   }
 
-  private async archiveThread(threadId: string): Promise<void> {
+  private startArchive(threadId: string): void {
+    this.archiveConfirmThreadId = threadId;
+    this.render();
+  }
+
+  private cancelArchiveConfirmOnOutsidePointer(event: PointerEvent): void {
+    if (!this.archiveConfirmThreadId) return;
+    const target = event.target;
+    const viewWindow = this.containerEl.doc.defaultView;
+    if (viewWindow && target instanceof viewWindow.Element) {
+      const archiveConfirm = target.closest(".codex-panel-threads__archive-confirm");
+      if (archiveConfirm && this.containerEl.contains(archiveConfirm)) return;
+    }
+    this.archiveConfirmThreadId = null;
+    this.render();
+  }
+
+  private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
     try {
       await this.ensureConnected();
       if (!this.client) return;
-      if (this.plugin.settings.archiveExportEnabled) {
+      if (saveMarkdown) {
         const response = await this.client.readThread(threadId, true);
         const result = await exportArchivedThreadMarkdown(response.thread, this.plugin.settings, this.app.vault.adapter);
         new Notice(`Saved archived thread to ${result.path}.`);
       }
       await this.client.archiveThread(threadId);
+      if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameDrafts.delete(threadId);
       this.plugin.notifyThreadArchived(threadId);
     } catch (error) {

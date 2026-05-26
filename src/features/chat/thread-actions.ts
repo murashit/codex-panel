@@ -31,7 +31,7 @@ export interface ChatThreadActionControllerHost {
 export class ChatThreadActionController {
   constructor(private readonly host: ChatThreadActionControllerHost) {}
 
-  async archiveThread(threadId: string): Promise<void> {
+  async archiveThread(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<void> {
     if (this.host.state.busy) {
       this.host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
       return;
@@ -40,7 +40,7 @@ export class ChatThreadActionController {
     if (!client) return;
     try {
       const settings = this.host.settings();
-      if (settings.archiveExportEnabled) {
+      if (saveMarkdown) {
         const response = await client.readThread(threadId, true);
         const result = await exportArchivedThreadMarkdown(response.thread, settings, this.host.archiveAdapter());
         new Notice(`Saved archived thread to ${result.path}.`);

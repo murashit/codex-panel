@@ -16,6 +16,7 @@ export interface ThreadsRowModel {
   title: string;
   live: ThreadsLiveState | null;
   rename: { active: boolean; draft: string; generating: boolean };
+  archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
 }
 
 const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
@@ -32,6 +33,8 @@ export function threadRows(
   snapshots: OpenCodexPanelSnapshot[],
   renameDrafts: ReadonlyMap<string, string>,
   autoNameThreadId: string | null = null,
+  archiveConfirmThreadId: string | null = null,
+  defaultArchiveSaveMarkdown = false,
 ): ThreadsRowModel[] {
   const snapshotsByThread = snapshotsForThreads(snapshots);
   return [...threads]
@@ -46,6 +49,10 @@ export function threadRows(
           active: renameDrafts.has(thread.id),
           draft: renameDrafts.get(thread.id) ?? thread.name ?? getThreadTitle(thread),
           generating: autoNameThreadId === thread.id,
+        },
+        archiveConfirm: {
+          active: archiveConfirmThreadId === thread.id,
+          defaultSaveMarkdown: defaultArchiveSaveMarkdown,
         },
       };
     });

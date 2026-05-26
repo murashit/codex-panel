@@ -98,7 +98,7 @@ describe("settings tab", () => {
       "Codex helpers",
       "Automatic thread naming",
       "Selection rewrite",
-      "Archive actions",
+      "Thread archiving",
       "Hook status",
     ]);
   });
@@ -126,9 +126,9 @@ describe("settings tab", () => {
 
     tab.display();
     const toggle = tab.containerEl.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    const folder = inputForSetting(tab, "Save folder");
-    const filename = inputForSetting(tab, "Save filename");
-    const tags = inputForSetting(tab, "Save tags");
+    const folder = inputForSetting(tab, "Saved note folder");
+    const filename = inputForSetting(tab, "Saved note filename");
+    const tags = inputForSetting(tab, "Saved note tags");
     if (!toggle || !folder || !filename || !tags) throw new Error("Missing archive export controls");
 
     toggle.checked = true;
@@ -143,8 +143,9 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledTimes(4);
     expect(tab.containerEl.textContent).toContain("title, thread_id, created, and optional tags");
-    expect(settingDesc(tab, "Save before archiving")).toContain("If saving fails");
-    expect(settingDesc(tab, "Save tags")).toContain("Leave empty to omit tags");
+    expect(settingDesc(tab, "Save note by default")).toContain("default archive action");
+    expect(settingDesc(tab, "Save note by default")).toContain("If saving fails");
+    expect(settingDesc(tab, "Saved note tags")).toContain("Leave empty to omit tags");
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
@@ -225,13 +226,13 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(tab.containerEl.textContent).toContain("Loaded 1 hook from Codex app server.");
-    expect(tab.containerEl.textContent).toContain("Restore archived threads to the thread list.");
+    expect(tab.containerEl.textContent).toContain("Restore archived threads to the active thread list.");
     expect(tab.containerEl.textContent).toContain("Loaded 1 archived thread from Codex app server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
       "Hook status",
     );
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-section .setting-item-heading")?.textContent).toContain(
-      "Archive actions",
+      "Thread archiving",
     );
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .setting-item")).toHaveLength(1);
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(1);

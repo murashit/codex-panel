@@ -56,8 +56,10 @@ export function renderArchivedThreadSection(containerEl: HTMLElement, state: Arc
   new Setting(section)
     .setClass("codex-panel-settings__dynamic-section-heading")
     .setHeading()
-    .setName("Archive actions")
-    .setDesc("Save threads to notes before archiving, or restore archived threads.");
+    .setName("Thread archiving")
+    .setDesc(
+      "Choose the default archive behavior and configure saved thread notes. Thread lists offer both archive choices; slash commands use the default.",
+    );
 
   renderArchiveExportSettings(section, state);
 
@@ -83,9 +85,9 @@ export function renderArchivedThreadSection(containerEl: HTMLElement, state: Arc
 
 function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
   new Setting(containerEl)
-    .setName("Save before archiving")
+    .setName("Save note by default")
     .setDesc(
-      "Save a markdown note before archiving. If saving fails, the thread stays active. Frontmatter includes title, thread_id, created, and optional tags.",
+      "When on, the default archive action saves a markdown note before archiving. When off, the default archives without saving. If saving fails, the thread stays active. Frontmatter includes title, thread_id, created, and optional tags.",
     )
     .addToggle((toggle) => {
       toggle.setValue(state.exportEnabled).onChange((value) => {
@@ -94,7 +96,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
     });
 
   new Setting(containerEl)
-    .setName("Save folder")
+    .setName("Saved note folder")
     .setDesc("Vault-relative folder for saved thread notes. The folder is created when needed.")
     .addText((text) => {
       text
@@ -106,7 +108,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
     });
 
   new Setting(containerEl)
-    .setName("Save filename")
+    .setName("Saved note filename")
     .setDesc("Filename template. Variables: {{date}}, {{time}}, {{title}}, {{id}}, {{shortId}}. Existing files get a numeric suffix.")
     .addText((text) => {
       text
@@ -118,7 +120,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
     });
 
   new Setting(containerEl)
-    .setName("Save tags")
+    .setName("Saved note tags")
     .setDesc("Comma-separated fixed tags for saved notes. Leave empty to omit tags.")
     .addText((text) => {
       text
@@ -131,11 +133,13 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 }
 
 function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
-  containerEl.createEl("p", {
+  const summary = containerEl.createEl("p", {
     cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-    text: `Restore archived threads to the thread list. Loaded ${String(state.threads.length)} archived thread${
-      state.threads.length === 1 ? "" : "s"
-    } from Codex app server.`,
+  });
+  summary.createSpan({ text: "Restore archived threads to the active thread list." });
+  summary.createSpan({
+    cls: "codex-panel-settings__dynamic-list-count",
+    text: `Loaded ${String(state.threads.length)} archived thread${state.threads.length === 1 ? "" : "s"} from Codex app server.`,
   });
   const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__archived-list" });
   for (const thread of state.threads) {

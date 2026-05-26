@@ -17,7 +17,8 @@ export interface ThreadsViewActions {
   saveRename: (threadId: string, value: string) => void;
   cancelRename: (threadId: string) => void;
   autoNameThread: (threadId: string) => void;
-  archiveThread: (threadId: string) => void;
+  startArchive: (threadId: string) => void;
+  archiveThread: (threadId: string, saveMarkdown: boolean) => void;
 }
 
 export function renderThreadsView(parent: HTMLElement, model: ThreadsViewModel, actions: ThreadsViewActions): void {
@@ -57,11 +58,13 @@ function renderThreadRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
   });
   if (row.live) item.addClass(`codex-panel-threads__row--${row.live.status}`);
   if (row.rename.active) item.addClass("codex-panel-threads__row--renaming");
+  if (archiveConfirmState(row).active) item.addClass("codex-panel-threads__row--archive-confirming");
   item.onclick = () => {
+    if (archiveConfirmState(row).active) return;
     actions.openThread(row.thread.id);
   };
   item.onkeydown = (event) => {
-    if (row.rename.active) return;
+    if (row.rename.active || archiveConfirmState(row).active) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     actions.openThread(row.thread.id);
@@ -76,16 +79,58 @@ function renderThreadRow(parent: HTMLElement, row: ThreadsRowModel, actions: Thr
   titleLine.createSpan({ cls: "codex-panel-threads__row-title", text: row.title });
 
   const controls = item.createDiv({ cls: "codex-panel-threads__actions" });
-  const rename = iconButton(controls, "pencil", "Rename thread", "codex-panel-threads__row-button");
-  rename.onclick = (event) => {
+  if (!archiveConfirmState(row).active) {
+    const rename = iconButton(controls, "pencil", "Rename thread", "codex-panel-threads__row-button");
+    rename.onclick = (event) => {
+      event.stopPropagation();
+      actions.startRename(row.thread.id, row.thread.name ?? row.title);
+    };
+  }
+  renderArchiveActions(controls, row, actions);
+}
+
+function renderArchiveActions(parent: HTMLElement, row: ThreadsRowModel, actions: ThreadsViewActions): void {
+  const archiveConfirm = archiveConfirmState(row);
+  if (!archiveConfirm.active) {
+    const archive = iconButton(parent, "archive", "Archive thread", "codex-panel-threads__row-button");
+    archive.onclick = (event) => {
+      event.stopPropagation();
+      actions.startArchive(row.thread.id);
+    };
+    return;
+  }
+
+  parent.addClass("codex-panel-threads__archive-confirm");
+  const defaultSaveMarkdown = archiveConfirm.defaultSaveMarkdown;
+  const alternate = archiveModeButton(parent, !defaultSaveMarkdown, false);
+  alternate.onclick = (event) => {
     event.stopPropagation();
-    actions.startRename(row.thread.id, row.thread.name ?? row.title);
+    actions.archiveThread(row.thread.id, !defaultSaveMarkdown);
   };
-  const archive = iconButton(controls, "archive", "Archive thread", "codex-panel-threads__row-button");
-  archive.onclick = (event) => {
+  const primary = archiveModeButton(parent, defaultSaveMarkdown, true);
+  primary.onclick = (event) => {
     event.stopPropagation();
-    actions.archiveThread(row.thread.id);
+    actions.archiveThread(row.thread.id, defaultSaveMarkdown);
   };
+}
+
+function archiveConfirmState(row: ThreadsRowModel): { active: boolean; defaultSaveMarkdown: boolean } {
+  return row.archiveConfirm ?? { active: false, defaultSaveMarkdown: false };
+}
+
+function archiveModeButton(parent: HTMLElement, saveMarkdown: boolean, primary: boolean): HTMLButtonElement {
+  const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
+  const icon = saveMarkdown ? "save" : "trash";
+  const button = iconButton(
+    parent,
+    icon,
+    label,
+    ["codex-panel-threads__row-button", primary ? "codex-panel-threads__archive-default" : "codex-panel-threads__archive-alternate"]
+      .filter(Boolean)
+      .join(" "),
+  );
+  button.setAttr("aria-label", label);
+  return button;
 }
 
 function renderRenameRow(parent: HTMLElement, row: ThreadsRowModel, actions: ThreadsViewActions): void {

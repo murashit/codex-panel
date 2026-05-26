@@ -116,6 +116,7 @@ function threadsViewActions() {
     saveRename: vi.fn(),
     cancelRename: vi.fn(),
     autoNameThread: vi.fn(),
+    startArchive: vi.fn(),
     archiveThread: vi.fn(),
   };
 }
@@ -1908,6 +1909,47 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
   });
+
+  it("renders toolbar archive confirmation with the default action on the right", () => {
+    const parent = document.createElement("div");
+    const startArchiveThread = vi.fn();
+    const archiveThread = vi.fn();
+
+    renderToolbar(
+      parent,
+      toolbarModel({
+        historyOpen: true,
+        openPanel: "history",
+        threads: [
+          {
+            title: "Thread",
+            threadId: "thread",
+            selected: true,
+            disabled: false,
+            canArchive: true,
+            archiveConfirm: { active: true, defaultSaveMarkdown: true },
+            rename: null,
+          },
+        ],
+      }),
+      toolbarActions({ startArchiveThread, archiveThread }),
+    );
+
+    const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__archive-confirm"));
+    const archiveButtons = [
+      ...confirm.querySelectorAll<HTMLButtonElement>(".codex-panel__archive-alternate, .codex-panel__archive-default"),
+    ];
+    expect(archiveButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Archive thread without saving",
+      "Save and archive thread",
+    ]);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
+    archiveButtons[0]?.click();
+    expect(archiveThread).toHaveBeenCalledWith("thread", false);
+    archiveButtons[1]?.click();
+    expect(archiveThread).toHaveBeenCalledWith("thread", true);
+    expect(startArchiveThread).not.toHaveBeenCalled();
+  });
 });
 
 describe("threads view renderer decisions", () => {
@@ -1963,6 +2005,51 @@ describe("threads view renderer decisions", () => {
     expect(actions.openThread).toHaveBeenCalledTimes(2);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Focus open panel"]')).toBeNull();
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Open in new panel"]')).toBeNull();
+  });
+
+  it("renders threads view archive confirmation with the default action on the right", () => {
+    const parent = document.createElement("div");
+    const actions = threadsViewActions();
+    const row: ThreadsRowModel = {
+      thread: threadFixture({ id: "thread", name: "Thread" }),
+      title: "Thread",
+      live: null,
+      rename: { active: false, draft: "Thread", generating: false },
+      archiveConfirm: { active: true, defaultSaveMarkdown: false },
+    };
+
+    renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
+
+    const confirm = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__archive-confirm"));
+    const archiveButtons = [
+      ...confirm.querySelectorAll<HTMLButtonElement>(".codex-panel-threads__archive-alternate, .codex-panel-threads__archive-default"),
+    ];
+    expect(archiveButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Save and archive thread",
+      "Archive thread without saving",
+    ]);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
+    archiveButtons[0]?.click();
+    expect(actions.archiveThread).toHaveBeenCalledWith("thread", true);
+    archiveButtons[1]?.click();
+    expect(actions.archiveThread).toHaveBeenCalledWith("thread", false);
+  });
+
+  it("starts threads view archive confirmation before archiving", () => {
+    const parent = document.createElement("div");
+    const actions = threadsViewActions();
+    const row: ThreadsRowModel = {
+      thread: threadFixture({ id: "thread", name: "Thread" }),
+      title: "Thread",
+      live: null,
+      rename: { active: false, draft: "Thread", generating: false },
+    };
+
+    renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
+    parent.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+
+    expect(actions.startArchive).toHaveBeenCalledWith("thread");
+    expect(actions.archiveThread).not.toHaveBeenCalled();
   });
 
   it("renders rename rows and saves entered values", () => {
@@ -2457,6 +2544,7 @@ function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> 
     refreshDiagnostics: vi.fn(),
     refreshThreads: vi.fn(),
     resumeThread: vi.fn(),
+    startArchiveThread: vi.fn(),
     archiveThread: vi.fn(),
     startRenameThread: vi.fn(),
     updateRenameDraft: vi.fn(),

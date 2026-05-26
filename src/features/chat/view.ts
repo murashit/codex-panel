@@ -117,6 +117,7 @@ export class CodexChatView extends ItemView {
   private scheduledRestoredThreadHydrationTimer: number | null = null;
   private scheduledRenderTimer: number | null = null;
   private scheduledDiagnosticsTimer: number | null = null;
+  private archiveConfirmThreadId: string | null = null;
   private connectingPromise: Promise<void> | null = null;
   private connectionGeneration = 0;
   private resumeGeneration = 0;
@@ -1238,7 +1239,10 @@ export class CodexChatView extends ItemView {
         this.state.openDetails.delete("history");
         void this.selectThread(threadId);
       },
-      archiveThread: (threadId) => void this.threadActions.archiveThread(threadId),
+      startArchiveThread: (threadId) => {
+        this.startArchiveThread(threadId);
+      },
+      archiveThread: (threadId, saveMarkdown) => void this.archiveThread(threadId, saveMarkdown),
       startRenameThread: (threadId) => {
         this.threadRename.start(threadId);
       },
@@ -1290,6 +1294,10 @@ export class CodexChatView extends ItemView {
           selected: threadId === this.state.activeThreadId,
           disabled: this.state.busy && threadId !== this.state.activeThreadId,
           canArchive: true,
+          archiveConfirm: {
+            active: this.archiveConfirmThreadId === threadId,
+            defaultSaveMarkdown: this.plugin.settings.archiveExportEnabled,
+          },
           rename: this.threadRename.editState(threadId),
         };
       }),
@@ -1376,8 +1384,20 @@ export class CodexChatView extends ItemView {
       this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
+    this.archiveConfirmThreadId = null;
     if (await this.plugin.focusThreadInOpenView(threadId)) return;
     await this.resumeThread(threadId);
+  }
+
+  private startArchiveThread(threadId: string): void {
+    this.archiveConfirmThreadId = threadId;
+    this.scheduleRender();
+  }
+
+  private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
+    if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
+    await this.threadActions.archiveThread(threadId, saveMarkdown);
+    this.scheduleRender();
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {
@@ -1387,7 +1407,18 @@ export class CodexChatView extends ItemView {
     const viewWindow = this.containerEl.doc.defaultView;
     if (viewWindow && target instanceof viewWindow.Element) {
       const insideToolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
-      if (insideToolbarPanel && this.containerEl.contains(insideToolbarPanel)) return;
+      if (insideToolbarPanel && this.containerEl.contains(insideToolbarPanel)) {
+        if (this.archiveConfirmThreadId && !target.closest(".codex-panel__archive-confirm")) {
+          this.archiveConfirmThreadId = null;
+          this.scheduleRender();
+        }
+        return;
+      }
+    }
+
+    if (this.archiveConfirmThreadId) {
+      this.archiveConfirmThreadId = null;
+      this.scheduleRender();
     }
 
     if (this.threadRename.isEditing()) return;
@@ -1405,6 +1436,7 @@ export class CodexChatView extends ItemView {
     this.state.openDetails.delete("history");
     this.state.openDetails.delete("status-panel");
     this.state.runtimePicker = null;
+    this.archiveConfirmThreadId = null;
     this.scheduleRender();
   }
 
