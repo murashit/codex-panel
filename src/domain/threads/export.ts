@@ -1,7 +1,6 @@
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
-import type { CodexPanelSettings } from "../../settings/model";
 import { inputToText, shortThreadId } from "../../utils";
 import { getThreadTitle } from "./model";
 import { referencedThreadDisplayFromPrompt } from "./reference";
@@ -24,8 +23,11 @@ interface TemplateContext {
   shortId: string;
 }
 
-type ArchiveExportSettings = Pick<CodexPanelSettings, "archiveExportFolderTemplate" | "archiveExportFilenameTemplate"> &
-  Partial<Pick<CodexPanelSettings, "archiveExportTags">>;
+export interface ArchiveExportSettings {
+  archiveExportFolderTemplate: string;
+  archiveExportFilenameTemplate: string;
+  archiveExportTags?: string;
+}
 
 export async function exportArchivedThreadMarkdown(
   thread: Thread,
