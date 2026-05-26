@@ -460,9 +460,9 @@
 .codex-panel .clickable-icon.codex-panel__runtime-model {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
-  min-width: calc(var(--codex-panel-icon-button-inline-size) * 3);
-  max-width: calc(var(--codex-panel-icon-button-inline-size) * 5);
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
   gap: var(--codex-panel-control-gap);
   padding: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
   border: 0;
@@ -2213,8 +2213,6 @@
   }
 
   .codex-panel__runtime-model {
-    min-width: 0;
-    max-width: calc(var(--codex-panel-icon-button-inline-size) * 3);
     padding: 0 var(--codex-panel-item-gap);
   }
 
