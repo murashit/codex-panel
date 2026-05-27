@@ -1652,8 +1652,10 @@ describe("toolbar renderer decisions", () => {
     const statusButton = parent.querySelector(".codex-panel__status-dot");
     expect(statusButton?.tagName).toBe("BUTTON");
     expect(statusButton?.getAttribute("role")).toBeNull();
-    expect(statusButton?.getAttribute("aria-label")).toBe("Toggle connection status");
-    parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle")?.click();
+    expect(statusButton?.getAttribute("aria-label")).toBe("Show connection status");
+    const historyButton = parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle");
+    expect(historyButton?.getAttribute("aria-label")).toBe("Show thread list");
+    historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
     const autoReviewButton = parent.querySelector<HTMLButtonElement>(".codex-panel__auto-review-toggle");
     expect(autoReviewButton?.getAttribute("aria-label")).toBe("Toggle auto-review");
@@ -1663,8 +1665,14 @@ describe("toolbar renderer decisions", () => {
 
     parent.empty();
     renderToolbar(parent, toolbarModel({ status: "Turn running...", statusState: "running", autoReviewActive: true }), toolbarActions());
-    expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Toggle connection status");
+    expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Show connection status");
     expect(parent.querySelector(".codex-panel__auto-review-toggle")?.getAttribute("aria-pressed")).toBe("true");
+
+    parent.empty();
+    renderToolbar(parent, toolbarModel({ historyOpen: true, statusPanelOpen: true }), toolbarActions());
+    expect(parent.querySelector(".codex-panel__history-toggle")?.getAttribute("aria-label")).toBe("Hide thread list");
+    expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Hide connection status");
+    expect(parent.querySelector(".codex-panel__runtime-model")?.getAttribute("aria-label")).toBe("Change model and reasoning effort");
 
     expect(toolbarSignature(baseModel)).not.toBe(toolbarSignature({ ...baseModel, status: "Turn running..." }));
     expect(toolbarSignature(baseModel)).not.toBe(
@@ -1796,21 +1804,21 @@ describe("toolbar renderer decisions", () => {
     renderToolbar(normal, toolbarModel({ diagnosticAlertLevel: "normal" }), toolbarActions());
     const normalStatus = normal.querySelector(".codex-panel__status-dot");
     expect(normalStatus?.querySelector(".codex-panel__status-dot-diagnostic")).toBeNull();
-    expect(normalStatus?.getAttribute("aria-label")).toBe("Toggle connection status");
+    expect(normalStatus?.getAttribute("aria-label")).toBe("Show connection status");
 
     const warning = document.createElement("div");
     renderToolbar(warning, toolbarModel({ diagnosticAlertLevel: "warning" }), toolbarActions());
     const warningStatus = warning.querySelector(".codex-panel__status-dot");
     expect(warningStatus?.classList.contains("codex-panel__status-dot--diagnostic-warning")).toBe(true);
     expect(warningStatus?.querySelector(".codex-panel__status-dot-diagnostic--warning")).not.toBeNull();
-    expect(warningStatus?.getAttribute("aria-label")).toBe("Toggle connection status");
+    expect(warningStatus?.getAttribute("aria-label")).toBe("Show connection status");
 
     const error = document.createElement("div");
     renderToolbar(error, toolbarModel({ diagnosticAlertLevel: "error" }), toolbarActions());
     const errorStatus = error.querySelector(".codex-panel__status-dot");
     expect(errorStatus?.classList.contains("codex-panel__status-dot--diagnostic-error")).toBe(true);
     expect(errorStatus?.querySelector(".codex-panel__status-dot-diagnostic--error")).not.toBeNull();
-    expect(errorStatus?.getAttribute("aria-label")).toBe("Toggle connection status");
+    expect(errorStatus?.getAttribute("aria-label")).toBe("Show connection status");
   });
 
   it("renders effective config inside the status menu without a separate toggle", () => {

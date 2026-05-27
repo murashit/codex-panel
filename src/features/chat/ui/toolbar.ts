@@ -139,7 +139,7 @@ export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, act
 }
 
 function renderHistoryButton(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
-  const button = createToolbarButton(parent, "history", "Toggle thread list");
+  const button = createToolbarButton(parent, "history", model.historyOpen ? "Hide thread list" : "Show thread list");
   button.addClass("codex-panel__history-toggle");
   if (model.historyOpen) button.addClass("is-active");
   button.setAttr("aria-pressed", model.historyOpen ? "true" : "false");
@@ -160,7 +160,7 @@ function renderStatusButton(parent: HTMLElement, model: ToolbarViewModel, action
     cls: `clickable-icon nav-action-button codex-panel-ui__toolbar-control codex-panel__status-dot codex-panel__status-dot--${model.statusState}${alertClass} ${model.statusPanelOpen ? "is-active" : ""}`,
     attr: {
       type: "button",
-      "aria-label": "Toggle connection status",
+      "aria-label": model.statusPanelOpen ? "Hide connection status" : "Show connection status",
       "aria-expanded": model.statusPanelOpen ? "true" : "false",
     },
   });
@@ -207,7 +207,7 @@ function renderRuntimeModelControl(parent: HTMLElement, model: ToolbarViewModel,
     cls,
     attr: {
       type: "button",
-      "aria-label": "Change runtime settings",
+      "aria-label": "Change model and reasoning effort",
       "aria-expanded": model.runtimeOpen ? "true" : "false",
     },
   });
