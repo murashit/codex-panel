@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type Ref, type ReactNode } from "react";
 
 import { displayBlocksForItems } from "../display/blocks";
 import { displayItemSignature, isMessageCopyActionVisible } from "../display/signature";
@@ -6,6 +6,7 @@ import { executionState } from "../display/state";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
 import { createIconButton, createMetaPair, createRememberedDetails } from "../../../shared/ui/components";
 import { shortSignature } from "../../../shared/ui/dom";
+import { IconButton } from "../../../shared/ui/react-components";
 import { applyExecutionStateClass } from "./execution-state";
 import { renderToolResult } from "./tool-result";
 import {
@@ -86,10 +87,12 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
 
   for (const block of displayBlocksForItems(context.displayItems, context.activeTurnId, context.workspaceRoot, context.turnDiffs)) {
     if (block.type === "item") {
+      const node = isRenderableMessageItem(block.item) ? <MessageItem item={block.item} context={context} /> : undefined;
       blocks.push({
         key: `item:${block.item.id}`,
         signature: displayItemSignature(block.item, context),
         render: () => createDisplayItemElement(block.item, context),
+        ...(node === undefined ? {} : { node }),
       });
     } else {
       blocks.push({
@@ -178,6 +181,379 @@ function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolea
 
 function EmptyMessage(): ReactNode {
   return <div className="codex-panel__message codex-panel__message--system">Send a message to start a new thread.</div>;
+}
+
+function MessageItem({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): ReactNode {
+  const collapsible = isCollapsibleUserMessage(item);
+  const details = "details" in item ? item.details : undefined;
+  return (
+    <div className={`${messageClass(item)}${executionClassName(executionState(item))}`}>
+      <MessageRole item={item} context={context} />
+      {collapsible ? (
+        <CollapsibleMessageContent item={item} context={context} />
+      ) : (
+        <MarkdownContent key={messageContentKey(item)} item={item} context={context} />
+      )}
+      {item.kind === "message" && item.editedFiles && item.editedFiles.length > 0 ? <EditedFiles item={item} context={context} /> : null}
+      {item.kind === "message" && item.referencedThread ? <ReferencedThread item={item} /> : null}
+      {item.kind === "message" && item.mentionedFiles && item.mentionedFiles.length > 0 ? (
+        <MentionedFiles item={item} context={context} />
+      ) : null}
+      {item.kind === "message" && item.autoReviewSummaries && item.autoReviewSummaries.length > 0 ? (
+        <AutoReviewSummaries summaries={item.autoReviewSummaries} />
+      ) : null}
+      {item.kind === "system" && item.details && item.details.length > 0 ? (
+        <SystemDetails details={item.details} />
+      ) : details && details.length > 0 ? (
+        <MessageDetails itemId={item.id} details={details} context={context} />
+      ) : null}
+    </div>
+  );
+}
+
+function MessageRole({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): ReactNode {
+  return (
+    <div className="codex-panel__message-role">
+      <span>{displayRoleLabel(item)}</span>
+      {item.kind === "message" && context.copyText && isMessageCopyActionVisible(item, context) ? (
+        <MessageAction
+          icon="copy"
+          label="Copy message"
+          className="codex-panel__copy-message"
+          onClick={() => context.copyText?.(item.copyText ?? item.text)}
+        />
+      ) : null}
+      {context.canImplementPlanItem?.(item) ? (
+        <MessageAction
+          icon="play"
+          label="Implement plan"
+          className="codex-panel__implement-plan"
+          onClick={() => context.onImplementPlanItem?.(item)}
+        />
+      ) : null}
+      {context.canRollbackItem?.(item) ? (
+        <MessageAction
+          icon="undo-2"
+          label="Rollback last turn"
+          className="codex-panel__rollback-turn"
+          onClick={() => context.onRollbackItem?.(item)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function MessageAction({
+  icon,
+  label,
+  className,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  className: string;
+  onClick: () => void;
+}): ReactNode {
+  return (
+    <IconButton
+      icon={icon}
+      label={label}
+      className={`clickable-icon codex-panel__message-action ${className}`}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
+    />
+  );
+}
+
+function CollapsibleMessageContent({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): ReactNode {
+  const key = `message:${item.id}:expanded`;
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [overflows, setOverflows] = useState(false);
+  const expanded = context.openDetails.has(key);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    const update = () => {
+      setOverflows(content.scrollHeight > userMessageCollapseHeight(content) + 1);
+    };
+    content.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
+    update();
+    content.win.requestAnimationFrame(update);
+    return () => {
+      content.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
+    };
+  }, [item.id, item.text, item.markdown]);
+
+  return (
+    <div
+      className={[
+        "codex-panel__message-collapse",
+        overflows ? "codex-panel__message-collapse--overflow" : "",
+        overflows && expanded ? "codex-panel__message-collapse--expanded" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <MarkdownContent key={messageContentKey(item)} item={item} context={context} ref={contentRef} collapsed={overflows && !expanded} />
+      <details
+        className="codex-panel__message-collapse-details"
+        hidden={!overflows || expanded}
+        onToggle={(event) => {
+          if (!event.currentTarget.open) return;
+          event.currentTarget.open = false;
+          context.onDetailsToggle?.(key, true);
+        }}
+      >
+        <summary>Show more</summary>
+      </details>
+    </div>
+  );
+}
+
+function MarkdownContent({
+  item,
+  context,
+  collapsed = false,
+  ref,
+}: {
+  item: RenderableMessageItem;
+  context: MessageStreamContext;
+  collapsed?: boolean;
+  ref?: Ref<HTMLDivElement>;
+}): ReactNode {
+  const localRef = useRef<HTMLDivElement | null>(null);
+  const contextRef = useRef(context);
+  useLayoutEffect(() => {
+    contextRef.current = context;
+  });
+  useLayoutEffect(() => {
+    const content = localRef.current;
+    if (!content) return;
+    const currentContext = contextRef.current;
+    content.replaceChildren();
+    if (item.markdown === false) {
+      currentContext.renderTextWithWikiLinks(content, item.text);
+    } else {
+      currentContext.renderMarkdown(content, item.text);
+    }
+  }, [item.markdown, item.text]);
+  return (
+    <div
+      ref={(element) => {
+        localRef.current = element;
+        if (typeof ref === "function") {
+          ref(element);
+        } else if (ref) {
+          ref.current = element;
+        }
+      }}
+      className={[
+        "codex-panel__message-content",
+        item.markdown === false ? "" : "markdown-rendered",
+        collapsed ? "codex-panel__message-content--collapsed" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    />
+  );
+}
+
+function ReferencedThread({ item }: { item: Extract<DisplayItem, { kind: "message" }> }): ReactNode {
+  const reference = item.referencedThread;
+  if (!reference) return null;
+  return (
+    <div className="codex-panel__referenced-thread">
+      <span className="codex-panel__referenced-thread-label">
+        <span>Referenced </span>
+        <span>{reference.title}</span>
+        <span className="codex-panel__edited-files-separator">·</span>
+        <span>
+          {reference.includedTurns}/{reference.turnLimit} turns
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function EditedFiles({ item, context }: { item: Extract<DisplayItem, { kind: "message" }>; context: MessageStreamContext }): ReactNode {
+  const editedFiles = item.editedFiles ?? [];
+  const label = editedFiles.length === 1 ? "Edited 1 file" : `Edited ${String(editedFiles.length)} files`;
+  return (
+    <div className="codex-panel__edited-files">
+      <details className="codex-panel__edited-files-details">
+        <summary>
+          <span className="codex-panel__edited-files-summary">
+            <span>{label}</span>
+            {item.turnDiff && item.turnId && context.activeThreadId && context.openTurnDiff ? (
+              <>
+                <span className="codex-panel__edited-files-separator">·</span>
+                <IconButton
+                  icon="file-diff"
+                  label="View diff"
+                  className="clickable-icon codex-panel__open-turn-diff"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    context.openTurnDiff?.({
+                      threadId: context.activeThreadId ?? "",
+                      turnId: item.turnId ?? "",
+                      cwd: context.workspaceRoot ?? null,
+                      files: editedFiles,
+                      diff: item.turnDiff?.diff ?? "",
+                    });
+                  }}
+                >
+                  <span className="codex-panel__open-turn-diff-label">View diff</span>
+                </IconButton>
+              </>
+            ) : null}
+          </span>
+        </summary>
+        <ul>
+          {editedFiles.map((file) => (
+            <li key={file}>{file}</li>
+          ))}
+        </ul>
+      </details>
+    </div>
+  );
+}
+
+function MentionedFiles({ item, context }: { item: Extract<DisplayItem, { kind: "message" }>; context: MessageStreamContext }): ReactNode {
+  const mentionedFiles = item.mentionedFiles ?? [];
+  const label = mentionedFiles.length === 1 ? "Mentioned 1 file" : `Mentioned ${String(mentionedFiles.length)} files`;
+  return (
+    <RememberedDetails
+      wrapperClassName="codex-panel__mentioned-files"
+      detailsClassName="codex-panel__mentioned-files-details"
+      detailsKey={`${item.id}:mentioned-files`}
+      summary={label}
+      context={context}
+    >
+      <ul>
+        {mentionedFiles.map((file) => (
+          <li key={`${file.name}\n${file.path}`}>
+            <span>{file.name}</span>
+            <span className="codex-panel__edited-files-separator"> · </span>
+            <span>{file.path}</span>
+          </li>
+        ))}
+      </ul>
+    </RememberedDetails>
+  );
+}
+
+function AutoReviewSummaries({ summaries }: { summaries: string[] }): ReactNode {
+  const label = summaries.length === 1 ? "Auto-reviewed 1 request" : `Auto-reviewed ${String(summaries.length)} requests`;
+  return (
+    <details className="codex-panel__auto-reviews">
+      <summary>{label}</summary>
+      <ul>
+        {summaries.map((summary) => (
+          <li key={summary}>{summary}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function MessageDetails({
+  itemId,
+  details,
+  context,
+}: {
+  itemId: string;
+  details: DisplayDetailSection[];
+  context: MessageStreamContext;
+}): ReactNode {
+  return (
+    <>
+      {details.map((section, index) => (
+        <RememberedDetails
+          key={`${section.title ?? "Details"}:${String(index)}`}
+          detailsClassName="codex-panel__output"
+          detailsKey={`${itemId}:message-detail:${String(index)}`}
+          summary={section.title ?? "Details"}
+          context={context}
+        >
+          <DetailSectionBody section={section} />
+        </RememberedDetails>
+      ))}
+    </>
+  );
+}
+
+function SystemDetails({ details }: { details: DisplayDetailSection[] }): ReactNode {
+  return (
+    <>
+      {details.map((section, index) => (
+        <div key={`${section.title ?? ""}:${String(index)}`} className="codex-panel__output codex-panel__system-result-section">
+          {section.title ? <div className="codex-panel__output-title">{section.title}</div> : null}
+          <DetailSectionBody section={section} />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function DetailSectionBody({ section }: { section: DisplayDetailSection }): ReactNode {
+  return (
+    <>
+      {section.rows && section.rows.length > 0 ? (
+        <dl className="codex-panel__meta-grid">
+          {section.rows.map((row) => (
+            <Fragment key={`${row.key}\n${row.value}`}>
+              <dt>{row.key}</dt>
+              <dd>{row.value}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      ) : null}
+      {section.body ? <pre>{section.body}</pre> : null}
+    </>
+  );
+}
+
+function RememberedDetails({
+  wrapperClassName,
+  detailsClassName,
+  detailsKey,
+  summary,
+  context,
+  children,
+}: {
+  wrapperClassName?: string;
+  detailsClassName: string;
+  detailsKey: string;
+  summary: string;
+  context: MessageStreamContext;
+  children: ReactNode;
+}): ReactNode {
+  const details = (
+    <details
+      className={detailsClassName}
+      open={context.openDetails.has(detailsKey)}
+      onToggle={(event) => {
+        context.onDetailsToggle?.(detailsKey, event.currentTarget.open);
+      }}
+    >
+      <summary>{summary}</summary>
+      {children}
+    </details>
+  );
+  return wrapperClassName ? <div className={wrapperClassName}>{details}</div> : details;
+}
+
+function messageContentKey(item: RenderableMessageItem): string {
+  return `${item.id}\u001f${item.markdown === false ? "text" : "markdown"}\u001f${item.text}`;
+}
+
+function executionClassName(state: ReturnType<typeof executionState>): string {
+  return state ? ` codex-panel__execution codex-panel__execution--${state}` : "";
 }
 
 function createHistoryBarElement(loadingHistory: boolean, loadOlderTurns: () => void): HTMLElement {

@@ -13,6 +13,7 @@ import {
 import { pendingRequestMessageNode } from "../../../../src/features/chat/ui/pending-request-message";
 import { renderToolbar, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
 import { displayItemSignature } from "../../../../src/features/chat/display/signature";
+import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/chat-message-renderer";
 import { messageRenderBlocks as rawMessageRenderBlocks, renderMessageRenderBlocks } from "../../../../src/features/chat/ui/message-stream";
 import { displayDiffLines, persistedChatTurnDiffViewState, renderChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff";
@@ -546,6 +547,107 @@ describe("message stream block identity and message actions", () => {
     assistantButton?.click();
     expect(copyText).toHaveBeenNthCalledWith(1, "**user**");
     expect(copyText).toHaveBeenNthCalledWith(2, "# Answer");
+  });
+
+  it("keeps message React actions mounted in the message stream host", () => {
+    const parent = document.createElement("div");
+    const copyText = vi.fn();
+    const onImplementPlanItem = vi.fn();
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: null,
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        displayItems: [
+          {
+            id: "p1",
+            kind: "message",
+            role: "assistant",
+            text: "Plan",
+            copyText: "Plan",
+            turnId: "turn-1",
+            markdown: false,
+            proposedPlan: true,
+          },
+        ],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+        copyText,
+        canImplementPlanItem: () => true,
+        onImplementPlanItem,
+      }),
+      new Map(),
+    );
+
+    parent.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
+    parent.querySelector<HTMLButtonElement>(".codex-panel__implement-plan")?.click();
+
+    expect(copyText).toHaveBeenCalledWith("Plan");
+    expect(onImplementPlanItem).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }));
+    expect(parent.querySelector('[data-codex-panel-block-key="item:p1"] .codex-panel__message--assistant')).not.toBeNull();
+    unmountReactRoot(parent);
+  });
+
+  it("renders message markdown through the React content adapter", () => {
+    const parent = document.createElement("div");
+    const renderMarkdown = vi.fn((element: HTMLElement, text: string) => {
+      element.createDiv({ text: `rendered:${text}` });
+    });
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: null,
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: true }],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown,
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+      }),
+      new Map(),
+    );
+
+    expect(renderMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "**answer**");
+    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("rendered:**answer**");
+    unmountReactRoot(parent);
+  });
+
+  it("does not rerender unchanged message markdown when the stream rerenders", () => {
+    const parent = document.createElement("div");
+    const signatures = new Map<string, string>();
+    const renderMarkdown = vi.fn((element: HTMLElement, text: string) => {
+      element.createDiv({ text });
+    });
+    const context = {
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [
+        { id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: true },
+      ] satisfies DisplayItem[],
+      openDetails: new Set<string>(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown,
+      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
+    };
+
+    renderMessageRenderBlocks(parent, messageRenderBlocks(context), signatures);
+    renderMessageRenderBlocks(parent, messageRenderBlocks({ ...context, loadingHistory: true }), signatures);
+
+    expect(renderMarkdown).toHaveBeenCalledOnce();
+    unmountReactRoot(parent);
   });
 
   it("hides copy action for the active assistant message while a turn is running", () => {
