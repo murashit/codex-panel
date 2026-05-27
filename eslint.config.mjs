@@ -96,5 +96,44 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: ["src/features/chat/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "AssignmentExpression[left.type='MemberExpression'][left.object.name='state']",
+          message: "Route ChatState updates through ChatStateStore.dispatch().",
+        },
+        {
+          selector:
+            "AssignmentExpression[left.type='MemberExpression'][left.object.type='MemberExpression'][left.object.property.name='state']",
+          message: "Route ChatState updates through ChatStateStore.dispatch().",
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.name='state']",
+          message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.type='MemberExpression'][callee.object.object.property.name='state']",
+          message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/shared/ui/components.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.object.name='openDetails'][callee.property.name=/^(add|delete|clear)$/]",
+          message: "Do not mutate remembered detail state in shared helpers; notify the owner and update state immutably.",
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
 ]);
