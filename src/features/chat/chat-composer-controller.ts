@@ -15,6 +15,7 @@ import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-cont
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { renderComposerShell, renderComposerSuggestions, syncComposerControls, syncComposerHeight } from "./ui/composer";
 import type { ChatState } from "./chat-state";
+import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface ChatComposerControllerOptions {
   app: App;
@@ -241,7 +242,7 @@ export class ChatComposerController {
     this.options.state.composerSuggestions = [];
     this.composer?.setAttr("aria-expanded", "false");
     this.composer?.removeAttribute("aria-activedescendant");
-    this.suggestionsEl?.empty();
+    unmountReactRoot(this.suggestionsEl);
     this.suggestionsEl?.hide();
   }
 
