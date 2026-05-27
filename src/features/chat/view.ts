@@ -67,12 +67,13 @@ import {
   type ReferencedThreadDisplay,
 } from "../../domain/threads/reference";
 import { renderPendingRequestMessage } from "./ui/pending-request-message";
-import { renderToolbar, toolbarSignature, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
+import { renderToolbar, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedSessionMetadata } from "../../runtime/shared-app-server-state";
 import { ChatThreadActionController } from "./thread-actions";
+import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -125,7 +126,6 @@ export class CodexChatView extends ItemView {
   private restoredThreadLoading: Promise<void> | null = null;
   private opened = false;
   private closing = false;
-  private toolbarSignature: string | null = null;
   private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
   private scheduledSessionWarmupTimer: number | null = null;
 
@@ -449,6 +449,7 @@ export class CodexChatView extends ItemView {
       this.scheduledRenderTimer = null;
     }
     this.clearDeferredDiagnostics();
+    unmountReactRoot(this.toolbarEl);
     this.connection.disconnect();
     this.client = null;
     this.plugin.refreshThreadsViewLiveState();
@@ -1200,7 +1201,7 @@ export class CodexChatView extends ItemView {
       return;
     }
 
-    this.renderToolbarIfNeeded(this.toolbarEl);
+    this.renderToolbar(this.toolbarEl);
 
     this.configSlotEl.empty();
 
@@ -1209,12 +1210,9 @@ export class CodexChatView extends ItemView {
     this.syncComposerControls();
   }
 
-  private renderToolbarIfNeeded(toolbar: HTMLElement): void {
+  private renderToolbar(toolbar: HTMLElement): void {
     const model = this.toolbarViewModel();
-    const signature = toolbarSignature(model);
-    if (this.toolbarSignature === signature) return;
 
-    this.toolbarSignature = signature;
     renderToolbar(toolbar, model, {
       toggleHistory: () => {
         this.toggleHistoryPanel();
