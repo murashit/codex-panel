@@ -9,6 +9,63 @@ const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
 const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs"];
 const typeScriptConfigFiles = ["*.config.ts"];
 const lintedTypeScriptFiles = [...typeScriptFiles, ...typeScriptConfigFiles];
+const imperativeDomRestrictions = [
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(createEl|createDiv|createSpan|appendChild|replaceChildren|insertBefore|removeChild|setAttr|empty)$/]",
+    message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
+  },
+  {
+    selector:
+      "AssignmentExpression[left.type='MemberExpression'][left.property.name=/^(innerHTML|outerHTML|textContent|onclick|onscroll)$/]",
+    message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
+  },
+  {
+    selector: "CallExpression[callee.property.name=/^(addEventListener|removeEventListener)$/]",
+    message: "Keep imperative DOM event wiring in an explicit bridge module or Obsidian-owned UI boundary.",
+  },
+];
+const chatStateRestrictions = [
+  {
+    selector: "AssignmentExpression[left.type='MemberExpression'][left.object.name='state']",
+    message: "Route ChatState updates through ChatStateStore.dispatch().",
+  },
+  {
+    selector: "AssignmentExpression[left.type='MemberExpression'][left.object.type='MemberExpression'][left.object.property.name='state']",
+    message: "Route ChatState updates through ChatStateStore.dispatch().",
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.name='state']",
+    message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.type='MemberExpression'][callee.object.object.property.name='state']",
+    message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
+  },
+];
+const chatImperativeDomBridgeFiles = [
+  "src/features/chat/chat-composer-controller.ts",
+  "src/features/chat/chat-message-renderer.ts",
+  "src/features/chat/markdown-message-renderer.ts",
+  "src/features/chat/ui/composer.tsx",
+  "src/features/chat/ui/message-stream.tsx",
+  "src/features/chat/ui/tool-result.tsx",
+  "src/features/chat/ui/toolbar.tsx",
+  "src/features/chat/ui/turn-diff.tsx",
+];
+const nonChatImperativeDomBridgeFiles = [
+  "src/features/selection-rewrite/popover.tsx",
+  "src/features/selection-rewrite/runner.ts",
+  "src/features/thread-picker/modal.ts",
+  "src/settings/dynamic-sections.ts",
+  "src/settings/tab.ts",
+  "src/shared/diff/render.ts",
+  "src/shared/ui/dom.ts",
+  "src/shared/ui/react-components.tsx",
+  "src/shared/ui/react-root.tsx",
+];
 
 export default defineConfig([
   {
@@ -97,30 +154,23 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/features/chat/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles],
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "AssignmentExpression[left.type='MemberExpression'][left.object.name='state']",
-          message: "Route ChatState updates through ChatStateStore.dispatch().",
-        },
-        {
-          selector:
-            "AssignmentExpression[left.type='MemberExpression'][left.object.type='MemberExpression'][left.object.property.name='state']",
-          message: "Route ChatState updates through ChatStateStore.dispatch().",
-        },
-        {
-          selector:
-            "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.name='state']",
-          message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
-        },
-        {
-          selector:
-            "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.type='MemberExpression'][callee.object.object.property.name='state']",
-          message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
-        },
-      ],
+      "no-restricted-syntax": ["error", ...imperativeDomRestrictions],
+    },
+  },
+  {
+    files: ["src/features/chat/**/*.{ts,tsx}"],
+    ignores: chatImperativeDomBridgeFiles,
+    rules: {
+      "no-restricted-syntax": ["error", ...imperativeDomRestrictions, ...chatStateRestrictions],
+    },
+  },
+  {
+    files: chatImperativeDomBridgeFiles,
+    rules: {
+      "no-restricted-syntax": ["error", ...chatStateRestrictions],
     },
   },
   eslintConfigPrettier,

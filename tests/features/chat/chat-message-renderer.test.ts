@@ -5,6 +5,7 @@ import { TFile } from "obsidian";
 
 import { ChatMessageRenderer } from "../../../src/features/chat/chat-message-renderer";
 import { chatReducer, createChatState, type ChatAction, type ChatState, type ChatStateStore } from "../../../src/features/chat/chat-state";
+import { bindRenderedWikiLinks, type RenderedMarkdownLinkContext } from "../../../src/features/chat/markdown-message-renderer";
 import { installObsidianDomShims } from "./ui/dom-test-helpers";
 import { notices } from "../../mocks/obsidian";
 
@@ -17,7 +18,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
   it("normalizes rendered internal links that point at absolute vault paths", () => {
     const openLinkText = vi.fn();
-    const renderer = chatMessageRenderer(createChatState(), openLinkText, "/Users/showhey/Vault", ["docs/Guide.md"]);
+    const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault", ["docs/Guide.md"]);
     const parent = document.createElement("div");
     const link = parent.createEl("a", {
       cls: "internal-link",
@@ -28,7 +29,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).toHaveBeenCalledWith("docs/Guide.md", "Inbox.md", false);
@@ -36,7 +37,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
   it("normalizes rendered internal links for missing files inside the vault", () => {
     const openLinkText = vi.fn();
-    const renderer = chatMessageRenderer(createChatState(), openLinkText, "/Users/showhey/Vault");
+    const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
     const parent = document.createElement("div");
     const link = parent.createEl("a", {
       cls: "internal-link",
@@ -47,7 +48,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).toHaveBeenCalledWith("docs/Missing.md", "Inbox.md", false);
@@ -55,7 +56,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
   it("keeps rendered internal links unchanged when they are not vault file paths", () => {
     const openLinkText = vi.fn();
-    const renderer = chatMessageRenderer(createChatState(), openLinkText);
+    const context = markdownLinkContext(openLinkText);
     const parent = document.createElement("div");
     const link = parent.createEl("a", {
       cls: "internal-link",
@@ -66,7 +67,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).toHaveBeenCalledWith("Project", "Inbox.md", false);
@@ -74,7 +75,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
   it("does not open rendered internal links for absolute paths outside the vault", () => {
     const openLinkText = vi.fn();
-    const renderer = chatMessageRenderer(createChatState(), openLinkText, "/Users/showhey/Vault");
+    const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
     const parent = document.createElement("div");
     const link = parent.createEl("a", {
       cls: "internal-link",
@@ -85,7 +86,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).not.toHaveBeenCalled();
@@ -94,7 +95,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
   it("does not open rendered internal links for vault config paths", () => {
     const openLinkText = vi.fn();
-    const renderer = chatMessageRenderer(createChatState(), openLinkText, "/Users/showhey/Vault");
+    const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
     const parent = document.createElement("div");
     const link = parent.createEl("a", {
       cls: "internal-link",
@@ -105,7 +106,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).not.toHaveBeenCalled();
@@ -204,6 +205,23 @@ describe("ChatMessageRenderer scroll pinning", () => {
   });
 });
 
+function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vaultFiles: string[] = []): RenderedMarkdownLinkContext {
+  const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
+  return {
+    app: {
+      workspace: {
+        getActiveFile: vi.fn(() => null),
+        openLinkText,
+      },
+      vault: {
+        configDir: "vault-config",
+        getAbstractFileByPath: (path: string) => files.get(path) ?? null,
+      },
+    } as never,
+    vaultPath,
+  };
+}
+
 function chatMessageRenderer(
   state = createChatState(),
   openLinkText = vi.fn(),
@@ -247,13 +265,6 @@ function testStoreForState(state: ChatState): ChatStateStore {
     },
     subscribe: () => () => undefined,
   };
-}
-
-function bindRenderedWikiLinks(renderer: ChatMessageRenderer, parent: HTMLElement, sourcePath: string): void {
-  (renderer as unknown as { bindRenderedWikiLinks: (parent: HTMLElement, sourcePath: string) => void }).bindRenderedWikiLinks(
-    parent,
-    sourcePath,
-  );
 }
 
 function tFile(path: string): TFile {
