@@ -7,7 +7,6 @@ import type { AppsConfig } from "../generated/app-server/v2/AppsConfig";
 import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
 import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { Config } from "../generated/app-server/v2/Config";
-import type { ProfileV2 } from "../generated/app-server/v2/ProfileV2";
 import type { SandboxMode } from "../generated/app-server/v2/SandboxMode";
 import type { SandboxWorkspaceWrite } from "../generated/app-server/v2/SandboxWorkspaceWrite";
 import type { ToolsV2 } from "../generated/app-server/v2/ToolsV2";
@@ -38,23 +37,23 @@ export interface RuntimeConfigProjection {
 }
 
 export function readRuntimeConfig(effectiveConfig: ConfigReadResponse | null): RuntimeConfigProjection {
-  const config = configRecord(effectiveConfig);
+  const config = asConfigRecord(effectiveConfig?.config);
   const features = asRecord(config["features"]);
-  const tools = resolvedConfigValue(config, "tools") ?? null;
+  const tools = config.tools ?? null;
   const workspaceWrite = config.sandbox_workspace_write ?? null;
-  const effort = resolvedConfigValue(config, "model_reasoning_effort");
+  const effort = config.model_reasoning_effort;
   return {
-    profile: stringOrNull(config.profile),
-    model: nonEmptyStringOrNull(resolvedConfigValue(config, "model")),
-    modelProvider: resolvedConfigValue(config, "model_provider") ?? null,
+    profile: selectedConfigProfile(effectiveConfig?.layers ?? null),
+    model: nonEmptyStringOrNull(config.model),
+    modelProvider: config.model_provider ?? null,
     reasoningEffort: isReasoningEffort(effort) ? effort : null,
     rawReasoningEffort: nonEmptyStringOrNull(effort),
-    reasoningSummary: resolvedConfigValue(config, "model_reasoning_summary") ?? null,
-    verbosity: resolvedConfigValue(config, "model_verbosity") ?? null,
-    serviceTier: parseServiceTier(resolvedConfigValue(config, "service_tier")),
-    approvalsReviewer: approvalsReviewerOrNull(resolvedConfigValue(config, "approvals_reviewer")),
-    approvalPolicy: resolvedConfigValue(config, "approval_policy") ?? null,
-    webSearch: resolvedConfigValue(config, "web_search") ?? null,
+    reasoningSummary: config.model_reasoning_summary ?? null,
+    verbosity: config.model_verbosity ?? null,
+    serviceTier: parseServiceTier(config.service_tier),
+    approvalsReviewer: approvalsReviewerOrNull(config.approvals_reviewer),
+    approvalPolicy: config.approval_policy ?? null,
+    webSearch: config.web_search ?? null,
     modelContextWindow: numberOrNull(config.model_context_window),
     autoCompactTokenLimit: numberOrNull(config.model_auto_compact_token_limit),
     sandboxMode: config.sandbox_mode ?? null,
@@ -68,22 +67,6 @@ export function readRuntimeConfig(effectiveConfig: ConfigReadResponse | null): R
 }
 
 type ConfigProjectionRecord = Partial<Config> & Record<string, unknown>;
-type ProfileProjectionRecord = Partial<ProfileV2> & Record<string, unknown>;
-
-function configRecord(effectiveConfig: ConfigReadResponse | null): ConfigProjectionRecord {
-  return fillMissingConfigValues(asConfigRecord(effectiveConfig?.config), effectiveConfig?.layers ?? null);
-}
-
-function selectedProfileConfig(config: ConfigProjectionRecord): ProfileProjectionRecord {
-  const profile = config.profile;
-  const profileName = typeof profile === "string" && profile.length > 0 ? profile : null;
-  return profileName ? asProfileRecord(asRecord(config.profiles)[profileName]) : {};
-}
-
-function resolvedConfigValue<K extends keyof Config>(config: ConfigProjectionRecord, key: K): Config[K] | undefined {
-  const profileValue = selectedProfileConfig(config)[key];
-  return profileValue ?? config[key];
-}
 
 function approvalsReviewerOrNull(value: unknown): ApprovalsReviewer | null {
   return value === "user" || value === "auto_review" || value === "guardian_subagent" ? value : null;
@@ -97,40 +80,20 @@ function asConfigRecord(value: unknown): ConfigProjectionRecord {
   return asRecord(value) as ConfigProjectionRecord;
 }
 
-function asProfileRecord(value: unknown): ProfileProjectionRecord {
-  return asRecord(value) as ProfileProjectionRecord;
-}
-
-function fillMissingConfigValues(config: ConfigProjectionRecord, layers: ConfigReadResponse["layers"]): ConfigProjectionRecord {
-  if (!layers || layers.length === 0) return config;
-  const fallback = rawLayerConfigRecord(layers);
-  if (Object.keys(fallback).length === 0) return config;
-
-  const merged: ConfigProjectionRecord = { ...config };
-  const mergedRecord = merged as Record<string, unknown>;
-  for (const [key, value] of Object.entries(fallback)) {
-    mergedRecord[key] ??= value;
-  }
-  return merged;
-}
-
-function rawLayerConfigRecord(layers: NonNullable<ConfigReadResponse["layers"]>): Record<string, unknown> {
-  const merged: Record<string, unknown> = {};
+function selectedConfigProfile(layers: ConfigReadResponse["layers"]): string | null {
+  let selected: string | null = null;
+  if (!layers) return null;
   for (const layer of layers) {
-    const config = asRecord(layer.config);
-    for (const [key, value] of Object.entries(config)) {
-      if (value !== undefined && value !== null) merged[key] = value;
+    const name = layer.name;
+    if (name.type === "user" && typeof name.profile === "string" && name.profile.length > 0) {
+      selected = name.profile;
     }
   }
-  return merged;
+  return selected;
 }
 
 function nonEmptyStringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function stringOrNull(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
 }
 
 function numberOrNull(value: unknown): number | null {

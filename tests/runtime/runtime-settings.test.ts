@@ -131,25 +131,6 @@ describe("runtime settings", () => {
     expect(autoReviewActive(snapshot)).toBe(false);
   });
 
-  it("uses raw config layers when typed config omits approval reviewer", () => {
-    const effectiveConfig = effectiveConfigFixture({ approvals_reviewer: null }, [
-      {
-        name: { type: "user", file: "/home/me/.codex/config.toml", profile: null },
-        version: "1",
-        config: { approvals_reviewer: "auto_review" },
-        disabledReason: null,
-      },
-    ]);
-    const projection = readRuntimeConfig(effectiveConfig);
-    const snapshot = runtimeSnapshot({
-      activeApprovalsReviewer: "user",
-      effectiveConfig,
-    });
-
-    expect(projection.approvalsReviewer).toBe("auto_review");
-    expect(autoReviewActive(snapshot, projection)).toBe(false);
-  });
-
   it("treats guardian subagent reviewer as active auto-review", () => {
     const snapshot = runtimeSnapshot({
       activeApprovalsReviewer: "guardian_subagent",
@@ -170,36 +151,33 @@ describe("runtime settings", () => {
     expect(autoReviewActive(snapshot)).toBe(false);
   });
 
-  it("resolves approval reviewer from the selected config profile", () => {
+  it("uses effective approval reviewer values and reports selected profile metadata", () => {
+    const effectiveConfig = effectiveConfigFixture({ approvals_reviewer: "auto_review" }, [
+      configLayer({}, null),
+      configLayer({ approvals_reviewer: "auto_review" }, "auto"),
+    ]);
     const snapshot = runtimeSnapshot({
-      effectiveConfig: effectiveConfigFixture({
-        approvals_reviewer: "user",
-        profile: "auto",
-        profiles: {
-          auto: { approvals_reviewer: "auto_review" },
-        },
-      }),
+      effectiveConfig,
     });
 
+    expect(readRuntimeConfig(effectiveConfig).profile).toBe("auto");
     expect(currentApprovalsReviewer(snapshot)).toBe("auto_review");
     expect(autoReviewActive(snapshot)).toBe(true);
   });
 
-  it("resolves model, effort, and fast mode from the selected config profile", () => {
+  it("uses effective model, effort, and fast mode config values", () => {
     const snapshot = runtimeSnapshot({
-      effectiveConfig: effectiveConfigFixture({
-        model: "gpt-root",
-        model_reasoning_effort: "low",
-        service_tier: "standard",
-        profile: "fast-profile",
-        profiles: {
-          "fast-profile": {
-            model: "gpt-profile",
-            model_reasoning_effort: "high",
-            service_tier: "fast",
-          },
+      effectiveConfig: effectiveConfigFixture(
+        {
+          model: "gpt-profile",
+          model_reasoning_effort: "high",
+          service_tier: "fast",
         },
-      }),
+        [
+          configLayer({}, null),
+          configLayer({ model: "gpt-profile", model_reasoning_effort: "high", service_tier: "fast" }, "fast-profile"),
+        ],
+      ),
     });
 
     expect(currentModel(snapshot)).toBe("gpt-profile");
@@ -298,33 +276,21 @@ describe("runtime settings", () => {
     expect(resetRuntimeRows["effort change"]).toBe("(reset to config)");
   });
 
-  it("shows selected profile runtime and policy values in status details", () => {
+  it("shows effective profile runtime and policy values in status details", () => {
+    const profileConfig = {
+      model: "gpt-profile",
+      model_provider: "profile-provider",
+      model_reasoning_effort: "high",
+      model_reasoning_summary: "detailed",
+      model_verbosity: "high",
+      approval_policy: "never",
+      approvals_reviewer: "auto_review",
+      web_search: "live",
+      service_tier: "fast",
+    };
     const sections = effectiveConfigSections(
       runtimeSnapshot({
-        effectiveConfig: effectiveConfigFixture({
-          model: "gpt-root",
-          model_provider: "root-provider",
-          model_reasoning_effort: "low",
-          model_reasoning_summary: "auto",
-          model_verbosity: "low",
-          approval_policy: "on-request",
-          web_search: "disabled",
-          service_tier: "standard",
-          profile: "auto",
-          profiles: {
-            auto: {
-              model: "gpt-profile",
-              model_provider: "profile-provider",
-              model_reasoning_effort: "high",
-              model_reasoning_summary: "detailed",
-              model_verbosity: "high",
-              approval_policy: "never",
-              approvals_reviewer: "auto_review",
-              web_search: "live",
-              service_tier: "fast",
-            },
-          },
-        }),
+        effectiveConfig: effectiveConfigFixture(profileConfig, [configLayer({}, null), configLayer(profileConfig, "auto")]),
       }),
       "/vault",
     );
@@ -338,6 +304,7 @@ describe("runtime settings", () => {
       sections.find((section) => section.title === "Policy")?.rows.map((row) => [row.key, row.value]) ?? [],
     );
 
+    expect(scopeRows["profile"]).toBe("auto");
     expect(scopeRows["model provider"]).toBe("profile-provider");
     expect(runtimeRows).toMatchObject({
       model: "gpt-profile",
@@ -547,5 +514,14 @@ function effectiveConfigFixture(config: Record<string, unknown>, layers: ConfigR
     config: config as ConfigReadResponse["config"],
     origins: {},
     layers,
+  };
+}
+
+function configLayer(config: Record<string, unknown>, profile: string | null): NonNullable<ConfigReadResponse["layers"]>[number] {
+  return {
+    name: { type: "user", file: "/home/me/.codex/config.toml", profile },
+    version: "1",
+    config: config as NonNullable<ConfigReadResponse["layers"]>[number]["config"],
+    disabledReason: null,
   };
 }

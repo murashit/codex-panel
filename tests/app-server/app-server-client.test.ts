@@ -196,8 +196,6 @@ describe("AppServerClient", () => {
         cwd: "/vault",
         serviceName: "codex-panel",
         serviceTier: "fast",
-        experimentalRawEvents: false,
-        persistExtendedHistory: false,
       },
     });
     transport.emitLine({ id: 2, result: { thread: { id: "thread-1", title: null }, serviceTier: "fast" } });
@@ -478,7 +476,7 @@ describe("AppServerClient", () => {
     expect(transport.sent[2]).toMatchObject({
       id: 2,
       method: "thread/resume",
-      params: { threadId: "thread-1", cwd: "/vault", excludeTurns: true, persistExtendedHistory: false },
+      params: { threadId: "thread-1", cwd: "/vault", excludeTurns: true },
     });
     transport.emitLine({ id: 2, result: { thread: { id: "thread-1", title: null }, cwd: "/vault" } });
     await resuming;
@@ -487,7 +485,7 @@ describe("AppServerClient", () => {
     expect(transport.sent[3]).toMatchObject({
       id: 3,
       method: "thread/fork",
-      params: { threadId: "thread-1", cwd: "/vault", excludeTurns: true, persistExtendedHistory: false },
+      params: { threadId: "thread-1", cwd: "/vault", excludeTurns: true },
     });
     transport.emitLine({ id: 3, result: { thread: { id: "thread-2", title: null }, cwd: "/vault" } });
     await forking;
@@ -543,8 +541,6 @@ describe("AppServerClient", () => {
         sandbox: "read-only",
         approvalPolicy: "never",
         environments: [],
-        experimentalRawEvents: false,
-        persistExtendedHistory: false,
       },
     });
     transport.emitLine({ id: 2, result: { thread: { id: "naming-thread" } } });

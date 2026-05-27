@@ -204,8 +204,6 @@ export class AppServerClient {
       cwd,
       serviceName: "codex-panel",
       ...(serviceTier !== undefined ? { serviceTier } : {}),
-      experimentalRawEvents: false,
-      persistExtendedHistory: false,
     });
   }
 
@@ -218,8 +216,6 @@ export class AppServerClient {
       sandbox: "read-only",
       approvalPolicy: "never",
       environments: [],
-      experimentalRawEvents: false,
-      persistExtendedHistory: false,
     });
   }
 
@@ -228,7 +224,6 @@ export class AppServerClient {
       threadId,
       cwd,
       excludeTurns: true,
-      persistExtendedHistory: false,
     });
   }
 
@@ -237,7 +232,6 @@ export class AppServerClient {
       threadId,
       cwd,
       excludeTurns: true,
-      persistExtendedHistory: false,
     });
   }
 
