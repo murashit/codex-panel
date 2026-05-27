@@ -15,12 +15,13 @@ import { renderPendingRequestMessage } from "../../../../src/features/chat/ui/pe
 import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
 import { displayItemSignature } from "../../../../src/features/chat/display/signature";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/chat-message-renderer";
-import { messageRenderBlocks as rawMessageRenderBlocks, syncMessageRenderBlocks } from "../../../../src/features/chat/ui/message-stream";
+import { messageRenderBlocks as rawMessageRenderBlocks, renderMessageRenderBlocks } from "../../../../src/features/chat/ui/message-stream";
 import { displayDiffLines, persistedChatTurnDiffViewState, renderChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff";
 import { composerSuggestionScrollFixture, installObsidianDomShims, topLevelDetailsSummaries } from "./dom-test-helpers";
 import { renderThreadsView } from "../../../../src/features/threads-view/renderer";
 import { liveStateForSnapshots, threadRows, type ThreadsRowModel } from "../../../../src/features/threads-view/state";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import { unmountReactRoot } from "../../../../src/shared/ui/react-root";
 
 installObsidianDomShims();
 
@@ -153,31 +154,47 @@ describe("message stream block identity and message actions", () => {
     );
   });
 
-  it("reuses message block nodes while signatures are stable", () => {
+  it("reuses React message block hosts while signatures are stable", () => {
     const parent = document.createElement("div");
     const signatures = new Map<string, string>();
     const first = document.createElement("section");
     first.textContent = "first";
+    const firstRender = vi.fn(() => first);
 
-    syncMessageRenderBlocks(parent, [{ key: "one", signature: "same", render: () => first }], signatures);
-    syncMessageRenderBlocks(parent, [{ key: "one", signature: "same", render: () => document.createElement("aside") }], signatures);
+    renderMessageRenderBlocks(parent, [{ key: "one", signature: "same", render: firstRender }], signatures);
 
-    expect(parent.firstElementChild).toBe(first);
+    const host = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="one"]'));
+    expect(host.classList.contains("codex-panel__message-block")).toBe(true);
+    expect(host.firstElementChild).toBe(first);
+    expect(firstRender).toHaveBeenCalledOnce();
+
+    const skippedRender = vi.fn(() => document.createElement("aside"));
+    renderMessageRenderBlocks(parent, [{ key: "one", signature: "same", render: skippedRender }], signatures);
+
+    expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
+    expect(host.firstElementChild).toBe(first);
+    expect(skippedRender).not.toHaveBeenCalled();
 
     const replacement = document.createElement("article");
-    syncMessageRenderBlocks(parent, [{ key: "one", signature: "changed", render: () => replacement }], signatures);
+    renderMessageRenderBlocks(parent, [{ key: "one", signature: "changed", render: () => replacement }], signatures);
 
-    expect(parent.firstElementChild).toBe(replacement);
+    expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
+    expect(host.firstElementChild).toBe(replacement);
     expect(signatures.get("one")).toBe("changed");
+
+    renderMessageRenderBlocks(parent, [], signatures);
+    expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBeNull();
+    expect(signatures.has("one")).toBe(false);
+    unmountReactRoot(parent);
   });
 
-  it("leaves stable ordered message block nodes in place during repeated syncs", () => {
+  it("leaves stable ordered React message block hosts in place during repeated renders", () => {
     const parent = document.createElement("div");
     const signatures = new Map<string, string>();
     const first = document.createElement("section");
     const second = document.createElement("article");
 
-    syncMessageRenderBlocks(
+    renderMessageRenderBlocks(
       parent,
       [
         { key: "one", signature: "same-one", render: () => first },
@@ -185,19 +202,26 @@ describe("message stream block identity and message actions", () => {
       ],
       signatures,
     );
+    const firstHost = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="one"]'));
+    const secondHost = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="two"]'));
 
     const insertBefore = vi.spyOn(parent, "insertBefore");
-    syncMessageRenderBlocks(
+    const skippedRender = vi.fn(() => document.createElement("aside"));
+    renderMessageRenderBlocks(
       parent,
       [
-        { key: "one", signature: "same-one", render: () => document.createElement("aside") },
-        { key: "two", signature: "same-two", render: () => document.createElement("aside") },
+        { key: "one", signature: "same-one", render: skippedRender },
+        { key: "two", signature: "same-two", render: skippedRender },
       ],
       signatures,
     );
 
     expect(insertBefore).not.toHaveBeenCalled();
-    expect([...parent.children]).toEqual([first, second]);
+    expect(skippedRender).not.toHaveBeenCalled();
+    expect([...parent.children]).toEqual([firstHost, secondHost]);
+    expect(firstHost.firstElementChild).toBe(first);
+    expect(secondHost.firstElementChild).toBe(second);
+    unmountReactRoot(parent);
   });
 
   it("inserts completed-turn activity groups without replacing stable conversation nodes", () => {
@@ -215,7 +239,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
-    syncMessageRenderBlocks(
+    renderMessageRenderBlocks(
       parent,
       messageRenderBlocks({
         ...baseContext,
@@ -229,7 +253,7 @@ describe("message stream block identity and message actions", () => {
     const userNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:u1"]');
     const assistantNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:a1"]');
 
-    syncMessageRenderBlocks(
+    renderMessageRenderBlocks(
       parent,
       messageRenderBlocks({
         ...baseContext,
@@ -260,6 +284,7 @@ describe("message stream block identity and message actions", () => {
     expect(parent.querySelector('[data-codex-panel-block-key="activity:turn-t1-activity"] summary')?.textContent).toBe(
       "Work details: hook",
     );
+    unmountReactRoot(parent);
   });
 
   it("does not invalidate generic tool blocks when only the workspace root changes", () => {

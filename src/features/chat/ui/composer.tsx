@@ -110,12 +110,7 @@ function ComposerShell({
         />
         <ComposerIconButton icon="send" label="Send" className="codex-panel__send" onClick={callbacks.onSendOrInterrupt} />
       </div>
-      <div
-        ref={suggestionsRef}
-        className="suggestion-container codex-panel__composer-suggestions"
-        id={`${viewId}-composer-suggestions`}
-        role="listbox"
-      />
+      <div ref={suggestionsRef} className="codex-panel__composer-suggestions" id={`${viewId}-composer-suggestions`} role="listbox" />
     </div>
   );
 }
@@ -256,8 +251,8 @@ function ComposerSuggestions({
               callbacks.onSuggestionInsert(suggestion);
             }}
           >
-            <span className="suggestion-title codex-panel__suggestion-label">{suggestion.display}</span>
-            {suggestion.detail ? <span className="suggestion-note codex-panel__suggestion-detail">{suggestion.detail}</span> : null}
+            <span className="codex-panel__suggestion-label">{suggestion.display}</span>
+            {suggestion.detail ? <span className="codex-panel__suggestion-detail">{suggestion.detail}</span> : null}
           </div>
         );
       })}

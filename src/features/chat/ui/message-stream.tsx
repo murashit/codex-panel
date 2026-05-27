@@ -1,4 +1,4 @@
-import { useLayoutEffect, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 
 import { displayBlocksForItems } from "../display/blocks";
 import { displayItemSignature, isMessageCopyActionVisible } from "../display/signature";
@@ -117,61 +117,40 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
   return blocks;
 }
 
-export function syncMessageRenderBlocks(parent: HTMLElement, blocks: MessageRenderBlock[], signatures: Map<string, string>): void {
-  const existing = new Map<string, HTMLElement>();
-  parent.querySelectorAll<HTMLElement>(":scope > [data-codex-panel-block-key]").forEach((element) => {
-    const key = element.dataset["codexPanelBlockKey"];
-    if (key) existing.set(key, element);
-  });
-
-  const seen = new Set<string>();
-  let nextPosition: ChildNode | null = parent.firstChild;
-  for (const block of blocks) {
-    const current = existing.get(block.key);
-    let element = current;
-    const currentWasNext = current === nextPosition;
-    if (!element || signatures.get(block.key) !== block.signature) {
-      element = block.render();
-      element.dataset["codexPanelBlockKey"] = block.key;
-      element.dataset["codexPanelBlockSignature"] = shortSignature(block.signature);
-      signatures.set(block.key, block.signature);
-      if (current) {
-        current.replaceWith(element);
-        if (currentWasNext) nextPosition = element;
-      }
-    }
-    if (element !== nextPosition) {
-      parent.insertBefore(element, nextPosition);
-    }
-    nextPosition = element.nextSibling;
-    seen.add(block.key);
-  }
-
-  for (const [key, element] of existing) {
-    if (!seen.has(key)) {
-      signatures.delete(key);
-      element.remove();
-    }
-  }
-}
-
 export function renderMessageRenderBlocks(parent: HTMLElement, blocks: MessageRenderBlock[], signatures: Map<string, string>): void {
-  renderReactRoot(parent, <MessageRenderBlockCommit parent={parent} blocks={blocks} signatures={signatures} />);
+  renderReactRoot(parent, <MessageRenderBlocks blocks={blocks} signatures={signatures} />);
 }
 
-function MessageRenderBlockCommit({
-  parent,
-  blocks,
-  signatures,
-}: {
-  parent: HTMLElement;
-  blocks: MessageRenderBlock[];
-  signatures: Map<string, string>;
-}): ReactNode {
+function MessageRenderBlocks({ blocks, signatures }: { blocks: MessageRenderBlock[]; signatures: Map<string, string> }): ReactNode {
+  return (
+    <>
+      {blocks.map((block) => (
+        <MessageRenderBlockHost key={block.key} block={block} signatures={signatures} />
+      ))}
+    </>
+  );
+}
+
+function MessageRenderBlockHost({ block, signatures }: { block: MessageRenderBlock; signatures: Map<string, string> }): ReactNode {
+  const ref = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
-    syncMessageRenderBlocks(parent, blocks, signatures);
-  }, [parent, blocks, signatures]);
-  return null;
+    const host = ref.current;
+    if (!host) return;
+    if (signatures.get(block.key) !== block.signature) {
+      host.replaceChildren(block.render());
+      signatures.set(block.key, block.signature);
+    }
+    host.dataset["codexPanelBlockSignature"] = shortSignature(block.signature);
+  }, [block, signatures]);
+
+  useLayoutEffect(() => {
+    const key = block.key;
+    return () => {
+      signatures.delete(key);
+    };
+  }, [block.key, signatures]);
+
+  return <div ref={ref} className="codex-panel__message-block" data-codex-panel-block-key={block.key} />;
 }
 
 function createHistoryBarElement(loadingHistory: boolean, loadOlderTurns: () => void): HTMLElement {

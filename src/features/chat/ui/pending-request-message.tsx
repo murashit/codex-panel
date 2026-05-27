@@ -84,12 +84,12 @@ function ApprovalCard({
 }): ReactNode {
   return (
     <PendingRequestCard className="codex-panel__approval">
-      <div className="setting-item-info codex-panel__pending-request-info">
-        <div className="setting-item-name codex-panel__pending-request-title">{approvalTitle(approval)}</div>
-        <div className="setting-item-description codex-panel__pending-request-body">{approvalSummary(approval)}</div>
+      <div className="codex-panel__pending-request-info">
+        <div className="codex-panel__pending-request-title">{approvalTitle(approval)}</div>
+        <div className="codex-panel__pending-request-body">{approvalSummary(approval)}</div>
         <ApprovalDetails approval={approval} openDetails={openDetails} />
       </div>
-      <div className="setting-item-control codex-panel__pending-request-actions">
+      <div className="codex-panel__pending-request-actions">
         {approvalActionOptions(approval).map((option) => (
           <ActionButton
             key={option.label}
@@ -140,14 +140,14 @@ function UserInputCard({
 }): ReactNode {
   return (
     <PendingRequestCard className="codex-panel__user-input">
-      <div className="setting-item-info codex-panel__pending-request-info">
-        <div className="setting-item-name codex-panel__pending-request-title">Codex needs input</div>
-        <div className="setting-item-description codex-panel__pending-request-body">
+      <div className="codex-panel__pending-request-info">
+        <div className="codex-panel__pending-request-title">Codex needs input</div>
+        <div className="codex-panel__pending-request-body">
           Answer {String(input.params.questions.length)} Plan mode question{input.params.questions.length === 1 ? "" : "s"} to continue.
         </div>
         <UserInputQuestions input={input} drafts={drafts} />
       </div>
-      <div className="setting-item-control codex-panel__pending-request-actions">
+      <div className="codex-panel__pending-request-actions">
         <ActionButton
           label="Submit"
           className="mod-cta"
@@ -168,7 +168,7 @@ function UserInputCard({
 }
 
 function PendingRequestCard({ className, children }: { className: string; children: ReactNode }): ReactNode {
-  return <div className={`setting-item codex-panel__pending-request-card ${className}`}>{children}</div>;
+  return <div className={`codex-panel__pending-request-card ${className}`}>{children}</div>;
 }
 
 function UserInputQuestions({ input, drafts }: { input: PendingUserInput; drafts: PendingRequestMessageDrafts }): ReactNode {
