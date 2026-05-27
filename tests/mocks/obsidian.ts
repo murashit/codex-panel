@@ -157,12 +157,14 @@ export abstract class SuggestModal<T> extends Modal {
 
 export class ItemView {
   readonly app: App;
+  readonly contentEl: HTMLElement;
   readonly containerEl: HTMLElement;
 
   constructor(readonly leaf: { app?: App; containerEl?: HTMLElement }) {
     ensureElementHelpers();
     this.app = leaf.app ?? {};
     this.containerEl = leaf.containerEl ?? document.createElement("div");
+    this.contentEl = this.containerEl.createDiv();
   }
 
   registerDomEvent<K extends keyof DocumentEventMap>(element: Document, type: K, callback: (event: DocumentEventMap[K]) => void): void {
@@ -179,6 +181,10 @@ export class ItemView {
 
   setState(_state: unknown, _result: unknown): Promise<void> {
     return Promise.resolve();
+  }
+
+  onClose(): Promise<void> | void {
+    // Test mock placeholder.
   }
 }
 

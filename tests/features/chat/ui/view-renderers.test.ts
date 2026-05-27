@@ -2,6 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { act, createElement, type ReactNode } from "react";
+import type { WorkspaceLeaf } from "obsidian";
 
 import type { PendingApproval } from "../../../../src/features/chat/approvals/model";
 import type { PendingUserInput } from "../../../../src/features/chat/user-input/model";
@@ -13,6 +14,7 @@ import {
 } from "../../../../src/features/chat/ui/composer";
 import { pendingRequestMessageNode } from "../../../../src/features/chat/ui/pending-request-message";
 import { renderToolbar, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
+import { CodexChatTurnDiffView } from "../../../../src/features/chat/chat-turn-diff-view";
 import { displayItemSignature } from "../../../../src/features/chat/display/signature";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/chat-message-renderer";
@@ -1464,6 +1466,25 @@ describe("chat turn diff view decisions", () => {
     expect(parent.textContent).toContain("Turn diff is no longer available.");
     expect(parent.querySelector(".codex-panel-chat-turn-diff__copy")).toBeNull();
     expect(parent.querySelector(".codex-panel-chat-turn-diff__diff")).toBeNull();
+  });
+
+  it("unmounts the turn diff React root when the view closes", async () => {
+    const containerEl = document.createElement("div");
+    const view = new CodexChatTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
+
+    view.setDiffPayload({
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["src/main.ts"],
+      diff: "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new",
+    });
+
+    expect(view.contentEl.querySelector(".codex-panel-chat-turn-diff__title")?.textContent).toBe("Turn diff");
+
+    await view.onClose();
+
+    expect(view.contentEl.childElementCount).toBe(0);
   });
 
   it("simplifies git diff file headers for turn diff display", () => {
