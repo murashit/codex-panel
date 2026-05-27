@@ -12,6 +12,7 @@ import {
   nextComposerSuggestionIndex,
   parseSlashCommand,
 } from "../../../../src/features/chat/composer/suggestions";
+import { userInputWithWikiLinkMentions } from "../../../../src/features/chat/composer/wikilink-context";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -67,9 +68,33 @@ function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Mode
 
 describe("composer suggestions", () => {
   const notes = [
-    { basename: "Alpha", path: "thoughts/Alpha.md", mtime: 10, linktext: "thoughts/Alpha", recentIndex: 1 },
-    { basename: "Alpha", path: "projects/Alpha.md", mtime: 20, linktext: "projects/Alpha", recentIndex: 0 },
-    { basename: "Beta Note", path: "topics/Beta Note.md", mtime: 30, linktext: "Beta Note", recentIndex: null },
+    { basename: "Alpha", displayName: "Alpha", path: "thoughts/Alpha.md", mtime: 10, linktext: "thoughts/Alpha", recentIndex: 1 },
+    { basename: "Alpha", displayName: "Alpha", path: "projects/Alpha.md", mtime: 20, linktext: "projects/Alpha", recentIndex: 0 },
+    { basename: "Beta Note", displayName: "Beta Note", path: "topics/Beta Note.md", mtime: 30, linktext: "Beta Note", recentIndex: null },
+    {
+      basename: "Projects",
+      displayName: "Projects.base",
+      path: "Bases/Projects.base",
+      mtime: 40,
+      linktext: "Bases/Projects.base",
+      recentIndex: null,
+    },
+    {
+      basename: "Paper",
+      displayName: "Paper.pdf",
+      path: "References/Paper.pdf",
+      mtime: 50,
+      linktext: "References/Paper.pdf",
+      recentIndex: null,
+    },
+    {
+      basename: "Diagram",
+      displayName: "Diagram.png",
+      path: "Assets/Diagram.png",
+      mtime: 60,
+      linktext: "Assets/Diagram.png",
+      recentIndex: 2,
+    },
   ];
 
   it("parses supported slash commands only", () => {
@@ -105,6 +130,38 @@ describe("composer suggestions", () => {
     expect(findWikiLinkSuggestions("", 0, notes).map((suggestion) => suggestion.replacement)).toEqual([
       "[[projects/Alpha]]",
       "[[thoughts/Alpha]]",
+      "[[Assets/Diagram.png]]",
+    ]);
+  });
+
+  it("suggests non-markdown vault files when filtering wikilinks", () => {
+    expect(findWikiLinkSuggestions("projects", 0, notes)[0]).toMatchObject({
+      display: "Projects.base",
+      detail: "Bases/Projects.base",
+      replacement: "[[Bases/Projects.base]]",
+    });
+    expect(findWikiLinkSuggestions("paper", 0, notes)[0]).toMatchObject({
+      display: "Paper.pdf",
+      detail: "References/Paper.pdf",
+      replacement: "[[References/Paper.pdf]]",
+    });
+  });
+
+  it("keeps non-markdown wikilink completions compatible with mention parsing", () => {
+    const suggestion = expectPresent(findWikiLinkSuggestions("diagram", 0, notes)[0]);
+    const text = `Please inspect ${suggestion.replacement}`;
+    const input = userInputWithWikiLinkMentions(text, (target) =>
+      target === "Assets/Diagram.png" ? { name: "Diagram", path: "Assets/Diagram.png" } : null,
+    );
+
+    expect(suggestion).toMatchObject({
+      display: "Diagram.png",
+      detail: "Assets/Diagram.png",
+      replacement: "[[Assets/Diagram.png]]",
+    });
+    expect(input).toEqual([
+      { type: "text", text, text_elements: [] },
+      { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
     ]);
   });
 

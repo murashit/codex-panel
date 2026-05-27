@@ -23,6 +23,7 @@ export interface ComposerSuggestion {
 
 export interface NoteCandidate {
   basename: string;
+  displayName: string;
   path: string;
   mtime: number;
   linktext: string;
@@ -108,7 +109,7 @@ export function findWikiLinkSuggestions(queryText: string, start: number, notes:
   const suggestions = query.length === 0 ? emptyWikiLinkSuggestions(notes) : fuzzyWikiLinkSuggestions(query, notes);
 
   return suggestions.slice(0, 8).map(({ file }) => ({
-    display: file.basename,
+    display: file.displayName,
     detail: file.path,
     replacement: `[[${file.linktext}]]`,
     start,

@@ -6,26 +6,67 @@ import { noteCandidates, resolveWikiLinkMention } from "../../../../src/features
 describe("Obsidian composer context", () => {
   it("builds note candidates from markdown files", () => {
     const app = appFixture({
-      markdownFiles: [
+      files: [
         { basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } },
         { basename: "Beta", path: "Beta.md", stat: { mtime: 200 } },
         { basename: "Daily", path: "Personal/Daily Notes/Daily.md", stat: { mtime: 300 } },
+        { basename: "Projects", path: "Bases/Projects.base", stat: { mtime: 400 } },
+        { basename: "Paper", path: "References/Paper.pdf", stat: { mtime: 500 } },
+        { basename: "Diagram", path: "Assets/Diagram.png", stat: { mtime: 600 } },
+        { basename: "LICENSE", path: "Attachments/LICENSE", stat: { mtime: 700 } },
       ],
       lastOpenFiles: ["Beta.md"],
       linktexts: new Map([
         ["notes/Alpha.md", "Alpha"],
         ["Personal/Daily Notes/Daily.md", "Personal/Daily Notes/Daily"],
+        ["Bases/Projects.base", "Bases/Projects"],
+        ["References/Paper.pdf", "References/Paper"],
+        ["Assets/Diagram.png", "Assets/Diagram.png"],
+        ["Attachments/LICENSE", "Attachments/LICENSE"],
       ]),
     });
 
     expect(noteCandidates(app)).toEqual([
-      { basename: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "Alpha", recentIndex: null },
-      { basename: "Beta", path: "Beta.md", mtime: 200, linktext: "Beta", recentIndex: 0 },
+      { basename: "Alpha", displayName: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "Alpha", recentIndex: null },
+      { basename: "Beta", displayName: "Beta", path: "Beta.md", mtime: 200, linktext: "Beta", recentIndex: 0 },
       {
         basename: "Daily",
+        displayName: "Daily",
         path: "Personal/Daily Notes/Daily.md",
         mtime: 300,
         linktext: "Personal/Daily Notes/Daily",
+        recentIndex: null,
+      },
+      {
+        basename: "Projects",
+        displayName: "Projects.base",
+        path: "Bases/Projects.base",
+        mtime: 400,
+        linktext: "Bases/Projects.base",
+        recentIndex: null,
+      },
+      {
+        basename: "Paper",
+        displayName: "Paper.pdf",
+        path: "References/Paper.pdf",
+        mtime: 500,
+        linktext: "References/Paper.pdf",
+        recentIndex: null,
+      },
+      {
+        basename: "Diagram",
+        displayName: "Diagram.png",
+        path: "Assets/Diagram.png",
+        mtime: 600,
+        linktext: "Assets/Diagram.png",
+        recentIndex: null,
+      },
+      {
+        basename: "LICENSE",
+        displayName: "LICENSE",
+        path: "Attachments/LICENSE",
+        mtime: 700,
+        linktext: "Attachments/LICENSE",
         recentIndex: null,
       },
     ]);
@@ -64,6 +105,18 @@ describe("Obsidian composer context", () => {
     expect(resolveWikiLinkMention(app, "Project")).toEqual({ name: "Project", path: "notes/Project.md" });
     expect(getFirstLinkpathDest).toHaveBeenCalledWith("Project", "Daily/Today.md");
   });
+
+  it("resolves non-markdown wikilinks through Obsidian metadata", () => {
+    const linked = tFile("Bases/Projects.base", "Projects");
+    const getFirstLinkpathDest = vi.fn(() => linked);
+    const app = appFixture({
+      activePath: "Daily/Today.md",
+      getFirstLinkpathDest,
+    });
+
+    expect(resolveWikiLinkMention(app, "Bases/Projects.base")).toEqual({ name: "Projects", path: "Bases/Projects.base" });
+    expect(getFirstLinkpathDest).toHaveBeenCalledWith("Bases/Projects.base", "Daily/Today.md");
+  });
 });
 
 function appFixture(options: {
@@ -71,7 +124,7 @@ function appFixture(options: {
   linkDestination?: TFile | null;
   getFirstLinkpathDest?: (target: string, sourcePath: string) => TFile | null;
   lastOpenFiles?: string[];
-  markdownFiles?: { basename: string; path: string; stat: { mtime: number } }[];
+  files?: { basename: string; path: string; stat: { mtime: number } }[];
   abstractFiles?: Map<string, TFile>;
   linktexts?: Map<string, string>;
 }): App {
@@ -86,12 +139,20 @@ function appFixture(options: {
         options.linktexts?.get(file.path) ?? (omitMdExtension === true ? file.path.replace(/\.md$/i, "") : file.path),
     },
     vault: {
-      getMarkdownFiles: () => options.markdownFiles ?? [],
+      getFiles: () => vaultFiles(options.files ?? []),
+      getMarkdownFiles: () => vaultFiles(options.files ?? []).filter((file) => file.path.toLowerCase().endsWith(".md")),
       getAbstractFileByPath: (path: string) => options.abstractFiles?.get(path) ?? null,
     },
   } as unknown as App;
 }
 
 function tFile(path: string, basename: string): TFile {
-  return Object.assign(new TFile(), { path, basename });
+  const name = path.split("/").pop() ?? path;
+  const extensionStart = name.lastIndexOf(".");
+  const extension = extensionStart === -1 ? "" : name.slice(extensionStart + 1);
+  return Object.assign(new TFile(), { path, basename, extension, name });
+}
+
+function vaultFiles(files: { basename: string; path: string; stat: { mtime: number } }[]): TFile[] {
+  return files.map((file) => Object.assign(tFile(file.path, file.basename), { stat: file.stat }));
 }

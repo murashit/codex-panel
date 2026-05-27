@@ -346,6 +346,7 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
         },
         vault: {
           on: vi.fn(() => ({})),
+          getFiles: vi.fn(() => []),
           getMarkdownFiles: vi.fn(() => []),
         },
       },

@@ -29,6 +29,30 @@ describe("wikilink context", () => {
     expect(input).toHaveLength(2);
   });
 
+  it("resolves aliases and subpaths from non-markdown wikilinks by target", () => {
+    const text = "Open [[Bases/Projects.base|Projects]], [[References/Paper.pdf]], and [[Assets/Diagram.png#crop|Diagram]].";
+    const input = userInputWithWikiLinkMentions(text, (target) => {
+      const mentions = new Map([
+        ["Bases/Projects.base", { name: "Projects", path: "Bases/Projects.base" }],
+        ["References/Paper.pdf", { name: "Paper", path: "References/Paper.pdf" }],
+        ["Assets/Diagram.png", { name: "Diagram", path: "Assets/Diagram.png" }],
+      ]);
+      return mentions.get(target) ?? null;
+    });
+
+    expect(parsedWikiLinks(text)).toEqual([
+      { raw: "Bases/Projects.base|Projects", target: "Bases/Projects.base", subpath: "", display: "Projects" },
+      { raw: "References/Paper.pdf", target: "References/Paper.pdf", subpath: "", display: "" },
+      { raw: "Assets/Diagram.png#crop|Diagram", target: "Assets/Diagram.png", subpath: "#crop", display: "Diagram" },
+    ]);
+    expect(input).toEqual([
+      { type: "text", text, text_elements: [] },
+      { type: "mention", name: "Projects", path: "Bases/Projects.base" },
+      { type: "mention", name: "Paper", path: "References/Paper.pdf" },
+      { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
+    ]);
+  });
+
   it("deduplicates mentions by resolved path", () => {
     const text = "Read [[Alpha]], [[Alpha#Heading]], and [[Alias|A]].";
     const input = userInputWithWikiLinkMentions(text, (target) =>

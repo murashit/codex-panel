@@ -801,6 +801,7 @@ async function chatView(
         },
         vault: {
           on: vi.fn(() => ({})),
+          getFiles: vi.fn(() => []),
           getMarkdownFiles: vi.fn(() => []),
         },
       },

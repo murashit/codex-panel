@@ -11,11 +11,12 @@ export interface WikiLinkMention {
 export function noteCandidates(app: App): NoteCandidate[] {
   const sourcePath = app.workspace.getActiveFile()?.path ?? "";
   const recentPaths = new Map(app.workspace.getLastOpenFiles().map((path, index) => [path, index]));
-  return app.vault.getMarkdownFiles().map((file) => ({
+  return app.vault.getFiles().map((file) => ({
     basename: file.basename,
+    displayName: displayNameForFile(file),
     path: file.path,
     mtime: file.stat.mtime,
-    linktext: app.metadataCache.fileToLinktext(file, sourcePath, true),
+    linktext: linktextForFile(app, file, sourcePath),
     recentIndex: recentPaths.get(file.path) ?? null,
   }));
 }
@@ -29,4 +30,16 @@ export function resolveWikiLinkMention(app: App, target: string): WikiLinkMentio
   const abstractFile = app.vault.getAbstractFileByPath(directPath);
   if (abstractFile instanceof TFile) return { name: abstractFile.basename, path: abstractFile.path };
   return null;
+}
+
+function linktextForFile(app: App, file: TFile, sourcePath: string): string {
+  const linktext = app.metadataCache.fileToLinktext(file, sourcePath, true);
+  const extension = file.extension.toLowerCase();
+  return extension === "md" || extension.length === 0 || linktext.toLowerCase().endsWith(`.${extension}`)
+    ? linktext
+    : `${linktext}.${file.extension}`;
+}
+
+function displayNameForFile(file: TFile): string {
+  return file.extension === "md" ? file.basename : file.name;
 }
