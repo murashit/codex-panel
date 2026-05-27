@@ -185,34 +185,12 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   useLayoutEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    input.oninput = () => {
-      actions.updateRename(row.thread.id, input.value);
-    };
-    input.onkeydown = (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        if (!event.isComposing && !row.rename.generating) actions.saveRename(row.thread.id, input.value);
-        return;
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        actions.cancelRename(row.thread.id);
-      }
-    };
-    input.onblur = () => {
-      if (!row.rename.generating) actions.saveRename(row.thread.id, input.value);
-    };
     if (input.value !== row.rename.draft) input.value = row.rename.draft;
     if (input.ownerDocument.activeElement !== input) {
       input.focus();
       input.select();
     }
-    return () => {
-      input.oninput = null;
-      input.onkeydown = null;
-      input.onblur = null;
-    };
-  }, [actions, row.rename.draft, row.rename.generating, row.thread.id]);
+  }, [row.rename.draft]);
 
   return (
     <>
@@ -229,6 +207,23 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
             type="text"
             aria-label="Thread name"
             defaultValue={row.rename.draft}
+            onInput={(event) => {
+              actions.updateRename(row.thread.id, event.currentTarget.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                if (!event.nativeEvent.isComposing && !row.rename.generating) actions.saveRename(row.thread.id, event.currentTarget.value);
+                return;
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                actions.cancelRename(row.thread.id);
+              }
+            }}
+            onBlur={(event) => {
+              if (!row.rename.generating) actions.saveRename(row.thread.id, event.currentTarget.value);
+            }}
           />
         </div>
       </div>

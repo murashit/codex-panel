@@ -1985,7 +1985,7 @@ describe("toolbar renderer decisions", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
 
-    input.dispatchEvent(new FocusEvent("blur"));
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
     expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(cancelRenameThread).toHaveBeenCalledWith("editing");
@@ -2179,8 +2179,8 @@ describe("threads view renderer decisions", () => {
 
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
     input.value = "New name";
-    input.dispatchEvent(new Event("input"));
-    input.dispatchEvent(new FocusEvent("blur"));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 
     expect(actions.updateRename).toHaveBeenCalledWith("thread", "New name");
     expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");

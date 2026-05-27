@@ -517,38 +517,16 @@ function ArchiveModeButton({
 function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): ReactNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const generating = thread.rename?.generating ?? false;
+  const draft = thread.rename?.draft ?? thread.title;
   useLayoutEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    input.oninput = () => {
-      actions.updateRenameDraft(thread.threadId, input.value);
-    };
-    input.onkeydown = (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        if (!event.isComposing && !generating) actions.saveRenameThread(thread.threadId, input.value);
-        return;
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        actions.cancelRenameThread(thread.threadId);
-      }
-    };
-    input.onblur = () => {
-      if (!generating) actions.saveRenameThread(thread.threadId, input.value);
-    };
-    const draft = thread.rename?.draft ?? thread.title;
     if (input.value !== draft) input.value = draft;
     if (input.ownerDocument.activeElement !== input) {
       input.focus();
       input.select();
     }
-    return () => {
-      input.oninput = null;
-      input.onkeydown = null;
-      input.onblur = null;
-    };
-  }, [actions, generating, thread.rename?.draft, thread.threadId, thread.title]);
+  }, [draft]);
 
   return (
     <>
@@ -562,8 +540,25 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
               ref={inputRef}
               className="codex-panel__thread-rename-input"
               type="text"
-              defaultValue={thread.rename?.draft ?? thread.title}
+              defaultValue={draft}
               aria-label={`Rename ${thread.title}`}
+              onInput={(event) => {
+                actions.updateRenameDraft(thread.threadId, event.currentTarget.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (!event.nativeEvent.isComposing && !generating) actions.saveRenameThread(thread.threadId, event.currentTarget.value);
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  actions.cancelRenameThread(thread.threadId);
+                }
+              }}
+              onBlur={(event) => {
+                if (!generating) actions.saveRenameThread(thread.threadId, event.currentTarget.value);
+              }}
             />
           </div>
         )}

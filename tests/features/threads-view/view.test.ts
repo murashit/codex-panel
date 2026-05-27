@@ -273,7 +273,7 @@ describe("CodexThreadsView", () => {
     expect(input).not.toBeNull();
     if (!input) return;
     input.value = "Renamed thread";
-    input.dispatchEvent(new FocusEvent("blur"));
+    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 
     await vi.waitFor(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
