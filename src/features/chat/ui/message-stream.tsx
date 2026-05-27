@@ -12,10 +12,13 @@ import { applyExecutionStateClass } from "./execution-state";
 import { renderToolResult, toolResultNode } from "./tool-result";
 import {
   activeAgentRunSummaryBlock,
+  agentRunSummaryNode,
   createAgentRunSummaryElement,
   renderAgentItem,
   renderReasoningItem,
   renderTaskProgressItem,
+  workItemNode,
+  type WorkItemDisplayItem,
 } from "./work-items";
 import type { ChatTurnDiffViewState } from "./turn-diff";
 import { renderReactRoot } from "../../../shared/ui/react-root";
@@ -71,6 +74,17 @@ function isRenderableToolResultItem(item: DisplayItem): item is ToolResultDispla
   );
 }
 
+function isRenderableWorkItem(item: DisplayItem): item is WorkItemDisplayItem {
+  return item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning";
+}
+
+function displayItemNode(item: DisplayItem, context: MessageStreamContext): ReactNode | undefined {
+  if (isRenderableMessageItem(item)) return <MessageItem item={item} context={context} />;
+  if (isRenderableToolResultItem(item)) return toolResultNode(item, context);
+  if (isRenderableWorkItem(item)) return workItemNode(item, context);
+  return undefined;
+}
+
 export function messageRenderBlocks(context: MessageStreamContext): MessageRenderBlock[] {
   const blocks: MessageRenderBlock[] = [];
 
@@ -99,11 +113,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
 
   for (const block of displayBlocksForItems(context.displayItems, context.activeTurnId, context.workspaceRoot, context.turnDiffs)) {
     if (block.type === "item") {
-      const node = isRenderableMessageItem(block.item)
-        ? <MessageItem item={block.item} context={context} />
-        : isRenderableToolResultItem(block.item)
-          ? toolResultNode(block.item, context)
-          : undefined;
+      const node = displayItemNode(block.item, context);
       blocks.push({
         key: `item:${block.item.id}`,
         signature: displayItemSignature(block.item, context),
@@ -115,6 +125,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
         key: `activity:${block.id}`,
         signature: `${block.summary}\n${block.items.map((item) => displayItemSignature(item, context)).join("\n")}`,
         render: () => createActivityGroupElement(block, context),
+        node: <ActivityGroup group={block} context={context} />,
       });
     }
   }
@@ -125,6 +136,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
       key: `active-agents:${context.activeTurnId ?? "none"}`,
       signature: JSON.stringify(agentSummary),
       render: () => createAgentRunSummaryElement(agentSummary),
+      node: agentRunSummaryNode(agentSummary),
     });
   }
 
@@ -197,6 +209,38 @@ function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolea
 
 function EmptyMessage(): ReactNode {
   return <div className="codex-panel__message codex-panel__message--system">Send a message to start a new thread.</div>;
+}
+
+function ActivityGroup({
+  group,
+  context,
+}: {
+  group: Extract<DisplayBlock, { type: "activityGroup" }>;
+  context: MessageStreamContext;
+}): ReactNode {
+  const detailsKey = `turn:${group.turnId}:activity`;
+  const [open, setOpen] = useState(context.openDetails.has(detailsKey));
+
+  useLayoutEffect(() => {
+    setOpen(context.openDetails.has(detailsKey));
+  }, [context.openDetails, detailsKey]);
+
+  return (
+    <details
+      className="codex-panel__activity-group"
+      open={open}
+      onToggle={(event) => {
+        const nextOpen = event.currentTarget.open;
+        setOpen(nextOpen);
+        context.onDetailsToggle?.(detailsKey, nextOpen);
+      }}
+    >
+      <summary>{group.summary}</summary>
+      {group.items.map((item) => (
+        <Fragment key={item.id}>{displayItemNode(item, context)}</Fragment>
+      ))}
+    </details>
+  );
 }
 
 function MessageItem({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): ReactNode {

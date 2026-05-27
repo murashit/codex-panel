@@ -1771,6 +1771,80 @@ describe("work log renderer decisions", () => {
     expect(element?.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
   });
 
+  it("keeps completed-turn activity group items mounted through React", () => {
+    const parent = document.createElement("div");
+    const onDetailsToggle = vi.fn();
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: null,
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        displayItems: [
+          { id: "u1", kind: "message", role: "user", text: "do it", turnId: "turn", markdown: true },
+          {
+            id: "hook-1",
+            kind: "hook",
+            role: "tool",
+            text: "postToolUse: Formatted 1 file.",
+            toolLabel: "hook",
+            turnId: "turn",
+            status: "completed",
+            details: [
+              {
+                rows: [
+                  { key: "status", value: "completed" },
+                  { key: "event", value: "postToolUse" },
+                ],
+              },
+              { title: "Hook output", body: "feedback: ok" },
+            ],
+          },
+          {
+            id: "agent-1",
+            kind: "agent",
+            role: "tool",
+            text: "Spawn agent",
+            turnId: "turn",
+            tool: "spawnAgent",
+            status: "completed",
+            senderThreadId: "parent",
+            receiverThreadIds: ["child"],
+            prompt: null,
+            model: null,
+            reasoningEffort: null,
+            agents: [{ threadId: "child", status: "completed", message: "Done" }],
+          },
+          { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "turn", markdown: true },
+        ],
+        openDetails: new Set(["turn:turn:activity", "hook-1:details"]),
+        onDetailsToggle,
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+      }),
+      new Map(),
+    );
+
+    const group = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="activity:turn-turn-activity"]'));
+    expect(group.querySelector(":scope > .codex-panel__activity-group > summary")?.textContent).toBe("Work details: agent, hook");
+    expect(group.querySelector(".codex-panel__tool-result .codex-panel__tool-result-header")?.textContent).toBe("hook");
+    expect(group.querySelector(".codex-panel__tool-result > .codex-panel__tool-summary")?.textContent).toBe(
+      "postToolUse: Formatted 1 file.",
+    );
+    expect(group.querySelector(".codex-panel__agent-activity .codex-panel__tool-summary")?.textContent).toBe("spawn child (completed)");
+
+    const details = expectPresent(group.querySelector<HTMLDetailsElement>(".codex-panel__activity-group"));
+    details.open = false;
+    details.dispatchEvent(new Event("toggle", { bubbles: false }));
+
+    expect(onDetailsToggle).toHaveBeenCalledWith("turn:turn:activity", false);
+    unmountReactRoot(parent);
+  });
+
   it("renders task progress items as a dedicated task list", () => {
     const block = messageRenderBlocks({
       activeThreadId: "thread",
@@ -1806,6 +1880,47 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("tasks");
     expect(element.textContent).toContain("[x]Inspect code");
     expect(element.textContent).toContain("[>]Patch UI");
+  });
+
+  it("keeps task progress React items mounted in the message stream host", () => {
+    const parent = document.createElement("div");
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: "turn",
+        historyCursor: null,
+        loadingHistory: false,
+        busy: true,
+        displayItems: [
+          {
+            id: "plan-progress-turn",
+            kind: "taskProgress",
+            role: "tool",
+            text: "Plan\n[>] Patch UI",
+            turnId: "turn",
+            explanation: "Plan",
+            steps: [
+              { step: "Inspect code", status: "completed" },
+              { step: "Patch UI", status: "inProgress" },
+            ],
+            status: "inProgress",
+          },
+        ],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+      }),
+      new Map(),
+    );
+
+    const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:plan-progress-turn"]'));
+    expect(block.querySelector(".codex-panel__task-progress .codex-panel__message-role")?.textContent).toBe("tasks");
+    expect(block.textContent).toContain("[x]Inspect code");
+    expect(block.textContent).toContain("[>]Patch UI");
+    unmountReactRoot(parent);
   });
 
   it("renders agent activity with target state and prompt details", () => {
@@ -1847,6 +1962,57 @@ describe("work log renderer decisions", () => {
     expect(element.textContent).toContain("child");
     expect(element.textContent).toContain("completed: Done");
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details", "Prompt"]);
+  });
+
+  it("keeps agent React details mounted in the message stream host", () => {
+    const parent = document.createElement("div");
+    const onDetailsToggle = vi.fn();
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: "turn",
+        historyCursor: null,
+        loadingHistory: false,
+        busy: true,
+        displayItems: [
+          {
+            id: "agent-1",
+            kind: "agent",
+            role: "tool",
+            text: "Spawn agent",
+            turnId: "turn",
+            tool: "spawnAgent",
+            status: "completed",
+            senderThreadId: "parent",
+            receiverThreadIds: ["child"],
+            prompt: "Inspect the renderer.",
+            model: "gpt-5.5",
+            reasoningEffort: "high",
+            agents: [{ threadId: "child", status: "completed", message: "Done" }],
+          },
+        ],
+        openDetails: new Set(),
+        onDetailsToggle,
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+      }),
+      new Map(),
+    );
+
+    const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:agent-1"]'));
+    expect(block.querySelector(".codex-panel__agent-activity .codex-panel__message-role")?.textContent).toBe("agent");
+    expect(block.querySelector(".codex-panel__tool-summary")?.textContent).toBe("spawn child (completed)");
+    expect([...block.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details", "Prompt"]);
+
+    const details = expectPresent(block.querySelector<HTMLDetailsElement>("details"));
+    details.open = true;
+    details.dispatchEvent(new Event("toggle", { bubbles: false }));
+
+    expect(onDetailsToggle).toHaveBeenCalledWith("agent-1:agent-details", true);
+    unmountReactRoot(parent);
   });
 
   it("collapses long agent output away from the agent status row", () => {
@@ -1939,6 +2105,80 @@ describe("work log renderer decisions", () => {
     expect(summary?.textContent).toContain("Agents 1 running, 1 done");
     expect(summary?.textContent).toContain("runningrunning: Inspecting renderer");
     expect(summary?.textContent).toContain("donecompleted");
+  });
+
+  it("renders the compact live agent summary as a React block", () => {
+    const parent = document.createElement("div");
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: "turn",
+        historyCursor: null,
+        loadingHistory: false,
+        busy: true,
+        displayItems: [
+          {
+            id: "agent-1",
+            kind: "agent",
+            role: "tool",
+            text: "Wait for agent",
+            turnId: "turn",
+            tool: "wait",
+            status: "running",
+            senderThreadId: "parent",
+            receiverThreadIds: ["done", "running"],
+            prompt: null,
+            model: null,
+            reasoningEffort: null,
+            agents: [
+              { threadId: "done", status: "completed", message: null },
+              { threadId: "running", status: "running", message: "Inspecting renderer" },
+            ],
+          },
+        ],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+      }),
+      new Map(),
+    );
+
+    const summary = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="active-agents:turn"]'));
+    expect(summary.querySelector(".codex-panel__agent-summary")?.textContent).toContain("Agents 1 running, 1 done");
+    expect(summary.textContent).toContain("runningrunning: Inspecting renderer");
+    unmountReactRoot(parent);
+  });
+
+  it("renders active reasoning as a React message stream block", () => {
+    const parent = document.createElement("div");
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: "turn",
+        historyCursor: null,
+        loadingHistory: false,
+        busy: true,
+        displayItems: [{ id: "reasoning-1", kind: "reasoning", role: "tool", text: "", turnId: "turn", status: "running" }],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+      }),
+      new Map(),
+    );
+
+    const reasoning = expectPresent(
+      parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:reasoning-1"] .codex-panel__reasoning'),
+    );
+    expect(reasoning.classList.contains("is-active")).toBe(true);
+    expect(reasoning.querySelector(".codex-panel__reasoning-role")?.textContent).toBe("reasoning");
+    expect(reasoning.querySelector(".codex-panel__reasoning-content")?.textContent).toBe("Reasoning...");
+    unmountReactRoot(parent);
   });
 
   it("hides the live agent summary once all subagents are complete", () => {
