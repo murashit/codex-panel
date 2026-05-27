@@ -41,19 +41,45 @@ describe("ChatPanelShell", () => {
       renderChatPanelShell(container, renderers);
       await settleShellEffects();
     });
-    vi.mocked(renderers.renderToolbar).mockClear();
-    vi.mocked(renderers.renderMessages).mockClear();
-    vi.mocked(renderers.renderComposer).mockClear();
+    vi.mocked(renderers.toolbar.render).mockClear();
+    vi.mocked(renderers.messages.render).mockClear();
+    vi.mocked(renderers.composer.render).mockClear();
 
     await act(async () => {
       store.dispatch({ type: "status/set", status: "Working" });
       await settleShellEffects();
     });
 
-    expect(renderers.renderToolbar).toHaveBeenCalledTimes(1);
-    expect(renderers.renderMessages).toHaveBeenCalledTimes(1);
-    expect(renderers.renderComposer).toHaveBeenCalledTimes(1);
+    expect(renderers.toolbar.render).toHaveBeenCalledTimes(1);
+    expect(renderers.messages.render).not.toHaveBeenCalled();
+    expect(renderers.composer.render).not.toHaveBeenCalled();
     expect(container.querySelector(".codex-panel__toolbar")?.textContent).toBe("Working");
+
+    unmountChatPanelShell(container);
+  });
+
+  it("forces all slots to rerender when the render version changes", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const renderers = shellRenderers(store);
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+    vi.mocked(renderers.toolbar.render).mockClear();
+    vi.mocked(renderers.messages.render).mockClear();
+    vi.mocked(renderers.composer.render).mockClear();
+
+    await act(async () => {
+      renderChatPanelShell(container, { ...renderers, renderVersion: 1 });
+      await settleShellEffects();
+    });
+
+    expect(renderers.toolbar.render).toHaveBeenCalledTimes(1);
+    expect(renderers.messages.render).toHaveBeenCalledTimes(1);
+    expect(renderers.composer.render).toHaveBeenCalledTimes(1);
 
     unmountChatPanelShell(container);
   });
@@ -68,28 +94,38 @@ describe("ChatPanelShell", () => {
       renderChatPanelShell(container, renderers);
       await settleShellEffects();
     });
-    vi.mocked(renderers.renderToolbar).mockClear();
+    vi.mocked(renderers.toolbar.render).mockClear();
 
     unmountChatPanelShell(container);
     store.dispatch({ type: "status/set", status: "Closed" });
     await settleShellEffects();
 
-    expect(renderers.renderToolbar).not.toHaveBeenCalled();
+    expect(renderers.toolbar.render).not.toHaveBeenCalled();
   });
 });
 
 function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
   return {
     stateStore: store,
-    renderToolbar: vi.fn((toolbar: HTMLElement) => {
-      toolbar.textContent = store.getState().status;
-    }),
-    renderMessages: vi.fn((messages: HTMLElement) => {
-      messages.textContent = String(store.getState().displayItems.length);
-    }),
-    renderComposer: vi.fn((composer: HTMLElement) => {
-      composer.textContent = store.getState().busy ? "busy" : "ready";
-    }),
+    renderVersion: 0,
+    toolbar: {
+      render: vi.fn((toolbar: HTMLElement) => {
+        toolbar.textContent = store.getState().status;
+      }),
+      snapshot: () => store.getState().status,
+    },
+    messages: {
+      render: vi.fn((messages: HTMLElement) => {
+        messages.textContent = String(store.getState().displayItems.length);
+      }),
+      snapshot: () => store.getState().displayItems.length,
+    },
+    composer: {
+      render: vi.fn((composer: HTMLElement) => {
+        composer.textContent = store.getState().busy ? "busy" : "ready";
+      }),
+      snapshot: () => store.getState().busy,
+    },
   };
 }
 

@@ -83,6 +83,21 @@ describe("chatReducer", () => {
     expect(state.runtimePicker).toBeNull();
   });
 
+  it("updates remembered details and user input drafts through typed UI actions", () => {
+    let state = createChatState();
+
+    state = chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: true });
+    expect(state.openDetails.has("request:1")).toBe(true);
+    expect(chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: true })).toBe(state);
+
+    state = chatReducer(state, { type: "request/user-input-draft-set", key: "1:note", value: "answer" });
+    expect(state.userInputDrafts.get("1:note")).toBe("answer");
+    expect(chatReducer(state, { type: "request/user-input-draft-set", key: "1:note", value: "answer" })).toBe(state);
+
+    state = chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: false });
+    expect(state.openDetails.has("request:1")).toBe(false);
+  });
+
   it("commits pending runtime settings and resets applied overrides", () => {
     let state = createChatState();
     state = chatReducer(state, { type: "runtime/requested-model-set", model: "gpt-5.1" });

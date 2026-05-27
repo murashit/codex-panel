@@ -65,7 +65,7 @@ import {
 } from "../../domain/threads/reference";
 import { pendingRequestMessageNode } from "./ui/pending-request-message";
 import { renderToolbar, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
-import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
+import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelSlotSnapshot } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
@@ -111,6 +111,8 @@ export class CodexChatView extends ItemView {
   private readonly blockSignatures = new Map<string, string>();
   private scheduledRestoredThreadHydrationTimer: number | null = null;
   private scheduledRenderTimer: number | null = null;
+  private scheduledRenderForceSlots = false;
+  private shellRenderVersion = 0;
   private scheduledDiagnosticsTimer: number | null = null;
   private archiveConfirmThreadId: string | null = null;
   private connectingPromise: Promise<void> | null = null;
@@ -280,7 +282,7 @@ export class CodexChatView extends ItemView {
       currentClient: () => this.connection.currentClient(),
       refreshThreads: () => this.refreshThreads(),
       render: () => {
-        this.render();
+        this.renderShellSlots();
       },
       addSystemMessage: (text) => {
         this.addSystemMessage(text);
@@ -1184,25 +1186,97 @@ export class CodexChatView extends ItemView {
     return this.restoredThread?.threadId === threadId ? this.restoredThread.explicitName : null;
   }
 
-  private render(): void {
+  private readonly renderToolbarSlot = (toolbar: HTMLElement): void => {
+    this.renderToolbar(toolbar);
+  };
+
+  private readonly renderMessagesSlot = (parent: HTMLElement): void => {
+    this.renderMessages(parent);
+  };
+
+  private readonly renderComposerSlot = (parent: HTMLElement): void => {
+    this.renderComposer(parent);
+  };
+
+  private readonly toolbarSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
+    signatureParts(
+      state.status,
+      state.busy,
+      state.activeThreadId,
+      state.activeTurnId,
+      state.activeModel,
+      state.activeReasoningEffort,
+      state.activeCollaborationMode,
+      state.activeServiceTier,
+      state.activeApprovalsReviewer,
+      state.requestedCollaborationMode,
+      state.requestedServiceTier,
+      state.requestedApprovalsReviewer,
+      state.requestedModel,
+      state.requestedReasoningEffort,
+      state.runtimePicker,
+      openDetailsSignature(state.openDetails),
+      state.threadsLoaded,
+      threadListSignature(state.listedThreads),
+      modelsSignature(state.availableModels),
+      state.effectiveConfig,
+      state.rateLimit,
+      state.tokenUsage,
+      state.appServerDiagnostics,
+      this.connection.isConnected(),
+    );
+
+  private readonly messagesSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
+    signatureParts(
+      state.activeThreadId,
+      state.activeTurnId,
+      state.activeThreadCwd,
+      state.historyCursor,
+      state.loadingHistory,
+      state.busy,
+      state.messagesPinnedToBottom,
+      state.composerDraft,
+      state.requestedCollaborationMode,
+      displayItemsSignature(state.displayItems),
+      turnDiffsSignature(state.turnDiffs),
+      openDetailsSignature(state.openDetails),
+      this.pendingRequestsSignature(),
+    );
+
+  private readonly composerSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
+    signatureParts(
+      state.composerDraft,
+      state.busy,
+      state.activeThreadId,
+      state.activeTurnId,
+      currentModel(this.runtimeSnapshotForState(state), readRuntimeConfig(state.effectiveConfig)),
+      state.availableSkills.length,
+      skillsSignature(state.availableSkills),
+      modelsSignature(state.availableModels),
+      threadListSignature(state.listedThreads),
+      this.activeComposerThreadName(),
+    );
+
+  private render(options: { forceSlots?: boolean } = {}): void {
     if (this.scheduledRenderTimer !== null) {
       window.clearTimeout(this.scheduledRenderTimer);
       this.scheduledRenderTimer = null;
+      this.scheduledRenderForceSlots = false;
     }
     const root = this.panelRoot();
     if (!root) return;
+    if (options.forceSlots) this.shellRenderVersion += 1;
     renderChatPanelShell(root, {
       stateStore: this.chatState,
-      renderToolbar: (toolbar) => {
-        this.renderToolbar(toolbar);
-      },
-      renderMessages: (parent) => {
-        this.renderMessages(parent);
-      },
-      renderComposer: (parent) => {
-        this.renderComposer(parent);
-      },
+      renderVersion: this.shellRenderVersion,
+      toolbar: { render: this.renderToolbarSlot, snapshot: this.toolbarSnapshot },
+      messages: { render: this.renderMessagesSlot, snapshot: this.messagesSnapshot },
+      composer: { render: this.renderComposerSlot, snapshot: this.composerSnapshot },
     });
+  }
+
+  private renderShellSlots(): void {
+    this.render({ forceSlots: true });
   }
 
   private renderToolbar(toolbar: HTMLElement): void {
@@ -1383,13 +1457,13 @@ export class CodexChatView extends ItemView {
 
   private startArchiveThread(threadId: string): void {
     this.archiveConfirmThreadId = threadId;
-    this.scheduleRender();
+    this.scheduleRender({ forceSlots: true });
   }
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
     if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
     await this.threadActions.archiveThread(threadId, saveMarkdown);
-    this.scheduleRender();
+    this.scheduleRender({ forceSlots: true });
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {
@@ -1402,7 +1476,7 @@ export class CodexChatView extends ItemView {
       if (insideToolbarPanel && this.containerEl.contains(insideToolbarPanel)) {
         if (this.archiveConfirmThreadId && !target.closest(".codex-panel__archive-confirm")) {
           this.archiveConfirmThreadId = null;
-          this.scheduleRender();
+          this.scheduleRender({ forceSlots: true });
         }
         return;
       }
@@ -1410,7 +1484,7 @@ export class CodexChatView extends ItemView {
 
     if (this.archiveConfirmThreadId) {
       this.archiveConfirmThreadId = null;
-      this.scheduleRender();
+      this.scheduleRender({ forceSlots: true });
     }
 
     if (this.threadRename.isEditing()) return;
@@ -1427,14 +1501,17 @@ export class CodexChatView extends ItemView {
 
     this.dispatch({ type: "ui/panel-set", panel: null });
     this.archiveConfirmThreadId = null;
-    this.scheduleRender();
+    this.scheduleRender({ forceSlots: true });
   }
 
-  private scheduleRender(): void {
+  private scheduleRender(options: { forceSlots?: boolean } = {}): void {
+    this.scheduledRenderForceSlots ||= options.forceSlots ?? false;
     if (this.scheduledRenderTimer !== null) return;
     this.scheduledRenderTimer = this.containerEl.win.setTimeout(() => {
+      const forceSlots = this.scheduledRenderForceSlots;
       this.scheduledRenderTimer = null;
-      this.render();
+      this.scheduledRenderForceSlots = false;
+      this.render({ forceSlots });
     }, 50);
   }
 
@@ -1537,23 +1614,27 @@ export class CodexChatView extends ItemView {
   }
 
   private runtimeSnapshot(): RuntimeSnapshot {
+    return this.runtimeSnapshotForState(this.state);
+  }
+
+  private runtimeSnapshotForState(state: ChatState): RuntimeSnapshot {
     return {
-      effectiveConfig: this.state.effectiveConfig,
-      activeThreadId: this.state.activeThreadId,
-      activeModel: this.state.activeModel,
-      activeReasoningEffort: this.state.activeReasoningEffort,
-      activeCollaborationMode: this.state.activeCollaborationMode,
-      activeServiceTier: this.state.activeServiceTier,
-      activeApprovalsReviewer: this.state.activeApprovalsReviewer,
-      requestedModel: this.state.requestedModel,
-      requestedReasoningEffort: this.state.requestedReasoningEffort,
-      requestedApprovalsReviewer: this.state.requestedApprovalsReviewer,
-      requestedCollaborationMode: this.state.requestedCollaborationMode,
-      requestedServiceTier: this.state.requestedServiceTier,
-      tokenUsage: this.state.tokenUsage,
-      rateLimit: this.state.rateLimit,
-      hasThreadTurns: this.state.displayItems.some((item) => item.turnId),
-      availableModels: this.state.availableModels,
+      effectiveConfig: state.effectiveConfig,
+      activeThreadId: state.activeThreadId,
+      activeModel: state.activeModel,
+      activeReasoningEffort: state.activeReasoningEffort,
+      activeCollaborationMode: state.activeCollaborationMode,
+      activeServiceTier: state.activeServiceTier,
+      activeApprovalsReviewer: state.activeApprovalsReviewer,
+      requestedModel: state.requestedModel,
+      requestedReasoningEffort: state.requestedReasoningEffort,
+      requestedApprovalsReviewer: state.requestedApprovalsReviewer,
+      requestedCollaborationMode: state.requestedCollaborationMode,
+      requestedServiceTier: state.requestedServiceTier,
+      tokenUsage: state.tokenUsage,
+      rateLimit: state.rateLimit,
+      hasThreadTurns: state.displayItems.some((item) => item.turnId),
+      availableModels: state.availableModels,
     };
   }
 
@@ -1572,14 +1653,10 @@ export class CodexChatView extends ItemView {
         resolveUserInput: (input) => void this.resolveUserInput(input),
         cancelUserInput: (input) => void this.cancelUserInput(input),
         setOpenDetail: (key, open) => {
-          const openDetails = open
-            ? new Set([...this.state.openDetails, key])
-            : new Set([...this.state.openDetails].filter((item) => item !== key));
-          this.dispatch({ type: "state/patched", patch: { openDetails } });
+          this.dispatch({ type: "ui/detail-open-set", key, open });
         },
         setUserInputDraft: (key, value) => {
-          const userInputDrafts = new Map([...this.state.userInputDrafts, [key, value]]);
-          this.dispatch({ type: "state/patched", patch: { userInputDrafts } });
+          this.dispatch({ type: "request/user-input-draft-set", key, value });
         },
       },
     );
@@ -1635,6 +1712,48 @@ export class CodexChatView extends ItemView {
 
 function latestProposedPlanItem(items: DisplayItem[]): DisplayItem | null {
   return [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ?? null;
+}
+
+function signatureParts(...values: unknown[]): string {
+  return values.map((value) => stableSignature(value)).join("\u001f");
+}
+
+function stableSignature(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+function openDetailsSignature(openDetails: ReadonlySet<string>): string {
+  return [...openDetails].sort().join("\n");
+}
+
+function turnDiffsSignature(turnDiffs: ReadonlyMap<string, string>): string {
+  return [...turnDiffs]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([turnId, diff]) => `${turnId}:${diff}`)
+    .join("\n");
+}
+
+function displayItemsSignature(items: DisplayItem[]): string {
+  return stableSignature(items);
+}
+
+function threadListSignature(threads: Thread[]): string {
+  return threads
+    .map((thread) =>
+      signatureParts(thread.id, thread.name, thread.preview, thread.updatedAt, thread.cliVersion, thread.status, thread.gitInfo),
+    )
+    .join("\n");
+}
+
+function modelsSignature(models: Model[]): string {
+  return models.map((model) => stableSignature(model)).join("\n");
+}
+
+function skillsSignature(skills: ChatState["availableSkills"]): string {
+  return skills.map((skill) => stableSignature(skill)).join("\n");
 }
 
 function parseRestoredThreadState(state: unknown): RestoredThreadState | null {

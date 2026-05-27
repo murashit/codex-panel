@@ -141,6 +141,8 @@ export type ChatAction =
       toggle?: boolean;
     }
   | { type: "ui/messages-pinned-set"; pinned: boolean }
+  | { type: "ui/detail-open-set"; key: string; open: boolean }
+  | { type: "request/user-input-draft-set"; key: string; value: string }
   | { type: "runtime/requested-model-set"; model: string | null }
   | { type: "runtime/requested-effort-set"; effort: ReasoningEffort | null }
   | { type: "runtime/requested-service-tier-set"; serviceTier: ServiceTier | null; activate?: boolean }
@@ -312,6 +314,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return setPanelState(state, action.panel, action.toggle ?? false);
     case "ui/messages-pinned-set":
       return patchChatState(state, { messagesPinnedToBottom: action.pinned });
+    case "ui/detail-open-set":
+      return setDetailOpenState(state, action.key, action.open);
+    case "request/user-input-draft-set":
+      return setUserInputDraftState(state, action.key, action.value);
     case "runtime/requested-model-set":
       return patchChatState(state, { requestedModel: action.model === null ? resetRuntimeOverride() : setRuntimeOverride(action.model) });
     case "runtime/requested-effort-set":
@@ -448,6 +454,22 @@ function setPanelState(state: ChatState, panel: "history" | "status-panel" | "mo
         : new Set([...state.openDetails].filter((key) => key !== "history" && key !== "status-panel")),
     runtimePicker: nextPanel === "model" || nextPanel === "effort" ? nextPanel : null,
   });
+}
+
+function setDetailOpenState(state: ChatState, key: string, open: boolean): ChatState {
+  if (state.openDetails.has(key) === open) return state;
+  const openDetails = new Set(state.openDetails);
+  if (open) {
+    openDetails.add(key);
+  } else {
+    openDetails.delete(key);
+  }
+  return patchChatState(state, { openDetails });
+}
+
+function setUserInputDraftState(state: ChatState, key: string, value: string): ChatState {
+  if (state.userInputDrafts.get(key) === value) return state;
+  return patchChatState(state, { userInputDrafts: new Map([...state.userInputDrafts, [key, value]]) });
 }
 
 function commitPendingThreadSettings(state: ChatState, update: Omit<ThreadSettingsUpdateParams, "threadId">): ChatState {

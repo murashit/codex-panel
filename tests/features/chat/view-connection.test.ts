@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/view";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
+import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
 import { notices } from "../../mocks/obsidian";
 import { installObsidianDomShims } from "./ui/dom-test-helpers";
 
@@ -254,6 +255,20 @@ describe("CodexChatView connection lifecycle", () => {
     expect(state.effectiveConfig).toEqual({ config: { model: "gpt-cached" }, origins: {}, layers: [] });
     expect(state.availableModels).toEqual([]);
     expect(state.availableSkills).toEqual([{ name: "writer", enabled: true }]);
+  });
+
+  it("tracks composer slot dependencies for model and skill suggestions", async () => {
+    const view = await chatView();
+    const composerSnapshot = (view as unknown as { composerSnapshot: (state: ChatState) => string }).composerSnapshot;
+    const state = createChatState();
+    state.effectiveConfig = effectiveConfig("gpt-configured");
+    state.availableSkills = [skillFixture("writer")];
+
+    const base = composerSnapshot(state);
+
+    expect(composerSnapshot({ ...state, effectiveConfig: effectiveConfig("gpt-updated") })).not.toBe(base);
+    expect(composerSnapshot({ ...state, requestedModel: { kind: "set", value: "gpt-requested" } })).not.toBe(base);
+    expect(composerSnapshot({ ...state, availableSkills: [skillFixture("reader")] })).not.toBe(base);
   });
 
   it("hydrates a focused restored thread immediately", async () => {
@@ -735,6 +750,20 @@ function threadFixture(threadId: string) {
     name: null,
     turns: [],
   };
+}
+
+function effectiveConfig(model: string): ChatState["effectiveConfig"] {
+  return { config: { model }, origins: {}, layers: [] } as never;
+}
+
+function skillFixture(name: string): ChatState["availableSkills"][number] {
+  return {
+    name,
+    description: `${name} skill`,
+    path: `/skills/${name}/SKILL.md`,
+    scope: "repo",
+    enabled: true,
+  } as ChatState["availableSkills"][number];
 }
 
 function turnWithUserMessage(text: string) {

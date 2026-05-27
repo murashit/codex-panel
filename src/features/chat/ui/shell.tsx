@@ -1,35 +1,37 @@
 import { useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 
 import { renderReactRoot, unmountReactRoot } from "../../../shared/ui/react-root";
-import type { ChatStateStore } from "../chat-state";
+import type { ChatState, ChatStateStore } from "../chat-state";
+
+export type ChatPanelSlotSnapshot = string | number | boolean | null;
 
 export interface ChatPanelShellProps {
   stateStore: ChatStateStore;
-  renderToolbar: (toolbar: HTMLElement) => void;
-  renderMessages: (parent: HTMLElement) => void;
-  renderComposer: (parent: HTMLElement) => void;
+  renderVersion: number;
+  toolbar: ChatPanelSlotProps;
+  messages: ChatPanelSlotProps;
+  composer: ChatPanelSlotProps;
 }
 
 interface ChatPanelShellSlots {
-  toolbar: HTMLElement;
-  messages: HTMLElement;
-  composer: HTMLElement;
+  toolbar?: HTMLElement;
+  messages?: HTMLElement;
+  composer?: HTMLElement;
 }
 
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
-  const mountedSlots: { current: ChatPanelShellSlots | null } = { current: null };
+  const mountedSlots: ChatPanelShellSlots = {};
   container.addClass("codex-panel");
   renderReactRoot(
     container,
     <ChatPanelShell
       {...props}
-      onSlotsReady={(slots) => {
-        mountedSlots.current = slots;
+      onSlotReady={(name, element) => {
+        mountedSlots[name] = element;
       }}
     />,
   );
-  const slots = mountedSlots.current;
-  if (slots) renderChatPanelShellSlots(slots, props);
+  renderMountedSlots(mountedSlots, props);
 }
 
 export function unmountChatPanelShell(container: HTMLElement | null): void {
@@ -39,53 +41,103 @@ export function unmountChatPanelShell(container: HTMLElement | null): void {
 
 function ChatPanelShell({
   stateStore,
-  renderToolbar,
-  renderMessages,
-  renderComposer,
-  onSlotsReady,
-}: ChatPanelShellProps & { onSlotsReady: (slots: ChatPanelShellSlots) => void }): ReactNode {
-  const state = useSyncExternalStore(
-    (listener) => stateStore.subscribe(listener),
-    () => stateStore.getState(),
-    () => stateStore.getState(),
-  );
-  const toolbarRef = useRef<HTMLDivElement | null>(null);
-  const messagesRef = useRef<HTMLDivElement | null>(null);
-  const composerRef = useRef<HTMLDivElement | null>(null);
-  const renderGeneration = useRef(0);
-
-  useLayoutEffect(() => {
-    const toolbar = toolbarRef.current;
-    const messages = messagesRef.current;
-    const composer = composerRef.current;
-    if (!toolbar || !messages || !composer) return;
-
-    const slots = { toolbar, messages, composer };
-    onSlotsReady(slots);
-    const generation = ++renderGeneration.current;
-    void Promise.resolve().then(() => {
-      if (generation !== renderGeneration.current || !toolbar.isConnected || !messages.isConnected || !composer.isConnected) return;
-      renderChatPanelShellSlots(slots, { renderToolbar, renderMessages, renderComposer });
-    });
-  }, [state, stateStore, renderToolbar, renderMessages, renderComposer, onSlotsReady]);
-
+  renderVersion,
+  toolbar,
+  messages,
+  composer,
+  onSlotReady,
+}: ChatPanelShellProps & { onSlotReady: (name: keyof ChatPanelShellSlots, element: HTMLElement) => void }): ReactNode {
   return (
     <>
-      <div ref={toolbarRef} className="codex-panel__toolbar" />
+      <ChatPanelSlot
+        name="toolbar"
+        className="codex-panel__toolbar"
+        stateStore={stateStore}
+        renderVersion={renderVersion}
+        slot={toolbar}
+        onSlotReady={onSlotReady}
+      />
       <div className="codex-panel__body">
         <div className="codex-panel__slot codex-panel__slot--config" />
-        <div ref={messagesRef} className="codex-panel__slot codex-panel__slot--messages" />
-        <div ref={composerRef} className="codex-panel__slot codex-panel__slot--composer" />
+        <ChatPanelSlot
+          name="messages"
+          className="codex-panel__slot codex-panel__slot--messages"
+          stateStore={stateStore}
+          renderVersion={renderVersion}
+          slot={messages}
+          onSlotReady={onSlotReady}
+        />
+        <ChatPanelSlot
+          name="composer"
+          className="codex-panel__slot codex-panel__slot--composer"
+          stateStore={stateStore}
+          renderVersion={renderVersion}
+          slot={composer}
+          onSlotReady={onSlotReady}
+        />
       </div>
     </>
   );
 }
 
-function renderChatPanelShellSlots(
-  slots: ChatPanelShellSlots,
-  { renderToolbar, renderMessages, renderComposer }: Pick<ChatPanelShellProps, "renderToolbar" | "renderMessages" | "renderComposer">,
-): void {
-  renderToolbar(slots.toolbar);
-  renderMessages(slots.messages);
-  renderComposer(slots.composer);
+interface ChatPanelSlotProps {
+  render: (slot: HTMLElement) => void;
+  snapshot: (state: ChatState) => ChatPanelSlotSnapshot;
+}
+
+function ChatPanelSlot({
+  name,
+  className,
+  stateStore,
+  renderVersion,
+  slot,
+  onSlotReady,
+}: {
+  name: keyof ChatPanelShellSlots;
+  className: string;
+  stateStore: ChatStateStore;
+  renderVersion: number;
+  slot: ChatPanelSlotProps;
+  onSlotReady: (name: keyof ChatPanelShellSlots, element: HTMLElement) => void;
+}): ReactNode {
+  const snapshot = useSyncExternalStore(
+    (listener) => stateStore.subscribe(listener),
+    () => slot.snapshot(stateStore.getState()),
+    () => slot.snapshot(stateStore.getState()),
+  );
+  const ref = useRef<HTMLDivElement | null>(null);
+  const renderGeneration = useRef(0);
+  const renderKey = `${String(renderVersion)}\u001f${String(snapshot)}`;
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    onSlotReady(name, element);
+    const generation = ++renderGeneration.current;
+    void Promise.resolve().then(() => {
+      if (generation !== renderGeneration.current || !element.isConnected) return;
+      renderSlotIfNeeded(element, slot, renderKey);
+    });
+  }, [name, onSlotReady, renderKey, slot]);
+
+  return <div ref={ref} className={className} />;
+}
+
+function renderMountedSlots(slots: ChatPanelShellSlots, props: ChatPanelShellProps): void {
+  const state = props.stateStore.getState();
+  if (slots.toolbar) renderSlotIfNeeded(slots.toolbar, props.toolbar, slotRenderKey(props.renderVersion, props.toolbar.snapshot(state)));
+  if (slots.messages)
+    renderSlotIfNeeded(slots.messages, props.messages, slotRenderKey(props.renderVersion, props.messages.snapshot(state)));
+  if (slots.composer)
+    renderSlotIfNeeded(slots.composer, props.composer, slotRenderKey(props.renderVersion, props.composer.snapshot(state)));
+}
+
+function renderSlotIfNeeded(element: HTMLElement, slot: ChatPanelSlotProps, renderKey: string): void {
+  if (element.dataset["codexPanelSlotRenderKey"] === renderKey) return;
+  slot.render(element);
+  element.dataset["codexPanelSlotRenderKey"] = renderKey;
+}
+
+function slotRenderKey(renderVersion: number, snapshot: ChatPanelSlotSnapshot): string {
+  return `${String(renderVersion)}\u001f${String(snapshot)}`;
 }

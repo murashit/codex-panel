@@ -156,10 +156,7 @@ export class ChatMessageRenderer {
   }
 
   private setOpenDetail(key: string, open: boolean): void {
-    const openDetails = open
-      ? new Set([...this.state.openDetails, key])
-      : new Set([...this.state.openDetails].filter((item) => item !== key));
-    this.dispatch({ type: "state/patched", patch: { openDetails } });
+    this.dispatch({ type: "ui/detail-open-set", key, open });
   }
 
   private bindRenderedWikiLinks(parent: HTMLElement, sourcePath: string): void {
