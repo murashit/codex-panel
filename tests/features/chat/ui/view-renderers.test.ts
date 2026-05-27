@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
+import { act, createElement, type ReactNode } from "react";
 
 import type { PendingApproval } from "../../../../src/features/chat/approvals/model";
 import type { PendingUserInput } from "../../../../src/features/chat/user-input/model";
@@ -36,6 +37,17 @@ function messageRenderBlocks(
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
+}
+
+function testMessageRenderBlock(key: string, signature: string, node: ReactNode): ReturnType<typeof rawMessageRenderBlocks>[number] {
+  return { key, signature, node };
+}
+
+function renderMessageBlockElement(block: ReturnType<typeof rawMessageRenderBlocks>[number]): HTMLElement {
+  const parent = document.createElement("div");
+  renderMessageRenderBlocks(parent, [block], new Map());
+  const host = expectPresent(parent.querySelector<HTMLElement>(`[data-codex-panel-block-key="${block.key}"]`));
+  return expectPresent(host.firstElementChild as HTMLElement | null);
 }
 
 function composerCallbacks() {
@@ -173,29 +185,28 @@ describe("message stream block identity and message actions", () => {
   it("reuses React message block hosts while signatures are stable", () => {
     const parent = document.createElement("div");
     const signatures = new Map<string, string>();
-    const first = document.createElement("section");
-    first.textContent = "first";
-    const firstRender = vi.fn(() => first);
 
-    renderMessageRenderBlocks(parent, [{ key: "one", signature: "same", render: firstRender }], signatures);
+    renderMessageRenderBlocks(parent, [testMessageRenderBlock("one", "same", createElement("section", null, "first"))], signatures);
 
     const host = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="one"]'));
     expect(host.classList.contains("codex-panel__message-block")).toBe(true);
-    expect(host.firstElementChild).toBe(first);
-    expect(firstRender).toHaveBeenCalledOnce();
+    expect(host.firstElementChild?.tagName).toBe("SECTION");
+    expect(host.textContent).toBe("first");
 
-    const skippedRender = vi.fn(() => document.createElement("aside"));
-    renderMessageRenderBlocks(parent, [{ key: "one", signature: "same", render: skippedRender }], signatures);
-
-    expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
-    expect(host.firstElementChild).toBe(first);
-    expect(skippedRender).not.toHaveBeenCalled();
-
-    const replacement = document.createElement("article");
-    renderMessageRenderBlocks(parent, [{ key: "one", signature: "changed", render: () => replacement }], signatures);
+    renderMessageRenderBlocks(parent, [testMessageRenderBlock("one", "same", createElement("section", null, "still first"))], signatures);
 
     expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
-    expect(host.firstElementChild).toBe(replacement);
+    expect(host.firstElementChild?.tagName).toBe("SECTION");
+    expect(host.textContent).toBe("still first");
+
+    renderMessageRenderBlocks(
+      parent,
+      [testMessageRenderBlock("one", "changed", createElement("article", null, "replacement"))],
+      signatures,
+    );
+
+    expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
+    expect(host.firstElementChild?.tagName).toBe("ARTICLE");
     expect(signatures.get("one")).toBe("changed");
 
     renderMessageRenderBlocks(parent, [], signatures);
@@ -207,14 +218,12 @@ describe("message stream block identity and message actions", () => {
   it("leaves stable ordered React message block hosts in place during repeated renders", () => {
     const parent = document.createElement("div");
     const signatures = new Map<string, string>();
-    const first = document.createElement("section");
-    const second = document.createElement("article");
 
     renderMessageRenderBlocks(
       parent,
       [
-        { key: "one", signature: "same-one", render: () => first },
-        { key: "two", signature: "same-two", render: () => second },
+        testMessageRenderBlock("one", "same-one", createElement("section", null, "one")),
+        testMessageRenderBlock("two", "same-two", createElement("article", null, "two")),
       ],
       signatures,
     );
@@ -222,21 +231,19 @@ describe("message stream block identity and message actions", () => {
     const secondHost = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="two"]'));
 
     const insertBefore = vi.spyOn(parent, "insertBefore");
-    const skippedRender = vi.fn(() => document.createElement("aside"));
     renderMessageRenderBlocks(
       parent,
       [
-        { key: "one", signature: "same-one", render: skippedRender },
-        { key: "two", signature: "same-two", render: skippedRender },
+        testMessageRenderBlock("one", "same-one", createElement("section", null, "one again")),
+        testMessageRenderBlock("two", "same-two", createElement("article", null, "two again")),
       ],
       signatures,
     );
 
     expect(insertBefore).not.toHaveBeenCalled();
-    expect(skippedRender).not.toHaveBeenCalled();
     expect([...parent.children]).toEqual([firstHost, secondHost]);
-    expect(firstHost.firstElementChild).toBe(first);
-    expect(secondHost.firstElementChild).toBe(second);
+    expect(firstHost.firstElementChild?.tagName).toBe("SECTION");
+    expect(secondHost.firstElementChild?.tagName).toBe("ARTICLE");
     unmountReactRoot(parent);
   });
 
@@ -388,7 +395,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__message--review-result")).toBe(true);
     expect(element.classList.contains("codex-panel__tool-result--plain")).toBe(true);
@@ -431,7 +438,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(topLevelDetailsSummaries(element)).toEqual(["auto-review"]);
@@ -567,7 +574,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__message--system")).toBe(true);
     expect(element.querySelector(".codex-panel__message-content")?.textContent).toBe("Available slash commands");
@@ -599,7 +606,7 @@ describe("message stream block identity and message actions", () => {
       onRollbackItem,
     });
 
-    const rendered = blocks.map((block) => block.render());
+    const rendered = blocks.map((block) => renderMessageBlockElement(block));
 
     expect(expectPresent(rendered[0]).querySelector(".codex-panel__rollback-turn")).toBeNull();
     expect(expectPresent(rendered[1]).querySelector(".codex-panel__rollback-turn")).toBeNull();
@@ -628,7 +635,7 @@ describe("message stream block identity and message actions", () => {
       copyText,
     });
 
-    const rendered = blocks.map((block) => block.render());
+    const rendered = blocks.map((block) => renderMessageBlockElement(block));
     const userButton = expectPresent(rendered[0]).querySelector<HTMLButtonElement>(".codex-panel__copy-message");
     const assistantButton = expectPresent(rendered[1]).querySelector<HTMLButtonElement>(".codex-panel__copy-message");
 
@@ -769,8 +776,8 @@ describe("message stream block identity and message actions", () => {
     const runningBlock = messageRenderBlocks(context)[0];
     const completedBlock = messageRenderBlocks({ ...context, busy: false, activeTurnId: null })[0];
 
-    expect(runningBlock.render().querySelector(".codex-panel__copy-message")).toBeNull();
-    expect(completedBlock.render().querySelector(".codex-panel__copy-message")).not.toBeNull();
+    expect(renderMessageBlockElement(runningBlock).querySelector(".codex-panel__copy-message")).toBeNull();
+    expect(renderMessageBlockElement(completedBlock).querySelector(".codex-panel__copy-message")).not.toBeNull();
     expect(runningBlock.signature).not.toBe(completedBlock.signature);
   });
 
@@ -803,7 +810,7 @@ describe("message stream block identity and message actions", () => {
       onImplementPlanItem,
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
     const button = element.querySelector<HTMLButtonElement>(".codex-panel__implement-plan");
 
     expect(button?.getAttribute("aria-label")).toBe("Implement plan");
@@ -883,7 +890,7 @@ describe("message stream block identity and message actions", () => {
       copyText: vi.fn(),
     })[0];
 
-    expect(block.render().querySelector(".codex-panel__copy-message")).toBeNull();
+    expect(renderMessageBlockElement(block).querySelector(".codex-panel__copy-message")).toBeNull();
   });
 
   it("renders copy and rollback actions together when both apply", () => {
@@ -905,7 +912,7 @@ describe("message stream block identity and message actions", () => {
       onRollbackItem,
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
     element.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
     element.querySelector<HTMLButtonElement>(".codex-panel__rollback-turn")?.click();
 
@@ -941,7 +948,7 @@ describe("message stream block identity and message actions", () => {
         copyText,
       })[0];
 
-      const element = block.render();
+      const element = renderMessageBlockElement(block);
       const content = element.querySelector<HTMLElement>(".codex-panel__message-content");
       const details = element.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details");
 
@@ -951,7 +958,9 @@ describe("message stream block identity and message actions", () => {
 
       if (details) {
         details.open = true;
-        details.dispatchEvent(new Event("toggle"));
+        act(() => {
+          details.dispatchEvent(new Event("toggle"));
+        });
       }
       expect(openDetails.has("message:u1:expanded")).toBe(true);
       expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(false);
@@ -965,7 +974,7 @@ describe("message stream block identity and message actions", () => {
 
   it("does not show the collapse control for short user messages or assistant messages", () => {
     withMessageContentScrollHeight(120, () => {
-      const shortUser = messageRenderBlocks({
+      const shortUserBlock = messageRenderBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -976,13 +985,14 @@ describe("message stream block identity and message actions", () => {
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
         renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
-      })[0].render();
+      })[0];
+      const shortUser = renderMessageBlockElement(shortUserBlock);
 
       expect(shortUser.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details")?.hidden).toBe(true);
     });
 
     withMessageContentScrollHeight(500, () => {
-      const assistant = messageRenderBlocks({
+      const assistantBlock = messageRenderBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -993,7 +1003,8 @@ describe("message stream block identity and message actions", () => {
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
         renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
-      })[0].render();
+      })[0];
+      const assistant = renderMessageBlockElement(assistantBlock);
 
       expect(assistant.querySelector(".codex-panel__message-collapse-details")).toBeNull();
     });
@@ -1015,7 +1026,7 @@ describe("message stream block identity and message actions", () => {
       onRollbackItem: vi.fn(),
     })[0];
 
-    expect(block.render().querySelector(".codex-panel__rollback-turn")).toBeNull();
+    expect(renderMessageBlockElement(block).querySelector(".codex-panel__rollback-turn")).toBeNull();
   });
 
   it("renders command items as a compact summary with output behind details", () => {
@@ -1045,7 +1056,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("npm run check (exit 1)");
     expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBeNull();
@@ -1083,7 +1094,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
     const metaText = element.querySelector(".codex-panel__meta-grid")?.textContent ?? "";
 
     expect(metaText).toContain("commandnpm run check");
@@ -1121,7 +1132,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["read"]);
   });
@@ -1152,7 +1163,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/main.ts");
     expect(topLevelDetailsSummaries(element)).toEqual(["file change"]);
@@ -1193,10 +1204,10 @@ describe("message stream block identity and message actions", () => {
       openTurnDiff,
     });
 
-    const assistant = blocks.find((block) => block.key === "item:a1")?.render();
-    const button = assistant?.querySelector<HTMLButtonElement>(".codex-panel__open-turn-diff");
+    const assistant = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
+    const button = assistant.querySelector<HTMLButtonElement>(".codex-panel__open-turn-diff");
 
-    expect(assistant?.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
+    expect(assistant.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
     expect(button?.getAttribute("aria-label")).toBe("View diff");
     expect(button?.textContent).toContain("View diff");
     button?.click();
@@ -1238,12 +1249,12 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
-    const user = blocks.find((block) => block.key === "item:u1")?.render();
+    const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
 
-    expect(user?.querySelector(".codex-panel__message-content")?.textContent).toBe("この続きです");
-    expect(user?.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("Referenced 参照元");
-    expect(user?.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("2/20 turns");
-    expect(user?.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.getAttribute("title")).toBeNull();
+    expect(user.querySelector(".codex-panel__message-content")?.textContent).toBe("この続きです");
+    expect(user.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("Referenced 参照元");
+    expect(user.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("2/20 turns");
+    expect(user.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.getAttribute("title")).toBeNull();
   });
 
   it("renders resolved file mentions as a collapsed user message attachment", () => {
@@ -1270,12 +1281,12 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
-    const user = blocks.find((block) => block.key === "item:u1")?.render();
+    const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
 
-    expect(user?.querySelector(".codex-panel__message-content")?.textContent).toBe("Read [[Alpha]].");
-    expect(user?.querySelector(".codex-panel__mentioned-files summary")?.textContent).toBe("Mentioned 1 file");
-    expect(user?.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("Alpha");
-    expect(user?.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("thoughts/Alpha.md");
+    expect(user.querySelector(".codex-panel__message-content")?.textContent).toBe("Read [[Alpha]].");
+    expect(user.querySelector(".codex-panel__mentioned-files summary")?.textContent).toBe("Mentioned 1 file");
+    expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("Alpha");
+    expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("thoughts/Alpha.md");
   });
 
   it("does not render the open diff action without aggregated turn diff", () => {
@@ -1304,10 +1315,10 @@ describe("message stream block identity and message actions", () => {
       openTurnDiff: vi.fn(),
     });
 
-    const assistant = blocks.find((block) => block.key === "item:a1")?.render();
+    const assistant = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
 
-    expect(assistant?.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
-    expect(assistant?.querySelector(".codex-panel__open-turn-diff")).toBeNull();
+    expect(assistant.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
+    expect(assistant.querySelector(".codex-panel__open-turn-diff")).toBeNull();
   });
 });
 
@@ -1509,7 +1520,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("123");
     expect(topLevelDetailsSummaries(element)).toEqual(["github.pull_request_read"]);
@@ -1548,7 +1559,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("is-open")).toBe(true);
     expect(element.querySelector("details")?.hasAttribute("open")).toBe(true);
@@ -1579,7 +1590,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__tool-result--plain")).toBe(true);
     expect(element.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("web search");
@@ -1611,7 +1622,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("assets/image.png");
     expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBeNull();
@@ -1642,7 +1653,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("/tmp/image.png");
   });
@@ -1671,7 +1682,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("/vault/project");
   });
@@ -1711,7 +1722,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(topLevelDetailsSummaries(element)).toEqual(["hook"]);
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["hook"]);
@@ -1760,15 +1771,15 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
-    const element = blocks.find((block) => block.key === "activity:turn-turn-activity")?.render();
+    const element = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")));
 
     expect(element).toBeDefined();
-    expect(element?.querySelector(":scope > summary")?.textContent).toBe("Work details: hook");
-    expect(element?.querySelector(".codex-panel__tool-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
-    expect(element?.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
-    expect(element?.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
-    expect(element?.querySelector(".codex-panel__output-title")?.textContent).toBe("Hook output");
-    expect(element?.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
+    expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details: hook");
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
+    expect(element.querySelector(".codex-panel__output-title")?.textContent).toBe("Hook output");
+    expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
   });
 
   it("keeps completed-turn activity group items mounted through React", () => {
@@ -1873,7 +1884,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__work-message")).toBe(true);
     expect(element.classList.contains("codex-panel__task-progress")).toBe(true);
@@ -1953,7 +1964,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__work-message")).toBe(true);
     expect(element.classList.contains("codex-panel__agent-activity")).toBe(true);
@@ -2049,7 +2060,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__agent-thread")?.textContent).toBe("019e061e");
     expect(element.querySelector(".codex-panel__agent-status")?.textContent).toBe("completed: Done");
@@ -2097,14 +2108,14 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
-    const summary = blocks.at(-1)?.render();
+    const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));
 
-    expect(summary?.classList.contains("codex-panel__work-message")).toBe(true);
-    expect(summary?.classList.contains("codex-panel__agent-summary")).toBe(true);
-    expect(summary?.textContent).toContain("agents");
-    expect(summary?.textContent).toContain("Agents 1 running, 1 done");
-    expect(summary?.textContent).toContain("runningrunning: Inspecting renderer");
-    expect(summary?.textContent).toContain("donecompleted");
+    expect(summary.classList.contains("codex-panel__work-message")).toBe(true);
+    expect(summary.classList.contains("codex-panel__agent-summary")).toBe(true);
+    expect(summary.textContent).toContain("agents");
+    expect(summary.textContent).toContain("Agents 1 running, 1 done");
+    expect(summary.textContent).toContain("runningrunning: Inspecting renderer");
+    expect(summary.textContent).toContain("donecompleted");
   });
 
   it("renders the compact live agent summary as a React block", () => {
@@ -2247,11 +2258,11 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
-    const summary = blocks.at(-1)?.render();
+    const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));
 
-    expect(summary?.classList.contains("codex-panel__execution--failed")).toBe(true);
-    expect(summary?.textContent).toContain("Agents 1 failed, 1 running");
-    expect(summary?.textContent).toContain("failederrored: Failed");
+    expect(summary.classList.contains("codex-panel__execution--failed")).toBe(true);
+    expect(summary.textContent).toContain("Agents 1 failed, 1 running");
+    expect(summary.textContent).toContain("failederrored: Failed");
   });
 });
 
@@ -2861,7 +2872,7 @@ describe("pending request renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("Input");
     expect(element.textContent).not.toContain("Approval");
@@ -2902,7 +2913,7 @@ describe("pending request renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__message--approval-result")).toBe(true);
     expect(element.classList.contains("codex-panel__tool-result")).toBe(true);
@@ -2939,7 +2950,7 @@ describe("pending request renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
-    const element = block.render();
+    const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__auto-reviews summary")?.textContent).toBe("Auto-reviewed 2 requests");
     expect(element.querySelector(".codex-panel__auto-reviews")?.textContent).toContain("Auto-review approved: npm test");
