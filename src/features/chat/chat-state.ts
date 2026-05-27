@@ -7,15 +7,17 @@ import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { AppServerDiagnostics } from "../../app-server/compatibility";
 import { createAppServerDiagnostics } from "../../app-server/compatibility";
 import type { PendingApproval } from "./approvals/model";
 import type { ComposerSuggestion } from "./composer/suggestions";
 import type { DisplayItem } from "./display/types";
+import { upsertDisplayItem } from "./display/stream-updates";
 import type { PendingUserInput } from "./user-input/model";
-import type { ReportedServiceTier, ServiceTier } from "../../app-server/service-tier";
-import { defaultRuntimeOverride, type RuntimeOverride } from "../../runtime/state";
+import { reportedServiceTier, type ReportedServiceTier, type ServiceTier } from "../../app-server/service-tier";
+import { defaultRuntimeOverride, resetRuntimeOverride, setRuntimeOverride, type RuntimeOverride } from "../../runtime/state";
 
 export interface PendingTurnStart {
   anchorItemId: string;
@@ -66,6 +68,86 @@ export interface ChatState {
   openDetails: Set<string>;
 }
 
+export interface ChatStateStore {
+  getState(): ChatState;
+  dispatch(action: ChatAction): ChatState;
+}
+
+export type ChatAction =
+  | { type: "status/set"; status: string }
+  | { type: "system/message-added"; item: DisplayItem }
+  | { type: "system/deduped-log-added"; text: string; item: DisplayItem }
+  | { type: "connection/scoped-cleared" }
+  | { type: "thread/active-cleared" }
+  | {
+      type: "thread/resumed";
+      thread: Thread;
+      cwd: string;
+      model: string | null;
+      reasoningEffort: ReasoningEffort | null;
+      serviceTier: ReportedServiceTier | null;
+      approvalsReviewer: ApprovalsReviewer | null;
+      displayItems?: DisplayItem[];
+      status?: string;
+      listedThreads?: Thread[];
+      forceMessagesToBottom?: boolean;
+    }
+  | {
+      type: "thread/list-applied";
+      threads?: Thread[];
+      threadsLoaded?: boolean;
+      effectiveConfig?: ConfigReadResponse | null;
+      availableModels?: Model[];
+      availableSkills?: SkillMetadata[];
+      rateLimit?: RateLimitSnapshot | null;
+      appServerDiagnostics?: AppServerDiagnostics;
+    }
+  | {
+      type: "turn/started";
+      threadId: string;
+      turnId: string;
+      displayItems?: DisplayItem[];
+      pendingTurnStart?: PendingTurnStart | null;
+    }
+  | { type: "turn/completed"; turnId: string; status: string; displayItems: DisplayItem[] }
+  | { type: "request/approval-queued"; approval: PendingApproval }
+  | { type: "request/user-input-queued"; input: PendingUserInput }
+  | { type: "request/resolved"; requestId: PendingApproval["requestId"]; resultItem?: DisplayItem }
+  | {
+      type: "display/items-replaced";
+      items: DisplayItem[];
+      historyCursor?: string | null;
+      loadingHistory?: boolean;
+      messagesPinnedToBottom?: boolean;
+    }
+  | { type: "display/item-upserted"; item: DisplayItem }
+  | { type: "display/turn-diff-updated"; turnId: string; diff: string }
+  | {
+      type: "composer/draft-set";
+      draft: string;
+      clearSuggestions?: boolean;
+      resetDismissedSignature?: boolean;
+    }
+  | {
+      type: "composer/suggestions-set";
+      suggestions: ComposerSuggestion[];
+      selected?: number;
+      dismissedSignature?: string | null;
+    }
+  | {
+      type: "ui/panel-set";
+      panel: "history" | "status-panel" | "model" | "effort" | null;
+      toggle?: boolean;
+    }
+  | { type: "ui/messages-pinned-set"; pinned: boolean }
+  | { type: "runtime/requested-model-set"; model: string | null }
+  | { type: "runtime/requested-effort-set"; effort: ReasoningEffort | null }
+  | { type: "runtime/requested-service-tier-set"; serviceTier: ServiceTier | null; activate?: boolean }
+  | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null; activate?: boolean }
+  | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: ModeKind }
+  | { type: "runtime/pending-thread-settings-committed"; update: Omit<ThreadSettingsUpdateParams, "threadId"> }
+  | { type: "state/patched"; patch: Partial<ChatState> };
+
 export function createChatState(): ChatState {
   return {
     status: "Idle",
@@ -112,46 +194,272 @@ export function createChatState(): ChatState {
   };
 }
 
-export function clearActiveTurnState(state: ChatState): void {
-  state.activeTurnId = null;
-  state.busy = false;
-  state.pendingTurnStart = null;
-  state.approvals = [];
-  state.pendingUserInputs = [];
-  state.userInputDrafts.clear();
+export function createChatStateStore(initialState: ChatState = createChatState()): ChatStateStore {
+  let current = cloneChatState(initialState);
+  return {
+    getState: () => current,
+    dispatch(action) {
+      current = chatReducer(current, action);
+      return current;
+    },
+  };
 }
 
-export function clearActiveThreadState(state: ChatState): void {
-  state.activeThreadId = null;
-  state.activeThreadCwd = null;
-  state.activeModel = null;
-  state.activeReasoningEffort = null;
-  state.activeCollaborationMode = "default";
-  state.activeServiceTier = null;
-  state.activeApprovalsReviewer = null;
-  state.activeThreadCreationCliVersion = null;
-  state.tokenUsage = null;
-  state.historyCursor = null;
-  state.loadingHistory = false;
-  state.displayItems = [];
-  state.turnDiffs.clear();
-  state.messagesPinnedToBottom = true;
-  clearActiveTurnState(state);
+export function chatReducer(state: ChatState, action: ChatAction): ChatState {
+  switch (action.type) {
+    case "status/set":
+      return patchChatState(state, { status: action.status });
+    case "system/message-added":
+      return patchChatState(state, { displayItems: [...state.displayItems, action.item] });
+    case "system/deduped-log-added":
+      if (state.reportedLogs.has(action.text)) return state;
+      return patchChatState(state, {
+        reportedLogs: new Set([...state.reportedLogs, action.text]),
+        displayItems: [...state.displayItems, action.item],
+      });
+    case "connection/scoped-cleared":
+      return clearConnectionScopedState(state);
+    case "thread/active-cleared":
+      return clearActiveThreadState(state);
+    case "thread/resumed":
+      return patchChatState(state, {
+        activeThreadId: action.thread.id,
+        activeThreadCwd: action.cwd,
+        activeTurnId: null,
+        activeModel: action.model,
+        activeReasoningEffort: action.reasoningEffort,
+        activeServiceTier: action.serviceTier,
+        activeApprovalsReviewer: action.approvalsReviewer,
+        activeThreadCreationCliVersion: action.thread.cliVersion,
+        tokenUsage: null,
+        historyCursor: null,
+        turnDiffs: new Map(),
+        displayItems: action.displayItems ?? state.displayItems,
+        listedThreads: action.listedThreads ?? state.listedThreads,
+        messagesPinnedToBottom: action.forceMessagesToBottom ?? state.messagesPinnedToBottom,
+        status: action.status ?? state.status,
+      });
+    case "thread/list-applied":
+      return patchChatState(state, {
+        ...definedPatch("listedThreads", action.threads),
+        ...definedPatch("threadsLoaded", action.threadsLoaded),
+        ...definedPatch("effectiveConfig", action.effectiveConfig),
+        ...definedPatch("availableModels", action.availableModels),
+        ...definedPatch("availableSkills", action.availableSkills),
+        ...definedPatch("rateLimit", action.rateLimit),
+        ...definedPatch("appServerDiagnostics", action.appServerDiagnostics),
+      });
+    case "turn/started":
+      return patchChatState(state, {
+        activeThreadId: action.threadId,
+        activeTurnId: action.turnId,
+        busy: true,
+        status: "Turn running...",
+        displayItems: action.displayItems ?? state.displayItems,
+        pendingTurnStart: action.pendingTurnStart ?? state.pendingTurnStart,
+      });
+    case "turn/completed":
+      return patchChatState(state, {
+        displayItems: action.displayItems,
+        busy: false,
+        activeTurnId: null,
+        status: `Turn ${action.status}.`,
+      });
+    case "request/approval-queued":
+      if (state.approvals.some((existing) => existing.requestId === action.approval.requestId)) return state;
+      return patchChatState(state, { approvals: [...state.approvals, action.approval] });
+    case "request/user-input-queued":
+      if (state.pendingUserInputs.some((existing) => existing.requestId === action.input.requestId)) return state;
+      return patchChatState(state, { pendingUserInputs: [...state.pendingUserInputs, action.input] });
+    case "request/resolved":
+      return resolveRequest(state, action.requestId, action.resultItem);
+    case "display/items-replaced":
+      return patchChatState(state, {
+        displayItems: action.items,
+        ...definedPatch("historyCursor", action.historyCursor),
+        ...definedPatch("loadingHistory", action.loadingHistory),
+        ...definedPatch("messagesPinnedToBottom", action.messagesPinnedToBottom),
+      });
+    case "display/item-upserted":
+      return patchChatState(state, { displayItems: upsertDisplayItem(state.displayItems, action.item) });
+    case "display/turn-diff-updated":
+      return patchChatState(state, { turnDiffs: updatedTurnDiffs(state.turnDiffs, action.turnId, action.diff) });
+    case "composer/draft-set":
+      return patchChatState(state, {
+        composerDraft: action.draft,
+        ...(action.clearSuggestions ? { composerSuggestions: [], composerSuggestSelected: 0 } : {}),
+        ...(action.resetDismissedSignature ? { composerSuggestionsDismissedSignature: null } : {}),
+      });
+    case "composer/suggestions-set":
+      return patchChatState(state, {
+        composerSuggestions: action.suggestions,
+        composerSuggestSelected: action.selected ?? state.composerSuggestSelected,
+        composerSuggestionsDismissedSignature:
+          action.dismissedSignature === undefined ? state.composerSuggestionsDismissedSignature : action.dismissedSignature,
+      });
+    case "ui/panel-set":
+      return setPanelState(state, action.panel, action.toggle ?? false);
+    case "ui/messages-pinned-set":
+      return patchChatState(state, { messagesPinnedToBottom: action.pinned });
+    case "runtime/requested-model-set":
+      return patchChatState(state, { requestedModel: action.model === null ? resetRuntimeOverride() : setRuntimeOverride(action.model) });
+    case "runtime/requested-effort-set":
+      return patchChatState(state, {
+        requestedReasoningEffort: action.effort === null ? resetRuntimeOverride() : setRuntimeOverride(action.effort),
+      });
+    case "runtime/requested-service-tier-set":
+      return patchChatState(state, {
+        requestedServiceTier: action.serviceTier,
+        ...(action.activate ? { activeServiceTier: action.serviceTier } : {}),
+      });
+    case "runtime/requested-approvals-reviewer-set":
+      return patchChatState(state, {
+        requestedApprovalsReviewer: action.approvalsReviewer,
+        ...(action.activate ? { activeApprovalsReviewer: action.approvalsReviewer } : {}),
+      });
+    case "runtime/requested-collaboration-mode-set":
+      return patchChatState(state, { requestedCollaborationMode: action.collaborationMode });
+    case "runtime/pending-thread-settings-committed":
+      return commitPendingThreadSettings(state, action.update);
+    case "state/patched":
+      return patchChatState(state, action.patch);
+  }
 }
 
-export function clearConnectionScopedState(state: ChatState): void {
-  clearActiveTurnState(state);
-  state.activeModel = null;
-  state.activeReasoningEffort = null;
-  state.activeCollaborationMode = "default";
-  state.activeServiceTier = null;
-  state.activeApprovalsReviewer = null;
-  state.activeThreadCreationCliVersion = null;
-  state.rateLimit = null;
-  state.listedThreads = [];
-  state.threadsLoaded = false;
-  state.availableModels = [];
-  state.availableSkills = [];
-  state.appServerDiagnostics = createAppServerDiagnostics();
-  state.runtimePicker = null;
+export function clearActiveTurnState(state: ChatState): ChatState {
+  return patchChatState(state, {
+    activeTurnId: null,
+    busy: false,
+    pendingTurnStart: null,
+    approvals: [],
+    pendingUserInputs: [],
+    userInputDrafts: new Map(),
+  });
+}
+
+export function clearActiveThreadState(state: ChatState): ChatState {
+  return clearActiveTurnState(
+    patchChatState(state, {
+      activeThreadId: null,
+      activeThreadCwd: null,
+      activeModel: null,
+      activeReasoningEffort: null,
+      activeCollaborationMode: "default",
+      activeServiceTier: null,
+      activeApprovalsReviewer: null,
+      activeThreadCreationCliVersion: null,
+      tokenUsage: null,
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [],
+      turnDiffs: new Map(),
+      messagesPinnedToBottom: true,
+    }),
+  );
+}
+
+export function clearConnectionScopedState(state: ChatState): ChatState {
+  return patchChatState(clearActiveTurnState(state), {
+    activeModel: null,
+    activeReasoningEffort: null,
+    activeCollaborationMode: "default",
+    activeServiceTier: null,
+    activeApprovalsReviewer: null,
+    activeThreadCreationCliVersion: null,
+    rateLimit: null,
+    listedThreads: [],
+    threadsLoaded: false,
+    availableModels: [],
+    availableSkills: [],
+    appServerDiagnostics: createAppServerDiagnostics(),
+    runtimePicker: null,
+  });
+}
+
+export function cloneChatState(state: ChatState): ChatState {
+  return {
+    ...state,
+    displayItems: [...state.displayItems],
+    turnDiffs: new Map(state.turnDiffs),
+    approvals: [...state.approvals],
+    pendingUserInputs: [...state.pendingUserInputs],
+    userInputDrafts: new Map(state.userInputDrafts),
+    listedThreads: [...state.listedThreads],
+    availableModels: [...state.availableModels],
+    availableSkills: [...state.availableSkills],
+    reportedLogs: new Set(state.reportedLogs),
+    composerSuggestions: [...state.composerSuggestions],
+    openDetails: new Set(state.openDetails),
+  };
+}
+
+function resolveRequest(state: ChatState, requestId: PendingApproval["requestId"], resultItem: DisplayItem | undefined): ChatState {
+  const resolvedInputs = state.pendingUserInputs.filter((input) => input.requestId === requestId);
+  const draftKeys = new Set(
+    resolvedInputs.flatMap((input) =>
+      input.params.questions.flatMap((question) => [
+        `${String(input.requestId)}:${question.id}`,
+        `${String(input.requestId)}:${question.id}:other`,
+      ]),
+    ),
+  );
+  const userInputDrafts = new Map([...state.userInputDrafts].filter(([key]) => !draftKeys.has(key)));
+  const displayItems = resultItem ? [...state.displayItems, resultItem] : state.displayItems;
+  return patchChatState(state, {
+    approvals: state.approvals.filter((approval) => approval.requestId !== requestId),
+    pendingUserInputs: state.pendingUserInputs.filter((input) => input.requestId !== requestId),
+    userInputDrafts,
+    displayItems,
+  });
+}
+
+function updatedTurnDiffs(turnDiffs: Map<string, string>, turnId: string, diff: string): Map<string, string> {
+  const next = new Map(turnDiffs);
+  if (diff.trim().length > 0) {
+    next.set(turnId, diff);
+  } else {
+    next.delete(turnId);
+  }
+  return next;
+}
+
+function setPanelState(state: ChatState, panel: "history" | "status-panel" | "model" | "effort" | null, toggle: boolean): ChatState {
+  const currentPanel = state.openDetails.has("history")
+    ? "history"
+    : state.openDetails.has("status-panel")
+      ? "status-panel"
+      : state.runtimePicker;
+  const nextPanel = toggle && currentPanel === panel ? null : panel;
+  return patchChatState(state, {
+    openDetails:
+      nextPanel === "history" || nextPanel === "status-panel"
+        ? new Set([nextPanel])
+        : new Set([...state.openDetails].filter((key) => key !== "history" && key !== "status-panel")),
+    runtimePicker: nextPanel === "model" || nextPanel === "effort" ? nextPanel : null,
+  });
+}
+
+function commitPendingThreadSettings(state: ChatState, update: Omit<ThreadSettingsUpdateParams, "threadId">): ChatState {
+  return patchChatState(state, {
+    ...("model" in update ? { activeModel: update.model ?? null, requestedModel: defaultRuntimeOverride<string>() } : {}),
+    ...("effort" in update
+      ? { activeReasoningEffort: update.effort ?? null, requestedReasoningEffort: defaultRuntimeOverride<ReasoningEffort>() }
+      : {}),
+    ...("serviceTier" in update
+      ? { activeServiceTier: state.requestedServiceTier ?? reportedServiceTier(update.serviceTier), requestedServiceTier: null }
+      : {}),
+    ...("approvalsReviewer" in update
+      ? { activeApprovalsReviewer: update.approvalsReviewer ?? null, requestedApprovalsReviewer: null }
+      : {}),
+    ...(update.collaborationMode ? { activeCollaborationMode: update.collaborationMode.mode } : {}),
+  });
+}
+
+function patchChatState(state: ChatState, patch: Partial<ChatState>): ChatState {
+  if (Object.entries(patch).every(([key, value]) => Object.is(state[key as keyof ChatState], value))) return state;
+  return { ...state, ...patch };
+}
+
+function definedPatch<Key extends keyof ChatState>(key: Key, value: ChatState[Key] | undefined): Partial<ChatState> {
+  return value === undefined ? {} : { [key]: value };
 }
