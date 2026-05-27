@@ -41,6 +41,7 @@
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-obsidianmd": "^0.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
     "obsidian": "~1.12.3",
     "prettier": "^3.8.3",

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 import {
   approvalActionOptions,
@@ -11,7 +11,6 @@ import {
 import type { RequestId } from "../../../generated/app-server/RequestId";
 import type { PendingUserInput } from "../user-input/model";
 import { questionDefaultAnswer } from "../user-input/model";
-import { renderReactRoot } from "../../../shared/ui/react-root";
 import { createWorkMessageClassName } from "./work-message";
 
 export interface PendingRequestMessageActions {
@@ -24,17 +23,6 @@ export interface PendingRequestMessageDrafts {
   values: Map<string, string>;
   draftKey: (requestId: RequestId, questionId: string) => string;
   otherDraftKey: (requestId: RequestId, questionId: string) => string;
-}
-
-export function renderPendingRequestMessage(
-  parent: HTMLElement,
-  approvals: PendingApproval[],
-  pendingUserInputs: PendingUserInput[],
-  drafts: PendingRequestMessageDrafts,
-  openDetails: Set<string>,
-  actions: PendingRequestMessageActions,
-): void {
-  renderReactRoot(parent, pendingRequestMessageNode(approvals, pendingUserInputs, drafts, openDetails, actions));
 }
 
 export function pendingRequestMessageNode(
@@ -186,7 +174,6 @@ function UserInputQuestions({ input, drafts }: { input: PendingUserInput; drafts
       {input.params.questions.map((question) => {
         const draftKey = drafts.draftKey(input.requestId, question.id);
         const current = drafts.values.get(draftKey) ?? questionDefaultAnswer(question);
-        if (!drafts.values.has(draftKey)) drafts.values.set(draftKey, current);
         return (
           <div key={question.id} className="codex-panel__user-input-question">
             {question.header ? <div className="codex-panel__user-input-header">{question.header}</div> : null}
@@ -252,10 +239,12 @@ function OtherUserInputOption({
   const draftKey = drafts.draftKey(input.requestId, questionId);
   const otherKey = drafts.otherDraftKey(input.requestId, questionId);
   const otherValue = drafts.values.get(otherKey) ?? "";
+  const radioRef = useRef<HTMLInputElement | null>(null);
   return (
     <label className="codex-panel__user-input-option">
       <input
         className="codex-panel__user-input-radio"
+        ref={radioRef}
         type="radio"
         name={groupName}
         value="__other__"
@@ -273,8 +262,7 @@ function OtherUserInputOption({
         onInput={(event) => {
           drafts.values.set(otherKey, event.currentTarget.value);
           drafts.values.set(draftKey, event.currentTarget.value);
-          const radio = event.currentTarget.parentElement?.querySelector<HTMLInputElement>(".codex-panel__user-input-radio");
-          if (radio) radio.checked = true;
+          if (radioRef.current) radioRef.current.checked = true;
         }}
       />
     </label>

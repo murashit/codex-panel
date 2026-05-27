@@ -619,14 +619,6 @@
   opacity: 0.45;
 }
 
-.codex-panel__runtime-picker-empty {
-  padding: calc(var(--codex-panel-control-gap) + var(--codex-panel-panel-gap)) var(--codex-panel-section-gap)
-    calc(var(--codex-panel-control-gap) + var(--codex-panel-panel-gap))
-    calc(var(--codex-panel-size-icon-s) + var(--codex-panel-section-gap) * 2);
-  color: var(--text-faint);
-  font-size: var(--codex-panel-toolbar-text-size);
-}
-
 .codex-panel__runtime-picker-label {
   padding: var(--size-4-1) var(--size-4-2) var(--size-2-1) calc(var(--codex-panel-size-icon-s) + var(--size-4-2) * 2);
   color: var(--text-faint);

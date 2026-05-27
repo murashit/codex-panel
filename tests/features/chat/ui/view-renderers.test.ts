@@ -8,11 +8,10 @@ import {
   renderComposerShell,
   renderComposerSuggestions,
   scrollComposerSuggestionIntoView,
-  syncComposerControls,
   syncComposerHeight,
 } from "../../../../src/features/chat/ui/composer";
-import { pendingRequestMessageNode, renderPendingRequestMessage } from "../../../../src/features/chat/ui/pending-request-message";
-import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
+import { pendingRequestMessageNode } from "../../../../src/features/chat/ui/pending-request-message";
+import { renderToolbar, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
 import { displayItemSignature } from "../../../../src/features/chat/display/signature";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/chat-message-renderer";
 import { messageRenderBlocks as rawMessageRenderBlocks, renderMessageRenderBlocks } from "../../../../src/features/chat/ui/message-stream";
@@ -21,7 +20,7 @@ import { composerSuggestionScrollFixture, installObsidianDomShims, topLevelDetai
 import { renderThreadsView } from "../../../../src/features/threads-view/renderer";
 import { liveStateForSnapshots, threadRows, type ThreadsRowModel } from "../../../../src/features/threads-view/state";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
-import { unmountReactRoot } from "../../../../src/shared/ui/react-root";
+import { renderReactRoot, unmountReactRoot } from "../../../../src/shared/ui/react-root";
 
 installObsidianDomShims();
 
@@ -36,6 +35,22 @@ function messageRenderBlocks(
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
+}
+
+function composerCallbacks() {
+  return {
+    onInput: vi.fn(),
+    onUpdateSuggestions: vi.fn(),
+    onKeydown: vi.fn(),
+    onNewThread: vi.fn(),
+    onSendOrInterrupt: vi.fn(),
+    onSuggestionHover: vi.fn(),
+    onSuggestionInsert: vi.fn(),
+  };
+}
+
+function renderPendingRequestNode(parent: HTMLElement, ...args: Parameters<typeof pendingRequestMessageNode>): void {
+  renderReactRoot(parent, pendingRequestMessageNode(...args));
 }
 
 function withMessageContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {
@@ -1746,7 +1761,7 @@ describe("work log renderer decisions", () => {
 });
 
 describe("toolbar renderer decisions", () => {
-  it("renders toolbar controls as buttons and signatures include live status/catalog state", () => {
+  it("renders toolbar controls as buttons and updates live status state", () => {
     const parent = document.createElement("div");
     const toggleHistory = vi.fn();
     const toggleAutoReview = vi.fn();
@@ -1778,28 +1793,6 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__history-toggle")?.getAttribute("aria-label")).toBe("Hide thread list");
     expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Hide connection status");
     expect(parent.querySelector(".codex-panel__runtime-model")?.getAttribute("aria-label")).toBe("Change model and reasoning effort");
-
-    expect(toolbarSignature(baseModel)).not.toBe(toolbarSignature({ ...baseModel, status: "Turn running..." }));
-    expect(toolbarSignature(baseModel)).not.toBe(
-      toolbarSignature({ ...baseModel, effortChoices: [...baseModel.effortChoices, { label: "xhigh", onClick: vi.fn() }] }),
-    );
-    expect(toolbarSignature(baseModel)).not.toBe(
-      toolbarSignature({
-        ...baseModel,
-        diagnostics: [{ title: "Capabilities", rows: [{ label: "compatibility", value: "model/list failed", level: "error" }] }],
-      }),
-    );
-    expect(toolbarSignature(baseModel)).not.toBe(toolbarSignature({ ...baseModel, autoReviewActive: true }));
-    expect(toolbarSignature(baseModel)).not.toBe(
-      toolbarSignature({
-        ...baseModel,
-        rateLimit: {
-          title: "Codex: 5h 42%",
-          level: "ok",
-          rows: [{ label: "5h", value: "42%", resetLabel: "reset in 2h", title: "Codex 5h: 42% used.", percent: 42, level: "ok" }],
-        },
-      }),
-    );
   });
 
   it("keeps frequently changed effort choices first inside the runtime menu", () => {
@@ -2236,7 +2229,7 @@ describe("pending request renderer decisions", () => {
     const resolveUserInput = vi.fn();
     const input = pendingUserInput();
 
-    renderPendingRequestMessage(
+    renderPendingRequestNode(
       parent,
       [],
       [input],
@@ -2268,7 +2261,7 @@ describe("pending request renderer decisions", () => {
     const approval = pendingApproval();
     const input = pendingUserInput();
 
-    renderPendingRequestMessage(
+    renderPendingRequestNode(
       parent,
       [approval],
       [input],
@@ -2324,7 +2317,7 @@ describe("pending request renderer decisions", () => {
     };
     const resolveApproval = vi.fn();
 
-    renderPendingRequestMessage(
+    renderPendingRequestNode(
       parent,
       [approval],
       [],
@@ -2523,19 +2516,20 @@ describe("pending request renderer decisions", () => {
 describe("composer renderer decisions", () => {
   it("uses the provided composer placeholder for normal input", () => {
     const parent = document.createElement("div");
-    const { composer } = renderComposerShell(parent, "view", "", false, "Ask Codex to work on “Refactor terminal streaming”...", {
-      onInput: vi.fn(),
-      onUpdateSuggestions: vi.fn(),
-      onKeydown: vi.fn(),
-      onNewThread: vi.fn(),
-      onSendOrInterrupt: vi.fn(),
-      onSuggestionHover: vi.fn(),
-      onSuggestionInsert: vi.fn(),
-    });
+    const callbacks = composerCallbacks();
+    const { composer } = renderComposerShell(
+      parent,
+      "view",
+      "",
+      false,
+      false,
+      "Ask Codex to work on “Refactor terminal streaming”...",
+      callbacks,
+    );
 
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Refactor terminal streaming”...");
 
-    syncComposerControls(parent, composer, false, false, "Ask Codex to work on “Renamed thread”...");
+    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on “Renamed thread”...", callbacks);
 
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
   });
@@ -2543,7 +2537,7 @@ describe("composer renderer decisions", () => {
   it("renders composer suggestions outside normal input flow callbacks", () => {
     const parent = document.createElement("div");
     const onSuggestionInsert = vi.fn();
-    const { composer, suggestions } = renderComposerShell(parent, "view", "", false, "Ask Codex to work on this task...", {
+    const { composer, suggestions } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", {
       onInput: vi.fn(),
       onUpdateSuggestions: vi.fn(),
       onKeydown: vi.fn(),
@@ -2611,18 +2605,10 @@ describe("composer renderer decisions", () => {
 
   it("uses the composer action for interrupt only when a running turn has no steering text", () => {
     const parent = document.createElement("div");
-    const { composer } = renderComposerShell(parent, "view", "", true, "Ask Codex to work on this task...", {
-      onInput: vi.fn(),
-      onUpdateSuggestions: vi.fn(),
-      onKeydown: vi.fn(),
-      onNewThread: vi.fn(),
-      onSendOrInterrupt: vi.fn(),
-      onSuggestionHover: vi.fn(),
-      onSuggestionInsert: vi.fn(),
-    });
-    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+    const callbacks = composerCallbacks();
+    const { composer } = renderComposerShell(parent, "view", "", true, true, "Ask Codex to work on this task...", callbacks);
+    let sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
 
-    syncComposerControls(parent, composer, true, true, "Ask Codex to work on this task...");
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
     expect(composer.getAttribute("placeholder")).toBe("Add steering message...");
     expect(sendButton?.classList.contains("is-interrupt")).toBe(true);
@@ -2630,7 +2616,8 @@ describe("composer renderer decisions", () => {
     expect(sendButton?.dataset["icon"]).toBe("square");
 
     composer.value = "adjust course";
-    syncComposerControls(parent, composer, true, true, "Ask Codex to work on this task...");
+    renderComposerShell(parent, "view", "", true, true, "Ask Codex to work on this task...", callbacks);
+    sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
     expect(composer.getAttribute("placeholder")).toBe("Add steering message...");
     expect(sendButton?.classList.contains("is-interrupt")).toBe(false);

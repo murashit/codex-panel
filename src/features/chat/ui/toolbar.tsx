@@ -87,47 +87,6 @@ export interface ToolbarActions {
   autoNameThread: (threadId: string) => void;
 }
 
-export function toolbarSignature(model: ToolbarViewModel): string {
-  return JSON.stringify({
-    connected: model.connected,
-    status: model.status,
-    statusState: model.statusState,
-    historyOpen: model.historyOpen,
-    statusPanelOpen: model.statusPanelOpen,
-    runtimeOpen: model.runtimeOpen,
-    planActive: model.planActive,
-    autoReviewActive: model.autoReviewActive,
-    fastActive: model.fastActive,
-    runtimeSummary: model.runtimeSummary,
-    runtimeTitle: model.runtimeTitle,
-    runtimeEmphasized: model.runtimeEmphasized,
-    context: model.context,
-    rateLimit: model.rateLimit,
-    configSections: model.configSections.map(
-      (section) => `${section.title}:${section.rows.map((row) => `${row.key}=${row.value}`).join(",")}`,
-    ),
-    openPanel: model.openPanel,
-    threads: model.threads.map(
-      (thread) =>
-        `${thread.threadId}:${thread.title}:${String(thread.selected)}:${String(thread.disabled)}:${String(thread.canArchive)}:${thread.rename?.draft ?? ""}:${String(
-          thread.rename?.generating ?? false,
-        )}:${String(thread.archiveConfirm?.active ?? false)}:${String(thread.archiveConfirm?.defaultSaveMarkdown ?? false)}`,
-    ),
-    modelChoices: model.modelChoices.map(
-      (choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`,
-    ),
-    effortChoices: model.effortChoices.map(
-      (choice) => `${choice.label}:${String(choice.selected)}:${String(choice.disabled)}:${choice.meta ?? ""}`,
-    ),
-    connectLabel: model.connectLabel,
-    diagnostics: model.diagnostics.map((section) => ({
-      title: section.title,
-      rows: section.rows.map((row) => `${row.label}:${row.value}:${row.level ?? "normal"}`),
-    })),
-    diagnosticAlertLevel: model.diagnosticAlertLevel,
-  });
-}
-
 export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
   renderReactRoot(toolbar, <Toolbar model={model} actions={actions} />);
 }

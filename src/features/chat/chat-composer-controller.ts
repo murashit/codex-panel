@@ -13,7 +13,7 @@ import {
 } from "./composer/suggestions";
 import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-context";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
-import { renderComposerShell, renderComposerSuggestions, syncComposerControls, syncComposerHeight } from "./ui/composer";
+import { renderComposerShell, renderComposerSuggestions, syncComposerHeight } from "./ui/composer";
 import type { ChatState } from "./chat-state";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 
@@ -34,6 +34,7 @@ export interface ChatComposerControllerOptions {
 export class ChatComposerController {
   private composer: HTMLTextAreaElement | null = null;
   private suggestionsEl: HTMLElement | null = null;
+  private parent: HTMLElement | null = null;
   private noteCandidatesCache: { sourcePath: string; notes: NoteCandidate[] } | null = null;
   private noteEventsRegistered = false;
 
@@ -56,15 +57,13 @@ export class ChatComposerController {
   }
 
   render(parent: HTMLElement): void {
-    if (this.composer && parent.contains(this.composer)) {
-      return;
-    }
-
+    this.parent = parent;
     const elements = renderComposerShell(
       parent,
       this.options.viewId,
       this.options.state.composerDraft,
       this.options.state.busy,
+      this.options.canInterrupt(),
       this.options.composerPlaceholder(),
       {
         onInput: () => {
@@ -72,7 +71,7 @@ export class ChatComposerController {
           this.options.state.composerSuggestionsDismissedSignature = null;
           this.options.onDraftChange();
           this.updateSuggestions();
-          this.syncControls(parent);
+          this.refreshControls();
         },
         onUpdateSuggestions: () => {
           this.updateSuggestions();
@@ -102,6 +101,7 @@ export class ChatComposerController {
     );
     this.composer = elements.composer;
     this.suggestionsEl = elements.suggestions;
+    syncComposerHeight(this.composer);
     this.updateSuggestions();
   }
 
@@ -117,6 +117,7 @@ export class ChatComposerController {
     this.composer.value = text;
     syncComposerHeight(this.composer);
     if (options.focus) this.composer.focus();
+    this.refreshControls();
   }
 
   focus(): void {
@@ -127,10 +128,12 @@ export class ChatComposerController {
     unmountReactRoot(this.suggestionsEl);
     this.composer = null;
     this.suggestionsEl = null;
+    this.parent = null;
   }
 
-  syncControls(parent: HTMLElement | null): void {
-    syncComposerControls(parent, this.composer, this.options.state.busy, this.options.canInterrupt(), this.options.composerPlaceholder());
+  refreshControls(parent: HTMLElement | null = this.parent): void {
+    if (!parent) return;
+    this.render(parent);
   }
 
   codexInput(text: string): UserInput[] {

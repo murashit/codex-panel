@@ -66,7 +66,7 @@ import {
   REFERENCED_THREAD_TURN_LIMIT,
   type ReferencedThreadDisplay,
 } from "../../domain/threads/reference";
-import { pendingRequestMessageNode, renderPendingRequestMessage } from "./ui/pending-request-message";
+import { pendingRequestMessageNode } from "./ui/pending-request-message";
 import { renderToolbar, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
@@ -762,7 +762,6 @@ export class CodexChatView extends ItemView {
     const mentionedFiles = fileMentionsFromInput(codexInput);
 
     this.composerController.setDraft("", { clearSuggestions: true });
-    this.syncComposerControls();
 
     try {
       await this.client.steerTurn(threadId, expectedTurnId, codexInput);
@@ -1211,7 +1210,6 @@ export class CodexChatView extends ItemView {
 
     this.renderMessages(this.messagesSlotEl);
     this.renderComposer(this.composerSlotEl);
-    this.syncComposerControls();
   }
 
   private renderToolbar(toolbar: HTMLElement): void {
@@ -1581,25 +1579,6 @@ export class CodexChatView extends ItemView {
     };
   }
 
-  private renderPendingRequestMessage(parent: HTMLElement): void {
-    renderPendingRequestMessage(
-      parent,
-      this.state.approvals,
-      this.state.pendingUserInputs,
-      {
-        values: this.state.userInputDrafts,
-        draftKey: userInputDraftKey,
-        otherDraftKey: userInputOtherDraftKey,
-      },
-      this.state.openDetails,
-      {
-        resolveApproval: (approval, action) => void this.resolveApproval(approval, action),
-        resolveUserInput: (input) => void this.resolveUserInput(input),
-        cancelUserInput: (input) => void this.cancelUserInput(input),
-      },
-    );
-  }
-
   private pendingRequestMessageNode() {
     return pendingRequestMessageNode(
       this.state.approvals,
@@ -1663,10 +1642,6 @@ export class CodexChatView extends ItemView {
 
   private renderComposer(parent: HTMLElement): void {
     this.composerController.render(parent);
-  }
-
-  private syncComposerControls(): void {
-    this.composerController.syncControls(this.composerSlotEl);
   }
 }
 

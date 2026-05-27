@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import eslintConfigPrettier from "eslint-config-prettier/flat";
 import obsidianmd from "eslint-plugin-obsidianmd";
+import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
@@ -28,6 +29,9 @@ export default defineConfig([
   })),
   {
     files: lintedTypeScriptFiles,
+    plugins: {
+      "react-hooks": reactHooks,
+    },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -51,6 +55,8 @@ export default defineConfig([
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "react-hooks/exhaustive-deps": "error",
+      "react-hooks/rules-of-hooks": "error",
     },
   },
   {

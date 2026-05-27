@@ -1,4 +1,3 @@
-import { setIcon } from "obsidian";
 import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 import type { ComposerSuggestion } from "../composer/suggestions";
@@ -26,6 +25,7 @@ export function renderComposerShell(
   viewId: string,
   draft: string,
   busy: boolean,
+  canInterrupt: boolean,
   normalPlaceholder: string,
   callbacks: ComposerCallbacks,
 ): ComposerElements {
@@ -36,6 +36,7 @@ export function renderComposerShell(
       viewId={viewId}
       draft={draft}
       busy={busy}
+      canInterrupt={canInterrupt}
       normalPlaceholder={normalPlaceholder}
       callbacks={callbacks}
       onComposer={(composer) => {
@@ -54,6 +55,7 @@ function ComposerShell({
   viewId,
   draft,
   busy,
+  canInterrupt,
   normalPlaceholder,
   callbacks,
   onComposer,
@@ -62,6 +64,7 @@ function ComposerShell({
   viewId: string;
   draft: string;
   busy: boolean;
+  canInterrupt: boolean;
   normalPlaceholder: string;
   callbacks: ComposerCallbacks;
   onComposer: (composer: HTMLTextAreaElement) => void;
@@ -77,13 +80,15 @@ function ComposerShell({
     onSuggestions(suggestions);
     syncComposerHeight(composer);
   }, [onComposer, onSuggestions]);
+  const draftText = composerRef.current?.value ?? draft;
+  const sendMode = composerSendMode(busy, canInterrupt, draftText);
 
   return (
     <div className="codex-panel__composer">
       <textarea
         ref={composerRef}
         className="codex-panel-ui__text-input codex-panel__composer-input"
-        placeholder={normalPlaceholder}
+        placeholder={sendMode.canInterrupt ? "Add steering message..." : normalPlaceholder}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded="false"
@@ -108,11 +113,34 @@ function ComposerShell({
           disabled={busy}
           onClick={callbacks.onNewThread}
         />
-        <ComposerIconButton icon="send" label="Send" className="codex-panel__send" onClick={callbacks.onSendOrInterrupt} />
+        <ComposerIconButton
+          icon={sendMode.icon}
+          label={sendMode.label}
+          className={`codex-panel__send ${sendMode.className}`}
+          disabled={sendMode.disabled}
+          onClick={callbacks.onSendOrInterrupt}
+        />
       </div>
       <div ref={suggestionsRef} className="codex-panel__composer-suggestions" id={`${viewId}-composer-suggestions`} role="listbox" />
     </div>
   );
+}
+
+function composerSendMode(
+  busy: boolean,
+  canInterrupt: boolean,
+  draft: string,
+): { icon: string; label: string; className: string; disabled: boolean; canInterrupt: boolean } {
+  const hasDraft = Boolean(draft.trim());
+  const canSteer = canInterrupt && hasDraft;
+  const interruptMode = canInterrupt && !hasDraft;
+  return {
+    icon: interruptMode ? "square" : canSteer ? "corner-down-right" : "send",
+    label: interruptMode ? "Interrupt" : canSteer ? "Steer" : "Send",
+    className: interruptMode ? "is-interrupt" : canSteer ? "is-steer" : "",
+    disabled: busy && !canInterrupt,
+    canInterrupt,
+  };
 }
 
 function ComposerIconButton({
@@ -133,37 +161,6 @@ function ComposerIconButton({
       className={`clickable-icon codex-panel-ui__icon-button codex-panel__composer-action ${className}`}
     />
   );
-}
-
-export function syncComposerControls(
-  parent: HTMLElement | null,
-  composer: HTMLTextAreaElement | null,
-  busy: boolean,
-  canInterrupt: boolean,
-  normalPlaceholder: string,
-): void {
-  const newThreadButton = parent?.querySelector<HTMLButtonElement>(".codex-panel__new-chat");
-  if (newThreadButton) newThreadButton.disabled = busy;
-  const sendButton = parent?.querySelector<HTMLButtonElement>(".codex-panel__send");
-  if (sendButton) {
-    const hasDraft = Boolean(composer?.value.trim());
-    const canSteer = canInterrupt && hasDraft;
-    const interruptMode = canInterrupt && !hasDraft;
-    const label = interruptMode ? "Interrupt" : canSteer ? "Steer" : "Send";
-    sendButton.disabled = busy && !canInterrupt;
-    sendButton.setAttr("aria-label", label);
-    sendButton.classList.toggle("is-interrupt", interruptMode);
-    sendButton.classList.toggle("is-steer", canSteer);
-    const mode = interruptMode ? "interrupt" : canSteer ? "steer" : "send";
-    if (sendButton.dataset["codexMode"] !== mode) {
-      sendButton.dataset["codexMode"] = mode;
-      setButtonIcon(sendButton, interruptMode ? "square" : canSteer ? "corner-down-right" : "send");
-    }
-  }
-  if (composer) {
-    composer.setAttr("placeholder", canInterrupt ? "Add steering message..." : normalPlaceholder);
-    syncComposerHeight(composer);
-  }
 }
 
 export function syncComposerHeight(composer: HTMLTextAreaElement | null): void {
@@ -271,9 +268,4 @@ export function scrollComposerSuggestionIntoView(container: HTMLElement, option:
   } else if (optionBottom > viewportBottom) {
     container.scrollTop = Math.max(0, optionBottom - container.clientHeight);
   }
-}
-
-function setButtonIcon(button: HTMLButtonElement, icon: string): void {
-  button.replaceChildren();
-  setIcon(button, icon);
 }
