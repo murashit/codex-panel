@@ -15,10 +15,9 @@ import {
 import { pendingRequestMessageNode } from "../../../../src/features/chat/ui/pending-request-message";
 import { renderToolbar, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
 import { CodexChatTurnDiffView } from "../../../../src/features/chat/chat-turn-diff-view";
-import { displayItemSignature } from "../../../../src/features/chat/display/signature";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/chat-message-renderer";
-import { messageRenderBlocks as rawMessageRenderBlocks, renderMessageRenderBlocks } from "../../../../src/features/chat/ui/message-stream";
+import { messageStreamBlocks as rawMessageStreamBlocks, renderMessageStreamBlocks } from "../../../../src/features/chat/ui/message-stream";
 import { displayDiffLines, persistedChatTurnDiffViewState, renderChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff";
 import { composerSuggestionScrollFixture, installObsidianDomShims, topLevelDetailsSummaries } from "./dom-test-helpers";
 import { renderThreadsView } from "../../../../src/features/threads-view/renderer";
@@ -28,12 +27,12 @@ import { renderReactRoot, unmountReactRoot } from "../../../../src/shared/ui/rea
 
 installObsidianDomShims();
 
-function messageRenderBlocks(
-  ...args: Parameters<typeof rawMessageRenderBlocks>
-): [ReturnType<typeof rawMessageRenderBlocks>[number], ...ReturnType<typeof rawMessageRenderBlocks>] {
-  const blocks = rawMessageRenderBlocks(...args);
-  if (blocks.length === 0) throw new Error("Expected at least one message render block.");
-  return blocks as [ReturnType<typeof rawMessageRenderBlocks>[number], ...ReturnType<typeof rawMessageRenderBlocks>];
+function messageStreamBlocks(
+  ...args: Parameters<typeof rawMessageStreamBlocks>
+): [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>] {
+  const blocks = rawMessageStreamBlocks(...args);
+  if (blocks.length === 0) throw new Error("Expected at least one message stream block.");
+  return blocks as [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>];
 }
 
 function expectPresent<T>(value: T | null | undefined): T {
@@ -41,13 +40,13 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-function testMessageRenderBlock(key: string, signature: string, node: ReactNode): ReturnType<typeof rawMessageRenderBlocks>[number] {
-  return { key, signature, node };
+function testMessageStreamBlock(key: string, node: ReactNode): ReturnType<typeof rawMessageStreamBlocks>[number] {
+  return { key, node };
 }
 
-function renderMessageBlockElement(block: ReturnType<typeof rawMessageRenderBlocks>[number]): HTMLElement {
+function renderMessageBlockElement(block: ReturnType<typeof rawMessageStreamBlocks>[number]): HTMLElement {
   const parent = document.createElement("div");
-  renderMessageRenderBlocks(parent, [block], new Map());
+  renderMessageStreamBlocks(parent, [block]);
   const host = expectPresent(parent.querySelector<HTMLElement>(`[data-codex-panel-block-key="${block.key}"]`));
   return expectPresent(host.firstElementChild as HTMLElement | null);
 }
@@ -153,94 +152,44 @@ function threadsViewActions() {
 }
 
 describe("message stream block identity and message actions", () => {
-  it("invalidates message blocks when markdown rendering mode changes", () => {
-    const context = { busy: false, activeTurnId: null, displayItems: [] };
-    const streamed = {
-      id: "a1",
-      itemId: "a1",
-      kind: "message",
-      role: "assistant",
-      text: "**done**",
-      markdown: false,
-    } as const;
-    const completed = { ...streamed, markdown: true };
-
-    expect(displayItemSignature(streamed, context)).not.toBe(displayItemSignature(completed, context));
-  });
-
-  it("invalidates path summary tool blocks when the workspace root changes", () => {
-    const item = {
-      id: "tool-path",
-      kind: "tool",
-      role: "tool",
-      text: "/vault/project/assets/image.png",
-      toolLabel: "imageView",
-      summaryPath: true,
-    } as const;
-    const baseContext = { busy: false, activeTurnId: null, displayItems: [item] };
-
-    expect(displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault" })).not.toBe(
-      displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault/project" }),
-    );
-  });
-
-  it("reuses React message block hosts while signatures are stable", () => {
+  it("reuses keyed React message block hosts across rerenders", () => {
     const parent = document.createElement("div");
-    const signatures = new Map<string, string>();
-
-    renderMessageRenderBlocks(parent, [testMessageRenderBlock("one", "same", createElement("section", null, "first"))], signatures);
+    renderMessageStreamBlocks(parent, [testMessageStreamBlock("one", createElement("section", null, "first"))]);
 
     const host = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="one"]'));
     expect(host.classList.contains("codex-panel__message-block")).toBe(true);
     expect(host.firstElementChild?.tagName).toBe("SECTION");
     expect(host.textContent).toBe("first");
 
-    renderMessageRenderBlocks(parent, [testMessageRenderBlock("one", "same", createElement("section", null, "still first"))], signatures);
+    renderMessageStreamBlocks(parent, [testMessageStreamBlock("one", createElement("section", null, "still first"))]);
 
     expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
     expect(host.firstElementChild?.tagName).toBe("SECTION");
     expect(host.textContent).toBe("still first");
 
-    renderMessageRenderBlocks(
-      parent,
-      [testMessageRenderBlock("one", "changed", createElement("article", null, "replacement"))],
-      signatures,
-    );
+    renderMessageStreamBlocks(parent, [testMessageStreamBlock("one", createElement("article", null, "replacement"))]);
 
     expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
     expect(host.firstElementChild?.tagName).toBe("ARTICLE");
-    expect(signatures.get("one")).toBe("changed");
-
-    renderMessageRenderBlocks(parent, [], signatures);
+    renderMessageStreamBlocks(parent, []);
     expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBeNull();
-    expect(signatures.has("one")).toBe(false);
     unmountReactRoot(parent);
   });
 
   it("leaves stable ordered React message block hosts in place during repeated renders", () => {
     const parent = document.createElement("div");
-    const signatures = new Map<string, string>();
-
-    renderMessageRenderBlocks(
-      parent,
-      [
-        testMessageRenderBlock("one", "same-one", createElement("section", null, "one")),
-        testMessageRenderBlock("two", "same-two", createElement("article", null, "two")),
-      ],
-      signatures,
-    );
+    renderMessageStreamBlocks(parent, [
+      testMessageStreamBlock("one", createElement("section", null, "one")),
+      testMessageStreamBlock("two", createElement("article", null, "two")),
+    ]);
     const firstHost = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="one"]'));
     const secondHost = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="two"]'));
 
     const insertBefore = vi.spyOn(parent, "insertBefore");
-    renderMessageRenderBlocks(
-      parent,
-      [
-        testMessageRenderBlock("one", "same-one", createElement("section", null, "one again")),
-        testMessageRenderBlock("two", "same-two", createElement("article", null, "two again")),
-      ],
-      signatures,
-    );
+    renderMessageStreamBlocks(parent, [
+      testMessageStreamBlock("one", createElement("section", null, "one again")),
+      testMessageStreamBlock("two", createElement("article", null, "two again")),
+    ]);
 
     expect(insertBefore).not.toHaveBeenCalled();
     expect([...parent.children]).toEqual([firstHost, secondHost]);
@@ -251,7 +200,6 @@ describe("message stream block identity and message actions", () => {
 
   it("inserts completed-turn activity groups without replacing stable conversation nodes", () => {
     const parent = document.createElement("div");
-    const signatures = new Map<string, string>();
     const baseContext = {
       activeThreadId: "thread",
       activeTurnId: null,
@@ -264,23 +212,22 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         ...baseContext,
         displayItems: [
           { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1", markdown: true },
           { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1", markdown: true },
         ],
       }),
-      signatures,
     );
     const userNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:u1"]');
     const assistantNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:a1"]');
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         ...baseContext,
         displayItems: [
           { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1", markdown: true },
@@ -296,7 +243,6 @@ describe("message stream block identity and message actions", () => {
           { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1", markdown: true },
         ],
       }),
-      signatures,
     );
 
     expect(parent.querySelector('[data-codex-panel-block-key="item:u1"]')).toBe(userNode);
@@ -314,7 +260,7 @@ describe("message stream block identity and message actions", () => {
 
   it("renders the history bar as a React block", () => {
     const loadOlderTurns = vi.fn();
-    const [historyBlock] = messageRenderBlocks({
+    const [historyBlock] = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: "cursor",
@@ -344,7 +290,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("renders the empty message stream state as a React block", () => {
-    const [emptyBlock] = messageRenderBlocks({
+    const [emptyBlock] = messageStreamBlocks({
       activeThreadId: null,
       activeTurnId: null,
       historyCursor: null,
@@ -368,23 +314,8 @@ describe("message stream block identity and message actions", () => {
     unmountReactRoot(parent);
   });
 
-  it("does not invalidate generic tool blocks when only the workspace root changes", () => {
-    const item = {
-      id: "tool",
-      kind: "tool",
-      role: "tool",
-      text: "/vault/project",
-      toolLabel: "example.tool",
-    } as const;
-    const baseContext = { busy: false, activeTurnId: null, displayItems: [item] };
-
-    expect(displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault" })).toBe(
-      displayItemSignature(item, { ...baseContext, workspaceRoot: "/vault/project" }),
-    );
-  });
-
   it("renders review result items as compact auto-review tool rows", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -407,7 +338,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("renders review result details inside one auto-review details block", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -462,9 +393,9 @@ describe("message stream block identity and message actions", () => {
       element.createDiv({ text: `linked:${text}` });
     });
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: "turn",
         historyCursor: null,
@@ -489,7 +420,6 @@ describe("message stream block identity and message actions", () => {
         renderMarkdown: (element, text) => element.createDiv({ text }),
         renderTextWithWikiLinks,
       }),
-      new Map(),
     );
 
     const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:cmd-1"]'));
@@ -513,9 +443,9 @@ describe("message stream block identity and message actions", () => {
   it("renders file change diffs through the React tool result adapter", () => {
     const parent = document.createElement("div");
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: "turn",
         historyCursor: null,
@@ -537,7 +467,6 @@ describe("message stream block identity and message actions", () => {
         renderMarkdown: (element, text) => element.createDiv({ text }),
         renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
-      new Map(),
     );
 
     expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/app.ts");
@@ -547,7 +476,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("renders structured system result details as visible selectable meta rows", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -593,7 +522,7 @@ describe("message stream block identity and message actions", () => {
       { id: "a1", kind: "message", role: "assistant", text: "older answer", turnId: "turn-1", markdown: true },
       { id: "u2", kind: "message", role: "user", text: "latest", turnId: "turn-2", markdown: true },
     ] as const;
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -620,7 +549,7 @@ describe("message stream block identity and message actions", () => {
 
   it("renders copy actions for copyable messages", () => {
     const copyText = vi.fn();
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -654,9 +583,9 @@ describe("message stream block identity and message actions", () => {
     const copyText = vi.fn();
     const onImplementPlanItem = vi.fn();
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -682,7 +611,6 @@ describe("message stream block identity and message actions", () => {
         canImplementPlanItem: () => true,
         onImplementPlanItem,
       }),
-      new Map(),
     );
 
     parent.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
@@ -700,9 +628,9 @@ describe("message stream block identity and message actions", () => {
       element.createDiv({ text: `rendered:${text}` });
     });
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -714,7 +642,6 @@ describe("message stream block identity and message actions", () => {
         renderMarkdown,
         renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
-      new Map(),
     );
 
     expect(renderMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "**answer**");
@@ -722,9 +649,42 @@ describe("message stream block identity and message actions", () => {
     unmountReactRoot(parent);
   });
 
+  it("updates message content when the markdown mode changes", () => {
+    const parent = document.createElement("div");
+    const baseContext = {
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      openDetails: new Set<string>(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text: `markdown:${text}` }),
+      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text: `text:${text}` }),
+    };
+
+    renderMessageStreamBlocks(
+      parent,
+      messageStreamBlocks({
+        ...baseContext,
+        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: false }],
+      }),
+    );
+    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("text:**answer**");
+
+    renderMessageStreamBlocks(
+      parent,
+      messageStreamBlocks({
+        ...baseContext,
+        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: true }],
+      }),
+    );
+    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:**answer**");
+    unmountReactRoot(parent);
+  });
+
   it("does not rerender unchanged message markdown when the stream rerenders", () => {
     const parent = document.createElement("div");
-    const signatures = new Map<string, string>();
     const renderMarkdown = vi.fn((element: HTMLElement, text: string) => {
       element.createDiv({ text });
     });
@@ -743,8 +703,8 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
-    renderMessageRenderBlocks(parent, messageRenderBlocks(context), signatures);
-    renderMessageRenderBlocks(parent, messageRenderBlocks({ ...context, loadingHistory: true }), signatures);
+    renderMessageStreamBlocks(parent, messageStreamBlocks(context));
+    renderMessageStreamBlocks(parent, messageStreamBlocks({ ...context, loadingHistory: true }));
 
     expect(renderMarkdown).toHaveBeenCalledOnce();
     unmountReactRoot(parent);
@@ -775,17 +735,16 @@ describe("message stream block identity and message actions", () => {
       copyText: vi.fn(),
     };
 
-    const runningBlock = messageRenderBlocks(context)[0];
-    const completedBlock = messageRenderBlocks({ ...context, busy: false, activeTurnId: null })[0];
+    const runningBlock = messageStreamBlocks(context)[0];
+    const completedBlock = messageStreamBlocks({ ...context, busy: false, activeTurnId: null })[0];
 
     expect(renderMessageBlockElement(runningBlock).querySelector(".codex-panel__copy-message")).toBeNull();
     expect(renderMessageBlockElement(completedBlock).querySelector(".codex-panel__copy-message")).not.toBeNull();
-    expect(runningBlock.signature).not.toBe(completedBlock.signature);
   });
 
   it("renders implement plan action for eligible proposed plans", () => {
     const onImplementPlanItem = vi.fn();
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -820,23 +779,6 @@ describe("message stream block identity and message actions", () => {
     expect(onImplementPlanItem).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }));
   });
 
-  it("includes implement plan availability in message signatures", () => {
-    const item = {
-      id: "p1",
-      kind: "message",
-      role: "assistant",
-      text: "# Plan",
-      copyText: "# Plan",
-      turnId: "turn-1",
-      markdown: true,
-      proposedPlan: true,
-    } as const;
-
-    expect(
-      displayItemSignature(item, { busy: false, activeTurnId: null, displayItems: [item], canImplementPlanItem: () => true }),
-    ).not.toBe(displayItemSignature(item, { busy: false, activeTurnId: null, displayItems: [item], canImplementPlanItem: () => false }));
-  });
-
   it("selects only the latest proposed plan as an implement candidate", () => {
     const firstPlan = {
       id: "p1",
@@ -869,7 +811,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("does not render copy actions for tool items", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -898,7 +840,7 @@ describe("message stream block identity and message actions", () => {
   it("renders copy and rollback actions together when both apply", () => {
     const copyText = vi.fn();
     const onRollbackItem = vi.fn();
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -933,7 +875,7 @@ describe("message stream block identity and message actions", () => {
           openDetails.delete(key);
         }
       });
-      const block = messageRenderBlocks({
+      const block = messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -976,7 +918,7 @@ describe("message stream block identity and message actions", () => {
 
   it("does not show the collapse control for short user messages or assistant messages", () => {
     withMessageContentScrollHeight(120, () => {
-      const shortUserBlock = messageRenderBlocks({
+      const shortUserBlock = messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -994,7 +936,7 @@ describe("message stream block identity and message actions", () => {
     });
 
     withMessageContentScrollHeight(500, () => {
-      const assistantBlock = messageRenderBlocks({
+      const assistantBlock = messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -1013,7 +955,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("does not render rollback action when no item is eligible", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -1032,7 +974,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("renders command items as a compact summary with output behind details", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1071,7 +1013,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("omits command exit and duration rows while they are unavailable", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1107,7 +1049,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("uses read as the command header for parsed file reads", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1140,7 +1082,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("renders file diffs inside a single file change details block", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1179,7 +1121,7 @@ describe("message stream block identity and message actions", () => {
 
   it("renders the edited files footer with an open diff action when aggregated turn diff exists", () => {
     const openTurnDiff = vi.fn();
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -1223,7 +1165,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("renders referenced thread metadata without exposing hidden context", () => {
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -1260,7 +1202,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("renders resolved file mentions as a collapsed user message attachment", () => {
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -1292,7 +1234,7 @@ describe("message stream block identity and message actions", () => {
   });
 
   it("does not render the open diff action without aggregated turn diff", () => {
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -1514,7 +1456,7 @@ describe("chat turn diff view decisions", () => {
 
 describe("work log renderer decisions", () => {
   it("renders generic tool details as visible sections inside one details block", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1554,7 +1496,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("keeps the tool summary as a separate row when details are open", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1589,7 +1531,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("renders generic tools without details as two compact rows", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1619,7 +1561,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("renders path summary tools relative to the workspace root", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1649,8 +1591,40 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBeNull();
   });
 
+  it("updates path summary tools when the workspace root changes", () => {
+    const parent = document.createElement("div");
+    const item = {
+      id: "tool-path",
+      kind: "tool",
+      role: "tool",
+      text: "/vault/project/assets/image.png",
+      toolLabel: "imageView",
+      summaryPath: true,
+      turnId: "turn",
+    } as const;
+    const baseContext = {
+      activeThreadId: "thread",
+      activeTurnId: "turn",
+      historyCursor: null,
+      loadingHistory: false,
+      busy: true,
+      displayItems: [item] satisfies DisplayItem[],
+      openDetails: new Set<string>(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
+      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
+    };
+
+    renderMessageStreamBlocks(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault" }));
+    expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("project/assets/image.png");
+
+    renderMessageStreamBlocks(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault/project" }));
+    expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("assets/image.png");
+    unmountReactRoot(parent);
+  });
+
   it("keeps path summary tools absolute outside the workspace root", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1680,7 +1654,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("does not treat generic tool summaries as paths without an explicit marker", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1709,7 +1683,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("renders hook metadata as rows inside one details block", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1757,7 +1731,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("renders hook metadata when the hook is inside a completed-turn activity group", () => {
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -1807,9 +1781,9 @@ describe("work log renderer decisions", () => {
     const parent = document.createElement("div");
     const onDetailsToggle = vi.fn();
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -1858,7 +1832,6 @@ describe("work log renderer decisions", () => {
         renderMarkdown: (element, text) => element.createDiv({ text }),
         renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
-      new Map(),
     );
 
     const group = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="activity:turn-turn-activity"]'));
@@ -1878,7 +1851,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("renders task progress items as a dedicated task list", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -1917,9 +1890,9 @@ describe("work log renderer decisions", () => {
   it("keeps task progress React items mounted in the message stream host", () => {
     const parent = document.createElement("div");
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: "turn",
         historyCursor: null,
@@ -1945,7 +1918,6 @@ describe("work log renderer decisions", () => {
         renderMarkdown: (element, text) => element.createDiv({ text }),
         renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
-      new Map(),
     );
 
     const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:plan-progress-turn"]'));
@@ -1956,7 +1928,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("renders agent activity with target state and prompt details", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -2000,9 +1972,9 @@ describe("work log renderer decisions", () => {
     const parent = document.createElement("div");
     const onDetailsToggle = vi.fn();
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: "turn",
         historyCursor: null,
@@ -2031,7 +2003,6 @@ describe("work log renderer decisions", () => {
         renderMarkdown: (element, text) => element.createDiv({ text }),
         renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
-      new Map(),
     );
 
     const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:agent-1"]'));
@@ -2051,7 +2022,7 @@ describe("work log renderer decisions", () => {
     const longMessage = `Done\n${"a".repeat(180)}`;
     const threadId = "019e061e-0046-7653-a362-86de9a47cb5c";
     const onDetailsToggle = vi.fn();
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -2097,7 +2068,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("renders a compact live agent summary while subagents are running", () => {
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -2142,9 +2113,9 @@ describe("work log renderer decisions", () => {
   it("renders the compact live agent summary as a React block", () => {
     const parent = document.createElement("div");
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: "turn",
         historyCursor: null,
@@ -2175,7 +2146,6 @@ describe("work log renderer decisions", () => {
         renderMarkdown: (element, text) => element.createDiv({ text }),
         renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
-      new Map(),
     );
 
     const summary = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="active-agents:turn"]'));
@@ -2187,9 +2157,9 @@ describe("work log renderer decisions", () => {
   it("renders active reasoning as a React message stream block", () => {
     const parent = document.createElement("div");
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: "turn",
         historyCursor: null,
@@ -2201,7 +2171,6 @@ describe("work log renderer decisions", () => {
         renderMarkdown: (element, text) => element.createDiv({ text }),
         renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
-      new Map(),
     );
 
     const reasoning = expectPresent(
@@ -2214,7 +2183,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("hides the live agent summary once all subagents are complete", () => {
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -2247,7 +2216,7 @@ describe("work log renderer decisions", () => {
   });
 
   it("marks the live agent summary failed when any subagent fails", () => {
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -2869,7 +2838,7 @@ describe("pending request renderer decisions", () => {
   });
 
   it("renders submitted user input separately from approvals", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -2902,7 +2871,7 @@ describe("pending request renderer decisions", () => {
   });
 
   it("renders manual approval results with completion state and details", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -2948,7 +2917,7 @@ describe("pending request renderer decisions", () => {
   });
 
   it("renders auto-review summaries under the final assistant message", () => {
-    const block = messageRenderBlocks({
+    const block = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -2977,8 +2946,8 @@ describe("pending request renderer decisions", () => {
     expect(element.querySelector(".codex-panel__auto-reviews")?.textContent).toContain("Auto-review approved: npm test");
   });
 
-  it("adds pending requests to the bottom of message render blocks", () => {
-    const blocks = messageRenderBlocks({
+  it("adds pending requests to the bottom of message stream blocks", () => {
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: null,
@@ -2999,13 +2968,12 @@ describe("pending request renderer decisions", () => {
 
   it("keeps pending request React events mounted in the message stream host", () => {
     const parent = document.createElement("div");
-    const signatures = new Map<string, string>();
     const approval = pendingApproval();
     const resolveApproval = vi.fn();
 
-    renderMessageRenderBlocks(
+    renderMessageStreamBlocks(
       parent,
-      messageRenderBlocks({
+      messageStreamBlocks({
         activeThreadId: "thread",
         activeTurnId: null,
         historyCursor: null,
@@ -3030,7 +2998,6 @@ describe("pending request renderer decisions", () => {
             { resolveApproval, resolveUserInput: vi.fn(), cancelUserInput: vi.fn() },
           ),
       }),
-      signatures,
     );
 
     parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button")?.click();

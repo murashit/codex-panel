@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
-import { messageRenderBlocks, renderMessageRenderBlocks } from "./ui/message-stream";
+import { messageStreamBlocks, renderMessageStreamBlocks } from "./ui/message-stream";
 import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "./ui/scroll";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
@@ -16,7 +16,6 @@ export interface ChatMessageRendererOptions {
   owner: Component;
   stateStore: ChatStateStore;
   vaultPath: string;
-  blockSignatures: Map<string, string>;
   consumeScrollIntent: () => ChatMessageScrollIntent;
   loadOlderTurns: () => void;
   rollbackThread: (threadId: string) => void;
@@ -70,7 +69,7 @@ export class ChatMessageRenderer {
     const rollbackCandidate = state.busy ? null : rollbackCandidateFromItems(state.displayItems);
     const implementPlanCandidate = implementPlanCandidateFromState(state);
 
-    const blocks = messageRenderBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: state.activeThreadId,
       activeTurnId: state.activeTurnId,
       historyCursor: state.historyCursor,
@@ -110,7 +109,7 @@ export class ChatMessageRenderer {
       pendingRequestsSignature: this.options.pendingRequestsSignature(),
       renderPendingRequests: () => this.options.renderPendingRequests(),
     });
-    renderMessageRenderBlocks(messagesEl, blocks, this.options.blockSignatures);
+    renderMessageStreamBlocks(messagesEl, blocks);
 
     messagesEl.win.requestAnimationFrame(() => {
       if (generation !== this.renderGeneration) return;
@@ -131,7 +130,6 @@ export class ChatMessageRenderer {
       unmountReactRoot(this.messagesEl);
     }
     this.messagesEl = null;
-    this.options.blockSignatures.clear();
   }
 
   private async copyMessageText(text: string): Promise<void> {

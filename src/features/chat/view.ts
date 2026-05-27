@@ -108,7 +108,6 @@ export class CodexChatView extends ItemView {
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
-  private readonly blockSignatures = new Map<string, string>();
   private scheduledRestoredThreadHydrationTimer: number | null = null;
   private scheduledRenderTimer: number | null = null;
   private scheduledRenderForceSlots = false;
@@ -135,7 +134,6 @@ export class CodexChatView extends ItemView {
       owner: this,
       stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
-      blockSignatures: this.blockSignatures,
       consumeScrollIntent: () => {
         const value = this.nextMessageScrollIntent;
         this.nextMessageScrollIntent = "auto";

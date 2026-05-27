@@ -1,7 +1,6 @@
 import { useLayoutEffect, useState, type ReactNode } from "react";
 
 import { activeAgentRunSummary } from "../display/agent";
-import { isReasoningActive } from "../display/signature";
 import { executionState } from "../display/state";
 import type { AgentDisplayItem, AgentRunSummary, AgentRunSummaryAgent, TaskProgressDisplayItem, ToolDisplayItem } from "../display/types";
 import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel, taskStatusMarker } from "../display/labels";
@@ -227,4 +226,11 @@ function agentSummaryStatusLabel(agent: AgentRunSummaryAgent): string {
 
 function isLongAgentMessage(message: string): boolean {
   return message.length > AGENT_ROW_MESSAGE_PREVIEW_LIMIT || message.includes("\n");
+}
+
+function isReasoningActive(item: ReasoningDisplayItem, context: MessageStreamContext): boolean {
+  if (!context.busy || !context.activeTurnId || item.turnId !== context.activeTurnId) return false;
+  if (executionState(item) === "completed") return false;
+  const latestActiveTurnItem = [...context.displayItems].reverse().find((candidate) => candidate.turnId === context.activeTurnId);
+  return latestActiveTurnItem?.id === item.id;
 }

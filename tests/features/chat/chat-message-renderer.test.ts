@@ -190,18 +190,15 @@ describe("ChatMessageRenderer scroll pinning", () => {
     state.activeThreadId = "thread";
     state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Rendered message", turnId: "turn" }];
     const parent = document.createElement("div");
-    const blockSignatures = new Map<string, string>();
-    const renderer = chatMessageRenderer(state, vi.fn(), "/vault", [], blockSignatures);
+    const renderer = chatMessageRenderer(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     renderer.render(messages);
     expect(messages.querySelector('[data-codex-panel-block-key="item:message"]')).not.toBeNull();
-    expect(blockSignatures.size).toBeGreaterThan(0);
 
     renderer.dispose();
 
     expect(messages.querySelector('[data-codex-panel-block-key="item:message"]')).toBeNull();
-    expect(blockSignatures.size).toBe(0);
   });
 });
 
@@ -227,7 +224,6 @@ function chatMessageRenderer(
   openLinkText = vi.fn(),
   vaultPath = "/vault",
   vaultFiles: string[] = [],
-  blockSignatures = new Map<string, string>(),
 ): ChatMessageRenderer {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   return new ChatMessageRenderer({
@@ -244,7 +240,6 @@ function chatMessageRenderer(
     owner: {} as never,
     stateStore: testStoreForState(state),
     vaultPath,
-    blockSignatures,
     consumeScrollIntent: () => "auto",
     loadOlderTurns: vi.fn(),
     rollbackThread: vi.fn(),

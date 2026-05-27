@@ -1,11 +1,9 @@
 import { Fragment, useLayoutEffect, useRef, useState, type Ref, type ReactNode } from "react";
 
 import { displayBlocksForItems } from "../display/blocks";
-import { displayItemSignature, isMessageCopyActionVisible } from "../display/signature";
 import { executionState } from "../display/state";
 import type { ToolResultDisplayItem } from "../display/tool-view";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
-import { shortSignature } from "../../../shared/ui/dom";
 import { IconButton } from "../../../shared/ui/react-components";
 import { toolResultNode } from "./tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "./work-items";
@@ -15,9 +13,8 @@ import { renderReactRoot } from "../../../shared/ui/react-root";
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 const MESSAGE_CONTENT_RENDERED_EVENT = "codex-panel:message-content-rendered";
 
-export interface MessageRenderBlock {
+export interface MessageStreamBlock {
   key: string;
-  signature: string;
   node: ReactNode;
 }
 
@@ -72,13 +69,12 @@ function displayItemNode(item: DisplayItem, context: MessageStreamContext): Reac
   if (isRenderableWorkItem(item)) return workItemNode(item, context);
 }
 
-export function messageRenderBlocks(context: MessageStreamContext): MessageRenderBlock[] {
-  const blocks: MessageRenderBlock[] = [];
+export function messageStreamBlocks(context: MessageStreamContext): MessageStreamBlock[] {
+  const blocks: MessageStreamBlock[] = [];
 
   if (context.activeThreadId && context.historyCursor) {
     blocks.push({
       key: "history-bar",
-      signature: `${context.activeThreadId}:${context.historyCursor}:${String(context.loadingHistory)}`,
       node: <HistoryBar loadingHistory={context.loadingHistory} loadOlderTurns={context.loadOlderTurns} />,
     });
   }
@@ -86,7 +82,6 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
   if (context.displayItems.length === 0) {
     blocks.push({
       key: "empty",
-      signature: "empty",
       node: <EmptyMessage />,
     });
     return blocks;
@@ -96,13 +91,11 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
     if (block.type === "item") {
       blocks.push({
         key: `item:${block.item.id}`,
-        signature: displayItemSignature(block.item, context),
         node: displayItemNode(block.item, context),
       });
     } else {
       blocks.push({
         key: `activity:${block.id}`,
-        signature: `${block.summary}\n${block.items.map((item) => displayItemSignature(item, context)).join("\n")}`,
         node: <ActivityGroup group={block} context={context} />,
       });
     }
@@ -112,7 +105,6 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
   if (agentSummary) {
     blocks.push({
       key: `active-agents:${context.activeTurnId ?? "none"}`,
-      signature: JSON.stringify(agentSummary),
       node: agentRunSummaryNode(agentSummary),
     });
   }
@@ -120,7 +112,6 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
   if (context.renderPendingRequests && context.pendingRequestsSignature) {
     blocks.push({
       key: "pending-requests",
-      signature: context.pendingRequestsSignature,
       node: context.renderPendingRequests(),
     });
   }
@@ -128,38 +119,23 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
   return blocks;
 }
 
-export function renderMessageRenderBlocks(parent: HTMLElement, blocks: MessageRenderBlock[], signatures: Map<string, string>): void {
-  renderReactRoot(parent, <MessageRenderBlocks blocks={blocks} signatures={signatures} />);
+export function renderMessageStreamBlocks(parent: HTMLElement, blocks: MessageStreamBlock[]): void {
+  renderReactRoot(parent, <MessageStreamBlocks blocks={blocks} />);
 }
 
-function MessageRenderBlocks({ blocks, signatures }: { blocks: MessageRenderBlock[]; signatures: Map<string, string> }): ReactNode {
+function MessageStreamBlocks({ blocks }: { blocks: MessageStreamBlock[] }): ReactNode {
   return (
     <>
       {blocks.map((block) => (
-        <MessageRenderBlockHost key={block.key} block={block} signatures={signatures} />
+        <MessageStreamBlockHost key={block.key} block={block} />
       ))}
     </>
   );
 }
 
-function MessageRenderBlockHost({ block, signatures }: { block: MessageRenderBlock; signatures: Map<string, string> }): ReactNode {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const host = ref.current;
-    if (!host) return;
-    signatures.set(block.key, block.signature);
-    host.dataset["codexPanelBlockSignature"] = shortSignature(block.signature);
-  }, [block, signatures]);
-
-  useLayoutEffect(() => {
-    const key = block.key;
-    return () => {
-      signatures.delete(key);
-    };
-  }, [block.key, signatures]);
-
+function MessageStreamBlockHost({ block }: { block: MessageStreamBlock }): ReactNode {
   return (
-    <div ref={ref} className="codex-panel__message-block" data-codex-panel-block-key={block.key}>
+    <div className="codex-panel__message-block" data-codex-panel-block-key={block.key}>
       {block.node}
     </div>
   );
@@ -610,6 +586,11 @@ function displayRoleLabel(item: DisplayItem): string {
   if (item.role === "user") return "You";
   if (item.role === "assistant") return "Codex";
   return "System";
+}
+
+function isMessageCopyActionVisible(item: DisplayItem, context: Pick<MessageStreamContext, "busy" | "activeTurnId">): boolean {
+  if (item.kind !== "message" || item.copyText === undefined) return false;
+  return !(context.busy && context.activeTurnId && item.role === "assistant" && item.turnId === context.activeTurnId);
 }
 
 function messageClass(item: DisplayItem): string {
