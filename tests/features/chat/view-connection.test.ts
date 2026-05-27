@@ -119,6 +119,18 @@ describe("CodexChatView connection lifecycle", () => {
     );
   });
 
+  it("renders the React shell on the view content root", async () => {
+    const view = await chatView();
+
+    await view.onOpen();
+
+    const root = view.containerEl.children[1] as HTMLElement;
+    expect(root.classList.contains("codex-panel")).toBe(true);
+    expect(root.querySelector(":scope > .codex-panel__toolbar")).not.toBeNull();
+    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__slot--messages")).not.toBeNull();
+    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__slot--composer")).not.toBeNull();
+  });
+
   it("ignores stale connection work after the view closes", async () => {
     let resolveConfig!: (value: unknown) => void;
     const client = connectedClient({

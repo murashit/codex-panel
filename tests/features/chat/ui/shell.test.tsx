@@ -42,16 +42,39 @@ describe("ChatPanelShell", () => {
       await settleShellEffects();
     });
     vi.mocked(renderers.renderToolbar).mockClear();
+    vi.mocked(renderers.renderMessages).mockClear();
+    vi.mocked(renderers.renderComposer).mockClear();
 
     await act(async () => {
       store.dispatch({ type: "status/set", status: "Working" });
       await settleShellEffects();
     });
 
-    expect(renderers.renderToolbar).toHaveBeenCalled();
+    expect(renderers.renderToolbar).toHaveBeenCalledTimes(1);
+    expect(renderers.renderMessages).toHaveBeenCalledTimes(1);
+    expect(renderers.renderComposer).toHaveBeenCalledTimes(1);
     expect(container.querySelector(".codex-panel__toolbar")?.textContent).toBe("Working");
 
     unmountChatPanelShell(container);
+  });
+
+  it("stops subscribed slot rendering after unmount", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const renderers = shellRenderers(store);
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+    vi.mocked(renderers.renderToolbar).mockClear();
+
+    unmountChatPanelShell(container);
+    store.dispatch({ type: "status/set", status: "Closed" });
+    await settleShellEffects();
+
+    expect(renderers.renderToolbar).not.toHaveBeenCalled();
   });
 });
 
