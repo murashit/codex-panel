@@ -27,6 +27,8 @@ The source tree is organized by responsibility rather than by the original singl
 
 Keep new code near the state or API it owns. Feature code should not import from another feature directly; move shared behavior to `src/shared/`, `src/domain/`, `src/app-server/`, or `src/runtime/` when more than one feature needs it.
 
+Codex Panel's runtime UI is React-owned. Keep chat panel UI, the Threads view, and the selection rewrite popover in React components. Imperative DOM writes are limited to explicit bridge modules or Obsidian-owned API boundaries such as `MarkdownRenderer`, diff rendering, icon rendering, `SuggestModal`, and the Obsidian `Setting`-based settings tab. ESLint enforces this boundary with allowlisted bridge files; add a new allowlist entry only when the code is genuinely bridging an external DOM API.
+
 ## App-Server Bindings
 
 The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI:
