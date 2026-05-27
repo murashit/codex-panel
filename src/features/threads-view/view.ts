@@ -9,7 +9,7 @@ import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import { findThreadNamingContext, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/naming";
 import { generateThreadTitleWithCodex } from "../../app-server/thread-naming";
-import { renderThreadsView } from "./renderer";
+import { renderThreadsView, unmountThreadsView } from "./renderer";
 import { threadRows } from "./state";
 
 export interface CodexThreadsHost {
@@ -103,6 +103,7 @@ export class CodexThreadsView extends ItemView {
     }
     this.connection.disconnect();
     this.client = null;
+    unmountThreadsView(this.containerEl);
   }
 
   async refresh(): Promise<void> {
