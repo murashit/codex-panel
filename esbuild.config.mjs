@@ -10,6 +10,7 @@ const context = await esbuild.context({
   format: "cjs",
   platform: "node",
   target: "es2022",
+  jsx: "automatic",
   outfile: "main.js",
   sourcemap: production ? false : "inline",
   minify: production,

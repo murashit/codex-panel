@@ -4,7 +4,7 @@ import eslintConfigPrettier from "eslint-config-prettier/flat";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import tseslint from "typescript-eslint";
 
-const typeScriptFiles = ["src/**/*.ts", "tests/**/*.ts"];
+const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
 const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs"];
 const typeScriptConfigFiles = ["*.config.ts"];
 const lintedTypeScriptFiles = [...typeScriptFiles, ...typeScriptConfigFiles];
@@ -66,7 +66,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["tests/**/*.ts"],
+    files: ["tests/**/*.{ts,tsx}"],
     rules: {
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-unsafe-call": "off",
