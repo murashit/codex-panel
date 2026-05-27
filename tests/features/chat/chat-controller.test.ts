@@ -35,6 +35,7 @@ function testStoreForState(state: ChatState): ChatStateStore {
       Object.assign(state, current);
       return current;
     },
+    subscribe: () => () => undefined,
   };
 }
 

@@ -246,6 +246,7 @@ function testStoreForState(state: ChatState): ChatStateStore {
       Object.assign(state, next);
       return state;
     },
+    subscribe: () => () => undefined,
   };
 }
 

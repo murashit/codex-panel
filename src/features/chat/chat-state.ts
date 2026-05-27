@@ -71,6 +71,7 @@ export interface ChatState {
 export interface ChatStateStore {
   getState(): ChatState;
   dispatch(action: ChatAction): ChatState;
+  subscribe(listener: () => void): () => void;
 }
 
 export type ChatAction =
@@ -196,11 +197,21 @@ export function createChatState(): ChatState {
 
 export function createChatStateStore(initialState: ChatState = createChatState()): ChatStateStore {
   let current = cloneChatState(initialState);
+  const listeners = new Set<() => void>();
   return {
     getState: () => current,
     dispatch(action) {
-      current = chatReducer(current, action);
+      const next = chatReducer(current, action);
+      if (next === current) return current;
+      current = next;
+      for (const listener of listeners) listener();
       return current;
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
   };
 }
@@ -291,12 +302,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...(action.resetDismissedSignature ? { composerSuggestionsDismissedSignature: null } : {}),
       });
     case "composer/suggestions-set":
-      return patchChatState(state, {
-        composerSuggestions: action.suggestions,
-        composerSuggestSelected: action.selected ?? state.composerSuggestSelected,
-        composerSuggestionsDismissedSignature:
-          action.dismissedSignature === undefined ? state.composerSuggestionsDismissedSignature : action.dismissedSignature,
-      });
+      return setComposerSuggestionsState(
+        state,
+        action.suggestions,
+        action.selected ?? state.composerSuggestSelected,
+        action.dismissedSignature === undefined ? state.composerSuggestionsDismissedSignature : action.dismissedSignature,
+      );
     case "ui/panel-set":
       return setPanelState(state, action.panel, action.toggle ?? false);
     case "ui/messages-pinned-set":
@@ -452,6 +463,41 @@ function commitPendingThreadSettings(state: ChatState, update: Omit<ThreadSettin
       ? { activeApprovalsReviewer: update.approvalsReviewer ?? null, requestedApprovalsReviewer: null }
       : {}),
     ...(update.collaborationMode ? { activeCollaborationMode: update.collaborationMode.mode } : {}),
+  });
+}
+
+function setComposerSuggestionsState(
+  state: ChatState,
+  suggestions: ComposerSuggestion[],
+  selected: number,
+  dismissedSignature: string | null,
+): ChatState {
+  if (
+    state.composerSuggestSelected === selected &&
+    state.composerSuggestionsDismissedSignature === dismissedSignature &&
+    composerSuggestionsEqual(state.composerSuggestions, suggestions)
+  ) {
+    return state;
+  }
+  return patchChatState(state, {
+    composerSuggestions: suggestions,
+    composerSuggestSelected: selected,
+    composerSuggestionsDismissedSignature: dismissedSignature,
+  });
+}
+
+function composerSuggestionsEqual(left: ComposerSuggestion[], right: ComposerSuggestion[]): boolean {
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  return left.every((item, index) => {
+    const other = right[index];
+    return (
+      item.display === other?.display &&
+      item.detail === other.detail &&
+      item.replacement === other.replacement &&
+      item.start === other.start &&
+      item.appendSpaceOnInsert === other.appendSpaceOnInsert
+    );
   });
 }
 

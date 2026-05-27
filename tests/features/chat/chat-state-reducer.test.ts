@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { chatReducer, createChatState, createChatStateStore, type ChatState } from "../../../src/features/chat/chat-state";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
@@ -117,6 +117,40 @@ describe("chatReducer", () => {
 
     expect(initial.displayItems).toEqual([message("initial")]);
     expect(store.getState().displayItems).toEqual([message("initial"), message("next")]);
+  });
+
+  it("notifies ChatStateStore subscribers only when the state reference changes", () => {
+    const store = createChatStateStore();
+    const listener = vi.fn();
+    const unsubscribe = store.subscribe(listener);
+
+    store.dispatch({ type: "status/set", status: "Idle" });
+    expect(listener).not.toHaveBeenCalled();
+
+    store.dispatch({ type: "status/set", status: "Working" });
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    store.dispatch({ type: "status/set", status: "Done" });
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps equal composer suggestion updates as no-ops", () => {
+    const store = createChatStateStore();
+    const listener = vi.fn();
+    const suggestions = [{ display: "/plan", detail: "Plan mode", replacement: "/plan", start: 0, appendSpaceOnInsert: true }];
+    store.subscribe(listener);
+
+    store.dispatch({ type: "composer/suggestions-set", suggestions, selected: 0 });
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    store.dispatch({ type: "composer/suggestions-set", suggestions: suggestions.map((item) => ({ ...item })), selected: 0 });
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    store.dispatch({ type: "composer/suggestions-set", suggestions: [], selected: 0 });
+    expect(listener).toHaveBeenCalledTimes(2);
+    store.dispatch({ type: "composer/suggestions-set", suggestions: [], selected: 0 });
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });
 
