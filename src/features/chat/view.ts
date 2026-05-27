@@ -56,7 +56,7 @@ import type { CodexPanelSettings } from "../../settings/model";
 import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import { attachHookRunsToTurn } from "./hook-display";
-import { clearActiveThreadState, clearConnectionScopedState, createChatState, type ChatState } from "./chat-state";
+import { createChatStateStore, type ChatState } from "./chat-state";
 import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle, upsertThread } from "../../domain/threads/model";
 import {
   referencedThreadDisplay,
@@ -106,7 +106,7 @@ export class CodexChatView extends ItemView {
   private readonly history: ThreadHistoryLoader;
   private readonly threadActions: ChatThreadActionController;
   private readonly threadRename: ThreadRenameController;
-  private readonly state: ChatState = createChatState();
+  private readonly chatState = createChatStateStore();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
@@ -187,14 +187,14 @@ export class CodexChatView extends ItemView {
       onExit: () => {
         this.invalidateResumeWork();
         this.setStatus("Codex app-server stopped.");
-        clearConnectionScopedState(this.state);
+        this.chatState.dispatch({ type: "connection/scoped-cleared" });
         this.threadRename.resetThreadTurnPresence(false);
         this.client = null;
         this.plugin.refreshThreadsViewLiveState();
         this.render();
       },
     });
-    this.controller = new ChatController(this.state, {
+    this.controller = new ChatController(this.chatState, {
       refreshThreads: () => {
         void this.refreshThreads();
       },
@@ -219,7 +219,7 @@ export class CodexChatView extends ItemView {
       rejectServerRequest: (requestId, code, message) => this.rejectServerRequest(requestId, code, message),
     });
     this.session = new ChatSessionController({
-      state: this.state,
+      stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
       currentClient: () => this.connection.currentClient(),
       runtimeSnapshot: () => this.runtimeSnapshot(),
@@ -228,7 +228,7 @@ export class CodexChatView extends ItemView {
       },
     });
     this.history = new ThreadHistoryLoader({
-      state: this.state,
+      stateStore: this.chatState,
       currentClient: () => this.client,
       render: () => {
         this.render();
@@ -247,7 +247,7 @@ export class CodexChatView extends ItemView {
       },
     });
     this.threadActions = new ChatThreadActionController({
-      state: this.state,
+      stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
       settings: () => this.plugin.settings,
       archiveAdapter: () => this.app.vault.adapter,
@@ -295,6 +295,10 @@ export class CodexChatView extends ItemView {
         this.plugin.notifyThreadRenamed(threadId, name);
       },
     });
+  }
+
+  private get state(): ChatState {
+    return this.chatState.getState();
   }
 
   override getViewType(): string {
@@ -526,9 +530,9 @@ export class CodexChatView extends ItemView {
     this.invalidateResumeWork();
     this.restoredThread = null;
     this.clearDeferredRestoredThreadHydration();
-    clearActiveThreadState(this.state);
+    this.chatState.dispatch({ type: "thread/active-cleared" });
     this.threadRename.resetThreadTurnPresence(false);
-    this.state.openDetails.delete("history");
+    this.chatState.dispatch({ type: "ui/panel-set", panel: null });
     this.setStatus("New chat.");
     this.queueMessagesBottomScroll();
     this.plugin.refreshThreadsViewLiveState();
@@ -1625,7 +1629,7 @@ export class CodexChatView extends ItemView {
     this.invalidateResumeWork();
     this.restoredThread = null;
     this.clearDeferredRestoredThreadHydration();
-    clearActiveThreadState(this.state);
+    this.chatState.dispatch({ type: "thread/active-cleared" });
     this.threadRename.resetThreadTurnPresence(false);
     this.notifyActiveThreadIdentityChanged();
     this.plugin.refreshThreadsViewLiveState();

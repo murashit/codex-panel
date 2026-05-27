@@ -25,13 +25,13 @@ import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type { FileUpdateChange } from "../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
-import { clearActiveThreadState, type ChatState } from "./chat-state";
+import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
 import { userInputResponse, type PendingUserInput } from "./user-input/model";
 import { jsonPreview } from "../../utils";
 import { classifyAppServerLog } from "./app-server-logs";
 import { attachHookRunsToTurn, hookRunDisplayItem } from "./hook-display";
 import { routeServerNotification, routeServerRequest } from "./inbound-routing";
-import { clearUserInputDrafts, createApprovalResultItem, createUserInputResultItem } from "./request-state";
+import { createApprovalResultItem, createUserInputResultItem } from "./request-state";
 
 export interface ChatControllerActions {
   refreshThreads: () => void;
@@ -47,9 +47,17 @@ export interface ChatControllerActions {
 
 export class ChatController {
   constructor(
-    private readonly state: ChatState,
+    private readonly store: ChatStateStore,
     private readonly actions: ChatControllerActions,
   ) {}
+
+  private get state(): ChatState {
+    return this.store.getState();
+  }
+
+  private dispatch(action: ChatAction): void {
+    this.store.dispatch(action);
+  }
 
   handleNotification(notification: ServerNotification): void {
     const route = routeServerNotification(notification, this.activeRouteScope());
@@ -112,8 +120,7 @@ export class ChatController {
       this.addSystemMessage("Could not send approval response because Codex app-server is not connected.");
       return;
     }
-    this.state.approvals = this.state.approvals.filter((item) => item.requestId !== approval.requestId);
-    this.state.displayItems.push(createApprovalResultItem(approval, action));
+    this.dispatch({ type: "request/resolved", requestId: approval.requestId, resultItem: createApprovalResultItem(approval, action) });
   }
 
   resolveUserInput(input: PendingUserInput, answers: Record<string, string>): void {
@@ -122,9 +129,11 @@ export class ChatController {
       this.addSystemMessage("Could not send user input because Codex app-server is not connected.");
       return;
     }
-    this.state.pendingUserInputs = this.state.pendingUserInputs.filter((item) => item.requestId !== input.requestId);
-    clearUserInputDrafts(this.state.userInputDrafts, input);
-    this.state.displayItems.push(createUserInputResultItem(input, answers, "submitted"));
+    this.dispatch({
+      type: "request/resolved",
+      requestId: input.requestId,
+      resultItem: createUserInputResultItem(input, answers, "submitted"),
+    });
   }
 
   cancelUserInput(input: PendingUserInput): void {
@@ -133,37 +142,38 @@ export class ChatController {
       this.addSystemMessage("Could not cancel user input because Codex app-server is not connected.");
       return;
     }
-    this.state.pendingUserInputs = this.state.pendingUserInputs.filter((item) => item.requestId !== input.requestId);
-    clearUserInputDrafts(this.state.userInputDrafts, input);
-    this.state.displayItems.push(createUserInputResultItem(input, {}, "cancelled"));
+    this.dispatch({ type: "request/resolved", requestId: input.requestId, resultItem: createUserInputResultItem(input, {}, "cancelled") });
   }
 
   addSystemMessage(text: string): void {
-    this.state.displayItems.push(createSystemItem(text));
+    this.dispatch({ type: "system/message-added", item: createSystemItem(text) });
   }
 
   addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
-    this.state.displayItems.push(createStructuredSystemItem(text, details));
+    this.dispatch({ type: "system/message-added", item: createStructuredSystemItem(text, details) });
   }
 
   addDedupedSystemMessage(text: string): void {
-    if (this.state.reportedLogs.has(text)) return;
-    this.state.reportedLogs.add(text);
-    this.addSystemMessage(text);
+    this.dispatch({ type: "system/deduped-log-added", text, item: createSystemItem(text) });
   }
 
   private handleStreamUpdate(notification: ServerNotification): void {
     const { method, params } = notification;
     if (method === "item/agentMessage/delta") {
-      this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turnId);
-      this.state.displayItems = appendAssistantDelta(this.state.displayItems, params.itemId, params.turnId, params.delta);
-    } else if (method === "item/plan/delta") {
-      this.state.displayItems = appendPlanDelta(this.state.displayItems, params.itemId, params.turnId, params.delta);
-    } else if (method === "turn/plan/updated") {
-      this.state.displayItems = upsertDisplayItem(
-        this.state.displayItems,
-        planProgressDisplayItem(params.turnId, params.explanation, params.plan),
+      const displayItems = appendAssistantDelta(
+        completeReasoningItems(this.state.displayItems, params.turnId),
+        params.itemId,
+        params.turnId,
+        params.delta,
       );
+      this.dispatch({ type: "display/items-replaced", items: displayItems });
+    } else if (method === "item/plan/delta") {
+      this.dispatch({
+        type: "display/items-replaced",
+        items: appendPlanDelta(this.state.displayItems, params.itemId, params.turnId, params.delta),
+      });
+    } else if (method === "turn/plan/updated") {
+      this.dispatch({ type: "display/item-upserted", item: planProgressDisplayItem(params.turnId, params.explanation, params.plan) });
     } else if (method === "item/reasoning/summaryTextDelta") {
       this.appendToolText(params.itemId, params.turnId, "reasoning", params.delta, "reasoning");
     } else if (method === "item/reasoning/textDelta") {
@@ -175,44 +185,45 @@ export class ChatController {
     } else if (method === "item/completed") {
       this.handleCompletedItem(params.item, params.turnId);
     } else if (method === "item/commandExecution/outputDelta") {
-      this.state.displayItems = appendItemOutput(
-        this.state.displayItems,
-        params.itemId,
-        params.turnId,
-        params.delta,
-        "command",
-        "Command running",
-      );
+      this.dispatch({
+        type: "display/items-replaced",
+        items: appendItemOutput(this.state.displayItems, params.itemId, params.turnId, params.delta, "command", "Command running"),
+      });
     } else if (method === "item/fileChange/patchUpdated") {
       this.upsertFileChange(params.itemId, params.turnId, params.changes, "inProgress");
     } else if (method === "item/fileChange/outputDelta") {
-      this.state.displayItems = appendItemOutput(
-        this.state.displayItems,
-        params.itemId,
-        params.turnId,
-        params.delta,
-        "fileChange",
-        "File change inProgress",
-      );
+      this.dispatch({
+        type: "display/items-replaced",
+        items: appendItemOutput(
+          this.state.displayItems,
+          params.itemId,
+          params.turnId,
+          params.delta,
+          "fileChange",
+          "File change inProgress",
+        ),
+      });
     } else if (method === "turn/diff/updated") {
-      if (params.diff.trim().length > 0) {
-        this.state.turnDiffs.set(params.turnId, params.diff);
-      } else {
-        this.state.turnDiffs.delete(params.turnId);
-      }
+      this.dispatch({ type: "display/turn-diff-updated", turnId: params.turnId, diff: params.diff });
     } else if (method === "hook/started") {
       this.upsertHookRun(params.run, params.turnId, "running");
     } else if (method === "hook/completed") {
       this.upsertHookRun(params.run, params.turnId, params.run.status);
     } else if (method === "item/mcpToolCall/progress") {
-      this.state.displayItems = appendToolOutput(this.state.displayItems, params.itemId, params.turnId, params.message, "mcp progress");
+      this.dispatch({
+        type: "display/items-replaced",
+        items: appendToolOutput(this.state.displayItems, params.itemId, params.turnId, params.message, "mcp progress"),
+      });
     } else if (method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed") {
       const reviewItem = createAutoReviewResultItem(params);
-      this.state.displayItems = upsertDisplayItem(removeUnstructuredAutoReviewWarnings(this.state.displayItems), reviewItem);
+      this.dispatch({
+        type: "display/items-replaced",
+        items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(this.state.displayItems), reviewItem),
+      });
     } else if (method === "guardianWarning") {
       const item = createReviewResultItem(params.message);
       if (!isUnstructuredAutoReviewWarning(item) || !hasStructuredAutoReviewResult(this.state.displayItems, this.state.activeTurnId)) {
-        this.state.displayItems = upsertDisplayItem(this.state.displayItems, item);
+        this.dispatch({ type: "display/item-upserted", item });
       }
     }
   }
@@ -220,17 +231,20 @@ export class ChatController {
   private handleTurnLifecycle(notification: ServerNotification): void {
     const { method, params } = notification;
     if (method === "turn/started") {
-      this.state.activeThreadId = params.threadId;
-      this.state.activeTurnId = params.turn.id;
-      this.attachPendingPromptSubmitHooks(params.turn.id);
-      this.state.busy = true;
-      this.state.status = "Turn running...";
+      this.dispatch({
+        type: "turn/started",
+        threadId: params.threadId,
+        turnId: params.turn.id,
+        displayItems: this.displayItemsWithPendingPromptSubmitHooks(params.turn.id),
+        pendingTurnStart: null,
+      });
     } else if (method === "turn/completed") {
-      this.reconcileCompletedTurn(params.turn);
-      this.state.displayItems = completeReasoningItems(this.state.displayItems, params.turn.id);
-      this.state.busy = false;
-      this.state.activeTurnId = null;
-      this.state.status = `Turn ${params.turn.status}.`;
+      this.dispatch({
+        type: "turn/completed",
+        turnId: params.turn.id,
+        status: params.turn.status,
+        displayItems: completeReasoningItems(this.reconciledCompletedTurnItems(params.turn), params.turn.id),
+      });
       this.actions.maybeNameThread(params.threadId, params.turn);
       this.actions.refreshThreads();
     }
@@ -240,19 +254,22 @@ export class ChatController {
     const { method, params } = notification;
     if (method === "thread/started") {
       if (!this.state.activeThreadId || this.state.activeThreadId === params.thread.id) {
-        this.state.activeThreadCwd = params.thread.cwd;
+        this.dispatch({ type: "state/patched", patch: { activeThreadCwd: params.thread.cwd } });
       }
     } else if (method === "thread/archived") {
-      this.state.listedThreads = this.state.listedThreads.filter((thread) => thread.id !== params.threadId);
+      this.dispatch({ type: "thread/list-applied", threads: this.state.listedThreads.filter((thread) => thread.id !== params.threadId) });
       if (this.state.activeThreadId === params.threadId) {
-        clearActiveThreadState(this.state);
+        this.dispatch({ type: "thread/active-cleared" });
       }
       this.actions.notifyThreadArchived(params.threadId);
     } else if (method === "thread/unarchived") {
       this.actions.refreshThreads();
     } else if (method === "thread/name/updated") {
       const name = typeof params.threadName === "string" && params.threadName.trim() ? params.threadName.trim() : null;
-      this.state.listedThreads = this.state.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread));
+      this.dispatch({
+        type: "thread/list-applied",
+        threads: this.state.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread)),
+      });
       this.actions.notifyThreadRenamed(params.threadId, name);
     } else if (method === "thread/settings/updated") {
       this.applyThreadSettings(params.threadSettings);
@@ -265,18 +282,15 @@ export class ChatController {
 
   private handleRequestResolved(notification: Extract<ServerNotification, { method: "serverRequest/resolved" }>): void {
     const { requestId } = notification.params;
-    this.state.approvals = this.state.approvals.filter((approval) => approval.requestId !== requestId);
-    const resolvedInputs = this.state.pendingUserInputs.filter((input) => input.requestId === requestId);
-    this.state.pendingUserInputs = this.state.pendingUserInputs.filter((input) => input.requestId !== requestId);
-    for (const input of resolvedInputs) clearUserInputDrafts(this.state.userInputDrafts, input);
+    this.dispatch({ type: "request/resolved", requestId });
   }
 
   private handleDiagnosticStatus(notification: ServerNotification): void {
     const { method, params } = notification;
     if (method === "thread/tokenUsage/updated") {
-      this.state.tokenUsage = params.tokenUsage;
+      this.dispatch({ type: "state/patched", patch: { tokenUsage: params.tokenUsage } });
     } else if (method === "account/rateLimits/updated") {
-      this.state.rateLimit = params.rateLimits;
+      this.dispatch({ type: "thread/list-applied", rateLimit: params.rateLimits });
       this.actions.publishSessionMetadata();
     } else if (method === "skills/changed") {
       this.actions.refreshSkills(true);
@@ -298,15 +312,11 @@ export class ChatController {
   }
 
   private queueApprovalRequest(approval: PendingApproval): void {
-    if (!this.state.approvals.some((existing) => existing.requestId === approval.requestId)) {
-      this.state.approvals.push(approval);
-    }
+    this.dispatch({ type: "request/approval-queued", approval });
   }
 
   private queueUserInputRequest(userInput: PendingUserInput): void {
-    if (!this.state.pendingUserInputs.some((existing) => existing.requestId === userInput.requestId)) {
-      this.state.pendingUserInputs.push(userInput);
-    }
+    this.dispatch({ type: "request/user-input-queued", input: userInput });
   }
 
   private activeRouteScope(): { activeThreadId: string | null; activeTurnId: string | null } {
@@ -331,23 +341,24 @@ export class ChatController {
   private handleStartedItem(item: ThreadItem, turnId: string): void {
     if (shouldSuppressLifecycleItem(item)) return;
     const displayItem = displayItemFromThreadItem(item, turnId);
-    if (displayItem) this.state.displayItems = upsertDisplayItem(this.state.displayItems, displayItem);
+    if (displayItem) this.dispatch({ type: "display/item-upserted", item: displayItem });
   }
 
   private handleCompletedItem(item: ThreadItem, turnId: string): void {
     if (item.type === "userMessage") return;
     const displayItem = displayItemFromThreadItem(item, turnId);
     if (displayItem) {
-      this.state.displayItems = upsertDisplayItem(this.state.displayItems, displayItem);
+      let displayItems = upsertDisplayItem(this.state.displayItems, displayItem);
       if (displayItem.kind === "reasoning") {
-        this.state.displayItems = completeReasoningItems(this.state.displayItems, turnId);
+        displayItems = completeReasoningItems(displayItems, turnId);
       }
+      this.dispatch({ type: "display/items-replaced", items: displayItems });
     }
   }
 
-  private reconcileCompletedTurn(turn: Turn): void {
+  private reconciledCompletedTurnItems(turn: Turn): DisplayItem[] {
     const turnItems = displayItemsFromTurns([turn]);
-    if (turnItems.length === 0) return;
+    if (turnItems.length === 0) return this.state.displayItems;
     const serverUserTexts = new Set(turnItems.filter(isUserMessage).map((item) => item.text));
     let mergedTurnItems = this.state.displayItems
       .filter((item) => item.turnId === turn.id)
@@ -358,19 +369,22 @@ export class ChatController {
     const retainedItems = this.state.displayItems
       .filter((item) => item.turnId !== turn.id)
       .filter((item) => !isOptimisticUserMessage(item, serverUserTexts));
-    this.state.displayItems = [...retainedItems, ...mergedTurnItems];
+    return [...retainedItems, ...mergedTurnItems];
   }
 
   private upsertFileChange(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): void {
-    this.state.displayItems = upsertDisplayItem(this.state.displayItems, {
-      id: itemId,
-      kind: "fileChange",
-      role: "tool",
-      text: `File change ${status}`,
-      turnId,
-      itemId,
-      status,
-      changes: normalizeFileChanges(changes),
+    this.dispatch({
+      type: "display/item-upserted",
+      item: {
+        id: itemId,
+        kind: "fileChange",
+        role: "tool",
+        text: `File change ${status}`,
+        turnId,
+        itemId,
+        status,
+        changes: normalizeFileChanges(changes),
+      },
     });
   }
 
@@ -381,7 +395,7 @@ export class ChatController {
     delta: string,
     kind: Extract<DisplayKind, "tool" | "hook" | "reasoning"> = "tool",
   ): void {
-    this.state.displayItems = appendItemText(this.state.displayItems, itemId, turnId, label, delta, kind);
+    this.dispatch({ type: "display/items-replaced", items: appendItemText(this.state.displayItems, itemId, turnId, label, delta, kind) });
   }
 
   private upsertHookRun(
@@ -392,11 +406,20 @@ export class ChatController {
     const resolvedTurnId = this.hookRunTurnId(run, turnId);
     const item = hookRunDisplayItem(run, resolvedTurnId, status);
     if (!item) return;
-    this.state.displayItems = upsertDisplayItem(this.state.displayItems, item);
+    let pendingTurnStart = this.state.pendingTurnStart;
     if (!resolvedTurnId && this.state.pendingTurnStart && run.eventName === "userPromptSubmit") {
       const hookIds = this.state.pendingTurnStart.promptSubmitHookItemIds;
-      if (!hookIds.includes(item.id)) hookIds.push(item.id);
+      pendingTurnStart = hookIds.includes(item.id)
+        ? this.state.pendingTurnStart
+        : { ...this.state.pendingTurnStart, promptSubmitHookItemIds: [...hookIds, item.id] };
     }
+    this.dispatch({
+      type: "state/patched",
+      patch: {
+        displayItems: upsertDisplayItem(this.state.displayItems, item),
+        pendingTurnStart,
+      },
+    });
   }
 
   private hookRunTurnId(
@@ -408,11 +431,10 @@ export class ChatController {
     return null;
   }
 
-  private attachPendingPromptSubmitHooks(turnId: string): void {
+  private displayItemsWithPendingPromptSubmitHooks(turnId: string): DisplayItem[] {
     const pending = this.state.pendingTurnStart;
-    if (!pending) return;
-    this.state.displayItems = attachHookRunsToTurn(this.state.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
-    this.state.pendingTurnStart = null;
+    if (!pending) return this.state.displayItems;
+    return attachHookRunsToTurn(this.state.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
   }
 
   private handleMcpStartupStatus(params: Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>["params"]): void {
@@ -423,13 +445,18 @@ export class ChatController {
   private applyThreadSettings(
     settings: Extract<ServerNotification, { method: "thread/settings/updated" }>["params"]["threadSettings"],
   ): void {
-    this.state.activeThreadCwd = settings.cwd;
-    this.state.activeModel = settings.model;
-    this.state.activeReasoningEffort = settings.effort;
-    this.state.activeCollaborationMode = settings.collaborationMode.mode;
-    this.state.requestedCollaborationMode = settings.collaborationMode.mode;
-    this.state.activeServiceTier = reportedServiceTier(settings.serviceTier);
-    this.state.activeApprovalsReviewer = settings.approvalsReviewer;
+    this.dispatch({
+      type: "state/patched",
+      patch: {
+        activeThreadCwd: settings.cwd,
+        activeModel: settings.model,
+        activeReasoningEffort: settings.effort,
+        activeCollaborationMode: settings.collaborationMode.mode,
+        requestedCollaborationMode: settings.collaborationMode.mode,
+        activeServiceTier: reportedServiceTier(settings.serviceTier),
+        activeApprovalsReviewer: settings.approvalsReviewer,
+      },
+    });
   }
 }
 

@@ -256,7 +256,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         busy: true,
         status: "Turn running...",
         displayItems: action.displayItems ?? state.displayItems,
-        pendingTurnStart: action.pendingTurnStart ?? state.pendingTurnStart,
+        pendingTurnStart: action.pendingTurnStart === undefined ? state.pendingTurnStart : action.pendingTurnStart,
       });
     case "turn/completed":
       return patchChatState(state, {

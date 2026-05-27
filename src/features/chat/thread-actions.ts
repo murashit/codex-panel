@@ -5,12 +5,12 @@ import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import { inheritedForkThreadName, upsertThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { ArchiveExportAdapter } from "../../domain/threads/export";
-import type { ChatState } from "./chat-state";
+import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
 import type { ThreadHistoryLoader } from "./thread-history";
 import { rollbackCandidateFromItems } from "./rollback";
 
 export interface ChatThreadActionControllerHost {
-  state: ChatState;
+  stateStore: ChatStateStore;
   vaultPath: string;
   settings: () => CodexPanelSettings;
   archiveAdapter: () => ArchiveExportAdapter;
@@ -31,8 +31,16 @@ export interface ChatThreadActionControllerHost {
 export class ChatThreadActionController {
   constructor(private readonly host: ChatThreadActionControllerHost) {}
 
+  private get state(): ChatState {
+    return this.host.stateStore.getState();
+  }
+
+  private dispatch(action: ChatAction): void {
+    this.host.stateStore.dispatch(action);
+  }
+
   async archiveThread(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<void> {
-    if (this.host.state.busy) {
+    if (this.state.busy) {
       this.host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
       return;
     }
@@ -57,7 +65,7 @@ export class ChatThreadActionController {
   }
 
   async forkThread(threadId: string): Promise<void> {
-    if (this.host.state.busy) {
+    if (this.state.busy) {
       this.host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
       return;
     }
@@ -66,7 +74,7 @@ export class ChatThreadActionController {
     if (!client) return;
 
     try {
-      const sourceName = inheritedForkThreadName(threadId, this.host.state.listedThreads);
+      const sourceName = inheritedForkThreadName(threadId, this.state.listedThreads);
       const response = await client.forkThread(threadId, this.host.vaultPath);
       const forkedThreadId = response.thread.id;
       if (sourceName) {
@@ -90,7 +98,7 @@ export class ChatThreadActionController {
   }
 
   async rollbackThread(threadId: string): Promise<void> {
-    if (this.host.state.busy) {
+    if (this.state.busy) {
       this.host.addSystemMessage("Interrupt the current turn before rolling back.");
       return;
     }
@@ -98,7 +106,7 @@ export class ChatThreadActionController {
     const client = this.host.currentClient();
     if (!client) return;
 
-    const candidate = rollbackCandidateFromItems(this.host.state.displayItems);
+    const candidate = rollbackCandidateFromItems(this.state.displayItems);
     if (!candidate) {
       this.host.addSystemMessage("No completed turn to roll back.");
       return;
@@ -107,13 +115,16 @@ export class ChatThreadActionController {
     try {
       this.host.setStatus("Rolling back latest turn...");
       const response = await client.rollbackThread(threadId);
-      this.host.state.activeThreadId = response.thread.id;
-      this.host.state.activeThreadCwd = response.thread.cwd;
-      this.host.state.activeTurnId = null;
-      this.host.state.tokenUsage = null;
-      this.host.state.historyCursor = null;
-      this.host.state.turnDiffs.clear();
-      this.host.state.listedThreads = upsertThread(this.host.state.listedThreads, response.thread);
+      this.dispatch({
+        type: "thread/resumed",
+        thread: response.thread,
+        cwd: response.thread.cwd,
+        model: this.state.activeModel,
+        reasoningEffort: this.state.activeReasoningEffort,
+        serviceTier: this.state.activeServiceTier,
+        approvalsReviewer: this.state.activeApprovalsReviewer,
+        listedThreads: upsertThread(this.state.listedThreads, response.thread),
+      });
       await this.host.history.loadLatest(response.thread.id);
       this.host.setComposerText(candidate.text);
       this.host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");

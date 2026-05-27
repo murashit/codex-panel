@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ChatController } from "../../../src/features/chat/chat-controller";
 import { attachHookRunsToTurn } from "../../../src/features/chat/hook-display";
-import { createChatState } from "../../../src/features/chat/chat-state";
+import { chatReducer, createChatState, type ChatAction, type ChatState, type ChatStateStore } from "../../../src/features/chat/chat-state";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
@@ -12,7 +12,7 @@ function controllerForState(
   state = createChatState(),
   actions: Partial<ConstructorParameters<typeof ChatController>[1]> = {},
 ): ChatController {
-  return new ChatController(state, {
+  return new ChatController(testStoreForState(state), {
     refreshThreads: vi.fn(),
     refreshSkills: vi.fn(),
     publishSessionMetadata: vi.fn(),
@@ -24,6 +24,18 @@ function controllerForState(
     rejectServerRequest: vi.fn(() => true),
     ...actions,
   });
+}
+
+function testStoreForState(state: ChatState): ChatStateStore {
+  let current = state;
+  return {
+    getState: () => current,
+    dispatch(action: ChatAction) {
+      current = chatReducer(current, action);
+      Object.assign(state, current);
+      return current;
+    },
+  };
 }
 
 function expectPresent<T>(value: T | null | undefined): T {

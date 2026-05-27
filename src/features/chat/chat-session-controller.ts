@@ -13,10 +13,10 @@ import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitS
 import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata";
 import type { SharedSessionMetadata } from "../../runtime/shared-app-server-state";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../runtime/state";
-import type { ChatState } from "./chat-state";
+import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
 
 export interface ChatSessionControllerHost {
-  state: ChatState;
+  stateStore: ChatStateStore;
   vaultPath: string;
   currentClient: () => AppServerClient | null;
   runtimeSnapshot: () => RuntimeSnapshot;
@@ -30,9 +30,16 @@ export interface RefreshCapabilityDiagnosticsOptions {
 export class ChatSessionController {
   constructor(private readonly host: ChatSessionControllerHost) {}
 
+  private get state(): ChatState {
+    return this.host.stateStore.getState();
+  }
+
+  private dispatch(action: ChatAction): void {
+    this.host.stateStore.dispatch(action);
+  }
+
   applyThreadList(threads: ChatState["listedThreads"]): void {
-    this.host.state.listedThreads = threads;
-    this.host.state.threadsLoaded = true;
+    this.dispatch({ type: "thread/list-applied", threads, threadsLoaded: true });
   }
 
   async loadThreadList(): Promise<ChatState["listedThreads"]> {
@@ -44,20 +51,23 @@ export class ChatSessionController {
 
   sessionMetadataSnapshot(): SharedSessionMetadata {
     return {
-      effectiveConfig: this.host.state.effectiveConfig,
-      availableModels: this.host.state.availableModels,
-      availableSkills: this.host.state.availableSkills,
-      rateLimit: this.host.state.rateLimit,
-      appServerDiagnostics: this.host.state.appServerDiagnostics,
+      effectiveConfig: this.state.effectiveConfig,
+      availableModels: this.state.availableModels,
+      availableSkills: this.state.availableSkills,
+      rateLimit: this.state.rateLimit,
+      appServerDiagnostics: this.state.appServerDiagnostics,
     };
   }
 
   applySessionMetadata(metadata: SharedSessionMetadata): void {
-    this.host.state.effectiveConfig = metadata.effectiveConfig;
-    this.host.state.availableModels = metadata.availableModels;
-    this.host.state.availableSkills = metadata.availableSkills;
-    this.host.state.rateLimit = metadata.rateLimit;
-    this.host.state.appServerDiagnostics = metadata.appServerDiagnostics;
+    this.dispatch({
+      type: "thread/list-applied",
+      effectiveConfig: metadata.effectiveConfig,
+      availableModels: metadata.availableModels,
+      availableSkills: metadata.availableSkills,
+      rateLimit: metadata.rateLimit,
+      appServerDiagnostics: metadata.appServerDiagnostics,
+    });
   }
 
   async loadSessionMetadata(): Promise<SharedSessionMetadata | null> {
@@ -65,7 +75,7 @@ export class ChatSessionController {
     if (!client) return null;
     const effectiveConfig = await client.readEffectiveConfig(this.host.vaultPath);
     const [models, skills, rateLimit] = await Promise.all([this.loadModels(), this.loadSkills(), this.loadRateLimit()]);
-    const diagnostics = cloneAppServerDiagnostics(this.host.state.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
     diagnostics.probes["model/list"] = models.probe;
     diagnostics.probes["skills/list"] = skills.probe;
     diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
@@ -89,25 +99,25 @@ export class ChatSessionController {
     if (!client) return null;
     const serviceTier = requestedOrConfiguredServiceTier(this.host.runtimeSnapshot());
     const response = await client.startThread(this.host.vaultPath, serviceTier);
-    this.host.state.activeThreadId = response.thread.id;
-    this.host.state.activeThreadCwd = response.cwd;
-    this.host.state.activeTurnId = null;
-    this.host.state.activeModel = response.model;
-    this.host.state.activeReasoningEffort = response.reasoningEffort;
-    this.host.state.activeServiceTier = reportedServiceTier(response.serviceTier);
-    this.host.state.activeApprovalsReviewer = response.approvalsReviewer;
-    this.host.state.activeThreadCreationCliVersion = response.thread.cliVersion;
-    this.host.state.tokenUsage = null;
-    this.host.state.historyCursor = null;
-    this.host.state.turnDiffs.clear();
+    this.dispatch({
+      type: "thread/resumed",
+      thread: response.thread,
+      cwd: response.cwd,
+      model: response.model,
+      reasoningEffort: response.reasoningEffort,
+      serviceTier: reportedServiceTier(response.serviceTier),
+      approvalsReviewer: response.approvalsReviewer,
+      forceMessagesToBottom: true,
+    });
     this.host.forceMessagesToBottom();
     return response;
   }
 
   async refreshModels(): Promise<void> {
     const models = await this.loadModels();
-    this.host.state.availableModels = models.data;
-    this.host.state.appServerDiagnostics.probes["model/list"] = models.probe;
+    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    diagnostics.probes["model/list"] = models.probe;
+    this.dispatch({ type: "thread/list-applied", availableModels: models.data, appServerDiagnostics: diagnostics });
   }
 
   async loadModels(): Promise<{ data: Model[]; probe: AppServerDiagnostics["probes"]["model/list"] }> {
@@ -123,8 +133,9 @@ export class ChatSessionController {
 
   async refreshSkills(forceReload = false): Promise<void> {
     const skills = await this.loadSkills(forceReload);
-    this.host.state.availableSkills = skills.data;
-    this.host.state.appServerDiagnostics.probes["skills/list"] = skills.probe;
+    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    diagnostics.probes["skills/list"] = skills.probe;
+    this.dispatch({ type: "thread/list-applied", availableSkills: skills.data, appServerDiagnostics: diagnostics });
   }
 
   async loadSkills(forceReload = false): Promise<{ data: SkillMetadata[]; probe: AppServerDiagnostics["probes"]["skills/list"] }> {
@@ -142,8 +153,9 @@ export class ChatSessionController {
 
   async refreshRateLimits(): Promise<void> {
     const rateLimit = await this.loadRateLimit();
-    this.host.state.rateLimit = rateLimit.data;
-    this.host.state.appServerDiagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
+    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
+    this.dispatch({ type: "thread/list-applied", rateLimit: rateLimit.data, appServerDiagnostics: diagnostics });
   }
 
   async loadRateLimit(): Promise<{ data: RateLimitSnapshot | null; probe: AppServerDiagnostics["probes"]["account/rateLimits/read"] }> {
@@ -241,12 +253,15 @@ export class ChatSessionController {
   }
 
   recordMcpStartupStatus(name: string, startupStatus: "starting" | "ready" | "failed" | "cancelled", message: string | null): void {
-    this.host.state.appServerDiagnostics = upsertMcpServerDiagnostic(this.host.state.appServerDiagnostics, {
-      name,
-      startupStatus,
-      authStatus: null,
-      toolCount: null,
-      message,
+    this.dispatch({
+      type: "thread/list-applied",
+      appServerDiagnostics: upsertMcpServerDiagnostic(this.state.appServerDiagnostics, {
+        name,
+        startupStatus,
+        authStatus: null,
+        toolCount: null,
+        message,
+      }),
     });
   }
 
@@ -257,15 +272,20 @@ export class ChatSessionController {
   ): Promise<void> {
     try {
       const response = await request();
-      this.host.state.appServerDiagnostics.probes[method] = capabilityProbeOk(method, summarize(response));
+      const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+      diagnostics.probes[method] = capabilityProbeOk(method, summarize(response));
+      this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
     } catch (error) {
-      this.host.state.appServerDiagnostics.probes[method] = capabilityProbeError(method, error);
+      const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+      diagnostics.probes[method] = capabilityProbeError(method, error);
+      this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
     }
   }
 
   private recordMcpServerStatus(servers: McpServerStatus[]): void {
+    let diagnostics = this.state.appServerDiagnostics;
     for (const server of servers) {
-      this.host.state.appServerDiagnostics = upsertMcpServerDiagnostic(this.host.state.appServerDiagnostics, {
+      diagnostics = upsertMcpServerDiagnostic(diagnostics, {
         name: server.name,
         startupStatus: "unknown",
         authStatus: server.authStatus,
@@ -273,6 +293,7 @@ export class ChatSessionController {
         message: null,
       });
     }
+    this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
   }
 }
 
