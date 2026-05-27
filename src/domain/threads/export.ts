@@ -23,10 +23,18 @@ interface TemplateContext {
   shortId: string;
 }
 
+interface ParsedMarkdownLink {
+  raw: string;
+  label: string;
+  href: string;
+  end: number;
+}
+
 export interface ArchiveExportSettings {
   archiveExportFolderTemplate: string;
   archiveExportFilenameTemplate: string;
   archiveExportTags?: string;
+  vaultPath?: string;
 }
 
 export async function exportArchivedThreadMarkdown(
@@ -60,7 +68,39 @@ export function markdownFromThread(thread: Thread, exportedAt = new Date(), sett
     "",
     ...turnMarkdownLines(thread.turns),
   ];
-  return `${trimTrailingBlankLines(lines).join("\n")}\n`;
+  const markdown = `${trimTrailingBlankLines(lines).join("\n")}\n`;
+  return settings?.vaultPath ? normalizeExportedMarkdownLinks(markdown, settings.vaultPath) : markdown;
+}
+
+export function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string): string {
+  const lines = markdown.split("\n");
+  let inFence = false;
+  return lines
+    .map((line) => {
+      if (line.trimStart().startsWith("```")) {
+        inFence = !inFence;
+        return line;
+      }
+      return inFence ? line : normalizeExportedMarkdownLinksInLine(line, vaultPath);
+    })
+    .join("\n");
+}
+
+function normalizeExportedMarkdownLinksInLine(line: string, vaultPath: string): string {
+  let output = "";
+  let index = 0;
+  while (index < line.length) {
+    const parsed = parseMarkdownLinkAt(line, index);
+    if (!parsed || isInsideInlineCode(line, index)) {
+      output += line[index] ?? "";
+      index += 1;
+      continue;
+    }
+
+    output += normalizedExportedMarkdownLink(parsed, vaultPath);
+    index = parsed.end;
+  }
+  return output;
 }
 
 export function normalizedArchiveTags(value: string): string[] {
@@ -222,6 +262,80 @@ function sanitizePathSegment(value: string): string {
 
 function isUnsafePathChar(char: string): boolean {
   return char.charCodeAt(0) < 32 || '<>:"/\\|?*'.includes(char);
+}
+
+function unwrappedMarkdownHref(value: string): string {
+  if (value.startsWith("<") && value.endsWith(">")) return value.slice(1, -1);
+  return value;
+}
+
+function parseMarkdownLinkAt(line: string, start: number): ParsedMarkdownLink | null {
+  if (line[start] !== "[" || line[start - 1] === "!") return null;
+
+  const labelEnd = line.indexOf("]", start + 1);
+  if (labelEnd === -1 || line[labelEnd + 1] !== "(") return null;
+
+  const hrefStart = labelEnd + 2;
+  const hrefEnd = line[hrefStart] === "<" ? line.indexOf(">)", hrefStart + 1) : line.indexOf(")", hrefStart);
+  if (hrefEnd === -1) return null;
+
+  const end = line[hrefStart] === "<" ? hrefEnd + 2 : hrefEnd + 1;
+  return {
+    raw: line.slice(start, end),
+    label: line.slice(start + 1, labelEnd),
+    href: line.slice(hrefStart, hrefEnd + (line[hrefStart] === "<" ? 1 : 0)),
+    end,
+  };
+}
+
+function normalizedExportedMarkdownLink(link: ParsedMarkdownLink, vaultPath: string): string {
+  const href = unwrappedMarkdownHref(link.href.trim());
+  if (!href || isExternalHref(href)) return link.raw;
+
+  const vaultRelative = vaultRelativePath(vaultPath, href);
+  if (vaultRelative) return `[${link.label}](${markdownHref(vaultRelative)})`;
+
+  return isAbsolutePath(normalizeFilePath(href)) ? `${link.label} (\`${href.replace(/`/g, "\\`")}\`)` : link.raw;
+}
+
+function markdownHref(value: string): string {
+  return /[\s()]/.test(value) ? `<${value}>` : value;
+}
+
+function isInsideInlineCode(line: string, offset: number): boolean {
+  let inCode = false;
+  for (let index = 0; index < offset; index += 1) {
+    if (line[index] === "`") inCode = !inCode;
+  }
+  return inCode;
+}
+
+function vaultRelativePath(vaultPath: string, path: string): string | null {
+  const normalizedPath = normalizeFilePath(path);
+  const normalizedVaultPath = normalizeFilePath(vaultPath);
+  if (!normalizedPath || !normalizedVaultPath) return null;
+  if (!isAbsolutePath(normalizedPath) || normalizedPath === normalizedVaultPath) return null;
+
+  const vaultPrefix = normalizedVaultPath.endsWith("/") ? normalizedVaultPath : `${normalizedVaultPath}/`;
+  return normalizedPath.startsWith(vaultPrefix) ? normalizedPath.slice(vaultPrefix.length) : null;
+}
+
+function normalizeFilePath(path: string): string {
+  const normalized = path.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "");
+  return normalized.replace(/^\.\//, "");
+}
+
+function isExternalHref(href: string): boolean {
+  if (isWindowsAbsolutePath(href)) return false;
+  return /^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith("//");
+}
+
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith("/") || isWindowsAbsolutePath(path);
+}
+
+function isWindowsAbsolutePath(path: string): boolean {
+  return /^[a-z]:[\\/]/i.test(path);
 }
 
 function yamlString(value: string): string {

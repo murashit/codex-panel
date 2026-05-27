@@ -6,6 +6,7 @@ import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import {
   exportArchivedThreadMarkdown,
   markdownFromThread,
+  normalizeExportedMarkdownLinks,
   normalizedArchiveTags,
   type ArchiveExportAdapter,
 } from "../../../src/domain/threads/export";
@@ -148,6 +149,59 @@ describe("thread archive export", () => {
       "note/tag",
       '"unfinished',
     ]);
+  });
+
+  it("normalizes exported markdown links for vault and external absolute paths", () => {
+    const output = normalizeExportedMarkdownLinks(
+      [
+        "[Vault note](</Users/showhey/Vault/topics/My Note.md>)",
+        "[Vault note with parens](</Users/showhey/Vault/topics/My (Note).md>)",
+        "[External file](/Users/showhey/Repos/project/README.md)",
+        "[Relative](topics/Other.md)",
+        "[Website](https://example.com/docs)",
+        "![Image](/Users/showhey/Repos/project/image.png)",
+        "`[Code link](/Users/showhey/Repos/project/README.md)`",
+        "```",
+        "[Code block link](/Users/showhey/Repos/project/README.md)",
+        "```",
+      ].join("\n"),
+      "/Users/showhey/Vault",
+    );
+
+    expect(output).toBe(
+      [
+        "[Vault note](<topics/My Note.md>)",
+        "[Vault note with parens](<topics/My (Note).md>)",
+        "External file (`/Users/showhey/Repos/project/README.md`)",
+        "[Relative](topics/Other.md)",
+        "[Website](https://example.com/docs)",
+        "![Image](/Users/showhey/Repos/project/image.png)",
+        "`[Code link](/Users/showhey/Repos/project/README.md)`",
+        "```",
+        "[Code block link](/Users/showhey/Repos/project/README.md)",
+        "```",
+      ].join("\n"),
+    );
+  });
+
+  it("normalizes exported thread markdown links when vault path is provided", () => {
+    const output = markdownFromThread(
+      thread({
+        turns: [
+          turn([
+            assistantMessage(
+              "assistant-1",
+              "[Vault](</Users/showhey/Vault/topics/Alpha.md>)\n[External](/Users/showhey/Repos/project/README.md)",
+            ),
+          ]),
+        ],
+      }),
+      new Date(2026, 4, 18),
+      { vaultPath: "/Users/showhey/Vault" },
+    );
+
+    expect(output).toContain("[Vault](topics/Alpha.md)");
+    expect(output).toContain("External (`/Users/showhey/Repos/project/README.md`)");
   });
 
   it("expands templates, sanitizes paths, creates folders, and preserves existing files", async () => {

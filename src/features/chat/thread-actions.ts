@@ -42,7 +42,11 @@ export class ChatThreadActionController {
       const settings = this.host.settings();
       if (saveMarkdown) {
         const response = await client.readThread(threadId, true);
-        const result = await exportArchivedThreadMarkdown(response.thread, settings, this.host.archiveAdapter());
+        const result = await exportArchivedThreadMarkdown(
+          response.thread,
+          { ...settings, vaultPath: this.host.vaultPath },
+          this.host.archiveAdapter(),
+        );
         new Notice(`Saved archived thread to ${result.path}.`);
       }
       await client.archiveThread(threadId);

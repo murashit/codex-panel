@@ -330,7 +330,11 @@ export class CodexThreadsView extends ItemView {
       if (!this.client) return;
       if (saveMarkdown) {
         const response = await this.client.readThread(threadId, true);
-        const result = await exportArchivedThreadMarkdown(response.thread, this.plugin.settings, this.app.vault.adapter);
+        const result = await exportArchivedThreadMarkdown(
+          response.thread,
+          { ...this.plugin.settings, vaultPath: this.plugin.vaultPath },
+          this.app.vault.adapter,
+        );
         new Notice(`Saved archived thread to ${result.path}.`);
       }
       await this.client.archiveThread(threadId);
