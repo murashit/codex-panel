@@ -450,6 +450,8 @@ export class CodexChatView extends ItemView {
     }
     this.clearDeferredDiagnostics();
     unmountReactRoot(this.toolbarEl);
+    unmountReactRoot(this.messagesSlotEl);
+    unmountReactRoot(this.composerSlotEl);
     this.connection.disconnect();
     this.client = null;
     this.plugin.refreshThreadsViewLiveState();

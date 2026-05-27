@@ -1,3 +1,5 @@
+import { useLayoutEffect, type ReactNode } from "react";
+
 import { displayBlocksForItems } from "../display/blocks";
 import { displayItemSignature, isMessageCopyActionVisible } from "../display/signature";
 import { executionState } from "../display/state";
@@ -14,6 +16,7 @@ import {
   renderTaskProgressItem,
 } from "./work-items";
 import type { ChatTurnDiffViewState } from "./turn-diff";
+import { renderReactRoot } from "../../../shared/ui/react-root";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 const MESSAGE_CONTENT_RENDERED_EVENT = "codex-panel:message-content-rendered";
@@ -150,6 +153,25 @@ export function syncMessageRenderBlocks(parent: HTMLElement, blocks: MessageRend
       element.remove();
     }
   }
+}
+
+export function renderMessageRenderBlocks(parent: HTMLElement, blocks: MessageRenderBlock[], signatures: Map<string, string>): void {
+  renderReactRoot(parent, <MessageRenderBlockCommit parent={parent} blocks={blocks} signatures={signatures} />);
+}
+
+function MessageRenderBlockCommit({
+  parent,
+  blocks,
+  signatures,
+}: {
+  parent: HTMLElement;
+  blocks: MessageRenderBlock[];
+  signatures: Map<string, string>;
+}): ReactNode {
+  useLayoutEffect(() => {
+    syncMessageRenderBlocks(parent, blocks, signatures);
+  }, [parent, blocks, signatures]);
+  return null;
 }
 
 function createHistoryBarElement(loadingHistory: boolean, loadOlderTurns: () => void): HTMLElement {

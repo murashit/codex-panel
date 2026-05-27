@@ -3,7 +3,7 @@ import { MarkdownRenderer, Notice, type App, type Component } from "obsidian";
 import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
 import { renderTextWithWikiLinks as renderInlineWikiLinks } from "../../shared/ui/dom";
-import { messageRenderBlocks, notifyMessageContentRendered, syncMessageRenderBlocks } from "./ui/message-stream";
+import { messageRenderBlocks, notifyMessageContentRendered, renderMessageRenderBlocks } from "./ui/message-stream";
 import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "./ui/scroll";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "./markdown-file-links";
@@ -88,7 +88,7 @@ export class ChatMessageRenderer {
       pendingRequestsSignature: this.options.pendingRequestsSignature(),
       renderPendingRequests: () => this.options.renderPendingRequests(),
     });
-    syncMessageRenderBlocks(messagesEl, blocks, this.options.blockSignatures);
+    renderMessageRenderBlocks(messagesEl, blocks, this.options.blockSignatures);
 
     messagesEl.win.requestAnimationFrame(() => {
       if (generation !== this.renderGeneration) return;
