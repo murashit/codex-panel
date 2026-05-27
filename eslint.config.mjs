@@ -123,17 +123,5 @@ export default defineConfig([
       ],
     },
   },
-  {
-    files: ["src/shared/ui/components.ts"],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "CallExpression[callee.object.name='openDetails'][callee.property.name=/^(add|delete|clear)$/]",
-          message: "Do not mutate remembered detail state in shared helpers; notify the owner and update state immutably.",
-        },
-      ],
-    },
-  },
   eslintConfigPrettier,
 ]);

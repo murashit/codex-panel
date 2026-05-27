@@ -126,7 +126,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
-    renderer.render(parent);
+    renderer.render(messages);
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(1000);
@@ -141,10 +141,8 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
-    renderer.render(parent);
-    const messages = parent.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(messages).not.toBeNull();
-    if (!messages) return;
+    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    renderer.render(messages);
     await settleMessageRender(messages);
 
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
@@ -156,7 +154,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
     state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Updated streaming message", turnId: "turn" }];
-    renderer.render(parent);
+    renderer.render(messages);
     await settleMessageRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
@@ -174,7 +172,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
     Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
     messages.scrollTop = 920;
-    renderer.render(parent);
+    renderer.render(messages);
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
@@ -194,13 +192,14 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const blockSignatures = new Map<string, string>();
     const renderer = chatMessageRenderer(state, vi.fn(), "/vault", [], blockSignatures);
 
-    renderer.render(parent);
-    expect(parent.querySelector('[data-codex-panel-block-key="item:message"]')).not.toBeNull();
+    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    renderer.render(messages);
+    expect(messages.querySelector('[data-codex-panel-block-key="item:message"]')).not.toBeNull();
     expect(blockSignatures.size).toBeGreaterThan(0);
 
     renderer.dispose();
 
-    expect(parent.querySelector('[data-codex-panel-block-key="item:message"]')).toBeNull();
+    expect(messages.querySelector('[data-codex-panel-block-key="item:message"]')).toBeNull();
     expect(blockSignatures.size).toBe(0);
   });
 });

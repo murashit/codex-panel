@@ -26,6 +26,7 @@ describe("ChatPanelShell", () => {
     expect(container.querySelector(".codex-panel__body")).not.toBeNull();
     expect(container.querySelector(".codex-panel__slot--config")).not.toBeNull();
     expect(container.querySelector(".codex-panel__slot--messages")?.textContent).toBe("0");
+    expect(container.querySelector(".codex-panel__slot--messages > .codex-panel__messages")).not.toBeNull();
     expect(container.querySelector(".codex-panel__slot--composer")?.textContent).toBe("ready");
 
     unmountChatPanelShell(container);

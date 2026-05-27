@@ -43,10 +43,9 @@ export class ChatMessageRenderer {
     this.options.stateStore.dispatch(action);
   }
 
-  render(parent: HTMLElement): void {
+  render(messagesEl: HTMLElement): void {
     const generation = ++this.renderGeneration;
     const state = this.state;
-    const messagesEl = parent.querySelector<HTMLElement>(".codex-panel__messages") ?? parent.createDiv({ cls: "codex-panel__messages" });
     this.messagesEl = messagesEl;
     messagesEl.onscroll = () => {
       this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });

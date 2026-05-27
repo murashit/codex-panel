@@ -62,6 +62,7 @@ function ChatPanelShell({
         <ChatPanelSlot
           name="messages"
           className="codex-panel__slot codex-panel__slot--messages"
+          renderTargetClassName="codex-panel__messages"
           stateStore={stateStore}
           renderVersion={renderVersion}
           slot={messages}
@@ -88,6 +89,7 @@ interface ChatPanelSlotProps {
 function ChatPanelSlot({
   name,
   className,
+  renderTargetClassName,
   stateStore,
   renderVersion,
   slot,
@@ -95,6 +97,7 @@ function ChatPanelSlot({
 }: {
   name: keyof ChatPanelShellSlots;
   className: string;
+  renderTargetClassName?: string;
   stateStore: ChatStateStore;
   renderVersion: number;
   slot: ChatPanelSlotProps;
@@ -112,15 +115,21 @@ function ChatPanelSlot({
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    onSlotReady(name, element);
+    const renderTarget = renderTargetClassName ? element.querySelector<HTMLElement>(`:scope > .${renderTargetClassName}`) : element;
+    if (!renderTarget) return;
+    onSlotReady(name, renderTarget);
     const generation = ++renderGeneration.current;
     void Promise.resolve().then(() => {
       if (generation !== renderGeneration.current || !element.isConnected) return;
-      renderSlotIfNeeded(element, slot, renderKey);
+      renderSlotIfNeeded(renderTarget, slot, renderKey);
     });
-  }, [name, onSlotReady, renderKey, slot]);
+  }, [name, onSlotReady, renderKey, renderTargetClassName, slot]);
 
-  return <div ref={ref} className={className} />;
+  return (
+    <div ref={ref} className={className}>
+      {renderTargetClassName ? <div className={renderTargetClassName} /> : null}
+    </div>
+  );
 }
 
 function renderMountedSlots(slots: ChatPanelShellSlots, props: ChatPanelShellProps): void {
