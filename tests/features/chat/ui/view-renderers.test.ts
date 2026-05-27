@@ -1051,6 +1051,86 @@ describe("chat turn diff view decisions", () => {
     expect(copyDiff).toHaveBeenCalled();
   });
 
+  it("highlights changed English words inside adjacent removed and added lines", () => {
+    const parent = document.createElement("div");
+
+    renderChatTurnDiffView(parent, {
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["Note.md"],
+      diff: "diff --git a/Note.md b/Note.md\n@@\n-The quick brown fox\n+The quick red fox",
+    });
+
+    expect(parent.textContent).toContain("The quick brown fox");
+    expect(parent.textContent).toContain("The quick red fox");
+    expect(parent.querySelector(".codex-panel-diff__word--removed")?.textContent).toBe("brown");
+    expect(parent.querySelector(".codex-panel-diff__word--added")?.textContent).toBe("red");
+  });
+
+  it("highlights changed Japanese words with Intl.Segmenter", () => {
+    const parent = document.createElement("div");
+
+    renderChatTurnDiffView(parent, {
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["Note.md"],
+      diff: "diff --git a/Note.md b/Note.md\n@@\n-吾輩は猫である\n+吾輩は犬である",
+    });
+
+    expect(parent.textContent).toContain("吾輩は猫である");
+    expect(parent.textContent).toContain("吾輩は犬である");
+    expect(parent.querySelector(".codex-panel-diff__word--removed")?.textContent).toBe("猫");
+    expect(parent.querySelector(".codex-panel-diff__word--added")?.textContent).toBe("犬");
+  });
+
+  it("pairs changed words by line inside multi-line replacement blocks", () => {
+    const parent = document.createElement("div");
+
+    renderChatTurnDiffView(parent, {
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["Note.md"],
+      diff: [
+        "diff --git a/Note.md b/Note.md",
+        "@@",
+        "-これはdiffのテストです。",
+        "-今日は元気です。",
+        "-とても元気です。",
+        "+これはdiffのてすとです。",
+        "+きょうはげんきです。",
+        "+とてもげんきです。",
+      ].join("\n"),
+    });
+
+    const removedHighlights = Array.from(parent.querySelectorAll(".codex-panel-diff__word--removed"), (element) => element.textContent);
+    const addedHighlights = Array.from(parent.querySelectorAll(".codex-panel-diff__word--added"), (element) => element.textContent);
+
+    expect(removedHighlights).toEqual(["テスト", "今日", "元気", "元気"]);
+    expect(addedHighlights).toEqual(["てすと", "きょう", "げんき", "げんき"]);
+    expect(removedHighlights).not.toContain("これはdiffのテスト");
+  });
+
+  it("falls back to line-level rendering for large intraline candidates", () => {
+    const parent = document.createElement("div");
+    const oldText = `start ${"old ".repeat(600)}end`;
+    const newText = `start ${"new ".repeat(600)}end`;
+
+    renderChatTurnDiffView(parent, {
+      threadId: "thread",
+      turnId: "turn",
+      cwd: "/vault/project",
+      files: ["Note.md"],
+      diff: `diff --git a/Note.md b/Note.md\n@@\n-${oldText}\n+${newText}`,
+    });
+
+    expect(parent.textContent).toContain(oldText);
+    expect(parent.textContent).toContain(newText);
+    expect(parent.querySelector(".codex-panel-diff__word")).toBeNull();
+  });
+
   it("keeps unified diff text out of persisted turn diff view state", () => {
     const persisted = persistedChatTurnDiffViewState({
       threadId: "thread",

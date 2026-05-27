@@ -1,4 +1,5 @@
-import { displayDiffLines, diffLineClass, displayDiffLineText } from "../../../shared/diff/unified";
+import { renderDisplayDiffLines } from "../../../shared/diff/render";
+import { displayDiffLines } from "../../../shared/diff/unified";
 import { createIconButton } from "../../../shared/ui/components";
 import { shortThreadId } from "../../../utils";
 
@@ -90,15 +91,7 @@ function renderTurnDiffHeader(
 }
 
 export function renderUnifiedDiff(parent: HTMLElement, diff: string): HTMLElement {
-  const pre = parent.createEl("pre", { cls: "codex-panel-diff codex-panel-chat-turn-diff__diff" });
-  for (const line of displayDiffLines(diff)) {
-    const lineClass = diffLineClass(line);
-    pre.createEl("span", {
-      cls: `codex-panel-diff__line codex-panel-diff__line--${lineClass}`,
-      text: displayDiffLineText(line.text, lineClass),
-    });
-  }
-  return pre;
+  return renderDisplayDiffLines(parent, displayDiffLines(diff), { className: "codex-panel-chat-turn-diff__diff" });
 }
 
 function fileCountLabel(files: string[]): string {

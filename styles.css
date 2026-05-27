@@ -1883,6 +1883,19 @@
   color: var(--codex-panel-text-muted);
 }
 
+.codex-panel-diff__word {
+  border-radius: var(--codex-panel-control-gap);
+  padding: 0 var(--codex-panel-panel-gap);
+}
+
+.codex-panel-diff__word--added {
+  background: color-mix(in srgb, var(--codex-panel-color-success) 20%, transparent);
+}
+
+.codex-panel-diff__word--removed {
+  background: color-mix(in srgb, var(--codex-panel-color-danger) 20%, transparent);
+}
+
 .codex-panel-chat-turn-diff {
   display: flex;
   flex-direction: column;

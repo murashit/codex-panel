@@ -1,6 +1,7 @@
 import { Notice, type Editor } from "obsidian";
 
-import { diffLineClass, displayDiffLineText, displayDiffLines } from "../../shared/diff/unified";
+import { renderDisplayDiffLines } from "../../shared/diff/render";
+import { displayDiffLines } from "../../shared/diff/unified";
 import { createIconButton } from "../../shared/ui/components";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
@@ -362,13 +363,9 @@ export class SelectionRewritePopover {
 }
 
 function renderSelectionRewriteDiff(parent: HTMLElement, diff: string): void {
-  const pre = parent.createEl("pre", { cls: "codex-panel-diff codex-panel-selection-rewrite__diff-body" });
-  for (const line of displayDiffLines(diff)) {
-    if (line.kind === "file" || line.text.startsWith("@@")) continue;
-    const lineClass = diffLineClass(line);
-    pre.createEl("span", {
-      cls: `codex-panel-diff__line codex-panel-diff__line--${lineClass}`,
-      text: displayDiffLineText(line.text, lineClass),
-    });
-  }
+  renderDisplayDiffLines(
+    parent,
+    displayDiffLines(diff).filter((line) => line.kind !== "file" && !line.text.startsWith("@@")),
+    { className: "codex-panel-selection-rewrite__diff-body" },
+  );
 }

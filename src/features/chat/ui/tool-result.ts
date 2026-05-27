@@ -1,7 +1,7 @@
 import { toolResultView, type ToolResultDetailSection, type ToolResultDisplayItem, type ToolResultView } from "../display/tool-view";
 import { createMetaPair } from "../../../shared/ui/components";
 import { applyExecutionStateClass } from "./execution-state";
-import { diffLineClassFromText, displayDiffLineText } from "../../../shared/diff/unified";
+import { renderRawDiffLines } from "../../../shared/diff/render";
 
 export interface ToolResultRenderContext {
   workspaceRoot?: string | null;
@@ -95,9 +95,5 @@ function renderOutputSection(parent: HTMLElement, title: string, className: stri
 }
 
 function renderDiff(parent: HTMLElement, diff: string): void {
-  const pre = parent.createEl("pre", { cls: "codex-panel-diff" });
-  for (const line of diff.split("\n")) {
-    const cls = diffLineClassFromText(line);
-    pre.createEl("span", { cls: `codex-panel-diff__line codex-panel-diff__line--${cls}`, text: displayDiffLineText(line, cls) });
-  }
+  renderRawDiffLines(parent, diff);
 }

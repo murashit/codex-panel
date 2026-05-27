@@ -39,7 +39,7 @@ function lineChanges(originalLines: string[], replacementLines: string[]): DiffL
       newIndex += 1;
     } else if (
       newIndex < replacementLines.length &&
-      (oldIndex === originalLines.length || (lengths[oldIndex]?.[newIndex + 1] ?? 0) >= (lengths[oldIndex + 1]?.[newIndex] ?? 0))
+      (oldIndex === originalLines.length || (lengths[oldIndex]?.[newIndex + 1] ?? 0) > (lengths[oldIndex + 1]?.[newIndex] ?? 0))
     ) {
       changes.push({ prefix: "+", text: replacementLines[newIndex] ?? "" });
       newIndex += 1;

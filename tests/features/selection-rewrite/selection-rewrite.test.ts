@@ -81,6 +81,25 @@ describe("selection rewrite diff", () => {
     expect(diff).toContain("+gamma");
   });
 
+  it("orders full replacement blocks as removals before additions", () => {
+    const diff = buildSelectionUnifiedDiff(
+      "Note.md",
+      "これはdiffのテストです。\n今日は元気です。\nとても元気です。",
+      "これはdiffのてすとです。\nきょうはげんきです。\nとてもげんきです。",
+    );
+
+    expect(diff).toContain(
+      [
+        "-これはdiffのテストです。",
+        "-今日は元気です。",
+        "-とても元気です。",
+        "+これはdiffのてすとです。",
+        "+きょうはげんきです。",
+        "+とてもげんきです。",
+      ].join("\n"),
+    );
+  });
+
   it("renders additions and deletions", () => {
     expect(buildSelectionUnifiedDiff("Note.md", "", "added")).toContain("+added");
     expect(buildSelectionUnifiedDiff("Note.md", "removed", "")).toContain("-removed");
