@@ -668,7 +668,13 @@ describe("message stream block identity and message actions", () => {
     withMessageContentScrollHeight(500, () => {
       const copyText = vi.fn();
       const openDetails = new Set<string>();
-      const onDetailsToggle = vi.fn();
+      const onDetailsToggle = vi.fn((key: string, open: boolean) => {
+        if (open) {
+          openDetails.add(key);
+        } else {
+          openDetails.delete(key);
+        }
+      });
       const block = messageRenderBlocks({
         activeThreadId: "thread",
         activeTurnId: null,

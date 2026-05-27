@@ -30,14 +30,11 @@ import {
   currentModel,
   currentReasoningEffort,
   currentServiceTier,
-  defaultRuntimeOverride,
   requestedTurnRuntimeSettings,
-  resetRuntimeOverride,
   runtimeOverridePayload,
   runtimeOverrideLabel,
   runtimeSummaryLabel,
   serviceTierLabel,
-  setRuntimeOverride,
   supportedReasoningEfforts,
   type RuntimeSnapshot,
 } from "../../runtime/state";
@@ -56,7 +53,7 @@ import type { CodexPanelSettings } from "../../settings/model";
 import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import { attachHookRunsToTurn } from "./hook-display";
-import { createChatStateStore, type ChatState } from "./chat-state";
+import { createChatStateStore, type ChatAction, type ChatState } from "./chat-state";
 import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle, upsertThread } from "../../domain/threads/model";
 import {
   referencedThreadDisplay,
@@ -137,7 +134,7 @@ export class CodexChatView extends ItemView {
     this.messageRenderer = new ChatMessageRenderer({
       app: this.app,
       owner: this,
-      state: this.state,
+      stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
       blockSignatures: this.blockSignatures,
       consumeScrollIntent: () => {
@@ -154,7 +151,7 @@ export class CodexChatView extends ItemView {
     });
     this.composerController = new ChatComposerController({
       app: this.app,
-      state: this.state,
+      stateStore: this.chatState,
       viewId: this.viewId,
       sendShortcut: () => this.plugin.settings.sendShortcut,
       canInterrupt: () => this.state.busy && Boolean(this.state.activeThreadId && this.state.activeTurnId),
@@ -279,7 +276,7 @@ export class CodexChatView extends ItemView {
       },
     });
     this.threadRename = new ThreadRenameController({
-      state: this.state,
+      stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
       settings: () => this.plugin.settings,
       ensureConnected: () => this.ensureConnected(),
@@ -299,6 +296,10 @@ export class CodexChatView extends ItemView {
 
   private get state(): ChatState {
     return this.chatState.getState();
+  }
+
+  private dispatch(action: ChatAction): void {
+    this.chatState.dispatch(action);
   }
 
   override getViewType(): string {
@@ -359,7 +360,7 @@ export class CodexChatView extends ItemView {
   }
 
   applyAvailableModelsSnapshot(models: Model[]): void {
-    this.state.availableModels = models;
+    this.dispatch({ type: "thread/list-applied", availableModels: models });
     this.render();
   }
 
@@ -401,11 +402,12 @@ export class CodexChatView extends ItemView {
 
   notifyThreadRenamed(threadId: string, name: string | null): void {
     let changed = false;
-    this.state.listedThreads = this.state.listedThreads.map((thread) => {
+    const listedThreads = this.state.listedThreads.map((thread) => {
       if (thread.id !== threadId) return thread;
       changed = true;
       return { ...thread, name };
     });
+    this.dispatch({ type: "thread/list-applied", threads: listedThreads });
     if (this.restoredThread?.threadId === threadId && (this.restoredThread.title !== name || this.restoredThread.explicitName !== name)) {
       this.restoredThread = { ...this.restoredThread, title: name, explicitName: name };
       changed = true;
@@ -496,7 +498,7 @@ export class CodexChatView extends ItemView {
   private async initializeConnection(generation: number): Promise<void> {
     this.setStatus("Starting Codex app-server...");
     try {
-      this.state.initializeResponse = await this.connection.connect();
+      this.dispatch({ type: "state/patched", patch: { initializeResponse: await this.connection.connect() } });
       if (this.isStaleConnectionGeneration(generation)) return;
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
@@ -589,7 +591,7 @@ export class CodexChatView extends ItemView {
       await this.history.loadLatest(response.thread.id);
       if (this.isStaleResumeWork(resumeGeneration)) return;
       if (this.state.displayItems.length === 0) {
-        this.state.displayItems.push(this.systemItem(`Resumed thread ${response.thread.id}`));
+        this.addSystemMessage(`Resumed thread ${response.thread.id}`);
         this.queueMessagesBottomScroll();
         this.render();
       }
@@ -613,19 +615,17 @@ export class CodexChatView extends ItemView {
   }
 
   private applyResumedThread(response: ThreadResumeResponse): void {
-    this.state.activeThreadId = response.thread.id;
-    this.state.activeThreadCwd = response.cwd;
-    this.state.activeTurnId = null;
-    this.state.activeModel = response.model;
-    this.state.activeReasoningEffort = response.reasoningEffort;
-    this.state.activeServiceTier = reportedServiceTier(response.serviceTier);
-    this.state.activeApprovalsReviewer = response.approvalsReviewer;
-    this.state.activeThreadCreationCliVersion = response.thread.cliVersion;
-    this.state.tokenUsage = null;
-    this.state.displayItems = [this.systemItem("Loading thread...")];
-    this.state.turnDiffs.clear();
-    this.state.historyCursor = null;
-    this.state.listedThreads = upsertThread(this.state.listedThreads, response.thread);
+    this.dispatch({
+      type: "thread/resumed",
+      thread: response.thread,
+      cwd: response.cwd,
+      model: response.model,
+      reasoningEffort: response.reasoningEffort,
+      serviceTier: reportedServiceTier(response.serviceTier),
+      approvalsReviewer: response.approvalsReviewer,
+      displayItems: [this.systemItem("Loading thread...")],
+      listedThreads: upsertThread(this.state.listedThreads, response.thread),
+    });
     this.restoredThread = null;
     this.clearDeferredRestoredThreadHydration();
     this.threadRename.resetThreadTurnPresence(false);
@@ -704,7 +704,7 @@ export class CodexChatView extends ItemView {
       const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
       const mentionedFiles = fileMentionsFromInput(codexInput);
       optimisticUserId = `local-user-${String(Date.now())}`;
-      this.state.displayItems.push({
+      const optimisticUserItem: DisplayItem = {
         id: optimisticUserId,
         kind: "message",
         role: "user",
@@ -713,37 +713,45 @@ export class CodexChatView extends ItemView {
         ...(referencedThread ? { referencedThread } : {}),
         ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
         markdown: true,
+      };
+      this.dispatch({
+        type: "state/patched",
+        patch: {
+          displayItems: [...this.state.displayItems, optimisticUserItem],
+          pendingTurnStart: { anchorItemId: optimisticUserId, promptSubmitHookItemIds: [] },
+          busy: true,
+        },
       });
-      this.state.pendingTurnStart = { anchorItemId: optimisticUserId, promptSubmitHookItemIds: [] };
       this.queueMessagesBottomScroll();
       this.composerController.setDraft("");
-      this.state.busy = true;
       this.render();
 
       const response = await client.startTurn(activeThreadId, this.plugin.vaultPath, codexInput);
-      this.state.activeTurnId = response.turn.id;
-      const pendingTurnStart = this.state.pendingTurnStart as typeof this.state.pendingTurnStart | null;
-      this.state.displayItems = this.state.displayItems.map((item) =>
+      const pendingTurnStart = this.state.pendingTurnStart;
+      let displayItems = this.state.displayItems.map((item) =>
         item.id === optimisticUserId ? { ...item, turnId: response.turn.id } : item,
       );
       if (pendingTurnStart) {
-        this.state.displayItems = attachHookRunsToTurn(
-          this.state.displayItems,
+        displayItems = attachHookRunsToTurn(
+          displayItems,
           response.turn.id,
           pendingTurnStart.promptSubmitHookItemIds,
           pendingTurnStart.anchorItemId,
         );
-        this.state.pendingTurnStart = null;
       }
+      this.dispatch({ type: "state/patched", patch: { activeTurnId: response.turn.id, displayItems, pendingTurnStart: null } });
       this.setStatus("Turn running...");
     } catch (error) {
-      this.state.busy = false;
-      if (optimisticUserId) this.state.displayItems = this.state.displayItems.filter((item) => item.id !== optimisticUserId);
+      let displayItems = optimisticUserId
+        ? this.state.displayItems.filter((item) => item.id !== optimisticUserId)
+        : this.state.displayItems;
+      let pendingTurnStart = this.state.pendingTurnStart;
       if (this.state.pendingTurnStart) {
         const hookIds = new Set(this.state.pendingTurnStart.promptSubmitHookItemIds);
-        this.state.displayItems = this.state.displayItems.filter((item) => !hookIds.has(item.id));
-        this.state.pendingTurnStart = null;
+        displayItems = displayItems.filter((item) => !hookIds.has(item.id));
+        pendingTurnStart = null;
       }
+      this.dispatch({ type: "state/patched", patch: { busy: false, displayItems, pendingTurnStart } });
       this.composerController.setDraft(text);
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -769,16 +777,19 @@ export class CodexChatView extends ItemView {
 
     try {
       await this.client.steerTurn(threadId, expectedTurnId, codexInput);
-      this.state.displayItems.push({
-        id: `local-steer-${String(Date.now())}`,
-        kind: "message",
-        role: "user",
-        text,
-        copyText: text,
-        turnId: expectedTurnId,
-        ...(referencedThread ? { referencedThread } : {}),
-        ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
-        markdown: true,
+      this.dispatch({
+        type: "system/message-added",
+        item: {
+          id: `local-steer-${String(Date.now())}`,
+          kind: "message",
+          role: "user",
+          text,
+          copyText: text,
+          turnId: expectedTurnId,
+          ...(referencedThread ? { referencedThread } : {}),
+          ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
+          markdown: true,
+        },
       });
       this.queueMessagesBottomScroll();
       this.setStatus("Steered current turn.");
@@ -795,8 +806,8 @@ export class CodexChatView extends ItemView {
     await this.ensureConnected();
     if (!this.client || !this.state.activeThreadId) return;
 
-    this.state.requestedCollaborationMode = "default";
-    this.state.runtimePicker = null;
+    this.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+    this.dispatch({ type: "ui/panel-set", panel: null });
     await this.sendTurnText("Please implement this plan.");
   }
 
@@ -926,42 +937,22 @@ export class CodexChatView extends ItemView {
   }
 
   private commitPendingThreadSettings(update: Omit<ThreadSettingsUpdateParams, "threadId">): void {
-    if ("model" in update) {
-      this.state.activeModel = update.model ?? null;
-      this.state.requestedModel = defaultRuntimeOverride();
-    }
-    if ("effort" in update) {
-      this.state.activeReasoningEffort = update.effort ?? null;
-      this.state.requestedReasoningEffort = defaultRuntimeOverride();
-    }
-    if ("serviceTier" in update) {
-      const serviceTier = update.serviceTier;
-      this.state.activeServiceTier = this.state.requestedServiceTier ?? reportedServiceTier(serviceTier);
-      this.state.requestedServiceTier = null;
-    }
-    if ("approvalsReviewer" in update) {
-      this.state.activeApprovalsReviewer = update.approvalsReviewer ?? null;
-      this.state.requestedApprovalsReviewer = null;
-    }
-    if (update.collaborationMode) {
-      this.state.activeCollaborationMode = update.collaborationMode.mode;
-    }
+    this.dispatch({ type: "runtime/pending-thread-settings-committed", update });
   }
 
   private async toggleFastMode(): Promise<void> {
     const current = currentServiceTier(this.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig));
     const next: ServiceTier = current === "fast" ? "standard" : "fast";
-    this.state.requestedServiceTier = next;
-    this.state.activeServiceTier = next;
-    this.state.runtimePicker = null;
+    this.dispatch({ type: "runtime/requested-service-tier-set", serviceTier: next, activate: true });
+    this.dispatch({ type: "ui/panel-set", panel: null });
     if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(next === "fast" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.");
   }
 
   private async toggleCollaborationMode(): Promise<void> {
     const next = nextCollaborationMode(this.state.requestedCollaborationMode);
-    this.state.requestedCollaborationMode = next;
-    this.state.runtimePicker = null;
+    this.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: next });
+    this.dispatch({ type: "ui/panel-set", panel: null });
     if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(collaborationModeToggleMessage(next));
   }
@@ -970,9 +961,8 @@ export class CodexChatView extends ItemView {
     const next: ApprovalsReviewer = autoReviewActive(this.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig))
       ? "user"
       : "auto_review";
-    this.state.requestedApprovalsReviewer = next;
-    this.state.activeApprovalsReviewer = next;
-    this.state.runtimePicker = null;
+    this.dispatch({ type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: next, activate: true });
+    this.dispatch({ type: "ui/panel-set", panel: null });
     if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(next === "auto_review" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.");
   }
@@ -985,33 +975,29 @@ export class CodexChatView extends ItemView {
   }
 
   private toggleRuntimePicker(picker: NonNullable<ChatState["runtimePicker"]>): void {
-    this.state.runtimePicker = this.state.runtimePicker === picker ? null : picker;
-    if (this.state.runtimePicker !== null) {
-      this.state.openDetails.delete("history");
-      this.state.openDetails.delete("status-panel");
-    }
+    this.dispatch({ type: "ui/panel-set", panel: picker, toggle: true });
     this.render();
   }
 
   private async setRequestedModelFromUi(model: string | null): Promise<void> {
     await this.setRequestedModel(model);
-    this.state.runtimePicker = null;
+    this.dispatch({ type: "ui/panel-set", panel: null });
     this.addSystemMessage(modelOverrideMessage(model));
   }
 
   private async setRequestedModel(model: string | null): Promise<void> {
-    this.state.requestedModel = model === null ? resetRuntimeOverride() : setRuntimeOverride(model);
+    this.dispatch({ type: "runtime/requested-model-set", model });
     await this.applyPendingThreadSettings();
   }
 
   private async setRequestedReasoningEffortFromUi(effort: ReasoningEffort | null): Promise<void> {
     await this.setRequestedReasoningEffort(effort);
-    this.state.runtimePicker = null;
+    this.dispatch({ type: "ui/panel-set", panel: null });
     this.addSystemMessage(reasoningEffortOverrideMessage(effort));
   }
 
   private async setRequestedReasoningEffort(effort: ReasoningEffort | null): Promise<void> {
-    this.state.requestedReasoningEffort = effort === null ? resetRuntimeOverride() : setRuntimeOverride(effort);
+    this.dispatch({ type: "runtime/requested-effort-set", effort });
     await this.applyPendingThreadSettings();
   }
 
@@ -1071,32 +1057,37 @@ export class CodexChatView extends ItemView {
   }
 
   private setStatus(status: string): void {
-    this.state.status = status;
+    this.dispatch({ type: "status/set", status });
   }
 
   private restoreThreadPlaceholder(restoredThread: RestoredThreadState): void {
     this.invalidateResumeWork();
     this.restoredThread = restoredThread;
-    this.state.activeThreadId = restoredThread.threadId;
-    this.state.activeThreadCwd = null;
-    this.state.activeTurnId = null;
-    this.state.activeModel = null;
-    this.state.activeReasoningEffort = null;
-    this.state.activeCollaborationMode = "default";
-    this.state.activeServiceTier = null;
-    this.state.activeApprovalsReviewer = null;
-    this.state.activeThreadCreationCliVersion = null;
-    this.state.tokenUsage = null;
-    this.state.busy = false;
-    this.state.displayItems = [this.systemItem("Thread restored. Send a message to resume it.")];
-    this.state.pendingTurnStart = null;
-    this.state.turnDiffs.clear();
-    this.state.approvals = [];
-    this.state.pendingUserInputs = [];
-    this.state.userInputDrafts.clear();
-    this.state.historyCursor = null;
-    this.state.loadingHistory = false;
-    this.state.messagesPinnedToBottom = true;
+    this.dispatch({
+      type: "state/patched",
+      patch: {
+        activeThreadId: restoredThread.threadId,
+        activeThreadCwd: null,
+        activeTurnId: null,
+        activeModel: null,
+        activeReasoningEffort: null,
+        activeCollaborationMode: "default",
+        activeServiceTier: null,
+        activeApprovalsReviewer: null,
+        activeThreadCreationCliVersion: null,
+        tokenUsage: null,
+        busy: false,
+        displayItems: [this.systemItem("Thread restored. Send a message to resume it.")],
+        pendingTurnStart: null,
+        turnDiffs: new Map(),
+        approvals: [],
+        pendingUserInputs: [],
+        userInputDrafts: new Map(),
+        historyCursor: null,
+        loadingHistory: false,
+        messagesPinnedToBottom: true,
+      },
+    });
     this.setStatus("Thread ready to resume.");
     this.refreshTabHeader();
     this.scheduleDeferredRestoredThreadHydration();
@@ -1235,12 +1226,12 @@ export class CodexChatView extends ItemView {
       connect: () => void this.reconnectFromToolbar(),
       refreshDiagnostics: () => void this.refreshDiagnostics(),
       refreshThreads: () => {
-        this.state.openDetails.delete("status-panel");
+        this.dispatch({ type: "ui/panel-set", panel: null });
         void this.refreshThreads();
       },
       resumeThread: (threadId) => {
         if (this.state.busy && threadId !== this.state.activeThreadId) return;
-        this.state.openDetails.delete("history");
+        this.dispatch({ type: "ui/panel-set", panel: null });
         void this.selectThread(threadId);
       },
       startArchiveThread: (threadId) => {
@@ -1315,18 +1306,23 @@ export class CodexChatView extends ItemView {
 
   private async reconnectFromToolbar(): Promise<void> {
     const threadId = this.state.activeThreadId;
-    this.state.openDetails.delete("status-panel");
+    this.dispatch({ type: "ui/panel-set", panel: null });
     this.connectionGeneration += 1;
     this.invalidateResumeWork();
     this.connectingPromise = null;
     this.clearDeferredDiagnostics();
     this.connection.reconnect();
     this.client = null;
-    this.state.busy = false;
-    this.state.activeTurnId = null;
-    this.state.approvals = [];
-    this.state.pendingUserInputs = [];
-    this.state.userInputDrafts.clear();
+    this.dispatch({
+      type: "state/patched",
+      patch: {
+        busy: false,
+        activeTurnId: null,
+        approvals: [],
+        pendingUserInputs: [],
+        userInputDrafts: new Map(),
+      },
+    });
     this.setStatus("Reconnecting...");
     this.render();
 
@@ -1373,13 +1369,7 @@ export class CodexChatView extends ItemView {
   }
 
   private toggleHistoryPanel(): void {
-    if (this.state.openDetails.has("history")) {
-      this.state.openDetails.delete("history");
-    } else {
-      this.state.openDetails.delete("status-panel");
-      this.state.runtimePicker = null;
-      this.state.openDetails.add("history");
-    }
+    this.dispatch({ type: "ui/panel-set", panel: "history", toggle: true });
     this.scheduleRender();
   }
 
@@ -1437,9 +1427,7 @@ export class CodexChatView extends ItemView {
   private closeToolbarPanel(): void {
     if (!this.hasOpenToolbarPanel()) return;
 
-    this.state.openDetails.delete("history");
-    this.state.openDetails.delete("status-panel");
-    this.state.runtimePicker = null;
+    this.dispatch({ type: "ui/panel-set", panel: null });
     this.archiveConfirmThreadId = null;
     this.scheduleRender();
   }
@@ -1484,13 +1472,7 @@ export class CodexChatView extends ItemView {
   }
 
   private toggleStatusPanel(): void {
-    if (this.state.openDetails.has("status-panel")) {
-      this.state.openDetails.delete("status-panel");
-    } else {
-      this.state.openDetails.delete("history");
-      this.state.runtimePicker = null;
-      this.state.openDetails.add("status-panel");
-    }
+    this.dispatch({ type: "ui/panel-set", panel: "status-panel", toggle: true });
     this.scheduleRender();
   }
 
@@ -1597,6 +1579,16 @@ export class CodexChatView extends ItemView {
         resolveApproval: (approval, action) => void this.resolveApproval(approval, action),
         resolveUserInput: (input) => void this.resolveUserInput(input),
         cancelUserInput: (input) => void this.cancelUserInput(input),
+        setOpenDetail: (key, open) => {
+          const openDetails = open
+            ? new Set([...this.state.openDetails, key])
+            : new Set([...this.state.openDetails].filter((item) => item !== key));
+          this.dispatch({ type: "state/patched", patch: { openDetails } });
+        },
+        setUserInputDraft: (key, value) => {
+          const userInputDrafts = new Map([...this.state.userInputDrafts, [key, value]]);
+          this.dispatch({ type: "state/patched", patch: { userInputDrafts } });
+        },
       },
     );
   }
@@ -1611,7 +1603,7 @@ export class CodexChatView extends ItemView {
   }
 
   private queueMessagesBottomScroll(): void {
-    this.state.messagesPinnedToBottom = true;
+    this.dispatch({ type: "ui/messages-pinned-set", pinned: true });
     this.nextMessageScrollIntent = "force-bottom";
   }
 

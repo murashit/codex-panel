@@ -17,6 +17,8 @@ export interface PendingRequestMessageActions {
   resolveApproval: (approval: PendingApproval, action: ApprovalAction) => void;
   resolveUserInput: (input: PendingUserInput) => void;
   cancelUserInput: (input: PendingUserInput) => void;
+  setOpenDetail?: (key: string, open: boolean) => void;
+  setUserInputDraft?: (key: string, value: string) => void;
 }
 
 export interface PendingRequestMessageDrafts {
@@ -84,7 +86,7 @@ function ApprovalCard({
       <div className="codex-panel__pending-request-info">
         <div className="codex-panel__pending-request-title">{approvalTitle(approval)}</div>
         <div className="codex-panel__pending-request-body">{approvalSummary(approval)}</div>
-        <ApprovalDetails approval={approval} openDetails={openDetails} />
+        <ApprovalDetails approval={approval} openDetails={openDetails} actions={actions} />
       </div>
       <div className="codex-panel__pending-request-actions">
         {approvalActionOptions(approval).map((option) => (
@@ -102,18 +104,22 @@ function ApprovalCard({
   );
 }
 
-function ApprovalDetails({ approval, openDetails }: { approval: PendingApproval; openDetails: Set<string> }): ReactNode {
+function ApprovalDetails({
+  approval,
+  openDetails,
+  actions,
+}: {
+  approval: PendingApproval;
+  openDetails: Set<string>;
+  actions: PendingRequestMessageActions;
+}): ReactNode {
   const key = `approval:${String(approval.requestId)}:details`;
   return (
     <details
       className="codex-panel__approval-details"
       open={openDetails.has(key)}
       onToggle={(event) => {
-        if (event.currentTarget.open) {
-          openDetails.add(key);
-        } else {
-          openDetails.delete(key);
-        }
+        actions.setOpenDetail?.(key, event.currentTarget.open);
       }}
     >
       <summary>Request details</summary>
@@ -142,7 +148,7 @@ function UserInputCard({
         <div className="codex-panel__pending-request-body">
           Answer {String(input.params.questions.length)} Plan mode question{input.params.questions.length === 1 ? "" : "s"} to continue.
         </div>
-        <UserInputQuestions input={input} drafts={drafts} />
+        <UserInputQuestions input={input} drafts={drafts} actions={actions} />
       </div>
       <div className="codex-panel__pending-request-actions">
         <ActionButton
@@ -168,7 +174,15 @@ function PendingRequestCard({ className, children }: { className: string; childr
   return <div className={`codex-panel__pending-request-card ${className}`}>{children}</div>;
 }
 
-function UserInputQuestions({ input, drafts }: { input: PendingUserInput; drafts: PendingRequestMessageDrafts }): ReactNode {
+function UserInputQuestions({
+  input,
+  drafts,
+  actions,
+}: {
+  input: PendingUserInput;
+  drafts: PendingRequestMessageDrafts;
+  actions: PendingRequestMessageActions;
+}): ReactNode {
   return (
     <>
       {input.params.questions.map((question) => {
@@ -192,7 +206,7 @@ function UserInputQuestions({ input, drafts }: { input: PendingUserInput; drafts
                           value={option.label}
                           defaultChecked={current === option.label}
                           onChange={(event) => {
-                            if (event.currentTarget.checked) drafts.values.set(draftKey, option.label);
+                            if (event.currentTarget.checked) actions.setUserInputDraft?.(draftKey, option.label);
                           }}
                         />
                         <span className="codex-panel__user-input-option-label">{option.label}</span>
@@ -209,11 +223,19 @@ function UserInputQuestions({ input, drafts }: { input: PendingUserInput; drafts
                       groupName={`codex-panel-${String(input.requestId)}-${question.id}`}
                       current={current}
                       drafts={drafts}
+                      actions={actions}
                     />
                   ) : null}
                 </>
               ) : (
-                <FreeformUserInput input={input} questionId={question.id} isSecret={question.isSecret} current={current} drafts={drafts} />
+                <FreeformUserInput
+                  input={input}
+                  questionId={question.id}
+                  isSecret={question.isSecret}
+                  current={current}
+                  drafts={drafts}
+                  actions={actions}
+                />
               )}
             </div>
           </div>
@@ -229,12 +251,14 @@ function OtherUserInputOption({
   groupName,
   current,
   drafts,
+  actions,
 }: {
   input: PendingUserInput;
   questionId: string;
   groupName: string;
   current: string;
   drafts: PendingRequestMessageDrafts;
+  actions: PendingRequestMessageActions;
 }): ReactNode {
   const draftKey = drafts.draftKey(input.requestId, questionId);
   const otherKey = drafts.otherDraftKey(input.requestId, questionId);
@@ -250,7 +274,7 @@ function OtherUserInputOption({
         value="__other__"
         defaultChecked={current === otherValue && otherValue.length > 0}
         onChange={(event) => {
-          if (event.currentTarget.checked) drafts.values.set(draftKey, drafts.values.get(otherKey) ?? "");
+          if (event.currentTarget.checked) actions.setUserInputDraft?.(draftKey, drafts.values.get(otherKey) ?? "");
         }}
       />
       <span className="codex-panel__user-input-option-label">Other</span>
@@ -260,8 +284,8 @@ function OtherUserInputOption({
         defaultValue={otherValue}
         placeholder="Other answer"
         onInput={(event) => {
-          drafts.values.set(otherKey, event.currentTarget.value);
-          drafts.values.set(draftKey, event.currentTarget.value);
+          actions.setUserInputDraft?.(otherKey, event.currentTarget.value);
+          actions.setUserInputDraft?.(draftKey, event.currentTarget.value);
           if (radioRef.current) radioRef.current.checked = true;
         }}
       />
@@ -275,12 +299,14 @@ function FreeformUserInput({
   isSecret,
   current,
   drafts,
+  actions,
 }: {
   input: PendingUserInput;
   questionId: string;
   isSecret: boolean;
   current: string;
   drafts: PendingRequestMessageDrafts;
+  actions: PendingRequestMessageActions;
 }): ReactNode {
   const draftKey = drafts.draftKey(input.requestId, questionId);
   return (
@@ -289,7 +315,7 @@ function FreeformUserInput({
       type={isSecret ? "password" : "text"}
       defaultValue={current}
       onInput={(event) => {
-        drafts.values.set(draftKey, event.currentTarget.value);
+        actions.setUserInputDraft?.(draftKey, event.currentTarget.value);
       }}
     />
   );

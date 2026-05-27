@@ -9,13 +9,13 @@ import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScroll
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "./markdown-file-links";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
-import type { ChatState } from "./chat-state";
+import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface ChatMessageRendererOptions {
   app: App;
   owner: Component;
-  state: ChatState;
+  stateStore: ChatStateStore;
   vaultPath: string;
   blockSignatures: Map<string, string>;
   consumeScrollIntent: () => ChatMessageScrollIntent;
@@ -35,13 +35,21 @@ export class ChatMessageRenderer {
 
   constructor(private readonly options: ChatMessageRendererOptions) {}
 
+  private get state(): ChatState {
+    return this.options.stateStore.getState();
+  }
+
+  private dispatch(action: ChatAction): void {
+    this.options.stateStore.dispatch(action);
+  }
+
   render(parent: HTMLElement): void {
     const generation = ++this.renderGeneration;
-    const { state } = this.options;
+    const state = this.state;
     const messagesEl = parent.querySelector<HTMLElement>(".codex-panel__messages") ?? parent.createDiv({ cls: "codex-panel__messages" });
     this.messagesEl = messagesEl;
     messagesEl.onscroll = () => {
-      state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
+      this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });
     };
     const scrollIntent = this.options.consumeScrollIntent();
     const shouldPreserveScroll = scrollIntent === "preserve";
@@ -49,7 +57,7 @@ export class ChatMessageRenderer {
     const shouldScrollToBottom =
       !shouldPreserveScroll && (scrollIntent === "force-bottom" || state.messagesPinnedToBottom || wasNearBottom);
     const scrollAnchor = shouldScrollToBottom ? null : captureScrollAnchor(messagesEl);
-    state.messagesPinnedToBottom = shouldScrollToBottom;
+    this.dispatch({ type: "ui/messages-pinned-set", pinned: shouldScrollToBottom });
     const rollbackCandidate = state.busy ? null : rollbackCandidateFromItems(state.displayItems);
     const implementPlanCandidate = implementPlanCandidateFromState(state);
 
@@ -63,9 +71,10 @@ export class ChatMessageRenderer {
       turnDiffs: state.turnDiffs,
       workspaceRoot: state.activeThreadCwd ?? this.options.vaultPath,
       openDetails: state.openDetails,
-      onDetailsToggle: () => {
+      onDetailsToggle: (key, open) => {
+        this.setOpenDetail(key, open);
         messagesEl.win.requestAnimationFrame(() => {
-          state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
+          this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });
         });
       },
       loadOlderTurns: () => {
@@ -97,11 +106,11 @@ export class ChatMessageRenderer {
     messagesEl.win.requestAnimationFrame(() => {
       if (generation !== this.renderGeneration) return;
       if (shouldScrollToBottom) {
-        if (!state.messagesPinnedToBottom) return;
+        if (!this.state.messagesPinnedToBottom) return;
         this.pinMessagesToBottom(messagesEl);
       } else {
         restoreScrollAnchor(messagesEl, scrollAnchor);
-        state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
+        this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });
       }
     });
   }
@@ -132,18 +141,25 @@ export class ChatMessageRenderer {
   }
 
   private scrollMarkdownMessageIntoPinnedBottom(parent: HTMLElement): void {
-    if (!this.options.state.messagesPinnedToBottom) return;
+    if (!this.state.messagesPinnedToBottom) return;
     const messagesEl = parent.closest<HTMLElement>(".codex-panel__messages");
     if (!messagesEl) return;
     messagesEl.win.requestAnimationFrame(() => {
-      if (!this.options.state.messagesPinnedToBottom) return;
+      if (!this.state.messagesPinnedToBottom) return;
       this.pinMessagesToBottom(messagesEl);
     });
   }
 
   private pinMessagesToBottom(messagesEl: HTMLElement): void {
     messagesEl.scrollTop = bottomScrollTop(messagesEl);
-    this.options.state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
+    this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });
+  }
+
+  private setOpenDetail(key: string, open: boolean): void {
+    const openDetails = open
+      ? new Set([...this.state.openDetails, key])
+      : new Set([...this.state.openDetails].filter((item) => item !== key));
+    this.dispatch({ type: "state/patched", patch: { openDetails } });
   }
 
   private bindRenderedWikiLinks(parent: HTMLElement, sourcePath: string): void {

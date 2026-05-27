@@ -38,7 +38,7 @@ export interface MessageStreamContext {
   turnDiffs?: ReadonlyMap<string, string>;
   workspaceRoot?: string | null;
   openDetails: Set<string>;
-  onDetailsToggle?: () => void;
+  onDetailsToggle?: (key: string, open: boolean) => void;
   loadOlderTurns: () => void;
   renderMarkdown: (parent: HTMLElement, text: string) => void;
   renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
@@ -300,9 +300,8 @@ function renderUserMessageCollapse(parent: HTMLElement, content: HTMLElement, it
   details.ontoggle = () => {
     if (!details.open) return;
     details.open = false;
-    context.openDetails.add(key);
+    context.onDetailsToggle?.(key, true);
     update();
-    context.onDetailsToggle?.();
   };
 
   content.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);

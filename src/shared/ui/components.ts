@@ -23,18 +23,13 @@ export function createRememberedDetails(
   cls: string,
   summary: string,
   defaultOpen = false,
-  onToggle?: () => void,
+  onToggle?: (key: string, open: boolean) => void,
 ): HTMLDetailsElement {
   const details = parent.createEl("details", { cls });
   details.open = openDetails.has(key) || defaultOpen;
   details.createEl("summary", { text: summary });
   details.ontoggle = () => {
-    if (details.open) {
-      openDetails.add(key);
-    } else {
-      openDetails.delete(key);
-    }
-    onToggle?.();
+    onToggle?.(key, details.open);
   };
   return details;
 }

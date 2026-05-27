@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TFile } from "obsidian";
 
 import { ChatMessageRenderer } from "../../../src/features/chat/chat-message-renderer";
-import { createChatState } from "../../../src/features/chat/chat-state";
+import { chatReducer, createChatState, type ChatAction, type ChatState, type ChatStateStore } from "../../../src/features/chat/chat-state";
 import { installObsidianDomShims } from "./ui/dom-test-helpers";
 import { notices } from "../../mocks/obsidian";
 
@@ -225,7 +225,7 @@ function chatMessageRenderer(
       },
     } as never,
     owner: {} as never,
-    state,
+    stateStore: testStoreForState(state),
     vaultPath,
     blockSignatures,
     consumeScrollIntent: () => "auto",
@@ -236,6 +236,17 @@ function chatMessageRenderer(
     pendingRequestsSignature: () => "",
     renderPendingRequests: () => null,
   });
+}
+
+function testStoreForState(state: ChatState): ChatStateStore {
+  return {
+    getState: () => state,
+    dispatch(action: ChatAction) {
+      const next = chatReducer(state, action);
+      Object.assign(state, next);
+      return state;
+    },
+  };
 }
 
 function bindRenderedWikiLinks(renderer: ChatMessageRenderer, parent: HTMLElement, sourcePath: string): void {

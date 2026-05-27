@@ -6,7 +6,7 @@ import { renderRawDiffLines } from "../../../shared/diff/render";
 export interface ToolResultRenderContext {
   workspaceRoot?: string | null;
   openDetails: Set<string>;
-  onDetailsToggle?: () => void;
+  onDetailsToggle?: (key: string, open: boolean) => void;
   renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
 }
 
@@ -39,12 +39,7 @@ function createToolResultContainer(
   setToolResultOpenClass(root, details.open);
   details.ontoggle = () => {
     setToolResultOpenClass(root, details.open);
-    if (details.open) {
-      context.openDetails.add(view.detailsKey);
-    } else {
-      context.openDetails.delete(view.detailsKey);
-    }
-    context.onDetailsToggle?.();
+    context.onDetailsToggle?.(view.detailsKey, details.open);
   };
   return { root, detailsParent: details };
 }
