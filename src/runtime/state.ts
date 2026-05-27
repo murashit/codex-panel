@@ -116,7 +116,7 @@ export function serviceTierLabel(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): string {
-  return currentServiceTier(snapshot, config) ?? "(not reported)";
+  return currentServiceTier(snapshot, config) ?? "(Codex default)";
 }
 
 export function fastModeLabel(
@@ -127,7 +127,7 @@ export function fastModeLabel(
   if (serviceTier === "fast") return "on";
   if (serviceTier === "standard") return "off";
   if (serviceTier) return `unknown (${serviceTier})`;
-  return "not reported";
+  return "Codex default";
 }
 
 export function defaultRuntimeOverride<T>(): RuntimeOverride<T> {

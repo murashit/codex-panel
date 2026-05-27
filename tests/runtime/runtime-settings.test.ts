@@ -252,16 +252,19 @@ describe("runtime settings", () => {
     );
 
     expect(runtimeRows).toMatchObject({
-      model: "gpt-5-pending",
-      "config model": "gpt-5.5",
-      "model change": "gpt-5-pending",
-      effort: "low",
-      "config effort": "high",
-      "effort change": "(none)",
-      mode: "Plan",
-      "mode change": "(none)",
-      "config service tier": "standard",
-      "active service tier": "(not reported)",
+      "effective model": "gpt-5-pending",
+      "configured model": "gpt-5.5",
+      "thread model": "gpt-5-active",
+      "requested model": "gpt-5-pending",
+      "effective effort": "low",
+      "configured effort": "high",
+      "thread effort": "low",
+      "requested effort": "(none)",
+      "effective mode": "Plan",
+      "requested mode": "(none)",
+      "configured service tier": "standard",
+      "thread service tier": "(not reported)",
+      "requested service tier": "(none)",
     });
 
     const resetSections = effectiveConfigSections(
@@ -273,7 +276,43 @@ describe("runtime settings", () => {
     const resetRuntimeRows = Object.fromEntries(
       resetSections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
     );
-    expect(resetRuntimeRows["effort change"]).toBe("(reset to config)");
+    expect(resetRuntimeRows["requested effort"]).toBe("(reset to config)");
+  });
+
+  it("labels unset config values as Codex defaults when no concrete value is reported", () => {
+    const sections = effectiveConfigSections(
+      runtimeSnapshot({
+        effectiveConfig: effectiveConfigFixture({}),
+      }),
+      "/vault",
+    );
+    const scopeRows = Object.fromEntries(
+      sections.find((section) => section.title === "Scope")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+    const runtimeRows = Object.fromEntries(
+      sections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+    const policyRows = Object.fromEntries(
+      sections.find((section) => section.title === "Policy")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+
+    expect(scopeRows["model provider"]).toBe("(Codex default)");
+    expect(runtimeRows).toMatchObject({
+      "effective model": "(Codex default)",
+      "configured model": "(not reported)",
+      "thread model": "(not reported)",
+      "requested model": "(none)",
+      "configured service tier": "(Codex default)",
+      "thread service tier": "(not reported)",
+      "requested service tier": "(none)",
+      "fast mode": "Codex default",
+    });
+    expect(policyRows).toMatchObject({
+      approval: "(Codex default)",
+      "configured reviewer": "(Codex default)",
+      sandbox: "(Codex default)",
+      "web search": "(Codex default)",
+    });
   });
 
   it("shows effective profile runtime and policy values in status details", () => {
@@ -307,22 +346,28 @@ describe("runtime settings", () => {
     expect(scopeRows["profile"]).toBe("auto");
     expect(scopeRows["model provider"]).toBe("profile-provider");
     expect(runtimeRows).toMatchObject({
-      model: "gpt-profile",
-      "config model": "gpt-profile",
-      effort: "high",
-      "config effort": "high",
+      "effective model": "gpt-profile",
+      "configured model": "gpt-profile",
+      "thread model": "(not reported)",
+      "requested model": "(none)",
+      "effective effort": "high",
+      "configured effort": "high",
+      "thread effort": "(not reported)",
+      "requested effort": "(none)",
       "reasoning summary": "detailed",
       verbosity: "high",
-      "service tier": "fast",
-      "config service tier": "fast",
-      "active service tier": "(not reported)",
+      "effective service tier": "fast",
+      "configured service tier": "fast",
+      "thread service tier": "(not reported)",
+      "requested service tier": "(none)",
       "fast mode": "on",
     });
     expect(policyRows["approval"]).toBe("never");
-    expect(policyRows["reviewer"]).toBe("auto_review");
+    expect(policyRows["effective reviewer"]).toBe("auto_review");
     expect(policyRows["auto-review"]).toBe("on");
-    expect(policyRows["config reviewer"]).toBe("auto_review");
-    expect(policyRows["active reviewer"]).toBe("(not reported)");
+    expect(policyRows["configured reviewer"]).toBe("auto_review");
+    expect(policyRows["thread reviewer"]).toBe("(not reported)");
+    expect(policyRows["requested reviewer"]).toBe("(none)");
     expect(policyRows["web search"]).toBe("live");
   });
 
@@ -339,10 +384,10 @@ describe("runtime settings", () => {
     );
 
     expect(policyRows).toMatchObject({
-      reviewer: "guardian_subagent",
+      "effective reviewer": "guardian_subagent",
       "auto-review": "on",
-      "config reviewer": "auto_review",
-      "active reviewer": "guardian_subagent",
+      "configured reviewer": "auto_review",
+      "thread reviewer": "guardian_subagent",
     });
   });
 

@@ -41,6 +41,9 @@ export interface EffectiveConfigSection {
   rows: { key: string; value: string }[];
 }
 
+const CODEX_DEFAULT_LABEL = "(Codex default)";
+const NOT_REPORTED_LABEL = "(not reported)";
+
 export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null {
   const usage = snapshot.tokenUsage;
   const config = readRuntimeConfig(snapshot.effectiveConfig);
@@ -109,31 +112,34 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
       rows: [
         { key: "cwd", value: vaultPath },
         { key: "profile", value: config.profile ?? "(default)" },
-        { key: "model provider", value: stringValue(config.modelProvider, "(from default)") },
+        { key: "model provider", value: stringValue(config.modelProvider, CODEX_DEFAULT_LABEL) },
       ],
     },
     {
       title: "Runtime",
       rows: [
-        { key: "model", value: currentModel(snapshot, config) ?? "(from default)" },
-        { key: "config model", value: configuredModel(snapshot, config) ?? "(not reported)" },
-        { key: "model change", value: runtimeOverrideLabel(snapshot.requestedModel) },
-        { key: "effort", value: currentReasoningEffort(snapshot, config) ?? "(from default)" },
-        { key: "config effort", value: configuredReasoningEffort(snapshot, config) ?? "(not reported)" },
-        { key: "effort change", value: runtimeOverrideLabel(snapshot.requestedReasoningEffort) },
-        { key: "reasoning summary", value: stringValue(config.reasoningSummary, "(from default)") },
-        { key: "verbosity", value: stringValue(config.verbosity, "(from default)") },
-        { key: "mode", value: snapshot.activeCollaborationMode === "plan" ? "Plan" : "Default" },
+        { key: "effective model", value: currentModel(snapshot, config) ?? CODEX_DEFAULT_LABEL },
+        { key: "configured model", value: configuredModel(snapshot, config) ?? NOT_REPORTED_LABEL },
+        { key: "thread model", value: activeRuntimeValueLabel(snapshot.activeModel) },
+        { key: "requested model", value: runtimeOverrideLabel(snapshot.requestedModel) },
+        { key: "effective effort", value: currentReasoningEffort(snapshot, config) ?? CODEX_DEFAULT_LABEL },
+        { key: "configured effort", value: configuredReasoningEffort(snapshot, config) ?? NOT_REPORTED_LABEL },
+        { key: "thread effort", value: activeRuntimeValueLabel(snapshot.activeReasoningEffort) },
+        { key: "requested effort", value: runtimeOverrideLabel(snapshot.requestedReasoningEffort) },
+        { key: "reasoning summary", value: stringValue(config.reasoningSummary, CODEX_DEFAULT_LABEL) },
+        { key: "verbosity", value: stringValue(config.verbosity, CODEX_DEFAULT_LABEL) },
+        { key: "effective mode", value: snapshot.activeCollaborationMode === "plan" ? "Plan" : "Default" },
         {
-          key: "mode change",
+          key: "requested mode",
           value:
             snapshot.requestedCollaborationMode === snapshot.activeCollaborationMode
               ? "(none)"
               : modeLabel(snapshot.requestedCollaborationMode),
         },
-        { key: "service tier", value: serviceTierLabel(snapshot, config) },
-        { key: "config service tier", value: config.serviceTier ?? "(not reported)" },
-        { key: "active service tier", value: activeRuntimeValueLabel(snapshot.activeServiceTier) },
+        { key: "effective service tier", value: serviceTierLabel(snapshot, config) },
+        { key: "configured service tier", value: config.serviceTier ?? CODEX_DEFAULT_LABEL },
+        { key: "thread service tier", value: activeRuntimeValueLabel(snapshot.activeServiceTier) },
+        { key: "requested service tier", value: snapshot.requestedServiceTier ?? "(none)" },
         { key: "fast mode", value: fastModeLabel(snapshot, config) },
         { key: "context window", value: tokenLimitLabel(config.modelContextWindow) },
         { key: "auto compact limit", value: tokenLimitLabel(config.autoCompactTokenLimit) },
@@ -142,26 +148,24 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
     {
       title: "Policy",
       rows: [
-        { key: "approval", value: stringValue(config.approvalPolicy, "(from default)") },
-        { key: "reviewer", value: currentApprovalsReviewer(snapshot, config) ?? "(not reported)" },
+        { key: "approval", value: stringValue(config.approvalPolicy, CODEX_DEFAULT_LABEL) },
+        { key: "effective reviewer", value: currentApprovalsReviewer(snapshot, config) ?? NOT_REPORTED_LABEL },
         { key: "auto-review", value: autoReviewActive(snapshot, config) ? "on" : "off" },
-        { key: "config reviewer", value: config.approvalsReviewer ?? "(from default)" },
-        {
-          key: "active reviewer",
-          value: activeRuntimeValueLabel(snapshot.activeApprovalsReviewer),
-        },
-        { key: "sandbox", value: stringValue(config.sandboxMode, "(from default)") },
-        { key: "workspace network", value: stringValue(config.workspaceNetworkAccess, "(from default)") },
+        { key: "configured reviewer", value: config.approvalsReviewer ?? CODEX_DEFAULT_LABEL },
+        { key: "thread reviewer", value: activeRuntimeValueLabel(snapshot.activeApprovalsReviewer) },
+        { key: "requested reviewer", value: snapshot.requestedApprovalsReviewer ?? "(none)" },
+        { key: "sandbox", value: stringValue(config.sandboxMode, CODEX_DEFAULT_LABEL) },
+        { key: "workspace network", value: stringValue(config.workspaceNetworkAccess, CODEX_DEFAULT_LABEL) },
         { key: "writable roots", value: writableRootsLabel(config.writableRoots) },
-        { key: "web search", value: stringValue(config.webSearch, "(from default)") },
+        { key: "web search", value: stringValue(config.webSearch, CODEX_DEFAULT_LABEL) },
       ],
     },
     {
       title: "Features",
       rows: [
-        { key: "hooks", value: stringValue(config.hooksEnabled, "(from default)") },
-        { key: "apply_patch freeform", value: stringValue(config.applyPatchFreeformEnabled, "(from default)") },
-        { key: "tool web search", value: stringValue(config.toolWebSearch, "(from default)") },
+        { key: "hooks", value: stringValue(config.hooksEnabled, CODEX_DEFAULT_LABEL) },
+        { key: "apply_patch freeform", value: stringValue(config.applyPatchFreeformEnabled, CODEX_DEFAULT_LABEL) },
+        { key: "tool web search", value: stringValue(config.toolWebSearch, CODEX_DEFAULT_LABEL) },
         { key: "apps", value: enabledAppsLabel(config.apps) },
       ],
     },
@@ -190,7 +194,7 @@ function modeLabel(mode: RuntimeSnapshot["requestedCollaborationMode"]): string 
 }
 
 function activeRuntimeValueLabel(value: string | null): string {
-  return value ?? "(not reported)";
+  return value ?? NOT_REPORTED_LABEL;
 }
 
 function rateLimitWindowSummary(
@@ -252,11 +256,11 @@ function capitalize(value: string): string {
 
 function tokenLimitLabel(value: unknown): string {
   const tokens = toNumber(value);
-  return tokens === null ? "(from default)" : formatTokenCount(tokens);
+  return tokens === null ? CODEX_DEFAULT_LABEL : formatTokenCount(tokens);
 }
 
 function writableRootsLabel(value: unknown): string {
-  if (!Array.isArray(value)) return "(from default)";
+  if (!Array.isArray(value)) return CODEX_DEFAULT_LABEL;
   if (value.length === 0) return "none";
   if (value.length === 1) return String(value[0]);
   return `${String(value.length)} roots`;
@@ -270,7 +274,7 @@ function enabledAppsLabel(apps: unknown): string {
     .sort();
   if (enabled.length > 0) return enabled.join(", ");
   const defaultConfig = asRecord(appConfig["_default"]);
-  return stringValue(defaultConfig["enabled"], "(from default)");
+  return stringValue(defaultConfig["enabled"], CODEX_DEFAULT_LABEL);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

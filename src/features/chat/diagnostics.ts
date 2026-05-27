@@ -20,7 +20,7 @@ export interface ConnectionDiagnosticsInput {
   connected: boolean;
   configuredCommand: string;
   initializeResponse: InitializeResponse | null;
-  activeThreadCliVersion: string | null;
+  activeThreadCreationCliVersion: string | null;
   diagnostics: AppServerDiagnostics;
 }
 
@@ -36,7 +36,7 @@ export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput):
         { label: "panel client", value: CLIENT_VERSION },
         { label: "platform", value: appServerPlatform(input.initializeResponse) },
         { label: "Codex home", value: input.initializeResponse?.codexHome ?? "(not connected)" },
-        { label: "active thread CLI", value: input.activeThreadCliVersion ?? "(none)" },
+        { label: "thread created by CLI", value: input.activeThreadCreationCliVersion ?? "(none)" },
       ],
     },
     {

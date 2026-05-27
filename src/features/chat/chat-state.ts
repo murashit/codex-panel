@@ -34,7 +34,7 @@ export interface ChatState {
   activeCollaborationMode: ModeKind;
   activeServiceTier: ReportedServiceTier | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
-  activeThreadCliVersion: string | null;
+  activeThreadCreationCliVersion: string | null;
   appServerDiagnostics: AppServerDiagnostics;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
@@ -79,7 +79,7 @@ export function createChatState(): ChatState {
     activeCollaborationMode: "default",
     activeServiceTier: null,
     activeApprovalsReviewer: null,
-    activeThreadCliVersion: null,
+    activeThreadCreationCliVersion: null,
     appServerDiagnostics: createAppServerDiagnostics(),
     requestedModel: defaultRuntimeOverride(),
     requestedReasoningEffort: defaultRuntimeOverride(),
@@ -129,7 +129,7 @@ export function clearActiveThreadState(state: ChatState): void {
   state.activeCollaborationMode = "default";
   state.activeServiceTier = null;
   state.activeApprovalsReviewer = null;
-  state.activeThreadCliVersion = null;
+  state.activeThreadCreationCliVersion = null;
   state.tokenUsage = null;
   state.historyCursor = null;
   state.loadingHistory = false;
@@ -146,7 +146,7 @@ export function clearConnectionScopedState(state: ChatState): void {
   state.activeCollaborationMode = "default";
   state.activeServiceTier = null;
   state.activeApprovalsReviewer = null;
-  state.activeThreadCliVersion = null;
+  state.activeThreadCreationCliVersion = null;
   state.rateLimit = null;
   state.listedThreads = [];
   state.threadsLoaded = false;

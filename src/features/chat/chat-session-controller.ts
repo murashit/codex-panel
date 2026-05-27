@@ -96,7 +96,7 @@ export class ChatSessionController {
     this.host.state.activeReasoningEffort = response.reasoningEffort;
     this.host.state.activeServiceTier = reportedServiceTier(response.serviceTier);
     this.host.state.activeApprovalsReviewer = response.approvalsReviewer;
-    this.host.state.activeThreadCliVersion = response.thread.cliVersion;
+    this.host.state.activeThreadCreationCliVersion = response.thread.cliVersion;
     this.host.state.tokenUsage = null;
     this.host.state.historyCursor = null;
     this.host.state.turnDiffs.clear();

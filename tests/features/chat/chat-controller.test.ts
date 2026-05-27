@@ -845,7 +845,7 @@ describe("ChatController", () => {
       state.activeTurnId = "turn-active";
       state.activeModel = "gpt-5.5";
       state.activeServiceTier = "fast";
-      state.activeThreadCliVersion = "codex-cli 1.0.0";
+      state.activeThreadCreationCliVersion = "codex-cli 1.0.0";
       state.tokenUsage = {
         last: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
         total: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
@@ -892,7 +892,7 @@ describe("ChatController", () => {
       expect(state.activeTurnId).toBeNull();
       expect(state.activeModel).toBeNull();
       expect(state.activeServiceTier).toBeNull();
-      expect(state.activeThreadCliVersion).toBeNull();
+      expect(state.activeThreadCreationCliVersion).toBeNull();
       expect(state.tokenUsage).toBeNull();
       expect(state.historyCursor).toBeNull();
       expect(state.loadingHistory).toBe(false);

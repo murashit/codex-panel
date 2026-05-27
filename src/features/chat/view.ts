@@ -611,7 +611,7 @@ export class CodexChatView extends ItemView {
     this.state.activeReasoningEffort = response.reasoningEffort;
     this.state.activeServiceTier = reportedServiceTier(response.serviceTier);
     this.state.activeApprovalsReviewer = response.approvalsReviewer;
-    this.state.activeThreadCliVersion = response.thread.cliVersion;
+    this.state.activeThreadCreationCliVersion = response.thread.cliVersion;
     this.state.tokenUsage = null;
     this.state.displayItems = [this.systemItem("Loading thread...")];
     this.state.turnDiffs.clear();
@@ -1077,7 +1077,7 @@ export class CodexChatView extends ItemView {
     this.state.activeCollaborationMode = "default";
     this.state.activeServiceTier = null;
     this.state.activeApprovalsReviewer = null;
-    this.state.activeThreadCliVersion = null;
+    this.state.activeThreadCreationCliVersion = null;
     this.state.tokenUsage = null;
     this.state.busy = false;
     this.state.displayItems = [this.systemItem("Thread restored. Send a message to resume it.")];
@@ -1280,7 +1280,7 @@ export class CodexChatView extends ItemView {
       autoReviewActive: autoReviewActive(snapshot, config),
       fastActive: currentServiceTier(snapshot, config) === "fast",
       runtimeSummary: runtimeSummaryLabel(model, effort),
-      runtimeTitle: `Model: ${model ?? "(from default)"}; Effort: ${effort ?? "(from default)"}`,
+      runtimeTitle: `Model: ${model ?? "(Codex default)"}; Effort: ${effort ?? "(Codex default)"}`,
       runtimeEmphasized: false,
       context: context ? { ...context, label: compactContextLabel(context.percent, context.label) } : null,
       rateLimit: limit,
@@ -1506,10 +1506,10 @@ export class CodexChatView extends ItemView {
     const snapshot = this.runtimeSnapshot();
     const config = readRuntimeConfig(this.state.effectiveConfig);
     return [
-      `Model: ${currentModel(snapshot, config) ?? "(from default)"}`,
+      `Model: ${currentModel(snapshot, config) ?? "(Codex default)"}`,
       `Override: ${runtimeOverrideLabel(this.state.requestedModel)}`,
-      `Provider: ${statusValue(config.modelProvider, "(from default)")}`,
-      `Effort: ${currentReasoningEffort(snapshot, config) ?? "(from default)"}`,
+      `Provider: ${statusValue(config.modelProvider, "(Codex default)")}`,
+      `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
       `Mode: ${this.collaborationModeLabel()}`,
       `Service tier: ${serviceTierLabel(snapshot, config)}`,
     ];
@@ -1519,7 +1519,7 @@ export class CodexChatView extends ItemView {
     const snapshot = this.runtimeSnapshot();
     const config = readRuntimeConfig(this.state.effectiveConfig);
     return [
-      `Effort: ${currentReasoningEffort(snapshot, config) ?? "(from default)"}`,
+      `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
       `Override: ${runtimeOverrideLabel(this.state.requestedReasoningEffort)}`,
       `Supported: ${supportedReasoningEfforts(snapshot).join(", ")}`,
     ];
@@ -1530,7 +1530,7 @@ export class CodexChatView extends ItemView {
       connected: this.connection.isConnected(),
       configuredCommand: this.plugin.settings.codexPath,
       initializeResponse: this.state.initializeResponse,
-      activeThreadCliVersion: this.state.activeThreadCliVersion,
+      activeThreadCreationCliVersion: this.state.activeThreadCreationCliVersion,
       diagnostics: this.state.appServerDiagnostics,
     });
   }
