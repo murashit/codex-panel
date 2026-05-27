@@ -1,18 +1,37 @@
 import { TFile, type App } from "obsidian";
 
-export function markdownFileLinkTarget(app: App, vaultPath: string, href: string): string | null {
-  const parsed = parseMarkdownFileHref(href);
+export function vaultFileLinkTarget(app: App, vaultPath: string, href: string): string | null {
+  const relativePath = vaultRelativeFileHref(vaultPath, app.vault.configDir, href);
+  if (!relativePath) return null;
+
+  const abstractFile = app.vault.getAbstractFileByPath(relativePath.path);
+  return abstractFile instanceof TFile ? `${relativePath.path}${relativePath.subpath}` : null;
+}
+
+export function vaultRelativeFileLinkTarget(vaultPath: string, configDir: string, href: string): string | null {
+  const relativePath = vaultRelativeFileHref(vaultPath, configDir, href);
+  return relativePath ? `${relativePath.path}${relativePath.subpath}` : null;
+}
+
+export function isAbsoluteFileHref(href: string): boolean {
+  const parsed = parseFileHref(href);
+  return parsed ? isAbsolutePath(normalizeFilePath(parsed.path)) : false;
+}
+
+function vaultRelativeFileHref(vaultPath: string, configDir: string, href: string): { path: string; subpath: string } | null {
+  const parsed = parseFileHref(href);
   if (!parsed) return null;
 
   const relativePath = vaultRelativePath(vaultPath, parsed.path);
   if (!relativePath) return null;
 
   const normalized = normalizeFilePath(relativePath);
-  const abstractFile = app.vault.getAbstractFileByPath(normalized);
-  return abstractFile instanceof TFile ? `${normalized}${parsed.subpath}` : null;
+  if (isVaultConfigPath(normalized, configDir)) return null;
+
+  return { path: normalized, subpath: parsed.subpath };
 }
 
-function parseMarkdownFileHref(href: string): { path: string; subpath: string } | null {
+function parseFileHref(href: string): { path: string; subpath: string } | null {
   const trimmed = href.trim();
   if (!trimmed || isExternalHref(trimmed)) return null;
 
@@ -62,4 +81,9 @@ function isAbsolutePath(path: string): boolean {
 
 function isWindowsAbsolutePath(path: string): boolean {
   return /^[a-z]:[\\/]/i.test(path);
+}
+
+function isVaultConfigPath(path: string, configDir: string): boolean {
+  const normalizedConfigDir = normalizeFilePath(configDir);
+  return path === normalizedConfigDir || path.startsWith(`${normalizedConfigDir}/`);
 }

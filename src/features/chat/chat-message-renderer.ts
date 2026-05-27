@@ -1,4 +1,4 @@
-import { MarkdownRenderer, type App, type Component } from "obsidian";
+import { MarkdownRenderer, Notice, type App, type Component } from "obsidian";
 
 import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
@@ -6,7 +6,7 @@ import { renderTextWithWikiLinks as renderInlineWikiLinks } from "../../shared/u
 import { messageRenderBlocks, notifyMessageContentRendered, syncMessageRenderBlocks } from "./ui/message-stream";
 import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "./ui/scroll";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
-import { markdownFileLinkTarget } from "./markdown-file-links";
+import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "./markdown-file-links";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
 import type { ChatState } from "./chat-state";
 
@@ -137,7 +137,12 @@ export class ChatMessageRenderer {
       link.addClass("codex-panel__wikilink");
       link.onclick = (event) => {
         event.preventDefault();
-        const target = link.getAttribute("data-href") ?? link.getAttribute("href") ?? link.textContent;
+        const href = link.getAttribute("data-href") ?? link.getAttribute("href") ?? link.textContent;
+        const target = vaultRelativeFileLinkTarget(this.options.vaultPath, this.options.app.vault.configDir, href) ?? href;
+        if (target === href && isAbsoluteFileHref(href)) {
+          new Notice("Cannot open files outside the vault.");
+          return;
+        }
         if (target.trim().length > 0) {
           void this.options.app.workspace.openLinkText(target, sourcePath, false);
         }
@@ -148,7 +153,7 @@ export class ChatMessageRenderer {
   private bindRenderedMarkdownFileLinks(parent: HTMLElement, sourcePath: string): void {
     parent.querySelectorAll<HTMLAnchorElement>("a[href]:not(.internal-link)").forEach((link) => {
       const href = link.getAttribute("href") ?? "";
-      const target = markdownFileLinkTarget(this.options.app, this.options.vaultPath, href);
+      const target = vaultFileLinkTarget(this.options.app, this.options.vaultPath, href);
       if (!target) return;
 
       link.addClass("codex-panel__filelink");

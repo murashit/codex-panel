@@ -1,14 +1,117 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TFile } from "obsidian";
 
 import { ChatMessageRenderer } from "../../../src/features/chat/chat-message-renderer";
 import { createChatState } from "../../../src/features/chat/chat-state";
 import { installObsidianDomShims } from "./ui/dom-test-helpers";
+import { notices } from "../../mocks/obsidian";
 
 installObsidianDomShims();
 
 describe("ChatMessageRenderer scroll pinning", () => {
+  beforeEach(() => {
+    notices.length = 0;
+  });
+
+  it("normalizes rendered internal links that point at absolute vault paths", () => {
+    const openLinkText = vi.fn();
+    const renderer = chatMessageRenderer(createChatState(), openLinkText, "/Users/showhey/Vault", ["docs/Guide.md"]);
+    const parent = document.createElement("div");
+    const link = parent.createEl("a", {
+      cls: "internal-link",
+      text: "Guide.md",
+      attr: {
+        "data-href": "/Users/showhey/Vault/docs/Guide.md",
+        href: "/Users/showhey/Vault/docs/Guide.md",
+      },
+    });
+
+    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    link.click();
+
+    expect(openLinkText).toHaveBeenCalledWith("docs/Guide.md", "Inbox.md", false);
+  });
+
+  it("normalizes rendered internal links for missing files inside the vault", () => {
+    const openLinkText = vi.fn();
+    const renderer = chatMessageRenderer(createChatState(), openLinkText, "/Users/showhey/Vault");
+    const parent = document.createElement("div");
+    const link = parent.createEl("a", {
+      cls: "internal-link",
+      text: "Missing.md",
+      attr: {
+        "data-href": "/Users/showhey/Vault/docs/Missing.md",
+        href: "/Users/showhey/Vault/docs/Missing.md",
+      },
+    });
+
+    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    link.click();
+
+    expect(openLinkText).toHaveBeenCalledWith("docs/Missing.md", "Inbox.md", false);
+  });
+
+  it("keeps rendered internal links unchanged when they are not vault file paths", () => {
+    const openLinkText = vi.fn();
+    const renderer = chatMessageRenderer(createChatState(), openLinkText);
+    const parent = document.createElement("div");
+    const link = parent.createEl("a", {
+      cls: "internal-link",
+      text: "Project",
+      attr: {
+        "data-href": "Project",
+        href: "Project",
+      },
+    });
+
+    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    link.click();
+
+    expect(openLinkText).toHaveBeenCalledWith("Project", "Inbox.md", false);
+  });
+
+  it("does not open rendered internal links for absolute paths outside the vault", () => {
+    const openLinkText = vi.fn();
+    const renderer = chatMessageRenderer(createChatState(), openLinkText, "/Users/showhey/Vault");
+    const parent = document.createElement("div");
+    const link = parent.createEl("a", {
+      cls: "internal-link",
+      text: "README.md",
+      attr: {
+        "data-href": "/Users/showhey/Repos/codex-panel/README.md",
+        href: "/Users/showhey/Repos/codex-panel/README.md",
+      },
+    });
+
+    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    link.click();
+
+    expect(openLinkText).not.toHaveBeenCalled();
+    expect(notices).toEqual(["Cannot open files outside the vault."]);
+  });
+
+  it("does not open rendered internal links for vault config paths", () => {
+    const openLinkText = vi.fn();
+    const renderer = chatMessageRenderer(createChatState(), openLinkText, "/Users/showhey/Vault");
+    const parent = document.createElement("div");
+    const link = parent.createEl("a", {
+      cls: "internal-link",
+      text: "main.js",
+      attr: {
+        "data-href": "/Users/showhey/Vault/vault-config/plugins/foo/main.js",
+        href: "/Users/showhey/Vault/vault-config/plugins/foo/main.js",
+      },
+    });
+
+    bindRenderedWikiLinks(renderer, parent, "Inbox.md");
+    link.click();
+
+    expect(openLinkText).not.toHaveBeenCalled();
+    expect(notices).toEqual(["Cannot open files outside the vault."]);
+  });
+
   it("pins to the scroll container bottom without aligning the last message element", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
@@ -84,17 +187,27 @@ describe("ChatMessageRenderer scroll pinning", () => {
   });
 });
 
-function chatMessageRenderer(state = createChatState()): ChatMessageRenderer {
+function chatMessageRenderer(
+  state = createChatState(),
+  openLinkText = vi.fn(),
+  vaultPath = "/vault",
+  vaultFiles: string[] = [],
+): ChatMessageRenderer {
+  const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   return new ChatMessageRenderer({
     app: {
       workspace: {
         getActiveFile: vi.fn(() => null),
-        openLinkText: vi.fn(),
+        openLinkText,
+      },
+      vault: {
+        configDir: "vault-config",
+        getAbstractFileByPath: (path: string) => files.get(path) ?? null,
       },
     } as never,
     owner: {} as never,
     state,
-    vaultPath: "/vault",
+    vaultPath,
     blockSignatures: new Map(),
     consumeScrollIntent: () => "auto",
     loadOlderTurns: vi.fn(),
@@ -104,6 +217,18 @@ function chatMessageRenderer(state = createChatState()): ChatMessageRenderer {
     pendingRequestsSignature: () => "",
     renderPendingRequests: () => null,
   });
+}
+
+function bindRenderedWikiLinks(renderer: ChatMessageRenderer, parent: HTMLElement, sourcePath: string): void {
+  (renderer as unknown as { bindRenderedWikiLinks: (parent: HTMLElement, sourcePath: string) => void }).bindRenderedWikiLinks(
+    parent,
+    sourcePath,
+  );
+}
+
+function tFile(path: string): TFile {
+  const basename = path.split("/").pop()?.replace(/\.md$/, "") ?? path;
+  return Object.assign(new TFile(), { path, basename });
 }
 
 async function settleMessageRender(element: HTMLElement): Promise<void> {
