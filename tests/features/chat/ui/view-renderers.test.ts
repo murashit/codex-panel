@@ -2336,7 +2336,7 @@ describe("pending request renderer decisions", () => {
           turnId: "turn",
           markdown: false,
           state: "completed",
-          details: [{ title: "Scope", rows: [{ key: "answer", value: "Narrow" }] }],
+          details: [{ title: "Question: Scope", rows: [{ key: "Answer", value: "Narrow" }] }],
         },
       ],
       openDetails: new Set(),
@@ -2349,8 +2349,8 @@ describe("pending request renderer decisions", () => {
 
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("Input");
     expect(element.textContent).not.toContain("Approval");
-    expect(element.querySelector("details summary")?.textContent).toBe("Scope");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("answerNarrow");
+    expect(element.querySelector("details summary")?.textContent).toBe("Question: Scope");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("AnswerNarrow");
   });
 
   it("renders manual approval results with completion state and details", () => {

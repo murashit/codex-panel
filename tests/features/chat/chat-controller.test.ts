@@ -615,7 +615,7 @@ describe("ChatController", () => {
         role: "tool",
         text: "Input submitted for 1 question.",
         turnId: "turn-active",
-        details: [{ title: "Scope", rows: expect.arrayContaining([{ key: "answer", value: "Narrow" }]) }],
+        details: [{ title: "Question: Scope", rows: expect.arrayContaining([{ key: "Answer", value: "Narrow" }]) }],
       });
     });
 

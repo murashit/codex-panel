@@ -77,10 +77,10 @@ export function createUserInputResultItem(
   const questionCount = input.params.questions.length;
   const label = questionCount === 1 ? "1 question" : `${String(questionCount)} questions`;
   const details: DisplayDetailSection[] = input.params.questions.map((question) => ({
-    title: question.header || question.id,
+    title: `Question: ${question.header || question.id}`,
     rows: [
-      { key: "question", value: question.question },
-      ...(status === "submitted" ? [{ key: "answer", value: answers[question.id] ?? "" }] : []),
+      { key: "Prompt", value: question.question },
+      ...(status === "submitted" ? [{ key: "Answer", value: answers[question.id] ?? "" }] : []),
     ],
   }));
   return {
