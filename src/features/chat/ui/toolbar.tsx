@@ -4,7 +4,6 @@ import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type KeyboardEvent,
 import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/view";
 import { IconButton } from "../../../shared/ui/react-components";
 import { renderReactRoot } from "../../../shared/ui/react-root";
-import { renderEffectiveConfig } from "./config";
 
 export type ToolbarPanelKind = "history" | "status" | "runtime";
 export type ToolbarStatusState = "offline" | "connected" | "running";
@@ -312,14 +311,30 @@ function DiagnosticSection({ section }: { section: ToolbarDiagnosticSection }): 
 }
 
 function EffectiveConfigPanel({ sections }: { sections: EffectiveConfigSection[] }): ReactNode {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.replaceChildren();
-    renderEffectiveConfig(element, sections);
-  }, [sections]);
-  return <div ref={ref} />;
+  return (
+    <div className="codex-panel__config">
+      <div className="codex-panel__config-title">Effective Codex config</div>
+      <dl className="codex-panel__config-list">
+        {sections.map((section) => (
+          <FragmentedConfigSection key={section.title} section={section} />
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function FragmentedConfigSection({ section }: { section: EffectiveConfigSection }): ReactNode {
+  return (
+    <>
+      <div className="codex-panel__config-section">{section.title}</div>
+      {section.rows.map((row) => (
+        <div key={`${row.key}\n${row.value}`} className="codex-panel__config-row">
+          <dt>{row.key}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+    </>
+  );
 }
 
 function RuntimePicker({ model }: { model: ToolbarViewModel }): ReactNode {
