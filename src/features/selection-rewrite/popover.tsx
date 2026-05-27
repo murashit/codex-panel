@@ -1,8 +1,10 @@
 import { Notice, type Editor } from "obsidian";
+import { useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 
 import { renderDisplayDiffLines } from "../../shared/diff/render";
 import { displayDiffLines } from "../../shared/diff/unified";
-import { createIconButton } from "../../shared/ui/components";
+import { IconButton } from "../../shared/ui/react-components";
+import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { isSelectionRewriteActionKey, isSelectionRewriteGenerateKey } from "./keys";
@@ -29,22 +31,21 @@ type Cleanup = () => void;
 
 interface SelectionRewriteElements {
   root: HTMLElement;
-  instruction: HTMLTextAreaElement;
-  generateButton: HTMLButtonElement;
-  applyButton: HTMLButtonElement;
-  resultRow: HTMLElement;
-  status: HTMLElement;
-  streamPreview: HTMLElement;
-  diff: HTMLElement;
-  debug: HTMLDetailsElement | null;
+  instruction: HTMLTextAreaElement | null;
+  applyButton: HTMLButtonElement | null;
 }
 
 export class SelectionRewritePopover {
   private elements: SelectionRewriteElements | null = null;
   private abortController: AbortController | null = null;
   private readonly cleanups: Cleanup[] = [];
+  private instructionDraft: string;
+  private statusText = "";
+  private statusActive = false;
 
-  constructor(private readonly options: SelectionRewritePopoverOptions) {}
+  constructor(private readonly options: SelectionRewritePopoverOptions) {
+    this.instructionDraft = options.session.instruction;
+  }
 
   open(): void {
     this.close();
@@ -74,7 +75,7 @@ export class SelectionRewritePopover {
     this.syncInstructionHeight();
     this.syncControls();
     this.position();
-    elements.instruction.focus();
+    elements.instruction?.focus();
   }
 
   close(): void {
@@ -84,17 +85,20 @@ export class SelectionRewritePopover {
       this.abortController?.abort();
     }
     for (const cleanup of this.cleanups.splice(0)) cleanup();
-    this.elements?.root.remove();
+    if (this.elements) {
+      unmountReactRoot(this.elements.root);
+      this.elements.root.remove();
+    }
     this.elements = null;
     this.options.onClose?.();
   }
 
   private async generate(): Promise<void> {
     if (this.options.session.status === "generating") return;
-    const instruction = this.elements?.instruction.value.trim() ?? "";
+    const instruction = this.instructionDraft.trim();
     if (!instruction) {
       new Notice("Enter a rewrite instruction first.");
-      this.elements?.instruction.focus();
+      this.elements?.instruction?.focus();
       return;
     }
 
@@ -142,7 +146,6 @@ export class SelectionRewritePopover {
 
   private updatePreview(text: string): void {
     this.options.session.streamText = text;
-    this.renderStreamPreview();
     this.setStatus("Writing replacement", { active: true });
     this.position();
   }
@@ -155,65 +158,9 @@ export class SelectionRewritePopover {
     const root = activeDocument.body.createDiv({ cls: "codex-panel-selection-rewrite" });
     root.setAttr("role", "dialog");
     root.setAttr("aria-label", "Rewrite selection");
-
-    const instruction = root.createEl("textarea", {
-      cls: "codex-panel-ui__text-input codex-panel-selection-rewrite__instruction",
-      attr: { placeholder: "How should Codex rewrite this selection?" },
-    });
-    instruction.value = this.options.session.instruction;
-    instruction.oninput = () => {
-      this.syncInstructionHeight();
-      this.syncControls();
-      this.position();
-    };
-    instruction.onkeydown = (event) => {
-      const hasReplacement = this.options.session.replacementText !== null;
-      if (!(hasReplacement ? isSelectionRewriteActionKey(event) : isSelectionRewriteGenerateKey(event, this.options.sendShortcut))) return;
-      event.preventDefault();
-      event.stopPropagation();
-      void this.generate();
-    };
-
-    const promptRow = root.createDiv({ cls: "codex-panel-selection-rewrite__prompt-row" });
-    promptRow.append(instruction);
-    const controls = promptRow.createDiv({ cls: "codex-panel-ui__action-stack codex-panel-selection-rewrite__controls" });
-    const generateButton = createIconButton(
-      controls,
-      "sparkles",
-      "Generate",
-      "codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button",
-    );
-    generateButton.onclick = () => void this.generate();
-    const cancelButton = createIconButton(
-      controls,
-      "x",
-      "Cancel",
-      "codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button",
-    );
-    cancelButton.onclick = () => {
-      this.cancel();
-    };
-
-    const status = root.createDiv({ cls: "codex-panel-selection-rewrite__status" });
-    const streamPreview = root.createEl("pre", { cls: "codex-panel-selection-rewrite__stream-preview is-hidden" });
-    const resultRow = root.createDiv({ cls: "codex-panel-selection-rewrite__result-row" });
-    const diff = resultRow.createDiv({ cls: "codex-panel-selection-rewrite__diff" });
-    const applyButton = createIconButton(
-      resultRow,
-      "check",
-      "Apply",
-      "codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button mod-cta",
-    );
-    applyButton.onclick = () => {
-      this.apply();
-    };
-    applyButton.onkeydown = (event) => {
-      if (!isSelectionRewriteActionKey(event)) return;
-      event.preventDefault();
-      this.apply();
-    };
-
-    return { root, instruction, generateButton, applyButton, resultRow, status, streamPreview, diff, debug: null };
+    const elements: SelectionRewriteElements = { root, instruction: null, applyButton: null };
+    this.renderView(elements);
+    return elements;
   }
 
   private startGeneration(instruction: string): void {
@@ -222,17 +169,13 @@ export class SelectionRewritePopover {
     this.options.session.streamText = "";
     this.options.session.replacementText = null;
     this.options.session.debugText = null;
-    this.elements?.diff.empty();
-    this.renderStreamPreview();
-    this.renderDebug(null);
+    this.renderView();
   }
 
   private showSelectionRewritePreview(replacementText: string): void {
     this.options.session.replacementText = replacementText;
     this.options.session.status = "preview";
     this.options.session.streamText = "";
-    this.renderStreamPreview();
-    this.renderDiff();
     this.setStatus("");
   }
 
@@ -240,39 +183,7 @@ export class SelectionRewritePopover {
     this.options.session.status = "failed";
     this.options.session.debugText = error instanceof SelectionRewriteOutputError ? error.rawText : null;
     this.options.session.streamText = "";
-    this.renderStreamPreview();
-    this.renderDebug(this.options.session.debugText);
     this.setStatus(error instanceof Error ? error.message : String(error));
-  }
-
-  private renderStreamPreview(): void {
-    if (!this.elements) return;
-    const preview = this.options.session.streamText.trim();
-    this.elements.streamPreview.empty();
-    this.elements.streamPreview.classList.toggle("is-hidden", !preview);
-    if (preview) this.elements.streamPreview.createSpan({ text: preview });
-  }
-
-  private renderDiff(): void {
-    const replacement = this.options.session.replacementText;
-    if (replacement === null || !this.elements) return;
-    this.elements.diff.empty();
-    renderSelectionRewriteDiff(
-      this.elements.diff,
-      buildSelectionUnifiedDiff(this.options.session.filePath, this.options.session.originalText, replacement),
-    );
-  }
-
-  private renderDebug(debugText: string | null): void {
-    if (!this.elements) return;
-    this.elements.debug?.remove();
-    this.elements.debug = null;
-    if (!debugText) return;
-
-    const debugEl = this.elements.root.createEl("details", { cls: "codex-panel-selection-rewrite__debug" });
-    debugEl.createEl("summary", { text: "Debug output" });
-    debugEl.createEl("pre", { text: debugText });
-    this.elements.debug = debugEl;
   }
 
   private apply(): void {
@@ -293,35 +204,18 @@ export class SelectionRewritePopover {
   }
 
   private focusApplyButton(): void {
-    if (!this.elements || this.elements.applyButton.disabled) return;
+    if (!this.elements?.applyButton || this.elements.applyButton.disabled) return;
     this.elements.applyButton.focus({ preventScroll: true });
   }
 
   private setStatus(text: string, options: { active?: boolean } = {}): void {
-    if (!this.elements) return;
-    const { status } = this.elements;
-    status.empty();
-    status.classList.toggle("is-active", Boolean(options.active));
-    if (!text && !options.active) return;
-    status.createSpan({ text });
-    if (!options.active) return;
-    const dots = status.createSpan({ cls: "codex-panel-selection-rewrite__status-dots" });
-    dots.createSpan({ text: "." });
-    dots.createSpan({ text: "." });
-    dots.createSpan({ text: "." });
+    this.statusText = text;
+    this.statusActive = Boolean(options.active);
+    this.renderView();
   }
 
   private syncControls(): void {
-    if (!this.elements) return;
-    const generating = this.options.session.status === "generating";
-    const hasInstruction = Boolean(this.elements.instruction.value.trim());
-    const hasReplacement = this.options.session.replacementText !== null;
-    this.elements.instruction.disabled = generating;
-    this.elements.generateButton.disabled = generating || !hasInstruction;
-    this.elements.generateButton.setAttr("aria-label", hasReplacement ? "Regenerate" : "Generate");
-    this.elements.applyButton.disabled = generating || !hasReplacement;
-    this.elements.applyButton.classList.toggle("is-hidden", !hasReplacement);
-    this.elements.resultRow.classList.toggle("is-hidden", !hasReplacement);
+    this.renderView();
   }
 
   private syncInstructionHeight(): void {
@@ -335,6 +229,63 @@ export class SelectionRewritePopover {
   private position(): void {
     if (!this.elements) return;
     if (!positionSelectionRewritePopover(this.elements.root, this.options.editor, POPOVER_MARGIN)) this.close();
+  }
+
+  private renderView(elements: SelectionRewriteElements | null = this.elements): void {
+    if (!elements) return;
+    const session = this.options.session;
+    const replacement = session.replacementText;
+    renderReactRoot(
+      elements.root,
+      <SelectionRewritePopoverView
+        applyButtonRef={(element) => {
+          elements.applyButton = element;
+        }}
+        debugText={session.debugText}
+        diff={replacement === null ? null : buildSelectionUnifiedDiff(session.filePath, session.originalText, replacement)}
+        generating={session.status === "generating"}
+        hasInstruction={Boolean(this.instructionDraft.trim())}
+        hasReplacement={replacement !== null}
+        instruction={this.instructionDraft}
+        instructionRef={(element) => {
+          elements.instruction = element;
+        }}
+        onApply={() => {
+          this.apply();
+        }}
+        onCancel={() => {
+          this.cancel();
+        }}
+        onGenerate={() => void this.generate()}
+        onInstructionInput={(value) => {
+          this.instructionDraft = value;
+          this.syncInstructionHeight();
+          this.syncControls();
+          this.position();
+        }}
+        onInstructionKeyDown={(event) => {
+          const hasReplacement = this.options.session.replacementText !== null;
+          if (
+            !(hasReplacement
+              ? isSelectionRewriteActionKey(event.nativeEvent)
+              : isSelectionRewriteGenerateKey(event.nativeEvent, this.options.sendShortcut))
+          ) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          void this.generate();
+        }}
+        onApplyKeyDown={(event) => {
+          if (!isSelectionRewriteActionKey(event.nativeEvent)) return;
+          event.preventDefault();
+          this.apply();
+        }}
+        statusActive={this.statusActive}
+        statusText={this.statusText}
+        streamPreview={session.streamText.trim()}
+      />,
+    );
   }
 
   private addDomListener<K extends keyof WindowEventMap>(
@@ -360,6 +311,128 @@ export class SelectionRewritePopover {
       target.removeEventListener(type, callback, options);
     });
   }
+}
+
+interface SelectionRewritePopoverViewProps {
+  applyButtonRef: (element: HTMLButtonElement | null) => void;
+  debugText: string | null;
+  diff: string | null;
+  generating: boolean;
+  hasInstruction: boolean;
+  hasReplacement: boolean;
+  instruction: string;
+  instructionRef: (element: HTMLTextAreaElement | null) => void;
+  onApply: () => void;
+  onApplyKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  onCancel: () => void;
+  onGenerate: () => void;
+  onInstructionInput: (value: string) => void;
+  onInstructionKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  statusActive: boolean;
+  statusText: string;
+  streamPreview: string;
+}
+
+function SelectionRewritePopoverView({
+  applyButtonRef,
+  debugText,
+  diff,
+  generating,
+  hasInstruction,
+  hasReplacement,
+  instruction,
+  instructionRef,
+  onApply,
+  onApplyKeyDown,
+  onCancel,
+  onGenerate,
+  onInstructionInput,
+  onInstructionKeyDown,
+  statusActive,
+  statusText,
+  streamPreview,
+}: SelectionRewritePopoverViewProps): ReactNode {
+  return (
+    <>
+      <div className="codex-panel-selection-rewrite__prompt-row">
+        <textarea
+          ref={instructionRef}
+          className="codex-panel-ui__text-input codex-panel-selection-rewrite__instruction"
+          disabled={generating}
+          onChange={(event) => {
+            onInstructionInput(event.currentTarget.value);
+          }}
+          onKeyDown={onInstructionKeyDown}
+          placeholder="How should Codex rewrite this selection?"
+          value={instruction}
+        />
+        <div className="codex-panel-ui__action-stack codex-panel-selection-rewrite__controls">
+          <IconButton
+            icon="sparkles"
+            label={hasReplacement ? "Regenerate" : "Generate"}
+            className="clickable-icon codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button"
+            disabled={generating || !hasInstruction}
+            onClick={onGenerate}
+          />
+          <IconButton
+            icon="x"
+            label="Cancel"
+            className="clickable-icon codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button"
+            onClick={onCancel}
+          />
+        </div>
+      </div>
+      <SelectionRewriteStatus text={statusText} active={statusActive} />
+      <pre className={`codex-panel-selection-rewrite__stream-preview${streamPreview ? "" : " is-hidden"}`}>{streamPreview}</pre>
+      <div className={`codex-panel-selection-rewrite__result-row${hasReplacement ? "" : " is-hidden"}`}>
+        <div className="codex-panel-selection-rewrite__diff">{diff ? <SelectionRewriteDiff diff={diff} /> : null}</div>
+        <IconButton
+          buttonRef={applyButtonRef}
+          icon="check"
+          label="Apply"
+          className={`clickable-icon codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button mod-cta${
+            hasReplacement ? "" : " is-hidden"
+          }`}
+          disabled={generating || !hasReplacement}
+          onClick={onApply}
+          onKeyDown={onApplyKeyDown}
+        />
+      </div>
+      {debugText ? (
+        <details className="codex-panel-selection-rewrite__debug">
+          <summary>Debug output</summary>
+          <pre>{debugText}</pre>
+        </details>
+      ) : null}
+    </>
+  );
+}
+
+function SelectionRewriteStatus({ text, active }: { text: string; active: boolean }): ReactNode {
+  if (!text && !active) return <div className="codex-panel-selection-rewrite__status" />;
+  return (
+    <div className={`codex-panel-selection-rewrite__status${active ? " is-active" : ""}`}>
+      <span>{text}</span>
+      {active ? (
+        <span className="codex-panel-selection-rewrite__status-dots">
+          <span>.</span>
+          <span>.</span>
+          <span>.</span>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function SelectionRewriteDiff({ diff }: { diff: string }): ReactNode {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.replaceChildren();
+    renderSelectionRewriteDiff(element, diff);
+  }, [diff]);
+  return <div ref={ref} />;
 }
 
 function renderSelectionRewriteDiff(parent: HTMLElement, diff: string): void {

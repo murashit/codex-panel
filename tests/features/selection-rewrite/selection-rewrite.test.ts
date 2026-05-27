@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
 import {
@@ -12,10 +15,25 @@ import {
   selectionRewriteOutputFromTurn,
   selectionRewriteOutputParseResultFromTurn,
 } from "../../../src/features/selection-rewrite/output";
+import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
+import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
 import { selectionRewriteRuntime, validatedSelectionRewriteRuntime } from "../../../src/features/selection-rewrite/runner";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
+import { installObsidianDomShims } from "../chat/ui/dom-test-helpers";
+
+installObsidianDomShims();
+
+beforeEach(() => {
+  Object.defineProperty(globalThis, "activeDocument", { configurable: true, value: document });
+  Object.defineProperty(globalThis, "activeWindow", { configurable: true, value: window });
+  document.body.replaceChildren();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("selection selection rewrite output", () => {
   it("parses valid selection rewrite JSON", () => {
@@ -117,6 +135,76 @@ describe("selection rewrite apply guard", () => {
   });
 });
 
+describe("selection rewrite popover", () => {
+  it("enables Generate only after the instruction has content", () => {
+    const popover = new SelectionRewritePopover(popoverOptions({ session: session({ instruction: "" }) }));
+
+    popover.open();
+
+    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
+    expect(generate.disabled).toBe(true);
+
+    act(() => {
+      setTextareaValue(instruction, "Make it concise.");
+      instruction.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(generate.disabled).toBe(false);
+
+    popover.close();
+  });
+
+  it("generates from the Enter shortcut, renders a preview diff, and applies from the action shortcut", async () => {
+    const editor = editorFixture();
+    const onClose = vi.fn();
+    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockImplementation(async (options) => {
+      options.onPreview?.("Rewritten sentence.");
+      return { replacementText: "Rewritten sentence." };
+    });
+    const popover = new SelectionRewritePopover(popoverOptions({ editor: editor.editor, onClose, session: session({ instruction: "" }) }));
+
+    popover.open();
+    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    act(() => {
+      setTextareaValue(instruction, "Make it concise.");
+      instruction.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    await act(async () => {
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+      await Promise.resolve();
+    });
+
+    expect(selectionRewriteRunner.runSelectionRewrite).toHaveBeenCalledOnce();
+    expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Rewritten sentence.");
+    const apply = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Apply"]'));
+    expect(apply.disabled).toBe(false);
+
+    await act(async () => {
+      apply.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+      await Promise.resolve();
+    });
+
+    expect(editor.replaceRange).toHaveBeenCalledWith("Rewritten sentence.", { line: 1, ch: 0 }, { line: 1, ch: 22 }, "codex-panel-rewrite");
+    expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("unmounts and removes the React popover when closed", () => {
+    const onClose = vi.fn();
+    const popover = new SelectionRewritePopover(popoverOptions({ onClose }));
+
+    popover.open();
+    expect(document.querySelector(".codex-panel-selection-rewrite__instruction")).not.toBeNull();
+
+    popover.close();
+
+    expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
 describe("selection selection rewrite runtime", () => {
   it("uses explicit selection rewrite runtime settings", () => {
     expect(selectionRewriteRuntime({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" })).toEqual({
@@ -185,6 +273,48 @@ function session(overrides: Partial<SelectionRewriteSession> = {}): SelectionRew
     debugText: null,
     ...overrides,
   };
+}
+
+function popoverOptions(
+  overrides: Partial<ConstructorParameters<typeof SelectionRewritePopover>[0]> = {},
+): ConstructorParameters<typeof SelectionRewritePopover>[0] {
+  return {
+    codexPath: "/usr/local/bin/codex",
+    cwd: "/vault",
+    editor: editorFixture().editor,
+    runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
+    sendShortcut: "enter",
+    session: session(),
+    ...overrides,
+  };
+}
+
+function editorFixture(): {
+  editor: ConstructorParameters<typeof SelectionRewritePopover>[0]["editor"];
+  replaceRange: ReturnType<typeof vi.fn>;
+} {
+  const replaceRange = vi.fn();
+  return {
+    editor: {
+      getCursor: () => ({ line: 1, ch: 22 }),
+      getRange: vi.fn(() => "Revise this sentence."),
+      posToOffset: () => 0,
+      replaceRange,
+    } as unknown as ConstructorParameters<typeof SelectionRewritePopover>[0]["editor"],
+    replaceRange,
+  };
+}
+
+function setTextareaValue(textarea: HTMLTextAreaElement, value: string): void {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+  if (!descriptor?.set) throw new Error("Expected textarea value setter.");
+  const setValue = descriptor.set.bind(textarea) as (nextValue: string) => void;
+  setValue(value);
+}
+
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("Expected value to be present");
+  return value;
 }
 
 function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {

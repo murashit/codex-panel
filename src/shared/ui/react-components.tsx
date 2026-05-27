@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode, type Ref } from "react";
 
 export interface ObsidianIconProps {
   icon: string;
@@ -20,9 +20,10 @@ export function ObsidianIcon({ icon, className }: ObsidianIconProps): ReactNode 
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: string;
   label: string;
+  buttonRef?: Ref<HTMLButtonElement>;
 }
 
-export function IconButton({ icon, label, className, children, ...props }: IconButtonProps): ReactNode {
+export function IconButton({ icon, label, buttonRef, className, children, ...props }: IconButtonProps): ReactNode {
   const ref = useRef<HTMLButtonElement | null>(null);
   useLayoutEffect(() => {
     const button = ref.current;
@@ -31,7 +32,20 @@ export function IconButton({ icon, label, className, children, ...props }: IconB
     setIcon(button, icon);
   }, [children, icon]);
   return (
-    <button {...props} ref={ref} className={className} aria-label={label} type={props.type ?? "button"}>
+    <button
+      {...props}
+      ref={(element) => {
+        ref.current = element;
+        if (typeof buttonRef === "function") {
+          buttonRef(element);
+        } else if (buttonRef) {
+          buttonRef.current = element;
+        }
+      }}
+      className={className}
+      aria-label={label}
+      type={props.type ?? "button"}
+    >
       {children ? <ObsidianIcon icon={icon} /> : null}
       {children}
     </button>
