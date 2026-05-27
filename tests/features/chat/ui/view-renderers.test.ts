@@ -302,6 +302,62 @@ describe("message stream block identity and message actions", () => {
     unmountReactRoot(parent);
   });
 
+  it("renders the history bar as a React block", () => {
+    const loadOlderTurns = vi.fn();
+    const [historyBlock] = messageRenderBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: "cursor",
+      loadingHistory: false,
+      busy: false,
+      displayItems: [],
+      openDetails: new Set(),
+      loadOlderTurns,
+      renderMarkdown: (element, text) => element.createDiv({ text }),
+      renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+    });
+    const parent = document.createElement("div");
+
+    expect(historyBlock.key).toBe("history-bar");
+    expect(historyBlock.node).not.toBeUndefined();
+    renderReactRoot(parent, historyBlock.node);
+
+    const button = expectPresent(parent.querySelector<HTMLButtonElement>("button"));
+    expect(parent.querySelector(".codex-panel__history-bar")).not.toBeNull();
+    expect(button.textContent).toBe("Load older");
+    expect(button.disabled).toBe(false);
+
+    button.click();
+
+    expect(loadOlderTurns).toHaveBeenCalledOnce();
+    unmountReactRoot(parent);
+  });
+
+  it("renders the empty message stream state as a React block", () => {
+    const [emptyBlock] = messageRenderBlocks({
+      activeThreadId: null,
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      busy: false,
+      displayItems: [],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element, text) => element.createDiv({ text }),
+      renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+    });
+    const parent = document.createElement("div");
+
+    expect(emptyBlock.key).toBe("empty");
+    expect(emptyBlock.node).not.toBeUndefined();
+    renderReactRoot(parent, emptyBlock.node);
+
+    const empty = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message--system"));
+    expect(empty.classList.contains("codex-panel__message")).toBe(true);
+    expect(empty.textContent).toBe("Send a message to start a new thread.");
+    unmountReactRoot(parent);
+  });
+
   it("does not invalidate generic tool blocks when only the workspace root changes", () => {
     const item = {
       id: "tool",

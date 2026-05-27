@@ -66,6 +66,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
       key: "history-bar",
       signature: `${context.activeThreadId}:${context.historyCursor}:${String(context.loadingHistory)}`,
       render: () => createHistoryBarElement(context.loadingHistory, context.loadOlderTurns),
+      node: <HistoryBar loadingHistory={context.loadingHistory} loadOlderTurns={context.loadOlderTurns} />,
     });
   }
 
@@ -78,6 +79,7 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
           cls: "codex-panel__message codex-panel__message--system",
           text: "Send a message to start a new thread.",
         }),
+      node: <EmptyMessage />,
     });
     return blocks;
   }
@@ -162,6 +164,20 @@ function MessageRenderBlockHost({ block, signatures }: { block: MessageRenderBlo
       {block.node}
     </div>
   );
+}
+
+function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolean; loadOlderTurns: () => void }): ReactNode {
+  return (
+    <div className="codex-panel__history-bar">
+      <button type="button" disabled={loadingHistory} onClick={loadOlderTurns}>
+        {loadingHistory ? "Loading..." : "Load older"}
+      </button>
+    </div>
+  );
+}
+
+function EmptyMessage(): ReactNode {
+  return <div className="codex-panel__message codex-panel__message--system">Send a message to start a new thread.</div>;
 }
 
 function createHistoryBarElement(loadingHistory: boolean, loadOlderTurns: () => void): HTMLElement {
