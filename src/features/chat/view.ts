@@ -65,6 +65,7 @@ import {
 } from "../../domain/threads/reference";
 import { pendingRequestMessageNode } from "./ui/pending-request-message";
 import { renderToolbar, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
+import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
@@ -108,10 +109,6 @@ export class CodexChatView extends ItemView {
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
   private readonly blockSignatures = new Map<string, string>();
-  private toolbarEl: HTMLElement | null = null;
-  private configSlotEl: HTMLElement | null = null;
-  private messagesSlotEl: HTMLElement | null = null;
-  private composerSlotEl: HTMLElement | null = null;
   private scheduledRestoredThreadHydrationTimer: number | null = null;
   private scheduledRenderTimer: number | null = null;
   private scheduledDiagnosticsTimer: number | null = null;
@@ -455,11 +452,12 @@ export class CodexChatView extends ItemView {
       this.scheduledRenderTimer = null;
     }
     this.clearDeferredDiagnostics();
-    unmountReactRoot(this.toolbarEl);
+    const panelRoot = this.panelRoot();
+    unmountReactRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__toolbar") ?? null);
     this.messageRenderer.dispose();
     this.composerController.dispose();
-    unmountReactRoot(this.messagesSlotEl);
-    unmountReactRoot(this.composerSlotEl);
+    unmountReactRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__slot--composer") ?? null);
+    unmountChatPanelShell(panelRoot);
     this.connection.disconnect();
     this.client = null;
     this.plugin.refreshThreadsViewLiveState();
@@ -1191,20 +1189,20 @@ export class CodexChatView extends ItemView {
       window.clearTimeout(this.scheduledRenderTimer);
       this.scheduledRenderTimer = null;
     }
-    const root = this.containerEl.children[1] as HTMLElement;
-    if (!this.toolbarEl || !this.configSlotEl || !this.messagesSlotEl || !this.composerSlotEl) {
-      this.renderShell(root);
-    }
-    if (!this.toolbarEl || !this.configSlotEl || !this.messagesSlotEl || !this.composerSlotEl) {
-      return;
-    }
-
-    this.renderToolbar(this.toolbarEl);
-
-    this.configSlotEl.empty();
-
-    this.renderMessages(this.messagesSlotEl);
-    this.renderComposer(this.composerSlotEl);
+    const root = this.panelRoot();
+    if (!root) return;
+    renderChatPanelShell(root, {
+      stateStore: this.chatState,
+      renderToolbar: (toolbar) => {
+        this.renderToolbar(toolbar);
+      },
+      renderMessages: (parent) => {
+        this.renderMessages(parent);
+      },
+      renderComposer: (parent) => {
+        this.renderComposer(parent);
+      },
+    });
   }
 
   private renderToolbar(toolbar: HTMLElement): void {
@@ -1461,14 +1459,8 @@ export class CodexChatView extends ItemView {
     this.render();
   }
 
-  private renderShell(root: HTMLElement): void {
-    root.empty();
-    root.addClass("codex-panel");
-    this.toolbarEl = root.createDiv({ cls: "codex-panel__toolbar" });
-    const body = root.createDiv({ cls: "codex-panel__body" });
-    this.configSlotEl = body.createDiv({ cls: "codex-panel__slot codex-panel__slot--config" });
-    this.messagesSlotEl = body.createDiv({ cls: "codex-panel__slot codex-panel__slot--messages" });
-    this.composerSlotEl = body.createDiv({ cls: "codex-panel__slot codex-panel__slot--composer" });
+  private panelRoot(): HTMLElement | null {
+    return (this.containerEl.children[1] as HTMLElement | undefined) ?? null;
   }
 
   private toggleStatusPanel(): void {
