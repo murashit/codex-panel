@@ -3,12 +3,13 @@ import { Fragment, useLayoutEffect, useRef, useState, type Ref, type ReactNode }
 import { displayBlocksForItems } from "../display/blocks";
 import { displayItemSignature, isMessageCopyActionVisible } from "../display/signature";
 import { executionState } from "../display/state";
+import type { ToolResultDisplayItem } from "../display/tool-view";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
 import { createIconButton, createMetaPair, createRememberedDetails } from "../../../shared/ui/components";
 import { shortSignature } from "../../../shared/ui/dom";
 import { IconButton } from "../../../shared/ui/react-components";
 import { applyExecutionStateClass } from "./execution-state";
-import { renderToolResult } from "./tool-result";
+import { renderToolResult, toolResultNode } from "./tool-result";
 import {
   activeAgentRunSummaryBlock,
   createAgentRunSummaryElement,
@@ -59,6 +60,17 @@ function isRenderableMessageItem(item: DisplayItem): item is RenderableMessageIt
   return item.kind === "message" || item.kind === "system" || item.kind === "userInputResult";
 }
 
+function isRenderableToolResultItem(item: DisplayItem): item is ToolResultDisplayItem {
+  return (
+    item.kind === "command" ||
+    item.kind === "fileChange" ||
+    item.kind === "tool" ||
+    item.kind === "hook" ||
+    item.kind === "reviewResult" ||
+    item.kind === "approvalResult"
+  );
+}
+
 export function messageRenderBlocks(context: MessageStreamContext): MessageRenderBlock[] {
   const blocks: MessageRenderBlock[] = [];
 
@@ -87,7 +99,11 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
 
   for (const block of displayBlocksForItems(context.displayItems, context.activeTurnId, context.workspaceRoot, context.turnDiffs)) {
     if (block.type === "item") {
-      const node = isRenderableMessageItem(block.item) ? <MessageItem item={block.item} context={context} /> : undefined;
+      const node = isRenderableMessageItem(block.item)
+        ? <MessageItem item={block.item} context={context} />
+        : isRenderableToolResultItem(block.item)
+          ? toolResultNode(block.item, context)
+          : undefined;
       blocks.push({
         key: `item:${block.item.id}`,
         signature: displayItemSignature(block.item, context),

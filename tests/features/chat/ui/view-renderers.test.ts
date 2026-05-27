@@ -446,6 +446,97 @@ describe("message stream block identity and message actions", () => {
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
   });
 
+  it("keeps tool result React details mounted in the message stream host", () => {
+    const parent = document.createElement("div");
+    const onDetailsToggle = vi.fn();
+    const renderTextWithWikiLinks = vi.fn((element: HTMLElement, text: string) => {
+      element.createDiv({ text: `linked:${text}` });
+    });
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: "turn",
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        displayItems: [
+          {
+            id: "cmd-1",
+            kind: "command",
+            role: "tool",
+            text: "npm test",
+            command: "npm test",
+            cwd: "/vault",
+            status: "completed",
+            output: "ok",
+            state: "completed",
+          },
+        ],
+        openDetails: new Set(),
+        onDetailsToggle,
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks,
+      }),
+      new Map(),
+    );
+
+    const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:cmd-1"]'));
+    const result = expectPresent(block.querySelector<HTMLElement>(".codex-panel__tool-result"));
+    expect(result.classList.contains("codex-panel__execution--completed")).toBe(true);
+    expect(result.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("command");
+    expect(result.querySelector(":scope > .codex-panel__tool-summary")?.textContent).toBe("linked:npm test");
+    expect(result.querySelector(".codex-panel__tool-summary")?.textContent).toBe("linked:npm test");
+    expect(result.querySelector(".codex-panel__meta-grid")?.textContent).toContain("commandnpm test");
+    expect(result.querySelector(".codex-panel__output-title")?.textContent).toBe("Output");
+    expect(renderTextWithWikiLinks).toHaveBeenCalledWith(expect.any(HTMLElement), "npm test");
+
+    const details = expectPresent(result.querySelector<HTMLDetailsElement>("details"));
+    details.open = true;
+    details.dispatchEvent(new Event("toggle", { bubbles: false }));
+
+    expect(onDetailsToggle).toHaveBeenCalledWith("cmd-1:command-details", true);
+    unmountReactRoot(parent);
+  });
+
+  it("renders file change diffs through the React tool result adapter", () => {
+    const parent = document.createElement("div");
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: "turn",
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        workspaceRoot: "/vault",
+        displayItems: [
+          {
+            id: "file-1",
+            kind: "fileChange",
+            role: "tool",
+            text: "Changed 1 file",
+            status: "completed",
+            changes: [{ kind: "modified", path: "/vault/src/app.ts", diff: "-old\n+new" }],
+          },
+        ],
+        openDetails: new Set(["file-1:file-change-details"]),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+      }),
+      new Map(),
+    );
+
+    expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/app.ts");
+    expect(parent.querySelector(".codex-panel-diff-file .codex-panel__output-title")?.textContent).toBe("modified src/app.ts");
+    expect([...parent.querySelectorAll(".codex-panel-diff__line")].map((line) => line.textContent)).toEqual(["old", "new"]);
+    unmountReactRoot(parent);
+  });
+
   it("renders structured system result details as visible selectable meta rows", () => {
     const block = messageRenderBlocks({
       activeThreadId: "thread",
