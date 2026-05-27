@@ -34,15 +34,24 @@ export function renderPendingRequestMessage(
   openDetails: Set<string>,
   actions: PendingRequestMessageActions,
 ): void {
-  renderReactRoot(
-    parent,
+  renderReactRoot(parent, pendingRequestMessageNode(approvals, pendingUserInputs, drafts, openDetails, actions));
+}
+
+export function pendingRequestMessageNode(
+  approvals: PendingApproval[],
+  pendingUserInputs: PendingUserInput[],
+  drafts: PendingRequestMessageDrafts,
+  openDetails: Set<string>,
+  actions: PendingRequestMessageActions,
+): ReactNode {
+  return (
     <PendingRequestMessage
       approvals={approvals}
       pendingUserInputs={pendingUserInputs}
       drafts={drafts}
       openDetails={openDetails}
       actions={actions}
-    />,
+    />
   );
 }
 

@@ -1,4 +1,5 @@
 import { MarkdownRenderer, Notice, type App, type Component } from "obsidian";
+import type { ReactNode } from "react";
 
 import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
@@ -22,7 +23,7 @@ export interface ChatMessageRendererOptions {
   implementPlan: (item: DisplayItem) => void;
   openTurnDiff: (state: ChatTurnDiffViewState) => void;
   pendingRequestsSignature: () => string;
-  renderPendingRequests: () => HTMLElement | null;
+  renderPendingRequests: () => ReactNode;
 }
 
 export type ChatMessageScrollIntent = "auto" | "force-bottom" | "preserve";

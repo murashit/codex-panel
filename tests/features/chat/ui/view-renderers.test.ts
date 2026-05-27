@@ -11,7 +11,7 @@ import {
   syncComposerControls,
   syncComposerHeight,
 } from "../../../../src/features/chat/ui/composer";
-import { renderPendingRequestMessage } from "../../../../src/features/chat/ui/pending-request-message";
+import { pendingRequestMessageNode, renderPendingRequestMessage } from "../../../../src/features/chat/ui/pending-request-message";
 import { renderToolbar, toolbarSignature, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
 import { displayItemSignature } from "../../../../src/features/chat/display/signature";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/chat-message-renderer";
@@ -2455,10 +2455,6 @@ describe("pending request renderer decisions", () => {
   });
 
   it("adds pending requests to the bottom of message render blocks", () => {
-    const pending = document.createElement("div");
-    pending.className = "codex-panel__pending-request-message";
-    pending.textContent = "Request";
-
     const blocks = messageRenderBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
@@ -2471,11 +2467,53 @@ describe("pending request renderer decisions", () => {
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       pendingRequestsSignature: "request:1",
-      renderPendingRequests: () => pending,
+      renderPendingRequests: () => "Request",
     });
 
     expect(blocks.map((block) => block.key)).toEqual(["item:a1", "pending-requests"]);
-    expect(expectPresent(blocks[1]).render()).toBe(pending);
+    expect(expectPresent(blocks[1]).node).not.toBeUndefined();
+  });
+
+  it("keeps pending request React events mounted in the message stream host", () => {
+    const parent = document.createElement("div");
+    const signatures = new Map<string, string>();
+    const approval = pendingApproval();
+    const resolveApproval = vi.fn();
+
+    renderMessageRenderBlocks(
+      parent,
+      messageRenderBlocks({
+        activeThreadId: "thread",
+        activeTurnId: null,
+        historyCursor: null,
+        loadingHistory: false,
+        busy: false,
+        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "Waiting", markdown: true }],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
+        pendingRequestsSignature: "approval:1",
+        renderPendingRequests: () =>
+          pendingRequestMessageNode(
+            [approval],
+            [],
+            {
+              values: new Map(),
+              draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
+              otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
+            },
+            new Set(),
+            { resolveApproval, resolveUserInput: vi.fn(), cancelUserInput: vi.fn() },
+          ),
+      }),
+      signatures,
+    );
+
+    parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button")?.click();
+
+    expect(resolveApproval).toHaveBeenCalledWith(approval, "accept");
+    unmountReactRoot(parent);
   });
 });
 

@@ -66,7 +66,7 @@ import {
   REFERENCED_THREAD_TURN_LIMIT,
   type ReferencedThreadDisplay,
 } from "../../domain/threads/reference";
-import { renderPendingRequestMessage } from "./ui/pending-request-message";
+import { pendingRequestMessageNode, renderPendingRequestMessage } from "./ui/pending-request-message";
 import { renderToolbar, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
@@ -150,7 +150,7 @@ export class CodexChatView extends ItemView {
       implementPlan: (item) => void this.implementPlan(item),
       openTurnDiff: (state) => void this.plugin.openTurnDiff(state),
       pendingRequestsSignature: () => this.pendingRequestsSignature(),
-      renderPendingRequests: () => this.createPendingRequestsElement(),
+      renderPendingRequests: () => this.pendingRequestMessageNode(),
     });
     this.composerController = new ChatComposerController({
       app: this.app,
@@ -1598,6 +1598,24 @@ export class CodexChatView extends ItemView {
     );
   }
 
+  private pendingRequestMessageNode() {
+    return pendingRequestMessageNode(
+      this.state.approvals,
+      this.state.pendingUserInputs,
+      {
+        values: this.state.userInputDrafts,
+        draftKey: userInputDraftKey,
+        otherDraftKey: userInputOtherDraftKey,
+      },
+      this.state.openDetails,
+      {
+        resolveApproval: (approval, action) => void this.resolveApproval(approval, action),
+        resolveUserInput: (input) => void this.resolveUserInput(input),
+        cancelUserInput: (input) => void this.cancelUserInput(input),
+      },
+    );
+  }
+
   private answersForUserInput(input: PendingUserInput): Record<string, string> {
     return Object.fromEntries(
       input.params.questions.map((question) => [
@@ -1639,13 +1657,6 @@ export class CodexChatView extends ItemView {
 
   private pendingRequestsSignature(): string {
     return requestStateSignature(this.state.approvals, this.state.pendingUserInputs, this.state.userInputDrafts);
-  }
-
-  private createPendingRequestsElement(): HTMLElement | null {
-    if (this.state.approvals.length === 0 && this.state.pendingUserInputs.length === 0) return null;
-    const container = createDiv();
-    this.renderPendingRequestMessage(container);
-    return container.firstElementChild as HTMLElement | null;
   }
 
   private renderComposer(parent: HTMLElement): void {

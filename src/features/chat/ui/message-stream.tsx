@@ -25,6 +25,7 @@ export interface MessageRenderBlock {
   key: string;
   signature: string;
   render: () => HTMLElement;
+  node?: ReactNode;
 }
 
 export interface MessageStreamContext {
@@ -48,7 +49,7 @@ export interface MessageStreamContext {
   onRollbackItem?: (item: DisplayItem) => void;
   openTurnDiff?: (state: ChatTurnDiffViewState) => void;
   pendingRequestsSignature?: string;
-  renderPendingRequests?: () => HTMLElement | null;
+  renderPendingRequests?: () => ReactNode;
 }
 
 type RenderableMessageItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
@@ -110,7 +111,8 @@ export function messageRenderBlocks(context: MessageStreamContext): MessageRende
     blocks.push({
       key: "pending-requests",
       signature: context.pendingRequestsSignature,
-      render: () => context.renderPendingRequests?.() ?? createDiv(),
+      render: () => createDiv(),
+      node: context.renderPendingRequests(),
     });
   }
 
@@ -136,6 +138,11 @@ function MessageRenderBlockHost({ block, signatures }: { block: MessageRenderBlo
   useLayoutEffect(() => {
     const host = ref.current;
     if (!host) return;
+    if (block.node !== undefined) {
+      signatures.set(block.key, block.signature);
+      host.dataset["codexPanelBlockSignature"] = shortSignature(block.signature);
+      return;
+    }
     if (signatures.get(block.key) !== block.signature) {
       host.replaceChildren(block.render());
       signatures.set(block.key, block.signature);
@@ -150,7 +157,11 @@ function MessageRenderBlockHost({ block, signatures }: { block: MessageRenderBlo
     };
   }, [block.key, signatures]);
 
-  return <div ref={ref} className="codex-panel__message-block" data-codex-panel-block-key={block.key} />;
+  return (
+    <div ref={ref} className="codex-panel__message-block" data-codex-panel-block-key={block.key}>
+      {block.node}
+    </div>
+  );
 }
 
 function createHistoryBarElement(loadingHistory: boolean, loadOlderTurns: () => void): HTMLElement {
