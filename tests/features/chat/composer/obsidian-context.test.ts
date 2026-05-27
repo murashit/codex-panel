@@ -9,13 +9,25 @@ describe("Obsidian composer context", () => {
       markdownFiles: [
         { basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } },
         { basename: "Beta", path: "Beta.md", stat: { mtime: 200 } },
+        { basename: "Daily", path: "Personal/Daily Notes/Daily.md", stat: { mtime: 300 } },
       ],
       lastOpenFiles: ["Beta.md"],
+      linktexts: new Map([
+        ["notes/Alpha.md", "Alpha"],
+        ["Personal/Daily Notes/Daily.md", "Personal/Daily Notes/Daily"],
+      ]),
     });
 
     expect(noteCandidates(app)).toEqual([
-      { basename: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "notes/Alpha", recentIndex: null },
+      { basename: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "Alpha", recentIndex: null },
       { basename: "Beta", path: "Beta.md", mtime: 200, linktext: "Beta", recentIndex: 0 },
+      {
+        basename: "Daily",
+        path: "Personal/Daily Notes/Daily.md",
+        mtime: 300,
+        linktext: "Personal/Daily Notes/Daily",
+        recentIndex: null,
+      },
     ]);
   });
 
@@ -61,6 +73,7 @@ function appFixture(options: {
   lastOpenFiles?: string[];
   markdownFiles?: { basename: string; path: string; stat: { mtime: number } }[];
   abstractFiles?: Map<string, TFile>;
+  linktexts?: Map<string, string>;
 }): App {
   return {
     workspace: {
@@ -70,7 +83,7 @@ function appFixture(options: {
     metadataCache: {
       getFirstLinkpathDest: options.getFirstLinkpathDest ?? (() => options.linkDestination ?? null),
       fileToLinktext: (file: TFile, _sourcePath: string, omitMdExtension?: boolean) =>
-        omitMdExtension === true ? file.path.replace(/\.md$/i, "") : file.path,
+        options.linktexts?.get(file.path) ?? (omitMdExtension === true ? file.path.replace(/\.md$/i, "") : file.path),
     },
     vault: {
       getMarkdownFiles: () => options.markdownFiles ?? [],
