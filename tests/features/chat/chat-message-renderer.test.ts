@@ -185,6 +185,24 @@ describe("ChatMessageRenderer scroll pinning", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
     expect(state.messagesPinnedToBottom).toBe(false);
   });
+
+  it("unmounts the React message stream root on dispose", () => {
+    const state = createChatState();
+    state.activeThreadId = "thread";
+    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Rendered message", turnId: "turn" }];
+    const parent = document.createElement("div");
+    const blockSignatures = new Map<string, string>();
+    const renderer = chatMessageRenderer(state, vi.fn(), "/vault", [], blockSignatures);
+
+    renderer.render(parent);
+    expect(parent.querySelector('[data-codex-panel-block-key="item:message"]')).not.toBeNull();
+    expect(blockSignatures.size).toBeGreaterThan(0);
+
+    renderer.dispose();
+
+    expect(parent.querySelector('[data-codex-panel-block-key="item:message"]')).toBeNull();
+    expect(blockSignatures.size).toBe(0);
+  });
 });
 
 function chatMessageRenderer(
@@ -192,6 +210,7 @@ function chatMessageRenderer(
   openLinkText = vi.fn(),
   vaultPath = "/vault",
   vaultFiles: string[] = [],
+  blockSignatures = new Map<string, string>(),
 ): ChatMessageRenderer {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   return new ChatMessageRenderer({
@@ -208,7 +227,7 @@ function chatMessageRenderer(
     owner: {} as never,
     state,
     vaultPath,
-    blockSignatures: new Map(),
+    blockSignatures,
     consumeScrollIntent: () => "auto",
     loadOlderTurns: vi.fn(),
     rollbackThread: vi.fn(),

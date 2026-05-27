@@ -80,7 +80,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
     .join(" ");
 
   const open = () => {
-    if (archiveConfirm.active) return;
+    if (row.rename.active || archiveConfirm.active) return;
     actions.openThread(row.thread.id);
   };
   useLayoutEffect(() => {

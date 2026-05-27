@@ -10,6 +10,7 @@ import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "./markdown-file-links";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
 import type { ChatState } from "./chat-state";
+import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface ChatMessageRendererOptions {
   app: App;
@@ -30,6 +31,7 @@ export type ChatMessageScrollIntent = "auto" | "force-bottom" | "preserve";
 
 export class ChatMessageRenderer {
   private renderGeneration = 0;
+  private messagesEl: HTMLElement | null = null;
 
   constructor(private readonly options: ChatMessageRendererOptions) {}
 
@@ -37,6 +39,7 @@ export class ChatMessageRenderer {
     const generation = ++this.renderGeneration;
     const { state } = this.options;
     const messagesEl = parent.querySelector<HTMLElement>(".codex-panel__messages") ?? parent.createDiv({ cls: "codex-panel__messages" });
+    this.messagesEl = messagesEl;
     messagesEl.onscroll = () => {
       state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
     };
@@ -101,6 +104,16 @@ export class ChatMessageRenderer {
         state.messagesPinnedToBottom = isNearScrollBottom(messagesEl);
       }
     });
+  }
+
+  dispose(): void {
+    this.renderGeneration += 1;
+    if (this.messagesEl) {
+      this.messagesEl.onscroll = null;
+      unmountReactRoot(this.messagesEl);
+    }
+    this.messagesEl = null;
+    this.options.blockSignatures.clear();
   }
 
   private async copyMessageText(text: string): Promise<void> {

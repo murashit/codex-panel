@@ -2184,6 +2184,9 @@ describe("threads view renderer decisions", () => {
 
     expect(actions.updateRename).toHaveBeenCalledWith("thread", "New name");
     expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
+
+    expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row")).click();
+    expect(actions.openThread).not.toHaveBeenCalled();
   });
 
   it("renders threads view rename actions inline with auto-name", () => {

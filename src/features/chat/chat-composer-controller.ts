@@ -123,6 +123,12 @@ export class ChatComposerController {
     this.composer?.focus({ preventScroll: true });
   }
 
+  dispose(): void {
+    unmountReactRoot(this.suggestionsEl);
+    this.composer = null;
+    this.suggestionsEl = null;
+  }
+
   syncControls(parent: HTMLElement | null): void {
     syncComposerControls(parent, this.composer, this.options.state.busy, this.options.canInterrupt(), this.options.composerPlaceholder());
   }
