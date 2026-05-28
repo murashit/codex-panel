@@ -26,6 +26,9 @@
   --codex-panel-size-composer-suggestions-max-height: 168px;
   --codex-panel-icon-button-inline-size: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-item-gap) * 2);
   --codex-panel-icon-button-block-size: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-control-gap) * 2);
+  --codex-panel-threads-row-actions-width: calc(
+    (var(--codex-panel-size-icon-s) + var(--codex-panel-control-gap) * 2) * 2 + var(--codex-panel-item-gap)
+  );
   --codex-panel-status-dot-size: var(--codex-panel-section-gap);
   --codex-panel-meter-bar-height: var(--codex-panel-control-gap);
   --codex-panel-composer-control-size: var(--codex-panel-icon-button-block-size);
@@ -221,10 +224,13 @@
 .codex-panel-threads__row-title-line {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   height: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2);
+  padding-right: calc(var(--codex-panel-threads-row-actions-width) + var(--codex-panel-item-gap));
 }
 
 .codex-panel-threads__row-title {
+  display: block;
   font-size: var(--font-ui-small);
   font-weight: var(--nav-item-weight, var(--font-normal));
   line-height: var(--line-height-tight);
@@ -382,10 +388,23 @@
   --icon-stroke: var(--icon-s-stroke-width, 1.75px);
 }
 
-.codex-panel-threads__icon-button:hover,
-.codex-panel-threads__icon-button:focus,
-.codex-panel-threads__icon-button:focus-visible,
-.codex-panel-threads__icon-button:active {
+.codex-panel-threads__toolbar-button:hover,
+.codex-panel-threads__toolbar-button:focus-visible {
+  background: var(--background-modifier-hover);
+  box-shadow: none;
+  color: var(--icon-color);
+}
+
+.codex-panel-threads__toolbar-button:focus:not(:hover):not(:focus-visible) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color);
+}
+
+.codex-panel-threads__row-button:hover,
+.codex-panel-threads__row-button:focus,
+.codex-panel-threads__row-button:focus-visible,
+.codex-panel-threads__row-button:active {
   background: transparent;
   box-shadow: none;
   color: var(--icon-color-active);

@@ -15,3 +15,35 @@ describe("panel CSS token scope", () => {
     expect(tokenScope).toContain(".codex-panel-selection-rewrite");
   });
 });
+
+describe("threads view CSS", () => {
+  it("keeps long row titles clear of trailing actions", () => {
+    const titleLine = /\.codex-panel-threads__row-title-line \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const title = /(?:^|\n\n)\.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(styles).toContain("--codex-panel-threads-row-actions-width");
+    expect(titleLine).toContain("box-sizing: border-box");
+    expect(titleLine).toContain("padding-right: calc(var(--codex-panel-threads-row-actions-width) + var(--codex-panel-item-gap));");
+    expect(title).toContain("display: block");
+  });
+
+  it("keeps toolbar hover color separate from row action hover color", () => {
+    const toolbarHover =
+      /\.codex-panel-threads__toolbar-button:hover,\n\.codex-panel-threads__toolbar-button:focus-visible \{(?<body>[^}]+)\}/.exec(styles)
+        ?.groups?.["body"] ?? "";
+    const toolbarMouseFocus =
+      /\.codex-panel-threads__toolbar-button:focus:not\(:hover\):not\(:focus-visible\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ??
+      "";
+    const rowHover =
+      /\.codex-panel-threads__row-button:hover,\n\.codex-panel-threads__row-button:focus,\n\.codex-panel-threads__row-button:focus-visible,\n\.codex-panel-threads__row-button:active \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
+
+    expect(toolbarHover).toContain("background: var(--background-modifier-hover)");
+    expect(toolbarHover).toContain("color: var(--icon-color)");
+    expect(toolbarHover).not.toContain("var(--icon-color-active)");
+    expect(toolbarMouseFocus).toContain("background: transparent");
+    expect(toolbarMouseFocus).toContain("color: var(--icon-color)");
+    expect(rowHover).toContain("color: var(--icon-color-active)");
+  });
+});
