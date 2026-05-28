@@ -2,6 +2,34 @@ export interface ChatViewRenderScheduleOptions {
   forceSlots?: boolean;
 }
 
+export interface RestoredThreadState {
+  threadId: string;
+  title: string | null;
+  explicitName: string | null;
+}
+
+export type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; threadId: string };
+export type ActiveChatResume = Extract<ChatResumeLifecycleState, { kind: "resuming" }>;
+export type ChatResumeLifecycleEvent = { type: "started"; resume: ActiveChatResume } | { type: "invalidated" };
+
+export type ChatConnectionLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
+export type ActiveChatConnection = Extract<ChatConnectionLifecycleState, { kind: "connecting" }>;
+export type ChatConnectionLifecycleEvent =
+  | { type: "started"; connection: ActiveChatConnection }
+  | { type: "finished"; connection: ActiveChatConnection; promise: Promise<void> }
+  | { type: "invalidated" };
+
+export type RestoredThreadLifecycleState =
+  | { kind: "idle" }
+  | { kind: "placeholder"; threadId: string; title: string | null; explicitName: string | null; loading: Promise<void> | null };
+export type RestoredThreadPlaceholderState = Extract<RestoredThreadLifecycleState, { kind: "placeholder" }>;
+export type RestoredThreadLifecycleEvent =
+  | { type: "placeholder-restored"; restoredThread: RestoredThreadState }
+  | { type: "renamed"; threadId: string; name: string | null }
+  | { type: "loading-started"; loading: Promise<void> }
+  | { type: "loading-finished"; loading: Promise<void> }
+  | { type: "cleared" };
+
 type TimerWindow = Pick<Window, "setTimeout" | "clearTimeout">;
 
 export class ChatViewDeferredTasks {
@@ -78,5 +106,49 @@ export class ChatViewDeferredTasks {
     this.clearAppServerWarmup();
     this.clearDiagnostics();
     this.clearRender();
+  }
+}
+
+export function transitionChatConnectionLifecycle(
+  state: ChatConnectionLifecycleState,
+  event: ChatConnectionLifecycleEvent,
+): ChatConnectionLifecycleState {
+  switch (event.type) {
+    case "started":
+      return event.connection;
+    case "finished":
+      return state === event.connection && state.promise === event.promise ? { kind: "idle" } : state;
+    case "invalidated":
+      return state.kind === "idle" ? state : { kind: "idle" };
+  }
+}
+
+export function transitionChatResumeLifecycle(state: ChatResumeLifecycleState, event: ChatResumeLifecycleEvent): ChatResumeLifecycleState {
+  switch (event.type) {
+    case "started":
+      return event.resume;
+    case "invalidated":
+      return state.kind === "idle" ? state : { kind: "idle" };
+  }
+}
+
+export function transitionRestoredThreadLifecycle(
+  state: RestoredThreadLifecycleState,
+  event: RestoredThreadLifecycleEvent,
+): RestoredThreadLifecycleState {
+  switch (event.type) {
+    case "placeholder-restored":
+      return { kind: "placeholder", ...event.restoredThread, loading: null };
+    case "renamed":
+      if (state.kind !== "placeholder" || state.threadId !== event.threadId) return state;
+      return { ...state, title: event.name, explicitName: event.name };
+    case "loading-started":
+      if (state.kind !== "placeholder") return state;
+      return { ...state, loading: event.loading };
+    case "loading-finished":
+      if (state.kind !== "placeholder" || state.loading !== event.loading) return state;
+      return { ...state, loading: null };
+    case "cleared":
+      return state.kind === "idle" ? state : { kind: "idle" };
   }
 }

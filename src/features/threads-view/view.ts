@@ -11,7 +11,15 @@ import { findThreadNamingContext, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } fr
 import { generateThreadTitleWithCodex } from "../../app-server/thread-naming";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import { threadRows, type ThreadsRenameState } from "./state";
-import { ThreadsViewDeferredTasks } from "./view-lifecycle";
+import {
+  ThreadsViewDeferredTasks,
+  transitionThreadsViewConnectionLifecycle,
+  transitionThreadsViewRefreshLifecycle,
+  type ActiveThreadsViewConnection,
+  type ActiveThreadsViewRefresh,
+  type ThreadsViewConnectionLifecycleState,
+  type ThreadsViewRefreshLifecycleState,
+} from "./view-lifecycle";
 
 export interface CodexThreadsHost {
   readonly settings: CodexPanelSettings;
@@ -25,10 +33,6 @@ export interface CodexThreadsHost {
   cachedThreadList(): readonly Thread[] | null;
 }
 
-type ThreadsViewRefreshLifecycleState = { kind: "idle" } | { kind: "loading" };
-type ActiveThreadsViewRefresh = Extract<ThreadsViewRefreshLifecycleState, { kind: "loading" }>;
-type ThreadsViewConnectionLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
-type ActiveThreadsViewConnection = Extract<ThreadsViewConnectionLifecycleState, { kind: "connecting" }>;
 type ThreadsViewStatus =
   | { kind: "idle" }
   | { kind: "loading"; message: string }
@@ -67,7 +71,7 @@ export class CodexThreadsView extends ItemView {
       onExit: () => {
         this.client = null;
         this.invalidateConnectionWork();
-        this.refreshLifecycle = { kind: "idle" };
+        this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
         this.status = { kind: "error", message: "Codex app-server stopped." };
         this.render();
       },
@@ -100,7 +104,7 @@ export class CodexThreadsView extends ItemView {
 
   override async onClose(): Promise<void> {
     this.invalidateConnectionWork();
-    this.refreshLifecycle = { kind: "idle" };
+    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
     this.deferredTasks.clearAll();
     this.connection.disconnect();
     this.client = null;
@@ -132,13 +136,13 @@ export class CodexThreadsView extends ItemView {
 
   private startRefresh(): ActiveThreadsViewRefresh {
     const refresh: ActiveThreadsViewRefresh = { kind: "loading" };
-    this.refreshLifecycle = refresh;
+    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "started", refresh });
     return refresh;
   }
 
   private finishRefresh(refresh: ActiveThreadsViewRefresh): void {
     if (this.isStaleRefresh(refresh)) return;
-    this.refreshLifecycle = { kind: "idle" };
+    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "finished", refresh });
     this.render();
   }
 
@@ -163,9 +167,11 @@ export class CodexThreadsView extends ItemView {
         this.client = this.connection.currentClient();
       })
       .finally(() => {
-        if (this.connectionLifecycle === connection && connection.promise === promise) {
-          this.connectionLifecycle = { kind: "idle" };
-        }
+        this.connectionLifecycle = transitionThreadsViewConnectionLifecycle(this.connectionLifecycle, {
+          type: "finished",
+          connection,
+          promise,
+        });
       });
     connection.promise = promise;
     return promise;
@@ -173,12 +179,12 @@ export class CodexThreadsView extends ItemView {
 
   private beginConnectionWork(): ActiveThreadsViewConnection {
     const connection: ActiveThreadsViewConnection = { kind: "connecting", promise: null };
-    this.connectionLifecycle = connection;
+    this.connectionLifecycle = transitionThreadsViewConnectionLifecycle(this.connectionLifecycle, { type: "started", connection });
     return connection;
   }
 
   private invalidateConnectionWork(): void {
-    this.connectionLifecycle = { kind: "idle" };
+    this.connectionLifecycle = transitionThreadsViewConnectionLifecycle(this.connectionLifecycle, { type: "invalidated" });
   }
 
   private activeConnection(): ActiveThreadsViewConnection | null {

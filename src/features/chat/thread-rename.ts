@@ -23,6 +23,14 @@ type RenameLifecycleState =
   | { kind: "editing"; threadId: string; draft: string }
   | { kind: "generating"; threadId: string; draft: string; originalDraft: string };
 type RenameGeneratingState = Extract<RenameLifecycleState, { kind: "generating" }>;
+type RenameLifecycleEvent =
+  | { type: "started"; threadId: string; draft: string }
+  | { type: "draft-updated"; threadId: string; draft: string }
+  | { type: "cancelled"; threadId: string }
+  | { type: "generation-started"; threadId: string; originalDraft: string }
+  | { type: "generation-succeeded"; generatingState: RenameGeneratingState; draft: string }
+  | { type: "generation-finished"; threadId: string; generatingState: RenameGeneratingState }
+  | { type: "cleared" };
 
 export interface ThreadRenameControllerHost {
   stateStore: ChatStateStore;
@@ -72,19 +80,21 @@ export class ThreadRenameController {
   start(threadId: string): void {
     const thread = this.thread(threadId);
     if (!thread) return;
-    this.renameState = { kind: "editing", threadId, draft: getThreadTitle(thread) };
+    this.renameState = transitionRenameLifecycle(this.renameState, { type: "started", threadId, draft: getThreadTitle(thread) });
     this.host.render();
   }
 
   updateDraft(threadId: string, value: string): void {
-    if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId) return;
-    this.renameState = { ...this.renameState, draft: value };
+    const next = transitionRenameLifecycle(this.renameState, { type: "draft-updated", threadId, draft: value });
+    if (next === this.renameState) return;
+    this.renameState = next;
     this.host.render();
   }
 
   cancel(threadId: string): void {
-    if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId) return;
-    this.clear();
+    const next = transitionRenameLifecycle(this.renameState, { type: "cancelled", threadId });
+    if (next === this.renameState) return;
+    this.renameState = next;
     this.host.render();
   }
 
@@ -125,12 +135,12 @@ export class ThreadRenameController {
     await this.host.ensureConnected();
     if (this.renameState !== editingState) return;
 
-    const generatingState: RenameLifecycleState = {
-      kind: "generating",
+    const generatingState = transitionRenameLifecycle(this.renameState, {
+      type: "generation-started",
       threadId,
-      draft: editingState.draft,
       originalDraft: editingState.draft,
-    };
+    });
+    if (generatingState.kind !== "generating") return;
     this.renameState = generatingState;
     this.host.render();
 
@@ -139,9 +149,11 @@ export class ThreadRenameController {
       if (!context) throw new Error(THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE);
       const title = await this.generateTitle(context);
       if (!title) throw new Error("Codex did not return a usable thread title.");
-      if (this.renameState !== generatingState) return;
-      if (this.renameState.draft !== generatingState.originalDraft) return;
-      this.renameState = { kind: "generating", threadId, draft: title, originalDraft: generatingState.originalDraft };
+      this.renameState = transitionRenameLifecycle(this.renameState, {
+        type: "generation-succeeded",
+        generatingState,
+        draft: title,
+      });
     } catch (error) {
       if (this.renameState === generatingState) {
         this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -207,19 +219,13 @@ export class ThreadRenameController {
   }
 
   private clear(): void {
-    this.renameState = { kind: "idle" };
+    this.renameState = transitionRenameLifecycle(this.renameState, { type: "cleared" });
   }
 
   private finishAutoNameDraftGeneration(threadId: string, generatingState: RenameGeneratingState): void {
-    if (this.renameState === generatingState) {
-      this.renameState = { kind: "editing", threadId, draft: generatingState.draft };
-      this.host.render();
-      return;
-    }
-
-    const currentState = this.renameState;
-    if (currentState.kind !== "generating" || currentState.threadId !== threadId) return;
-    this.renameState = { kind: "editing", threadId, draft: currentState.draft };
+    const next = transitionRenameLifecycle(this.renameState, { type: "generation-finished", threadId, generatingState });
+    if (next === this.renameState) return;
+    this.renameState = next;
     this.host.render();
   }
 
@@ -229,5 +235,35 @@ export class ThreadRenameController {
 
   private thread(threadId: string): Thread | undefined {
     return this.state.listedThreads.find((item) => item.id === threadId);
+  }
+}
+
+function transitionRenameLifecycle(state: RenameLifecycleState, event: RenameLifecycleEvent): RenameLifecycleState {
+  switch (event.type) {
+    case "started":
+      return { kind: "editing", threadId: event.threadId, draft: event.draft };
+    case "draft-updated":
+      if (state.kind === "idle" || state.threadId !== event.threadId) return state;
+      return { ...state, draft: event.draft };
+    case "cancelled":
+      if (state.kind === "idle" || state.threadId !== event.threadId) return state;
+      return { kind: "idle" };
+    case "generation-started":
+      if (state.kind !== "editing" || state.threadId !== event.threadId) return state;
+      return {
+        kind: "generating",
+        threadId: event.threadId,
+        draft: state.draft,
+        originalDraft: event.originalDraft,
+      };
+    case "generation-succeeded":
+      if (state !== event.generatingState || state.draft !== event.generatingState.originalDraft) return state;
+      return { ...state, draft: event.draft };
+    case "generation-finished":
+      if (state === event.generatingState) return { kind: "editing", threadId: event.threadId, draft: event.generatingState.draft };
+      if (state.kind !== "generating" || state.threadId !== event.threadId) return state;
+      return { kind: "editing", threadId: event.threadId, draft: state.draft };
+    case "cleared":
+      return state.kind === "idle" ? state : { kind: "idle" };
   }
 }

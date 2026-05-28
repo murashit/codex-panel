@@ -14,6 +14,10 @@ export interface ThreadHistoryLoaderHost {
 
 type ThreadHistoryLoadLifecycleState = { kind: "idle" } | { kind: "loading"; threadId: string; mode: "latest" | "older" };
 type ActiveThreadHistoryLoad = Extract<ThreadHistoryLoadLifecycleState, { kind: "loading" }>;
+type ThreadHistoryLoadLifecycleEvent =
+  | { type: "started"; load: ActiveThreadHistoryLoad }
+  | { type: "finished"; load: ActiveThreadHistoryLoad }
+  | { type: "invalidated" };
 
 export class ThreadHistoryLoader {
   private lifecycle: ThreadHistoryLoadLifecycleState = { kind: "idle" };
@@ -29,7 +33,7 @@ export class ThreadHistoryLoader {
   }
 
   invalidate(): void {
-    this.lifecycle = { kind: "idle" };
+    this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "invalidated" });
     this.dispatch({ type: "history/loading-set", loading: false });
   }
 
@@ -81,7 +85,7 @@ export class ThreadHistoryLoader {
 
   private startLoading(threadId: string, mode: ActiveThreadHistoryLoad["mode"]): ActiveThreadHistoryLoad {
     const load: ActiveThreadHistoryLoad = { kind: "loading", threadId, mode };
-    this.lifecycle = load;
+    this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "started", load });
     this.dispatch({ type: "history/loading-set", loading: true });
     this.host.render();
     return load;
@@ -89,12 +93,26 @@ export class ThreadHistoryLoader {
 
   private finishLoading(load: ActiveThreadHistoryLoad): void {
     if (this.isStale(load)) return;
-    this.lifecycle = { kind: "idle" };
+    this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "finished", load });
     this.dispatch({ type: "history/loading-set", loading: false });
     this.host.render();
   }
 
   private isStale(load: ActiveThreadHistoryLoad): boolean {
     return this.lifecycle !== load || this.state.activeThreadId !== load.threadId;
+  }
+}
+
+function transitionThreadHistoryLoadLifecycle(
+  state: ThreadHistoryLoadLifecycleState,
+  event: ThreadHistoryLoadLifecycleEvent,
+): ThreadHistoryLoadLifecycleState {
+  switch (event.type) {
+    case "started":
+      return event.load;
+    case "finished":
+      return state === event.load ? { kind: "idle" } : state;
+    case "invalidated":
+      return state.kind === "idle" ? state : { kind: "idle" };
   }
 }

@@ -79,7 +79,20 @@ import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { ChatThreadActionController } from "./thread-actions";
 import { unmountReactRoot } from "../../shared/ui/react-root";
-import { ChatViewDeferredTasks, type ChatViewRenderScheduleOptions } from "./view-lifecycle";
+import {
+  ChatViewDeferredTasks,
+  transitionChatConnectionLifecycle,
+  transitionChatResumeLifecycle,
+  transitionRestoredThreadLifecycle,
+  type ActiveChatConnection,
+  type ActiveChatResume,
+  type ChatConnectionLifecycleState,
+  type ChatResumeLifecycleState,
+  type ChatViewRenderScheduleOptions,
+  type RestoredThreadLifecycleState,
+  type RestoredThreadPlaceholderState,
+  type RestoredThreadState,
+} from "./view-lifecycle";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -97,21 +110,6 @@ export interface CodexChatHost {
   publishAppServerMetadata(metadata: SharedAppServerMetadata): void;
   cachedAppServerMetadata(): SharedAppServerMetadata | null;
 }
-
-interface RestoredThreadState {
-  threadId: string;
-  title: string | null;
-  explicitName: string | null;
-}
-
-type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; threadId: string };
-type ActiveChatResume = Extract<ChatResumeLifecycleState, { kind: "resuming" }>;
-type ChatConnectionLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
-type ActiveChatConnection = Extract<ChatConnectionLifecycleState, { kind: "connecting" }>;
-type RestoredThreadLifecycleState =
-  | { kind: "idle" }
-  | { kind: "placeholder"; threadId: string; title: string | null; explicitName: string | null; loading: Promise<void> | null };
-type RestoredThreadPlaceholderState = Extract<RestoredThreadLifecycleState, { kind: "placeholder" }>;
 
 export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;
@@ -435,7 +433,7 @@ export class CodexChatView extends ItemView {
     this.dispatch({ type: "thread/list-applied", threads: listedThreads });
     const restoredThread = this.restoredThreadPlaceholder();
     if (restoredThread?.threadId === threadId && (restoredThread.title !== name || restoredThread.explicitName !== name)) {
-      this.restoredThreadLifecycle = { ...restoredThread, title: name, explicitName: name };
+      this.restoredThreadLifecycle = transitionRestoredThreadLifecycle(this.restoredThreadLifecycle, { type: "renamed", threadId, name });
       changed = true;
     }
     const activeThreadChanged = this.state.activeThreadId === threadId || this.isRestoredThreadPending(threadId);
@@ -511,9 +509,7 @@ export class CodexChatView extends ItemView {
     try {
       await promise;
     } finally {
-      if (this.connectionLifecycle === connection && connection.promise === promise) {
-        this.connectionLifecycle = { kind: "idle" };
-      }
+      this.connectionLifecycle = transitionChatConnectionLifecycle(this.connectionLifecycle, { type: "finished", connection, promise });
     }
   }
 
@@ -546,12 +542,12 @@ export class CodexChatView extends ItemView {
 
   private beginConnectionWork(): ActiveChatConnection {
     const connection: ActiveChatConnection = { kind: "connecting", promise: null };
-    this.connectionLifecycle = connection;
+    this.connectionLifecycle = transitionChatConnectionLifecycle(this.connectionLifecycle, { type: "started", connection });
     return connection;
   }
 
   private invalidateConnectionWork(): void {
-    this.connectionLifecycle = { kind: "idle" };
+    this.connectionLifecycle = transitionChatConnectionLifecycle(this.connectionLifecycle, { type: "invalidated" });
   }
 
   private activeConnection(): ActiveChatConnection | null {
@@ -1110,7 +1106,10 @@ export class CodexChatView extends ItemView {
 
   private restoreThreadPlaceholder(restoredThread: RestoredThreadState): void {
     this.invalidateResumeWork();
-    this.restoredThreadLifecycle = { kind: "placeholder", ...restoredThread, loading: null };
+    this.restoredThreadLifecycle = transitionRestoredThreadLifecycle(this.restoredThreadLifecycle, {
+      type: "placeholder-restored",
+      restoredThread,
+    });
     this.dispatch({
       type: "thread/restored-placeholder",
       threadId: restoredThread.threadId,
@@ -1123,13 +1122,13 @@ export class CodexChatView extends ItemView {
 
   private beginResumeWork(threadId: string): ActiveChatResume {
     const resume: ActiveChatResume = { kind: "resuming", threadId };
-    this.resumeLifecycle = resume;
+    this.resumeLifecycle = transitionChatResumeLifecycle(this.resumeLifecycle, { type: "started", resume });
     this.history.invalidate();
     return resume;
   }
 
   private invalidateResumeWork(): void {
-    this.resumeLifecycle = { kind: "idle" };
+    this.resumeLifecycle = transitionChatResumeLifecycle(this.resumeLifecycle, { type: "invalidated" });
     this.history.invalidate();
   }
 
@@ -1149,14 +1148,11 @@ export class CodexChatView extends ItemView {
 
     const threadId = restoredThread.threadId;
     const loading = this.resumeThread(threadId);
-    this.restoredThreadLifecycle = { ...restoredThread, loading };
+    this.restoredThreadLifecycle = transitionRestoredThreadLifecycle(this.restoredThreadLifecycle, { type: "loading-started", loading });
     try {
       await loading;
     } finally {
-      const current = this.restoredThreadPlaceholder();
-      if (current?.loading === loading) {
-        this.restoredThreadLifecycle = { ...current, loading: null };
-      }
+      this.restoredThreadLifecycle = transitionRestoredThreadLifecycle(this.restoredThreadLifecycle, { type: "loading-finished", loading });
     }
     return !this.isRestoredThreadPending(threadId);
   }
@@ -1207,7 +1203,7 @@ export class CodexChatView extends ItemView {
   }
 
   private clearRestoredThreadLifecycle(): void {
-    this.restoredThreadLifecycle = { kind: "idle" };
+    this.restoredThreadLifecycle = transitionRestoredThreadLifecycle(this.restoredThreadLifecycle, { type: "cleared" });
   }
 
   private composerPlaceholder(): string {

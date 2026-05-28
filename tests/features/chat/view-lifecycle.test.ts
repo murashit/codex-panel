@@ -2,7 +2,13 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ChatViewDeferredTasks } from "../../../src/features/chat/view-lifecycle";
+import {
+  ChatViewDeferredTasks,
+  transitionChatConnectionLifecycle,
+  transitionChatResumeLifecycle,
+  transitionRestoredThreadLifecycle,
+  type ActiveChatConnection,
+} from "../../../src/features/chat/view-lifecycle";
 
 describe("ChatViewDeferredTasks", () => {
   beforeEach(() => {
@@ -41,5 +47,49 @@ describe("ChatViewDeferredTasks", () => {
     expect(diagnostics).not.toHaveBeenCalled();
     expect(hydration).not.toHaveBeenCalled();
     expect(warmup).not.toHaveBeenCalled();
+  });
+});
+
+describe("chat view lifecycle transitions", () => {
+  it("keeps stale connection completions from clearing the active connection", () => {
+    const firstPromise = Promise.resolve();
+    const secondPromise = Promise.resolve();
+    const first: ActiveChatConnection = { kind: "connecting", promise: firstPromise };
+    const second: ActiveChatConnection = { kind: "connecting", promise: secondPromise };
+    const state = transitionChatConnectionLifecycle({ kind: "idle" }, { type: "started", connection: second });
+
+    expect(transitionChatConnectionLifecycle(state, { type: "finished", connection: first, promise: firstPromise })).toBe(state);
+    expect(transitionChatConnectionLifecycle(state, { type: "finished", connection: second, promise: firstPromise })).toBe(state);
+    expect(transitionChatConnectionLifecycle(state, { type: "finished", connection: second, promise: secondPromise })).toEqual({
+      kind: "idle",
+    });
+  });
+
+  it("invalidates resume work explicitly", () => {
+    const resume = { kind: "resuming" as const, threadId: "thread" };
+
+    expect(transitionChatResumeLifecycle({ kind: "idle" }, { type: "started", resume })).toBe(resume);
+    expect(transitionChatResumeLifecycle(resume, { type: "invalidated" })).toEqual({ kind: "idle" });
+  });
+
+  it("clears restored-thread loading only for the active loading promise", () => {
+    const firstLoading = Promise.resolve();
+    const secondLoading = Promise.resolve();
+    const placeholder = transitionRestoredThreadLifecycle(
+      { kind: "idle" },
+      { type: "placeholder-restored", restoredThread: { threadId: "thread", title: "Old", explicitName: null } },
+    );
+    const loading = transitionRestoredThreadLifecycle(placeholder, { type: "loading-started", loading: secondLoading });
+
+    expect(transitionRestoredThreadLifecycle(loading, { type: "loading-finished", loading: firstLoading })).toBe(loading);
+    expect(transitionRestoredThreadLifecycle(loading, { type: "renamed", threadId: "thread", name: "New" })).toMatchObject({
+      title: "New",
+      explicitName: "New",
+      loading: secondLoading,
+    });
+    expect(transitionRestoredThreadLifecycle(loading, { type: "loading-finished", loading: secondLoading })).toMatchObject({
+      kind: "placeholder",
+      loading: null,
+    });
   });
 });
