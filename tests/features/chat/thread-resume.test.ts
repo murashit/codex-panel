@@ -30,6 +30,22 @@ describe("chat thread resume helpers", () => {
     });
     expect(action.listedThreads?.map((thread) => thread.id)).toEqual(["thread", "existing"]);
   });
+
+  it("can build thread start actions without mutating the thread list", () => {
+    const resumed = threadFixture("thread", "Started");
+
+    const action = resumedThreadAction({
+      response: responseFixture(resumed),
+      forceMessagesToBottom: true,
+    });
+
+    expect(action).toMatchObject({
+      type: "thread/resumed",
+      thread: resumed,
+      forceMessagesToBottom: true,
+    });
+    expect(action.listedThreads).toBeUndefined();
+  });
 });
 
 function responseFixture(thread: Thread): ThreadResumeResponse {

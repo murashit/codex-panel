@@ -6,7 +6,6 @@ import {
   upsertMcpServerDiagnostic,
   type CapabilityProbeMethod,
 } from "../../app-server/compatibility";
-import { parseServiceTier } from "../../app-server/service-tier";
 import type { McpServerStatus } from "../../generated/app-server/v2/McpServerStatus";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
@@ -14,6 +13,7 @@ import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata"
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../runtime/state";
 import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
+import { resumedThreadAction } from "./thread-resume";
 
 export interface ChatAppServerControllerHost {
   stateStore: ChatStateStore;
@@ -99,18 +99,7 @@ export class ChatAppServerController {
     if (!client) return null;
     const serviceTier = requestedOrConfiguredServiceTier(this.host.runtimeSnapshot());
     const response = await client.startThread(this.host.vaultPath, serviceTier);
-    this.dispatch({
-      type: "thread/resumed",
-      thread: response.thread,
-      cwd: response.cwd,
-      model: response.model,
-      reasoningEffort: response.reasoningEffort,
-      serviceTier: parseServiceTier(response.serviceTier),
-      approvalPolicy: response.approvalPolicy,
-      approvalsReviewer: response.approvalsReviewer,
-      activePermissionProfile: response.activePermissionProfile,
-      forceMessagesToBottom: true,
-    });
+    this.dispatch(resumedThreadAction({ response, forceMessagesToBottom: true }));
     this.host.forceMessagesToBottom();
     return response;
   }
