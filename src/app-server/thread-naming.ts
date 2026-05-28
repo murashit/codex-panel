@@ -12,6 +12,12 @@ import type { Turn } from "../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
 import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
 import { runtimeOverride, validatedRuntimeOverride } from "../runtime/model";
+import {
+  createStructuredTurnRunLifecycle,
+  structuredTurnRunMatches,
+  transitionStructuredTurnRunLifecycle,
+  type StructuredTurnRunLifecycleState,
+} from "./structured-turn-run-lifecycle";
 
 const NAMING_SERVICE_NAME = "codex-panel-naming";
 const NAMING_TIMEOUT_MS = 60_000;
@@ -60,12 +66,6 @@ export interface ThreadNamingClient {
 
 export type ThreadNamingClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => ThreadNamingClient;
 
-type ThreadNamingRunLifecycleState =
-  | { kind: "starting" }
-  | { kind: "thread-started"; threadId: string }
-  | { kind: "turn-started"; threadId: string; turnId: string }
-  | { kind: "completed" };
-
 export async function generateThreadTitleWithCodex(
   codexPath: string,
   cwd: string,
@@ -73,7 +73,7 @@ export async function generateThreadTitleWithCodex(
   runtimeSettings: ThreadNamingRuntimeSettings,
   clientFactory: ThreadNamingClientFactory = (codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers),
 ): Promise<string | null> {
-  let lifecycle: ThreadNamingRunLifecycleState = { kind: "starting" };
+  let lifecycle = createStructuredTurnRunLifecycle();
   let timeout: number | undefined;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNamingNotification: (notification: ServerNotification) => void = () => undefined;
@@ -83,7 +83,7 @@ export async function generateThreadTitleWithCodex(
     rejectCompletedTurn = reject;
     timeout = window.setTimeout(() => {
       if (lifecycle.kind === "completed") return;
-      lifecycle = { kind: "completed" };
+      lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
       reject(new Error("Timed out while generating a Codex thread title."));
     }, NAMING_TIMEOUT_MS);
 
@@ -96,7 +96,7 @@ export async function generateThreadTitleWithCodex(
       }
       if (notification.method === "turn/completed") {
         if (!notificationMatchesThreadNamingTurn(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
-        lifecycle = { kind: "completed" };
+        lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
         resolve(turnWithCollectedItems(notification.params.turn, completedItems));
       }
     };
@@ -115,7 +115,7 @@ export async function generateThreadTitleWithCodex(
     onLog: () => undefined,
     onExit: () => {
       if (lifecycle.kind === "completed") return;
-      lifecycle = { kind: "completed" };
+      lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
       rejectCompletedTurn?.(new Error("Codex title generation app-server exited."));
     },
   });
@@ -124,7 +124,7 @@ export async function generateThreadTitleWithCodex(
     await client.connect();
     const runtime = await namingRuntimeForClient(client, runtimeSettings);
     const threadResponse = await client.startEphemeralThread(cwd, NAMING_SERVICE_NAME, TITLE_DEVELOPER_INSTRUCTIONS);
-    lifecycle = { kind: "thread-started", threadId: threadResponse.thread.id };
+    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "thread-started", threadId: threadResponse.thread.id });
     const turnResponse = await client.startStructuredTurn(
       threadResponse.thread.id,
       cwd,
@@ -133,11 +133,15 @@ export async function generateThreadTitleWithCodex(
       runtime.model,
       runtime.effort,
     );
-    lifecycle = acknowledgeThreadNamingTurn(lifecycle, threadResponse.thread.id, turnResponse.turn.id);
+    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, {
+      type: "turn-started",
+      threadId: threadResponse.thread.id,
+      turnId: turnResponse.turn.id,
+    });
     const turn = turnResponse.turn.status === "completed" ? turnWithCollectedItems(turnResponse.turn, completedItems) : await completedTurn;
     return titleFromNamingTurn(turn);
   } finally {
-    lifecycle = { kind: "completed" };
+    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
     if (timeout !== undefined) window.clearTimeout(timeout);
     client.disconnect();
   }
@@ -161,18 +165,8 @@ function turnWithCollectedItems(turn: Turn, items: ThreadItem[]): Turn {
   return { ...turn, items: [...items], itemsView: "full" };
 }
 
-function notificationMatchesThreadNamingTurn(lifecycle: ThreadNamingRunLifecycleState, threadId: string, turnId: string): boolean {
-  if (lifecycle.kind === "thread-started") return lifecycle.threadId === threadId;
-  if (lifecycle.kind === "turn-started") return lifecycle.threadId === threadId && lifecycle.turnId === turnId;
-  return false;
-}
-
-function acknowledgeThreadNamingTurn(
-  lifecycle: ThreadNamingRunLifecycleState,
-  threadId: string,
-  turnId: string,
-): ThreadNamingRunLifecycleState {
-  return lifecycle.kind === "completed" ? lifecycle : { kind: "turn-started", threadId, turnId };
+function notificationMatchesThreadNamingTurn(lifecycle: StructuredTurnRunLifecycleState, threadId: string, turnId: string): boolean {
+  return structuredTurnRunMatches(lifecycle, threadId, turnId);
 }
 
 async function namingRuntimeForClient(client: ThreadNamingClient, settings: ThreadNamingRuntimeSettings): Promise<NamingRuntime> {

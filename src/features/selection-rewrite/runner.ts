@@ -1,4 +1,10 @@
 import { AppServerClient, type AppServerClientHandlers } from "../../app-server/client";
+import {
+  createStructuredTurnRunLifecycle,
+  structuredTurnRunMatches,
+  transitionStructuredTurnRunLifecycle,
+  type StructuredTurnRunLifecycleState,
+} from "../../app-server/structured-turn-run-lifecycle";
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { RequestId } from "../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
@@ -59,15 +65,9 @@ export interface SelectionRewriteClient {
 
 export type SelectionRewriteClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => SelectionRewriteClient;
 
-type SelectionRewriteRunLifecycleState =
-  | { kind: "starting" }
-  | { kind: "thread-started"; threadId: string }
-  | { kind: "turn-started"; threadId: string; turnId: string }
-  | { kind: "completed" };
-
 export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
   throwIfAborted(options.signal);
-  let lifecycle: SelectionRewriteRunLifecycleState = { kind: "starting" };
+  let lifecycle = createStructuredTurnRunLifecycle();
   let preview = "";
   let timeout: number | undefined;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
@@ -78,7 +78,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     rejectCompletedTurn = reject;
     timeout = window.setTimeout(() => {
       if (lifecycle.kind === "completed") return;
-      lifecycle = { kind: "completed" };
+      lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
       reject(new Error("Timed out while rewriting the selection."));
     }, SELECTION_REWRITE_TIMEOUT_MS);
 
@@ -107,7 +107,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       }
       if (notification.method === "turn/completed") {
         if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
-        lifecycle = { kind: "completed" };
+        lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
         resolve(turnWithCollectedItems(notification.params.turn, completedItems));
       }
     };
@@ -125,7 +125,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     onLog: () => undefined,
     onExit: () => {
       if (lifecycle.kind === "completed") return;
-      lifecycle = { kind: "completed" };
+      lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
       rejectCompletedTurn?.(new Error("Selection rewrite app-server exited."));
     },
   });
@@ -139,7 +139,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       client.startEphemeralThread(options.cwd, SELECTION_REWRITE_SERVICE_NAME, SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS),
       options.signal,
     );
-    lifecycle = { kind: "thread-started", threadId: threadResponse.thread.id };
+    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "thread-started", threadId: threadResponse.thread.id });
     const turnResponse = await abortable(
       client.startStructuredTurn(
         threadResponse.thread.id,
@@ -151,7 +151,11 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       ),
       options.signal,
     );
-    lifecycle = acknowledgeSelectionRewriteTurn(lifecycle, threadResponse.thread.id, turnResponse.turn.id);
+    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, {
+      type: "turn-started",
+      threadId: threadResponse.thread.id,
+      turnId: turnResponse.turn.id,
+    });
     const turn =
       turnResponse.turn.status === "completed"
         ? turnWithCollectedItems(turnResponse.turn, completedItems)
@@ -160,24 +164,14 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
     return output;
   } finally {
-    lifecycle = { kind: "completed" };
+    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
     if (timeout !== undefined) window.clearTimeout(timeout);
     client.disconnect();
   }
 }
 
-function notificationMatchesSelectionRewriteTurn(lifecycle: SelectionRewriteRunLifecycleState, threadId: string, turnId: string): boolean {
-  if (lifecycle.kind === "thread-started") return lifecycle.threadId === threadId;
-  if (lifecycle.kind === "turn-started") return lifecycle.threadId === threadId && lifecycle.turnId === turnId;
-  return false;
-}
-
-function acknowledgeSelectionRewriteTurn(
-  lifecycle: SelectionRewriteRunLifecycleState,
-  threadId: string,
-  turnId: string,
-): SelectionRewriteRunLifecycleState {
-  return lifecycle.kind === "completed" ? lifecycle : { kind: "turn-started", threadId, turnId };
+function notificationMatchesSelectionRewriteTurn(lifecycle: StructuredTurnRunLifecycleState, threadId: string, turnId: string): boolean {
+  return structuredTurnRunMatches(lifecycle, threadId, turnId);
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
