@@ -12,6 +12,7 @@ const connectionMock = vi.hoisted(() => {
     client: null as Record<string, unknown> | null,
     connected: false,
     connectCalls: 0,
+    onExit: null as (() => void) | null,
   };
 
   return {
@@ -20,6 +21,7 @@ const connectionMock = vi.hoisted(() => {
       state.client = null;
       state.connected = false;
       state.connectCalls = 0;
+      state.onExit = null;
     },
   };
 });
@@ -32,6 +34,10 @@ vi.mock("../../../src/app-server/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {
+    constructor(_codexPath: unknown, _cwd: unknown, handlers: { onExit: () => void }) {
+      connectionMock.state.onExit = handlers.onExit;
+    }
+
     connect(): Promise<unknown> {
       connectionMock.state.connectCalls += 1;
       connectionMock.state.connected = true;
@@ -104,6 +110,26 @@ describe("CodexThreadsView", () => {
     resolveThreads({ data: [threadFixture({ id: "thread", preview: "Late thread" })] });
     await refresh;
 
+    expect(view.containerEl.textContent).not.toContain("Late thread");
+  });
+
+  it("ignores stale refresh results after the app-server exits", async () => {
+    const threads = deferred<unknown>();
+    const listThreads = vi.fn(() => threads.promise);
+    connectionMock.state.client = clientFixture({
+      listThreads,
+    });
+    const view = await threadsView();
+
+    const refresh = view.refresh();
+    await vi.waitFor(() => {
+      expect(listThreads).toHaveBeenCalled();
+    });
+    connectionMock.state.onExit?.();
+    threads.resolve({ data: [threadFixture({ id: "thread", preview: "Late thread" })] });
+    await refresh;
+
+    expect(view.containerEl.textContent).toContain("Codex app-server stopped.");
     expect(view.containerEl.textContent).not.toContain("Late thread");
   });
 

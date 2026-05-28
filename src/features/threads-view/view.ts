@@ -24,14 +24,15 @@ export interface CodexThreadsHost {
   cachedThreadList(): readonly Thread[] | null;
 }
 
-type ThreadsViewRefreshLifecycleState = { kind: "idle" } | { kind: "loading"; connectionGeneration: number };
+type ThreadsViewRefreshLifecycleState = { kind: "idle" } | { kind: "loading" };
 type ActiveThreadsViewRefresh = Extract<ThreadsViewRefreshLifecycleState, { kind: "loading" }>;
+type ThreadsViewConnectionLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
+type ActiveThreadsViewConnection = Extract<ThreadsViewConnectionLifecycleState, { kind: "connecting" }>;
 
 export class CodexThreadsView extends ItemView {
   private readonly connection: ConnectionManager;
   private client: AppServerClient | null = null;
-  private connectingPromise: Promise<void> | null = null;
-  private connectionGeneration = 0;
+  private connectionLifecycle: ThreadsViewConnectionLifecycleState = { kind: "idle" };
   private refreshLifecycle: ThreadsViewRefreshLifecycleState = { kind: "idle" };
   private renderTimer: number | null = null;
   private refreshTimer: number | null = null;
@@ -58,7 +59,8 @@ export class CodexThreadsView extends ItemView {
       },
       onExit: () => {
         this.client = null;
-        this.connectingPromise = null;
+        this.invalidateConnectionWork();
+        this.refreshLifecycle = { kind: "idle" };
         this.status = "Codex app-server stopped.";
         this.render();
       },
@@ -90,9 +92,8 @@ export class CodexThreadsView extends ItemView {
   }
 
   override async onClose(): Promise<void> {
-    this.connectionGeneration += 1;
+    this.invalidateConnectionWork();
     this.refreshLifecycle = { kind: "idle" };
-    this.connectingPromise = null;
     if (this.renderTimer !== null) {
       this.containerEl.win.clearTimeout(this.renderTimer);
       this.renderTimer = null;
@@ -130,7 +131,7 @@ export class CodexThreadsView extends ItemView {
   }
 
   private startRefresh(): ActiveThreadsViewRefresh {
-    const refresh: ActiveThreadsViewRefresh = { kind: "loading", connectionGeneration: this.connectionGeneration };
+    const refresh: ActiveThreadsViewRefresh = { kind: "loading" };
     this.refreshLifecycle = refresh;
     return refresh;
   }
@@ -142,28 +143,50 @@ export class CodexThreadsView extends ItemView {
   }
 
   private isStaleRefresh(refresh: ActiveThreadsViewRefresh): boolean {
-    return this.refreshLifecycle !== refresh || refresh.connectionGeneration !== this.connectionGeneration;
+    return this.refreshLifecycle !== refresh;
   }
 
   private async ensureConnected(): Promise<void> {
+    const connecting = this.activeConnection();
+    if (connecting?.promise) return connecting.promise;
+
     if (this.connection.isConnected()) {
       this.client = this.connection.currentClient();
       return;
     }
-    if (this.connectingPromise) return this.connectingPromise;
 
-    const generation = this.connectionGeneration;
+    const connection = this.beginConnectionWork();
     const promise = this.connection
       .connect()
       .then(() => {
-        if (generation !== this.connectionGeneration) throw new StaleConnectionError();
+        if (this.isStaleConnectionWork(connection)) throw new StaleConnectionError();
         this.client = this.connection.currentClient();
       })
       .finally(() => {
-        if (generation === this.connectionGeneration) this.connectingPromise = null;
+        if (this.connectionLifecycle === connection && connection.promise === promise) {
+          this.connectionLifecycle = { kind: "idle" };
+        }
       });
-    this.connectingPromise = promise;
+    connection.promise = promise;
     return promise;
+  }
+
+  private beginConnectionWork(): ActiveThreadsViewConnection {
+    const connection: ActiveThreadsViewConnection = { kind: "connecting", promise: null };
+    this.connectionLifecycle = connection;
+    return connection;
+  }
+
+  private invalidateConnectionWork(): void {
+    this.connectionLifecycle = { kind: "idle" };
+  }
+
+  private activeConnection(): ActiveThreadsViewConnection | null {
+    return this.connectionLifecycle.kind === "connecting" ? this.connectionLifecycle : null;
+  }
+
+  private isStaleConnectionWork(connection: ActiveThreadsViewConnection): boolean {
+    return this.connectionLifecycle !== connection;
   }
 
   private render(): void {
