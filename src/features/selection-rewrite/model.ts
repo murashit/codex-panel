@@ -1,10 +1,10 @@
 import type { EditorPosition } from "obsidian";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 
-export type SelectionRewriteStatus = "editing-prompt" | "generating" | "preview" | "applied" | "cancelled" | "failed";
+export type SelectionRewriteStatus = SelectionRewriteState["status"];
 const TERMINAL_SELECTION_REWRITE_STATUSES = new Set<SelectionRewriteStatus>(["applied", "cancelled"]);
 
-export interface SelectionRewriteState {
+interface SelectionRewriteBaseState {
   filePath: string;
   targetRange: {
     from: EditorPosition;
@@ -13,10 +13,53 @@ export interface SelectionRewriteState {
   originalText: string;
   noteText: string;
   instruction: string;
-  status: SelectionRewriteStatus;
+}
+
+export type SelectionRewriteState = SelectionRewriteBaseState &
+  (
+    | {
+        status: "editing-prompt";
+        streamText: string;
+        replacementText: null;
+        debugText: null;
+      }
+    | {
+        status: "generating";
+        streamText: string;
+        replacementText: null;
+        debugText: null;
+      }
+    | {
+        status: "preview";
+        streamText: "";
+        replacementText: string;
+        debugText: null;
+      }
+    | {
+        status: "failed";
+        streamText: "";
+        replacementText: null;
+        debugText: string | null;
+      }
+    | {
+        status: "cancelled";
+        streamText: string;
+        replacementText: string | null;
+        debugText: string | null;
+      }
+    | {
+        status: "applied";
+        streamText: string;
+        replacementText: string | null;
+        debugText: string | null;
+      }
+  );
+
+export interface SelectionRewriteGeneratingState extends SelectionRewriteBaseState {
+  status: "generating";
   streamText: string;
-  replacementText: string | null;
-  debugText: string | null;
+  replacementText: null;
+  debugText: null;
 }
 
 export interface SelectionRewriteRuntimeSettings {

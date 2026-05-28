@@ -11,6 +11,7 @@ import { findThreadNamingContext, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } fr
 import { generateThreadTitleWithCodex } from "../../app-server/thread-naming";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import { threadRows, type ThreadsRenameState } from "./state";
+import { ThreadsViewDeferredTasks } from "./view-lifecycle";
 
 export interface CodexThreadsHost {
   readonly settings: CodexPanelSettings;
@@ -28,15 +29,20 @@ type ThreadsViewRefreshLifecycleState = { kind: "idle" } | { kind: "loading" };
 type ActiveThreadsViewRefresh = Extract<ThreadsViewRefreshLifecycleState, { kind: "loading" }>;
 type ThreadsViewConnectionLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
 type ActiveThreadsViewConnection = Extract<ThreadsViewConnectionLifecycleState, { kind: "connecting" }>;
+type ThreadsViewStatus =
+  | { kind: "idle" }
+  | { kind: "loading"; message: string }
+  | { kind: "empty"; message: string }
+  | { kind: "log"; message: string }
+  | { kind: "error"; message: string };
 
 export class CodexThreadsView extends ItemView {
   private readonly connection: ConnectionManager;
+  private readonly deferredTasks: ThreadsViewDeferredTasks;
   private client: AppServerClient | null = null;
   private connectionLifecycle: ThreadsViewConnectionLifecycleState = { kind: "idle" };
   private refreshLifecycle: ThreadsViewRefreshLifecycleState = { kind: "idle" };
-  private renderTimer: number | null = null;
-  private refreshTimer: number | null = null;
-  private status: string | null = null;
+  private status: ThreadsViewStatus = { kind: "idle" };
   private threads: readonly Thread[] = [];
   private readonly renameStates = new Map<string, ThreadsRenameState>();
   private archiveConfirmThreadId: string | null = null;
@@ -46,6 +52,7 @@ export class CodexThreadsView extends ItemView {
     private readonly plugin: CodexThreadsHost,
   ) {
     super(leaf);
+    this.deferredTasks = new ThreadsViewDeferredTasks(() => this.containerEl.win);
     this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath, {
       onNotification: () => {
         this.scheduleRefresh();
@@ -54,14 +61,14 @@ export class CodexThreadsView extends ItemView {
         this.connection.currentClient()?.rejectServerRequest(request.id, -32601, "Codex Threads view does not handle server requests.");
       },
       onLog: (message) => {
-        this.status = message;
+        this.status = { kind: "log", message };
         this.render();
       },
       onExit: () => {
         this.client = null;
         this.invalidateConnectionWork();
         this.refreshLifecycle = { kind: "idle" };
-        this.status = "Codex app-server stopped.";
+        this.status = { kind: "error", message: "Codex app-server stopped." };
         this.render();
       },
     });
@@ -94,14 +101,7 @@ export class CodexThreadsView extends ItemView {
   override async onClose(): Promise<void> {
     this.invalidateConnectionWork();
     this.refreshLifecycle = { kind: "idle" };
-    if (this.renderTimer !== null) {
-      this.containerEl.win.clearTimeout(this.renderTimer);
-      this.renderTimer = null;
-    }
-    if (this.refreshTimer !== null) {
-      this.containerEl.win.clearTimeout(this.refreshTimer);
-      this.refreshTimer = null;
-    }
+    this.deferredTasks.clearAll();
     this.connection.disconnect();
     this.client = null;
     unmountThreadsView(this.containerEl);
@@ -109,7 +109,7 @@ export class CodexThreadsView extends ItemView {
 
   async refresh(): Promise<void> {
     const refresh = this.startRefresh();
-    this.status = this.threads.length === 0 ? "Loading threads..." : null;
+    this.status = this.threads.length === 0 ? { kind: "loading", message: "Loading threads..." } : { kind: "idle" };
     this.render();
     try {
       await this.ensureConnected();
@@ -121,10 +121,10 @@ export class CodexThreadsView extends ItemView {
       });
       if (this.isStaleRefresh(refresh)) return;
       this.threads = threads;
-      this.status = threads.length === 0 ? "No threads" : null;
+      this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     } catch (error) {
       if (error instanceof StaleConnectionError) return;
-      this.status = error instanceof Error ? error.message : String(error);
+      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
     } finally {
       this.finishRefresh(refresh);
     }
@@ -193,7 +193,7 @@ export class CodexThreadsView extends ItemView {
     renderThreadsView(
       this.containerEl,
       {
-        status: this.status,
+        status: threadsViewStatusText(this.status),
         loading: this.refreshLifecycle.kind === "loading",
         rows: threadRows(
           this.threads,
@@ -227,11 +227,9 @@ export class CodexThreadsView extends ItemView {
   }
 
   private scheduleRender(): void {
-    if (this.renderTimer !== null) return;
-    this.renderTimer = this.containerEl.win.setTimeout(() => {
-      this.renderTimer = null;
+    this.deferredTasks.scheduleRender(() => {
       this.render();
-    }, 0);
+    });
   }
 
   refreshLiveState(): void {
@@ -240,16 +238,14 @@ export class CodexThreadsView extends ItemView {
 
   applyThreadListSnapshot(threads: readonly Thread[]): void {
     this.threads = threads;
-    this.status = threads.length === 0 ? "No threads" : null;
+    this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     this.render();
   }
 
   private scheduleRefresh(): void {
-    if (this.refreshTimer !== null) return;
-    this.refreshTimer = this.containerEl.win.setTimeout(() => {
-      this.refreshTimer = null;
+    this.deferredTasks.scheduleRefresh(() => {
       void this.refresh();
-    }, 250);
+    });
   }
 
   private async openThread(threadId: string): Promise<void> {
@@ -294,7 +290,7 @@ export class CodexThreadsView extends ItemView {
       this.renameStates.delete(threadId);
       this.plugin.notifyThreadRenamed(threadId, name);
     } catch (error) {
-      this.status = error instanceof Error ? error.message : String(error);
+      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();
     }
   }
@@ -332,7 +328,7 @@ export class CodexThreadsView extends ItemView {
       this.renameStates.set(threadId, { ...generatingState, draft: title });
     } catch (error) {
       if (this.renameStates.get(threadId) === generatingState) {
-        this.status = error instanceof Error ? error.message : String(error);
+        this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       }
     } finally {
       this.finishAutoNameThread(threadId, generatingState);
@@ -374,7 +370,7 @@ export class CodexThreadsView extends ItemView {
       this.renameStates.delete(threadId);
       this.plugin.notifyThreadArchived(threadId);
     } catch (error) {
-      this.status = error instanceof Error ? error.message : String(error);
+      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();
     }
   }
@@ -386,4 +382,8 @@ export class CodexThreadsView extends ItemView {
     this.renameStates.set(threadId, { kind: "editing", draft });
     this.render();
   }
+}
+
+function threadsViewStatusText(status: ThreadsViewStatus): string | null {
+  return status.kind === "idle" ? null : status.message;
 }

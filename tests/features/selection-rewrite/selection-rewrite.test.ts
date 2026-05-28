@@ -424,7 +424,7 @@ function rewriteState(overrides: Partial<SelectionRewriteState> = {}): Selection
     replacementText: null,
     debugText: null,
     ...overrides,
-  };
+  } as SelectionRewriteState;
 }
 
 function popoverOptions(

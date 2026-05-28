@@ -13,6 +13,8 @@ import {
   applySharedModels,
   applySharedAppServerMetadata,
   applySharedThreadList,
+  cachedSharedAppServerMetadata,
+  cachedSharedThreadList,
   createSharedAppServerState,
   type SharedAppServerState,
   type SharedAppServerMetadata,
@@ -52,16 +54,19 @@ type ThreadPanelTarget =
       kind: "new";
     };
 
+type BootRestoredPanelLoadLifecycleState = { kind: "idle" } | { kind: "scheduled"; timers: Set<number> } | { kind: "cancelled" };
+
+type ThreadListRefreshLifecycleState = { kind: "idle" } | { kind: "refreshing"; promise: Promise<readonly Thread[]> };
+
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
   vaultPath = "";
-  private bootRestoredPanelLoadCancelled = false;
-  private readonly bootRestoredPanelLoadTimers = new Set<number>();
+  private bootRestoredPanelLoadLifecycle: BootRestoredPanelLoadLifecycleState = { kind: "idle" };
   private sharedAppServerState: SharedAppServerState = createSharedAppServerState();
-  private threadListRefreshPromise: Promise<readonly Thread[]> | null = null;
+  private threadListRefreshLifecycle: ThreadListRefreshLifecycleState = { kind: "idle" };
 
   override async onload(): Promise<void> {
-    this.bootRestoredPanelLoadCancelled = false;
+    this.bootRestoredPanelLoadLifecycle = { kind: "idle" };
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
 
@@ -114,11 +119,7 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   override onunload(): void {
-    this.bootRestoredPanelLoadCancelled = true;
-    for (const timer of this.bootRestoredPanelLoadTimers) {
-      window.clearTimeout(timer);
-    }
-    this.bootRestoredPanelLoadTimers.clear();
+    this.cancelBootRestoredPanelLoads();
   }
 
   async activateView(): Promise<CodexChatView> {
@@ -231,16 +232,18 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]> {
-    if (this.threadListRefreshPromise) return this.threadListRefreshPromise;
+    if (this.threadListRefreshLifecycle.kind === "refreshing") return this.threadListRefreshLifecycle.promise;
     const promise = fetchThreads()
       .then((threads) => {
         this.applyThreadListSnapshot(threads);
         return threads;
       })
       .finally(() => {
-        if (this.threadListRefreshPromise === promise) this.threadListRefreshPromise = null;
+        if (this.threadListRefreshLifecycle.kind === "refreshing" && this.threadListRefreshLifecycle.promise === promise) {
+          this.threadListRefreshLifecycle = { kind: "idle" };
+        }
       });
-    this.threadListRefreshPromise = promise;
+    this.threadListRefreshLifecycle = { kind: "refreshing", promise };
     return promise;
   }
 
@@ -259,7 +262,7 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   cachedThreadList(): readonly Thread[] | null {
-    return this.sharedAppServerState.threads;
+    return cachedSharedThreadList(this.sharedAppServerState);
   }
 
   publishAppServerMetadata(metadata: SharedAppServerMetadata): void {
@@ -281,14 +284,7 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   cachedAppServerMetadata(): SharedAppServerMetadata | null {
-    if (!this.sharedAppServerState.appServerMetadataLoaded) return null;
-    return {
-      effectiveConfig: this.sharedAppServerState.effectiveConfig,
-      availableModels: this.sharedAppServerState.availableModels,
-      availableSkills: this.sharedAppServerState.availableSkills,
-      rateLimit: this.sharedAppServerState.rateLimit,
-      appServerDiagnostics: this.sharedAppServerState.appServerDiagnostics,
-    };
+    return cachedSharedAppServerMetadata(this.sharedAppServerState);
   }
 
   cachedModels(): Model[] {
@@ -498,21 +494,44 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   private scheduleBootRestoredPanelLoadTimer(callback: () => void, delay: number): void {
+    const lifecycle = this.ensureBootRestoredPanelLoadScheduled();
+    if (!lifecycle) return;
     const timer = window.setTimeout(() => {
-      this.bootRestoredPanelLoadTimers.delete(timer);
-      if (this.bootRestoredPanelLoadCancelled) return;
+      if (this.bootRestoredPanelLoadLifecycle !== lifecycle) return;
+      lifecycle.timers.delete(timer);
       callback();
+      if (this.bootRestoredPanelLoadLifecycle === lifecycle && lifecycle.timers.size === 0) {
+        this.bootRestoredPanelLoadLifecycle = { kind: "idle" };
+      }
     }, delay);
-    this.bootRestoredPanelLoadTimers.add(timer);
+    lifecycle.timers.add(timer);
   }
 
   private async loadRestoredPanelLeaf(leaf: WorkspaceLeaf): Promise<void> {
-    if (this.bootRestoredPanelLoadCancelled) return;
+    if (this.bootRestoredPanelLoadLifecycle.kind === "cancelled") return;
     try {
       await leaf.loadIfDeferred();
     } catch (error) {
       console.warn("Codex Panel could not hydrate a restored panel leaf.", error);
     }
+  }
+
+  private ensureBootRestoredPanelLoadScheduled(): Extract<BootRestoredPanelLoadLifecycleState, { kind: "scheduled" }> | null {
+    if (this.bootRestoredPanelLoadLifecycle.kind === "cancelled") return null;
+    if (this.bootRestoredPanelLoadLifecycle.kind === "scheduled") return this.bootRestoredPanelLoadLifecycle;
+    const lifecycle: Extract<BootRestoredPanelLoadLifecycleState, { kind: "scheduled" }> = { kind: "scheduled", timers: new Set() };
+    this.bootRestoredPanelLoadLifecycle = lifecycle;
+    return lifecycle;
+  }
+
+  private cancelBootRestoredPanelLoads(): void {
+    if (this.bootRestoredPanelLoadLifecycle.kind === "scheduled") {
+      for (const timer of this.bootRestoredPanelLoadLifecycle.timers) {
+        window.clearTimeout(timer);
+      }
+      this.bootRestoredPanelLoadLifecycle.timers.clear();
+    }
+    this.bootRestoredPanelLoadLifecycle = { kind: "cancelled" };
   }
 }
 
