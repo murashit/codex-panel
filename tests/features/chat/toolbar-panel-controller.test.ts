@@ -1,0 +1,51 @@
+// @vitest-environment jsdom
+
+import { describe, expect, it, vi } from "vitest";
+
+import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
+import { ToolbarPanelController } from "../../../src/features/chat/toolbar-panel-controller";
+import type { ChatThreadActionController } from "../../../src/features/chat/thread-actions";
+
+describe("ToolbarPanelController", () => {
+  it("tracks archive confirmation and delegates archive actions", async () => {
+    const stateStore = createChatStateStore(createChatState());
+    const archiveThread = vi.fn().mockResolvedValue(undefined);
+    const scheduleRender = vi.fn();
+    const controller = new ToolbarPanelController({
+      stateStore,
+      threadActions: { archiveThread } as unknown as ChatThreadActionController,
+      scheduleRender,
+    });
+
+    controller.startArchive("thread");
+    expect(controller.archiveConfirmId()).toBe("thread");
+    expect(scheduleRender).toHaveBeenCalledWith({ forceSlots: true });
+
+    await controller.archiveThread("thread", true);
+
+    expect(archiveThread).toHaveBeenCalledWith("thread", true);
+    expect(controller.archiveConfirmId()).toBeNull();
+  });
+
+  it("closes mutually exclusive toolbar panels on outside pointers", () => {
+    const stateStore = createChatStateStore(createChatState());
+    const scheduleRender = vi.fn();
+    const controller = new ToolbarPanelController({
+      stateStore,
+      threadActions: { archiveThread: vi.fn() } as unknown as ChatThreadActionController,
+      scheduleRender,
+    });
+    controller.toggleHistory();
+    expect(stateStore.getState().openDetails.has("history")).toBe(true);
+
+    controller.closeOnOutsidePointer({
+      target: document.createElement("button"),
+      viewWindow: window,
+      contains: () => false,
+      renameEditing: false,
+    });
+
+    expect(stateStore.getState().openDetails.size).toBe(0);
+    expect(scheduleRender).toHaveBeenCalledWith({ forceSlots: true });
+  });
+});

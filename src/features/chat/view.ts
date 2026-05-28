@@ -84,6 +84,7 @@ import {
 } from "./turn-submission";
 import { resumedThreadAction, type ResumedThreadActionParams } from "./thread-resume";
 import { PendingRequestController } from "./pending-request-controller";
+import { ToolbarPanelController } from "./toolbar-panel-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -113,13 +114,13 @@ export class CodexChatView extends ItemView {
   private readonly restoredThread: RestoredThreadController;
   private readonly threadRename: ThreadRenameController;
   private readonly pendingRequests: PendingRequestController;
+  private readonly toolbarPanels: ToolbarPanelController;
   private readonly chatState = createChatStateStore();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
   private shellRenderVersion = 0;
-  private archiveConfirmThreadId: string | null = null;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
@@ -294,6 +295,13 @@ export class CodexChatView extends ItemView {
       refreshThreads: () => this.refreshThreads(),
       refreshSharedThreadListFromOpenSurface: () => {
         this.plugin.refreshSharedThreadListFromOpenSurface();
+      },
+    });
+    this.toolbarPanels = new ToolbarPanelController({
+      stateStore: this.chatState,
+      threadActions: this.threadActions,
+      scheduleRender: (options) => {
+        this.scheduleRender(options);
       },
     });
     this.runtimeSettings = new ChatRuntimeSettingsController({
@@ -924,11 +932,6 @@ export class CodexChatView extends ItemView {
     return latestProposedPlanItem(this.state.displayItems)?.id === item.id;
   }
 
-  private toggleRuntimePicker(picker: NonNullable<ChatState["runtimePicker"]>): void {
-    this.dispatch({ type: "ui/panel-set", panel: picker, toggle: true });
-    this.render();
-  }
-
   private async setRequestedModelFromUi(model: string | null): Promise<void> {
     await this.runtimeSettings.setRequestedModelFromUi(model);
   }
@@ -1087,16 +1090,16 @@ export class CodexChatView extends ItemView {
 
     renderToolbar(toolbar, model, {
       toggleHistory: () => {
-        this.toggleHistoryPanel();
+        this.toolbarPanels.toggleHistory();
       },
       toggleAutoReview: () => void this.runtimeSettings.toggleAutoReview(),
       toggleStatusPanel: () => {
-        this.toggleStatusPanel();
+        this.toolbarPanels.toggleStatus();
       },
       togglePlan: () => void this.runtimeSettings.toggleCollaborationMode(),
       toggleFast: () => void this.runtimeSettings.toggleFastMode(),
       toggleRuntime: () => {
-        this.toggleRuntimePicker("model");
+        this.toolbarPanels.toggleRuntime("model");
       },
       connect: () => void this.reconnectFromToolbar(),
       refreshStatus: () => void this.refreshStatusPanel(),
@@ -1106,9 +1109,9 @@ export class CodexChatView extends ItemView {
         void this.selectThread(threadId);
       },
       startArchiveThread: (threadId) => {
-        this.startArchiveThread(threadId);
+        this.toolbarPanels.startArchive(threadId);
       },
-      archiveThread: (threadId, saveMarkdown) => void this.archiveThread(threadId, saveMarkdown),
+      archiveThread: (threadId, saveMarkdown) => void this.toolbarPanels.archiveThread(threadId, saveMarkdown),
       startRenameThread: (threadId) => {
         this.threadRename.start(threadId);
       },
@@ -1131,7 +1134,7 @@ export class CodexChatView extends ItemView {
       turnBusy: this.turnBusy,
       vaultPath: this.plugin.vaultPath,
       configuredCommand: this.plugin.settings.codexPath,
-      archiveConfirmThreadId: this.archiveConfirmThreadId,
+      archiveConfirmThreadId: this.toolbarPanels.archiveConfirmId(),
       archiveExportEnabled: this.plugin.settings.archiveExportEnabled,
       ...runtimeToolbarChoices({
         state: this.state,
@@ -1164,68 +1167,23 @@ export class CodexChatView extends ItemView {
     }
   }
 
-  private toggleHistoryPanel(): void {
-    this.dispatch({ type: "ui/panel-set", panel: "history", toggle: true });
-    this.scheduleRender();
-  }
-
   private async selectThread(threadId: string): Promise<void> {
     if (this.turnBusy && threadId !== this.state.activeThreadId) {
       this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
-    this.archiveConfirmThreadId = null;
+    this.toolbarPanels.closeForThreadSelection();
     if (await this.plugin.focusThreadInOpenView(threadId)) return;
     await this.resumeThread(threadId);
   }
 
-  private startArchiveThread(threadId: string): void {
-    this.archiveConfirmThreadId = threadId;
-    this.scheduleRender({ forceSlots: true });
-  }
-
-  private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
-    if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
-    await this.threadActions.archiveThread(threadId, saveMarkdown);
-    this.scheduleRender({ forceSlots: true });
-  }
-
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {
-    if (!this.hasOpenToolbarPanel()) return;
-
-    const target = event.target;
-    const viewWindow = this.containerEl.doc.defaultView;
-    if (viewWindow && target instanceof viewWindow.Element) {
-      const insideToolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
-      if (insideToolbarPanel && this.containerEl.contains(insideToolbarPanel)) {
-        if (this.archiveConfirmThreadId && !target.closest(".codex-panel__archive-confirm")) {
-          this.archiveConfirmThreadId = null;
-          this.scheduleRender({ forceSlots: true });
-        }
-        return;
-      }
-    }
-
-    if (this.archiveConfirmThreadId) {
-      this.archiveConfirmThreadId = null;
-      this.scheduleRender({ forceSlots: true });
-    }
-
-    if (this.threadRename.isEditing()) return;
-
-    this.closeToolbarPanel();
-  }
-
-  private hasOpenToolbarPanel(): boolean {
-    return this.state.openDetails.has("history") || this.state.openDetails.has("status-panel") || this.state.runtimePicker !== null;
-  }
-
-  private closeToolbarPanel(): void {
-    if (!this.hasOpenToolbarPanel()) return;
-
-    this.dispatch({ type: "ui/panel-set", panel: null });
-    this.archiveConfirmThreadId = null;
-    this.scheduleRender({ forceSlots: true });
+    this.toolbarPanels.closeOnOutsidePointer({
+      target: event.target,
+      viewWindow: this.containerEl.doc.defaultView,
+      contains: (element) => this.containerEl.contains(element),
+      renameEditing: this.threadRename.isEditing(),
+    });
   }
 
   private scheduleRender(options: ChatViewRenderScheduleOptions = {}): void {
@@ -1252,11 +1210,6 @@ export class CodexChatView extends ItemView {
 
   private panelRoot(): HTMLElement | null {
     return (this.containerEl.children[1] as HTMLElement | undefined) ?? null;
-  }
-
-  private toggleStatusPanel(): void {
-    this.dispatch({ type: "ui/panel-set", panel: "status-panel", toggle: true });
-    this.scheduleRender();
   }
 
   private statusSummaryLines(): string[] {
