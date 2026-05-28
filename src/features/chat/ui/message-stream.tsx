@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef, useState, type Ref, type ReactNode } from "react";
+import { Fragment, forwardRef, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { displayBlocksForItems } from "../display/blocks";
 import { executionState } from "../display/state";
@@ -323,17 +323,16 @@ function CollapsibleMessageContent({ item, context }: { item: RenderableMessageI
   );
 }
 
-function MarkdownContent({
-  item,
-  context,
-  collapsed = false,
-  ref,
-}: {
+interface MarkdownContentProps {
   item: RenderableMessageItem;
   context: MessageStreamContext;
   collapsed?: boolean;
-  ref?: Ref<HTMLDivElement>;
-}): ReactNode {
+}
+
+const MarkdownContent = forwardRef<HTMLDivElement, MarkdownContentProps>(function MarkdownContent(
+  { item, context, collapsed = false },
+  ref,
+): ReactNode {
   const localRef = useRef<HTMLDivElement | null>(null);
   const contextRef = useRef(context);
   useLayoutEffect(() => {
@@ -369,7 +368,7 @@ function MarkdownContent({
         .join(" ")}
     />
   );
-}
+});
 
 function ReferencedThread({ item }: { item: Extract<DisplayItem, { kind: "message" }> }): ReactNode {
   const reference = item.referencedThread;

@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode, type Ref } from "react";
+import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type MutableRefObject, type ReactNode, type Ref } from "react";
 
 export interface ObsidianIconProps {
   icon: string;
@@ -39,7 +39,7 @@ export function IconButton({ icon, label, buttonRef, className, children, ...pro
         if (typeof buttonRef === "function") {
           buttonRef(element);
         } else if (buttonRef) {
-          buttonRef.current = element;
+          (buttonRef as MutableRefObject<HTMLButtonElement | null>).current = element;
         }
       }}
       className={className}

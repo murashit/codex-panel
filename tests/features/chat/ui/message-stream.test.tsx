@@ -12,6 +12,8 @@ import { messageStreamBlocks as rawMessageStreamBlocks, renderMessageStreamBlock
 import { changeInputValue, installObsidianDomShims, topLevelDetailsSummaries } from "./dom-test-helpers";
 import { renderReactRoot, unmountReactRoot } from "../../../../src/shared/ui/react-root";
 
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 installObsidianDomShims();
 
 function messageStreamBlocks(
@@ -46,7 +48,9 @@ function testMessageStreamBlock(key: string, node: ReactNode): ReturnType<typeof
 
 function renderMessageBlockElement(block: ReturnType<typeof rawMessageStreamBlocks>[number]): HTMLElement {
   const parent = document.createElement("div");
-  renderMessageStreamBlocks(parent, [block]);
+  act(() => {
+    renderMessageStreamBlocks(parent, [block]);
+  });
   const host = expectPresent(parent.querySelector<HTMLElement>(`[data-codex-panel-block-key="${block.key}"]`));
   return expectPresent(host.firstElementChild as HTMLElement | null);
 }
