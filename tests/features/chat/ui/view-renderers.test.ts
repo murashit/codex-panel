@@ -302,13 +302,19 @@ describe("toolbar renderer decisions", () => {
     expect(statusButton?.tagName).toBe("BUTTON");
     expect(statusButton?.getAttribute("role")).toBeNull();
     expect(statusButton?.getAttribute("aria-label")).toBe("Show connection status");
+    expect(statusButton?.classList.contains("nav-action-button")).toBe(false);
+    expect(statusButton?.classList.contains("clickable-icon")).toBe(true);
     const historyButton = parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle");
     expect(historyButton?.getAttribute("aria-label")).toBe("Show thread list");
+    expect(historyButton?.classList.contains("nav-action-button")).toBe(false);
+    expect(historyButton?.classList.contains("clickable-icon")).toBe(true);
     historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
     const autoReviewButton = parent.querySelector<HTMLButtonElement>(".codex-panel__auto-review-toggle");
     expect(autoReviewButton?.getAttribute("aria-label")).toBe("Toggle auto-review");
     expect(autoReviewButton?.getAttribute("aria-pressed")).toBe("false");
+    expect(autoReviewButton?.classList.contains("nav-action-button")).toBe(false);
+    expect(autoReviewButton?.classList.contains("clickable-icon")).toBe(true);
     autoReviewButton?.click();
     expect(toggleAutoReview).toHaveBeenCalled();
 
@@ -320,6 +326,7 @@ describe("toolbar renderer decisions", () => {
     parent.empty();
     renderToolbar(parent, toolbarModel({ historyOpen: true, statusPanelOpen: true }), toolbarActions());
     expect(parent.querySelector(".codex-panel__history-toggle")?.getAttribute("aria-label")).toBe("Hide thread list");
+    expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(false);
     expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Hide connection status");
     expect(parent.querySelector(".codex-panel__runtime-model")?.getAttribute("aria-label")).toBe("Change model and reasoning effort");
   });

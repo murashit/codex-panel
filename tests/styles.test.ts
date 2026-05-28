@@ -28,6 +28,7 @@ describe("threads view CSS", () => {
   });
 
   it("keeps toolbar hover color separate from row action hover color", () => {
+    const toolbarButton = /\.codex-panel-threads__toolbar-button \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const toolbarHover =
       /\.codex-panel-threads__toolbar-button:hover,\n\.codex-panel-threads__toolbar-button:focus-visible \{(?<body>[^}]+)\}/.exec(styles)
         ?.groups?.["body"] ?? "";
@@ -39,6 +40,11 @@ describe("threads view CSS", () => {
         styles,
       )?.groups?.["body"] ?? "";
 
+    expect(styles).not.toContain(".codex-panel-threads__toolbar-actions {");
+    expect(styles).toContain("--codex-panel-size-clickable-icon");
+    expect(toolbarButton).toContain("width: var(--codex-panel-size-clickable-icon)");
+    expect(toolbarButton).toContain("height: var(--codex-panel-size-clickable-icon)");
+    expect(toolbarButton).toContain("padding: var(--clickable-icon-padding, var(--codex-panel-control-gap))");
     expect(toolbarHover).toContain("background: var(--background-modifier-hover)");
     expect(toolbarHover).toContain("color: var(--icon-color)");
     expect(toolbarHover).not.toContain("var(--icon-color-active)");

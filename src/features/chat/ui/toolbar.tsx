@@ -96,7 +96,7 @@ function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: Toolbar
         <ToolbarIconButton
           icon="history"
           label={model.historyOpen ? "Hide thread list" : "Show thread list"}
-          className={`codex-panel__history-toggle ${model.historyOpen ? "is-active" : ""}`}
+          className="codex-panel__history-toggle"
           aria-pressed={model.historyOpen ? "true" : "false"}
           onClick={actions.toggleHistory}
         />
@@ -133,7 +133,7 @@ function ToolbarIconButton({
       {...props}
       icon={icon}
       label={label}
-      className={["clickable-icon nav-action-button codex-panel-ui__toolbar-control", className ?? ""].filter(Boolean).join(" ")}
+      className={["clickable-icon codex-panel-ui__toolbar-control", className ?? ""].filter(Boolean).join(" ")}
     />
   );
 }
@@ -197,7 +197,7 @@ function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: To
   return (
     <button
       className={[
-        "clickable-icon nav-action-button codex-panel-ui__toolbar-control codex-panel__status-dot",
+        "clickable-icon codex-panel-ui__toolbar-control codex-panel__status-dot",
         `codex-panel__status-dot--${model.statusState}`,
         alertClass,
         model.statusPanelOpen ? "is-active" : "",

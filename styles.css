@@ -7,6 +7,10 @@
   --codex-panel-radius-pill: 999px;
   --codex-panel-size-icon-s: var(--icon-s, 16px);
   --codex-panel-size-icon-xs: var(--icon-xs, 14px);
+  --codex-panel-size-clickable-icon: var(
+    --clickable-icon-size,
+    var(--icon-container-size, calc(var(--codex-panel-control-icon-size) + var(--codex-panel-control-gap) * 2))
+  );
   --codex-panel-size-nav-item: var(--nav-item-size, 28px);
   --codex-panel-size-settings-archived-list-max-height: 360px;
   --codex-panel-size-settings-hook-list-max-height: 420px;
@@ -121,12 +125,6 @@
 
 .codex-panel-threads__toolbar {
   flex: 0 0 auto;
-}
-
-.codex-panel-threads__toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--codex-panel-toolbar-button-gap);
 }
 
 .codex-panel-threads__list {
@@ -362,6 +360,25 @@
   border-radius: var(--codex-panel-control-radius);
 }
 
+.codex-panel-ui__toolbar-control:hover,
+.codex-panel-ui__toolbar-control:focus-visible,
+.codex-panel-ui__toolbar-control:active {
+  background: var(--background-modifier-hover);
+  box-shadow: none;
+  color: var(--icon-color);
+}
+
+.codex-panel-ui__toolbar-control:active svg {
+  color: var(--icon-color);
+  stroke: currentcolor;
+}
+
+.codex-panel-ui__toolbar-control:focus:not(:hover):not(:focus-visible) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color);
+}
+
 .codex-panel-ui__icon-button {
   --icon-size: var(--codex-panel-control-icon-size);
   --icon-stroke: var(--icon-m-stroke-width, 1.75px);
@@ -381,6 +398,10 @@
 .codex-panel-threads__toolbar-button {
   --icon-size: var(--codex-panel-control-icon-size);
   --icon-stroke: var(--icon-m-stroke-width, 1.75px);
+  width: var(--codex-panel-size-clickable-icon);
+  height: var(--codex-panel-size-clickable-icon);
+  padding: var(--clickable-icon-padding, var(--codex-panel-control-gap));
+  border-radius: var(--clickable-icon-radius, var(--codex-panel-control-radius));
 }
 
 .codex-panel-threads__row-button {
