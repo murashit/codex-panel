@@ -10,7 +10,6 @@ import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/collaboration-mode";
 import { ChatController } from "./chat-controller";
 import { currentModel, type RuntimeSnapshot } from "../../runtime/state";
@@ -22,19 +21,11 @@ import { ThreadRenameController } from "./thread-rename";
 import { pendingRequestsSignature as requestStateSignature } from "./request-state";
 import type { CodexPanelSettings } from "../../settings/model";
 import { ChatComposerController } from "./chat-composer-controller";
-import {
-  activeTurnId,
-  chatTurnBusy,
-  createChatStateStore,
-  pendingTurnStart as pendingTurnStartForState,
-  type ChatAction,
-  type ChatState,
-} from "./chat-state";
+import { activeTurnId, chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
 import {
   referencedThreadInput as buildReferencedThreadInput,
   referencedThreadTurns,
   REFERENCED_THREAD_TURN_LIMIT,
-  type ReferencedThreadDisplay,
 } from "../../domain/threads/reference";
 import { renderToolbar, type ToolbarViewModel } from "./ui/toolbar";
 import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
@@ -75,18 +66,12 @@ import {
   type ActiveChatResume,
   type ChatViewRenderScheduleOptions,
 } from "./view-lifecycle";
-import {
-  acknowledgeOptimisticTurnStart,
-  cleanupFailedTurnStart,
-  localUserMessageItemFromInput,
-  optimisticTurnStart,
-  shouldAcknowledgeTurnStart,
-} from "./turn-submission";
 import { resumedThreadAction, type ResumedThreadActionParams } from "./thread-resume";
 import { PendingRequestController } from "./pending-request-controller";
 import { ToolbarPanelController } from "./toolbar-panel-controller";
 import { ChatReconnectController } from "./reconnect-controller";
 import { ChatMessageScrollController } from "./message-scroll-controller";
+import { TurnSubmissionController } from "./turn-submission-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -124,6 +109,7 @@ export class CodexChatView extends ItemView {
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
   private readonly messageScroll: ChatMessageScrollController;
+  private readonly turnSubmission: TurnSubmissionController;
   private shellRenderVersion = 0;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
@@ -143,6 +129,39 @@ export class CodexChatView extends ItemView {
       stateStore: this.chatState,
       render: () => {
         this.render();
+      },
+    });
+    this.turnSubmission = new TurnSubmissionController({
+      stateStore: this.chatState,
+      vaultPath: this.plugin.vaultPath,
+      currentClient: () => this.client,
+      ensureRestoredThreadLoaded: () => this.ensureRestoredThreadLoaded(),
+      startThread: () => this.appServer.startThread(),
+      notifyActiveThreadIdentityChanged: () => {
+        this.notifyActiveThreadIdentityChanged();
+      },
+      resetThreadTurnPresence: (hadTurns) => {
+        this.threadRename.resetThreadTurnPresence(hadTurns);
+      },
+      applyPendingThreadSettings: () => this.runtimeSettings.applyPendingThreadSettings(),
+      codexInput: (text) => this.composerController.codexInput(text),
+      setDraft: (text, options) => {
+        this.composerController.setDraft(text, options);
+      },
+      forceMessagesToBottom: () => {
+        this.messageScroll.forceBottom();
+      },
+      render: () => {
+        this.render();
+      },
+      scheduleRender: () => {
+        this.scheduleRender();
+      },
+      setStatus: (status) => {
+        this.setStatus(status);
+      },
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
       },
     });
     this.messageRenderer = new ChatMessageRenderer({
@@ -395,10 +414,6 @@ export class CodexChatView extends ItemView {
 
   private get activeTurnId(): string | null {
     return activeTurnId(this.state);
-  }
-
-  private get pendingTurnStart(): ReturnType<typeof pendingTurnStartForState> {
-    return pendingTurnStartForState(this.state);
   }
 
   private dispatch(action: ChatAction): void {
@@ -759,121 +774,12 @@ export class CodexChatView extends ItemView {
       this.composerController.setDraft("", { clearSuggestions: true });
       const result = await this.executeSlashCommand(slashCommand.command, slashCommand.args);
       if (result?.sendText) {
-        await this.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
+        await this.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
       }
       return;
     }
 
-    await this.sendTurnText(text);
-  }
-
-  private async sendTurnText(text: string, codexInputOverride?: UserInput[], referencedThread?: ReferencedThreadDisplay): Promise<void> {
-    if (!(await this.ensureRestoredThreadLoaded())) return;
-    const client = this.client;
-    if (!client) return;
-
-    if (this.turnBusy) {
-      await this.steerCurrentTurn(text, codexInputOverride, referencedThread);
-      return;
-    }
-
-    let optimisticUserId: string | null = null;
-    try {
-      if (!this.state.activeThreadId) {
-        const threadResponse = await this.appServer.startThread();
-        if (!threadResponse) return;
-        this.notifyActiveThreadIdentityChanged();
-        this.threadRename.resetThreadTurnPresence(false);
-      }
-      const activeThreadId = this.state.activeThreadId;
-      if (!activeThreadId) return;
-      if (!(await this.runtimeSettings.applyPendingThreadSettings())) return;
-
-      const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
-      optimisticUserId = `local-user-${String(Date.now())}`;
-      const optimistic = optimisticTurnStart({
-        id: optimisticUserId,
-        text,
-        codexInput,
-        referencedThread,
-      });
-      this.dispatch({
-        type: "turn/optimistic-started",
-        item: optimistic.item,
-        pendingTurnStart: optimistic.pendingTurnStart,
-      });
-      this.messageScroll.forceBottom();
-      this.composerController.setDraft("");
-      this.render();
-
-      const response = await client.startTurn(activeThreadId, this.plugin.vaultPath, codexInput);
-      const pendingTurnStart = this.pendingTurnStart;
-      if (
-        shouldAcknowledgeTurnStart({
-          pendingTurnStart,
-          activeTurnId: this.activeTurnId,
-          optimisticUserId,
-          responseTurnId: response.turn.id,
-        })
-      ) {
-        const displayItems = acknowledgeOptimisticTurnStart({
-          items: this.state.displayItems,
-          optimisticUserId,
-          turnId: response.turn.id,
-          pendingTurnStart,
-        });
-        this.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
-        this.setStatus("Turn running...");
-      }
-    } catch (error) {
-      const displayItems = cleanupFailedTurnStart({
-        items: this.state.displayItems,
-        optimisticUserId,
-        pendingTurnStart: this.pendingTurnStart,
-      });
-      this.dispatch({ type: "turn/start-failed", displayItems });
-      this.composerController.setDraft(text);
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
-    this.scheduleRender();
-  }
-
-  private async steerCurrentTurn(
-    text: string,
-    codexInputOverride?: UserInput[],
-    referencedThread?: ReferencedThreadDisplay,
-  ): Promise<void> {
-    if (!this.client || !this.state.activeThreadId || !this.activeTurnId) {
-      this.addSystemMessage("Current turn is not steerable yet.");
-      return;
-    }
-
-    const threadId = this.state.activeThreadId;
-    const expectedTurnId = this.activeTurnId;
-    const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
-
-    this.composerController.setDraft("", { clearSuggestions: true });
-
-    try {
-      await this.client.steerTurn(threadId, expectedTurnId, codexInput);
-      this.dispatch({
-        type: "system/message-added",
-        item: localUserMessageItemFromInput({
-          id: `local-steer-${String(Date.now())}`,
-          text,
-          turnId: expectedTurnId,
-          referencedThread,
-          codexInput,
-        }),
-      });
-      this.messageScroll.forceBottom();
-      this.setStatus("Steered current turn.");
-    } catch (error) {
-      this.composerController.setDraft(text, { focus: true });
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
-
-    this.scheduleRender();
+    await this.turnSubmission.sendTurnText(text);
   }
 
   private async implementPlan(item: DisplayItem): Promise<void> {
@@ -883,7 +789,7 @@ export class CodexChatView extends ItemView {
 
     this.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
     this.dispatch({ type: "ui/panel-set", panel: null });
-    await this.sendTurnText("Please implement this plan.");
+    await this.turnSubmission.sendTurnText("Please implement this plan.");
   }
 
   private async interruptTurn(): Promise<void> {
