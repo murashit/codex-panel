@@ -75,8 +75,8 @@ export class ChatComposerController {
       this.options.canInterrupt(),
       this.options.composerPlaceholder(),
       {
-        onInput: () => {
-          this.dispatch({ type: "composer/draft-set", draft: this.composer?.value ?? "", resetDismissedSignature: true });
+        onInput: (value) => {
+          this.dispatch({ type: "composer/draft-set", draft: value, resetDismissedSignature: true });
           this.options.onDraftChange();
           this.updateSuggestions();
           this.refreshControls();
@@ -125,10 +125,8 @@ export class ChatComposerController {
       return;
     }
 
-    this.composer.value = text;
-    syncComposerHeight(this.composer);
-    if (options.focus) this.composer.focus();
     this.refreshControls();
+    if (options.focus) this.composer.focus();
   }
 
   focus(): void {
@@ -254,7 +252,7 @@ export class ChatComposerController {
 
     this.dispatch({ type: "composer/draft-set", draft: insertion.value });
     this.options.onDraftChange();
-    this.composer.value = insertion.value;
+    this.refreshControls();
     syncComposerHeight(this.composer);
     this.composer.focus();
     this.composer.setSelectionRange(insertion.cursor, insertion.cursor);
@@ -263,10 +261,7 @@ export class ChatComposerController {
 
   private clearSuggestions(): void {
     this.dispatch({ type: "composer/suggestions-set", suggestions: [], selected: 0 });
-    this.composer?.setAttr("aria-expanded", "false");
-    this.composer?.removeAttribute("aria-activedescendant");
-    unmountReactRoot(this.suggestionsEl);
-    this.suggestionsEl?.hide();
+    this.renderSuggestions();
   }
 
   private dismissSuggestions(): void {

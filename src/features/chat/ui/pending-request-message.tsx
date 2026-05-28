@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import {
   approvalActionOptions,
@@ -18,7 +18,7 @@ export interface PendingRequestMessageActions {
   resolveUserInput: (input: PendingUserInput) => void;
   cancelUserInput: (input: PendingUserInput) => void;
   setOpenDetail?: (key: string, open: boolean) => void;
-  setUserInputDraft?: (key: string, value: string) => void;
+  setUserInputDraft: (key: string, value: string) => void;
 }
 
 export interface PendingRequestMessageDrafts {
@@ -204,9 +204,9 @@ function UserInputQuestions({
                           type="radio"
                           name={groupName}
                           value={option.label}
-                          defaultChecked={current === option.label}
+                          checked={current === option.label}
                           onChange={(event) => {
-                            if (event.currentTarget.checked) actions.setUserInputDraft?.(draftKey, option.label);
+                            if (event.currentTarget.checked) actions.setUserInputDraft(draftKey, option.label);
                           }}
                         />
                         <span className="codex-panel__user-input-option-label">{option.label}</span>
@@ -263,30 +263,27 @@ function OtherUserInputOption({
   const draftKey = drafts.draftKey(input.requestId, questionId);
   const otherKey = drafts.otherDraftKey(input.requestId, questionId);
   const otherValue = drafts.values.get(otherKey) ?? "";
-  const radioRef = useRef<HTMLInputElement | null>(null);
   return (
     <label className="codex-panel__user-input-option">
       <input
         className="codex-panel__user-input-radio"
-        ref={radioRef}
         type="radio"
         name={groupName}
         value="__other__"
-        defaultChecked={current === otherValue && otherValue.length > 0}
+        checked={current === otherValue && otherValue.length > 0}
         onChange={(event) => {
-          if (event.currentTarget.checked) actions.setUserInputDraft?.(draftKey, drafts.values.get(otherKey) ?? "");
+          if (event.currentTarget.checked) actions.setUserInputDraft(draftKey, drafts.values.get(otherKey) ?? "");
         }}
       />
       <span className="codex-panel__user-input-option-label">Other</span>
       <input
         className="codex-panel__user-input-text codex-panel__user-input-other-text"
         type="text"
-        defaultValue={otherValue}
+        value={otherValue}
         placeholder="Other answer"
-        onInput={(event) => {
-          actions.setUserInputDraft?.(otherKey, event.currentTarget.value);
-          actions.setUserInputDraft?.(draftKey, event.currentTarget.value);
-          if (radioRef.current) radioRef.current.checked = true;
+        onChange={(event) => {
+          actions.setUserInputDraft(otherKey, event.currentTarget.value);
+          actions.setUserInputDraft(draftKey, event.currentTarget.value);
         }}
       />
     </label>
@@ -313,9 +310,9 @@ function FreeformUserInput({
     <input
       className="codex-panel__user-input-text"
       type={isSecret ? "password" : "text"}
-      defaultValue={current}
-      onInput={(event) => {
-        actions.setUserInputDraft?.(draftKey, event.currentTarget.value);
+      value={current}
+      onChange={(event) => {
+        actions.setUserInputDraft(draftKey, event.currentTarget.value);
       }}
     />
   );

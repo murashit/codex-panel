@@ -103,6 +103,14 @@ export function topLevelDetailsSummaries(element: HTMLElement): (string | null)[
     .map((details) => details.querySelector("summary")?.textContent ?? null);
 }
 
+export function changeInputValue(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const prototype = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  const valueDescriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+  if (!valueDescriptor?.set) throw new Error("Missing input value setter");
+  valueDescriptor.set.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 export function composerSuggestionScrollFixture(metrics: {
   clientHeight: number;
   optionHeight: number;

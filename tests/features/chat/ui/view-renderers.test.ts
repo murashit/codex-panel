@@ -12,7 +12,7 @@ import {
 import { renderToolbar, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
 import { CodexChatTurnDiffView } from "../../../../src/features/chat/chat-turn-diff-view";
 import { displayDiffLines, persistedChatTurnDiffViewState, renderChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff";
-import { composerSuggestionScrollFixture, installObsidianDomShims } from "./dom-test-helpers";
+import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "./dom-test-helpers";
 import { renderThreadsView } from "../../../../src/features/threads-view/renderer";
 import { liveStateForSnapshots, threadRows, type ThreadsRowModel } from "../../../../src/features/threads-view/state";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
@@ -475,6 +475,7 @@ describe("toolbar renderer decisions", () => {
     const saveRenameThread = vi.fn();
     const cancelRenameThread = vi.fn();
     const autoNameThread = vi.fn();
+    const actions = toolbarActions({ startRenameThread, updateRenameDraft, saveRenameThread, cancelRenameThread, autoNameThread });
 
     renderToolbar(
       parent,
@@ -493,7 +494,7 @@ describe("toolbar renderer decisions", () => {
           },
         ],
       }),
-      toolbarActions({ startRenameThread, updateRenameDraft, saveRenameThread, cancelRenameThread, autoNameThread }),
+      actions,
     );
 
     parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
@@ -503,13 +504,35 @@ describe("toolbar renderer decisions", () => {
     if (!input) throw new Error("Missing thread rename input");
     expect(input.closest(".codex-panel__thread-rename")?.querySelector(".codex-panel__toolbar-panel-check")).not.toBeNull();
     expect(input.value).toBe("Draft title");
-    input.value = "New title";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    changeInputValue(input, "New title");
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
 
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    renderToolbar(
+      parent,
+      toolbarModel({
+        historyOpen: true,
+        openPanel: "history",
+        threads: [
+          { title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null },
+          {
+            title: "Editing",
+            threadId: "editing",
+            selected: false,
+            disabled: false,
+            canArchive: true,
+            rename: { draft: "New title", generating: false },
+          },
+        ],
+      }),
+      actions,
+    );
+    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")).dispatchEvent(
+      new FocusEvent("focusout", { bubbles: true }),
+    );
     expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")).dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
     expect(cancelRenameThread).toHaveBeenCalledWith("editing");
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
@@ -636,7 +659,7 @@ describe("threads view renderer decisions", () => {
     expect(actions.openNewPanel).toHaveBeenCalledOnce();
     row.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");
-    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(actions.openThread).toHaveBeenCalledTimes(2);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Focus open panel"]')).toBeNull();
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Open in new panel"]')).toBeNull();
@@ -700,11 +723,17 @@ describe("threads view renderer decisions", () => {
     renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
 
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
-    input.value = "New name";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-
+    changeInputValue(input, "New name");
     expect(actions.updateRename).toHaveBeenCalledWith("thread", "New name");
+
+    renderThreadsView(
+      parent,
+      { status: "1 thread", loading: false, rows: [{ ...row, rename: { active: true, draft: "New name", generating: false } }] },
+      actions,
+    );
+    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).dispatchEvent(
+      new FocusEvent("focusout", { bubbles: true }),
+    );
     expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
 
     expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row")).click();
@@ -802,6 +831,16 @@ describe("composer renderer decisions", () => {
     expect(onSuggestionInsert).toHaveBeenCalled();
   });
 
+  it("reports composer draft changes from the controlled input", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", callbacks);
+
+    changeInputValue(composer, "Draft text");
+
+    expect(callbacks.onInput).toHaveBeenCalledWith("Draft text");
+  });
+
   it("scrolls the selected composer suggestion fully into view below the viewport", () => {
     const { container, option } = composerSuggestionScrollFixture({
       clientHeight: 100,
@@ -853,8 +892,7 @@ describe("composer renderer decisions", () => {
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");
 
-    composer.value = "adjust course";
-    renderComposerShell(parent, "view", "", true, true, "Ask Codex to work on this task...", callbacks);
+    renderComposerShell(parent, "view", "adjust course", true, true, "Ask Codex to work on this task...", callbacks);
     sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
     expect(composer.getAttribute("placeholder")).toBe("Add steering message...");

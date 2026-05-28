@@ -1,8 +1,7 @@
-import { setIcon } from "obsidian";
 import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
 
 import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/view";
-import { IconButton } from "../../../shared/ui/react-components";
+import { IconButton, ObsidianIcon } from "../../../shared/ui/react-components";
 import { renderReactRoot } from "../../../shared/ui/react-root";
 
 export type ToolbarPanelKind = "history" | "status" | "runtime";
@@ -495,7 +494,6 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
   useLayoutEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    if (input.value !== draft) input.value = draft;
     if (input.ownerDocument.activeElement !== input) {
       input.focus();
       input.select();
@@ -514,9 +512,9 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
               ref={inputRef}
               className="codex-panel__thread-rename-input"
               type="text"
-              defaultValue={draft}
+              value={draft}
               aria-label={`Rename ${thread.title}`}
-              onInput={(event) => {
+              onChange={(event) => {
                 actions.updateRenameDraft(thread.threadId, event.currentTarget.value);
               }}
               onKeyDown={(event) => {
@@ -614,14 +612,11 @@ function ToolbarPanelItem({
 }
 
 function ToolbarPanelCheck({ selected }: { selected: boolean }): ReactNode {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.replaceChildren();
-    if (selected) setIcon(element, "check");
-  }, [selected]);
-  return <span ref={ref} className="codex-panel__toolbar-panel-check" />;
+  return selected ? (
+    <ObsidianIcon icon="check" className="codex-panel__toolbar-panel-check" />
+  ) : (
+    <span className="codex-panel__toolbar-panel-check" aria-hidden="true" />
+  );
 }
 
 function archiveConfirmState(thread: ToolbarThreadRow): { active: boolean; defaultSaveMarkdown: boolean } {

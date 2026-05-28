@@ -12,17 +12,23 @@ const lintedTypeScriptFiles = [...typeScriptFiles, ...typeScriptConfigFiles];
 const imperativeDomRestrictions = [
   {
     selector:
-      "CallExpression[callee.property.name=/^(createEl|createDiv|createSpan|appendChild|replaceChildren|insertBefore|removeChild|setAttr|empty)$/]",
+      "CallExpression[callee.property.name=/^(createEl|createDiv|createSpan|appendChild|replaceChildren|insertBefore|removeChild|append|prepend|before|after|replaceWith|remove|insertAdjacentHTML|insertAdjacentElement|insertAdjacentText|setAttr|empty)$/]",
     message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
   },
   {
     selector:
-      "AssignmentExpression[left.type='MemberExpression'][left.property.name=/^(innerHTML|outerHTML|textContent|onclick|onscroll)$/]",
+      "AssignmentExpression[left.type='MemberExpression'][left.property.name=/^(innerHTML|outerHTML|textContent|value|checked|onclick|ondblclick|oninput|onchange|onkeydown|onkeyup|onmousedown|onmouseup|onmousemove|onpointerdown|onpointerup|onblur|onfocus|onselect|onscroll)$/]",
     message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
   },
   {
     selector: "CallExpression[callee.property.name=/^(addEventListener|removeEventListener)$/]",
     message: "Keep imperative DOM event wiring in an explicit bridge module or Obsidian-owned UI boundary.",
+  },
+];
+const reactFormRestrictions = [
+  {
+    selector: "JSXAttribute[name.name=/^(defaultValue|defaultChecked)$/]",
+    message: "Keep React form state explicit with controlled value or checked props.",
   },
 ];
 const chatStateRestrictions = [
@@ -46,13 +52,11 @@ const chatStateRestrictions = [
   },
 ];
 const chatImperativeDomBridgeFiles = [
-  "src/features/chat/chat-composer-controller.ts",
   "src/features/chat/chat-message-renderer.ts",
   "src/features/chat/markdown-message-renderer.ts",
   "src/features/chat/ui/composer.tsx",
   "src/features/chat/ui/message-stream.tsx",
   "src/features/chat/ui/tool-result.tsx",
-  "src/features/chat/ui/toolbar.tsx",
   "src/features/chat/ui/turn-diff.tsx",
 ];
 const nonChatImperativeDomBridgeFiles = [
@@ -157,20 +161,26 @@ export default defineConfig([
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles],
     rules: {
-      "no-restricted-syntax": ["error", ...imperativeDomRestrictions],
+      "no-restricted-syntax": ["error", ...imperativeDomRestrictions, ...reactFormRestrictions],
     },
   },
   {
     files: ["src/features/chat/**/*.{ts,tsx}"],
     ignores: chatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...imperativeDomRestrictions, ...chatStateRestrictions],
+      "no-restricted-syntax": ["error", ...imperativeDomRestrictions, ...reactFormRestrictions, ...chatStateRestrictions],
     },
   },
   {
     files: chatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...chatStateRestrictions],
+      "no-restricted-syntax": ["error", ...reactFormRestrictions, ...chatStateRestrictions],
+    },
+  },
+  {
+    files: nonChatImperativeDomBridgeFiles,
+    rules: {
+      "no-restricted-syntax": ["error", ...reactFormRestrictions],
     },
   },
   eslintConfigPrettier,

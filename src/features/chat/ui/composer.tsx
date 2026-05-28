@@ -11,7 +11,7 @@ export interface ComposerElements {
 }
 
 export interface ComposerCallbacks {
-  onInput: () => void;
+  onInput: (value: string) => void;
   onUpdateSuggestions: () => void;
   onKeydown: (event: KeyboardEvent) => void;
   onNewThread: () => void;
@@ -80,8 +80,7 @@ function ComposerShell({
     onSuggestions(suggestions);
     syncComposerHeight(composer);
   }, [onComposer, onSuggestions]);
-  const draftText = composerRef.current?.value ?? draft;
-  const sendMode = composerSendMode(busy, canInterrupt, draftText);
+  const sendMode = composerSendMode(busy, canInterrupt, draft);
 
   return (
     <div className="codex-panel__composer">
@@ -93,10 +92,10 @@ function ComposerShell({
         aria-autocomplete="list"
         aria-expanded="false"
         aria-controls={`${viewId}-composer-suggestions`}
-        defaultValue={draft}
-        onInput={() => {
-          syncComposerHeight(composerRef.current);
-          callbacks.onInput();
+        value={draft}
+        onChange={(event) => {
+          syncComposerHeight(event.currentTarget);
+          callbacks.onInput(event.currentTarget.value);
         }}
         onKeyUp={callbacks.onUpdateSuggestions}
         onClick={callbacks.onUpdateSuggestions}

@@ -5,11 +5,11 @@ import { act, createElement, type ReactNode } from "react";
 
 import type { PendingApproval } from "../../../../src/features/chat/approvals/model";
 import type { PendingUserInput } from "../../../../src/features/chat/user-input/model";
-import { pendingRequestMessageNode } from "../../../../src/features/chat/ui/pending-request-message";
+import { pendingRequestMessageNode, type PendingRequestMessageActions } from "../../../../src/features/chat/ui/pending-request-message";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/chat-message-renderer";
 import { messageStreamBlocks as rawMessageStreamBlocks, renderMessageStreamBlocks } from "../../../../src/features/chat/ui/message-stream";
-import { installObsidianDomShims, topLevelDetailsSummaries } from "./dom-test-helpers";
+import { changeInputValue, installObsidianDomShims, topLevelDetailsSummaries } from "./dom-test-helpers";
 import { renderReactRoot, unmountReactRoot } from "../../../../src/shared/ui/react-root";
 
 installObsidianDomShims();
@@ -40,6 +40,16 @@ function renderMessageBlockElement(block: ReturnType<typeof rawMessageStreamBloc
 
 function renderPendingRequestNode(parent: HTMLElement, ...args: Parameters<typeof pendingRequestMessageNode>): void {
   renderReactRoot(parent, pendingRequestMessageNode(...args));
+}
+
+function pendingRequestActions(overrides: Partial<PendingRequestMessageActions> = {}): PendingRequestMessageActions {
+  return {
+    resolveApproval: vi.fn(),
+    resolveUserInput: vi.fn(),
+    cancelUserInput: vi.fn(),
+    setUserInputDraft: vi.fn(),
+    ...overrides,
+  };
 }
 
 function withMessageContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {
@@ -2036,7 +2046,7 @@ describe("pending request renderer decisions", () => {
         otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
       },
       new Set(),
-      { resolveApproval: vi.fn(), resolveUserInput, cancelUserInput: vi.fn() },
+      pendingRequestActions({ resolveUserInput }),
     );
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-message")).toHaveLength(1);
@@ -2051,6 +2061,32 @@ describe("pending request renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__user-input-marker")).toBeNull();
     parent.querySelector<HTMLButtonElement>(".mod-cta")?.click();
     expect(resolveUserInput).toHaveBeenCalledWith(input);
+  });
+
+  it("selects the other Plan mode answer from controlled drafts", () => {
+    const parent = document.createElement("div");
+    const drafts = new Map<string, string>();
+    const input = pendingOtherUserInput();
+    const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
+    const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
+    const actions = pendingRequestActions({
+      setUserInputDraft: vi.fn((key: string, value: string) => {
+        drafts.set(key, value);
+      }),
+    });
+    const render = () => {
+      renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
+    };
+
+    render();
+    changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
+
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope:other", "Custom scope");
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "Custom scope");
+
+    render();
+    const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
+    expect(radios.map((radio) => radio.checked)).toEqual([false, true]);
   });
 
   it("renders pending approvals and Plan mode questions in the same request block", () => {
@@ -2068,7 +2104,7 @@ describe("pending request renderer decisions", () => {
         otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
       },
       new Set(),
-      { resolveApproval: vi.fn(), resolveUserInput: vi.fn(), cancelUserInput: vi.fn() },
+      pendingRequestActions(),
     );
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-message")).toHaveLength(1);
@@ -2124,7 +2160,7 @@ describe("pending request renderer decisions", () => {
         otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
       },
       new Set(),
-      { resolveApproval, resolveUserInput: vi.fn(), cancelUserInput: vi.fn() },
+      pendingRequestActions({ resolveApproval }),
     );
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")];
@@ -2296,7 +2332,7 @@ describe("pending request renderer decisions", () => {
               otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
             },
             new Set(),
-            { resolveApproval, resolveUserInput: vi.fn(), cancelUserInput: vi.fn() },
+            pendingRequestActions({ resolveApproval }),
           ),
       }),
     );
@@ -2355,6 +2391,23 @@ function pendingUserInput(): PendingUserInput {
           question: "How broad?",
           isOther: false,
           isSecret: false,
+          options: [{ label: "Narrow", description: "Small change" }],
+        },
+      ],
+    },
+  };
+}
+
+function pendingOtherUserInput(): PendingUserInput {
+  const input = pendingUserInput();
+  return {
+    ...input,
+    params: {
+      ...input.params,
+      questions: [
+        {
+          ...expectPresent(input.params.questions[0]),
+          isOther: true,
           options: [{ label: "Narrow", description: "Small change" }],
         },
       ],

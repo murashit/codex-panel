@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
 
 import { IconButton } from "../../shared/ui/react-components";
 import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";
@@ -68,7 +68,6 @@ function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: Thr
 }
 
 function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): ReactNode {
-  const rowRef = useRef<HTMLDivElement | null>(null);
   const archiveConfirm = archiveConfirmState(row);
   const className = [
     "codex-panel-threads__row",
@@ -83,22 +82,15 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
     if (row.rename.active || archiveConfirm.active) return;
     actions.openThread(row.thread.id);
   };
-  useLayoutEffect(() => {
-    const element = rowRef.current;
-    if (!element) return;
-    element.onkeydown = (event) => {
-      if (row.rename.active || archiveConfirm.active) return;
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      actions.openThread(row.thread.id);
-    };
-    return () => {
-      element.onkeydown = null;
-    };
-  }, [actions, archiveConfirm.active, row.rename.active, row.thread.id]);
+  const openFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (row.rename.active || archiveConfirm.active) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    actions.openThread(row.thread.id);
+  };
 
   return (
-    <div ref={rowRef} className={className} role="button" tabIndex={0} onClick={open}>
+    <div className={className} role="button" tabIndex={0} onClick={open} onKeyDown={openFromKeyboard}>
       {row.rename.active ? (
         <RenameRow row={row} actions={actions} />
       ) : (
@@ -185,7 +177,6 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   useLayoutEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    if (input.value !== row.rename.draft) input.value = row.rename.draft;
     if (input.ownerDocument.activeElement !== input) {
       input.focus();
       input.select();
@@ -206,8 +197,8 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
             className="codex-panel-threads__rename-input"
             type="text"
             aria-label="Thread name"
-            defaultValue={row.rename.draft}
-            onInput={(event) => {
+            value={row.rename.draft}
+            onChange={(event) => {
               actions.updateRename(row.thread.id, event.currentTarget.value);
             }}
             onKeyDown={(event) => {
