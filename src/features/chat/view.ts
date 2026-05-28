@@ -85,6 +85,7 @@ import {
 import { resumedThreadAction, type ResumedThreadActionParams } from "./thread-resume";
 import { PendingRequestController } from "./pending-request-controller";
 import { ToolbarPanelController } from "./toolbar-panel-controller";
+import { ChatReconnectController } from "./reconnect-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -115,6 +116,7 @@ export class CodexChatView extends ItemView {
   private readonly threadRename: ThreadRenameController;
   private readonly pendingRequests: PendingRequestController;
   private readonly toolbarPanels: ToolbarPanelController;
+  private readonly reconnectActions: ChatReconnectController;
   private readonly chatState = createChatStateStore();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly deferredTasks: ChatViewDeferredTasks;
@@ -302,6 +304,36 @@ export class CodexChatView extends ItemView {
       threadActions: this.threadActions,
       scheduleRender: (options) => {
         this.scheduleRender(options);
+      },
+    });
+    this.reconnectActions = new ChatReconnectController({
+      stateStore: this.chatState,
+      activeThreadId: () => this.state.activeThreadId,
+      invalidateConnectionWork: () => {
+        this.invalidateConnectionWork();
+      },
+      invalidateResumeWork: () => {
+        this.invalidateResumeWork();
+      },
+      clearDeferredDiagnostics: () => {
+        this.clearDeferredDiagnostics();
+      },
+      reconnect: () => {
+        this.connection.reconnect();
+      },
+      clearClient: () => {
+        this.client = null;
+      },
+      setStatus: (status) => {
+        this.setStatus(status);
+      },
+      render: () => {
+        this.render();
+      },
+      ensureConnected: () => this.ensureConnected(),
+      resumeThread: (threadId) => this.resumeThread(threadId),
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
       },
     });
     this.runtimeSettings = new ChatRuntimeSettingsController({
@@ -1101,7 +1133,7 @@ export class CodexChatView extends ItemView {
       toggleRuntime: () => {
         this.toolbarPanels.toggleRuntime("model");
       },
-      connect: () => void this.reconnectFromToolbar(),
+      connect: () => void this.reconnectActions.reconnectFromToolbar(),
       refreshStatus: () => void this.refreshStatusPanel(),
       resumeThread: (threadId) => {
         if (this.turnBusy && threadId !== this.state.activeThreadId) return;
@@ -1144,27 +1176,6 @@ export class CodexChatView extends ItemView {
       }),
       renameState: (threadId) => this.threadRename.editState(threadId),
     });
-  }
-
-  private async reconnectFromToolbar(): Promise<void> {
-    const threadId = this.state.activeThreadId;
-    this.dispatch({ type: "ui/panel-set", panel: null });
-    this.invalidateConnectionWork();
-    this.invalidateResumeWork();
-    this.clearDeferredDiagnostics();
-    this.connection.reconnect();
-    this.client = null;
-    this.dispatch({ type: "turn/local-cleared" });
-    this.setStatus("Reconnecting...");
-    this.render();
-
-    await this.ensureConnected();
-    if (!threadId) return;
-    try {
-      await this.resumeThread(threadId);
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
   }
 
   private async selectThread(threadId: string): Promise<void> {
