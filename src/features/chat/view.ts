@@ -2,7 +2,6 @@ import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsi
 
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
-import { parseServiceTier } from "../../app-server/service-tier";
 import type { ApprovalAction, PendingApproval } from "./approvals/model";
 import type { SlashCommandName } from "./composer/slash-commands";
 import { parseSlashCommand } from "./composer/suggestions";
@@ -12,7 +11,6 @@ import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { ThreadResumeResponse } from "../../generated/app-server/v2/ThreadResumeResponse";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/collaboration-mode";
 import { ChatController } from "./chat-controller";
@@ -40,7 +38,7 @@ import {
   type ChatAction,
   type ChatState,
 } from "./chat-state";
-import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle, upsertThread } from "../../domain/threads/model";
+import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../../domain/threads/model";
 import {
   referencedThreadDisplay,
   referencedThreadPrompt,
@@ -92,6 +90,7 @@ import {
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./turn-submission";
+import { resumedThreadAction, type ResumedThreadActionParams } from "./thread-resume";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -671,20 +670,10 @@ export class CodexChatView extends ItemView {
     }
   }
 
-  private applyResumedThread(response: ThreadResumeResponse): void {
-    this.dispatch({
-      type: "thread/resumed",
-      thread: response.thread,
-      cwd: response.cwd,
-      model: response.model,
-      reasoningEffort: response.reasoningEffort,
-      serviceTier: parseServiceTier(response.serviceTier),
-      approvalPolicy: response.approvalPolicy,
-      approvalsReviewer: response.approvalsReviewer,
-      activePermissionProfile: response.activePermissionProfile,
-      displayItems: [this.systemItem("Loading thread...")],
-      listedThreads: upsertThread(this.state.listedThreads, response.thread),
-    });
+  private applyResumedThread(response: ResumedThreadActionParams["response"]): void {
+    this.dispatch(
+      resumedThreadAction({ response, listedThreads: this.state.listedThreads, displayItems: [this.systemItem("Loading thread...")] }),
+    );
     this.clearRestoredThreadLifecycle();
     this.clearDeferredRestoredThreadHydration();
     this.threadRename.resetThreadTurnPresence(false);
