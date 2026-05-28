@@ -2,7 +2,6 @@ import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsi
 
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
-import { parseSlashCommand } from "./composer/suggestions";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import { createSystemItem } from "./display/system";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
@@ -65,6 +64,7 @@ import { ChatReconnectController } from "./reconnect-controller";
 import { ChatMessageScrollController } from "./message-scroll-controller";
 import { TurnSubmissionController } from "./turn-submission-controller";
 import { SlashCommandController } from "./slash-command-controller";
+import { ComposerSubmissionController } from "./composer-submission-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -104,6 +104,7 @@ export class CodexChatView extends ItemView {
   private readonly messageScroll: ChatMessageScrollController;
   private readonly turnSubmission: TurnSubmissionController;
   private readonly slashCommands: SlashCommandController;
+  private readonly composerSubmission: ComposerSubmissionController;
   private shellRenderVersion = 0;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
@@ -217,8 +218,22 @@ export class CodexChatView extends ItemView {
       onComposerResize: () => {
         if (this.state.messagesPinnedToBottom) this.messageScroll.forceBottom();
       },
-      onSubmit: () => void this.submitComposerAction(),
+      onSubmit: () => void this.composerSubmission.submit(),
       onNewThread: () => void this.startNewThread(),
+    });
+    this.composerSubmission = new ComposerSubmissionController({
+      stateStore: this.chatState,
+      composer: this.composerController,
+      slashCommands: this.slashCommands,
+      turnSubmission: this.turnSubmission,
+      currentClient: () => this.client,
+      ensureConnected: () => this.ensureConnected(),
+      setStatus: (status) => {
+        this.setStatus(status);
+      },
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
+      },
     });
     this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath, {
       onNotification: (notification) => {
@@ -785,26 +800,6 @@ export class CodexChatView extends ItemView {
     void this.app.workspace.requestSaveLayout();
   }
 
-  private async sendMessage(): Promise<void> {
-    const text = this.composerController.trimmedDraft;
-    if (!text) return;
-
-    await this.ensureConnected();
-    if (!this.client) return;
-
-    const slashCommand = parseSlashCommand(text);
-    if (slashCommand) {
-      this.composerController.setDraft("", { clearSuggestions: true });
-      const result = await this.slashCommands.execute(slashCommand.command, slashCommand.args);
-      if (result?.sendText) {
-        await this.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
-      }
-      return;
-    }
-
-    await this.turnSubmission.sendTurnText(text);
-  }
-
   private async implementPlan(item: DisplayItem): Promise<void> {
     if (!this.canImplementPlanItem(item)) return;
     await this.ensureConnected();
@@ -815,23 +810,8 @@ export class CodexChatView extends ItemView {
     await this.turnSubmission.sendTurnText("Please implement this plan.");
   }
 
-  private async interruptTurn(): Promise<void> {
-    if (!this.client || !this.state.activeThreadId || !this.activeTurnId) return;
-    try {
-      await this.client.interruptTurn(this.state.activeThreadId, this.activeTurnId);
-      this.setStatus("Interrupt requested.");
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
-  }
-
   private async submitComposerAction(): Promise<void> {
-    const draft = this.composerController.trimmedDraft;
-    if (this.turnBusy && this.state.activeThreadId && this.activeTurnId && draft.length === 0) {
-      await this.interruptTurn();
-      return;
-    }
-    await this.sendMessage();
+    await this.composerSubmission.submit();
   }
 
   private canImplementPlanItem(item: DisplayItem): boolean {
