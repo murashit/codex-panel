@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,10 +9,27 @@ import {
   normalizeGeneratedTitle,
   titleFromNamingTurn,
 } from "../../../src/domain/threads/naming";
-import { namingRuntime, validatedNamingRuntime } from "../../../src/app-server/thread-naming";
+import {
+  generateThreadTitleWithCodex,
+  namingRuntime,
+  validatedNamingRuntime,
+  type ThreadNamingClient,
+  type ThreadNamingClientFactory,
+} from "../../../src/app-server/thread-naming";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../src/features/chat/thread-naming";
+import type { AppServerClientHandlers } from "../../../src/app-server/client";
+import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
+import type { JsonValue } from "../../../src/generated/app-server/serde_json/JsonValue";
+import type { RequestId } from "../../../src/generated/app-server/RequestId";
+import type { ReasoningEffort } from "../../../src/generated/app-server/ReasoningEffort";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
+import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
+import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
+import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
+import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
+import type { TurnStartResponse } from "../../../src/generated/app-server/v2/TurnStartResponse";
 
 describe("thread naming", () => {
   it("extracts the first user request and final assistant response from a completed turn", () => {
@@ -182,7 +201,132 @@ describe("thread naming", () => {
       ]),
     ).toEqual({ model: "gpt-5.4-mini", effort: "low" });
   });
+
+  it("keeps pre-acknowledgement completion when title notifications arrive before turn/start resolves", async () => {
+    const { clientFactory } = fakeThreadNamingClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => {
+        fake.emit(completedItemNotification("thread", "turn", assistantMessage("answer", '{"title":"Early title"}')));
+        fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
+        return { turn: turn([], { id: "turn", status: "inProgress" }) };
+      };
+    });
+
+    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", namingContext(), runtimeSettings(), clientFactory)).resolves.toBe(
+      "Early title",
+    );
+  });
 });
+
+function namingContext() {
+  return {
+    userRequest: "Please name this.",
+    assistantResponse: "Done.",
+  };
+}
+
+function runtimeSettings() {
+  return {
+    threadNamingModel: null,
+    threadNamingEffort: null,
+  };
+}
+
+function fakeThreadNamingClientFactory(configure?: (client: FakeThreadNamingClient) => void): {
+  clientFactory: ThreadNamingClientFactory;
+  client: { current: FakeThreadNamingClient | null };
+} {
+  const client: { current: FakeThreadNamingClient | null } = { current: null };
+  return {
+    client,
+    clientFactory: (_codexPath, _cwd, handlers) => {
+      client.current = new FakeThreadNamingClient(handlers);
+      configure?.(client.current);
+      return client.current;
+    },
+  };
+}
+
+class FakeThreadNamingClient implements ThreadNamingClient {
+  startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
+
+  constructor(private readonly handlers: AppServerClientHandlers) {}
+
+  async connect(): Promise<InitializeResponse> {
+    return { codexHome: "/tmp/codex" } as InitializeResponse;
+  }
+
+  disconnect(): void {
+    return undefined;
+  }
+
+  async listModels(): Promise<ModelListResponse> {
+    return { data: [], nextCursor: null };
+  }
+
+  rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {
+    return undefined;
+  }
+
+  async startEphemeralThread(): Promise<ThreadStartResponse> {
+    return threadStartResponse("thread");
+  }
+
+  async startStructuredTurn(
+    _threadId: string,
+    _cwd: string,
+    _text: string,
+    _outputSchema: JsonValue,
+    _model?: string,
+    _effort?: ReasoningEffort,
+  ): Promise<TurnStartResponse> {
+    return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
+  }
+
+  emit(notification: ServerNotification): void {
+    this.handlers.onNotification(notification);
+  }
+}
+
+function threadStartResponse(threadId: string): ThreadStartResponse {
+  return {
+    thread: threadFixture(threadId),
+    model: "gpt-5.1",
+    modelProvider: "openai",
+    serviceTier: null,
+    cwd: "/vault",
+    runtimeWorkspaceRoots: [],
+    instructionSources: [],
+    approvalPolicy: "never",
+    approvalsReviewer: "auto_review",
+    sandbox: { type: "readOnly", networkAccess: false },
+    activePermissionProfile: null,
+    reasoningEffort: null,
+  };
+}
+
+function threadFixture(id: string): Thread {
+  return {
+    id,
+    sessionId: "session",
+    forkedFromId: null,
+    preview: "",
+    ephemeral: true,
+    modelProvider: "openai",
+    createdAt: 1,
+    updatedAt: 1,
+    status: { type: "idle" },
+    path: null,
+    cwd: "/vault",
+    cliVersion: "0.0.0",
+    source: "appServer",
+    threadSource: null,
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: null,
+    turns: [],
+  };
+}
 
 function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
   return {
@@ -195,6 +339,24 @@ function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
     completedAt: 2,
     durationMs: 1,
     ...overrides,
+  };
+}
+
+function assistantMessage(id: string, text: string): ThreadItem {
+  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
+}
+
+function completedItemNotification(threadId: string, turnId: string, item: ThreadItem): ServerNotification {
+  return {
+    method: "item/completed",
+    params: { threadId, turnId, item, completedAtMs: 1 },
+  };
+}
+
+function turnCompletedNotification(threadId: string, completedTurn: Turn): ServerNotification {
+  return {
+    method: "turn/completed",
+    params: { threadId, turn: completedTurn },
   };
 }
 

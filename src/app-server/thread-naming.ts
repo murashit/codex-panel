@@ -1,10 +1,15 @@
-import { AppServerClient } from "./client";
+import { AppServerClient, type AppServerClientHandlers } from "./client";
+import type { InitializeResponse } from "../generated/app-server/InitializeResponse";
+import type { RequestId } from "../generated/app-server/RequestId";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
 import type { Model } from "../generated/app-server/v2/Model";
+import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
+import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../generated/app-server/v2/Turn";
+import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
 import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
 import { runtimeOverride, validatedRuntimeOverride } from "../runtime/model";
 
@@ -37,15 +42,38 @@ export interface ThreadNamingRuntimeSettings {
   threadNamingEffort: ReasoningEffort | null;
 }
 
+export interface ThreadNamingClient {
+  connect(): Promise<InitializeResponse>;
+  disconnect(): void;
+  listModels(includeHidden?: boolean): Promise<ModelListResponse>;
+  rejectServerRequest(requestId: RequestId, code: number, message: string): void;
+  startEphemeralThread(cwd: string, serviceName: string, developerInstructions: string): Promise<ThreadStartResponse>;
+  startStructuredTurn(
+    threadId: string,
+    cwd: string,
+    text: string,
+    outputSchema: JsonValue,
+    model?: string,
+    effort?: ReasoningEffort,
+  ): Promise<TurnStartResponse>;
+}
+
+export type ThreadNamingClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => ThreadNamingClient;
+
+type ThreadNamingRunLifecycleState =
+  | { kind: "starting" }
+  | { kind: "thread-started"; threadId: string }
+  | { kind: "turn-started"; threadId: string; turnId: string }
+  | { kind: "completed" };
+
 export async function generateThreadTitleWithCodex(
   codexPath: string,
   cwd: string,
   context: ThreadNamingContext,
   runtimeSettings: ThreadNamingRuntimeSettings,
+  clientFactory: ThreadNamingClientFactory = (codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers),
 ): Promise<string | null> {
-  let namingThreadId: string | null = null;
-  let expectedTurnId: string | null = null;
-  let completed = false;
+  let lifecycle: ThreadNamingRunLifecycleState = { kind: "starting" };
   let timeout: number | undefined;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNamingNotification: (notification: ServerNotification) => void = () => undefined;
@@ -54,23 +82,21 @@ export async function generateThreadTitleWithCodex(
   const completedTurn = new Promise<Turn>((resolve, reject) => {
     rejectCompletedTurn = reject;
     timeout = window.setTimeout(() => {
-      if (completed) return;
-      completed = true;
+      if (lifecycle.kind === "completed") return;
+      lifecycle = { kind: "completed" };
       reject(new Error("Timed out while generating a Codex thread title."));
     }, NAMING_TIMEOUT_MS);
 
     const resolveIfNamingTurn = (notification: ServerNotification): void => {
-      if (completed) return;
+      if (lifecycle.kind === "completed") return;
       if (notification.method === "item/completed") {
-        if (!namingThreadId || notification.params.threadId !== namingThreadId) return;
-        if (expectedTurnId && notification.params.turnId !== expectedTurnId) return;
+        if (!notificationMatchesThreadNamingTurn(lifecycle, notification.params.threadId, notification.params.turnId)) return;
         completedItems.push(notification.params.item);
         return;
       }
       if (notification.method === "turn/completed") {
-        if (!namingThreadId || notification.params.threadId !== namingThreadId) return;
-        if (expectedTurnId && notification.params.turn.id !== expectedTurnId) return;
-        completed = true;
+        if (!notificationMatchesThreadNamingTurn(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
+        lifecycle = { kind: "completed" };
         resolve(turnWithCollectedItems(notification.params.turn, completedItems));
       }
     };
@@ -78,8 +104,8 @@ export async function generateThreadTitleWithCodex(
     handleNamingNotification = resolveIfNamingTurn;
   });
 
-  let client!: AppServerClient;
-  client = new AppServerClient(codexPath, cwd, {
+  let client!: ThreadNamingClient;
+  client = clientFactory(codexPath, cwd, {
     onNotification: (notification) => {
       handleNamingNotification(notification);
     },
@@ -88,8 +114,8 @@ export async function generateThreadTitleWithCodex(
     },
     onLog: () => undefined,
     onExit: () => {
-      if (completed) return;
-      completed = true;
+      if (lifecycle.kind === "completed") return;
+      lifecycle = { kind: "completed" };
       rejectCompletedTurn?.(new Error("Codex title generation app-server exited."));
     },
   });
@@ -98,20 +124,20 @@ export async function generateThreadTitleWithCodex(
     await client.connect();
     const runtime = await namingRuntimeForClient(client, runtimeSettings);
     const threadResponse = await client.startEphemeralThread(cwd, NAMING_SERVICE_NAME, TITLE_DEVELOPER_INSTRUCTIONS);
-    namingThreadId = threadResponse.thread.id;
+    lifecycle = { kind: "thread-started", threadId: threadResponse.thread.id };
     const turnResponse = await client.startStructuredTurn(
-      namingThreadId,
+      threadResponse.thread.id,
       cwd,
       namingPrompt(context),
       TITLE_OUTPUT_SCHEMA,
       runtime.model,
       runtime.effort,
     );
-    expectedTurnId = turnResponse.turn.id;
+    lifecycle = acknowledgeThreadNamingTurn(lifecycle, threadResponse.thread.id, turnResponse.turn.id);
     const turn = turnResponse.turn.status === "completed" ? turnWithCollectedItems(turnResponse.turn, completedItems) : await completedTurn;
     return titleFromNamingTurn(turn);
   } finally {
-    completed = true;
+    lifecycle = { kind: "completed" };
     if (timeout !== undefined) window.clearTimeout(timeout);
     client.disconnect();
   }
@@ -135,7 +161,21 @@ function turnWithCollectedItems(turn: Turn, items: ThreadItem[]): Turn {
   return { ...turn, items: [...items], itemsView: "full" };
 }
 
-async function namingRuntimeForClient(client: AppServerClient, settings: ThreadNamingRuntimeSettings): Promise<NamingRuntime> {
+function notificationMatchesThreadNamingTurn(lifecycle: ThreadNamingRunLifecycleState, threadId: string, turnId: string): boolean {
+  if (lifecycle.kind === "thread-started") return lifecycle.threadId === threadId;
+  if (lifecycle.kind === "turn-started") return lifecycle.threadId === threadId && lifecycle.turnId === turnId;
+  return false;
+}
+
+function acknowledgeThreadNamingTurn(
+  lifecycle: ThreadNamingRunLifecycleState,
+  threadId: string,
+  turnId: string,
+): ThreadNamingRunLifecycleState {
+  return lifecycle.kind === "completed" ? lifecycle : { kind: "turn-started", threadId, turnId };
+}
+
+async function namingRuntimeForClient(client: ThreadNamingClient, settings: ThreadNamingRuntimeSettings): Promise<NamingRuntime> {
   const runtime = namingRuntime(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
