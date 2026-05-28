@@ -189,6 +189,7 @@ describe("chatReducer", () => {
     let state = createChatState();
     state = chatReducer(state, { type: "runtime/requested-model-set", model: "gpt-5.1" });
     state = chatReducer(state, { type: "runtime/requested-effort-set", effort: "high" });
+    state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: "fast" });
     state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: "auto_review" });
 
     const next = chatReducer(state, {
@@ -196,6 +197,7 @@ describe("chatReducer", () => {
       update: {
         model: "gpt-5.1",
         effort: "high",
+        serviceTier: "fast",
         approvalsReviewer: "auto_review",
         collaborationMode: { mode: "plan", settings: { model: "gpt-5.1", reasoning_effort: "high", developer_instructions: null } },
       },
@@ -205,9 +207,25 @@ describe("chatReducer", () => {
     expect(next.requestedModel).toEqual({ kind: "default" });
     expect(next.activeReasoningEffort).toBe("high");
     expect(next.requestedReasoningEffort).toEqual({ kind: "default" });
+    expect(next.activeServiceTier).toBe("fast");
+    expect(next.requestedServiceTier).toBeNull();
     expect(next.activeApprovalsReviewer).toBe("auto_review");
     expect(next.requestedApprovalsReviewer).toBeNull();
     expect(next.activeCollaborationMode).toBe("plan");
+  });
+
+  it("keeps requested policy toggles pending until app-server settings commit", () => {
+    let state = createChatState();
+    state.activeServiceTier = "flex";
+    state.activeApprovalsReviewer = "user";
+
+    state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: "auto_review" });
+
+    expect(state.requestedServiceTier).toBe("fast");
+    expect(state.activeServiceTier).toBe("flex");
+    expect(state.requestedApprovalsReviewer).toBe("auto_review");
+    expect(state.activeApprovalsReviewer).toBe("user");
   });
 
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {

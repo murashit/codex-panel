@@ -278,6 +278,7 @@ export class ChatController {
       });
       this.actions.notifyThreadRenamed(params.threadId, name);
     } else if (method === "thread/settings/updated") {
+      if (this.state.activeThreadId !== params.threadId) return;
       this.applyThreadSettings(params.threadSettings);
     } else if (method === "thread/goal/updated") {
       this.addSystemMessage(`Thread goal updated: status ${params.goal.status}. Codex Panel does not support goals.`);
@@ -457,7 +458,9 @@ export class ChatController {
       reasoningEffort: settings.effort,
       collaborationMode: settings.collaborationMode.mode,
       serviceTier: reportedServiceTier(settings.serviceTier),
+      approvalPolicy: settings.approvalPolicy,
       approvalsReviewer: settings.approvalsReviewer,
+      activePermissionProfile: settings.activePermissionProfile,
     });
   }
 

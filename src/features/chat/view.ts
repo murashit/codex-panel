@@ -642,7 +642,9 @@ export class CodexChatView extends ItemView {
       model: response.model,
       reasoningEffort: response.reasoningEffort,
       serviceTier: reportedServiceTier(response.serviceTier),
+      approvalPolicy: response.approvalPolicy,
       approvalsReviewer: response.approvalsReviewer,
+      activePermissionProfile: response.activePermissionProfile,
       displayItems: [this.systemItem("Loading thread...")],
       listedThreads: upsertThread(this.state.listedThreads, response.thread),
     });
@@ -964,7 +966,7 @@ export class CodexChatView extends ItemView {
   private async toggleFastMode(): Promise<void> {
     const current = currentServiceTier(this.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig));
     const next: RequestedServiceTier = current === "fast" ? "off" : "fast";
-    this.dispatch({ type: "runtime/requested-service-tier-set", serviceTier: next, activate: true });
+    this.dispatch({ type: "runtime/requested-service-tier-set", serviceTier: next });
     this.dispatch({ type: "ui/panel-set", panel: null });
     if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(next === "fast" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.");
@@ -982,7 +984,7 @@ export class CodexChatView extends ItemView {
     const next: ApprovalsReviewer = autoReviewActive(this.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig))
       ? "user"
       : "auto_review";
-    this.dispatch({ type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: next, activate: true });
+    this.dispatch({ type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: next });
     this.dispatch({ type: "ui/panel-set", panel: null });
     if (!(await this.applyPendingThreadSettings())) return;
     this.addSystemMessage(next === "auto_review" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.");
@@ -1001,25 +1003,25 @@ export class CodexChatView extends ItemView {
   }
 
   private async setRequestedModelFromUi(model: string | null): Promise<void> {
-    await this.setRequestedModel(model);
+    if (!(await this.setRequestedModel(model))) return;
     this.dispatch({ type: "ui/panel-set", panel: null });
     this.addSystemMessage(modelOverrideMessage(model));
   }
 
-  private async setRequestedModel(model: string | null): Promise<void> {
+  private async setRequestedModel(model: string | null): Promise<boolean> {
     this.dispatch({ type: "runtime/requested-model-set", model });
-    await this.applyPendingThreadSettings();
+    return this.applyPendingThreadSettings();
   }
 
   private async setRequestedReasoningEffortFromUi(effort: ReasoningEffort | null): Promise<void> {
-    await this.setRequestedReasoningEffort(effort);
+    if (!(await this.setRequestedReasoningEffort(effort))) return;
     this.dispatch({ type: "ui/panel-set", panel: null });
     this.addSystemMessage(reasoningEffortOverrideMessage(effort));
   }
 
-  private async setRequestedReasoningEffort(effort: ReasoningEffort | null): Promise<void> {
+  private async setRequestedReasoningEffort(effort: ReasoningEffort | null): Promise<boolean> {
     this.dispatch({ type: "runtime/requested-effort-set", effort });
-    await this.applyPendingThreadSettings();
+    return this.applyPendingThreadSettings();
   }
 
   private async resolveApproval(approval: PendingApproval, action: ApprovalAction): Promise<void> {
@@ -1209,7 +1211,9 @@ export class CodexChatView extends ItemView {
       state.activeReasoningEffort,
       state.activeCollaborationMode,
       state.activeServiceTier,
+      state.activeApprovalPolicy,
       state.activeApprovalsReviewer,
+      state.activePermissionProfile,
       state.requestedCollaborationMode,
       state.requestedServiceTier,
       state.requestedApprovalsReviewer,
@@ -1617,7 +1621,9 @@ export class CodexChatView extends ItemView {
       activeReasoningEffort: state.activeReasoningEffort,
       activeCollaborationMode: state.activeCollaborationMode,
       activeServiceTier: state.activeServiceTier,
+      activeApprovalPolicy: state.activeApprovalPolicy,
       activeApprovalsReviewer: state.activeApprovalsReviewer,
+      activePermissionProfile: state.activePermissionProfile,
       requestedModel: state.requestedModel,
       requestedReasoningEffort: state.requestedReasoningEffort,
       requestedApprovalsReviewer: state.requestedApprovalsReviewer,

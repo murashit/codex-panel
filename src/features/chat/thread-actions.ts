@@ -122,7 +122,9 @@ export class ChatThreadActionController {
         model: this.state.activeModel,
         reasoningEffort: this.state.activeReasoningEffort,
         serviceTier: this.state.activeServiceTier,
+        approvalPolicy: this.state.activeApprovalPolicy,
         approvalsReviewer: this.state.activeApprovalsReviewer,
+        activePermissionProfile: this.state.activePermissionProfile,
         listedThreads: upsertThread(this.state.listedThreads, response.thread),
       });
       await this.host.history.loadLatest(response.thread.id);

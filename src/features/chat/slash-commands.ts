@@ -29,8 +29,8 @@ export interface SlashCommandExecutionContext {
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   setStatus: (status: string) => void;
-  setRequestedModel: (model: string | null) => void | Promise<void>;
-  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void | Promise<void>;
+  setRequestedModel: (model: string | null) => boolean | undefined | Promise<boolean | undefined>;
+  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => boolean | undefined | Promise<boolean | undefined>;
   statusSummaryLines: () => string[];
   connectionDiagnosticDetails: () => DisplayDetailSection[];
   mcpStatusLines: () => Promise<string[]>;
@@ -183,7 +183,8 @@ export async function executeSlashCommand(
   if (command === "model") {
     const requested = parseModelOverride(args);
     if (requested !== undefined) {
-      await context.setRequestedModel(requested);
+      const applied = await context.setRequestedModel(requested);
+      if (applied === false) return;
       context.addSystemMessage(modelOverrideMessage(requested));
       return;
     }
@@ -194,7 +195,8 @@ export async function executeSlashCommand(
   if (command === "effort") {
     const requested = parseReasoningEffortOverride(args);
     if (requested !== undefined) {
-      await context.setRequestedReasoningEffort(requested);
+      const applied = await context.setRequestedReasoningEffort(requested);
+      if (applied === false) return;
       context.addSystemMessage(reasoningEffortOverrideMessage(requested));
       return;
     }

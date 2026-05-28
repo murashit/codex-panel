@@ -106,7 +106,9 @@ export class ChatAppServerController {
       model: response.model,
       reasoningEffort: response.reasoningEffort,
       serviceTier: reportedServiceTier(response.serviceTier),
+      approvalPolicy: response.approvalPolicy,
       approvalsReviewer: response.approvalsReviewer,
+      activePermissionProfile: response.activePermissionProfile,
       forceMessagesToBottom: true,
     });
     this.host.forceMessagesToBottom();

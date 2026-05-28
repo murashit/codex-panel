@@ -1,7 +1,9 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { ModeKind } from "../../generated/app-server/ModeKind";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
+import type { ActivePermissionProfile } from "../../generated/app-server/v2/ActivePermissionProfile";
 import type { ApprovalsReviewer } from "../../generated/app-server/v2/ApprovalsReviewer";
+import type { AskForApproval } from "../../generated/app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
@@ -40,7 +42,9 @@ export interface ChatState {
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
   activeServiceTier: ServiceTier | null;
+  activeApprovalPolicy: AskForApproval | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
+  activePermissionProfile: ActivePermissionProfile | null;
   activeThreadCreationCliVersion: string | null;
   appServerDiagnostics: AppServerDiagnostics;
   requestedModel: RuntimeOverride<string>;
@@ -90,7 +94,9 @@ export type ChatAction =
       model: string | null;
       reasoningEffort: ReasoningEffort | null;
       serviceTier: ServiceTier | null;
+      approvalPolicy: AskForApproval | null;
       approvalsReviewer: ApprovalsReviewer | null;
+      activePermissionProfile: ActivePermissionProfile | null;
       displayItems?: readonly DisplayItem[];
       status?: string;
       listedThreads?: readonly Thread[];
@@ -147,8 +153,8 @@ export type ChatAction =
   | { type: "request/user-input-draft-set"; key: string; value: string }
   | { type: "runtime/requested-model-set"; model: string | null }
   | { type: "runtime/requested-effort-set"; effort: ReasoningEffort | null }
-  | { type: "runtime/requested-service-tier-set"; serviceTier: RequestedServiceTier | null; activate?: boolean }
-  | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null; activate?: boolean }
+  | { type: "runtime/requested-service-tier-set"; serviceTier: RequestedServiceTier | null }
+  | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null }
   | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: ModeKind }
   | { type: "runtime/pending-thread-settings-committed"; update: Omit<ThreadSettingsUpdateParams, "threadId"> }
   | { type: "connection/initialized"; initializeResponse: InitializeResponse }
@@ -161,7 +167,9 @@ export type ChatAction =
       reasoningEffort: ReasoningEffort | null;
       collaborationMode: ModeKind;
       serviceTier: ServiceTier | null;
+      approvalPolicy: AskForApproval | null;
       approvalsReviewer: ApprovalsReviewer | null;
+      activePermissionProfile: ActivePermissionProfile | null;
     }
   | { type: "thread/restored-placeholder"; threadId: string; item: DisplayItem }
   | { type: "history/loading-set"; loading: boolean }
@@ -183,7 +191,9 @@ export function createChatState(): ChatState {
     activeReasoningEffort: null,
     activeCollaborationMode: "default",
     activeServiceTier: null,
+    activeApprovalPolicy: null,
     activeApprovalsReviewer: null,
+    activePermissionProfile: null,
     activeThreadCreationCliVersion: null,
     appServerDiagnostics: createAppServerDiagnostics(),
     requestedModel: defaultRuntimeOverride(),
@@ -260,7 +270,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         activeModel: action.model,
         activeReasoningEffort: action.reasoningEffort,
         activeServiceTier: action.serviceTier,
+        activeApprovalPolicy: action.approvalPolicy,
         activeApprovalsReviewer: action.approvalsReviewer,
+        activePermissionProfile: action.activePermissionProfile,
         activeThreadCreationCliVersion: action.thread.cliVersion,
         tokenUsage: null,
         historyCursor: null,
@@ -343,12 +355,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "runtime/requested-service-tier-set":
       return patchChatState(state, {
         requestedServiceTier: action.serviceTier,
-        ...(action.activate ? { activeServiceTier: action.serviceTier === "off" ? null : action.serviceTier } : {}),
       });
     case "runtime/requested-approvals-reviewer-set":
       return patchChatState(state, {
         requestedApprovalsReviewer: action.approvalsReviewer,
-        ...(action.activate ? { activeApprovalsReviewer: action.approvalsReviewer } : {}),
       });
     case "runtime/requested-collaboration-mode-set":
       return patchChatState(state, { requestedCollaborationMode: action.collaborationMode });
@@ -368,7 +378,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         activeCollaborationMode: action.collaborationMode,
         requestedCollaborationMode: action.collaborationMode,
         activeServiceTier: action.serviceTier,
+        activeApprovalPolicy: action.approvalPolicy,
         activeApprovalsReviewer: action.approvalsReviewer,
+        activePermissionProfile: action.activePermissionProfile,
       });
     case "thread/restored-placeholder":
       return clearActiveTurnState(
@@ -379,7 +391,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           activeReasoningEffort: null,
           activeCollaborationMode: "default",
           activeServiceTier: null,
+          activeApprovalPolicy: null,
           activeApprovalsReviewer: null,
+          activePermissionProfile: null,
           activeThreadCreationCliVersion: null,
           tokenUsage: null,
           historyCursor: null,
@@ -436,7 +450,9 @@ export function clearActiveThreadState(state: ChatState): ChatState {
       activeReasoningEffort: null,
       activeCollaborationMode: "default",
       activeServiceTier: null,
+      activeApprovalPolicy: null,
       activeApprovalsReviewer: null,
+      activePermissionProfile: null,
       activeThreadCreationCliVersion: null,
       tokenUsage: null,
       historyCursor: null,
@@ -454,7 +470,9 @@ export function clearConnectionScopedState(state: ChatState): ChatState {
     activeReasoningEffort: null,
     activeCollaborationMode: "default",
     activeServiceTier: null,
+    activeApprovalPolicy: null,
     activeApprovalsReviewer: null,
+    activePermissionProfile: null,
     activeThreadCreationCliVersion: null,
     rateLimit: null,
     listedThreads: [],

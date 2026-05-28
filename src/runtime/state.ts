@@ -1,7 +1,9 @@
 import type { CollaborationMode } from "../generated/app-server/CollaborationMode";
 import type { ModeKind } from "../generated/app-server/ModeKind";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { ActivePermissionProfile } from "../generated/app-server/v2/ActivePermissionProfile";
 import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
+import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
@@ -27,7 +29,9 @@ export interface RuntimeSnapshot {
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
   activeServiceTier: ServiceTier | null;
+  activeApprovalPolicy: AskForApproval | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
+  activePermissionProfile: ActivePermissionProfile | null;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
   requestedApprovalsReviewer: ApprovalsReviewer | null;
@@ -86,6 +90,13 @@ export function currentApprovalsReviewer(
 ): ApprovalsReviewer | null {
   if (snapshot.requestedApprovalsReviewer !== null) return snapshot.requestedApprovalsReviewer;
   return snapshot.activeApprovalsReviewer ?? config.approvalsReviewer;
+}
+
+export function currentApprovalPolicy(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+): AskForApproval | null {
+  return snapshot.activeApprovalPolicy ?? config.approvalPolicy;
 }
 
 export function autoReviewActive(

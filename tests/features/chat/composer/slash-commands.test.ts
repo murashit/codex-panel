@@ -403,6 +403,20 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported effort: extreme. Usage: /effort [effort|default]");
   });
 
+  it("does not announce model or effort changes when applying them fails", async () => {
+    const ctx = context({
+      setRequestedModel: vi.fn().mockResolvedValue(false),
+      setRequestedReasoningEffort: vi.fn().mockResolvedValue(false),
+    });
+
+    await executeSlashCommand("model", "gpt-5.5", ctx);
+    await executeSlashCommand("effort", "high", ctx);
+
+    expect(ctx.setRequestedModel).toHaveBeenCalledWith("gpt-5.5");
+    expect(ctx.setRequestedReasoningEffort).toHaveBeenCalledWith("high");
+    expect(ctx.addSystemMessage).not.toHaveBeenCalled();
+  });
+
   it("shows MCP server status", async () => {
     const ctx = context();
 

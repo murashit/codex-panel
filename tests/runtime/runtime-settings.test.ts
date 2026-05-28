@@ -308,7 +308,10 @@ describe("runtime settings", () => {
       "fast mode": "Codex default",
     });
     expect(policyRows).toMatchObject({
-      approval: "(Codex default)",
+      "effective approval": "(Codex default)",
+      "configured approval": "(Codex default)",
+      "thread approval": "(not reported)",
+      "active permissions": "(not reported)",
       "configured reviewer": "(Codex default)",
       sandbox: "(Codex default)",
       "web search": "(Codex default)",
@@ -362,7 +365,10 @@ describe("runtime settings", () => {
       "requested service tier": "(none)",
       "fast mode": "on",
     });
-    expect(policyRows["approval"]).toBe("never");
+    expect(policyRows["effective approval"]).toBe("never");
+    expect(policyRows["configured approval"]).toBe("never");
+    expect(policyRows["thread approval"]).toBe("(not reported)");
+    expect(policyRows["active permissions"]).toBe("(not reported)");
     expect(policyRows["effective reviewer"]).toBe("auto_review");
     expect(policyRows["auto-review"]).toBe("on");
     expect(policyRows["configured reviewer"]).toBe("auto_review");
@@ -375,6 +381,8 @@ describe("runtime settings", () => {
     const sections = effectiveConfigSections(
       runtimeSnapshot({
         activeApprovalsReviewer: "guardian_subagent",
+        activeApprovalPolicy: "never",
+        activePermissionProfile: { id: ":workspace", extends: ":default" },
         effectiveConfig: effectiveConfigFixture({ approvals_reviewer: "auto_review" }),
       }),
       "/vault",
@@ -384,6 +392,9 @@ describe("runtime settings", () => {
     );
 
     expect(policyRows).toMatchObject({
+      "effective approval": "never",
+      "thread approval": "never",
+      "active permissions": ":workspace extends :default",
       "effective reviewer": "guardian_subagent",
       "auto-review": "on",
       "configured reviewer": "auto_review",
@@ -548,7 +559,9 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     activeReasoningEffort: null,
     activeCollaborationMode: "default",
     activeServiceTier: null,
+    activeApprovalPolicy: null,
     activeApprovalsReviewer: null,
+    activePermissionProfile: null,
     requestedModel: { kind: "default" },
     requestedReasoningEffort: { kind: "default" },
     requestedApprovalsReviewer: null,

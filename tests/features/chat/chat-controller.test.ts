@@ -1120,8 +1120,53 @@ describe("ChatController", () => {
       expect(state.activeThreadCwd).toBe("/workspace/active");
       expect(state.activeModel).toBe("gpt-5.5");
       expect(state.activeServiceTier).toBe("fast");
+      expect(state.activeApprovalPolicy).toBe("on-request");
       expect(state.activeApprovalsReviewer).toBe("auto_review");
+      expect(state.activePermissionProfile).toBeNull();
       expect(state.displayItems).toEqual([]);
+    });
+
+    it("ignores settings notifications for inactive threads", () => {
+      const state = createChatState();
+      state.activeThreadId = "thread-active";
+      state.activeThreadCwd = "/workspace/active";
+      state.activeModel = "gpt-active";
+      state.activeServiceTier = "flex";
+      state.activeApprovalPolicy = "on-request";
+      state.activeApprovalsReviewer = "user";
+      state.activePermissionProfile = { id: ":workspace", extends: null };
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "thread/settings/updated",
+        params: {
+          threadId: "thread-other",
+          threadSettings: {
+            cwd: "/workspace/other",
+            approvalPolicy: "never",
+            approvalsReviewer: "auto_review",
+            sandboxPolicy: { type: "readOnly", networkAccess: false },
+            activePermissionProfile: { id: ":read-only", extends: null },
+            model: "gpt-other",
+            modelProvider: "openai",
+            serviceTier: "fast",
+            effort: "high",
+            summary: null,
+            collaborationMode: {
+              mode: "plan",
+              settings: { model: "gpt-other", reasoning_effort: "high", developer_instructions: null },
+            },
+            personality: null,
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
+
+      expect(state.activeThreadCwd).toBe("/workspace/active");
+      expect(state.activeModel).toBe("gpt-active");
+      expect(state.activeServiceTier).toBe("flex");
+      expect(state.activeApprovalPolicy).toBe("on-request");
+      expect(state.activeApprovalsReviewer).toBe("user");
+      expect(state.activePermissionProfile).toEqual({ id: ":workspace", extends: null });
     });
 
     it("syncs null service tier from settings notifications", () => {

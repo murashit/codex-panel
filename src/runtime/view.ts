@@ -5,6 +5,7 @@ import { sortedAvailableModels } from "./model";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
   currentApprovalsReviewer,
+  currentApprovalPolicy,
   currentModel,
   currentReasoningEffort,
   autoReviewActive,
@@ -148,7 +149,10 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
     {
       title: "Policy",
       rows: [
-        { key: "approval", value: stringValue(config.approvalPolicy, CODEX_DEFAULT_LABEL) },
+        { key: "effective approval", value: stringValue(currentApprovalPolicy(snapshot, config), CODEX_DEFAULT_LABEL) },
+        { key: "configured approval", value: stringValue(config.approvalPolicy, CODEX_DEFAULT_LABEL) },
+        { key: "thread approval", value: stringValue(snapshot.activeApprovalPolicy, NOT_REPORTED_LABEL) },
+        { key: "active permissions", value: activePermissionProfileLabel(snapshot.activePermissionProfile) },
         { key: "effective reviewer", value: currentApprovalsReviewer(snapshot, config) ?? NOT_REPORTED_LABEL },
         { key: "auto-review", value: autoReviewActive(snapshot, config) ? "on" : "off" },
         { key: "configured reviewer", value: config.approvalsReviewer ?? CODEX_DEFAULT_LABEL },
@@ -193,6 +197,11 @@ function modeLabel(mode: RuntimeSnapshot["requestedCollaborationMode"]): string 
 
 function activeRuntimeValueLabel(value: string | null): string {
   return value ?? NOT_REPORTED_LABEL;
+}
+
+function activePermissionProfileLabel(profile: RuntimeSnapshot["activePermissionProfile"]): string {
+  if (!profile) return NOT_REPORTED_LABEL;
+  return profile.extends ? `${profile.id} extends ${profile.extends}` : profile.id;
 }
 
 function rateLimitWindowSummary(
