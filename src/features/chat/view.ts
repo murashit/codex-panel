@@ -59,6 +59,7 @@ import { ThreadResumeController } from "./thread-resume-controller";
 import { ChatViewRenderController } from "./view-render-controller";
 import { ChatViewOpenCloseController } from "./view-open-close-controller";
 import { PlanImplementationController } from "./plan-implementation-controller";
+import { ThreadSelectionController } from "./thread-selection-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -105,6 +106,7 @@ export class CodexChatView extends ItemView {
   private readonly slashCommands: SlashCommandController;
   private readonly composerSubmission: ComposerSubmissionController;
   private readonly planImplementation: PlanImplementationController;
+  private readonly threadSelection: ThreadSelectionController;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
@@ -493,6 +495,17 @@ export class CodexChatView extends ItemView {
       threadActions: this.threadActions,
       scheduleRender: (options) => {
         this.scheduleRender(options);
+      },
+    });
+    this.threadSelection = new ThreadSelectionController({
+      stateStore: this.chatState,
+      closeForThreadSelection: () => {
+        this.toolbarPanels.closeForThreadSelection();
+      },
+      focusThreadInOpenView: (threadId) => this.plugin.focusThreadInOpenView(threadId),
+      resumeThread: (threadId) => this.resumeThread(threadId),
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
       },
     });
     this.reconnectActions = new ChatReconnectController({
@@ -1020,13 +1033,7 @@ export class CodexChatView extends ItemView {
   }
 
   private async selectThread(threadId: string): Promise<void> {
-    if (this.turnBusy && threadId !== this.state.activeThreadId) {
-      this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
-      return;
-    }
-    this.toolbarPanels.closeForThreadSelection();
-    if (await this.plugin.focusThreadInOpenView(threadId)) return;
-    await this.resumeThread(threadId);
+    await this.threadSelection.selectThread(threadId);
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {
