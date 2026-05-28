@@ -79,6 +79,7 @@ import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { ChatThreadActionController } from "./thread-actions";
 import { unmountReactRoot } from "../../shared/ui/react-root";
+import { ChatViewDeferredTasks, type ChatViewRenderScheduleOptions } from "./view-lifecycle";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -122,13 +123,10 @@ export class CodexChatView extends ItemView {
   private readonly threadRename: ThreadRenameController;
   private readonly chatState = createChatStateStore();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
-  private scheduledRestoredThreadHydrationTimer: number | null = null;
-  private scheduledRenderTimer: number | null = null;
-  private scheduledRenderForceSlots = false;
   private shellRenderVersion = 0;
-  private scheduledDiagnosticsTimer: number | null = null;
   private archiveConfirmThreadId: string | null = null;
   private connectionLifecycle: ChatConnectionLifecycleState = { kind: "idle" };
   private resumeLifecycle: ChatResumeLifecycleState = { kind: "idle" };
@@ -137,13 +135,13 @@ export class CodexChatView extends ItemView {
   private closing = false;
   private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
   private lastPendingRequestFocusSignature = "";
-  private scheduledAppServerWarmupTimer: number | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
     private readonly plugin: CodexChatHost,
   ) {
     super(leaf);
+    this.deferredTasks = new ChatViewDeferredTasks(() => this.containerEl.win);
     this.messageRenderer = new ChatMessageRenderer({
       app: this.app,
       owner: this,
@@ -475,13 +473,7 @@ export class CodexChatView extends ItemView {
     this.closing = true;
     this.invalidateConnectionWork();
     this.invalidateResumeWork();
-    this.clearDeferredRestoredThreadHydration();
-    this.clearDeferredAppServerWarmup();
-    if (this.scheduledRenderTimer !== null) {
-      this.containerEl.win.clearTimeout(this.scheduledRenderTimer);
-      this.scheduledRenderTimer = null;
-    }
-    this.clearDeferredDiagnostics();
+    this.deferredTasks.clearAll();
     const panelRoot = this.panelRoot();
     unmountReactRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__toolbar") ?? null);
     this.messageRenderer.dispose();
@@ -1175,34 +1167,28 @@ export class CodexChatView extends ItemView {
 
   private scheduleDeferredRestoredThreadHydration(): void {
     const restoredThread = this.restoredThreadPlaceholder();
-    if (!this.opened || !restoredThread || this.scheduledRestoredThreadHydrationTimer !== null) return;
+    if (!this.opened || !restoredThread) return;
     const threadId = restoredThread.threadId;
-    this.scheduledRestoredThreadHydrationTimer = this.containerEl.win.setTimeout(() => {
-      this.scheduledRestoredThreadHydrationTimer = null;
+    this.deferredTasks.scheduleRestoredThreadHydration(() => {
       if (!this.isRestoredThreadPending(threadId)) return;
       void this.ensureRestoredThreadLoaded();
-    }, 1_500);
+    });
   }
 
   private clearDeferredRestoredThreadHydration(): void {
-    if (this.scheduledRestoredThreadHydrationTimer === null) return;
-    this.containerEl.win.clearTimeout(this.scheduledRestoredThreadHydrationTimer);
-    this.scheduledRestoredThreadHydrationTimer = null;
+    this.deferredTasks.clearRestoredThreadHydration();
   }
 
   private scheduleDeferredAppServerWarmup(): void {
-    if (!this.opened || this.connection.isConnected() || this.scheduledAppServerWarmupTimer !== null) return;
-    this.scheduledAppServerWarmupTimer = this.containerEl.win.setTimeout(() => {
-      this.scheduledAppServerWarmupTimer = null;
+    if (!this.opened || this.connection.isConnected()) return;
+    this.deferredTasks.scheduleAppServerWarmup(() => {
       if (!this.opened || this.closing || this.connection.isConnected()) return;
       void this.ensureConnected();
-    }, 0);
+    });
   }
 
   private clearDeferredAppServerWarmup(): void {
-    if (this.scheduledAppServerWarmupTimer === null) return;
-    this.containerEl.win.clearTimeout(this.scheduledAppServerWarmupTimer);
-    this.scheduledAppServerWarmupTimer = null;
+    this.deferredTasks.clearAppServerWarmup();
   }
 
   private activeThreadTitle(): string | null {
@@ -1312,12 +1298,8 @@ export class CodexChatView extends ItemView {
       this.activeComposerThreadName(),
     );
 
-  private render(options: { forceSlots?: boolean } = {}): void {
-    if (this.scheduledRenderTimer !== null) {
-      window.clearTimeout(this.scheduledRenderTimer);
-      this.scheduledRenderTimer = null;
-      this.scheduledRenderForceSlots = false;
-    }
+  private render(options: ChatViewRenderScheduleOptions = {}): void {
+    this.deferredTasks.clearRender();
     const root = this.panelRoot();
     if (!root) return;
     if (options.forceSlots) this.shellRenderVersion += 1;
@@ -1545,29 +1527,20 @@ export class CodexChatView extends ItemView {
     this.scheduleRender({ forceSlots: true });
   }
 
-  private scheduleRender(options: { forceSlots?: boolean } = {}): void {
-    this.scheduledRenderForceSlots ||= options.forceSlots ?? false;
-    if (this.scheduledRenderTimer !== null) return;
-    this.scheduledRenderTimer = this.containerEl.win.setTimeout(() => {
-      const forceSlots = this.scheduledRenderForceSlots;
-      this.scheduledRenderTimer = null;
-      this.scheduledRenderForceSlots = false;
-      this.render({ forceSlots });
-    }, 50);
+  private scheduleRender(options: ChatViewRenderScheduleOptions = {}): void {
+    this.deferredTasks.scheduleRender((renderOptions) => {
+      this.render(renderOptions);
+    }, options);
   }
 
   private scheduleDeferredDiagnostics(): void {
-    if (this.scheduledDiagnosticsTimer !== null) return;
-    this.scheduledDiagnosticsTimer = this.containerEl.win.setTimeout(() => {
-      this.scheduledDiagnosticsTimer = null;
+    this.deferredTasks.scheduleDiagnostics(() => {
       void this.refreshDeferredDiagnostics();
-    }, 1_000);
+    });
   }
 
   private clearDeferredDiagnostics(): void {
-    if (this.scheduledDiagnosticsTimer === null) return;
-    this.containerEl.win.clearTimeout(this.scheduledDiagnosticsTimer);
-    this.scheduledDiagnosticsTimer = null;
+    this.deferredTasks.clearDiagnostics();
   }
 
   private async refreshDeferredDiagnostics(): Promise<void> {
