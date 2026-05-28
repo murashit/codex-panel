@@ -39,7 +39,7 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
   toolbarViewModel as buildToolbarViewModel,
 } from "./view-model";
-import { composerSlotSnapshot, openPanelTurnLifecycle, parseRestoredThreadState } from "./view-snapshot";
+import { composerSlotSnapshot, openPanelTurnLifecycle } from "./view-snapshot";
 import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
@@ -60,6 +60,7 @@ import { ChatViewRenderController } from "./view-render-controller";
 import { ChatViewOpenCloseController } from "./view-open-close-controller";
 import { PlanImplementationController } from "./plan-implementation-controller";
 import { ThreadSelectionController } from "./thread-selection-controller";
+import { ChatViewStateController } from "./view-state-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -101,6 +102,7 @@ export class CodexChatView extends ItemView {
   private readonly messageRenderer: ChatMessageRenderer;
   private readonly renderController: ChatViewRenderController;
   private readonly openCloseController: ChatViewOpenCloseController;
+  private readonly viewStateController: ChatViewStateController;
   private readonly messageScroll: ChatMessageScrollController;
   private readonly turnSubmission: TurnSubmissionController;
   private readonly slashCommands: SlashCommandController;
@@ -565,6 +567,23 @@ export class CodexChatView extends ItemView {
         this.refreshTabHeader();
       },
     });
+    this.viewStateController = new ChatViewStateController({
+      invalidateResumeWork: () => {
+        this.invalidateResumeWork();
+      },
+      clearRestoredThreadLifecycle: () => {
+        this.clearRestoredThreadLifecycle();
+      },
+      clearDeferredRestoredThreadHydration: () => {
+        this.clearDeferredRestoredThreadHydration();
+      },
+      scheduleDeferredAppServerWarmup: () => {
+        this.scheduleDeferredAppServerWarmup();
+      },
+      restoreThreadPlaceholder: (restoredThread) => {
+        this.restoreThreadPlaceholder(restoredThread);
+      },
+    });
     this.threadResume = new ThreadResumeController({
       stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
@@ -683,16 +702,7 @@ export class CodexChatView extends ItemView {
 
   override async setState(state: unknown, result: ViewStateResult): Promise<void> {
     await super.setState(state, result);
-    const restoredThread = parseRestoredThreadState(state);
-    if (!restoredThread) {
-      this.invalidateResumeWork();
-      this.clearRestoredThreadLifecycle();
-      this.clearDeferredRestoredThreadHydration();
-      this.scheduleDeferredAppServerWarmup();
-      return;
-    }
-
-    this.restoreThreadPlaceholder(restoredThread);
+    this.viewStateController.applyState(state);
   }
 
   refreshSettings(): void {
