@@ -1,7 +1,6 @@
-import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/client";
-import { ConnectionManager } from "../../app-server/connection-manager";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import { createSystemItem } from "./display/system";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
@@ -9,24 +8,15 @@ import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/collaboration-mode";
-import { ChatController } from "./chat-controller";
-import { currentModel, type RuntimeSnapshot } from "../../runtime/state";
-import { ChatAppServerController } from "./chat-app-server-controller";
-import { ThreadHistoryLoader } from "./thread-history";
-import { ThreadRenameController } from "./thread-rename";
+import type { RuntimeSnapshot } from "../../runtime/state";
 import { pendingRequestsSignature as requestStateSignature } from "./request-state";
-import type { CodexPanelSettings } from "../../settings/model";
-import { ChatComposerController } from "./chat-composer-controller";
 import { activeTurnId, chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
 import { renderToolbar } from "./ui/toolbar";
 import type { ToolbarViewModel } from "./toolbar-model";
-import type { ChatTurnDiffViewState } from "./ui/turn-diff";
-import { ChatMessageRenderer } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
-import { ChatThreadActionController } from "./thread-actions";
-import { ChatRuntimeSettingsController } from "./runtime-settings-controller";
-import { RestoredThreadController } from "./controllers/thread/restored-thread-controller";
+import type { RestoredThreadController } from "./controllers/thread/restored-thread-controller";
+import type { CodexChatHost } from "./chat-host";
 import {
   activeComposerThreadName as buildActiveComposerThreadName,
   activeThreadTitle as buildActiveThreadTitle,
@@ -47,75 +37,41 @@ import {
   ChatViewDeferredTasks,
   type ChatViewRenderScheduleOptions,
 } from "./view-lifecycle";
-import { ChatConnectionController } from "./controllers/connection/connection-controller";
-import { ChatReconnectController } from "./controllers/connection/reconnect-controller";
-import { AppServerWarmupController } from "./controllers/connection/app-server-warmup-controller";
-import { PendingRequestController } from "./controllers/requests/pending-request-controller";
-import { ServerRequestResponder } from "./controllers/requests/server-request-responder";
-import { ComposerSubmissionController } from "./controllers/submission/composer-submission-controller";
-import { PlanImplementationController } from "./controllers/submission/plan-implementation-controller";
-import { SlashCommandController } from "./controllers/submission/slash-command-controller";
-import { TurnSubmissionController } from "./controllers/submission/turn-submission-controller";
-import { ThreadIdentityController } from "./controllers/thread/thread-identity-controller";
-import { ThreadResumeController } from "./controllers/thread/thread-resume-controller";
-import { ThreadSelectionController } from "./controllers/thread/thread-selection-controller";
 import { ChatMessageScrollController } from "./controllers/view/message-scroll-controller";
-import { ChatViewOpenCloseController } from "./controllers/view/view-open-close-controller";
-import { ChatViewRenderController } from "./controllers/view/view-render-controller";
-import { ChatViewStateController } from "./controllers/view/view-state-controller";
-import { ToolbarPanelController } from "./toolbar-panel-controller";
 import { createChatViewEffects, type ChatViewEffects } from "./view-effects";
+import { createChatViewControllerAssembly, type ChatViewControllerAssembly } from "./chat-view-controller-assembly";
 
-export interface CodexChatHost {
-  readonly settings: CodexPanelSettings;
-  readonly vaultPath: string;
-  openThreadInNewView(threadId: string): Promise<unknown>;
-  openThreadInAvailableView(threadId: string): Promise<void>;
-  focusThreadInOpenView(threadId: string): Promise<boolean>;
-  openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
-  notifyThreadArchived(threadId: string): void;
-  notifyThreadRenamed(threadId: string, name: string | null): void;
-  refreshThreadsViewLiveState(): void;
-  refreshSharedThreadListFromOpenSurface(): void;
-  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-  cachedThreadList(): readonly Thread[] | null;
-  publishAppServerMetadata(metadata: SharedAppServerMetadata): void;
-  cachedAppServerMetadata(): SharedAppServerMetadata | null;
-}
+export type { CodexChatHost } from "./chat-host";
 
 export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;
-  private readonly connection: ConnectionManager;
-  private readonly controller: ChatController;
-  private readonly appServer: ChatAppServerController;
-  private readonly connectionController: ChatConnectionController;
-  private readonly history: ThreadHistoryLoader;
-  private readonly threadResume: ThreadResumeController;
-  private readonly threadActions: ChatThreadActionController;
-  private readonly runtimeSettings: ChatRuntimeSettingsController;
-  private readonly restoredThread: RestoredThreadController;
-  private readonly threadIdentity: ThreadIdentityController;
-  private readonly threadRename: ThreadRenameController;
-  private readonly pendingRequests: PendingRequestController;
-  private readonly toolbarPanels: ToolbarPanelController;
-  private readonly reconnectActions: ChatReconnectController;
+  private readonly connection: ChatViewControllerAssembly["connection"];
+  private readonly controller: ChatViewControllerAssembly["controller"];
+  private readonly appServer: ChatViewControllerAssembly["appServer"];
+  private readonly connectionController: ChatViewControllerAssembly["connectionController"];
+  private readonly history: ChatViewControllerAssembly["history"];
+  private readonly threadResume: ChatViewControllerAssembly["threadResume"];
+  private readonly threadActions: ChatViewControllerAssembly["threadActions"];
+  private readonly runtimeSettings: ChatViewControllerAssembly["runtimeSettings"];
+  private readonly restoredThread: ChatViewControllerAssembly["restoredThread"];
+  private readonly threadIdentity: ChatViewControllerAssembly["threadIdentity"];
+  private readonly threadRename: ChatViewControllerAssembly["threadRename"];
+  private readonly pendingRequests: ChatViewControllerAssembly["pendingRequests"];
+  private readonly toolbarPanels: ChatViewControllerAssembly["toolbarPanels"];
+  private readonly reconnectActions: ChatViewControllerAssembly["reconnectActions"];
   private readonly chatState = createChatStateStore();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly effects: ChatViewEffects;
-  private readonly composerController: ChatComposerController;
-  private readonly messageRenderer: ChatMessageRenderer;
-  private readonly renderController: ChatViewRenderController;
-  private readonly openCloseController: ChatViewOpenCloseController;
-  private readonly viewStateController: ChatViewStateController;
-  private readonly appServerWarmup: AppServerWarmupController;
+  private readonly composerController: ChatViewControllerAssembly["composerController"];
+  private readonly messageRenderer: ChatViewControllerAssembly["messageRenderer"];
+  private readonly renderController: ChatViewControllerAssembly["renderController"];
+  private readonly openCloseController: ChatViewControllerAssembly["openCloseController"];
+  private readonly viewStateController: ChatViewControllerAssembly["viewStateController"];
+  private readonly appServerWarmup: ChatViewControllerAssembly["appServerWarmup"];
   private readonly messageScroll: ChatMessageScrollController;
-  private readonly turnSubmission: TurnSubmissionController;
-  private readonly slashCommands: SlashCommandController;
-  private readonly composerSubmission: ComposerSubmissionController;
-  private readonly planImplementation: PlanImplementationController;
-  private readonly threadSelection: ThreadSelectionController;
-  private readonly serverRequestResponder: ServerRequestResponder;
+  private readonly composerSubmission: ChatViewControllerAssembly["composerSubmission"];
+  private readonly threadSelection: ChatViewControllerAssembly["threadSelection"];
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
@@ -137,12 +93,31 @@ export class CodexChatView extends ItemView {
       },
     });
     this.effects = this.createEffects();
-    this.renderController = new ChatViewRenderController({
+    const controllers = createChatViewControllerAssembly({
+      app: this.app,
+      owner: this,
+      plugin: this.plugin,
       stateStore: this.chatState,
+      viewId: this.viewId,
+      deferredTasks: this.deferredTasks,
+      resumeWork: this.resumeWork,
+      connectionWork: this.connectionWork,
+      messageScroll: this.messageScroll,
+      effects: this.effects,
+      getState: () => this.state,
+      getClient: () => this.client,
+      setClient: (client) => {
+        this.client = client;
+      },
+      getOpened: () => this.opened,
+      setOpened: (opened) => {
+        this.opened = opened;
+      },
+      getClosing: () => this.closing,
+      setClosing: (closing) => {
+        this.closing = closing;
+      },
       panelRoot: () => this.panelRoot(),
-      connected: () => this.connection.isConnected(),
-      pendingRequestsSignature: () => this.pendingRequestsSignature(),
-      activeComposerThreadName: () => this.activeComposerThreadName(),
       renderToolbar: (toolbar) => {
         this.renderToolbar(toolbar);
       },
@@ -152,138 +127,31 @@ export class CodexChatView extends ItemView {
       renderComposer: (parent) => {
         this.renderComposer(parent);
       },
-      clearScheduledRender: () => {
-        this.deferredTasks.clearRender();
-      },
-    });
-    this.turnSubmission = new TurnSubmissionController({
-      stateStore: this.chatState,
-      vaultPath: this.plugin.vaultPath,
-      currentClient: () => this.client,
-      ensureRestoredThreadLoaded: () => this.ensureRestoredThreadLoaded(),
-      startThread: () => this.appServer.startThread(),
-      notifyActiveThreadIdentityChanged: this.effects.thread.notifyIdentityChanged,
-      resetThreadTurnPresence: this.effects.thread.resetTurnPresence,
-      applyPendingThreadSettings: () => this.runtimeSettings.applyPendingThreadSettings(),
-      codexInput: (text) => this.composerController.codexInput(text),
-      setDraft: (text, options) => {
-        this.composerController.setDraft(text, options);
-      },
-      forceMessagesToBottom: this.effects.scroll.forceBottom,
-      render: this.effects.render.now,
-      scheduleRender: this.effects.render.schedule,
-      setStatus: this.effects.status.set,
-      addSystemMessage: this.effects.status.addSystemMessage,
-    });
-    this.slashCommands = new SlashCommandController({
-      stateStore: this.chatState,
-      currentClient: () => this.client,
-      codexInput: (text) => this.composerController.codexInput(text),
-      startNewThread: () => this.startNewThread(),
-      resumeThread: (threadId) => this.selectThread(threadId),
-      forkThread: (threadId) => this.threadActions.forkThread(threadId),
-      rollbackThread: (threadId) => this.threadActions.rollbackThread(threadId),
-      archiveThread: (threadId) => this.threadActions.archiveThread(threadId),
-      toggleFastMode: () => this.runtimeSettings.toggleFastMode(),
-      toggleCollaborationMode: () => this.runtimeSettings.toggleCollaborationMode(),
-      toggleAutoReview: () => void this.runtimeSettings.toggleAutoReview(),
-      addSystemMessage: this.effects.status.addSystemMessage,
-      addStructuredSystemMessage: this.effects.status.addStructuredSystemMessage,
-      setStatus: this.effects.status.set,
-      setRequestedModel: (model) => this.runtimeSettings.setRequestedModel(model),
-      setRequestedReasoningEffort: (effort) => this.runtimeSettings.setRequestedReasoningEffort(effort),
-      statusSummaryLines: () => this.statusSummaryLines(),
+      pendingRequestsSignature: () => this.pendingRequestsSignature(),
+      activeComposerThreadName: () => this.activeComposerThreadName(),
+      composerPlaceholder: () => this.composerPlaceholder(),
+      runtimeSnapshot: () => this.runtimeSnapshot(),
+      collaborationModeLabel: () => this.collaborationModeLabel(),
       connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
       mcpStatusLines: () => this.mcpStatusLines(),
       modelStatusLines: () => this.modelStatusLines(),
       effortStatusLines: () => this.effortStatusLines(),
-    });
-    this.messageRenderer = new ChatMessageRenderer({
-      app: this.app,
-      owner: this,
-      stateStore: this.chatState,
-      vaultPath: this.plugin.vaultPath,
-      consumeScrollIntent: () => this.messageScroll.consumeIntent(),
-      loadOlderTurns: () => void this.history.loadOlder(),
-      rollbackThread: (threadId) => void this.threadActions.rollbackThread(threadId),
-      implementPlan: (item) => void this.planImplementation.implement(item),
-      openTurnDiff: (state) => void this.plugin.openTurnDiff(state),
-      pendingRequestsSignature: () => this.pendingRequestsSignature(),
-      renderPendingRequests: () => this.pendingRequests.renderNode(),
-    });
-    this.composerController = new ChatComposerController({
-      app: this.app,
-      stateStore: this.chatState,
-      viewId: this.viewId,
-      sendShortcut: () => this.plugin.settings.sendShortcut,
-      canInterrupt: () => this.turnBusy && Boolean(this.state.activeThreadId && this.activeTurnId),
-      composerPlaceholder: () => this.composerPlaceholder(),
-      currentModelForSuggestions: () => currentModel(this.runtimeSnapshot()),
-      renderIfDetached: this.effects.render.now,
-      onDraftChange: this.effects.liveState.refresh,
-      onComposerResize: () => {
-        if (this.state.messagesPinnedToBottom) this.effects.scroll.forceBottom();
+      statusSummaryLines: () => this.statusSummaryLines(),
+      ensureRestoredThreadLoaded: () => this.ensureRestoredThreadLoaded(),
+      startNewThread: () => this.startNewThread(),
+      selectThread: (threadId) => this.selectThread(threadId),
+      resumeThread: (threadId) => this.resumeThread(threadId),
+      refreshThreads: () => this.refreshThreads(),
+      refreshSkills: (forceReload) => this.refreshSkills(forceReload),
+      publishAppServerMetadataSnapshot: () => {
+        this.publishAppServerMetadataSnapshot();
       },
-      onSubmit: () => void this.composerSubmission.submit(),
-      onNewThread: () => void this.startNewThread(),
-    });
-    this.composerSubmission = new ComposerSubmissionController({
-      stateStore: this.chatState,
-      composer: this.composerController,
-      slashCommands: this.slashCommands,
-      turnSubmission: this.turnSubmission,
-      currentClient: () => this.client,
-      ensureConnected: this.effects.client.ensureConnected,
-      setStatus: this.effects.status.set,
-      addSystemMessage: this.effects.status.addSystemMessage,
-    });
-    this.serverRequestResponder = new ServerRequestResponder({
-      currentClient: () => this.client,
-    });
-    this.planImplementation = new PlanImplementationController({
-      stateStore: this.chatState,
-      currentClient: () => this.client,
-      ensureConnected: this.effects.client.ensureConnected,
-      sendTurnText: (text) => this.turnSubmission.sendTurnText(text),
-    });
-    this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath, {
-      onNotification: (notification) => {
-        this.controller.handleNotification(notification);
-        this.effects.liveState.refresh();
-        this.effects.render.schedule();
-      },
-      onServerRequest: (request) => {
-        this.controller.handleServerRequest(request);
-        this.effects.liveState.refresh();
-        this.effects.render.now();
-      },
-      onLog: (message) => {
-        this.controller.handleAppServerLog(message);
-        this.effects.render.now();
-      },
-      onExit: () => {
-        this.connectionController.handleExit();
-      },
-    });
-    this.appServerWarmup = new AppServerWarmupController({
-      deferredTasks: this.deferredTasks,
-      opened: () => this.opened,
-      closing: () => this.closing,
-      connected: () => this.connection.isConnected(),
-      ensureConnected: this.effects.client.ensureConnected,
-    });
-    this.openCloseController = new ChatViewOpenCloseController({
-      setOpened: (opened) => {
-        this.opened = opened;
-      },
-      setClosing: (closing) => {
-        this.closing = closing;
+      loadSharedThreadList: () => this.loadSharedThreadList(),
+      closeToolbarPanelOnOutsidePointer: (event) => {
+        this.closeToolbarPanelOnOutsidePointer(event);
       },
       registerEvent: (eventRef) => {
         this.registerEvent(eventRef);
-      },
-      registerComposerNoteIndexInvalidation: (register) => {
-        this.composerController.registerNoteIndexInvalidation(register);
       },
       registerPointerDown: (handler) => {
         this.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
@@ -291,229 +159,31 @@ export class CodexChatView extends ItemView {
       registerActiveLeafChange: (handler) => {
         this.registerEvent(this.app.workspace.on("active-leaf-change", handler));
       },
-      isOwnLeaf: (leaf) => leaf === this.leaf,
-      scrollMessagesToBottomOnFocus: this.effects.scroll.bottomOnFocus,
-      applyCachedSharedAppServerState: () => {
-        this.applyCachedSharedAppServerState();
-      },
-      render: this.effects.render.now,
-      scheduleDeferredAppServerWarmup: this.effects.lifecycle.scheduleDeferredAppServerWarmup,
-      scheduleDeferredRestoredThreadHydration: this.effects.lifecycle.scheduleDeferredRestoredThreadHydration,
-      closeToolbarPanelOnOutsidePointer: (event) => {
-        this.closeToolbarPanelOnOutsidePointer(event);
-      },
-      invalidateConnectionWork: this.effects.lifecycle.invalidateConnectionWork,
-      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
-      clearDeferredTasks: () => {
-        this.deferredTasks.clearAll();
-      },
-      panelRoot: () => this.panelRoot(),
-      disposeMessages: () => {
-        this.messageRenderer.dispose();
-      },
-      disposeComposer: () => {
-        this.composerController.dispose();
-      },
-      disconnect: () => {
-        this.connection.disconnect();
-      },
-      clearClient: this.effects.client.clear,
-      refreshLiveState: this.effects.liveState.refresh,
-      deferRefreshLiveState: this.effects.liveState.deferRefresh,
-    });
-    this.controller = new ChatController(this.chatState, {
-      refreshThreads: () => {
-        void this.refreshThreads();
-      },
-      refreshSkills: (forceReload) => void this.refreshSkills(forceReload),
-      publishAppServerMetadata: () => {
-        this.publishAppServerMetadataSnapshot();
-      },
-      maybeNameThread: (threadId, turn) => {
-        this.threadRename.maybeAutoNameThread(threadId, turn);
-      },
-      notifyThreadArchived: (threadId) => {
-        this.plugin.notifyThreadArchived(threadId);
-      },
-      notifyThreadRenamed: (threadId, name) => {
-        this.plugin.notifyThreadRenamed(threadId, name);
-      },
-      recordMcpStartupStatus: (name, status, message) => {
-        this.appServer.recordMcpStartupStatus(name, status, message);
-        this.effects.render.schedule();
-      },
-      respondToServerRequest: (requestId, result) => this.serverRequestResponder.respond(requestId, result),
-      rejectServerRequest: (requestId, code, message) => this.serverRequestResponder.reject(requestId, code, message),
-    });
-    this.pendingRequests = new PendingRequestController({
-      stateStore: this.chatState,
-      controller: this.controller,
-      composerHasFocus: () => this.composerController.hasFocus(),
-      refreshLiveState: this.effects.liveState.refresh,
-      render: this.effects.render.now,
-    });
-    this.appServer = new ChatAppServerController({
-      stateStore: this.chatState,
-      vaultPath: this.plugin.vaultPath,
-      currentClient: () => this.connection.currentClient(),
-      runtimeSnapshot: () => this.runtimeSnapshot(),
-      forceMessagesToBottom: this.effects.scroll.forceBottom,
-      publishAppServerMetadata: (metadata) => {
-        this.plugin.publishAppServerMetadata(metadata);
-      },
-    });
-    this.connectionController = new ChatConnectionController({
-      stateStore: this.chatState,
-      connection: this.connection,
-      connectionWork: this.connectionWork,
-      appServer: this.appServer,
-      setClient: (client) => {
-        this.client = client;
-      },
-      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
-      loadSharedThreadList: () => this.loadSharedThreadList(),
-      scheduleDeferredDiagnostics: this.effects.lifecycle.scheduleDeferredDiagnostics,
-      clearDeferredDiagnostics: this.effects.lifecycle.clearDeferredDiagnostics,
-      refreshTabHeader: this.effects.thread.refreshTabHeader,
-      resetThreadTurnPresence: this.effects.thread.resetTurnPresence,
-      setStatus: this.effects.status.set,
-      addSystemMessage: this.effects.status.addSystemMessage,
-      refreshLiveState: this.effects.liveState.refresh,
-      render: this.effects.render.now,
-      scheduleRender: this.effects.render.schedule,
-      notifyConnectionFailed: () => {
-        new Notice("Codex app-server connection failed.");
-      },
-    });
-    this.history = new ThreadHistoryLoader({
-      stateStore: this.chatState,
-      currentClient: () => this.client,
-      render: this.effects.render.now,
-      addSystemMessage: this.effects.status.addSystemMessage,
-      forceMessagesToBottom: this.effects.scroll.forceBottom,
-      keepCurrentScrollPosition: this.effects.scroll.preservePosition,
-      setThreadTurnPresence: this.effects.thread.resetTurnPresence,
-    });
-    this.threadActions = new ChatThreadActionController({
-      stateStore: this.chatState,
-      vaultPath: this.plugin.vaultPath,
-      settings: () => this.plugin.settings,
+      isOwnLeaf: (candidateLeaf) => candidateLeaf === this.leaf,
       archiveAdapter: () => this.app.vault.adapter,
-      ensureConnected: () => this.ensureConnected(),
-      currentClient: () => this.client,
-      history: this.history,
-      addSystemMessage: this.effects.status.addSystemMessage,
-      setStatus: this.effects.status.set,
-      setComposerText: this.effects.composer.setText,
-      openThreadInNewView: (threadId) => this.plugin.openThreadInNewView(threadId),
-      notifyThreadArchived: (threadId) => {
-        this.plugin.notifyThreadArchived(threadId);
-      },
-      notifyThreadRenamed: (threadId, name) => {
-        this.plugin.notifyThreadRenamed(threadId, name);
-      },
-      notifyActiveThreadIdentityChanged: this.effects.thread.notifyIdentityChanged,
-      refreshThreads: () => this.refreshThreads(),
-      refreshSharedThreadListFromOpenSurface: () => {
-        this.plugin.refreshSharedThreadListFromOpenSurface();
-      },
     });
-    this.toolbarPanels = new ToolbarPanelController({
-      stateStore: this.chatState,
-      threadActions: this.threadActions,
-      scheduleRender: this.effects.render.schedule,
-    });
-    this.threadSelection = new ThreadSelectionController({
-      stateStore: this.chatState,
-      closeForThreadSelection: () => {
-        this.toolbarPanels.closeForThreadSelection();
-      },
-      focusThreadInOpenView: (threadId) => this.plugin.focusThreadInOpenView(threadId),
-      resumeThread: (threadId) => this.resumeThread(threadId),
-      addSystemMessage: this.effects.status.addSystemMessage,
-    });
-    this.reconnectActions = new ChatReconnectController({
-      stateStore: this.chatState,
-      activeThreadId: () => this.state.activeThreadId,
-      invalidateConnectionWork: this.effects.lifecycle.invalidateConnectionWork,
-      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
-      clearDeferredDiagnostics: this.effects.lifecycle.clearDeferredDiagnostics,
-      reconnect: () => {
-        this.connection.reconnect();
-      },
-      clearClient: this.effects.client.clear,
-      setStatus: this.effects.status.set,
-      render: this.effects.render.now,
-      ensureConnected: this.effects.client.ensureConnected,
-      resumeThread: (threadId) => this.resumeThread(threadId),
-      addSystemMessage: this.effects.status.addSystemMessage,
-    });
-    this.runtimeSettings = new ChatRuntimeSettingsController({
-      stateStore: this.chatState,
-      currentClient: () => this.client,
-      runtimeSnapshot: () => this.runtimeSnapshot(),
-      collaborationModeLabel: () => this.collaborationModeLabel(),
-      addSystemMessage: this.effects.status.addSystemMessage,
-    });
-    this.restoredThread = new RestoredThreadController({
-      deferredTasks: this.deferredTasks,
-      opened: () => this.opened,
-      resumeThread: (threadId) => this.resumeThread(threadId),
-      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
-      dispatch: this.effects.state.dispatch,
-      systemItem: this.effects.state.systemItem,
-      setStatus: this.effects.status.set,
-      refreshTabHeader: this.effects.thread.refreshTabHeader,
-    });
-    this.viewStateController = new ChatViewStateController({
-      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
-      clearRestoredThreadLifecycle: this.effects.thread.clearRestoredLifecycle,
-      clearDeferredRestoredThreadHydration: this.effects.lifecycle.clearDeferredRestoredThreadHydration,
-      scheduleDeferredAppServerWarmup: this.effects.lifecycle.scheduleDeferredAppServerWarmup,
-      restoreThreadPlaceholder: this.effects.thread.restorePlaceholder,
-    });
-    this.threadResume = new ThreadResumeController({
-      stateStore: this.chatState,
-      vaultPath: this.plugin.vaultPath,
-      resumeWork: this.resumeWork,
-      history: this.history,
-      restoredThread: this.restoredThread,
-      currentClient: () => this.client,
-      ensureConnected: this.effects.client.ensureConnected,
-      closing: () => this.closing,
-      systemItem: this.effects.state.systemItem,
-      resetThreadTurnPresence: this.effects.thread.resetTurnPresence,
-      clearDeferredRestoredThreadHydration: this.effects.lifecycle.clearDeferredRestoredThreadHydration,
-      notifyActiveThreadIdentityChanged: this.effects.thread.notifyIdentityChanged,
-      addSystemMessage: this.effects.status.addSystemMessage,
-      forceMessagesToBottom: this.effects.scroll.forceBottom,
-      render: this.effects.render.now,
-      refreshLiveState: this.effects.liveState.refresh,
-    });
-    this.threadIdentity = new ThreadIdentityController({
-      stateStore: this.chatState,
-      restoredThread: this.restoredThread,
-      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
-      clearDeferredRestoredThreadHydration: this.effects.lifecycle.clearDeferredRestoredThreadHydration,
-      resetThreadTurnPresence: this.effects.thread.resetTurnPresence,
-      notifyActiveThreadIdentityChanged: this.effects.thread.notifyIdentityChanged,
-      refreshTabHeader: this.effects.thread.refreshTabHeader,
-      refreshLiveState: this.effects.liveState.refresh,
-      render: this.effects.render.now,
-    });
-    this.threadRename = new ThreadRenameController({
-      stateStore: this.chatState,
-      vaultPath: this.plugin.vaultPath,
-      settings: () => this.plugin.settings,
-      ensureConnected: () => this.ensureConnected(),
-      currentClient: () => this.connection.currentClient(),
-      refreshThreads: () => this.refreshThreads(),
-      render: this.effects.render.shellSlots,
-      addSystemMessage: this.effects.status.addSystemMessage,
-      notifyThreadRenamed: (threadId, name) => {
-        this.plugin.notifyThreadRenamed(threadId, name);
-      },
-    });
+    this.connection = controllers.connection;
+    this.controller = controllers.controller;
+    this.appServer = controllers.appServer;
+    this.connectionController = controllers.connectionController;
+    this.history = controllers.history;
+    this.threadResume = controllers.threadResume;
+    this.threadActions = controllers.threadActions;
+    this.runtimeSettings = controllers.runtimeSettings;
+    this.restoredThread = controllers.restoredThread;
+    this.threadIdentity = controllers.threadIdentity;
+    this.threadRename = controllers.threadRename;
+    this.pendingRequests = controllers.pendingRequests;
+    this.toolbarPanels = controllers.toolbarPanels;
+    this.reconnectActions = controllers.reconnectActions;
+    this.composerController = controllers.composerController;
+    this.messageRenderer = controllers.messageRenderer;
+    this.renderController = controllers.renderController;
+    this.openCloseController = controllers.openCloseController;
+    this.viewStateController = controllers.viewStateController;
+    this.appServerWarmup = controllers.appServerWarmup;
+    this.composerSubmission = controllers.composerSubmission;
+    this.threadSelection = controllers.threadSelection;
   }
 
   private createEffects(): ChatViewEffects {
@@ -788,13 +458,6 @@ export class CodexChatView extends ItemView {
 
   private publishAppServerMetadataSnapshot(): void {
     this.appServer.publishAppServerMetadataSnapshot();
-  }
-
-  private applyCachedSharedAppServerState(): void {
-    const threads = this.plugin.cachedThreadList();
-    if (threads) this.appServer.applyThreadList(threads);
-    const metadata = this.plugin.cachedAppServerMetadata();
-    if (metadata) this.appServer.applyAppServerMetadata(metadata);
   }
 
   private requestWorkspaceLayoutSave(): void {
