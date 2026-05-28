@@ -8,6 +8,7 @@ import {
   capabilityProbeOk,
   createAppServerDiagnostics,
   shortErrorMessage,
+  transitionCapabilityProbeResult,
   upsertMcpServerDiagnostic,
 } from "../../src/app-server/compatibility";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
@@ -55,6 +56,36 @@ describe("app-server compatibility", () => {
     expect(capabilityProbeError("modelProvider/capabilities/read", new Error("unknown method"), 790).status).toBe("failed");
     expect(capabilityProbeError("modelProvider/capabilities/read", new Error("unsupported RPC method"), 791).status).toBe("failed");
     expect(capabilityProbeError("model/list", new Error("unknown provider failure"), 792).status).toBe("failed");
+  });
+
+  it("transitions capability probe lifecycle state", () => {
+    const initial = createAppServerDiagnostics().probes["model/list"];
+
+    const ok = transitionCapabilityProbeResult(initial, { type: "succeeded", summary: "12 models", checkedAt: 100 });
+    expect(ok).toEqual({
+      method: "model/list",
+      status: "ok",
+      message: null,
+      summary: "12 models",
+      checkedAt: 100,
+    });
+
+    const failed = transitionCapabilityProbeResult(ok, { type: "failed", error: new Error("network down"), checkedAt: 200 });
+    expect(failed).toEqual({
+      method: "model/list",
+      status: "failed",
+      message: "network down",
+      summary: null,
+      checkedAt: 200,
+    });
+
+    expect(transitionCapabilityProbeResult(failed, { type: "reset" })).toEqual({
+      method: "model/list",
+      status: "unknown",
+      message: null,
+      summary: null,
+      checkedAt: null,
+    });
   });
 
   it("shortens error messages and tracks MCP server diagnostics", () => {
