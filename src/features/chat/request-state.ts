@@ -1,4 +1,3 @@
-import type { RequestId } from "../../generated/app-server/RequestId";
 import {
   approvalActionKind,
   approvalDetails,
@@ -9,15 +8,8 @@ import {
 } from "./approvals/model";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { PendingUserInput } from "./user-input/model";
+import { userInputDraftKey, userInputOtherDraftKey } from "./user-input/drafts";
 import { definedProp } from "../../utils";
-
-export function userInputDraftKey(requestId: RequestId, questionId: string): string {
-  return `${String(requestId)}:${questionId}`;
-}
-
-export function userInputOtherDraftKey(requestId: RequestId, questionId: string): string {
-  return `${String(requestId)}:${questionId}:other`;
-}
 
 export function pendingRequestsSignature(
   approvals: readonly PendingApproval[],

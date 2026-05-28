@@ -9,7 +9,8 @@ import {
   scrollComposerSuggestionIntoView,
   syncComposerHeight,
 } from "../../../../src/features/chat/ui/composer";
-import { renderToolbar, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
+import type { ToolbarViewModel } from "../../../../src/features/chat/toolbar-model";
+import { renderToolbar } from "../../../../src/features/chat/ui/toolbar";
 import { CodexChatTurnDiffView } from "../../../../src/features/chat/chat-turn-diff-view";
 import { persistedChatTurnDiffViewState, renderChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff";
 import { displayDiffLines } from "../../../../src/shared/diff/unified";

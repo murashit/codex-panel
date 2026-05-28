@@ -6,13 +6,13 @@ import type { ToolResultDisplayItem } from "../display/tool-view";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
 import { activeTurnId, type ChatTurnLifecycleState } from "../chat-state";
 import { IconButton } from "../../../shared/ui/react-components";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "./message-content-events";
 import { toolResultNode } from "./tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "./work-items";
 import type { ChatTurnDiffViewState } from "./turn-diff";
 import { renderReactRoot } from "../../../shared/ui/react-root";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
-const MESSAGE_CONTENT_RENDERED_EVENT = "codex-panel:message-content-rendered";
 
 export interface MessageStreamBlock {
   key: string;
@@ -577,10 +577,6 @@ function userMessageCollapseHeight(element: HTMLElement): number {
   const viewportHeight = element.win.innerHeight;
   if (viewportHeight <= 0) return USER_MESSAGE_COLLAPSE_HEIGHT_PX;
   return Math.min(USER_MESSAGE_COLLAPSE_HEIGHT_PX, viewportHeight * 0.45);
-}
-
-export function notifyMessageContentRendered(element: HTMLElement): void {
-  element.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT));
 }
 
 function displayRoleLabel(item: DisplayItem): string {

@@ -2,9 +2,16 @@ import { useLayoutEffect, useState, type ReactNode } from "react";
 
 import { activeAgentRunSummary } from "../display/agent";
 import { executionState } from "../display/state";
-import type { AgentDisplayItem, AgentRunSummary, AgentRunSummaryAgent, TaskProgressDisplayItem, ToolDisplayItem } from "../display/types";
+import type {
+  AgentDisplayItem,
+  AgentRunSummary,
+  AgentRunSummaryAgent,
+  DisplayItem,
+  TaskProgressDisplayItem,
+  ToolDisplayItem,
+} from "../display/types";
 import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel, taskStatusMarker } from "../display/labels";
-import { messageStreamActiveTurnId, type MessageStreamContext } from "./message-stream";
+import { activeTurnId, type ChatTurnLifecycleState } from "../chat-state";
 import { createWorkMessageClassName } from "./work-message";
 import { shortThreadId } from "../../../utils";
 
@@ -13,15 +20,26 @@ const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
 type ReasoningDisplayItem = ToolDisplayItem & { kind: "reasoning" };
 export type WorkItemDisplayItem = TaskProgressDisplayItem | AgentDisplayItem | ReasoningDisplayItem;
 
-export function activeAgentRunSummaryBlock(context: MessageStreamContext): AgentRunSummary | null {
-  return activeAgentRunSummary(context.displayItems, messageStreamActiveTurnId(context));
+export interface WorkItemContext {
+  turnLifecycle: ChatTurnLifecycleState;
+  displayItems: readonly DisplayItem[];
+  openDetails: ReadonlySet<string>;
+  onDetailsToggle?: (key: string, open: boolean) => void;
+}
+
+export function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">): string | null {
+  return activeTurnId(context);
+}
+
+export function activeAgentRunSummaryBlock(context: WorkItemContext): AgentRunSummary | null {
+  return activeAgentRunSummary(context.displayItems, workItemsActiveTurnId(context));
 }
 
 export function agentRunSummaryNode(summary: AgentRunSummary): ReactNode {
   return <AgentRunSummaryItem summary={summary} />;
 }
 
-export function workItemNode(item: WorkItemDisplayItem, context: MessageStreamContext): ReactNode {
+export function workItemNode(item: WorkItemDisplayItem, context: WorkItemContext): ReactNode {
   if (item.kind === "taskProgress") return <TaskProgressItem item={item} />;
   if (item.kind === "agent") return <AgentItem item={item} context={context} />;
   return <ReasoningItem item={item} context={context} />;
@@ -56,7 +74,7 @@ function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): ReactNod
   );
 }
 
-function AgentItem({ item, context }: { item: AgentDisplayItem; context: MessageStreamContext }): ReactNode {
+function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkItemContext }): ReactNode {
   return (
     <WorkMessage label="agent" className="codex-panel__agent-activity" state={executionState(item)}>
       <div className="codex-panel__tool-summary">{agentSummaryText(item)}</div>
@@ -107,7 +125,7 @@ function AgentItem({ item, context }: { item: AgentDisplayItem; context: Message
   );
 }
 
-function ReasoningItem({ item, context }: { item: ReasoningDisplayItem; context: MessageStreamContext }): ReactNode {
+function ReasoningItem({ item, context }: { item: ReasoningDisplayItem; context: WorkItemContext }): ReactNode {
   const active = isReasoningActive(item, context);
   return (
     <div className={`codex-panel__reasoning${active ? " is-active" : ""}`}>
@@ -158,7 +176,7 @@ function RememberedDetails({
   detailsClassName: string;
   detailsKey: string;
   summary: string;
-  context: MessageStreamContext;
+  context: WorkItemContext;
   children: ReactNode;
 }): ReactNode {
   const [open, setOpen] = useState(context.openDetails.has(detailsKey));
@@ -228,8 +246,8 @@ function isLongAgentMessage(message: string): boolean {
   return message.length > AGENT_ROW_MESSAGE_PREVIEW_LIMIT || message.includes("\n");
 }
 
-function isReasoningActive(item: ReasoningDisplayItem, context: MessageStreamContext): boolean {
-  const activeTurn = messageStreamActiveTurnId(context);
+function isReasoningActive(item: ReasoningDisplayItem, context: WorkItemContext): boolean {
+  const activeTurn = workItemsActiveTurnId(context);
   if (!activeTurn || item.turnId !== activeTurn) return false;
   if (executionState(item) === "completed") return false;
   const latestActiveTurnItem = [...context.displayItems].reverse().find((candidate) => candidate.turnId === activeTurn);

@@ -9,7 +9,7 @@ import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
-import { implementPlanCandidateFromState } from "./plan-implementation-controller";
+import { implementPlanCandidateFromState } from "./plan-implementation";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface ChatMessageRendererOptions {
@@ -17,7 +17,7 @@ export interface ChatMessageRendererOptions {
   owner: Component;
   stateStore: ChatStateStore;
   vaultPath: string;
-  consumeScrollIntent: () => ChatMessageScrollIntent;
+  consumeScrollIntent: () => MessageScrollIntent;
   loadOlderTurns: () => void;
   rollbackThread: (threadId: string) => void;
   implementPlan: (item: DisplayItem) => void;
@@ -25,8 +25,6 @@ export interface ChatMessageRendererOptions {
   pendingRequestsSignature: () => string;
   renderPendingRequests: () => ReactNode;
 }
-
-export type ChatMessageScrollIntent = MessageScrollIntent;
 
 export class ChatMessageRenderer {
   private messagesEl: HTMLElement | null = null;

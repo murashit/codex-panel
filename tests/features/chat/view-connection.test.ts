@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/view";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
+import { composerSlotSnapshot } from "../../../src/features/chat/view-snapshot";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import { notices } from "../../mocks/obsidian";
 import { installObsidianDomShims } from "./ui/dom-test-helpers";
@@ -325,17 +326,16 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("tracks composer slot dependencies for model and skill suggestions", async () => {
-    const view = await chatView();
-    const composerSnapshot = (view as unknown as { composerSnapshot: (state: ChatState) => string }).composerSnapshot;
+    await chatView();
     const state = createChatState();
     state.effectiveConfig = effectiveConfig("gpt-configured");
     state.availableSkills = [skillFixture("writer")];
 
-    const base = composerSnapshot(state);
+    const base = composerSlotSnapshot(state, null);
 
-    expect(composerSnapshot({ ...state, effectiveConfig: effectiveConfig("gpt-updated") })).not.toBe(base);
-    expect(composerSnapshot({ ...state, requestedModel: { kind: "set", value: "gpt-requested" } })).not.toBe(base);
-    expect(composerSnapshot({ ...state, availableSkills: [skillFixture("reader")] })).not.toBe(base);
+    expect(composerSlotSnapshot({ ...state, effectiveConfig: effectiveConfig("gpt-updated") }, null)).not.toBe(base);
+    expect(composerSlotSnapshot({ ...state, requestedModel: { kind: "set", value: "gpt-requested" } }, null)).not.toBe(base);
+    expect(composerSlotSnapshot({ ...state, availableSkills: [skillFixture("reader")] }, null)).not.toBe(base);
   });
 
   it("hydrates a focused restored thread immediately", async () => {

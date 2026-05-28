@@ -2,7 +2,7 @@ import { MarkdownRenderer, Notice, type App, type Component } from "obsidian";
 
 import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "./markdown-file-links";
 import { renderTextWithWikiLinks as renderInlineWikiLinks } from "../../shared/ui/dom";
-import { notifyMessageContentRendered } from "./ui/message-stream";
+import { notifyMessageContentRendered } from "./ui/message-content-events";
 
 export interface MarkdownMessageRendererOptions {
   app: App;

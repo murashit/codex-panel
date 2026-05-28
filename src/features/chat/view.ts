@@ -18,14 +18,15 @@ import { pendingRequestsSignature as requestStateSignature } from "./request-sta
 import type { CodexPanelSettings } from "../../settings/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import { activeTurnId, chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
-import { renderToolbar, type ToolbarViewModel } from "./ui/toolbar";
+import { renderToolbar } from "./ui/toolbar";
+import type { ToolbarViewModel } from "./toolbar-model";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { ChatThreadActionController } from "./thread-actions";
 import { ChatRuntimeSettingsController } from "./runtime-settings-controller";
-import { RestoredThreadController } from "./restored-thread-controller";
+import { RestoredThreadController } from "./controllers/thread/restored-thread-controller";
 import {
   activeComposerThreadName as buildActiveComposerThreadName,
   activeThreadTitle as buildActiveThreadTitle,
@@ -39,30 +40,30 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
   toolbarViewModel as buildToolbarViewModel,
 } from "./view-model";
-import { composerSlotSnapshot, openPanelTurnLifecycle } from "./view-snapshot";
+import { openPanelTurnLifecycle } from "./view-snapshot";
 import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
   ChatViewDeferredTasks,
   type ChatViewRenderScheduleOptions,
 } from "./view-lifecycle";
-import { PendingRequestController } from "./pending-request-controller";
+import { ChatConnectionController } from "./controllers/connection/connection-controller";
+import { ChatReconnectController } from "./controllers/connection/reconnect-controller";
+import { AppServerWarmupController } from "./controllers/connection/app-server-warmup-controller";
+import { PendingRequestController } from "./controllers/requests/pending-request-controller";
+import { ServerRequestResponder } from "./controllers/requests/server-request-responder";
+import { ComposerSubmissionController } from "./controllers/submission/composer-submission-controller";
+import { PlanImplementationController } from "./controllers/submission/plan-implementation-controller";
+import { SlashCommandController } from "./controllers/submission/slash-command-controller";
+import { TurnSubmissionController } from "./controllers/submission/turn-submission-controller";
+import { ThreadIdentityController } from "./controllers/thread/thread-identity-controller";
+import { ThreadResumeController } from "./controllers/thread/thread-resume-controller";
+import { ThreadSelectionController } from "./controllers/thread/thread-selection-controller";
+import { ChatMessageScrollController } from "./controllers/view/message-scroll-controller";
+import { ChatViewOpenCloseController } from "./controllers/view/view-open-close-controller";
+import { ChatViewRenderController } from "./controllers/view/view-render-controller";
+import { ChatViewStateController } from "./controllers/view/view-state-controller";
 import { ToolbarPanelController } from "./toolbar-panel-controller";
-import { ChatReconnectController } from "./reconnect-controller";
-import { ChatMessageScrollController } from "./message-scroll-controller";
-import { TurnSubmissionController } from "./turn-submission-controller";
-import { SlashCommandController } from "./slash-command-controller";
-import { ComposerSubmissionController } from "./composer-submission-controller";
-import { ChatConnectionController } from "./connection-controller";
-import { ThreadIdentityController } from "./thread-identity-controller";
-import { ThreadResumeController } from "./thread-resume-controller";
-import { ChatViewRenderController } from "./view-render-controller";
-import { ChatViewOpenCloseController } from "./view-open-close-controller";
-import { PlanImplementationController } from "./plan-implementation-controller";
-import { ThreadSelectionController } from "./thread-selection-controller";
-import { ChatViewStateController } from "./view-state-controller";
-import { AppServerWarmupController } from "./app-server-warmup-controller";
-import { ServerRequestResponder } from "./server-request-responder";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -958,8 +959,6 @@ export class CodexChatView extends ItemView {
   private activeComposerThreadName(): string | null {
     return buildActiveComposerThreadName(this.state, this.restoredThreadPlaceholder());
   }
-
-  private readonly composerSnapshot = (state: ChatState) => composerSlotSnapshot(state, this.activeComposerThreadName());
 
   private render(options: ChatViewRenderScheduleOptions = {}): void {
     this.renderController.render(options);

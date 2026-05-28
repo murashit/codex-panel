@@ -19,7 +19,7 @@ import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../.
 import { connectionDiagnosticSections, diagnosticAlertLevel } from "./diagnostics";
 import type { ChatState } from "./chat-state";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
-import type { ToolbarChoice, ToolbarThreadRow, ToolbarViewModel } from "./ui/toolbar";
+import type { ToolbarChoice, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
 
 export interface RuntimeSnapshotInput {
   state: ChatState;
