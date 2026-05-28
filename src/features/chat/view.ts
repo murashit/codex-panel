@@ -16,7 +16,6 @@ import { ChatController } from "./chat-controller";
 import { currentModel, type RuntimeSnapshot } from "../../runtime/state";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import type { ThreadReferenceInput } from "./slash-commands";
-import { mcpStatusLines } from "./mcp-status";
 import { ChatAppServerController } from "./chat-app-server-controller";
 import { ThreadHistoryLoader } from "./thread-history";
 import { ThreadRenameController } from "./thread-rename";
@@ -1301,15 +1300,7 @@ export class CodexChatView extends ItemView {
   }
 
   private async mcpStatusLines(): Promise<string[]> {
-    if (!this.client) return ["MCP servers", "Codex app-server is not connected."];
-
-    try {
-      const response = await this.client.listMcpServerStatus();
-      return mcpStatusLines(response.data, this.state.appServerDiagnostics.mcpServers);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return ["MCP servers", `Could not load MCP servers: ${message}`];
-    }
+    return this.appServer.mcpStatusLines();
   }
 
   private collaborationModeLabel(): string {

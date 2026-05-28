@@ -4,6 +4,7 @@ import type { AppServerClient } from "../../../src/app-server/client";
 import { ChatAppServerController } from "../../../src/features/chat/chat-app-server-controller";
 import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
+import type { McpServerStatus } from "../../../src/generated/app-server/v2/McpServerStatus";
 import type { RateLimitSnapshot } from "../../../src/generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
 
@@ -60,4 +61,35 @@ describe("ChatAppServerController", () => {
       summary: "available",
     });
   });
+
+  it("loads MCP status lines with cached startup diagnostics", async () => {
+    const stateStore = createChatStateStore(createChatState());
+    const client = {
+      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [mcpServerStatus()] }),
+    } as unknown as AppServerClient;
+    const controller = new ChatAppServerController({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      runtimeSnapshot: () => ({}) as never,
+      forceMessagesToBottom: () => undefined,
+      publishAppServerMetadata: () => undefined,
+    });
+
+    controller.recordMcpStartupStatus("github", "ready", null);
+
+    await expect(controller.mcpStatusLines()).resolves.toEqual(["MCP servers", "github: ready, auth oAuth, 1 tool, 0 resources"]);
+  });
 });
+
+function mcpServerStatus(): McpServerStatus {
+  return {
+    name: "github",
+    tools: {
+      search_issues: { name: "search_issues", inputSchema: {} },
+    },
+    resources: [],
+    resourceTemplates: [],
+    authStatus: "oAuth",
+  } as McpServerStatus;
+}

@@ -13,6 +13,7 @@ import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata"
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../runtime/state";
 import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
+import { mcpStatusLines as buildMcpStatusLines } from "./mcp-status";
 import { resumedThreadAction } from "./thread-resume";
 
 export interface ChatAppServerControllerHost {
@@ -262,6 +263,19 @@ export class ChatAppServerController {
   async refreshPublishedCapabilityDiagnostics(options: RefreshCapabilityDiagnosticsOptions = {}): Promise<void> {
     await this.refreshCapabilityDiagnostics(options);
     this.publishAppServerMetadataSnapshot();
+  }
+
+  async mcpStatusLines(): Promise<string[]> {
+    const client = this.host.currentClient();
+    if (!client) return ["MCP servers", "Codex app-server is not connected."];
+
+    try {
+      const response = await client.listMcpServerStatus();
+      return buildMcpStatusLines(response.data, this.state.appServerDiagnostics.mcpServers);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return ["MCP servers", `Could not load MCP servers: ${message}`];
+    }
   }
 
   recordMcpStartupStatus(name: string, startupStatus: "starting" | "ready" | "failed" | "cancelled", message: string | null): void {
