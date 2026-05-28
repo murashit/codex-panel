@@ -18,6 +18,12 @@ export interface ThreadRenameEditState {
   generating: boolean;
 }
 
+type RenameLifecycleState =
+  | { kind: "idle" }
+  | { kind: "editing"; threadId: string; draft: string }
+  | { kind: "generating"; threadId: string; draft: string; originalDraft: string };
+type RenameGeneratingState = Extract<RenameLifecycleState, { kind: "generating" }>;
+
 export interface ThreadRenameControllerHost {
   stateStore: ChatStateStore;
   vaultPath: string;
@@ -28,16 +34,14 @@ export interface ThreadRenameControllerHost {
   render: () => void;
   addSystemMessage: (text: string) => void;
   notifyThreadRenamed: (threadId: string, name: string) => void;
+  generateThreadTitle?: (context: ThreadNamingContext) => Promise<string | null>;
 }
 
 export class ThreadRenameController {
   private activeThreadHadTurns = false;
   private readonly autoNameAttemptedThreadIds = new Set<string>();
   private readonly autoNameInFlightThreadIds = new Set<string>();
-  private renameThreadId: string | null = null;
-  private renameDraft = "";
-  private renameAutoNameThreadId: string | null = null;
-  private renameAutoNameGeneration = 0;
+  private renameState: RenameLifecycleState = { kind: "idle" };
 
   constructor(private readonly host: ThreadRenameControllerHost) {}
 
@@ -54,41 +58,39 @@ export class ThreadRenameController {
   }
 
   editState(threadId: string): ThreadRenameEditState | null {
-    if (this.renameThreadId !== threadId) return null;
+    if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId) return null;
     return {
-      draft: this.renameDraft,
-      generating: this.renameAutoNameThreadId === threadId,
+      draft: this.renameState.draft,
+      generating: this.renameState.kind === "generating",
     };
   }
 
   isEditing(): boolean {
-    return this.renameThreadId !== null;
+    return this.renameState.kind !== "idle";
   }
 
   start(threadId: string): void {
     const thread = this.thread(threadId);
     if (!thread) return;
-    this.renameAutoNameGeneration += 1;
-    this.renameAutoNameThreadId = null;
-    this.renameThreadId = threadId;
-    this.renameDraft = getThreadTitle(thread);
+    this.renameState = { kind: "editing", threadId, draft: getThreadTitle(thread) };
     this.host.render();
   }
 
   updateDraft(threadId: string, value: string): void {
-    if (this.renameThreadId !== threadId) return;
-    this.renameDraft = value;
+    if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId) return;
+    this.renameState = { ...this.renameState, draft: value };
     this.host.render();
   }
 
   cancel(threadId: string): void {
-    if (this.renameThreadId !== threadId) return;
+    if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId) return;
     this.clear();
     this.host.render();
   }
 
   async save(threadId: string, value: string): Promise<void> {
-    if (this.renameThreadId !== threadId || this.renameAutoNameThreadId === threadId) return;
+    if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId || this.renameState.kind === "generating") return;
+    const editingState = this.renameState;
     const title = value.trim();
     if (!title) {
       this.cancel(threadId);
@@ -96,6 +98,7 @@ export class ThreadRenameController {
     }
 
     await this.host.ensureConnected();
+    if (this.renameState !== editingState) return;
     const client = this.host.currentClient();
     if (!client) return;
 
@@ -115,13 +118,20 @@ export class ThreadRenameController {
   }
 
   async autoNameDraft(threadId: string): Promise<void> {
-    if (this.renameThreadId !== threadId || this.renameAutoNameThreadId === threadId) return;
+    if (this.renameState.kind !== "editing" || this.renameState.threadId !== threadId) return;
+
+    const editingState = this.renameState;
 
     await this.host.ensureConnected();
-    const generation = this.renameAutoNameGeneration + 1;
-    const draftBeforeGeneration = this.renameDraft;
-    this.renameAutoNameGeneration = generation;
-    this.renameAutoNameThreadId = threadId;
+    if (this.renameState !== editingState) return;
+
+    const generatingState: RenameLifecycleState = {
+      kind: "generating",
+      threadId,
+      draft: editingState.draft,
+      originalDraft: editingState.draft,
+    };
+    this.renameState = generatingState;
     this.host.render();
 
     try {
@@ -129,18 +139,15 @@ export class ThreadRenameController {
       if (!context) throw new Error(THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE);
       const title = await this.generateTitle(context);
       if (!title) throw new Error("Codex did not return a usable thread title.");
-      if (this.renameThreadId !== threadId || this.renameAutoNameGeneration !== generation) return;
-      if (this.renameDraft !== draftBeforeGeneration) return;
-      this.renameDraft = title;
+      if (this.renameState !== generatingState) return;
+      if (this.renameState.draft !== generatingState.originalDraft) return;
+      this.renameState = { kind: "generating", threadId, draft: title, originalDraft: generatingState.originalDraft };
     } catch (error) {
-      if (this.renameThreadId === threadId && this.renameAutoNameGeneration === generation) {
+      if (this.renameState === generatingState) {
         this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
       }
     } finally {
-      if (this.renameThreadId === threadId && this.renameAutoNameGeneration === generation) {
-        this.renameAutoNameThreadId = null;
-        this.host.render();
-      }
+      this.finishAutoNameDraftGeneration(threadId, generatingState);
     }
   }
 
@@ -191,6 +198,7 @@ export class ThreadRenameController {
   }
 
   private async generateTitle(context: ThreadNamingContext): Promise<string | null> {
+    if (this.host.generateThreadTitle) return this.host.generateThreadTitle(context);
     const settings = this.host.settings();
     return generateThreadTitleWithCodex(settings.codexPath, this.host.vaultPath, context, {
       threadNamingModel: settings.threadNamingModel,
@@ -199,10 +207,20 @@ export class ThreadRenameController {
   }
 
   private clear(): void {
-    this.renameAutoNameGeneration += 1;
-    this.renameThreadId = null;
-    this.renameDraft = "";
-    this.renameAutoNameThreadId = null;
+    this.renameState = { kind: "idle" };
+  }
+
+  private finishAutoNameDraftGeneration(threadId: string, generatingState: RenameGeneratingState): void {
+    if (this.renameState === generatingState) {
+      this.renameState = { kind: "editing", threadId, draft: generatingState.draft };
+      this.host.render();
+      return;
+    }
+
+    const currentState = this.renameState;
+    if (currentState.kind !== "generating" || currentState.threadId !== threadId) return;
+    this.renameState = { kind: "editing", threadId, draft: currentState.draft };
+    this.host.render();
   }
 
   private threadHasName(threadId: string): boolean {

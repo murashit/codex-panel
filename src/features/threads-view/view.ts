@@ -10,7 +10,7 @@ import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import { findThreadNamingContext, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/naming";
 import { generateThreadTitleWithCodex } from "../../app-server/thread-naming";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
-import { threadRows } from "./state";
+import { threadRows, type ThreadsRenameState } from "./state";
 
 export interface CodexThreadsHost {
   readonly settings: CodexPanelSettings;
@@ -35,9 +35,7 @@ export class CodexThreadsView extends ItemView {
   private status: string | null = null;
   private loading = false;
   private threads: readonly Thread[] = [];
-  private readonly renameDrafts = new Map<string, string>();
-  private renameAutoNameThreadId: string | null = null;
-  private renameAutoNameGeneration = 0;
+  private readonly renameStates = new Map<string, ThreadsRenameState>();
   private archiveConfirmThreadId: string | null = null;
 
   constructor(
@@ -168,8 +166,7 @@ export class CodexThreadsView extends ItemView {
         rows: threadRows(
           this.threads,
           this.plugin.getOpenPanelSnapshots(),
-          this.renameDrafts,
-          this.renameAutoNameThreadId,
+          this.renameStates,
           this.archiveConfirmThreadId,
           this.plugin.settings.archiveExportEnabled,
         ),
@@ -234,26 +231,24 @@ export class CodexThreadsView extends ItemView {
 
   private startRename(threadId: string, value: string): void {
     this.archiveConfirmThreadId = null;
-    this.renameAutoNameGeneration += 1;
-    this.renameAutoNameThreadId = null;
-    this.renameDrafts.set(threadId, value);
+    this.renameStates.set(threadId, { kind: "editing", draft: value });
     this.render();
   }
 
   private updateRename(threadId: string, value: string): void {
-    this.renameDrafts.set(threadId, value);
+    const current = this.renameStates.get(threadId);
+    this.renameStates.set(threadId, current?.kind === "generating" ? { ...current, draft: value } : { kind: "editing", draft: value });
     this.render();
   }
 
   private cancelRename(threadId: string): void {
-    if (this.renameAutoNameThreadId === threadId) this.renameAutoNameGeneration += 1;
-    if (this.renameAutoNameThreadId === threadId) this.renameAutoNameThreadId = null;
-    this.renameDrafts.delete(threadId);
+    this.renameStates.delete(threadId);
     this.render();
   }
 
   private async saveRename(threadId: string, value: string): Promise<void> {
-    if (this.renameAutoNameThreadId === threadId) return;
+    const editingState = this.renameStates.get(threadId);
+    if (!editingState || editingState.kind === "generating") return;
     const name = value.trim();
     if (!name) {
       this.cancelRename(threadId);
@@ -261,9 +256,10 @@ export class CodexThreadsView extends ItemView {
     }
     try {
       await this.ensureConnected();
+      if (this.renameStates.get(threadId) !== editingState) return;
       if (!this.client) return;
       await this.client.setThreadName(threadId, name);
-      this.renameDrafts.delete(threadId);
+      this.renameStates.delete(threadId);
       this.plugin.notifyThreadRenamed(threadId, name);
     } catch (error) {
       this.status = error instanceof Error ? error.message : String(error);
@@ -272,16 +268,20 @@ export class CodexThreadsView extends ItemView {
   }
 
   private async autoNameThread(threadId: string): Promise<void> {
-    if (!this.renameDrafts.has(threadId) || this.renameAutoNameThreadId === threadId) return;
+    const editingState = this.renameStates.get(threadId);
+    if (!editingState || editingState.kind === "generating") return;
 
-    const draftBeforeGeneration = this.renameDrafts.get(threadId) ?? "";
-    const generation = this.renameAutoNameGeneration + 1;
-    this.renameAutoNameGeneration = generation;
-    this.renameAutoNameThreadId = threadId;
+    const generatingState: ThreadsRenameState = {
+      kind: "generating",
+      draft: editingState.draft,
+      originalDraft: editingState.draft,
+    };
+    this.renameStates.set(threadId, generatingState);
     this.render();
 
     try {
       await this.ensureConnected();
+      if (this.renameStates.get(threadId) !== generatingState) return;
       if (!this.client) return;
       const client = this.client;
       const context = await findThreadNamingContext({
@@ -294,18 +294,16 @@ export class CodexThreadsView extends ItemView {
         threadNamingEffort: this.plugin.settings.threadNamingEffort,
       });
       if (!title) throw new Error("Codex did not return a usable thread title.");
-      if (this.renameAutoNameGeneration !== generation || !this.renameDrafts.has(threadId)) return;
-      if (this.renameDrafts.get(threadId) !== draftBeforeGeneration) return;
-      this.renameDrafts.set(threadId, title);
+      const current = this.renameStates.get(threadId);
+      if (current !== generatingState) return;
+      if (current.draft !== generatingState.originalDraft) return;
+      this.renameStates.set(threadId, { ...generatingState, draft: title });
     } catch (error) {
-      if (this.renameAutoNameGeneration === generation && this.renameDrafts.has(threadId)) {
+      if (this.renameStates.get(threadId) === generatingState) {
         this.status = error instanceof Error ? error.message : String(error);
       }
     } finally {
-      if (this.renameAutoNameGeneration === generation && this.renameAutoNameThreadId === threadId) {
-        this.renameAutoNameThreadId = null;
-        this.render();
-      }
+      this.finishAutoNameThread(threadId, generatingState);
     }
   }
 
@@ -341,11 +339,19 @@ export class CodexThreadsView extends ItemView {
       }
       await this.client.archiveThread(threadId);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
-      this.renameDrafts.delete(threadId);
+      this.renameStates.delete(threadId);
       this.plugin.notifyThreadArchived(threadId);
     } catch (error) {
       this.status = error instanceof Error ? error.message : String(error);
       this.render();
     }
+  }
+
+  private finishAutoNameThread(threadId: string, generatingState: ThreadsRenameState): void {
+    const current = this.renameStates.get(threadId);
+    if (current?.kind !== "generating") return;
+    const draft = current === generatingState ? generatingState.draft : current.draft;
+    this.renameStates.set(threadId, { kind: "editing", draft });
+    this.render();
   }
 }

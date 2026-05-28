@@ -310,6 +310,76 @@ describe("CodexThreadsView", () => {
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
     });
   });
+
+  it("does not revive threads view auto-name after cancellation", async () => {
+    const title = deferred<string | null>();
+    namingMock.generateThreadTitleWithCodex.mockReturnValue(title.promise);
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      threadTurnsList: vi.fn().mockResolvedValue({
+        data: [
+          turnFixture([
+            { type: "userMessage", id: "u1", content: [{ type: "text", text: "rename", text_elements: [] }] },
+            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+          ]),
+        ],
+        nextCursor: null,
+      }),
+    });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+
+    await vi.waitFor(() => {
+      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+    });
+
+    view.containerEl
+      .querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")
+      ?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    title.resolve("Late title");
+    await flushPromises();
+
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).toBeNull();
+  });
+
+  it("keeps a manually edited threads view draft when auto-name finishes later", async () => {
+    const title = deferred<string | null>();
+    namingMock.generateThreadTitleWithCodex.mockReturnValue(title.promise);
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      threadTurnsList: vi.fn().mockResolvedValue({
+        data: [
+          turnFixture([
+            { type: "userMessage", id: "u1", content: [{ type: "text", text: "rename", text_elements: [] }] },
+            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+          ]),
+        ],
+        nextCursor: null,
+      }),
+    });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+
+    await vi.waitFor(() => {
+      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+    });
+
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    expect(input).not.toBeNull();
+    if (!input) return;
+
+    changeInputValue(input, "Manual draft");
+    title.resolve("Late title");
+    await vi.waitFor(() => {
+      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Manual draft");
+    });
+  });
 });
 
 function clientFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -394,4 +464,19 @@ function turnFixture(items: Turn["items"], overrides: Partial<Turn> = {}): Turn 
     durationMs: 1,
     ...overrides,
   };
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushPromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
 }

@@ -19,6 +19,8 @@ export interface ThreadsRowModel {
   archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
 }
 
+export type ThreadsRenameState = { kind: "editing"; draft: string } | { kind: "generating"; draft: string; originalDraft: string };
+
 const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
   "needs-input": 5,
   approval: 4,
@@ -31,8 +33,7 @@ const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
 export function threadRows(
   threads: readonly Thread[],
   snapshots: OpenCodexPanelSnapshot[],
-  renameDrafts: ReadonlyMap<string, string>,
-  autoNameThreadId: string | null = null,
+  renameStates: ReadonlyMap<string, ThreadsRenameState>,
   archiveConfirmThreadId: string | null = null,
   defaultArchiveSaveMarkdown = false,
 ): ThreadsRowModel[] {
@@ -41,14 +42,15 @@ export function threadRows(
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map((thread) => {
       const live = liveStateForSnapshots(snapshotsByThread.get(thread.id) ?? []);
+      const rename = renameStates.get(thread.id);
       return {
         thread,
         title: getThreadTitle(thread),
         live,
         rename: {
-          active: renameDrafts.has(thread.id),
-          draft: renameDrafts.get(thread.id) ?? thread.name ?? getThreadTitle(thread),
-          generating: autoNameThreadId === thread.id,
+          active: rename !== undefined,
+          draft: rename?.draft ?? thread.name ?? getThreadTitle(thread),
+          generating: rename?.kind === "generating",
         },
         archiveConfirm: {
           active: archiveConfirmThreadId === thread.id,
