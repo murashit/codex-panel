@@ -65,7 +65,7 @@ import {
 } from "../../domain/threads/reference";
 import { pendingRequestMessageNode } from "./ui/pending-request-message";
 import { renderToolbar, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
-import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelSlotSnapshot } from "./ui/shell";
+import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
@@ -80,6 +80,14 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
   toolbarViewModel as buildToolbarViewModel,
 } from "./view-model";
+import {
+  composerSlotSnapshot,
+  latestProposedPlanItem,
+  messagesSlotSnapshot,
+  openPanelTurnLifecycle,
+  parseRestoredThreadState,
+  toolbarSlotSnapshot,
+} from "./view-snapshot";
 import {
   ChatViewDeferredTasks,
   transitionChatConnectionLifecycle,
@@ -1219,66 +1227,11 @@ export class CodexChatView extends ItemView {
     this.renderComposer(parent);
   };
 
-  private readonly toolbarSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
-    signatureParts(
-      state.status,
-      chatTurnBusy(state),
-      state.activeThreadId,
-      activeTurnId(state),
-      state.activeModel,
-      state.activeReasoningEffort,
-      state.activeCollaborationMode,
-      state.activeServiceTier,
-      state.activeApprovalPolicy,
-      state.activeApprovalsReviewer,
-      state.activePermissionProfile,
-      state.requestedCollaborationMode,
-      state.requestedServiceTier,
-      state.requestedApprovalsReviewer,
-      state.requestedModel,
-      state.requestedReasoningEffort,
-      state.runtimePicker,
-      openDetailsSignature(state.openDetails),
-      state.threadsLoaded,
-      threadListSignature(state.listedThreads),
-      modelsSignature(state.availableModels),
-      state.effectiveConfig,
-      state.rateLimit,
-      state.tokenUsage,
-      state.appServerDiagnostics,
-      this.connection.isConnected(),
-    );
+  private readonly toolbarSnapshot = (state: ChatState) => toolbarSlotSnapshot(state, this.connection.isConnected());
 
-  private readonly messagesSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
-    signatureParts(
-      state.activeThreadId,
-      activeTurnId(state),
-      state.activeThreadCwd,
-      state.historyCursor,
-      state.loadingHistory,
-      chatTurnBusy(state),
-      state.messagesPinnedToBottom,
-      state.composerDraft,
-      state.requestedCollaborationMode,
-      displayItemsSignature(state.displayItems),
-      turnDiffsSignature(state.turnDiffs),
-      openDetailsSignature(state.openDetails),
-      this.pendingRequestsSignature(),
-    );
+  private readonly messagesSnapshot = (state: ChatState) => messagesSlotSnapshot(state, this.pendingRequestsSignature());
 
-  private readonly composerSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
-    signatureParts(
-      state.composerDraft,
-      chatTurnBusy(state),
-      state.activeThreadId,
-      activeTurnId(state),
-      currentModel(this.runtimeSnapshotForState(state), readRuntimeConfig(state.effectiveConfig)),
-      state.availableSkills.length,
-      skillsSignature(state.availableSkills),
-      modelsSignature(state.availableModels),
-      threadListSignature(state.listedThreads),
-      this.activeComposerThreadName(),
-    );
+  private readonly composerSnapshot = (state: ChatState) => composerSlotSnapshot(state, this.activeComposerThreadName());
 
   private render(options: ChatViewRenderScheduleOptions = {}): void {
     this.deferredTasks.clearRender();
@@ -1645,69 +1598,4 @@ export class CodexChatView extends ItemView {
   private renderComposer(parent: HTMLElement): void {
     this.composerController.render(parent);
   }
-}
-
-function openPanelTurnLifecycle(state: ChatState["turnLifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
-  if (state.kind === "running") return { kind: "running", turnId: state.turnId };
-  if (state.kind === "starting") return { kind: "starting" };
-  return { kind: "idle" };
-}
-
-function latestProposedPlanItem(items: readonly DisplayItem[]): DisplayItem | null {
-  return [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ?? null;
-}
-
-function signatureParts(...values: unknown[]): string {
-  return values.map((value) => stableSignature(value)).join("\u001f");
-}
-
-function stableSignature(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
-}
-
-function openDetailsSignature(openDetails: ReadonlySet<string>): string {
-  return [...openDetails].sort().join("\n");
-}
-
-function turnDiffsSignature(turnDiffs: ReadonlyMap<string, string>): string {
-  return [...turnDiffs]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([turnId, diff]) => `${turnId}:${diff}`)
-    .join("\n");
-}
-
-function displayItemsSignature(items: readonly DisplayItem[]): string {
-  return stableSignature(items);
-}
-
-function threadListSignature(threads: readonly Thread[]): string {
-  return threads
-    .map((thread) =>
-      signatureParts(thread.id, thread.name, thread.preview, thread.updatedAt, thread.cliVersion, thread.status, thread.gitInfo),
-    )
-    .join("\n");
-}
-
-function modelsSignature(models: readonly Model[]): string {
-  return models.map((model) => stableSignature(model)).join("\n");
-}
-
-function skillsSignature(skills: ChatState["availableSkills"]): string {
-  return skills.map((skill) => stableSignature(skill)).join("\n");
-}
-
-function parseRestoredThreadState(state: unknown): RestoredThreadState | null {
-  if (!state || typeof state !== "object") return null;
-  const record = state as Record<string, unknown>;
-  const threadId = record["threadId"];
-  if (typeof threadId !== "string" || threadId.trim().length === 0) return null;
-  const title = record["threadTitle"];
-  return {
-    threadId,
-    title: typeof title === "string" && title.trim().length > 0 ? title : null,
-    explicitName: null,
-  };
 }
