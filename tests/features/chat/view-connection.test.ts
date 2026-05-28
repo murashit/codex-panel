@@ -15,6 +15,7 @@ const connectionMock = vi.hoisted(() => {
     client: null as Record<string, unknown> | null,
     connectCalls: 0,
     connected: false,
+    onExit: null as (() => void) | null,
   };
 
   return {
@@ -23,6 +24,7 @@ const connectionMock = vi.hoisted(() => {
       state.client = null;
       state.connectCalls = 0;
       state.connected = false;
+      state.onExit = null;
     },
   };
 });
@@ -31,6 +33,14 @@ vi.mock("../../../src/app-server/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {
+    constructor(
+      _codexPath: unknown,
+      _cwd: unknown,
+      private readonly handlers: { onExit: () => void },
+    ) {
+      connectionMock.state.onExit = handlers.onExit;
+    }
+
     connect(): Promise<unknown> {
       connectionMock.state.connectCalls += 1;
       connectionMock.state.connected = true;
@@ -56,6 +66,11 @@ vi.mock("../../../src/app-server/connection-manager", () => {
 
     disconnect(): void {
       connectionMock.state.connected = false;
+    }
+
+    exit(): void {
+      connectionMock.state.connected = false;
+      this.handlers.onExit();
     }
   }
 
@@ -84,6 +99,35 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.listSkills).toHaveBeenCalledTimes(1);
     expect(client.readAccountRateLimits).toHaveBeenCalledTimes(1);
     expect(client.listThreads).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps connect calls joined while metadata is still loading", async () => {
+    const config = deferred<unknown>();
+    const client = connectedClient({
+      readEffectiveConfig: vi.fn(() => config.promise),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    const firstConnect = view.connect();
+    await vi.waitFor(() => {
+      expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+    });
+
+    let secondResolved = false;
+    const secondConnect = view.connect().then(() => {
+      secondResolved = true;
+    });
+    await Promise.resolve();
+
+    expect(connectionMock.state.connected).toBe(true);
+    expect(secondResolved).toBe(false);
+
+    config.resolve({});
+    await Promise.all([firstConnect, secondConnect]);
+
+    expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+    expect(client.listThreads).toHaveBeenCalledOnce();
   });
 
   it("refreshes shared thread lists after connecting", async () => {
@@ -155,6 +199,28 @@ describe("CodexChatView connection lifecycle", () => {
     expect(notices).toEqual([]);
     expect(client.listThreads).not.toHaveBeenCalled();
   });
+
+  it("ignores stale connection work after the app-server exits during metadata loading", async () => {
+    const config = deferred<unknown>();
+    const client = connectedClient({
+      readEffectiveConfig: vi.fn(() => config.promise),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    const connecting = view.connect();
+    await vi.waitFor(() => {
+      expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+    });
+    connectionMock.state.onExit?.();
+
+    config.resolve({});
+    await connecting;
+
+    expect(client.listThreads).not.toHaveBeenCalled();
+    expect((view as unknown as { state: { status: string } }).state.status).toBe("Codex app-server stopped.");
+  });
+
   it("restores the active thread from workspace state and hydrates it after a delay", async () => {
     vi.useFakeTimers();
     const client = connectedClient({

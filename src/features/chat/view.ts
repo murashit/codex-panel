@@ -105,6 +105,8 @@ interface RestoredThreadState {
 
 type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; threadId: string };
 type ActiveChatResume = Extract<ChatResumeLifecycleState, { kind: "resuming" }>;
+type ChatConnectionLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
+type ActiveChatConnection = Extract<ChatConnectionLifecycleState, { kind: "connecting" }>;
 type RestoredThreadLifecycleState =
   | { kind: "idle" }
   | { kind: "placeholder"; threadId: string; title: string | null; explicitName: string | null; loading: Promise<void> | null };
@@ -128,8 +130,7 @@ export class CodexChatView extends ItemView {
   private shellRenderVersion = 0;
   private scheduledDiagnosticsTimer: number | null = null;
   private archiveConfirmThreadId: string | null = null;
-  private connectingPromise: Promise<void> | null = null;
-  private connectionGeneration = 0;
+  private connectionLifecycle: ChatConnectionLifecycleState = { kind: "idle" };
   private resumeLifecycle: ChatResumeLifecycleState = { kind: "idle" };
   private restoredThreadLifecycle: RestoredThreadLifecycleState = { kind: "idle" };
   private opened = false;
@@ -196,6 +197,7 @@ export class CodexChatView extends ItemView {
         this.render();
       },
       onExit: () => {
+        this.invalidateConnectionWork();
         this.invalidateResumeWork();
         this.setStatus("Codex app-server stopped.");
         this.chatState.dispatch({ type: "connection/scoped-cleared" });
@@ -471,9 +473,8 @@ export class CodexChatView extends ItemView {
   override async onClose(): Promise<void> {
     this.opened = false;
     this.closing = true;
-    this.connectionGeneration += 1;
+    this.invalidateConnectionWork();
     this.invalidateResumeWork();
-    this.connectingPromise = null;
     this.clearDeferredRestoredThreadHydration();
     this.clearDeferredAppServerWarmup();
     if (this.scheduledRenderTimer !== null) {
@@ -504,53 +505,69 @@ export class CodexChatView extends ItemView {
   }
 
   private async ensureConnected(): Promise<void> {
+    const connecting = this.activeConnection();
+    if (connecting?.promise) return connecting.promise;
+
     if (this.connection.isConnected()) {
       this.client = this.connection.currentClient();
       return;
     }
-    if (this.connectingPromise) return this.connectingPromise;
 
-    const generation = this.connectionGeneration;
-    const promise = this.initializeConnection(generation);
-    this.connectingPromise = promise;
+    const connection = this.beginConnectionWork();
+    const promise = this.initializeConnection(connection);
+    connection.promise = promise;
     try {
       await promise;
     } finally {
-      if (this.connectingPromise === promise) {
-        this.connectingPromise = null;
+      if (this.connectionLifecycle === connection && connection.promise === promise) {
+        this.connectionLifecycle = { kind: "idle" };
       }
     }
   }
 
-  private async initializeConnection(generation: number): Promise<void> {
+  private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
     this.setStatus("Starting Codex app-server...");
     try {
       this.dispatch({ type: "connection/initialized", initializeResponse: await this.connection.connect() });
-      if (this.isStaleConnectionGeneration(generation)) return;
+      if (this.isStaleConnectionWork(connection)) return;
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
       const metadata = await this.appServer.refreshAppServerMetadata();
-      if (this.isStaleConnectionGeneration(generation)) return;
+      if (this.isStaleConnectionWork(connection)) return;
       if (metadata) this.plugin.publishAppServerMetadata(metadata);
       await this.loadSharedThreadList();
-      if (this.isStaleConnectionGeneration(generation)) return;
+      if (this.isStaleConnectionWork(connection)) return;
       this.scheduleDeferredDiagnostics();
       this.refreshTabHeader();
       this.setStatus("Connected.");
     } catch (error) {
-      if (this.isStaleConnectionGeneration(generation)) return;
+      if (this.isStaleConnectionWork(connection)) return;
       if (error instanceof StaleConnectionError) return;
       this.setStatus("Connection failed.");
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
       new Notice("Codex app-server connection failed.");
     }
-    if (!this.isStaleConnectionGeneration(generation)) {
+    if (!this.isStaleConnectionWork(connection)) {
       this.scheduleRender();
     }
   }
 
-  private isStaleConnectionGeneration(generation: number): boolean {
-    return generation !== this.connectionGeneration;
+  private beginConnectionWork(): ActiveChatConnection {
+    const connection: ActiveChatConnection = { kind: "connecting", promise: null };
+    this.connectionLifecycle = connection;
+    return connection;
+  }
+
+  private invalidateConnectionWork(): void {
+    this.connectionLifecycle = { kind: "idle" };
+  }
+
+  private activeConnection(): ActiveChatConnection | null {
+    return this.connectionLifecycle.kind === "connecting" ? this.connectionLifecycle : null;
+  }
+
+  private isStaleConnectionWork(connection: ActiveChatConnection): boolean {
+    return this.connectionLifecycle !== connection;
   }
 
   async startNewThread(): Promise<void> {
@@ -1413,9 +1430,8 @@ export class CodexChatView extends ItemView {
   private async reconnectFromToolbar(): Promise<void> {
     const threadId = this.state.activeThreadId;
     this.dispatch({ type: "ui/panel-set", panel: null });
-    this.connectionGeneration += 1;
+    this.invalidateConnectionWork();
     this.invalidateResumeWork();
-    this.connectingPromise = null;
     this.clearDeferredDiagnostics();
     this.connection.reconnect();
     this.client = null;
