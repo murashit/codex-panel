@@ -24,16 +24,18 @@ export interface CodexThreadsHost {
   cachedThreadList(): readonly Thread[] | null;
 }
 
+type ThreadsViewRefreshLifecycleState = { kind: "idle" } | { kind: "loading"; connectionGeneration: number };
+type ActiveThreadsViewRefresh = Extract<ThreadsViewRefreshLifecycleState, { kind: "loading" }>;
+
 export class CodexThreadsView extends ItemView {
   private readonly connection: ConnectionManager;
   private client: AppServerClient | null = null;
   private connectingPromise: Promise<void> | null = null;
   private connectionGeneration = 0;
-  private refreshGeneration = 0;
+  private refreshLifecycle: ThreadsViewRefreshLifecycleState = { kind: "idle" };
   private renderTimer: number | null = null;
   private refreshTimer: number | null = null;
   private status: string | null = null;
-  private loading = false;
   private threads: readonly Thread[] = [];
   private readonly renameStates = new Map<string, ThreadsRenameState>();
   private archiveConfirmThreadId: string | null = null;
@@ -89,7 +91,7 @@ export class CodexThreadsView extends ItemView {
 
   override async onClose(): Promise<void> {
     this.connectionGeneration += 1;
-    this.refreshGeneration += 1;
+    this.refreshLifecycle = { kind: "idle" };
     this.connectingPromise = null;
     if (this.renderTimer !== null) {
       this.containerEl.win.clearTimeout(this.renderTimer);
@@ -105,35 +107,42 @@ export class CodexThreadsView extends ItemView {
   }
 
   async refresh(): Promise<void> {
-    const connectionGeneration = this.connectionGeneration;
-    const refreshGeneration = ++this.refreshGeneration;
-    this.loading = true;
+    const refresh = this.startRefresh();
     this.status = this.threads.length === 0 ? "Loading threads..." : null;
     this.render();
     try {
       await this.ensureConnected();
-      if (this.isStaleRefresh(connectionGeneration, refreshGeneration) || !this.client) return;
+      if (this.isStaleRefresh(refresh) || !this.client) return;
       const threads = await this.plugin.refreshThreadList(async () => {
         if (!this.client) return [];
         const response = await this.client.listThreads(this.plugin.vaultPath);
         return response.data;
       });
-      if (this.isStaleRefresh(connectionGeneration, refreshGeneration)) return;
+      if (this.isStaleRefresh(refresh)) return;
       this.threads = threads;
       this.status = threads.length === 0 ? "No threads" : null;
     } catch (error) {
       if (error instanceof StaleConnectionError) return;
       this.status = error instanceof Error ? error.message : String(error);
     } finally {
-      if (!this.isStaleRefresh(connectionGeneration, refreshGeneration)) {
-        this.loading = false;
-        this.render();
-      }
+      this.finishRefresh(refresh);
     }
   }
 
-  private isStaleRefresh(connectionGeneration: number, refreshGeneration: number): boolean {
-    return connectionGeneration !== this.connectionGeneration || refreshGeneration !== this.refreshGeneration;
+  private startRefresh(): ActiveThreadsViewRefresh {
+    const refresh: ActiveThreadsViewRefresh = { kind: "loading", connectionGeneration: this.connectionGeneration };
+    this.refreshLifecycle = refresh;
+    return refresh;
+  }
+
+  private finishRefresh(refresh: ActiveThreadsViewRefresh): void {
+    if (this.isStaleRefresh(refresh)) return;
+    this.refreshLifecycle = { kind: "idle" };
+    this.render();
+  }
+
+  private isStaleRefresh(refresh: ActiveThreadsViewRefresh): boolean {
+    return this.refreshLifecycle !== refresh || refresh.connectionGeneration !== this.connectionGeneration;
   }
 
   private async ensureConnected(): Promise<void> {
@@ -162,7 +171,7 @@ export class CodexThreadsView extends ItemView {
       this.containerEl,
       {
         status: this.status,
-        loading: this.loading,
+        loading: this.refreshLifecycle.kind === "loading",
         rows: threadRows(
           this.threads,
           this.plugin.getOpenPanelSnapshots(),
