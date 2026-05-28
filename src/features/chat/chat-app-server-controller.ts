@@ -21,6 +21,7 @@ export interface ChatAppServerControllerHost {
   currentClient: () => AppServerClient | null;
   runtimeSnapshot: () => RuntimeSnapshot;
   forceMessagesToBottom: () => void;
+  publishAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
 }
 
 export interface RefreshCapabilityDiagnosticsOptions {
@@ -94,6 +95,16 @@ export class ChatAppServerController {
     return metadata;
   }
 
+  async refreshPublishedAppServerMetadata(): Promise<SharedAppServerMetadata | null> {
+    const metadata = await this.refreshAppServerMetadata();
+    if (metadata) this.host.publishAppServerMetadata(metadata);
+    return metadata;
+  }
+
+  publishAppServerMetadataSnapshot(): void {
+    this.host.publishAppServerMetadata(this.appServerMetadataSnapshot());
+  }
+
   async startThread(): Promise<Awaited<ReturnType<AppServerClient["startThread"]>> | null> {
     const client = this.host.currentClient();
     if (!client) return null;
@@ -127,6 +138,11 @@ export class ChatAppServerController {
     const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
     diagnostics.probes["skills/list"] = skills.probe;
     this.dispatch({ type: "thread/list-applied", availableSkills: skills.data, appServerDiagnostics: diagnostics });
+  }
+
+  async refreshPublishedSkills(forceReload = false): Promise<void> {
+    await this.refreshSkills(forceReload);
+    this.publishAppServerMetadataSnapshot();
   }
 
   async loadSkills(forceReload = false): Promise<{ data: SkillMetadata[]; probe: AppServerDiagnostics["probes"]["skills/list"] }> {
@@ -241,6 +257,11 @@ export class ChatAppServerController {
     );
 
     await Promise.all(probes);
+  }
+
+  async refreshPublishedCapabilityDiagnostics(options: RefreshCapabilityDiagnosticsOptions = {}): Promise<void> {
+    await this.refreshCapabilityDiagnostics(options);
+    this.publishAppServerMetadataSnapshot();
   }
 
   recordMcpStartupStatus(name: string, startupStatus: "starting" | "ready" | "failed" | "cancelled", message: string | null): void {

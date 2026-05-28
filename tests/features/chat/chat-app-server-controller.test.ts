@@ -33,6 +33,7 @@ describe("ChatAppServerController", () => {
       currentClient: () => client,
       runtimeSnapshot: () => ({}) as never,
       forceMessagesToBottom: () => undefined,
+      publishAppServerMetadata: () => undefined,
     });
 
     await controller.refreshAppServerMetadata();

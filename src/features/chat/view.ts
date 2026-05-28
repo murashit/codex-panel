@@ -237,6 +237,9 @@ export class CodexChatView extends ItemView {
       forceMessagesToBottom: () => {
         this.queueMessagesBottomScroll();
       },
+      publishAppServerMetadata: (metadata) => {
+        this.plugin.publishAppServerMetadata(metadata);
+      },
     });
     this.history = new ThreadHistoryLoader({
       stateStore: this.chatState,
@@ -549,9 +552,8 @@ export class CodexChatView extends ItemView {
       if (this.connectionWork.isStale(connection)) return;
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
-      const metadata = await this.appServer.refreshAppServerMetadata();
+      await this.appServer.refreshPublishedAppServerMetadata();
       if (this.connectionWork.isStale(connection)) return;
-      if (metadata) this.plugin.publishAppServerMetadata(metadata);
       await this.loadSharedThreadList();
       if (this.connectionWork.isStale(connection)) return;
       this.scheduleDeferredDiagnostics();
@@ -595,8 +597,7 @@ export class CodexChatView extends ItemView {
     if (!this.client) return;
     try {
       await this.loadSharedThreadList();
-      const metadata = await this.appServer.refreshAppServerMetadata();
-      if (metadata) this.plugin.publishAppServerMetadata(metadata);
+      await this.appServer.refreshPublishedAppServerMetadata();
       this.refreshTabHeader();
       this.render();
     } catch (error) {
@@ -609,8 +610,7 @@ export class CodexChatView extends ItemView {
     await this.ensureConnected();
     if (!this.client) return;
     this.clearDeferredDiagnostics();
-    await this.appServer.refreshCapabilityDiagnostics();
-    this.publishAppServerMetadataSnapshot();
+    await this.appServer.refreshPublishedCapabilityDiagnostics();
     this.render();
   }
 
@@ -626,8 +626,7 @@ export class CodexChatView extends ItemView {
   private async refreshSkills(forceReload = false): Promise<void> {
     this.client = this.connection.currentClient();
     if (!this.client) return;
-    await this.appServer.refreshSkills(forceReload);
-    this.publishAppServerMetadataSnapshot();
+    await this.appServer.refreshPublishedSkills(forceReload);
     this.render();
   }
 
@@ -693,7 +692,7 @@ export class CodexChatView extends ItemView {
   }
 
   private publishAppServerMetadataSnapshot(): void {
-    this.plugin.publishAppServerMetadata(this.appServer.appServerMetadataSnapshot());
+    this.appServer.publishAppServerMetadataSnapshot();
   }
 
   private applyCachedSharedAppServerState(): void {
@@ -1281,8 +1280,7 @@ export class CodexChatView extends ItemView {
 
   private async refreshDeferredDiagnostics(): Promise<void> {
     if (!this.connection.isConnected()) return;
-    await this.appServer.refreshCapabilityDiagnostics({ cachedAppServerMetadata: true });
-    this.publishAppServerMetadataSnapshot();
+    await this.appServer.refreshPublishedCapabilityDiagnostics({ cachedAppServerMetadata: true });
     this.render();
   }
 
