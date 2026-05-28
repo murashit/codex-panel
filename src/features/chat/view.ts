@@ -39,7 +39,7 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
   toolbarViewModel as buildToolbarViewModel,
 } from "./view-model";
-import { composerSlotSnapshot, latestProposedPlanItem, openPanelTurnLifecycle, parseRestoredThreadState } from "./view-snapshot";
+import { composerSlotSnapshot, openPanelTurnLifecycle, parseRestoredThreadState } from "./view-snapshot";
 import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
@@ -58,6 +58,7 @@ import { ThreadIdentityController } from "./thread-identity-controller";
 import { ThreadResumeController } from "./thread-resume-controller";
 import { ChatViewRenderController } from "./view-render-controller";
 import { ChatViewOpenCloseController } from "./view-open-close-controller";
+import { PlanImplementationController } from "./plan-implementation-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -103,6 +104,7 @@ export class CodexChatView extends ItemView {
   private readonly turnSubmission: TurnSubmissionController;
   private readonly slashCommands: SlashCommandController;
   private readonly composerSubmission: ComposerSubmissionController;
+  private readonly planImplementation: PlanImplementationController;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
@@ -212,7 +214,7 @@ export class CodexChatView extends ItemView {
       consumeScrollIntent: () => this.messageScroll.consumeIntent(),
       loadOlderTurns: () => void this.history.loadOlder(),
       rollbackThread: (threadId) => void this.threadActions.rollbackThread(threadId),
-      implementPlan: (item) => void this.implementPlan(item),
+      implementPlan: (item) => void this.planImplementation.implement(item),
       openTurnDiff: (state) => void this.plugin.openTurnDiff(state),
       pendingRequestsSignature: () => this.pendingRequestsSignature(),
       renderPendingRequests: () => this.pendingRequests.renderNode(),
@@ -250,6 +252,12 @@ export class CodexChatView extends ItemView {
       addSystemMessage: (text) => {
         this.addSystemMessage(text);
       },
+    });
+    this.planImplementation = new PlanImplementationController({
+      stateStore: this.chatState,
+      currentClient: () => this.client,
+      ensureConnected: () => this.ensureConnected(),
+      sendTurnText: (text) => this.turnSubmission.sendTurnText(text),
     });
     this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath, {
       onNotification: (notification) => {
@@ -827,25 +835,8 @@ export class CodexChatView extends ItemView {
     void this.app.workspace.requestSaveLayout();
   }
 
-  private async implementPlan(item: DisplayItem): Promise<void> {
-    if (!this.canImplementPlanItem(item)) return;
-    await this.ensureConnected();
-    if (!this.client || !this.state.activeThreadId) return;
-
-    this.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
-    this.dispatch({ type: "ui/panel-set", panel: null });
-    await this.turnSubmission.sendTurnText("Please implement this plan.");
-  }
-
   private async submitComposerAction(): Promise<void> {
     await this.composerSubmission.submit();
-  }
-
-  private canImplementPlanItem(item: DisplayItem): boolean {
-    if (item.kind !== "message" || item.role !== "assistant" || item.proposedPlan !== true) return false;
-    if (!this.state.activeThreadId || this.turnBusy || this.state.composerDraft.trim().length > 0) return false;
-    if (this.state.requestedCollaborationMode !== "plan") return false;
-    return latestProposedPlanItem(this.state.displayItems)?.id === item.id;
   }
 
   private async setRequestedModelFromUi(model: string | null): Promise<void> {

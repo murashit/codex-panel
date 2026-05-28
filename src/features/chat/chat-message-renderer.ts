@@ -9,6 +9,7 @@ import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
+import { implementPlanCandidateFromState } from "./plan-implementation-controller";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface ChatMessageRendererOptions {
@@ -127,19 +128,4 @@ export class ChatMessageRenderer {
   }
 }
 
-export function implementPlanCandidateFromState(
-  state: Pick<ChatState, "activeThreadId" | "turnLifecycle" | "composerDraft" | "requestedCollaborationMode" | "displayItems">,
-): DisplayItem | null {
-  if (
-    !state.activeThreadId ||
-    chatTurnBusy(state) ||
-    state.composerDraft.trim().length > 0 ||
-    state.requestedCollaborationMode !== "plan"
-  ) {
-    return null;
-  }
-  return (
-    [...state.displayItems].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ??
-    null
-  );
-}
+export { implementPlanCandidateFromState };
