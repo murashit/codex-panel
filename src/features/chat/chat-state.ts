@@ -179,6 +179,15 @@ export type ChatAction =
   | { type: "turn/start-failed"; displayItems: readonly DisplayItem[] }
   | { type: "display/pending-turn-item-upserted"; item: DisplayItem; pendingTurnStart: PendingTurnStart | null };
 
+type ConnectionAction = Extract<ChatAction, { type: `connection/${string}` }>;
+type ThreadAction = Extract<ChatAction, { type: `thread/${string}` }> | Extract<ChatAction, { type: `history/${string}` }>;
+type TurnAction = Extract<ChatAction, { type: `turn/${string}` }>;
+type RequestAction = Extract<ChatAction, { type: `request/${string}` }>;
+type DisplayAction = Extract<ChatAction, { type: `display/${string}` }> | Extract<ChatAction, { type: `system/${string}` }>;
+type ComposerAction = Extract<ChatAction, { type: `composer/${string}` }>;
+type UiAction = Extract<ChatAction, { type: `ui/${string}` }>;
+type RuntimeAction = Extract<ChatAction, { type: `runtime/${string}` }>;
+
 export function createChatState(): ChatState {
   return {
     status: "Idle",
@@ -247,19 +256,61 @@ export function createChatStateStore(initialState: ChatState = createChatState()
 }
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
+  if (action.type === "status/set") return patchChatState(state, { status: action.status });
+  if (isConnectionAction(action)) return reduceConnectionState(state, action);
+  if (isThreadAction(action)) return reduceThreadState(state, action);
+  if (isTurnAction(action)) return reduceTurnState(state, action);
+  if (isRequestAction(action)) return reduceRequestState(state, action);
+  if (isDisplayAction(action)) return reduceDisplayState(state, action);
+  if (isComposerAction(action)) return reduceComposerState(state, action);
+  if (isUiAction(action)) return reduceUiState(state, action);
+  if (isRuntimeAction(action)) return reduceRuntimeState(state, action);
+  return assertNever(action);
+}
+
+function isConnectionAction(action: ChatAction): action is ConnectionAction {
+  return action.type.startsWith("connection/");
+}
+
+function isThreadAction(action: ChatAction): action is ThreadAction {
+  return action.type.startsWith("thread/") || action.type.startsWith("history/");
+}
+
+function isTurnAction(action: ChatAction): action is TurnAction {
+  return action.type.startsWith("turn/");
+}
+
+function isRequestAction(action: ChatAction): action is RequestAction {
+  return action.type.startsWith("request/");
+}
+
+function isDisplayAction(action: ChatAction): action is DisplayAction {
+  return action.type.startsWith("display/") || action.type.startsWith("system/");
+}
+
+function isComposerAction(action: ChatAction): action is ComposerAction {
+  return action.type.startsWith("composer/");
+}
+
+function isUiAction(action: ChatAction): action is UiAction {
+  return action.type.startsWith("ui/");
+}
+
+function isRuntimeAction(action: ChatAction): action is RuntimeAction {
+  return action.type.startsWith("runtime/");
+}
+
+function reduceConnectionState(state: ChatState, action: ConnectionAction): ChatState {
   switch (action.type) {
-    case "status/set":
-      return patchChatState(state, { status: action.status });
-    case "system/message-added":
-      return patchChatState(state, { displayItems: [...state.displayItems, action.item] });
-    case "system/deduped-log-added":
-      if (state.reportedLogs.has(action.text)) return state;
-      return patchChatState(state, {
-        reportedLogs: new Set([...state.reportedLogs, action.text]),
-        displayItems: [...state.displayItems, action.item],
-      });
     case "connection/scoped-cleared":
       return clearConnectionScopedState(state);
+    case "connection/initialized":
+      return patchChatState(state, { initializeResponse: action.initializeResponse });
+  }
+}
+
+function reduceThreadState(state: ChatState, action: ThreadAction): ChatState {
+  switch (action.type) {
     case "thread/active-cleared":
       return clearActiveThreadState(state);
     case "thread/resumed":
@@ -292,80 +343,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...definedPatch("rateLimit", action.rateLimit),
         ...definedPatch("appServerDiagnostics", action.appServerDiagnostics),
       });
-    case "turn/started":
-      return patchChatState(state, {
-        activeThreadId: action.threadId,
-        turnLifecycle: { kind: "running", turnId: action.turnId },
-        status: "Turn running...",
-        displayItems: action.displayItems ?? state.displayItems,
-      });
-    case "turn/completed":
-      if (activeTurnId(state) !== action.turnId) return state;
-      return patchChatState(state, {
-        turnLifecycle: { kind: "idle" },
-        displayItems: action.displayItems,
-        status: `Turn ${action.status}.`,
-      });
-    case "request/approval-queued":
-      if (state.approvals.some((existing) => existing.requestId === action.approval.requestId)) return state;
-      return patchChatState(state, { approvals: [...state.approvals, action.approval] });
-    case "request/user-input-queued":
-      if (state.pendingUserInputs.some((existing) => existing.requestId === action.input.requestId)) return state;
-      return patchChatState(state, { pendingUserInputs: [...state.pendingUserInputs, action.input] });
-    case "request/resolved":
-      return resolveRequest(state, action.requestId, action.resultItem);
-    case "display/items-replaced":
-      return patchChatState(state, {
-        displayItems: action.items,
-        ...definedPatch("historyCursor", action.historyCursor),
-        ...definedPatch("loadingHistory", action.loadingHistory),
-        ...definedPatch("messagesPinnedToBottom", action.messagesPinnedToBottom),
-      });
-    case "display/item-upserted":
-      return patchChatState(state, { displayItems: upsertDisplayItem(state.displayItems, action.item) });
-    case "display/turn-diff-updated":
-      return patchChatState(state, { turnDiffs: updatedTurnDiffs(state.turnDiffs, action.turnId, action.diff) });
-    case "composer/draft-set":
-      return patchChatState(state, {
-        composerDraft: action.draft,
-        ...(action.clearSuggestions ? { composerSuggestions: [], composerSuggestSelected: 0 } : {}),
-        ...(action.resetDismissedSignature ? { composerSuggestionsDismissedSignature: null } : {}),
-      });
-    case "composer/suggestions-set":
-      return setComposerSuggestionsState(
-        state,
-        action.suggestions,
-        action.selected ?? state.composerSuggestSelected,
-        action.dismissedSignature === undefined ? state.composerSuggestionsDismissedSignature : action.dismissedSignature,
-      );
-    case "ui/panel-set":
-      return setPanelState(state, action.panel, action.toggle ?? false);
-    case "ui/messages-pinned-set":
-      return patchChatState(state, { messagesPinnedToBottom: action.pinned });
-    case "ui/detail-open-set":
-      return setDetailOpenState(state, action.key, action.open);
-    case "request/user-input-draft-set":
-      return setUserInputDraftState(state, action.key, action.value);
-    case "runtime/requested-model-set":
-      return patchChatState(state, { requestedModel: action.model === null ? resetRuntimeOverride() : setRuntimeOverride(action.model) });
-    case "runtime/requested-effort-set":
-      return patchChatState(state, {
-        requestedReasoningEffort: action.effort === null ? resetRuntimeOverride() : setRuntimeOverride(action.effort),
-      });
-    case "runtime/requested-service-tier-set":
-      return patchChatState(state, {
-        requestedServiceTier: action.serviceTier,
-      });
-    case "runtime/requested-approvals-reviewer-set":
-      return patchChatState(state, {
-        requestedApprovalsReviewer: action.approvalsReviewer,
-      });
-    case "runtime/requested-collaboration-mode-set":
-      return patchChatState(state, { requestedCollaborationMode: action.collaborationMode });
-    case "runtime/pending-thread-settings-committed":
-      return commitPendingThreadSettings(state, action.update);
-    case "connection/initialized":
-      return patchChatState(state, { initializeResponse: action.initializeResponse });
     case "thread/cwd-set":
       return patchChatState(state, { activeThreadCwd: action.cwd });
     case "thread/token-usage-set":
@@ -405,6 +382,25 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       );
     case "history/loading-set":
       return patchChatState(state, { loadingHistory: action.loading });
+  }
+}
+
+function reduceTurnState(state: ChatState, action: TurnAction): ChatState {
+  switch (action.type) {
+    case "turn/started":
+      return patchChatState(state, {
+        activeThreadId: action.threadId,
+        turnLifecycle: { kind: "running", turnId: action.turnId },
+        status: "Turn running...",
+        displayItems: action.displayItems ?? state.displayItems,
+      });
+    case "turn/completed":
+      if (activeTurnId(state) !== action.turnId) return state;
+      return patchChatState(state, {
+        turnLifecycle: { kind: "idle" },
+        displayItems: action.displayItems,
+        status: `Turn ${action.status}.`,
+      });
     case "turn/local-cleared":
       return clearActiveTurnState(state);
     case "turn/optimistic-started":
@@ -424,11 +420,102 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         turnLifecycle: { kind: "idle" },
         displayItems: action.displayItems,
       });
+  }
+}
+
+function reduceRequestState(state: ChatState, action: RequestAction): ChatState {
+  switch (action.type) {
+    case "request/approval-queued":
+      if (state.approvals.some((existing) => existing.requestId === action.approval.requestId)) return state;
+      return patchChatState(state, { approvals: [...state.approvals, action.approval] });
+    case "request/user-input-queued":
+      if (state.pendingUserInputs.some((existing) => existing.requestId === action.input.requestId)) return state;
+      return patchChatState(state, { pendingUserInputs: [...state.pendingUserInputs, action.input] });
+    case "request/resolved":
+      return resolveRequest(state, action.requestId, action.resultItem);
+    case "request/user-input-draft-set":
+      return setUserInputDraftState(state, action.key, action.value);
+  }
+}
+
+function reduceDisplayState(state: ChatState, action: DisplayAction): ChatState {
+  switch (action.type) {
+    case "system/message-added":
+      return patchChatState(state, { displayItems: [...state.displayItems, action.item] });
+    case "system/deduped-log-added":
+      if (state.reportedLogs.has(action.text)) return state;
+      return patchChatState(state, {
+        reportedLogs: new Set([...state.reportedLogs, action.text]),
+        displayItems: [...state.displayItems, action.item],
+      });
+    case "display/items-replaced":
+      return patchChatState(state, {
+        displayItems: action.items,
+        ...definedPatch("historyCursor", action.historyCursor),
+        ...definedPatch("loadingHistory", action.loadingHistory),
+        ...definedPatch("messagesPinnedToBottom", action.messagesPinnedToBottom),
+      });
+    case "display/item-upserted":
+      return patchChatState(state, { displayItems: upsertDisplayItem(state.displayItems, action.item) });
+    case "display/turn-diff-updated":
+      return patchChatState(state, { turnDiffs: updatedTurnDiffs(state.turnDiffs, action.turnId, action.diff) });
     case "display/pending-turn-item-upserted":
       return patchChatState(state, {
         displayItems: upsertDisplayItem(state.displayItems, action.item),
         turnLifecycle: withPendingTurnStart(state.turnLifecycle, action.pendingTurnStart),
       });
+  }
+}
+
+function reduceComposerState(state: ChatState, action: ComposerAction): ChatState {
+  switch (action.type) {
+    case "composer/draft-set":
+      return patchChatState(state, {
+        composerDraft: action.draft,
+        ...(action.clearSuggestions ? { composerSuggestions: [], composerSuggestSelected: 0 } : {}),
+        ...(action.resetDismissedSignature ? { composerSuggestionsDismissedSignature: null } : {}),
+      });
+    case "composer/suggestions-set":
+      return setComposerSuggestionsState(
+        state,
+        action.suggestions,
+        action.selected ?? state.composerSuggestSelected,
+        action.dismissedSignature === undefined ? state.composerSuggestionsDismissedSignature : action.dismissedSignature,
+      );
+  }
+}
+
+function reduceUiState(state: ChatState, action: UiAction): ChatState {
+  switch (action.type) {
+    case "ui/panel-set":
+      return setPanelState(state, action.panel, action.toggle ?? false);
+    case "ui/messages-pinned-set":
+      return patchChatState(state, { messagesPinnedToBottom: action.pinned });
+    case "ui/detail-open-set":
+      return setDetailOpenState(state, action.key, action.open);
+  }
+}
+
+function reduceRuntimeState(state: ChatState, action: RuntimeAction): ChatState {
+  switch (action.type) {
+    case "runtime/requested-model-set":
+      return patchChatState(state, { requestedModel: action.model === null ? resetRuntimeOverride() : setRuntimeOverride(action.model) });
+    case "runtime/requested-effort-set":
+      return patchChatState(state, {
+        requestedReasoningEffort: action.effort === null ? resetRuntimeOverride() : setRuntimeOverride(action.effort),
+      });
+    case "runtime/requested-service-tier-set":
+      return patchChatState(state, {
+        requestedServiceTier: action.serviceTier,
+      });
+    case "runtime/requested-approvals-reviewer-set":
+      return patchChatState(state, {
+        requestedApprovalsReviewer: action.approvalsReviewer,
+      });
+    case "runtime/requested-collaboration-mode-set":
+      return patchChatState(state, { requestedCollaborationMode: action.collaborationMode });
+    case "runtime/pending-thread-settings-committed":
+      return commitPendingThreadSettings(state, action.update);
   }
 }
 
@@ -636,4 +723,8 @@ function patchChatState(state: ChatState, patch: Partial<ChatState>): ChatState 
 
 function definedPatch<Key extends keyof ChatState>(key: Key, value: ChatState[Key] | undefined): Partial<ChatState> {
   return value === undefined ? {} : { [key]: value };
+}
+
+function assertNever(action: never): never {
+  throw new Error(`Unhandled chat action: ${JSON.stringify(action)}`);
 }
