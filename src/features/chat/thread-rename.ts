@@ -78,6 +78,7 @@ export class ThreadRenameController {
   updateDraft(threadId: string, value: string): void {
     if (this.renameThreadId !== threadId) return;
     this.renameDraft = value;
+    this.host.render();
   }
 
   cancel(threadId: string): void {

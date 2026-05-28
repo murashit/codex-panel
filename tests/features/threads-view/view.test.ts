@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import type * as ThreadNamingModule from "../../../src/app-server/thread-naming";
-import { installObsidianDomShims } from "../chat/ui/dom-test-helpers";
+import { changeInputValue, installObsidianDomShims } from "../chat/ui/dom-test-helpers";
 
 const connectionMock = vi.hoisted(() => {
   const state = {
@@ -272,8 +272,10 @@ describe("CodexThreadsView", () => {
     const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
     expect(input).not.toBeNull();
     if (!input) return;
-    input.value = "Renamed thread";
-    input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    changeInputValue(input, "Renamed thread");
+    view.containerEl
+      .querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")
+      ?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 
     await vi.waitFor(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");

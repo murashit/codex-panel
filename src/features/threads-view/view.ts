@@ -242,6 +242,7 @@ export class CodexThreadsView extends ItemView {
 
   private updateRename(threadId: string, value: string): void {
     this.renameDrafts.set(threadId, value);
+    this.render();
   }
 
   private cancelRename(threadId: string): void {
