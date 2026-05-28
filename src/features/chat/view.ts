@@ -2,7 +2,6 @@ import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsi
 
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
-import type { ApprovalAction, PendingApproval } from "./approvals/model";
 import type { SlashCommandName } from "./composer/slash-commands";
 import { parseSlashCommand } from "./composer/suggestions";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
@@ -21,14 +20,8 @@ import { mcpStatusLines } from "./mcp-status";
 import { ChatAppServerController } from "./chat-app-server-controller";
 import { ThreadHistoryLoader } from "./thread-history";
 import { ThreadRenameController } from "./thread-rename";
-import {
-  pendingRequestFocusSignature,
-  pendingRequestsSignature as requestStateSignature,
-  userInputDraftKey,
-  userInputOtherDraftKey,
-} from "./request-state";
+import { pendingRequestsSignature as requestStateSignature } from "./request-state";
 import type { CodexPanelSettings } from "../../settings/model";
-import { answersForPendingUserInput, type PendingUserInput } from "./user-input/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import {
   activeTurnId,
@@ -47,7 +40,6 @@ import {
   REFERENCED_THREAD_TURN_LIMIT,
   type ReferencedThreadDisplay,
 } from "../../domain/threads/reference";
-import { pendingRequestMessageNode } from "./ui/pending-request-message";
 import { renderToolbar, type ToolbarViewModel } from "./ui/toolbar";
 import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
@@ -91,6 +83,7 @@ import {
   shouldAcknowledgeTurnStart,
 } from "./turn-submission";
 import { resumedThreadAction, type ResumedThreadActionParams } from "./thread-resume";
+import { PendingRequestController } from "./pending-request-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -119,6 +112,7 @@ export class CodexChatView extends ItemView {
   private readonly runtimeSettings: ChatRuntimeSettingsController;
   private readonly restoredThread: RestoredThreadController;
   private readonly threadRename: ThreadRenameController;
+  private readonly pendingRequests: PendingRequestController;
   private readonly chatState = createChatStateStore();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly deferredTasks: ChatViewDeferredTasks;
@@ -131,7 +125,6 @@ export class CodexChatView extends ItemView {
   private opened = false;
   private closing = false;
   private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
-  private lastPendingRequestFocusSignature = "";
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -157,7 +150,7 @@ export class CodexChatView extends ItemView {
       implementPlan: (item) => void this.implementPlan(item),
       openTurnDiff: (state) => void this.plugin.openTurnDiff(state),
       pendingRequestsSignature: () => this.pendingRequestsSignature(),
-      renderPendingRequests: () => this.pendingRequestMessageNode(),
+      renderPendingRequests: () => this.pendingRequests.renderNode(),
     });
     this.composerController = new ChatComposerController({
       app: this.app,
@@ -228,6 +221,17 @@ export class CodexChatView extends ItemView {
       },
       respondToServerRequest: (requestId, result) => this.respondToServerRequest(requestId, result),
       rejectServerRequest: (requestId, code, message) => this.rejectServerRequest(requestId, code, message),
+    });
+    this.pendingRequests = new PendingRequestController({
+      stateStore: this.chatState,
+      controller: this.controller,
+      composerHasFocus: () => this.composerController.hasFocus(),
+      refreshLiveState: () => {
+        this.plugin.refreshThreadsViewLiveState();
+      },
+      render: () => {
+        this.render();
+      },
     });
     this.appServer = new ChatAppServerController({
       stateStore: this.chatState,
@@ -937,12 +941,6 @@ export class CodexChatView extends ItemView {
     await this.runtimeSettings.setRequestedReasoningEffortFromUi(effort);
   }
 
-  private async resolveApproval(approval: PendingApproval, action: ApprovalAction): Promise<void> {
-    this.controller.resolveApproval(approval, action);
-    this.plugin.refreshThreadsViewLiveState();
-    this.render();
-  }
-
   private respondToServerRequest(requestId: Parameters<AppServerClient["respondToServerRequest"]>[0], result: unknown): boolean {
     try {
       this.client?.respondToServerRequest(requestId, result);
@@ -959,18 +957,6 @@ export class CodexChatView extends ItemView {
     } catch {
       return false;
     }
-  }
-
-  private async resolveUserInput(input: PendingUserInput): Promise<void> {
-    this.controller.resolveUserInput(input, this.answersForUserInput(input));
-    this.plugin.refreshThreadsViewLiveState();
-    this.render();
-  }
-
-  private async cancelUserInput(input: PendingUserInput): Promise<void> {
-    this.controller.cancelUserInput(input);
-    this.plugin.refreshThreadsViewLiveState();
-    this.render();
   }
 
   private systemItem(text: string): DisplayItem {
@@ -1336,50 +1322,6 @@ export class CodexChatView extends ItemView {
 
   private runtimeSnapshotForState(state: ChatState): RuntimeSnapshot {
     return runtimeSnapshotForChatState({ state });
-  }
-
-  private pendingRequestMessageNode() {
-    return pendingRequestMessageNode(
-      this.state.approvals,
-      this.state.pendingUserInputs,
-      {
-        values: this.state.userInputDrafts,
-        draftKey: userInputDraftKey,
-        otherDraftKey: userInputOtherDraftKey,
-      },
-      this.state.openDetails,
-      {
-        resolveApproval: (approval, action) => void this.resolveApproval(approval, action),
-        resolveUserInput: (input) => void this.resolveUserInput(input),
-        cancelUserInput: (input) => void this.cancelUserInput(input),
-        setOpenDetail: (key, open) => {
-          this.dispatch({ type: "ui/detail-open-set", key, open });
-        },
-        setUserInputDraft: (key, value) => {
-          this.dispatch({ type: "request/user-input-draft-set", key, value });
-        },
-      },
-      this.consumePendingRequestAutoFocus(),
-    );
-  }
-
-  private consumePendingRequestAutoFocus(): boolean {
-    const signature = this.pendingRequestFocusSignature();
-    if (!signature) {
-      this.lastPendingRequestFocusSignature = "";
-      return false;
-    }
-    if (signature === this.lastPendingRequestFocusSignature) return false;
-    this.lastPendingRequestFocusSignature = signature;
-    return this.composerController.hasFocus();
-  }
-
-  private pendingRequestFocusSignature(): string {
-    return pendingRequestFocusSignature(this.state.approvals, this.state.pendingUserInputs);
-  }
-
-  private answersForUserInput(input: PendingUserInput): Record<string, string> {
-    return answersForPendingUserInput(input, this.state.userInputDrafts);
   }
 
   private queueMessagesBottomScroll(): void {
