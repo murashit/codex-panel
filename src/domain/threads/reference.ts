@@ -1,6 +1,7 @@
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
+import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { inputToText, shortThreadId } from "../../utils";
 import { getThreadTitle } from "./model";
 
@@ -16,6 +17,12 @@ export interface ReferencedThreadDisplay {
 export interface ReferencedThreadTurn {
   userText: string | null;
   assistantText: string | null;
+}
+
+export interface ReferencedThreadInput {
+  input: UserInput[];
+  referencedThread: ReferencedThreadDisplay;
+  status: string;
 }
 
 export function referencedThreadTurns(turns: Turn[]): ReferencedThreadTurn[] {
@@ -66,6 +73,20 @@ export function referencedThreadDisplay(thread: Thread, count: number): Referenc
     title: getThreadTitle(thread),
     includedTurns: count,
     turnLimit: REFERENCED_THREAD_TURN_LIMIT,
+  };
+}
+
+export function referencedThreadInput(
+  thread: Thread,
+  turns: readonly ReferencedThreadTurn[],
+  userRequest: string,
+  messageInput: UserInput[],
+): ReferencedThreadInput {
+  const prompt = referencedThreadPrompt(thread, [...turns], userRequest);
+  return {
+    input: [{ type: "text", text: prompt, text_elements: [] }, ...messageInput.filter((item) => item.type !== "text")],
+    referencedThread: referencedThreadDisplay(thread, turns.length),
+    status: referencedThreadStatus(thread, turns.length),
   };
 }
 

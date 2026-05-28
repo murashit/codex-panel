@@ -31,9 +31,7 @@ import {
   type ChatState,
 } from "./chat-state";
 import {
-  referencedThreadDisplay,
-  referencedThreadPrompt,
-  referencedThreadStatus,
+  referencedThreadInput as buildReferencedThreadInput,
   referencedThreadTurns,
   REFERENCED_THREAD_TURN_LIMIT,
   type ReferencedThreadDisplay,
@@ -910,13 +908,9 @@ export class CodexChatView extends ItemView {
         this.addSystemMessage("Referenced thread has no readable conversation turns.");
         return null;
       }
-      const prompt = referencedThreadPrompt(thread, turns, message);
-      const messageInput = this.composerController.codexInput(message);
-      this.setStatus(referencedThreadStatus(thread, turns.length));
-      return {
-        input: [{ type: "text", text: prompt, text_elements: [] }, ...messageInput.filter((item) => item.type !== "text")],
-        referencedThread: referencedThreadDisplay(thread, turns.length),
-      };
+      const reference = buildReferencedThreadInput(thread, turns, message, this.composerController.codexInput(message));
+      this.setStatus(reference.status);
+      return reference;
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
       return null;
