@@ -42,7 +42,7 @@ import { createApprovalResultItem, createUserInputResultItem } from "./request-s
 export interface ChatControllerActions {
   refreshThreads: () => void;
   refreshSkills: (forceReload?: boolean) => void;
-  publishSessionMetadata: () => void;
+  publishAppServerMetadata: () => void;
   maybeNameThread: (threadId: string, turn: Turn) => void;
   notifyThreadArchived: (threadId: string) => void;
   notifyThreadRenamed: (threadId: string, name: string | null) => void;
@@ -297,12 +297,12 @@ export class ChatController {
       this.dispatch({ type: "thread/token-usage-set", tokenUsage: params.tokenUsage });
     } else if (method === "account/rateLimits/updated") {
       this.dispatch({ type: "thread/list-applied", rateLimit: params.rateLimits });
-      this.actions.publishSessionMetadata();
+      this.actions.publishAppServerMetadata();
     } else if (method === "skills/changed") {
       this.actions.refreshSkills(true);
     } else if (method === "mcpServer/startupStatus/updated") {
       this.handleMcpStartupStatus(params);
-      this.actions.publishSessionMetadata();
+      this.actions.publishAppServerMetadata();
     }
   }
 

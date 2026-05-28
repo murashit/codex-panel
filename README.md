@@ -2,7 +2,7 @@
 
 Codex Panel is a desktop-only Obsidian plugin that brings Codex into a panel in the right sidebar. It is built as an Obsidian frontend for `codex app-server`: the plugin starts Codex locally, communicates with it over stdio, and uses the current vault root as the Codex working directory.
 
-Codex stays in charge of models, reasoning effort, sandbox modes, approval policies, MCP servers, hooks, skills, network access, providers, and thread history. Codex Panel adds the Obsidian surface around that Codex App Server session instead of replacing Codex configuration or policy.
+Codex stays in charge of models, reasoning effort, sandbox modes, approval policies, MCP servers, hooks, skills, network access, providers, and thread history. Codex Panel adds the Obsidian surface around that Codex App Server connection instead of replacing Codex configuration or policy.
 
 That boundary is also the privacy and security boundary: Codex Panel does not store API keys or make its own network requests. Data sent from the panel is handled by the configured Codex CLI according to your Codex configuration.
 

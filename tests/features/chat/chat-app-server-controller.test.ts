@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../src/app-server/client";
-import { ChatSessionController } from "../../../src/features/chat/chat-session-controller";
+import { ChatAppServerController } from "../../../src/features/chat/chat-app-server-controller";
 import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../../src/generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
 
-describe("ChatSessionController", () => {
-  it("reuses cached session metadata for deferred diagnostics", async () => {
+describe("ChatAppServerController", () => {
+  it("reuses cached app-server metadata for deferred diagnostics", async () => {
     const state = createChatState();
     const stateStore = createChatStateStore(state);
 
@@ -27,7 +27,7 @@ describe("ChatSessionController", () => {
       readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
     } as unknown as AppServerClient;
 
-    const controller = new ChatSessionController({
+    const controller = new ChatAppServerController({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -35,12 +35,12 @@ describe("ChatSessionController", () => {
       forceMessagesToBottom: () => undefined,
     });
 
-    await controller.refreshSessionMetadata();
+    await controller.refreshAppServerMetadata();
     listModels.mockClear();
     listSkills.mockClear();
     readAccountRateLimits.mockClear();
 
-    await controller.refreshCapabilityDiagnostics({ cachedSessionMetadata: true });
+    await controller.refreshCapabilityDiagnostics({ cachedAppServerMetadata: true });
 
     expect(listModels).not.toHaveBeenCalled();
     expect(listSkills).not.toHaveBeenCalled();

@@ -1,7 +1,7 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
-import { withAppServerSession } from "../app-server/session-client";
+import { withAppServerConnection } from "../app-server/connection-client";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
@@ -231,7 +231,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
     let failedCount = 0;
     try {
-      const result = await this.withSettingsSession((client) => loadSettingsData(client, this.plugin.vaultPath));
+      const result = await this.withSettingsConnection((client) => loadSettingsData(client, this.plugin.vaultPath));
 
       if (result.models.ok) {
         this.models = result.models.data;
@@ -284,7 +284,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.hooksStatus = "";
     this.display();
     try {
-      const hooks = await this.withSettingsSession((client) => loadHookData(client, this.plugin.vaultPath));
+      const hooks = await this.withSettingsConnection((client) => loadHookData(client, this.plugin.vaultPath));
       this.hooks = hooks.hooks;
       this.hookWarnings = hooks.warnings;
       this.hookErrors = hooks.errors;
@@ -304,7 +304,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.hooksStatus = "";
     this.display();
     try {
-      await this.withSettingsSession((client) => client.trustHook(hook));
+      await this.withSettingsConnection((client) => client.trustHook(hook));
       this.hooksStatus = "Trusted hook definition.";
       await this.loadHooks();
     } catch (error) {
@@ -320,7 +320,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.hooksStatus = "";
     this.display();
     try {
-      await this.withSettingsSession((client) => client.setHookEnabled(hook, enabled));
+      await this.withSettingsConnection((client) => client.setHookEnabled(hook, enabled));
       this.hooksStatus = enabled ? "Enabled hook." : "Disabled hook.";
       await this.loadHooks();
     } catch (error) {
@@ -357,7 +357,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.archivedThreadsStatus = "";
     this.display();
     try {
-      const response = await this.withSettingsSession((client) => client.unarchiveThread(threadId));
+      const response = await this.withSettingsConnection((client) => client.unarchiveThread(threadId));
       this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
       this.archivedThreadsLoaded = true;
       this.archivedThreadsStatus = `Restored "${archivedThreadDisplayTitle(response.thread)}".`;
@@ -371,8 +371,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     }
   }
 
-  private async withSettingsSession<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    return withAppServerSession(this.plugin.settings.codexPath, this.plugin.vaultPath, operation);
+  private async withSettingsConnection<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
+    return withAppServerConnection(this.plugin.settings.codexPath, this.plugin.vaultPath, operation);
   }
 
   private modelOptions(): Model[] {

@@ -103,16 +103,16 @@ describe("CodexChatView connection lifecycle", () => {
     expect((view as unknown as { state: { listedThreads: unknown[] } }).state.listedThreads).toEqual(threads);
   });
 
-  it("publishes session metadata after connecting", async () => {
-    const publishSessionMetadata = vi.fn();
+  it("publishes app-server metadata after connecting", async () => {
+    const publishAppServerMetadata = vi.fn();
     connectionMock.state.client = connectedClient();
     const view = await chatView({
-      host: chatHost({ publishSessionMetadata }),
+      host: chatHost({ publishAppServerMetadata }),
     });
 
     await view.connect();
 
-    expect(publishSessionMetadata).toHaveBeenCalledWith(
+    expect(publishAppServerMetadata).toHaveBeenCalledWith(
       expect.objectContaining({
         effectiveConfig: {},
         availableModels: [],
@@ -205,7 +205,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
   });
 
-  it("warms session metadata for an empty restored panel after the shell is open", async () => {
+  it("warms app-server metadata for an empty restored panel after the shell is open", async () => {
     vi.useFakeTimers();
     const client = connectedClient({
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
@@ -232,7 +232,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView({
       host: chatHost({
         cachedThreadList: vi.fn(() => [cachedThread] as never[]),
-        cachedSessionMetadata: vi.fn(
+        cachedAppServerMetadata: vi.fn(
           () =>
             ({
               effectiveConfig: { config: { model: "gpt-cached" }, origins: {}, layers: [] },
@@ -882,8 +882,8 @@ function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
       (fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>,
     ) as CodexChatHost["refreshThreadList"],
     cachedThreadList: vi.fn(() => null),
-    publishSessionMetadata: vi.fn(),
-    cachedSessionMetadata: vi.fn(() => null),
+    publishAppServerMetadata: vi.fn(),
+    cachedAppServerMetadata: vi.fn(() => null),
     ...overrides,
   };
 }

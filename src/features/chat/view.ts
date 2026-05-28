@@ -44,7 +44,7 @@ import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessa
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import type { ThreadReferenceInput } from "./slash-commands";
 import { mcpStatusLines } from "./mcp-status";
-import { ChatSessionController } from "./chat-session-controller";
+import { ChatAppServerController } from "./chat-app-server-controller";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
 import { ThreadHistoryLoader } from "./thread-history";
 import { ThreadRenameController } from "./thread-rename";
@@ -76,7 +76,7 @@ import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelSlotSnapshot
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
-import type { SharedSessionMetadata } from "../../runtime/shared-app-server-state";
+import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { ChatThreadActionController } from "./thread-actions";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 
@@ -93,8 +93,8 @@ export interface CodexChatHost {
   refreshSharedThreadListFromOpenSurface(): void;
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
   cachedThreadList(): readonly Thread[] | null;
-  publishSessionMetadata(metadata: SharedSessionMetadata): void;
-  cachedSessionMetadata(): SharedSessionMetadata | null;
+  publishAppServerMetadata(metadata: SharedAppServerMetadata): void;
+  cachedAppServerMetadata(): SharedAppServerMetadata | null;
 }
 
 interface RestoredThreadState {
@@ -107,7 +107,7 @@ export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;
   private readonly connection: ConnectionManager;
   private readonly controller: ChatController;
-  private readonly session: ChatSessionController;
+  private readonly appServer: ChatAppServerController;
   private readonly history: ThreadHistoryLoader;
   private readonly threadActions: ChatThreadActionController;
   private readonly threadRename: ThreadRenameController;
@@ -130,7 +130,7 @@ export class CodexChatView extends ItemView {
   private closing = false;
   private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
   private lastPendingRequestFocusSignature = "";
-  private scheduledSessionWarmupTimer: number | null = null;
+  private scheduledAppServerWarmupTimer: number | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -204,8 +204,8 @@ export class CodexChatView extends ItemView {
         void this.refreshThreads();
       },
       refreshSkills: (forceReload) => void this.refreshSkills(forceReload),
-      publishSessionMetadata: () => {
-        this.publishSessionMetadataSnapshot();
+      publishAppServerMetadata: () => {
+        this.publishAppServerMetadataSnapshot();
       },
       maybeNameThread: (threadId, turn) => {
         this.threadRename.maybeAutoNameThread(threadId, turn);
@@ -217,13 +217,13 @@ export class CodexChatView extends ItemView {
         this.plugin.notifyThreadRenamed(threadId, name);
       },
       recordMcpStartupStatus: (name, status, message) => {
-        this.session.recordMcpStartupStatus(name, status, message);
+        this.appServer.recordMcpStartupStatus(name, status, message);
         this.scheduleRender();
       },
       respondToServerRequest: (requestId, result) => this.respondToServerRequest(requestId, result),
       rejectServerRequest: (requestId, code, message) => this.rejectServerRequest(requestId, code, message),
     });
-    this.session = new ChatSessionController({
+    this.appServer = new ChatAppServerController({
       stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
       currentClient: () => this.connection.currentClient(),
@@ -353,7 +353,7 @@ export class CodexChatView extends ItemView {
       this.invalidateResumeWork();
       this.restoredThread = null;
       this.clearDeferredRestoredThreadHydration();
-      this.scheduleDeferredSessionWarmup();
+      this.scheduleDeferredAppServerWarmup();
       return;
     }
 
@@ -369,13 +369,13 @@ export class CodexChatView extends ItemView {
   }
 
   applyThreadListSnapshot(threads: readonly Thread[]): void {
-    this.session.applyThreadList(threads);
+    this.appServer.applyThreadList(threads);
     this.refreshTabHeader();
     this.render();
   }
 
-  applySessionMetadataSnapshot(metadata: SharedSessionMetadata): void {
-    this.session.applySessionMetadata(metadata);
+  applyAppServerMetadataSnapshot(metadata: SharedAppServerMetadata): void {
+    this.appServer.applyAppServerMetadata(metadata);
     this.render();
   }
 
@@ -457,7 +457,7 @@ export class CodexChatView extends ItemView {
     );
     this.applyCachedSharedAppServerState();
     this.render();
-    this.scheduleDeferredSessionWarmup();
+    this.scheduleDeferredAppServerWarmup();
     this.scheduleDeferredRestoredThreadHydration();
   }
 
@@ -468,7 +468,7 @@ export class CodexChatView extends ItemView {
     this.invalidateResumeWork();
     this.connectingPromise = null;
     this.clearDeferredRestoredThreadHydration();
-    this.clearDeferredSessionWarmup();
+    this.clearDeferredAppServerWarmup();
     if (this.scheduledRenderTimer !== null) {
       this.containerEl.win.clearTimeout(this.scheduledRenderTimer);
       this.scheduledRenderTimer = null;
@@ -522,9 +522,9 @@ export class CodexChatView extends ItemView {
       if (this.isStaleConnectionGeneration(generation)) return;
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
-      const metadata = await this.session.refreshSessionMetadata();
+      const metadata = await this.appServer.refreshAppServerMetadata();
       if (this.isStaleConnectionGeneration(generation)) return;
-      if (metadata) this.plugin.publishSessionMetadata(metadata);
+      if (metadata) this.plugin.publishAppServerMetadata(metadata);
       await this.loadSharedThreadList();
       if (this.isStaleConnectionGeneration(generation)) return;
       this.scheduleDeferredDiagnostics();
@@ -568,8 +568,8 @@ export class CodexChatView extends ItemView {
     if (!this.client) return;
     try {
       await this.loadSharedThreadList();
-      const metadata = await this.session.refreshSessionMetadata();
-      if (metadata) this.plugin.publishSessionMetadata(metadata);
+      const metadata = await this.appServer.refreshAppServerMetadata();
+      if (metadata) this.plugin.publishAppServerMetadata(metadata);
       this.refreshTabHeader();
       this.render();
     } catch (error) {
@@ -582,16 +582,16 @@ export class CodexChatView extends ItemView {
     await this.ensureConnected();
     if (!this.client) return;
     this.clearDeferredDiagnostics();
-    await this.session.refreshCapabilityDiagnostics();
-    this.publishSessionMetadataSnapshot();
+    await this.appServer.refreshCapabilityDiagnostics();
+    this.publishAppServerMetadataSnapshot();
     this.render();
   }
 
   private async refreshSkills(forceReload = false): Promise<void> {
     this.client = this.connection.currentClient();
     if (!this.client) return;
-    await this.session.refreshSkills(forceReload);
-    this.publishSessionMetadataSnapshot();
+    await this.appServer.refreshSkills(forceReload);
+    this.publishAppServerMetadataSnapshot();
     this.render();
   }
 
@@ -660,19 +660,19 @@ export class CodexChatView extends ItemView {
   }
 
   private async loadSharedThreadList(): Promise<void> {
-    const threads = await this.plugin.refreshThreadList(() => this.session.loadThreadList());
-    this.session.applyThreadList(threads);
+    const threads = await this.plugin.refreshThreadList(() => this.appServer.loadThreadList());
+    this.appServer.applyThreadList(threads);
   }
 
-  private publishSessionMetadataSnapshot(): void {
-    this.plugin.publishSessionMetadata(this.session.sessionMetadataSnapshot());
+  private publishAppServerMetadataSnapshot(): void {
+    this.plugin.publishAppServerMetadata(this.appServer.appServerMetadataSnapshot());
   }
 
   private applyCachedSharedAppServerState(): void {
     const threads = this.plugin.cachedThreadList();
-    if (threads) this.session.applyThreadList(threads);
-    const metadata = this.plugin.cachedSessionMetadata();
-    if (metadata) this.session.applySessionMetadata(metadata);
+    if (threads) this.appServer.applyThreadList(threads);
+    const metadata = this.plugin.cachedAppServerMetadata();
+    if (metadata) this.appServer.applyAppServerMetadata(metadata);
   }
 
   private requestWorkspaceLayoutSave(): void {
@@ -712,7 +712,7 @@ export class CodexChatView extends ItemView {
     let optimisticUserId: string | null = null;
     try {
       if (!this.state.activeThreadId) {
-        const threadResponse = await this.session.startThread();
+        const threadResponse = await this.appServer.startThread();
         if (!threadResponse) return;
         this.notifyActiveThreadIdentityChanged();
         this.threadRename.resetThreadTurnPresence(false);
@@ -1151,19 +1151,19 @@ export class CodexChatView extends ItemView {
     this.scheduledRestoredThreadHydrationTimer = null;
   }
 
-  private scheduleDeferredSessionWarmup(): void {
-    if (!this.opened || this.connection.isConnected() || this.scheduledSessionWarmupTimer !== null) return;
-    this.scheduledSessionWarmupTimer = this.containerEl.win.setTimeout(() => {
-      this.scheduledSessionWarmupTimer = null;
+  private scheduleDeferredAppServerWarmup(): void {
+    if (!this.opened || this.connection.isConnected() || this.scheduledAppServerWarmupTimer !== null) return;
+    this.scheduledAppServerWarmupTimer = this.containerEl.win.setTimeout(() => {
+      this.scheduledAppServerWarmupTimer = null;
       if (!this.opened || this.closing || this.connection.isConnected()) return;
       void this.ensureConnected();
     }, 0);
   }
 
-  private clearDeferredSessionWarmup(): void {
-    if (this.scheduledSessionWarmupTimer === null) return;
-    this.containerEl.win.clearTimeout(this.scheduledSessionWarmupTimer);
-    this.scheduledSessionWarmupTimer = null;
+  private clearDeferredAppServerWarmup(): void {
+    if (this.scheduledAppServerWarmupTimer === null) return;
+    this.containerEl.win.clearTimeout(this.scheduledAppServerWarmupTimer);
+    this.scheduledAppServerWarmupTimer = null;
   }
 
   private activeThreadTitle(): string | null {
@@ -1523,8 +1523,8 @@ export class CodexChatView extends ItemView {
 
   private async refreshDeferredDiagnostics(): Promise<void> {
     if (!this.connection.isConnected()) return;
-    await this.session.refreshCapabilityDiagnostics({ cachedSessionMetadata: true });
-    this.publishSessionMetadataSnapshot();
+    await this.appServer.refreshCapabilityDiagnostics({ cachedAppServerMetadata: true });
+    this.publishAppServerMetadataSnapshot();
     this.render();
   }
 

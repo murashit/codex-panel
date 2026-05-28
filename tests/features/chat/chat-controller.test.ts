@@ -24,7 +24,7 @@ function controllerForState(
   return new ChatController(testStoreForState(state), {
     refreshThreads: vi.fn(),
     refreshSkills: vi.fn(),
-    publishSessionMetadata: vi.fn(),
+    publishAppServerMetadata: vi.fn(),
     maybeNameThread: vi.fn(),
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),
@@ -601,8 +601,8 @@ describe("ChatController", () => {
 
     it("stores account rate limit updates outside thread scope", () => {
       const state = createChatState();
-      const publishSessionMetadata = vi.fn();
-      const controller = controllerForState(state, { publishSessionMetadata });
+      const publishAppServerMetadata = vi.fn();
+      const controller = controllerForState(state, { publishAppServerMetadata });
 
       controller.handleNotification({
         method: "account/rateLimits/updated",
@@ -623,14 +623,14 @@ describe("ChatController", () => {
         limitId: "codex",
         primary: { usedPercent: 64 },
       });
-      expect(publishSessionMetadata).toHaveBeenCalledOnce();
+      expect(publishAppServerMetadata).toHaveBeenCalledOnce();
     });
 
     it("records MCP startup status for diagnostics without a chat system message", () => {
       const state = createChatState();
       const recordMcpStartupStatus = vi.fn();
-      const publishSessionMetadata = vi.fn();
-      const controller = controllerForState(state, { recordMcpStartupStatus, publishSessionMetadata });
+      const publishAppServerMetadata = vi.fn();
+      const controller = controllerForState(state, { recordMcpStartupStatus, publishAppServerMetadata });
 
       controller.handleNotification({
         method: "mcpServer/startupStatus/updated",
@@ -642,7 +642,7 @@ describe("ChatController", () => {
       } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
 
       expect(recordMcpStartupStatus).toHaveBeenCalledWith("github", "failed", "missing token");
-      expect(publishSessionMetadata).toHaveBeenCalledOnce();
+      expect(publishAppServerMetadata).toHaveBeenCalledOnce();
       expect(state.displayItems).toEqual([]);
     });
   });

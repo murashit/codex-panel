@@ -11,11 +11,11 @@ import type { McpServerStatus } from "../../generated/app-server/v2/McpServerSta
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata";
-import type { SharedSessionMetadata } from "../../runtime/shared-app-server-state";
+import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../runtime/state";
 import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
 
-export interface ChatSessionControllerHost {
+export interface ChatAppServerControllerHost {
   stateStore: ChatStateStore;
   vaultPath: string;
   currentClient: () => AppServerClient | null;
@@ -24,11 +24,11 @@ export interface ChatSessionControllerHost {
 }
 
 export interface RefreshCapabilityDiagnosticsOptions {
-  cachedSessionMetadata?: boolean;
+  cachedAppServerMetadata?: boolean;
 }
 
-export class ChatSessionController {
-  constructor(private readonly host: ChatSessionControllerHost) {}
+export class ChatAppServerController {
+  constructor(private readonly host: ChatAppServerControllerHost) {}
 
   private get state(): ChatState {
     return this.host.stateStore.getState();
@@ -49,7 +49,7 @@ export class ChatSessionController {
     return response.data;
   }
 
-  sessionMetadataSnapshot(): SharedSessionMetadata {
+  appServerMetadataSnapshot(): SharedAppServerMetadata {
     return {
       effectiveConfig: this.state.effectiveConfig,
       availableModels: this.state.availableModels,
@@ -59,7 +59,7 @@ export class ChatSessionController {
     };
   }
 
-  applySessionMetadata(metadata: SharedSessionMetadata): void {
+  applyAppServerMetadata(metadata: SharedAppServerMetadata): void {
     this.dispatch({
       type: "thread/list-applied",
       effectiveConfig: metadata.effectiveConfig,
@@ -70,7 +70,7 @@ export class ChatSessionController {
     });
   }
 
-  async loadSessionMetadata(): Promise<SharedSessionMetadata | null> {
+  async loadAppServerMetadata(): Promise<SharedAppServerMetadata | null> {
     const client = this.host.currentClient();
     if (!client) return null;
     const effectiveConfig = await client.readEffectiveConfig(this.host.vaultPath);
@@ -88,9 +88,9 @@ export class ChatSessionController {
     };
   }
 
-  async refreshSessionMetadata(): Promise<SharedSessionMetadata | null> {
-    const metadata = await this.loadSessionMetadata();
-    if (metadata) this.applySessionMetadata(metadata);
+  async refreshAppServerMetadata(): Promise<SharedAppServerMetadata | null> {
+    const metadata = await this.loadAppServerMetadata();
+    if (metadata) this.applyAppServerMetadata(metadata);
     return metadata;
   }
 
@@ -187,7 +187,7 @@ export class ChatSessionController {
     if (!client) return;
 
     const probes: Promise<void>[] = [];
-    if (!options.cachedSessionMetadata) {
+    if (!options.cachedAppServerMetadata) {
       probes.push(
         this.probeCapability(
           "model/list",

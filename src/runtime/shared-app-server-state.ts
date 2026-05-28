@@ -6,7 +6,7 @@ import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnap
 import type { SkillMetadata } from "../generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../generated/app-server/v2/Thread";
 
-export interface SharedSessionMetadata {
+export interface SharedAppServerMetadata {
   effectiveConfig: ConfigReadResponse | null;
   availableModels: readonly Model[];
   availableSkills: readonly SkillMetadata[];
@@ -14,15 +14,15 @@ export interface SharedSessionMetadata {
   appServerDiagnostics: AppServerDiagnostics;
 }
 
-export interface SharedAppServerState extends SharedSessionMetadata {
+export interface SharedAppServerState extends SharedAppServerMetadata {
   threads: readonly Thread[] | null;
-  sessionMetadataLoaded: boolean;
+  appServerMetadataLoaded: boolean;
 }
 
 export function createSharedAppServerState(): SharedAppServerState {
   return {
     threads: null,
-    sessionMetadataLoaded: false,
+    appServerMetadataLoaded: false,
     effectiveConfig: null,
     availableModels: [],
     availableSkills: [],
@@ -38,11 +38,11 @@ export function applySharedThreadList(state: SharedAppServerState, threads: read
   };
 }
 
-export function applySharedSessionMetadata(state: SharedAppServerState, metadata: SharedSessionMetadata): SharedAppServerState {
+export function applySharedAppServerMetadata(state: SharedAppServerState, metadata: SharedAppServerMetadata): SharedAppServerState {
   return {
     ...state,
     ...metadata,
-    sessionMetadataLoaded: true,
+    appServerMetadataLoaded: true,
   };
 }
 

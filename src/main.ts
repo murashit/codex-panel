@@ -11,11 +11,11 @@ import type { Thread } from "./generated/app-server/v2/Thread";
 import type { Model } from "./generated/app-server/v2/Model";
 import {
   applySharedModels,
-  applySharedSessionMetadata,
+  applySharedAppServerMetadata,
   applySharedThreadList,
   createSharedAppServerState,
   type SharedAppServerState,
-  type SharedSessionMetadata,
+  type SharedAppServerMetadata,
 } from "./runtime/shared-app-server-state";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab";
@@ -262,11 +262,11 @@ export default class CodexPanelPlugin extends Plugin {
     return this.sharedAppServerState.threads;
   }
 
-  publishSessionMetadata(metadata: SharedSessionMetadata): void {
-    this.sharedAppServerState = applySharedSessionMetadata(this.sharedAppServerState, metadata);
+  publishAppServerMetadata(metadata: SharedAppServerMetadata): void {
+    this.sharedAppServerState = applySharedAppServerMetadata(this.sharedAppServerState, metadata);
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
       if (leaf.view instanceof CodexChatView) {
-        leaf.view.applySessionMetadataSnapshot(metadata);
+        leaf.view.applyAppServerMetadataSnapshot(metadata);
       }
     }
   }
@@ -280,8 +280,8 @@ export default class CodexPanelPlugin extends Plugin {
     }
   }
 
-  cachedSessionMetadata(): SharedSessionMetadata | null {
-    if (!this.sharedAppServerState.sessionMetadataLoaded) return null;
+  cachedAppServerMetadata(): SharedAppServerMetadata | null {
+    if (!this.sharedAppServerState.appServerMetadataLoaded) return null;
     return {
       effectiveConfig: this.sharedAppServerState.effectiveConfig,
       availableModels: this.sharedAppServerState.availableModels,

@@ -412,8 +412,8 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
       refreshThreadsViewLiveState: vi.fn(),
       refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
       cachedThreadList: vi.fn(() => null),
-      publishSessionMetadata: vi.fn(),
-      cachedSessionMetadata: vi.fn(() => null),
+      publishAppServerMetadata: vi.fn(),
+      cachedAppServerMetadata: vi.fn(() => null),
     },
   );
 }
