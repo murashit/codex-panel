@@ -31,6 +31,15 @@ export type ChatTurnLifecycleState =
   | { kind: "starting"; pendingTurnStart: PendingTurnStart }
   | { kind: "running"; turnId: string };
 
+export type ChatTurnLifecycleEvent =
+  | { type: "started"; turnId: string }
+  | { type: "completed"; turnId: string }
+  | { type: "cleared" }
+  | { type: "optimistic-started"; pendingTurnStart: PendingTurnStart }
+  | { type: "start-acknowledged"; turnId: string }
+  | { type: "start-failed" }
+  | { type: "pending-turn-item-upserted"; pendingTurnStart: PendingTurnStart | null };
+
 export interface ChatState {
   status: string;
   effectiveConfig: ConfigReadResponse | null;
@@ -387,39 +396,54 @@ function reduceThreadState(state: ChatState, action: ThreadAction): ChatState {
 
 function reduceTurnState(state: ChatState, action: TurnAction): ChatState {
   switch (action.type) {
-    case "turn/started":
+    case "turn/started": {
+      const turnLifecycle = transitionChatTurnLifecycleState(state.turnLifecycle, { type: "started", turnId: action.turnId });
       return patchChatState(state, {
         activeThreadId: action.threadId,
-        turnLifecycle: { kind: "running", turnId: action.turnId },
+        turnLifecycle,
         status: "Turn running...",
         displayItems: action.displayItems ?? state.displayItems,
       });
-    case "turn/completed":
-      if (activeTurnId(state) !== action.turnId) return state;
+    }
+    case "turn/completed": {
+      const turnLifecycle = transitionChatTurnLifecycleState(state.turnLifecycle, { type: "completed", turnId: action.turnId });
+      if (turnLifecycle === state.turnLifecycle) return state;
       return patchChatState(state, {
-        turnLifecycle: { kind: "idle" },
+        turnLifecycle,
         displayItems: action.displayItems,
         status: `Turn ${action.status}.`,
       });
+    }
     case "turn/local-cleared":
       return clearActiveTurnState(state);
-    case "turn/optimistic-started":
+    case "turn/optimistic-started": {
+      const turnLifecycle = transitionChatTurnLifecycleState(state.turnLifecycle, {
+        type: "optimistic-started",
+        pendingTurnStart: action.pendingTurnStart,
+      });
       return patchChatState(state, {
-        turnLifecycle: { kind: "starting", pendingTurnStart: action.pendingTurnStart },
+        turnLifecycle,
         displayItems: [...state.displayItems, action.item],
       });
-    case "turn/start-acknowledged":
-      if (state.turnLifecycle.kind === "idle") return state;
-      if (state.turnLifecycle.kind === "running" && state.turnLifecycle.turnId !== action.turnId) return state;
+    }
+    case "turn/start-acknowledged": {
+      const turnLifecycle = transitionChatTurnLifecycleState(state.turnLifecycle, {
+        type: "start-acknowledged",
+        turnId: action.turnId,
+      });
+      if (turnLifecycle === state.turnLifecycle) return state;
       return patchChatState(state, {
-        turnLifecycle: { kind: "running", turnId: action.turnId },
+        turnLifecycle,
         displayItems: action.displayItems,
       });
-    case "turn/start-failed":
+    }
+    case "turn/start-failed": {
+      const turnLifecycle = transitionChatTurnLifecycleState(state.turnLifecycle, { type: "start-failed" });
       return patchChatState(state, {
-        turnLifecycle: { kind: "idle" },
+        turnLifecycle,
         displayItems: action.displayItems,
       });
+    }
   }
 }
 
@@ -462,7 +486,10 @@ function reduceDisplayState(state: ChatState, action: DisplayAction): ChatState 
     case "display/pending-turn-item-upserted":
       return patchChatState(state, {
         displayItems: upsertDisplayItem(state.displayItems, action.item),
-        turnLifecycle: withPendingTurnStart(state.turnLifecycle, action.pendingTurnStart),
+        turnLifecycle: transitionChatTurnLifecycleState(state.turnLifecycle, {
+          type: "pending-turn-item-upserted",
+          pendingTurnStart: action.pendingTurnStart,
+        }),
       });
   }
 }
@@ -521,7 +548,7 @@ function reduceRuntimeState(state: ChatState, action: RuntimeAction): ChatState 
 
 export function clearActiveTurnState(state: ChatState): ChatState {
   return patchChatState(state, {
-    turnLifecycle: { kind: "idle" },
+    turnLifecycle: transitionChatTurnLifecycleState(state.turnLifecycle, { type: "cleared" }),
     approvals: [],
     pendingUserInputs: [],
     userInputDrafts: new Map(),
@@ -620,9 +647,26 @@ export function pendingTurnStart(state: Pick<ChatState, "turnLifecycle">): Pendi
   return state.turnLifecycle.kind === "starting" ? state.turnLifecycle.pendingTurnStart : null;
 }
 
-function withPendingTurnStart(lifecycle: ChatTurnLifecycleState, nextPendingTurnStart: PendingTurnStart | null): ChatTurnLifecycleState {
-  if (nextPendingTurnStart) return { kind: "starting", pendingTurnStart: nextPendingTurnStart };
-  return lifecycle.kind === "starting" ? { kind: "idle" } : lifecycle;
+export function transitionChatTurnLifecycleState(state: ChatTurnLifecycleState, event: ChatTurnLifecycleEvent): ChatTurnLifecycleState {
+  switch (event.type) {
+    case "started":
+      return { kind: "running", turnId: event.turnId };
+    case "completed":
+      return state.kind === "running" && state.turnId === event.turnId ? { kind: "idle" } : state;
+    case "cleared":
+      return state.kind === "idle" ? state : { kind: "idle" };
+    case "optimistic-started":
+      return { kind: "starting", pendingTurnStart: event.pendingTurnStart };
+    case "start-acknowledged":
+      if (state.kind === "idle") return state;
+      if (state.kind === "running" && state.turnId !== event.turnId) return state;
+      return { kind: "running", turnId: event.turnId };
+    case "start-failed":
+      return { kind: "idle" };
+    case "pending-turn-item-upserted":
+      if (event.pendingTurnStart) return { kind: "starting", pendingTurnStart: event.pendingTurnStart };
+      return state.kind === "starting" ? { kind: "idle" } : state;
+  }
 }
 
 function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string, diff: string): ReadonlyMap<string, string> {

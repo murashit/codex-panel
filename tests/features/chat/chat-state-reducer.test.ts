@@ -7,6 +7,7 @@ import {
   createChatState,
   createChatStateStore,
   pendingTurnStart,
+  transitionChatTurnLifecycleState,
   type ChatState,
 } from "../../../src/features/chat/chat-state";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
@@ -110,6 +111,20 @@ describe("chatReducer", () => {
     expect(chatTurnBusy(completed)).toBe(false);
     expect(activeTurnId(completed)).toBeNull();
     expect(pendingTurnStart(completed)).toBeNull();
+  });
+
+  it("keeps turn lifecycle transition rules explicit", () => {
+    const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] };
+    const optimistic = transitionChatTurnLifecycleState({ kind: "idle" }, { type: "optimistic-started", pendingTurnStart: pending });
+    const running = transitionChatTurnLifecycleState(optimistic, { type: "start-acknowledged", turnId: "turn" });
+
+    expect(optimistic).toEqual({ kind: "starting", pendingTurnStart: pending });
+    expect(running).toEqual({ kind: "running", turnId: "turn" });
+    expect(transitionChatTurnLifecycleState(running, { type: "completed", turnId: "stale-turn" })).toBe(running);
+    expect(transitionChatTurnLifecycleState({ kind: "idle" }, { type: "start-acknowledged", turnId: "turn" })).toEqual({
+      kind: "idle",
+    });
+    expect(transitionChatTurnLifecycleState(running, { type: "completed", turnId: "turn" })).toEqual({ kind: "idle" });
   });
 
   it("clears running state when a turn start fails", () => {
