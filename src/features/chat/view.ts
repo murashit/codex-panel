@@ -1,7 +1,7 @@
 import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/client";
-import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
+import { ConnectionManager } from "../../app-server/connection-manager";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import { createSystemItem } from "./display/system";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
@@ -53,7 +53,6 @@ import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
   ChatViewDeferredTasks,
-  type ActiveChatConnection,
   type ActiveChatResume,
   type ChatViewRenderScheduleOptions,
 } from "./view-lifecycle";
@@ -65,6 +64,7 @@ import { ChatMessageScrollController } from "./message-scroll-controller";
 import { TurnSubmissionController } from "./turn-submission-controller";
 import { SlashCommandController } from "./slash-command-controller";
 import { ComposerSubmissionController } from "./composer-submission-controller";
+import { ChatConnectionController } from "./connection-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -88,6 +88,7 @@ export class CodexChatView extends ItemView {
   private readonly connection: ConnectionManager;
   private readonly controller: ChatController;
   private readonly appServer: ChatAppServerController;
+  private readonly connectionController: ChatConnectionController;
   private readonly history: ThreadHistoryLoader;
   private readonly threadActions: ChatThreadActionController;
   private readonly runtimeSettings: ChatRuntimeSettingsController;
@@ -306,6 +307,40 @@ export class CodexChatView extends ItemView {
       },
       publishAppServerMetadata: (metadata) => {
         this.plugin.publishAppServerMetadata(metadata);
+      },
+    });
+    this.connectionController = new ChatConnectionController({
+      stateStore: this.chatState,
+      connection: this.connection,
+      connectionWork: this.connectionWork,
+      appServer: this.appServer,
+      setClient: (client) => {
+        this.client = client;
+      },
+      loadSharedThreadList: () => this.loadSharedThreadList(),
+      scheduleDeferredDiagnostics: () => {
+        this.scheduleDeferredDiagnostics();
+      },
+      clearDeferredDiagnostics: () => {
+        this.clearDeferredDiagnostics();
+      },
+      refreshTabHeader: () => {
+        this.refreshTabHeader();
+      },
+      setStatus: (status) => {
+        this.setStatus(status);
+      },
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
+      },
+      render: () => {
+        this.render();
+      },
+      scheduleRender: () => {
+        this.scheduleRender();
+      },
+      notifyConnectionFailed: () => {
+        new Notice("Codex app-server connection failed.");
       },
     });
     this.history = new ThreadHistoryLoader({
@@ -627,52 +662,11 @@ export class CodexChatView extends ItemView {
   }
 
   private async ensureConnected(): Promise<void> {
-    const connecting = this.connectionWork.active();
-    if (connecting?.promise) return connecting.promise;
-
-    if (this.connection.isConnected()) {
-      this.client = this.connection.currentClient();
-      return;
-    }
-
-    const connection = this.connectionWork.begin();
-    const promise = this.initializeConnection(connection);
-    connection.promise = promise;
-    try {
-      await promise;
-    } finally {
-      this.connectionWork.finish(connection, promise);
-    }
-  }
-
-  private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
-    this.setStatus("Starting Codex app-server...");
-    try {
-      this.dispatch({ type: "connection/initialized", initializeResponse: await this.connection.connect() });
-      if (this.connectionWork.isStale(connection)) return;
-      this.client = this.connection.currentClient();
-      if (!this.client) throw new Error("Codex app-server connection did not initialize.");
-      await this.appServer.refreshPublishedAppServerMetadata();
-      if (this.connectionWork.isStale(connection)) return;
-      await this.loadSharedThreadList();
-      if (this.connectionWork.isStale(connection)) return;
-      this.scheduleDeferredDiagnostics();
-      this.refreshTabHeader();
-      this.setStatus("Connected.");
-    } catch (error) {
-      if (this.connectionWork.isStale(connection)) return;
-      if (error instanceof StaleConnectionError) return;
-      this.setStatus("Connection failed.");
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-      new Notice("Codex app-server connection failed.");
-    }
-    if (!this.connectionWork.isStale(connection)) {
-      this.scheduleRender();
-    }
+    await this.connectionController.ensureConnected();
   }
 
   private invalidateConnectionWork(): void {
-    this.connectionWork.invalidate();
+    this.connectionController.invalidate();
   }
 
   async startNewThread(): Promise<void> {
@@ -687,41 +681,19 @@ export class CodexChatView extends ItemView {
   }
 
   private async refreshThreads(): Promise<void> {
-    this.client = this.connection.currentClient();
-    if (!this.client) return;
-    try {
-      await this.loadSharedThreadList();
-      await this.appServer.refreshPublishedAppServerMetadata();
-      this.refreshTabHeader();
-      this.render();
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
+    await this.connectionController.refreshThreads();
   }
 
   private async refreshDiagnostics(): Promise<void> {
-    this.clearDeferredDiagnostics();
-    await this.ensureConnected();
-    if (!this.client) return;
-    this.clearDeferredDiagnostics();
-    await this.appServer.refreshPublishedCapabilityDiagnostics();
-    this.render();
+    await this.connectionController.refreshDiagnostics();
   }
 
   private async refreshStatusPanel(): Promise<void> {
-    try {
-      await this.refreshDiagnostics();
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
-    await this.refreshThreads();
+    await this.connectionController.refreshStatusPanel();
   }
 
   private async refreshSkills(forceReload = false): Promise<void> {
-    this.client = this.connection.currentClient();
-    if (!this.client) return;
-    await this.appServer.refreshPublishedSkills(forceReload);
-    this.render();
+    await this.connectionController.refreshSkills(forceReload);
   }
 
   private async resumeThread(threadId: string): Promise<void> {
