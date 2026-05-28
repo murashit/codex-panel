@@ -1,9 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/client";
-import { loadHookData, loadSettingsData } from "../../src/settings/data";
+import {
+  loadHookData,
+  loadSettingsData,
+  settingsDataRefreshLoading,
+  transitionSettingsDataRefreshLifecycle,
+} from "../../src/settings/data";
 
 describe("settings data", () => {
+  it("tracks settings data refresh lifecycle", () => {
+    const idle = { kind: "idle" } as const;
+
+    const loading = transitionSettingsDataRefreshLifecycle(idle, { type: "started" });
+    expect(loading).toEqual({ kind: "loading" });
+    expect(settingsDataRefreshLoading(loading)).toBe(true);
+    expect(transitionSettingsDataRefreshLifecycle(loading, { type: "started" })).toBe(loading);
+
+    const completed = transitionSettingsDataRefreshLifecycle(loading, { type: "completed", failedCount: 2 });
+    expect(completed).toEqual({ kind: "completed", failedCount: 2 });
+    expect(settingsDataRefreshLoading(completed)).toBe(false);
+  });
+
   it("uses only hook rows for the requested cwd", async () => {
     const client = {
       listHooks: vi.fn().mockResolvedValue({

@@ -133,13 +133,9 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 }
 
 function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
-  const summary = containerEl.createEl("p", {
+  containerEl.createEl("p", {
     cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-  });
-  summary.createSpan({ text: "Restore archived threads to the active thread list." });
-  summary.createSpan({
-    cls: "codex-panel-settings__dynamic-list-count",
-    text: `Loaded ${String(state.threads.length)} archived thread${state.threads.length === 1 ? "" : "s"} from Codex app server.`,
+    text: "Restore archived threads to the active thread list.",
   });
   const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__archived-list" });
   for (const thread of state.threads) {
@@ -163,10 +159,6 @@ function renderHooks(containerEl: HTMLElement, state: HookSectionState): void {
   if (state.hooks.length === 0) {
     containerEl.createEl("p", { cls: "setting-item-description", text: "No hooks found for this vault root." });
   } else {
-    containerEl.createEl("p", {
-      cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-      text: `Loaded ${String(state.hooks.length)} hook${state.hooks.length === 1 ? "" : "s"} from Codex app server.`,
-    });
     const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__hook-list" });
     for (const hook of state.hooks) {
       renderHookRow(list, hook, state);

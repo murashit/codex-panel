@@ -28,6 +28,26 @@ export type SettledSettingsData<T> =
       status: string;
     };
 
+export type SettingsDataRefreshLifecycleState = { kind: "idle" } | { kind: "loading" } | { kind: "completed"; failedCount: number };
+
+export type SettingsDataRefreshLifecycleEvent = { type: "started" } | { type: "completed"; failedCount: number };
+
+export function transitionSettingsDataRefreshLifecycle(
+  state: SettingsDataRefreshLifecycleState,
+  event: SettingsDataRefreshLifecycleEvent,
+): SettingsDataRefreshLifecycleState {
+  switch (event.type) {
+    case "started":
+      return state.kind === "loading" ? state : { kind: "loading" };
+    case "completed":
+      return { kind: "completed", failedCount: event.failedCount };
+  }
+}
+
+export function settingsDataRefreshLoading(state: SettingsDataRefreshLifecycleState): boolean {
+  return state.kind === "loading";
+}
+
 export async function loadSettingsData(client: AppServerClient, cwd: string): Promise<SettingsDataLoad> {
   const [modelsResult, hooksResult, archivedThreadsResult] = await Promise.allSettled([
     client.listModels(false),

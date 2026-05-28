@@ -1,4 +1,4 @@
-import { type App, Notice, type Plugin, PluginSettingTab, Setting } from "obsidian";
+import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
 import { withAppServerConnection } from "../app-server/connection-client";
@@ -10,7 +10,13 @@ import type { Thread } from "../generated/app-server/v2/Thread";
 import { findModelByIdOrName, REASONING_EFFORTS, sortedAvailableModels, supportedEffortsForModel } from "../runtime/model";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
-import { loadHookData, loadSettingsData } from "./data";
+import {
+  loadHookData,
+  loadSettingsData,
+  settingsDataRefreshLoading,
+  transitionSettingsDataRefreshLifecycle,
+  type SettingsDataRefreshLifecycleState,
+} from "./data";
 import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
 import type { CodexPanelSettings } from "./model";
 
@@ -24,9 +30,15 @@ function renderSettingsHeading(containerEl: HTMLElement, name: string): void {
   new Setting(containerEl).setClass("codex-panel-settings__section-heading").setHeading().setName(name);
 }
 
+function settingsDataRefreshStatus(state: SettingsDataRefreshLifecycleState): string {
+  if (state.kind === "loading") return "Refreshing Codex data...";
+  if (state.kind === "completed" && state.failedCount > 0) return "Could not refresh all Codex data.";
+  return "";
+}
+
 export class CodexPanelSettingTab extends PluginSettingTab {
   private settingsDataAutoLoadStarted = false;
-  private settingsDataLoading = false;
+  private settingsDataRefreshLifecycle: SettingsDataRefreshLifecycleState = { kind: "idle" };
   private archivedThreads: Thread[] = [];
   private archivedThreadsLoaded = false;
   private archivedThreadsLoading = false;
@@ -54,6 +66,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("codex-panel-settings");
 
+    this.renderHeaderActions(containerEl);
+
     const configSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__general-section" });
     configSection.createEl("p", {
       cls: "setting-item-description codex-panel-settings__section-intro",
@@ -71,16 +85,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             this.plugin.settings.codexPath = value.trim() || DEFAULT_CODEX_PATH;
             await this.plugin.saveSettings();
           });
-      });
-
-    new Setting(configSection)
-      .setName("Codex data")
-      .setDesc("Refresh models, hooks, and archived threads from Codex app server.")
-      .addButton((button) => {
-        button
-          .setButtonText(this.settingsDataLoading ? "Refreshing..." : "Refresh Codex data")
-          .setDisabled(this.settingsDataLoading)
-          .onClick(() => void this.refreshSettingsData());
       });
 
     const composerSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__composer-section" });
@@ -213,14 +217,33 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.maybeAutoLoadSettingsData();
   }
 
+  private renderHeaderActions(containerEl: HTMLElement): void {
+    const header = containerEl.createDiv({ cls: "codex-panel-settings__header" });
+    const status = settingsDataRefreshStatus(this.settingsDataRefreshLifecycle);
+    header.createEl("span", {
+      cls: "setting-item-description codex-panel-settings__refresh-status",
+      text: status,
+    });
+    const button = header.createEl("button", {
+      cls: "clickable-icon codex-panel-settings__refresh-button",
+    });
+    button.type = "button";
+    button.disabled = this.settingsDataLoading();
+    button.ariaLabel = this.settingsDataLoading() ? "Refreshing Codex data" : "Refresh Codex data";
+    setIcon(button, "refresh-cw");
+    button.addEventListener("click", () => {
+      void this.refreshSettingsData();
+    });
+  }
+
   private maybeAutoLoadSettingsData(): void {
-    if (this.settingsDataAutoLoadStarted || this.settingsDataLoading) return;
+    if (this.settingsDataAutoLoadStarted || this.settingsDataLoading()) return;
     this.settingsDataAutoLoadStarted = true;
     void this.refreshSettingsData();
   }
 
   private async refreshSettingsData(): Promise<void> {
-    this.settingsDataLoading = true;
+    this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, { type: "started" });
     this.modelsLoading = true;
     this.archivedThreadsLoading = true;
     this.hooksLoading = true;
@@ -268,7 +291,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       this.hooksStatus = `Could not load hooks: ${message}`;
       this.archivedThreadsStatus = `Could not load archived threads: ${message}`;
     } finally {
-      this.settingsDataLoading = false;
+      this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, {
+        type: "completed",
+        failedCount,
+      });
       this.modelsLoading = false;
       this.archivedThreadsLoading = false;
       this.hooksLoading = false;
@@ -277,6 +303,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       }
       this.display();
     }
+  }
+
+  private settingsDataLoading(): boolean {
+    return settingsDataRefreshLoading(this.settingsDataRefreshLifecycle);
   }
 
   private async loadHooks(): Promise<void> {

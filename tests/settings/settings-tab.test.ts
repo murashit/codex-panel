@@ -85,14 +85,15 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(withAppServerConnectionMock).toHaveBeenCalledTimes(1);
-    expect(buttonTexts(tab)).toContain("Refresh Codex data");
+    expect(buttonLabels(tab)).toContain("Refresh Codex data");
+    expect(buttonTexts(tab)).not.toContain("Refresh Codex data");
     expect(buttonTexts(tab)).not.toContain("Load models");
     expect(buttonTexts(tab)).not.toContain("Load hooks");
     expect(buttonTexts(tab)).not.toContain("Load archive list");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__header button")?.getAttribute("data-icon")).toBe("refresh-cw");
     expect(tab.containerEl.querySelector("h2")).toBeNull();
     expect(settingNames(tab)).toEqual([
       "Codex executable",
-      "Codex data",
       "Composer",
       "Send shortcut",
       "Codex helpers",
@@ -165,7 +166,7 @@ describe("settings tab", () => {
 
     tab.display();
     await flushPromises();
-    clickButton(tab, "Refresh Codex data");
+    clickButtonByLabel(tab, "Refresh Codex data");
     await flushPromises();
 
     expect(withAppServerConnectionMock).toHaveBeenCalledTimes(2);
@@ -208,6 +209,7 @@ describe("settings tab", () => {
 
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 model.");
     expect(tab.containerEl.textContent).toContain("Could not load hooks: hooks unavailable");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__refresh-status")?.textContent).toBe("Could not refresh all Codex data.");
     expect(tab.containerEl.textContent).toContain("Archived thread");
     expect(notices).toEqual(["Could not refresh all Codex data."]);
   });
@@ -225,9 +227,9 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.textContent).toContain("Loaded 1 hook from Codex app server.");
     expect(tab.containerEl.textContent).toContain("Restore archived threads to the active thread list.");
-    expect(tab.containerEl.textContent).toContain("Loaded 1 archived thread from Codex app server.");
+    expect(tab.containerEl.textContent).not.toContain("Loaded 1 hook from Codex app server.");
+    expect(tab.containerEl.textContent).not.toContain("Loaded 1 archived thread from Codex app server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
       "Hook status",
     );
@@ -393,9 +395,13 @@ function buttonTexts(tab: CodexPanelSettingTab): string[] {
   return Array.from(tab.containerEl.querySelectorAll("button")).map((element) => element.textContent);
 }
 
-function clickButton(tab: CodexPanelSettingTab, text: string): void {
-  const button = Array.from(tab.containerEl.querySelectorAll("button")).find((element) => element.textContent === text);
-  if (!button) throw new Error(`Could not find button: ${text}`);
+function buttonLabels(tab: CodexPanelSettingTab): string[] {
+  return Array.from(tab.containerEl.querySelectorAll("button")).map((element) => element.ariaLabel ?? "");
+}
+
+function clickButtonByLabel(tab: CodexPanelSettingTab, label: string): void {
+  const button = Array.from(tab.containerEl.querySelectorAll("button")).find((element) => element.ariaLabel === label);
+  if (!button) throw new Error(`Could not find button: ${label}`);
   button.click();
 }
 

@@ -671,6 +671,27 @@
   margin-top: var(--size-4-6);
 }
 
+.codex-panel-settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--size-4-2);
+  min-height: var(--input-height);
+}
+
+.codex-panel-settings__refresh-status {
+  color: var(--text-muted);
+}
+
+.codex-panel-settings__refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--input-height);
+  height: var(--input-height);
+  padding: 0;
+}
+
 .codex-panel-settings__section-heading.setting-item-heading,
 .codex-panel-settings__dynamic-section-heading.setting-item-heading {
   margin-bottom: var(--size-4-2);
@@ -694,13 +715,6 @@
 .codex-panel-settings__dynamic-list-summary {
   padding: 0 var(--size-4-4);
   margin: 0 0 var(--size-2-3);
-}
-
-.codex-panel-settings__dynamic-list-count {
-  display: block;
-  margin-top: var(--size-2-1);
-  color: var(--text-faint);
-  font-size: var(--font-ui-smaller);
 }
 
 .codex-panel-settings__dynamic-list {
