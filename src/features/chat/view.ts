@@ -587,6 +587,15 @@ export class CodexChatView extends ItemView {
     this.render();
   }
 
+  private async refreshStatusPanel(): Promise<void> {
+    try {
+      await this.refreshDiagnostics();
+    } catch (error) {
+      this.addSystemMessage(error instanceof Error ? error.message : String(error));
+    }
+    await this.refreshThreads();
+  }
+
   private async refreshSkills(forceReload = false): Promise<void> {
     this.client = this.connection.currentClient();
     if (!this.client) return;
@@ -1301,11 +1310,7 @@ export class CodexChatView extends ItemView {
         this.toggleRuntimePicker("model");
       },
       connect: () => void this.reconnectFromToolbar(),
-      refreshDiagnostics: () => void this.refreshDiagnostics(),
-      refreshThreads: () => {
-        this.dispatch({ type: "ui/panel-set", panel: null });
-        void this.refreshThreads();
-      },
+      refreshStatus: () => void this.refreshStatusPanel(),
       resumeThread: (threadId) => {
         if (this.turnBusy && threadId !== this.state.activeThreadId) return;
         this.dispatch({ type: "ui/panel-set", panel: null });

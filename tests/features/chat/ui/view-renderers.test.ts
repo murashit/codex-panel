@@ -404,7 +404,7 @@ describe("toolbar renderer decisions", () => {
 
   it("renders connection diagnostics in the status menu", () => {
     const parent = document.createElement("div");
-    const refreshDiagnostics = vi.fn();
+    const refreshStatus = vi.fn();
 
     renderToolbar(
       parent,
@@ -416,21 +416,23 @@ describe("toolbar renderer decisions", () => {
           { title: "Capabilities", rows: [{ label: "compatibility", value: "model/list failed", level: "error" }] },
         ],
       }),
-      toolbarActions({ refreshDiagnostics }),
+      toolbarActions({ refreshStatus }),
     );
 
     expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection");
     expect(parent.textContent).toContain("Process");
     expect(parent.textContent).toContain("Capabilities");
     expect(parent.textContent).toContain("Effective Codex config");
-    expect(parent.textContent).toContain("Refresh diagnostics");
+    expect(parent.textContent).toContain("Refresh status");
+    expect(parent.textContent).not.toContain("Refresh diagnostics");
+    expect(parent.textContent).not.toContain("Refresh thread list");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
     expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")?.textContent).toContain("model/list failed");
     const statusItems = [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")];
-    expect(statusItems.map((item) => item.getAttribute("role"))).toEqual(["menuitem", "menuitem", "menuitem"]);
+    expect(statusItems.map((item) => item.getAttribute("role"))).toEqual(["menuitem", "menuitem"]);
     expect(statusItems.every((item) => item.getAttribute("aria-selected") === null)).toBe(true);
-    statusItems.find((item) => item.textContent.includes("Refresh diagnostics"))?.click();
-    expect(refreshDiagnostics).toHaveBeenCalled();
+    statusItems.find((item) => item.textContent.includes("Refresh status"))?.click();
+    expect(refreshStatus).toHaveBeenCalled();
   });
 
   it("renders diagnostic alert badges on the status dot", () => {
@@ -994,8 +996,7 @@ function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> 
     toggleFast: vi.fn(),
     toggleRuntime: vi.fn(),
     connect: vi.fn(),
-    refreshDiagnostics: vi.fn(),
-    refreshThreads: vi.fn(),
+    refreshStatus: vi.fn(),
     resumeThread: vi.fn(),
     startArchiveThread: vi.fn(),
     archiveThread: vi.fn(),

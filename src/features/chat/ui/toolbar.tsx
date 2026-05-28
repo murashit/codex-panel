@@ -73,8 +73,7 @@ export interface ToolbarActions {
   toggleFast: () => void;
   toggleRuntime: () => void;
   connect: () => void;
-  refreshDiagnostics: () => void;
-  refreshThreads: () => void;
+  refreshStatus: () => void;
   resumeThread: (threadId: string) => void;
   startArchiveThread: (threadId: string) => void;
   archiveThread: (threadId: string, saveMarkdown: boolean) => void;
@@ -236,14 +235,8 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
       <div className="codex-panel__status-panel-items" role="menu">
         <ToolbarPanelItem label={model.connectLabel} onClick={actions.connect} className="codex-panel__status-panel-item" role="menuitem" />
         <ToolbarPanelItem
-          label="Refresh diagnostics"
-          onClick={actions.refreshDiagnostics}
-          className="codex-panel__status-panel-item"
-          role="menuitem"
-        />
-        <ToolbarPanelItem
-          label="Refresh thread list"
-          onClick={actions.refreshThreads}
+          label="Refresh status"
+          onClick={actions.refreshStatus}
           className="codex-panel__status-panel-item"
           role="menuitem"
         />
