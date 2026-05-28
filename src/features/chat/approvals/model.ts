@@ -95,9 +95,8 @@ function pendingApproval(request: ApprovalRequest): PendingApproval {
 
 export function approvalResponse(approval: PendingApproval, action: ApprovalAction): ApprovalResponse {
   if (approval.method === "item/commandExecution/requestApproval") {
-    if (!isCommandDecisionAction(action)) throw new Error("Command approvals require an app-server decision.");
     return {
-      decision: action.decision,
+      decision: isCommandDecisionAction(action) ? action.decision : commandDecision(action),
     } satisfies CommandExecutionRequestApprovalResponse;
   }
 
@@ -126,7 +125,9 @@ export function approvalTitle(approval: PendingApproval): string {
 
 export function approvalActionOptions(approval: PendingApproval): ApprovalActionOption[] {
   if (approval.method !== "item/commandExecution/requestApproval") return defaultApprovalActionOptions();
-  return (approval.params.availableDecisions ?? []).map((decision) => ({
+  const decisions = approval.params.availableDecisions;
+  if (!decisions || decisions.length === 0) return defaultApprovalActionOptions();
+  return decisions.map((decision) => ({
     label: commandDecisionLabel(decision),
     action: { kind: "command-decision", decision },
     className: commandDecisionClassName(decision),
@@ -190,6 +191,13 @@ function summaryParts(reason: string | null, target: string | null, fallback: st
     fallback,
     lines: lines.length > 0 ? lines : [fallback],
   };
+}
+
+function commandDecision(action: ApprovalAction): CommandExecutionRequestApprovalResponse["decision"] {
+  if (action === "accept") return "accept";
+  if (action === "accept-session") return "acceptForSession";
+  if (action === "cancel") return "cancel";
+  return "decline";
 }
 
 export function approvalActionKind(action: ApprovalAction): "accept" | "accept-session" | "decline" | "cancel" {

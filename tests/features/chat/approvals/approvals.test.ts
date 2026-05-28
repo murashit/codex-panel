@@ -96,7 +96,7 @@ describe("approval model", () => {
     expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual({ decision: "decline" });
   });
 
-  it("does not synthesize command approval actions when app-server omits decisions", () => {
+  it("falls back to generic command approval actions when app-server omits decisions", () => {
     const approval = expectPresent(
       toPendingApproval({
         id: 31,
@@ -116,8 +116,8 @@ describe("approval model", () => {
       }),
     );
 
-    expect(approvalActionOptions(approval)).toEqual([]);
-    expect(() => approvalResponse(approval, "accept-session")).toThrow("Command approvals require an app-server decision.");
+    expect(approvalActionOptions(approval).map((option) => option.label)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
+    expect(approvalResponse(approval, "accept-session")).toEqual({ decision: "acceptForSession" });
   });
 
   it("shows approval reasons first in pending request summaries", () => {
