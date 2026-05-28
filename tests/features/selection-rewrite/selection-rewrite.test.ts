@@ -9,7 +9,11 @@ import {
   isSelectionRewriteGenerateKey,
   type SelectionRewriteGenerateKeyEvent,
 } from "../../../src/features/selection-rewrite/keys";
-import { canApplySelectionRewrite, type SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
+import {
+  canApplySelectionRewrite,
+  transitionSelectionRewriteState,
+  type SelectionRewriteState,
+} from "../../../src/features/selection-rewrite/model";
 import {
   parseSelectionRewriteOutput,
   selectionRewriteOutputFromTurn,
@@ -132,6 +136,46 @@ describe("selection rewrite apply guard", () => {
   it("allows apply only when the current range still matches the original text", () => {
     expect(canApplySelectionRewrite("original", "original")).toBe(true);
     expect(canApplySelectionRewrite("changed", "original")).toBe(false);
+  });
+});
+
+describe("selection rewrite lifecycle", () => {
+  it("transitions through generation and preview states", () => {
+    const generating = transitionSelectionRewriteState(rewriteState({ replacementText: "old", debugText: "old debug" }), {
+      type: "generation-started",
+      instruction: "Shorten it.",
+    });
+
+    expect(generating).toMatchObject({
+      instruction: "Shorten it.",
+      status: "generating",
+      streamText: "",
+      replacementText: null,
+      debugText: null,
+    });
+
+    const streaming = transitionSelectionRewriteState(generating, { type: "preview-updated", text: "New" });
+    expect(streaming.streamText).toBe("New");
+
+    const preview = transitionSelectionRewriteState(streaming, { type: "generation-succeeded", replacementText: "New text." });
+    expect(preview).toMatchObject({
+      status: "preview",
+      streamText: "",
+      replacementText: "New text.",
+    });
+  });
+
+  it("ignores stale generation callbacks after generation is no longer active", () => {
+    const state = rewriteState({ status: "cancelled", streamText: "" });
+
+    expect(transitionSelectionRewriteState(state, { type: "preview-updated", text: "late" })).toBe(state);
+    expect(transitionSelectionRewriteState(state, { type: "generation-succeeded", replacementText: "late" })).toBe(state);
+    expect(transitionSelectionRewriteState(state, { type: "generation-failed", debugText: "late" })).toBe(state);
+  });
+
+  it("marks terminal user actions explicitly", () => {
+    expect(transitionSelectionRewriteState(rewriteState(), { type: "cancelled" }).status).toBe("cancelled");
+    expect(transitionSelectionRewriteState(rewriteState({ replacementText: "New text." }), { type: "applied" }).status).toBe("applied");
   });
 });
 

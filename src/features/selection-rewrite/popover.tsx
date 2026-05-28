@@ -8,7 +8,13 @@ import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { isSelectionRewriteActionKey, isSelectionRewriteGenerateKey } from "./keys";
-import { canApplySelectionRewrite, type SelectionRewriteRuntimeSettings, type SelectionRewriteState } from "./model";
+import {
+  canApplySelectionRewrite,
+  transitionSelectionRewriteState,
+  type SelectionRewriteLifecycleEvent,
+  type SelectionRewriteRuntimeSettings,
+  type SelectionRewriteState,
+} from "./model";
 import { SelectionRewriteOutputError } from "./output";
 import { positionSelectionRewritePopover } from "./position";
 import { buildSelectionRewritePrompt } from "./prompt";
@@ -126,7 +132,7 @@ export class SelectionRewritePopover {
       this.showSelectionRewritePreview(output.replacementText);
     } catch (error) {
       if (abortController.signal.aborted) {
-        this.options.state.status = "cancelled";
+        this.transitionState({ type: "cancelled" });
         return;
       }
       this.showGenerationFailure(error);
@@ -139,13 +145,13 @@ export class SelectionRewritePopover {
   }
 
   private cancel(): void {
-    this.options.state.status = "cancelled";
+    this.transitionState({ type: "cancelled" });
     this.abortController?.abort();
     this.close();
   }
 
   private updatePreview(text: string): void {
-    this.options.state.streamText = text;
+    this.transitionState({ type: "preview-updated", text });
     this.setStatus("Writing replacement", { active: true });
     this.position();
   }
@@ -164,25 +170,20 @@ export class SelectionRewritePopover {
   }
 
   private startGeneration(instruction: string): void {
-    this.options.state.instruction = instruction;
-    this.options.state.status = "generating";
-    this.options.state.streamText = "";
-    this.options.state.replacementText = null;
-    this.options.state.debugText = null;
+    this.transitionState({ type: "generation-started", instruction });
     this.renderView();
   }
 
   private showSelectionRewritePreview(replacementText: string): void {
-    this.options.state.replacementText = replacementText;
-    this.options.state.status = "preview";
-    this.options.state.streamText = "";
+    this.transitionState({ type: "generation-succeeded", replacementText });
     this.setStatus("");
   }
 
   private showGenerationFailure(error: unknown): void {
-    this.options.state.status = "failed";
-    this.options.state.debugText = error instanceof SelectionRewriteOutputError ? error.rawText : null;
-    this.options.state.streamText = "";
+    this.transitionState({
+      type: "generation-failed",
+      debugText: error instanceof SelectionRewriteOutputError ? error.rawText : null,
+    });
     this.setStatus(error instanceof Error ? error.message : String(error));
   }
 
@@ -199,8 +200,12 @@ export class SelectionRewritePopover {
     }
 
     editor.replaceRange(replacement, state.targetRange.from, state.targetRange.to, "codex-panel-rewrite");
-    state.status = "applied";
+    this.transitionState({ type: "applied" });
     this.close();
+  }
+
+  private transitionState(event: SelectionRewriteLifecycleEvent): void {
+    this.options.state = transitionSelectionRewriteState(this.options.state, event);
   }
 
   private focusApplyButton(): void {
