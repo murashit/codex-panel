@@ -103,6 +103,13 @@ interface RestoredThreadState {
   explicitName: string | null;
 }
 
+type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; threadId: string };
+type ActiveChatResume = Extract<ChatResumeLifecycleState, { kind: "resuming" }>;
+type RestoredThreadLifecycleState =
+  | { kind: "idle" }
+  | { kind: "placeholder"; threadId: string; title: string | null; explicitName: string | null; loading: Promise<void> | null };
+type RestoredThreadPlaceholderState = Extract<RestoredThreadLifecycleState, { kind: "placeholder" }>;
+
 export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;
   private readonly connection: ConnectionManager;
@@ -123,9 +130,8 @@ export class CodexChatView extends ItemView {
   private archiveConfirmThreadId: string | null = null;
   private connectingPromise: Promise<void> | null = null;
   private connectionGeneration = 0;
-  private resumeGeneration = 0;
-  private restoredThread: RestoredThreadState | null = null;
-  private restoredThreadLoading: Promise<void> | null = null;
+  private resumeLifecycle: ChatResumeLifecycleState = { kind: "idle" };
+  private restoredThreadLifecycle: RestoredThreadLifecycleState = { kind: "idle" };
   private opened = false;
   private closing = false;
   private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
@@ -327,7 +333,7 @@ export class CodexChatView extends ItemView {
   }
 
   override getDisplayText(): string {
-    return codexPanelDisplayTitle(this.state.activeThreadId, this.state.listedThreads, this.restoredThread?.title ?? null);
+    return codexPanelDisplayTitle(this.state.activeThreadId, this.state.listedThreads, this.restoredThreadTitle());
   }
 
   override getIcon(): string {
@@ -338,7 +344,7 @@ export class CodexChatView extends ItemView {
     const threadId = this.state.activeThreadId;
     if (!threadId) return { version: 1 };
 
-    const threadTitle = this.restoredThread?.title ?? this.activeThreadTitle();
+    const threadTitle = this.restoredThreadTitle() ?? this.activeThreadTitle();
     return {
       version: 1,
       threadId,
@@ -351,7 +357,7 @@ export class CodexChatView extends ItemView {
     const restoredThread = parseRestoredThreadState(state);
     if (!restoredThread) {
       this.invalidateResumeWork();
-      this.restoredThread = null;
+      this.clearRestoredThreadLifecycle();
       this.clearDeferredRestoredThreadHydration();
       this.scheduleDeferredAppServerWarmup();
       return;
@@ -427,11 +433,12 @@ export class CodexChatView extends ItemView {
       return { ...thread, name };
     });
     this.dispatch({ type: "thread/list-applied", threads: listedThreads });
-    if (this.restoredThread?.threadId === threadId && (this.restoredThread.title !== name || this.restoredThread.explicitName !== name)) {
-      this.restoredThread = { ...this.restoredThread, title: name, explicitName: name };
+    const restoredThread = this.restoredThreadPlaceholder();
+    if (restoredThread?.threadId === threadId && (restoredThread.title !== name || restoredThread.explicitName !== name)) {
+      this.restoredThreadLifecycle = { ...restoredThread, title: name, explicitName: name };
       changed = true;
     }
-    const activeThreadChanged = this.state.activeThreadId === threadId || this.restoredThread?.threadId === threadId;
+    const activeThreadChanged = this.state.activeThreadId === threadId || this.isRestoredThreadPending(threadId);
     if (!changed && !activeThreadChanged) return;
     if (activeThreadChanged) {
       this.notifyActiveThreadIdentityChanged();
@@ -550,7 +557,7 @@ export class CodexChatView extends ItemView {
     if (this.turnBusy) return;
 
     this.invalidateResumeWork();
-    this.restoredThread = null;
+    this.clearRestoredThreadLifecycle();
     this.clearDeferredRestoredThreadHydration();
     this.chatState.dispatch({ type: "thread/active-cleared" });
     this.threadRename.resetThreadTurnPresence(false);
@@ -609,16 +616,16 @@ export class CodexChatView extends ItemView {
       this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
-    const resumeGeneration = this.beginResumeWork();
+    const resume = this.beginResumeWork(threadId);
     await this.ensureConnected();
-    if (!this.client || this.isStaleResumeWork(resumeGeneration)) return;
+    if (!this.client || this.isStaleResumeWork(resume)) return;
 
     try {
       const response = await this.client.resumeThread(threadId, this.plugin.vaultPath);
-      if (this.isStaleResumeWork(resumeGeneration)) return;
+      if (this.isStaleResumeWork(resume)) return;
       this.applyResumedThread(response);
       await this.history.loadLatest(response.thread.id);
-      if (this.isStaleResumeWork(resumeGeneration)) return;
+      if (this.isStaleResumeWork(resume)) return;
       if (this.state.displayItems.length === 0) {
         this.addSystemMessage(`Resumed thread ${response.thread.id}`);
         this.queueMessagesBottomScroll();
@@ -626,7 +633,7 @@ export class CodexChatView extends ItemView {
       }
       this.plugin.refreshThreadsViewLiveState();
     } catch (error) {
-      if (this.isStaleResumeWork(resumeGeneration)) return;
+      if (this.isStaleResumeWork(resume)) return;
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
   }
@@ -657,7 +664,7 @@ export class CodexChatView extends ItemView {
       displayItems: [this.systemItem("Loading thread...")],
       listedThreads: upsertThread(this.state.listedThreads, response.thread),
     });
-    this.restoredThread = null;
+    this.clearRestoredThreadLifecycle();
     this.clearDeferredRestoredThreadHydration();
     this.threadRename.resetThreadTurnPresence(false);
     this.notifyActiveThreadIdentityChanged();
@@ -1094,7 +1101,7 @@ export class CodexChatView extends ItemView {
 
   private restoreThreadPlaceholder(restoredThread: RestoredThreadState): void {
     this.invalidateResumeWork();
-    this.restoredThread = restoredThread;
+    this.restoredThreadLifecycle = { kind: "placeholder", ...restoredThread, loading: null };
     this.dispatch({
       type: "thread/restored-placeholder",
       threadId: restoredThread.threadId,
@@ -1105,50 +1112,54 @@ export class CodexChatView extends ItemView {
     this.scheduleDeferredRestoredThreadHydration();
   }
 
-  private beginResumeWork(): number {
-    this.resumeGeneration += 1;
+  private beginResumeWork(threadId: string): ActiveChatResume {
+    const resume: ActiveChatResume = { kind: "resuming", threadId };
+    this.resumeLifecycle = resume;
     this.history.invalidate();
-    return this.resumeGeneration;
+    return resume;
   }
 
   private invalidateResumeWork(): void {
-    this.resumeGeneration += 1;
+    this.resumeLifecycle = { kind: "idle" };
     this.history.invalidate();
   }
 
-  private isStaleResumeWork(generation: number): boolean {
-    return generation !== this.resumeGeneration || this.closing;
+  private isStaleResumeWork(resume: ActiveChatResume): boolean {
+    return this.resumeLifecycle !== resume || this.closing;
   }
 
   private async ensureRestoredThreadLoaded(): Promise<boolean> {
-    if (!this.restoredThread) return true;
+    const restoredThread = this.restoredThreadPlaceholder();
+    if (!restoredThread) return true;
     this.clearDeferredRestoredThreadHydration();
-    if (this.restoredThreadLoading) {
-      const threadId = this.restoredThread.threadId;
-      await this.restoredThreadLoading;
+    if (restoredThread.loading) {
+      const threadId = restoredThread.threadId;
+      await restoredThread.loading;
       return !this.isRestoredThreadPending(threadId);
     }
 
-    const threadId = this.restoredThread.threadId;
+    const threadId = restoredThread.threadId;
     const loading = this.resumeThread(threadId);
-    this.restoredThreadLoading = loading;
+    this.restoredThreadLifecycle = { ...restoredThread, loading };
     try {
       await loading;
     } finally {
-      if (this.restoredThreadLoading === loading) {
-        this.restoredThreadLoading = null;
+      const current = this.restoredThreadPlaceholder();
+      if (current?.loading === loading) {
+        this.restoredThreadLifecycle = { ...current, loading: null };
       }
     }
     return !this.isRestoredThreadPending(threadId);
   }
 
   private isRestoredThreadPending(threadId: string): boolean {
-    return this.restoredThread?.threadId === threadId;
+    return this.restoredThreadPlaceholder()?.threadId === threadId;
   }
 
   private scheduleDeferredRestoredThreadHydration(): void {
-    if (!this.opened || !this.restoredThread || this.scheduledRestoredThreadHydrationTimer !== null) return;
-    const threadId = this.restoredThread.threadId;
+    const restoredThread = this.restoredThreadPlaceholder();
+    if (!this.opened || !restoredThread || this.scheduledRestoredThreadHydrationTimer !== null) return;
+    const threadId = restoredThread.threadId;
     this.scheduledRestoredThreadHydrationTimer = this.containerEl.win.setTimeout(() => {
       this.scheduledRestoredThreadHydrationTimer = null;
       if (!this.isRestoredThreadPending(threadId)) return;
@@ -1184,6 +1195,18 @@ export class CodexChatView extends ItemView {
     return thread ? getThreadTitle(thread) : null;
   }
 
+  private restoredThreadPlaceholder(): RestoredThreadPlaceholderState | null {
+    return this.restoredThreadLifecycle.kind === "placeholder" ? this.restoredThreadLifecycle : null;
+  }
+
+  private restoredThreadTitle(): string | null {
+    return this.restoredThreadPlaceholder()?.title ?? null;
+  }
+
+  private clearRestoredThreadLifecycle(): void {
+    this.restoredThreadLifecycle = { kind: "idle" };
+  }
+
   private composerPlaceholder(): string {
     const threadName = this.activeComposerThreadName();
     return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
@@ -1195,7 +1218,8 @@ export class CodexChatView extends ItemView {
     const thread = this.state.listedThreads.find((item) => item.id === threadId);
     const listedName = thread ? explicitThreadName(thread) : null;
     if (listedName) return listedName;
-    return this.restoredThread?.threadId === threadId ? this.restoredThread.explicitName : null;
+    const restoredThread = this.restoredThreadPlaceholder();
+    return restoredThread?.threadId === threadId ? restoredThread.explicitName : null;
   }
 
   private readonly renderToolbarSlot = (toolbar: HTMLElement): void => {
@@ -1710,7 +1734,7 @@ export class CodexChatView extends ItemView {
   private clearArchivedActiveThread(threadId: string): boolean {
     if (this.state.activeThreadId !== threadId) return false;
     this.invalidateResumeWork();
-    this.restoredThread = null;
+    this.clearRestoredThreadLifecycle();
     this.clearDeferredRestoredThreadHydration();
     this.chatState.dispatch({ type: "thread/active-cleared" });
     this.threadRename.resetThreadTurnPresence(false);
