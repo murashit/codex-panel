@@ -8,7 +8,6 @@ import type { SlashCommandName } from "./composer/slash-commands";
 import { parseSlashCommand } from "./composer/suggestions";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import { createSystemItem } from "./display/system";
-import { fileMentionsFromInput } from "./display/thread-items";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { Model } from "../../generated/app-server/v2/Model";
@@ -86,7 +85,13 @@ import {
   type ActiveChatResume,
   type ChatViewRenderScheduleOptions,
 } from "./view-lifecycle";
-import { acknowledgeOptimisticTurnStart, cleanupFailedTurnStart, localUserMessageItem } from "./turn-submission";
+import {
+  acknowledgeOptimisticTurnStart,
+  cleanupFailedTurnStart,
+  localUserMessageItemFromInput,
+  optimisticTurnStart,
+  shouldAcknowledgeTurnStart,
+} from "./turn-submission";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -756,18 +761,17 @@ export class CodexChatView extends ItemView {
       if (!(await this.runtimeSettings.applyPendingThreadSettings())) return;
 
       const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
-      const mentionedFiles = fileMentionsFromInput(codexInput);
       optimisticUserId = `local-user-${String(Date.now())}`;
-      const optimisticUserItem = localUserMessageItem({
+      const optimistic = optimisticTurnStart({
         id: optimisticUserId,
         text,
+        codexInput,
         referencedThread,
-        mentionedFiles,
       });
       this.dispatch({
         type: "turn/optimistic-started",
-        item: optimisticUserItem,
-        pendingTurnStart: { anchorItemId: optimisticUserId, promptSubmitHookItemIds: [] },
+        item: optimistic.item,
+        pendingTurnStart: optimistic.pendingTurnStart,
       });
       this.queueMessagesBottomScroll();
       this.composerController.setDraft("");
@@ -775,10 +779,14 @@ export class CodexChatView extends ItemView {
 
       const response = await client.startTurn(activeThreadId, this.plugin.vaultPath, codexInput);
       const pendingTurnStart = this.pendingTurnStart;
-      const currentTurnId = this.activeTurnId;
-      const responseMatchesCurrentStart =
-        pendingTurnStart?.anchorItemId === optimisticUserId || (!pendingTurnStart && currentTurnId === response.turn.id);
-      if (responseMatchesCurrentStart) {
+      if (
+        shouldAcknowledgeTurnStart({
+          pendingTurnStart,
+          activeTurnId: this.activeTurnId,
+          optimisticUserId,
+          responseTurnId: response.turn.id,
+        })
+      ) {
         const displayItems = acknowledgeOptimisticTurnStart({
           items: this.state.displayItems,
           optimisticUserId,
@@ -814,7 +822,6 @@ export class CodexChatView extends ItemView {
     const threadId = this.state.activeThreadId;
     const expectedTurnId = this.activeTurnId;
     const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
-    const mentionedFiles = fileMentionsFromInput(codexInput);
 
     this.composerController.setDraft("", { clearSuggestions: true });
 
@@ -822,12 +829,12 @@ export class CodexChatView extends ItemView {
       await this.client.steerTurn(threadId, expectedTurnId, codexInput);
       this.dispatch({
         type: "system/message-added",
-        item: localUserMessageItem({
+        item: localUserMessageItemFromInput({
           id: `local-steer-${String(Date.now())}`,
           text,
           turnId: expectedTurnId,
           referencedThread,
-          mentionedFiles,
+          codexInput,
         }),
       });
       this.queueMessagesBottomScroll();
