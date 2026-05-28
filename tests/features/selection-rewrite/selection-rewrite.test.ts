@@ -305,6 +305,56 @@ describe("selection rewrite popover", () => {
     expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("aborts the active generation when closed and ignores its late result", async () => {
+    const rewrite = deferred<{ replacementText: string }>();
+    let signal: AbortSignal | undefined;
+    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockImplementation((options) => {
+      signal = options.signal;
+      return rewrite.promise;
+    });
+    const popover = new SelectionRewritePopover(popoverOptions());
+
+    popover.open();
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+      await Promise.resolve();
+    });
+
+    popover.close();
+    expect(signal?.aborted).toBe(true);
+
+    rewrite.resolve({ replacementText: "Late rewrite" });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
+    expect(document.body.textContent).not.toContain("Late rewrite");
+  });
+
+  it("keeps only one generation run active while a rewrite is pending", async () => {
+    const rewrite = deferred<{ replacementText: string }>();
+    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockReturnValue(rewrite.promise);
+    const popover = new SelectionRewritePopover(popoverOptions());
+
+    popover.open();
+    const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
+    await act(async () => {
+      generate.click();
+      generate.click();
+      await Promise.resolve();
+    });
+
+    expect(selectionRewriteRunner.runSelectionRewrite).toHaveBeenCalledOnce();
+
+    rewrite.resolve({ replacementText: "Rewritten once." });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Rewritten once.");
+  });
 });
 
 describe("selection selection rewrite runtime", () => {
@@ -417,6 +467,21 @@ function setTextareaValue(textarea: HTMLTextAreaElement, value: string): void {
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
+}
+
+async function flushPromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
 }
 
 function runOptions(clientFactory: SelectionRewriteClientFactory): Parameters<typeof runSelectionRewrite>[0] {

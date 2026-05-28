@@ -41,9 +41,12 @@ interface SelectionRewriteElements {
   applyButton: HTMLButtonElement | null;
 }
 
+type SelectionRewriteGenerationRunState = { kind: "idle" } | { kind: "running"; abortController: AbortController };
+type ActiveSelectionRewriteGenerationRun = Extract<SelectionRewriteGenerationRunState, { kind: "running" }>;
+
 export class SelectionRewritePopover {
   private elements: SelectionRewriteElements | null = null;
-  private abortController: AbortController | null = null;
+  private generationRun: SelectionRewriteGenerationRunState = { kind: "idle" };
   private readonly cleanups: Cleanup[] = [];
   private instructionDraft: string;
   private statusText = "";
@@ -88,7 +91,7 @@ export class SelectionRewritePopover {
     const hadElements = this.elements !== null;
     if (!hadElements && this.options.state.status !== "generating") return;
     if (this.options.state.status === "generating") {
-      this.abortController?.abort();
+      this.abortGeneration();
     }
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     if (this.elements) {
@@ -100,7 +103,7 @@ export class SelectionRewritePopover {
   }
 
   private async generate(): Promise<void> {
-    if (this.options.state.status === "generating") return;
+    if (this.generationRun.kind === "running" || this.options.state.status === "generating") return;
     const instruction = this.instructionDraft.trim();
     if (!instruction) {
       new Notice("Enter a rewrite instruction first.");
@@ -108,11 +111,9 @@ export class SelectionRewritePopover {
       return;
     }
 
-    this.startGeneration(instruction);
+    const generationRun = this.startGeneration(instruction);
     this.setStatus("Generating", { active: true });
     this.syncControls();
-    const abortController = new AbortController();
-    this.abortController = abortController;
 
     try {
       const output = await runSelectionRewrite({
@@ -126,18 +127,18 @@ export class SelectionRewritePopover {
         onPreview: (text) => {
           this.updatePreview(text);
         },
-        signal: abortController.signal,
+        signal: generationRun.abortController.signal,
       });
-      if (abortController.signal.aborted) return;
+      if (generationRun.abortController.signal.aborted || !this.isActiveGenerationRun(generationRun)) return;
       this.showSelectionRewritePreview(output.replacementText);
     } catch (error) {
-      if (abortController.signal.aborted) {
+      if (generationRun.abortController.signal.aborted) {
         this.transitionState({ type: "cancelled" });
         return;
       }
       this.showGenerationFailure(error);
     } finally {
-      if (this.abortController === abortController) this.abortController = null;
+      if (this.isActiveGenerationRun(generationRun)) this.generationRun = { kind: "idle" };
       this.syncControls();
       if (this.options.state.status === "preview") this.focusApplyButton();
       this.position();
@@ -146,7 +147,7 @@ export class SelectionRewritePopover {
 
   private cancel(): void {
     this.transitionState({ type: "cancelled" });
-    this.abortController?.abort();
+    this.abortGeneration();
     this.close();
   }
 
@@ -169,9 +170,12 @@ export class SelectionRewritePopover {
     return elements;
   }
 
-  private startGeneration(instruction: string): void {
+  private startGeneration(instruction: string): ActiveSelectionRewriteGenerationRun {
+    const generationRun: ActiveSelectionRewriteGenerationRun = { kind: "running", abortController: new AbortController() };
+    this.generationRun = generationRun;
     this.transitionState({ type: "generation-started", instruction });
     this.renderView();
+    return generationRun;
   }
 
   private showSelectionRewritePreview(replacementText: string): void {
@@ -217,6 +221,14 @@ export class SelectionRewritePopover {
     this.statusText = text;
     this.statusActive = Boolean(options.active);
     this.renderView();
+  }
+
+  private abortGeneration(): void {
+    if (this.generationRun.kind === "running") this.generationRun.abortController.abort();
+  }
+
+  private isActiveGenerationRun(generationRun: ActiveSelectionRewriteGenerationRun): boolean {
+    return this.generationRun.kind === "running" && this.generationRun === generationRun;
   }
 
   private syncControls(): void {
