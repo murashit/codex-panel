@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { ConfigReadResponse } from "../../src/generated/app-server/v2/ConfigReadResponse";
+import type { Model } from "../../src/generated/app-server/v2/Model";
+import type { Thread } from "../../src/generated/app-server/v2/Thread";
+import { createAppServerDiagnostics } from "../../src/app-server/compatibility";
 import {
   compactContextLabel,
   compactModelLabel,
@@ -27,12 +30,52 @@ import {
 } from "../../src/runtime/state";
 import { readRuntimeConfig } from "../../src/runtime/config";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../src/runtime/view";
+import {
+  applySharedAppServerMetadata,
+  applySharedModels,
+  applySharedThreadList,
+  cachedSharedAppServerMetadata,
+  cachedSharedThreadList,
+  createSharedAppServerState,
+} from "../../src/runtime/shared-app-server-state";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {
     expect(parseModelOverride("gpt-5.5")).toBe("gpt-5.5");
     expect(parseModelOverride(" default ")).toBeNull();
     expect(parseModelOverride("")).toBeUndefined();
+  });
+
+  it("keeps shared app-server cache snapshots detached from caller-owned arrays", () => {
+    const sourceThreads = [threadFixture("thread-1")];
+    const threadState = applySharedThreadList(createSharedAppServerState(), sourceThreads);
+    sourceThreads.push(threadFixture("thread-2"));
+
+    const cachedThreads = cachedSharedThreadList(threadState);
+    expect(cachedThreads?.map((thread) => thread.id)).toEqual(["thread-1"]);
+
+    const mutableCachedThreads = cachedThreads as Thread[];
+    mutableCachedThreads.push(threadFixture("thread-3"));
+    expect(cachedSharedThreadList(threadState)?.map((thread) => thread.id)).toEqual(["thread-1"]);
+
+    const sourceModels = [modelFixture("gpt-5.5")];
+    const modelState = applySharedModels(createSharedAppServerState(), sourceModels);
+    sourceModels.push(modelFixture("gpt-5.6"));
+    expect(modelState.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
+
+    const metadataState = applySharedAppServerMetadata(createSharedAppServerState(), {
+      effectiveConfig: null,
+      availableModels: sourceModels,
+      availableSkills: [{ name: "skill", description: "", path: "/tmp/skill", scope: "repo", enabled: true }],
+      rateLimit: null,
+      appServerDiagnostics: {
+        ...createAppServerDiagnostics(),
+        mcpServers: [{ name: "server", startupStatus: "ready", authStatus: null, toolCount: 1, message: null }],
+      },
+    });
+    sourceModels.push(modelFixture("gpt-5.7"));
+    const cachedMetadata = cachedSharedAppServerMetadata(metadataState);
+    expect(cachedMetadata?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5", "gpt-5.6"]);
   });
 
   it("parses reasoning effort overrides", () => {
@@ -589,5 +632,50 @@ function configLayer(config: Record<string, unknown>, profile: string | null): N
     version: "1",
     config: config as NonNullable<ConfigReadResponse["layers"]>[number]["config"],
     disabledReason: null,
+  };
+}
+
+function threadFixture(id: string): Thread {
+  return {
+    id,
+    sessionId: "session",
+    forkedFromId: null,
+    preview: "",
+    ephemeral: false,
+    modelProvider: "openai",
+    createdAt: 1,
+    updatedAt: 1,
+    status: { type: "idle" },
+    path: null,
+    cwd: "/vault",
+    cliVersion: "0.0.0",
+    source: "appServer",
+    threadSource: null,
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: null,
+    turns: [],
+  };
+}
+
+function modelFixture(model: string): Model {
+  return {
+    id: model,
+    model,
+    upgrade: null,
+    upgradeInfo: null,
+    availabilityNux: null,
+    displayName: model,
+    description: "",
+    hidden: false,
+    supportedReasoningEfforts: [],
+    defaultReasoningEffort: "medium",
+    inputModalities: [],
+    supportsPersonality: false,
+    additionalSpeedTiers: [],
+    serviceTiers: [],
+    defaultServiceTier: null,
+    isDefault: false,
   };
 }

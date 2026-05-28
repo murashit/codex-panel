@@ -32,34 +32,62 @@ export function createSharedAppServerState(): SharedAppServerState {
 export function applySharedThreadList(state: SharedAppServerState, threads: readonly Thread[]): SharedAppServerState {
   return {
     ...state,
-    threads: { kind: "loaded", data: threads },
+    threads: { kind: "loaded", data: cloneThreads(threads) },
   };
 }
 
 export function applySharedAppServerMetadata(state: SharedAppServerState, metadata: SharedAppServerMetadata): SharedAppServerState {
+  const clonedMetadata = cloneSharedAppServerMetadata(metadata);
   return {
     ...state,
-    appServerMetadata: { kind: "loaded", data: metadata },
-    availableModels: metadata.availableModels,
+    appServerMetadata: { kind: "loaded", data: clonedMetadata },
+    availableModels: cloneModels(clonedMetadata.availableModels),
   };
 }
 
 export function applySharedModels(state: SharedAppServerState, models: readonly Model[]): SharedAppServerState {
+  const clonedModels = cloneModels(models);
   return {
     ...state,
     appServerMetadata:
       state.appServerMetadata.kind === "loaded"
-        ? { kind: "loaded", data: { ...state.appServerMetadata.data, availableModels: models } }
+        ? { kind: "loaded", data: { ...state.appServerMetadata.data, availableModels: cloneModels(clonedModels) } }
         : state.appServerMetadata,
-    availableModels: models,
+    availableModels: clonedModels,
   };
 }
 
 export function cachedSharedThreadList(state: SharedAppServerState): readonly Thread[] | null {
-  return state.threads.kind === "loaded" ? state.threads.data : null;
+  return state.threads.kind === "loaded" ? cloneThreads(state.threads.data) : null;
 }
 
 export function cachedSharedAppServerMetadata(state: SharedAppServerState): SharedAppServerMetadata | null {
-  if (state.appServerMetadata.kind === "loaded") return state.appServerMetadata.data;
+  if (state.appServerMetadata.kind === "loaded") return cloneSharedAppServerMetadata(state.appServerMetadata.data);
   return null;
+}
+
+function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): SharedAppServerMetadata {
+  return {
+    ...metadata,
+    availableModels: cloneModels(metadata.availableModels),
+    availableSkills: metadata.availableSkills.map((skill) => ({ ...skill })),
+    appServerDiagnostics: {
+      probes: { ...metadata.appServerDiagnostics.probes },
+      mcpServers: metadata.appServerDiagnostics.mcpServers.map((server) => ({ ...server })),
+    },
+  };
+}
+
+function cloneThreads(threads: readonly Thread[]): Thread[] {
+  return threads.map((thread) => ({ ...thread, turns: [...thread.turns] }));
+}
+
+function cloneModels(models: readonly Model[]): Model[] {
+  return models.map((model) => ({
+    ...model,
+    supportedReasoningEfforts: [...model.supportedReasoningEfforts],
+    inputModalities: [...model.inputModalities],
+    additionalSpeedTiers: [...model.additionalSpeedTiers],
+    serviceTiers: [...model.serviceTiers],
+  }));
 }
