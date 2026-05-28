@@ -776,7 +776,7 @@ describe("message stream block identity and message actions", () => {
     } as const;
     const baseState = {
       activeThreadId: "thread",
-      busy: false,
+      turnLifecycle: { kind: "idle" as const },
       composerDraft: "",
       requestedCollaborationMode: "plan" as const,
       displayItems: [firstPlan, { id: "a1", kind: "message", role: "assistant", text: "answer" } as const, secondPlan],
@@ -785,7 +785,7 @@ describe("message stream block identity and message actions", () => {
     expect(implementPlanCandidateFromState(baseState)).toBe(secondPlan);
     expect(implementPlanCandidateFromState({ ...baseState, requestedCollaborationMode: "default" })).toBeNull();
     expect(implementPlanCandidateFromState({ ...baseState, composerDraft: "edit first" })).toBeNull();
-    expect(implementPlanCandidateFromState({ ...baseState, busy: true })).toBeNull();
+    expect(implementPlanCandidateFromState({ ...baseState, turnLifecycle: { kind: "running", turnId: "turn-2" } })).toBeNull();
   });
 
   it("does not render copy actions for tool items", () => {

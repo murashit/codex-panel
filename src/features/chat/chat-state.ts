@@ -24,13 +24,18 @@ export interface PendingTurnStart {
   promptSubmitHookItemIds: string[];
 }
 
+export type ChatTurnLifecycleState =
+  | { kind: "idle" }
+  | { kind: "starting"; pendingTurnStart: PendingTurnStart }
+  | { kind: "running"; turnId: string };
+
 export interface ChatState {
   status: string;
   effectiveConfig: ConfigReadResponse | null;
   initializeResponse: InitializeResponse | null;
   activeThreadId: string | null;
   activeThreadCwd: string | null;
-  activeTurnId: string | null;
+  turnLifecycle: ChatTurnLifecycleState;
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
@@ -45,9 +50,7 @@ export interface ChatState {
   requestedServiceTier: ServiceTier | null;
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
-  busy: boolean;
   displayItems: readonly DisplayItem[];
-  pendingTurnStart: PendingTurnStart | null;
   turnDiffs: ReadonlyMap<string, string>;
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
@@ -108,7 +111,6 @@ export type ChatAction =
       threadId: string;
       turnId: string;
       displayItems?: readonly DisplayItem[];
-      pendingTurnStart?: PendingTurnStart | null;
     }
   | { type: "turn/completed"; turnId: string; status: string; displayItems: readonly DisplayItem[] }
   | { type: "request/approval-queued"; approval: PendingApproval }
@@ -166,7 +168,7 @@ export type ChatAction =
   | { type: "turn/local-cleared" }
   | { type: "turn/optimistic-started"; item: DisplayItem; pendingTurnStart: PendingTurnStart }
   | { type: "turn/start-acknowledged"; turnId: string; displayItems: readonly DisplayItem[] }
-  | { type: "turn/start-failed"; displayItems: readonly DisplayItem[]; pendingTurnStart: PendingTurnStart | null }
+  | { type: "turn/start-failed"; displayItems: readonly DisplayItem[] }
   | { type: "display/pending-turn-item-upserted"; item: DisplayItem; pendingTurnStart: PendingTurnStart | null };
 
 export function createChatState(): ChatState {
@@ -176,7 +178,7 @@ export function createChatState(): ChatState {
     initializeResponse: null,
     activeThreadId: null,
     activeThreadCwd: null,
-    activeTurnId: null,
+    turnLifecycle: { kind: "idle" },
     activeModel: null,
     activeReasoningEffort: null,
     activeCollaborationMode: "default",
@@ -191,9 +193,7 @@ export function createChatState(): ChatState {
     requestedServiceTier: null,
     tokenUsage: null,
     rateLimit: null,
-    busy: false,
     displayItems: [],
-    pendingTurnStart: null,
     turnDiffs: new Map(),
     approvals: [],
     pendingUserInputs: [],
@@ -256,7 +256,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return patchChatState(state, {
         activeThreadId: action.thread.id,
         activeThreadCwd: action.cwd,
-        activeTurnId: null,
+        turnLifecycle: { kind: "idle" },
         activeModel: action.model,
         activeReasoningEffort: action.reasoningEffort,
         activeServiceTier: action.serviceTier,
@@ -283,17 +283,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "turn/started":
       return patchChatState(state, {
         activeThreadId: action.threadId,
-        activeTurnId: action.turnId,
-        busy: true,
+        turnLifecycle: { kind: "running", turnId: action.turnId },
         status: "Turn running...",
         displayItems: action.displayItems ?? state.displayItems,
-        pendingTurnStart: action.pendingTurnStart === undefined ? state.pendingTurnStart : action.pendingTurnStart,
       });
     case "turn/completed":
+      if (activeTurnId(state) !== action.turnId) return state;
       return patchChatState(state, {
+        turnLifecycle: { kind: "idle" },
         displayItems: action.displayItems,
-        busy: false,
-        activeTurnId: null,
         status: `Turn ${action.status}.`,
       });
     case "request/approval-queued":
@@ -397,27 +395,32 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return clearActiveTurnState(state);
     case "turn/optimistic-started":
       return patchChatState(state, {
+        turnLifecycle: { kind: "starting", pendingTurnStart: action.pendingTurnStart },
         displayItems: [...state.displayItems, action.item],
-        pendingTurnStart: action.pendingTurnStart,
-        busy: true,
       });
     case "turn/start-acknowledged":
-      return patchChatState(state, { activeTurnId: action.turnId, displayItems: action.displayItems, pendingTurnStart: null });
+      if (state.turnLifecycle.kind === "idle") return state;
+      if (state.turnLifecycle.kind === "running" && state.turnLifecycle.turnId !== action.turnId) return state;
+      return patchChatState(state, {
+        turnLifecycle: { kind: "running", turnId: action.turnId },
+        displayItems: action.displayItems,
+      });
     case "turn/start-failed":
-      return patchChatState(state, { busy: false, displayItems: action.displayItems, pendingTurnStart: action.pendingTurnStart });
+      return patchChatState(state, {
+        turnLifecycle: { kind: "idle" },
+        displayItems: action.displayItems,
+      });
     case "display/pending-turn-item-upserted":
       return patchChatState(state, {
         displayItems: upsertDisplayItem(state.displayItems, action.item),
-        pendingTurnStart: action.pendingTurnStart,
+        turnLifecycle: withPendingTurnStart(state.turnLifecycle, action.pendingTurnStart),
       });
   }
 }
 
 export function clearActiveTurnState(state: ChatState): ChatState {
   return patchChatState(state, {
-    activeTurnId: null,
-    busy: false,
-    pendingTurnStart: null,
+    turnLifecycle: { kind: "idle" },
     approvals: [],
     pendingUserInputs: [],
     userInputDrafts: new Map(),
@@ -498,6 +501,23 @@ function resolveRequest(state: ChatState, requestId: PendingApproval["requestId"
     userInputDrafts,
     displayItems,
   });
+}
+
+export function chatTurnBusy(state: Pick<ChatState, "turnLifecycle">): boolean {
+  return state.turnLifecycle.kind !== "idle";
+}
+
+export function activeTurnId(state: Pick<ChatState, "turnLifecycle">): string | null {
+  return state.turnLifecycle.kind === "running" ? state.turnLifecycle.turnId : null;
+}
+
+export function pendingTurnStart(state: Pick<ChatState, "turnLifecycle">): PendingTurnStart | null {
+  return state.turnLifecycle.kind === "starting" ? state.turnLifecycle.pendingTurnStart : null;
+}
+
+function withPendingTurnStart(lifecycle: ChatTurnLifecycleState, nextPendingTurnStart: PendingTurnStart | null): ChatTurnLifecycleState {
+  if (nextPendingTurnStart) return { kind: "starting", pendingTurnStart: nextPendingTurnStart };
+  return lifecycle.kind === "starting" ? { kind: "idle" } : lifecycle;
 }
 
 function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string, diff: string): ReadonlyMap<string, string> {

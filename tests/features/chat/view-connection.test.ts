@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/view";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
+import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import { notices } from "../../mocks/obsidian";
 import { installObsidianDomShims } from "./ui/dom-test-helpers";
 
@@ -299,6 +300,33 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     expect(client.startTurn).toHaveBeenCalledWith("thread-1", "/vault", [{ type: "text", text: "hello", text_elements: [] }]);
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
+  });
+
+  it("does not revive a completed turn when the startTurn response arrives late", async () => {
+    const startTurn = deferred<{ turn: { id: string } }>();
+    const client = connectedClient({
+      startTurn: vi.fn(() => startTurn.promise),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.openThread("thread-1");
+    view.setComposerText("hello");
+    const submit = (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+    await vi.waitFor(() => {
+      expect(client.startTurn).toHaveBeenCalled();
+    });
+
+    const controller = (view as unknown as { controller: { handleNotification: (notification: ServerNotification) => void } }).controller;
+    controller.handleNotification(turnStartedNotification("thread-1", "turn-1"));
+    controller.handleNotification(turnCompletedNotification("thread-1", "turn-1"));
+    expect((view as unknown as { state: ChatState }).state.turnLifecycle).toEqual({ kind: "idle" });
+
+    startTurn.resolve({ turn: { id: "turn-1" } });
+    await submit;
+
+    expect((view as unknown as { state: ChatState }).state.turnLifecycle).toEqual({ kind: "idle" });
+    expect(view.openPanelSnapshot()).toMatchObject({ busy: false, activeTurnId: null });
   });
 
   it("requests a workspace layout save after resuming a thread", async () => {
@@ -772,6 +800,47 @@ function turnWithUserMessage(text: string) {
     startedAt: 1,
     completedAt: 2,
     items: [{ type: "userMessage", id: "user-1", content: [{ type: "text", text, text_elements: [] }] }],
+  };
+}
+
+function turnStartedNotification(threadId: string, turnId: string): Extract<ServerNotification, { method: "turn/started" }> {
+  return {
+    method: "turn/started",
+    params: {
+      threadId,
+      turn: {
+        id: turnId,
+        status: "inProgress",
+        error: null,
+        startedAt: 1,
+        completedAt: null,
+        durationMs: null,
+        itemsView: "full",
+        items: [],
+      },
+    },
+  };
+}
+
+function turnCompletedNotification(threadId: string, turnId: string): Extract<ServerNotification, { method: "turn/completed" }> {
+  return {
+    method: "turn/completed",
+    params: {
+      threadId,
+      turn: {
+        id: turnId,
+        status: "completed",
+        error: null,
+        startedAt: 1,
+        completedAt: 2,
+        durationMs: 1,
+        itemsView: "full",
+        items: [
+          { type: "userMessage", id: "user-1", content: [{ type: "text", text: "hello", text_elements: [] }] },
+          { type: "agentMessage", id: "agent-1", text: "done", phase: "final_answer", memoryCitation: null },
+        ],
+      },
+    },
   };
 }
 

@@ -8,7 +8,7 @@ import { MessageScrollController, type MessageScrollIntent } from "./ui/scroll";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
-import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
+import { activeTurnId, chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface ChatMessageRendererOptions {
@@ -62,15 +62,17 @@ export class ChatMessageRenderer {
     const state = this.state;
     this.messagesEl = messagesEl;
     const scrollPlan = this.scrollController.prepareRender(messagesEl, this.options.consumeScrollIntent());
-    const rollbackCandidate = state.busy ? null : rollbackCandidateFromItems(state.displayItems);
+    const busy = chatTurnBusy(state);
+    const activeTurn = activeTurnId(state);
+    const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.displayItems);
     const implementPlanCandidate = implementPlanCandidateFromState(state);
 
     const blocks = messageStreamBlocks({
       activeThreadId: state.activeThreadId,
-      activeTurnId: state.activeTurnId,
+      activeTurnId: activeTurn,
       historyCursor: state.historyCursor,
       loadingHistory: state.loadingHistory,
-      busy: state.busy,
+      busy,
       displayItems: state.displayItems,
       turnDiffs: state.turnDiffs,
       workspaceRoot: state.activeThreadCwd ?? this.options.vaultPath,
@@ -128,9 +130,14 @@ export class ChatMessageRenderer {
 }
 
 export function implementPlanCandidateFromState(
-  state: Pick<ChatState, "activeThreadId" | "busy" | "composerDraft" | "requestedCollaborationMode" | "displayItems">,
+  state: Pick<ChatState, "activeThreadId" | "turnLifecycle" | "composerDraft" | "requestedCollaborationMode" | "displayItems">,
 ): DisplayItem | null {
-  if (!state.activeThreadId || state.busy || state.composerDraft.trim().length > 0 || state.requestedCollaborationMode !== "plan") {
+  if (
+    !state.activeThreadId ||
+    chatTurnBusy(state) ||
+    state.composerDraft.trim().length > 0 ||
+    state.requestedCollaborationMode !== "plan"
+  ) {
     return null;
   }
   return (

@@ -2,7 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ChatController } from "../../../src/features/chat/chat-controller";
 import { attachHookRunsToTurn } from "../../../src/features/chat/hook-display";
-import { chatReducer, createChatState, type ChatAction, type ChatState, type ChatStateStore } from "../../../src/features/chat/chat-state";
+import {
+  activeTurnId,
+  chatReducer,
+  chatTurnBusy,
+  createChatState,
+  pendingTurnStart,
+  type ChatAction,
+  type ChatState,
+  type ChatStateStore,
+} from "../../../src/features/chat/chat-state";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
@@ -49,7 +58,7 @@ describe("ChatController", () => {
     it("applies matching streaming deltas as assistant markdown", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -63,8 +72,7 @@ describe("ChatController", () => {
     it("marks active reasoning completed when assistant text starts", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
-      state.busy = true;
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       state.displayItems = [{ id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" }];
       const controller = controllerForState(state);
 
@@ -84,7 +92,7 @@ describe("ChatController", () => {
     it("streams plan deltas as plain assistant text until completion", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -98,7 +106,7 @@ describe("ChatController", () => {
     it("updates structured turn plan progress", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -139,7 +147,7 @@ describe("ChatController", () => {
     it("stores the latest aggregated turn diff for the active turn", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -157,7 +165,7 @@ describe("ChatController", () => {
     it("ignores aggregated turn diffs outside the active scope", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -175,7 +183,7 @@ describe("ChatController", () => {
     it("formats hook runs as compact summaries with details", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -228,7 +236,7 @@ describe("ChatController", () => {
     it("omits hook duration details while duration is unavailable", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -271,8 +279,7 @@ describe("ChatController", () => {
     it("attaches unscoped hook runs to the active turn while streaming", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
-      state.busy = true;
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -305,8 +312,7 @@ describe("ChatController", () => {
     it("leaves non-prompt unscoped hook runs outside the active turn", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
-      state.busy = true;
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -340,7 +346,7 @@ describe("ChatController", () => {
     it("keeps repeated hook runs with the same run id as separate display items", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
       const baseRun: Extract<ServerNotification, { method: "hook/completed" }>["params"]["run"] = {
         id: "hook-1",
@@ -374,7 +380,10 @@ describe("ChatController", () => {
     it("attaches pre-turn prompt submit hook runs when the turn starts", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.pendingTurnStart = { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] };
+      state.turnLifecycle = {
+        kind: "starting",
+        pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
+      };
       state.displayItems = [
         { id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true },
         {
@@ -407,7 +416,7 @@ describe("ChatController", () => {
 
       expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(state.displayItems[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
-      expect(state.pendingTurnStart).toBeNull();
+      expect(pendingTurnStart(state)).toBeNull();
     });
 
     it("moves pre-turn hook runs after the optimistic user message when a turn id is assigned", () => {
@@ -444,7 +453,7 @@ describe("ChatController", () => {
     it("captures only prompt-submit hooks observed during the pending turn start", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.pendingTurnStart = { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] };
+      state.turnLifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -473,13 +482,13 @@ describe("ChatController", () => {
 
       expect(expectPresent(state.displayItems[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
       expect(expectPresent(state.displayItems[0]).turnId).toBeUndefined();
-      expect(expectPresent(state.pendingTurnStart).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+      expect(expectPresent(pendingTurnStart(state)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
     it("keeps pre-turn prompt submit hooks through turn start and completed-turn reconciliation", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.pendingTurnStart = { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] };
+      state.turnLifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } };
       state.displayItems = [{ id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true }];
       const controller = controllerForState(state);
 
@@ -490,7 +499,7 @@ describe("ChatController", () => {
 
       expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(expectPresent(state.displayItems[1]).turnId).toBeUndefined();
-      expect(expectPresent(state.pendingTurnStart).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+      expect(expectPresent(pendingTurnStart(state)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
 
       controller.handleNotification({
         method: "turn/started",
@@ -512,7 +521,7 @@ describe("ChatController", () => {
       expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(state.displayItems.find((item) => item.id === "local-user-1")).not.toHaveProperty("turnId");
       expect(state.displayItems.find((item) => item.id === "hook-hook-1-1")).toMatchObject({ turnId: "turn-active" });
-      expect(state.pendingTurnStart).toBeNull();
+      expect(pendingTurnStart(state)).toBeNull();
 
       controller.handleNotification({
         method: "turn/completed",
@@ -543,6 +552,51 @@ describe("ChatController", () => {
         ]),
       );
       expect(state.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
+    });
+
+    it("ignores completed turn notifications while a new turn is still starting", () => {
+      const state = createChatState();
+      state.activeThreadId = "thread-active";
+      state.turnLifecycle = {
+        kind: "starting",
+        pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
+      };
+      state.displayItems = [
+        { id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true },
+        {
+          id: "hook-hook-1-1",
+          kind: "hook",
+          role: "tool",
+          text: "userPromptSubmit: Saving jj baseline",
+          toolLabel: "hook",
+          status: "completed",
+        },
+      ];
+      const maybeNameThread = vi.fn();
+      const refreshThreads = vi.fn();
+      const controller = controllerForState(state, { maybeNameThread, refreshThreads });
+
+      controller.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "stale-turn",
+            status: "completed",
+            startedAt: 1,
+            completedAt: 2,
+            durationMs: 1,
+            error: null,
+            itemsView: "full",
+            items: [{ type: "agentMessage", id: "a1", text: "stale", phase: "final_answer", memoryCitation: null }],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+
+      expect(pendingTurnStart(state)).toEqual({ anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] });
+      expect(state.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(maybeNameThread).not.toHaveBeenCalled();
+      expect(refreshThreads).not.toHaveBeenCalled();
     });
 
     it("stores account rate limit updates outside thread scope", () => {
@@ -740,7 +794,7 @@ describe("ChatController", () => {
     it("rejects server requests scoped to a different active thread or turn", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const rejectServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { rejectServerRequest });
 
@@ -855,7 +909,7 @@ describe("ChatController", () => {
     it("clears all active-thread scoped state when the active thread is archived", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       state.activeModel = "gpt-5.5";
       state.activeServiceTier = "fast";
       state.activeThreadCreationCliVersion = "codex-cli 1.0.0";
@@ -869,7 +923,6 @@ describe("ChatController", () => {
       state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "stale" }];
       state.turnDiffs = new Map([["turn-active", "@@\n-stale\n+stale"]]);
       state.composerDraft = "keep local draft";
-      state.busy = true;
       state.approvals = [
         {
           requestId: 10,
@@ -902,7 +955,7 @@ describe("ChatController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
       expect(state.activeThreadId).toBeNull();
-      expect(state.activeTurnId).toBeNull();
+      expect(activeTurnId(state)).toBeNull();
       expect(state.activeModel).toBeNull();
       expect(state.activeServiceTier).toBeNull();
       expect(state.activeThreadCreationCliVersion).toBeNull();
@@ -912,7 +965,7 @@ describe("ChatController", () => {
       expect(state.displayItems).toEqual([]);
       expect(state.turnDiffs.size).toBe(0);
       expect(state.composerDraft).toBe("keep local draft");
-      expect(state.busy).toBe(false);
+      expect(chatTurnBusy(state)).toBe(false);
       expect(state.approvals).toEqual([]);
       expect(state.pendingUserInputs).toEqual([]);
       expect(state.userInputDrafts.size).toBe(0);
@@ -949,7 +1002,7 @@ describe("ChatController", () => {
     it("replaces optimistic user echoes when completed turns are reconciled", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       state.displayItems = [
         { id: "local-user-1", kind: "message", role: "user", text: "hello", turnId: "turn-active", markdown: true },
         {
@@ -994,7 +1047,7 @@ describe("ChatController", () => {
     it("asks the view to auto-name completed turns", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const maybeNameThread = vi.fn();
       const controller = controllerForState(state, { maybeNameThread });
       const turn: Turn = {
@@ -1171,7 +1224,7 @@ describe("ChatController", () => {
     it("renders auto approval review notifications as upserted review results", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1218,7 +1271,7 @@ describe("ChatController", () => {
     it("replaces guardian auto-review warnings when structured auto-review notifications arrive", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1252,7 +1305,7 @@ describe("ChatController", () => {
     it("ignores guardian auto-review warnings after structured auto-review notifications", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeTurnId = "turn-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       const controller = controllerForState(state);
 
       controller.handleNotification({

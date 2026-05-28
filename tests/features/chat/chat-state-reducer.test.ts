@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { chatReducer, createChatState, createChatStateStore, type ChatState } from "../../../src/features/chat/chat-state";
+import {
+  activeTurnId,
+  chatReducer,
+  chatTurnBusy,
+  createChatState,
+  createChatStateStore,
+  pendingTurnStart,
+  type ChatState,
+} from "../../../src/features/chat/chat-state";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 
@@ -8,7 +16,7 @@ describe("chatReducer", () => {
   it("clears active turn and thread state without dropping local composer draft", () => {
     const state = createChatState();
     state.activeThreadId = "thread";
-    state.activeTurnId = "turn";
+    state.turnLifecycle = { kind: "running", turnId: "turn" };
     state.activeModel = "gpt-5.1";
     state.historyCursor = "cursor";
     state.loadingHistory = true;
@@ -23,7 +31,7 @@ describe("chatReducer", () => {
 
     expect(next).not.toBe(state);
     expect(next.activeThreadId).toBeNull();
-    expect(next.activeTurnId).toBeNull();
+    expect(activeTurnId(next)).toBeNull();
     expect(next.displayItems).toEqual([]);
     expect(next.turnDiffs.size).toBe(0);
     expect(next.historyCursor).toBeNull();
@@ -68,6 +76,85 @@ describe("chatReducer", () => {
     expect(first.reportedLogs).not.toBe(state.reportedLogs);
     expect(first.displayItems).toEqual([item]);
     expect(second).toBe(first);
+  });
+
+  it("keeps turn lifecycle fields synchronized through start and completion", () => {
+    const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: [] };
+    const optimisticItem = { id: "local-user", kind: "message", role: "user", text: "hello" } satisfies DisplayItem;
+    const acknowledgedItem = { ...optimisticItem, turnId: "turn" } satisfies DisplayItem;
+
+    const optimistic = chatReducer(createChatState(), {
+      type: "turn/optimistic-started",
+      item: optimisticItem,
+      pendingTurnStart: pending,
+    });
+    expect(chatTurnBusy(optimistic)).toBe(true);
+    expect(activeTurnId(optimistic)).toBeNull();
+    expect(pendingTurnStart(optimistic)).toEqual(pending);
+
+    const running = chatReducer(optimistic, {
+      type: "turn/start-acknowledged",
+      turnId: "turn",
+      displayItems: [acknowledgedItem],
+    });
+    expect(chatTurnBusy(running)).toBe(true);
+    expect(activeTurnId(running)).toBe("turn");
+    expect(pendingTurnStart(running)).toBeNull();
+
+    const completed = chatReducer(running, {
+      type: "turn/completed",
+      turnId: "turn",
+      status: "completed",
+      displayItems: [acknowledgedItem],
+    });
+    expect(chatTurnBusy(completed)).toBe(false);
+    expect(activeTurnId(completed)).toBeNull();
+    expect(pendingTurnStart(completed)).toBeNull();
+  });
+
+  it("clears running state when a turn start fails", () => {
+    const state = createChatState();
+    state.turnLifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] } };
+
+    const next = chatReducer(state, { type: "turn/start-failed", displayItems: [] });
+
+    expect(chatTurnBusy(next)).toBe(false);
+    expect(activeTurnId(next)).toBeNull();
+    expect(pendingTurnStart(next)).toBeNull();
+  });
+
+  it("ignores turn start acknowledgements after the turn has already gone idle", () => {
+    const state = createChatState();
+    state.turnLifecycle = { kind: "idle" };
+
+    const next = chatReducer(state, {
+      type: "turn/start-acknowledged",
+      turnId: "completed-turn",
+      displayItems: [{ id: "local-user", kind: "message", role: "user", text: "hello", markdown: true, turnId: "completed-turn" }],
+    });
+
+    expect(next).toBe(state);
+    expect(chatTurnBusy(next)).toBe(false);
+    expect(activeTurnId(next)).toBeNull();
+  });
+
+  it("ignores completed turns while a new turn is still starting", () => {
+    const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] };
+    const state = createChatState();
+    state.turnLifecycle = { kind: "starting", pendingTurnStart: pending };
+    state.displayItems = [{ id: "local-user", kind: "message", role: "user", text: "hello", markdown: true }];
+
+    const next = chatReducer(state, {
+      type: "turn/completed",
+      turnId: "stale-turn",
+      status: "completed",
+      displayItems: [],
+    });
+
+    expect(next).toBe(state);
+    expect(chatTurnBusy(next)).toBe(true);
+    expect(pendingTurnStart(next)).toEqual(pending);
+    expect(next.displayItems).toEqual(state.displayItems);
   });
 
   it("keeps toolbar panels mutually exclusive", () => {

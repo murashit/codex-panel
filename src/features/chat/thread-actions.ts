@@ -5,7 +5,7 @@ import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import { inheritedForkThreadName, upsertThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { ArchiveExportAdapter } from "../../domain/threads/export";
-import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
+import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import type { ThreadHistoryLoader } from "./thread-history";
 import { rollbackCandidateFromItems } from "./rollback";
 
@@ -40,7 +40,7 @@ export class ChatThreadActionController {
   }
 
   async archiveThread(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<void> {
-    if (this.state.busy) {
+    if (chatTurnBusy(this.state)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
       return;
     }
@@ -65,7 +65,7 @@ export class ChatThreadActionController {
   }
 
   async forkThread(threadId: string): Promise<void> {
-    if (this.state.busy) {
+    if (chatTurnBusy(this.state)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
       return;
     }
@@ -98,7 +98,7 @@ export class ChatThreadActionController {
   }
 
   async rollbackThread(threadId: string): Promise<void> {
-    if (this.state.busy) {
+    if (chatTurnBusy(this.state)) {
       this.host.addSystemMessage("Interrupt the current turn before rolling back.");
       return;
     }

@@ -14,7 +14,7 @@ import {
 import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-context";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { renderComposerShell, renderComposerSuggestions, syncComposerHeight } from "./ui/composer";
-import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
+import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface ChatComposerControllerOptions {
@@ -72,7 +72,7 @@ export class ChatComposerController {
       parent,
       this.options.viewId,
       state.composerDraft,
-      state.busy,
+      chatTurnBusy(state),
       this.options.canInterrupt(),
       this.options.composerPlaceholder(),
       {

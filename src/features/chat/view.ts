@@ -53,7 +53,14 @@ import type { CodexPanelSettings } from "../../settings/model";
 import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import { attachHookRunsToTurn } from "./hook-display";
-import { createChatStateStore, type ChatAction, type ChatState } from "./chat-state";
+import {
+  activeTurnId,
+  chatTurnBusy,
+  createChatStateStore,
+  pendingTurnStart as pendingTurnStartForState,
+  type ChatAction,
+  type ChatState,
+} from "./chat-state";
 import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle, upsertThread } from "../../domain/threads/model";
 import {
   referencedThreadDisplay,
@@ -152,7 +159,7 @@ export class CodexChatView extends ItemView {
       stateStore: this.chatState,
       viewId: this.viewId,
       sendShortcut: () => this.plugin.settings.sendShortcut,
-      canInterrupt: () => this.state.busy && Boolean(this.state.activeThreadId && this.state.activeTurnId),
+      canInterrupt: () => this.turnBusy && Boolean(this.state.activeThreadId && this.activeTurnId),
       composerPlaceholder: () => this.composerPlaceholder(),
       currentModelForSuggestions: () => currentModel(this.runtimeSnapshot()),
       renderIfDetached: () => {
@@ -299,6 +306,18 @@ export class CodexChatView extends ItemView {
     return this.chatState.getState();
   }
 
+  private get turnBusy(): boolean {
+    return chatTurnBusy(this.state);
+  }
+
+  private get activeTurnId(): string | null {
+    return activeTurnId(this.state);
+  }
+
+  private get pendingTurnStart(): ReturnType<typeof pendingTurnStartForState> {
+    return pendingTurnStartForState(this.state);
+  }
+
   private dispatch(action: ChatAction): void {
     this.chatState.dispatch(action);
   }
@@ -369,8 +388,8 @@ export class CodexChatView extends ItemView {
     return {
       viewId: this.viewId,
       threadId: this.closing ? null : this.state.activeThreadId,
-      busy: this.state.busy,
-      activeTurnId: this.state.activeTurnId,
+      busy: this.turnBusy,
+      activeTurnId: this.activeTurnId,
       pendingApprovals: this.state.approvals.length,
       pendingUserInputs: this.state.pendingUserInputs.length,
       hasComposerDraft: this.state.composerDraft.trim().length > 0,
@@ -529,7 +548,7 @@ export class CodexChatView extends ItemView {
   }
 
   async startNewThread(): Promise<void> {
-    if (this.state.busy) return;
+    if (this.turnBusy) return;
 
     this.invalidateResumeWork();
     this.restoredThread = null;
@@ -578,7 +597,7 @@ export class CodexChatView extends ItemView {
   }
 
   private async resumeThread(threadId: string): Promise<void> {
-    if (this.state.busy && threadId !== this.state.activeThreadId) {
+    if (this.turnBusy && threadId !== this.state.activeThreadId) {
       this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
@@ -686,7 +705,7 @@ export class CodexChatView extends ItemView {
     const client = this.client;
     if (!client) return;
 
-    if (this.state.busy) {
+    if (this.turnBusy) {
       await this.steerCurrentTurn(text, codexInputOverride, referencedThread);
       return;
     }
@@ -726,31 +745,35 @@ export class CodexChatView extends ItemView {
       this.render();
 
       const response = await client.startTurn(activeThreadId, this.plugin.vaultPath, codexInput);
-      const pendingTurnStart = this.state.pendingTurnStart;
-      let displayItems = this.state.displayItems.map((item) =>
-        item.id === optimisticUserId ? { ...item, turnId: response.turn.id } : item,
-      );
-      if (pendingTurnStart) {
-        displayItems = attachHookRunsToTurn(
-          displayItems,
-          response.turn.id,
-          pendingTurnStart.promptSubmitHookItemIds,
-          pendingTurnStart.anchorItemId,
+      const pendingTurnStart = this.pendingTurnStart;
+      const currentTurnId = this.activeTurnId;
+      const responseMatchesCurrentStart =
+        pendingTurnStart?.anchorItemId === optimisticUserId || (!pendingTurnStart && currentTurnId === response.turn.id);
+      if (responseMatchesCurrentStart) {
+        let displayItems = this.state.displayItems.map((item) =>
+          item.id === optimisticUserId ? { ...item, turnId: response.turn.id } : item,
         );
+        if (pendingTurnStart) {
+          displayItems = attachHookRunsToTurn(
+            displayItems,
+            response.turn.id,
+            pendingTurnStart.promptSubmitHookItemIds,
+            pendingTurnStart.anchorItemId,
+          );
+        }
+        this.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
+        this.setStatus("Turn running...");
       }
-      this.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
-      this.setStatus("Turn running...");
     } catch (error) {
       let displayItems = optimisticUserId
         ? this.state.displayItems.filter((item) => item.id !== optimisticUserId)
         : this.state.displayItems;
-      let pendingTurnStart = this.state.pendingTurnStart;
-      if (this.state.pendingTurnStart) {
-        const hookIds = new Set(this.state.pendingTurnStart.promptSubmitHookItemIds);
+      const pendingTurnStart = this.pendingTurnStart;
+      if (pendingTurnStart) {
+        const hookIds = new Set(pendingTurnStart.promptSubmitHookItemIds);
         displayItems = displayItems.filter((item) => !hookIds.has(item.id));
-        pendingTurnStart = null;
       }
-      this.dispatch({ type: "turn/start-failed", displayItems, pendingTurnStart });
+      this.dispatch({ type: "turn/start-failed", displayItems });
       this.composerController.setDraft(text);
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -762,13 +785,13 @@ export class CodexChatView extends ItemView {
     codexInputOverride?: UserInput[],
     referencedThread?: ReferencedThreadDisplay,
   ): Promise<void> {
-    if (!this.client || !this.state.activeThreadId || !this.state.activeTurnId) {
+    if (!this.client || !this.state.activeThreadId || !this.activeTurnId) {
       this.addSystemMessage("Current turn is not steerable yet.");
       return;
     }
 
     const threadId = this.state.activeThreadId;
-    const expectedTurnId = this.state.activeTurnId;
+    const expectedTurnId = this.activeTurnId;
     const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
     const mentionedFiles = fileMentionsFromInput(codexInput);
 
@@ -811,9 +834,9 @@ export class CodexChatView extends ItemView {
   }
 
   private async interruptTurn(): Promise<void> {
-    if (!this.client || !this.state.activeThreadId || !this.state.activeTurnId) return;
+    if (!this.client || !this.state.activeThreadId || !this.activeTurnId) return;
     try {
-      await this.client.interruptTurn(this.state.activeThreadId, this.state.activeTurnId);
+      await this.client.interruptTurn(this.state.activeThreadId, this.activeTurnId);
       this.setStatus("Interrupt requested.");
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -822,7 +845,7 @@ export class CodexChatView extends ItemView {
 
   private async submitComposerAction(): Promise<void> {
     const draft = this.composerController.trimmedDraft;
-    if (this.state.busy && this.state.activeThreadId && this.state.activeTurnId && draft.length === 0) {
+    if (this.turnBusy && this.state.activeThreadId && this.activeTurnId && draft.length === 0) {
       await this.interruptTurn();
       return;
     }
@@ -843,7 +866,7 @@ export class CodexChatView extends ItemView {
         await this.client?.compactThread(threadId);
       },
       archiveThread: (threadId) => this.threadActions.archiveThread(threadId),
-      busy: this.state.busy,
+      busy: this.turnBusy,
       toggleFastMode: () => this.toggleFastMode(),
       toggleCollaborationMode: () => this.toggleCollaborationMode(),
       toggleAutoReview: () => void this.toggleAutoReview(),
@@ -968,7 +991,7 @@ export class CodexChatView extends ItemView {
 
   private canImplementPlanItem(item: DisplayItem): boolean {
     if (item.kind !== "message" || item.role !== "assistant" || item.proposedPlan !== true) return false;
-    if (!this.state.activeThreadId || this.state.busy || this.state.composerDraft.trim().length > 0) return false;
+    if (!this.state.activeThreadId || this.turnBusy || this.state.composerDraft.trim().length > 0) return false;
     if (this.state.requestedCollaborationMode !== "plan") return false;
     return latestProposedPlanItem(this.state.displayItems)?.id === item.id;
   }
@@ -1180,9 +1203,9 @@ export class CodexChatView extends ItemView {
   private readonly toolbarSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
     signatureParts(
       state.status,
-      state.busy,
+      chatTurnBusy(state),
       state.activeThreadId,
-      state.activeTurnId,
+      activeTurnId(state),
       state.activeModel,
       state.activeReasoningEffort,
       state.activeCollaborationMode,
@@ -1208,11 +1231,11 @@ export class CodexChatView extends ItemView {
   private readonly messagesSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
     signatureParts(
       state.activeThreadId,
-      state.activeTurnId,
+      activeTurnId(state),
       state.activeThreadCwd,
       state.historyCursor,
       state.loadingHistory,
-      state.busy,
+      chatTurnBusy(state),
       state.messagesPinnedToBottom,
       state.composerDraft,
       state.requestedCollaborationMode,
@@ -1225,9 +1248,9 @@ export class CodexChatView extends ItemView {
   private readonly composerSnapshot = (state: ChatState): ChatPanelSlotSnapshot =>
     signatureParts(
       state.composerDraft,
-      state.busy,
+      chatTurnBusy(state),
       state.activeThreadId,
-      state.activeTurnId,
+      activeTurnId(state),
       currentModel(this.runtimeSnapshotForState(state), readRuntimeConfig(state.effectiveConfig)),
       state.availableSkills.length,
       skillsSignature(state.availableSkills),
@@ -1281,7 +1304,7 @@ export class CodexChatView extends ItemView {
         void this.refreshThreads();
       },
       resumeThread: (threadId) => {
-        if (this.state.busy && threadId !== this.state.activeThreadId) return;
+        if (this.turnBusy && threadId !== this.state.activeThreadId) return;
         this.dispatch({ type: "ui/panel-set", panel: null });
         void this.selectThread(threadId);
       },
@@ -1311,7 +1334,7 @@ export class CodexChatView extends ItemView {
     const historyOpen = this.state.openDetails.has("history");
     const statusPanelOpen = this.state.openDetails.has("status-panel");
     const runtimeOpen = this.state.runtimePicker !== null;
-    const statusState = this.state.busy ? "running" : this.connection.isConnected() ? "connected" : "offline";
+    const statusState = this.turnBusy ? "running" : this.connection.isConnected() ? "connected" : "offline";
     const model = currentModel(snapshot, config);
     const effort = currentReasoningEffort(snapshot, config);
     const threads = this.state.listedThreads;
@@ -1338,7 +1361,7 @@ export class CodexChatView extends ItemView {
           title: getThreadTitle(thread),
           threadId,
           selected: threadId === this.state.activeThreadId,
-          disabled: this.state.busy && threadId !== this.state.activeThreadId,
+          disabled: this.turnBusy && threadId !== this.state.activeThreadId,
           canArchive: true,
           archiveConfirm: {
             active: this.archiveConfirmThreadId === threadId,
@@ -1416,7 +1439,7 @@ export class CodexChatView extends ItemView {
   }
 
   private async selectThread(threadId: string): Promise<void> {
-    if (this.state.busy && threadId !== this.state.activeThreadId) {
+    if (this.turnBusy && threadId !== this.state.activeThreadId) {
       this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }

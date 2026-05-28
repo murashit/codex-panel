@@ -25,7 +25,13 @@ import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type { FileUpdateChange } from "../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
-import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
+import {
+  activeTurnId,
+  pendingTurnStart as pendingTurnStartForState,
+  type ChatAction,
+  type ChatState,
+  type ChatStateStore,
+} from "./chat-state";
 import { userInputResponse, type PendingUserInput } from "./user-input/model";
 import { jsonPreview } from "../../utils";
 import { classifyAppServerLog } from "./app-server-logs";
@@ -222,7 +228,7 @@ export class ChatController {
       });
     } else if (method === "guardianWarning") {
       const item = createReviewResultItem(this.localItemId("review"), params.message);
-      if (!isUnstructuredAutoReviewWarning(item) || !hasStructuredAutoReviewResult(this.state.displayItems, this.state.activeTurnId)) {
+      if (!isUnstructuredAutoReviewWarning(item) || !hasStructuredAutoReviewResult(this.state.displayItems, activeTurnId(this.state))) {
         this.dispatch({ type: "display/item-upserted", item });
       }
     }
@@ -236,9 +242,9 @@ export class ChatController {
         threadId: params.threadId,
         turnId: params.turn.id,
         displayItems: this.displayItemsWithPendingPromptSubmitHooks(params.turn.id),
-        pendingTurnStart: null,
       });
     } else if (method === "turn/completed") {
+      if (activeTurnId(this.state) !== params.turn.id) return;
       this.dispatch({
         type: "turn/completed",
         turnId: params.turn.id,
@@ -322,7 +328,7 @@ export class ChatController {
   private activeRouteScope(): { activeThreadId: string | null; activeTurnId: string | null } {
     return {
       activeThreadId: this.state.activeThreadId,
-      activeTurnId: this.state.activeTurnId,
+      activeTurnId: activeTurnId(this.state),
     };
   }
 
@@ -406,12 +412,13 @@ export class ChatController {
     const resolvedTurnId = this.hookRunTurnId(run, turnId);
     const item = hookRunDisplayItem(run, resolvedTurnId, status);
     if (!item) return;
-    let pendingTurnStart = this.state.pendingTurnStart;
-    if (!resolvedTurnId && this.state.pendingTurnStart && run.eventName === "userPromptSubmit") {
-      const hookIds = this.state.pendingTurnStart.promptSubmitHookItemIds;
+    const currentPendingTurnStart = pendingTurnStartForState(this.state);
+    let pendingTurnStart = currentPendingTurnStart;
+    if (!resolvedTurnId && currentPendingTurnStart && run.eventName === "userPromptSubmit") {
+      const hookIds = currentPendingTurnStart.promptSubmitHookItemIds;
       pendingTurnStart = hookIds.includes(item.id)
-        ? this.state.pendingTurnStart
-        : { ...this.state.pendingTurnStart, promptSubmitHookItemIds: [...hookIds, item.id] };
+        ? currentPendingTurnStart
+        : { ...currentPendingTurnStart, promptSubmitHookItemIds: [...hookIds, item.id] };
     }
     this.dispatch({
       type: "display/pending-turn-item-upserted",
@@ -425,12 +432,12 @@ export class ChatController {
     turnId: string | null,
   ): string | null {
     if (turnId) return turnId;
-    if (run.eventName === "userPromptSubmit" && !this.state.pendingTurnStart) return this.state.activeTurnId;
+    if (run.eventName === "userPromptSubmit" && !pendingTurnStartForState(this.state)) return activeTurnId(this.state);
     return null;
   }
 
   private displayItemsWithPendingPromptSubmitHooks(turnId: string): readonly DisplayItem[] {
-    const pending = this.state.pendingTurnStart;
+    const pending = pendingTurnStartForState(this.state);
     if (!pending) return this.state.displayItems;
     return attachHookRunsToTurn(this.state.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
   }

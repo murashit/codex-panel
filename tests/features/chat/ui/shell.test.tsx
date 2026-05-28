@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act } from "react";
 
-import { createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
 import { installObsidianDomShims } from "./dom-test-helpers";
 
@@ -123,9 +123,9 @@ function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
     },
     composer: {
       render: vi.fn((composer: HTMLElement) => {
-        composer.textContent = store.getState().busy ? "busy" : "ready";
+        composer.textContent = chatTurnBusy(store.getState()) ? "busy" : "ready";
       }),
-      snapshot: () => store.getState().busy,
+      snapshot: () => chatTurnBusy(store.getState()),
     },
   };
 }
