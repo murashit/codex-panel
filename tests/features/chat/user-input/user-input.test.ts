@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { questionDefaultAnswer, toPendingUserInput, userInputResponse } from "../../../../src/features/chat/user-input/model";
-import { pendingRequestsSignature } from "../../../../src/features/chat/request-state";
+import {
+  answersForPendingUserInput,
+  questionDefaultAnswer,
+  toPendingUserInput,
+  userInputResponse,
+} from "../../../../src/features/chat/user-input/model";
+import { pendingRequestFocusSignature, pendingRequestsSignature } from "../../../../src/features/chat/request-state";
 import type { ServerRequest } from "../../../../src/generated/app-server/ServerRequest";
 
 function expectPresent<T>(value: T | null | undefined): T {
@@ -34,6 +39,8 @@ describe("user input model", () => {
     const input = expectPresent(toPendingUserInput(request));
     expect(input).toMatchObject({ requestId: 7, method: "item/tool/requestUserInput" });
     expect(questionDefaultAnswer(expectPresent(request.params.questions[0]))).toBe("Recommended");
+    expect(answersForPendingUserInput(input, new Map())).toEqual({ direction: "Recommended" });
+    expect(answersForPendingUserInput(input, new Map([["7:direction", "Left"]]))).toEqual({ direction: "Left" });
     expect(userInputResponse(input, { direction: "Recommended" })).toEqual({
       answers: { direction: { answers: ["Recommended"] } },
     });
@@ -67,6 +74,13 @@ describe("user input model", () => {
     ]);
 
     expect(pendingRequestsSignature([], [], drafts)).toBe("");
+    expect(pendingRequestFocusSignature([], [])).toBe("");
+    expect(pendingRequestFocusSignature([], [input])).toBe(
+      JSON.stringify({
+        approvals: [],
+        inputs: [{ id: 7, method: "item/tool/requestUserInput" }],
+      }),
+    );
     expect(pendingRequestsSignature([], [input], drafts)).toBe(
       JSON.stringify({
         approvals: [],

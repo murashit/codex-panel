@@ -40,6 +40,14 @@ export function pendingRequestsSignature(
   });
 }
 
+export function pendingRequestFocusSignature(approvals: readonly PendingApproval[], inputs: readonly PendingUserInput[]): string {
+  if (approvals.length === 0 && inputs.length === 0) return "";
+  return JSON.stringify({
+    approvals: approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),
+    inputs: inputs.map((input) => ({ id: input.requestId, method: input.method })),
+  });
+}
+
 export function clearUserInputDrafts(drafts: Map<string, string>, input: PendingUserInput): void {
   for (const question of input.params.questions) {
     drafts.delete(userInputDraftKey(input.requestId, question.id));

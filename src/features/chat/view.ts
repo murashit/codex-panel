@@ -24,9 +24,14 @@ import { mcpStatusLines } from "./mcp-status";
 import { ChatAppServerController } from "./chat-app-server-controller";
 import { ThreadHistoryLoader } from "./thread-history";
 import { ThreadRenameController } from "./thread-rename";
-import { pendingRequestsSignature as requestStateSignature, userInputDraftKey, userInputOtherDraftKey } from "./request-state";
+import {
+  pendingRequestFocusSignature,
+  pendingRequestsSignature as requestStateSignature,
+  userInputDraftKey,
+  userInputOtherDraftKey,
+} from "./request-state";
 import type { CodexPanelSettings } from "../../settings/model";
-import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
+import { answersForPendingUserInput, type PendingUserInput } from "./user-input/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import {
   activeTurnId,
@@ -1382,19 +1387,11 @@ export class CodexChatView extends ItemView {
   }
 
   private pendingRequestFocusSignature(): string {
-    const approvals = this.state.approvals.map((approval) => ({ id: approval.requestId, method: approval.method }));
-    const inputs = this.state.pendingUserInputs.map((input) => ({ id: input.requestId, method: input.method }));
-    if (approvals.length === 0 && inputs.length === 0) return "";
-    return JSON.stringify({ approvals, inputs });
+    return pendingRequestFocusSignature(this.state.approvals, this.state.pendingUserInputs);
   }
 
   private answersForUserInput(input: PendingUserInput): Record<string, string> {
-    return Object.fromEntries(
-      input.params.questions.map((question) => [
-        question.id,
-        this.state.userInputDrafts.get(userInputDraftKey(input.requestId, question.id)) ?? questionDefaultAnswer(question),
-      ]),
-    );
+    return answersForPendingUserInput(input, this.state.userInputDrafts);
   }
 
   private queueMessagesBottomScroll(): void {

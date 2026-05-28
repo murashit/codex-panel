@@ -3,6 +3,7 @@ import type { ServerRequest } from "../../../generated/app-server/ServerRequest"
 import type { ToolRequestUserInputParams } from "../../../generated/app-server/v2/ToolRequestUserInputParams";
 import type { ToolRequestUserInputQuestion } from "../../../generated/app-server/v2/ToolRequestUserInputQuestion";
 import type { ToolRequestUserInputResponse } from "../../../generated/app-server/v2/ToolRequestUserInputResponse";
+import { userInputDraftKey } from "../request-state";
 
 export type UserInputRequest = Extract<ServerRequest, { method: "item/tool/requestUserInput" }>;
 
@@ -36,4 +37,13 @@ export function userInputResponse(input: PendingUserInput, answers: Record<strin
 
 export function questionDefaultAnswer(question: ToolRequestUserInputQuestion): string {
   return question.options?.[0]?.label ?? "";
+}
+
+export function answersForPendingUserInput(input: PendingUserInput, drafts: ReadonlyMap<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    input.params.questions.map((question) => [
+      question.id,
+      drafts.get(userInputDraftKey(input.requestId, question.id)) ?? questionDefaultAnswer(question),
+    ]),
+  );
 }
