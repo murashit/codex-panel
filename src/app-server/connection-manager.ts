@@ -12,6 +12,12 @@ export interface ConnectionManagerHandlers {
 
 export type AppServerClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => AppServerClient;
 
+type ConnectionLifecycleState =
+  | { kind: "idle"; generation: number }
+  | { kind: "connecting"; generation: number; client: AppServerClient; promise: Promise<InitializeResponse> }
+  | { kind: "connected"; generation: number; client: AppServerClient }
+  | { kind: "disconnected"; generation: number };
+
 export class StaleConnectionError extends Error {
   constructor() {
     super("Stale Codex app-server connection ignored.");
@@ -20,10 +26,7 @@ export class StaleConnectionError extends Error {
 }
 
 export class ConnectionManager {
-  private client: AppServerClient | null = null;
-  private connectPromise: Promise<InitializeResponse> | null = null;
-  private generation = 0;
-  private disposed = false;
+  private state: ConnectionLifecycleState = { kind: "idle", generation: 0 };
 
   constructor(
     private readonly codexPath: () => string,
@@ -33,7 +36,7 @@ export class ConnectionManager {
   ) {}
 
   currentClient(): AppServerClient | null {
-    return this.client?.isConnected() ? this.client : null;
+    return this.state.kind === "connected" && this.state.client.isConnected() ? this.state.client : null;
   }
 
   isConnected(): boolean {
@@ -41,13 +44,13 @@ export class ConnectionManager {
   }
 
   async connect(): Promise<InitializeResponse> {
-    this.disposed = false;
-    if (this.client?.isConnected()) {
-      return this.client.initializeResponse;
+    const currentClient = this.currentClient();
+    if (currentClient) {
+      return currentClient.initializeResponse;
     }
-    if (this.connectPromise) return this.connectPromise;
+    if (this.state.kind === "connecting") return this.state.promise;
 
-    const generation = ++this.generation;
+    const generation = this.state.generation + 1;
     const client = this.clientFactory(this.codexPath(), this.cwd, {
       onNotification: (notification) => {
         if (this.isStale(generation)) return;
@@ -63,52 +66,48 @@ export class ConnectionManager {
       },
       onExit: () => {
         if (this.isStale(generation)) return;
-        this.client = null;
-        this.connectPromise = null;
+        this.state = { kind: "disconnected", generation };
         this.handlers.onExit();
       },
     });
-    this.client = client;
-    this.connectPromise = client
+    const promise = client
       .connect()
       .then((response) => {
         if (this.isStale(generation)) {
           client.disconnect();
           throw new StaleConnectionError();
         }
+        this.state = { kind: "connected", generation, client };
         return response;
       })
       .catch((error: unknown) => {
         if (this.isStale(generation)) {
           throw error instanceof StaleConnectionError ? error : new StaleConnectionError();
         }
-        if (!this.isStale(generation) && this.client === client) {
-          this.client = null;
+        if (this.state.kind === "connecting" && this.state.client === client) {
+          this.state = { kind: "disconnected", generation };
           client.disconnect();
         }
         throw error;
-      })
-      .finally(() => {
-        if (!this.isStale(generation)) this.connectPromise = null;
       });
 
-    return this.connectPromise;
+    this.state = { kind: "connecting", generation, client, promise };
+    return promise;
   }
 
   reconnect(): void {
     this.disconnect();
-    this.disposed = false;
   }
 
   disconnect(): void {
-    this.disposed = true;
-    this.generation += 1;
-    this.connectPromise = null;
-    this.client?.disconnect();
-    this.client = null;
+    const previous = this.state;
+    this.state = { kind: "disconnected", generation: previous.generation + 1 };
+    if (previous.kind === "connecting" || previous.kind === "connected") {
+      previous.client.disconnect();
+    }
   }
 
   private isStale(generation: number): boolean {
-    return this.disposed || generation !== this.generation;
+    return generation !== this.state.generation;
   }
 }

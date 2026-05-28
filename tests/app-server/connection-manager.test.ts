@@ -69,6 +69,61 @@ describe("ConnectionManager", () => {
     expect(manager.currentClient()).toBeNull();
   });
 
+  it("shares an in-flight connection attempt", async () => {
+    let transport!: SilentTransport;
+    const manager = new ConnectionManager(
+      () => "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit: () => undefined,
+      },
+      (codexPath, cwd, handlers) =>
+        new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
+          transport = new SilentTransport(transportHandlers);
+          return transport;
+        }),
+    );
+
+    const first = manager.connect();
+    const second = manager.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
+
+    await expect(first).resolves.toMatchObject({ codexHome: "/tmp/codex" });
+    await expect(second).resolves.toMatchObject({ codexHome: "/tmp/codex" });
+    expect(transport.sent).toHaveLength(2);
+    expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
+  });
+
+  it("reports app-server exit during initialization", async () => {
+    let transport!: SilentTransport;
+    const onExit = vi.fn();
+    const manager = new ConnectionManager(
+      () => "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit,
+      },
+      (codexPath, cwd, handlers) =>
+        new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
+          transport = new SilentTransport(transportHandlers);
+          return transport;
+        }),
+    );
+
+    const connecting = manager.connect();
+    transport.emitExit();
+
+    await expect(connecting).rejects.toThrow("Codex app-server exited: unknown");
+    expect(onExit).toHaveBeenCalledOnce();
+    expect(manager.currentClient()).toBeNull();
+  });
+
   it("marks initialization completed after disconnect as stale", async () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();
