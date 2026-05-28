@@ -75,13 +75,11 @@ import {
   toolbarSlotSnapshot,
 } from "./view-snapshot";
 import {
+  ChatConnectionWorkTracker,
+  ChatResumeWorkTracker,
   ChatViewDeferredTasks,
-  transitionChatConnectionLifecycle,
-  transitionChatResumeLifecycle,
   type ActiveChatConnection,
   type ActiveChatResume,
-  type ChatConnectionLifecycleState,
-  type ChatResumeLifecycleState,
   type ChatViewRenderScheduleOptions,
 } from "./view-lifecycle";
 import { acknowledgeOptimisticTurnStart, cleanupFailedTurnStart, localUserMessageItem } from "./turn-submission";
@@ -120,8 +118,8 @@ export class CodexChatView extends ItemView {
   private readonly messageRenderer: ChatMessageRenderer;
   private shellRenderVersion = 0;
   private archiveConfirmThreadId: string | null = null;
-  private connectionLifecycle: ChatConnectionLifecycleState = { kind: "idle" };
-  private resumeLifecycle: ChatResumeLifecycleState = { kind: "idle" };
+  private readonly connectionWork = new ChatConnectionWorkTracker();
+  private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
   private closing = false;
   private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
@@ -133,6 +131,9 @@ export class CodexChatView extends ItemView {
   ) {
     super(leaf);
     this.deferredTasks = new ChatViewDeferredTasks(() => this.containerEl.win);
+    this.resumeWork = new ChatResumeWorkTracker(() => {
+      this.history.invalidate();
+    });
     this.messageRenderer = new ChatMessageRenderer({
       app: this.app,
       owner: this,
@@ -515,7 +516,7 @@ export class CodexChatView extends ItemView {
   }
 
   private async ensureConnected(): Promise<void> {
-    const connecting = this.activeConnection();
+    const connecting = this.connectionWork.active();
     if (connecting?.promise) return connecting.promise;
 
     if (this.connection.isConnected()) {
@@ -523,13 +524,13 @@ export class CodexChatView extends ItemView {
       return;
     }
 
-    const connection = this.beginConnectionWork();
+    const connection = this.connectionWork.begin();
     const promise = this.initializeConnection(connection);
     connection.promise = promise;
     try {
       await promise;
     } finally {
-      this.connectionLifecycle = transitionChatConnectionLifecycle(this.connectionLifecycle, { type: "finished", connection, promise });
+      this.connectionWork.finish(connection, promise);
     }
   }
 
@@ -537,45 +538,31 @@ export class CodexChatView extends ItemView {
     this.setStatus("Starting Codex app-server...");
     try {
       this.dispatch({ type: "connection/initialized", initializeResponse: await this.connection.connect() });
-      if (this.isStaleConnectionWork(connection)) return;
+      if (this.connectionWork.isStale(connection)) return;
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
       const metadata = await this.appServer.refreshAppServerMetadata();
-      if (this.isStaleConnectionWork(connection)) return;
+      if (this.connectionWork.isStale(connection)) return;
       if (metadata) this.plugin.publishAppServerMetadata(metadata);
       await this.loadSharedThreadList();
-      if (this.isStaleConnectionWork(connection)) return;
+      if (this.connectionWork.isStale(connection)) return;
       this.scheduleDeferredDiagnostics();
       this.refreshTabHeader();
       this.setStatus("Connected.");
     } catch (error) {
-      if (this.isStaleConnectionWork(connection)) return;
+      if (this.connectionWork.isStale(connection)) return;
       if (error instanceof StaleConnectionError) return;
       this.setStatus("Connection failed.");
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
       new Notice("Codex app-server connection failed.");
     }
-    if (!this.isStaleConnectionWork(connection)) {
+    if (!this.connectionWork.isStale(connection)) {
       this.scheduleRender();
     }
   }
 
-  private beginConnectionWork(): ActiveChatConnection {
-    const connection: ActiveChatConnection = { kind: "connecting", promise: null };
-    this.connectionLifecycle = transitionChatConnectionLifecycle(this.connectionLifecycle, { type: "started", connection });
-    return connection;
-  }
-
   private invalidateConnectionWork(): void {
-    this.connectionLifecycle = transitionChatConnectionLifecycle(this.connectionLifecycle, { type: "invalidated" });
-  }
-
-  private activeConnection(): ActiveChatConnection | null {
-    return this.connectionLifecycle.kind === "connecting" ? this.connectionLifecycle : null;
-  }
-
-  private isStaleConnectionWork(connection: ActiveChatConnection): boolean {
-    return this.connectionLifecycle !== connection;
+    this.connectionWork.invalidate();
   }
 
   async startNewThread(): Promise<void> {
@@ -1021,19 +1008,15 @@ export class CodexChatView extends ItemView {
   }
 
   private beginResumeWork(threadId: string): ActiveChatResume {
-    const resume: ActiveChatResume = { kind: "resuming", threadId };
-    this.resumeLifecycle = transitionChatResumeLifecycle(this.resumeLifecycle, { type: "started", resume });
-    this.history.invalidate();
-    return resume;
+    return this.resumeWork.begin(threadId);
   }
 
   private invalidateResumeWork(): void {
-    this.resumeLifecycle = transitionChatResumeLifecycle(this.resumeLifecycle, { type: "invalidated" });
-    this.history.invalidate();
+    this.resumeWork.invalidate();
   }
 
   private isStaleResumeWork(resume: ActiveChatResume): boolean {
-    return this.resumeLifecycle !== resume || this.closing;
+    return this.resumeWork.isStale(resume) || this.closing;
   }
 
   private async ensureRestoredThreadLoaded(): Promise<boolean> {

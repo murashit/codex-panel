@@ -109,6 +109,54 @@ export class ChatViewDeferredTasks {
   }
 }
 
+export class ChatConnectionWorkTracker {
+  private state: ChatConnectionLifecycleState = { kind: "idle" };
+
+  active(): ActiveChatConnection | null {
+    return this.state.kind === "connecting" ? this.state : null;
+  }
+
+  begin(): ActiveChatConnection {
+    const connection: ActiveChatConnection = { kind: "connecting", promise: null };
+    this.state = transitionChatConnectionLifecycle(this.state, { type: "started", connection });
+    return connection;
+  }
+
+  finish(connection: ActiveChatConnection, promise: Promise<void>): void {
+    this.state = transitionChatConnectionLifecycle(this.state, { type: "finished", connection, promise });
+  }
+
+  invalidate(): void {
+    this.state = transitionChatConnectionLifecycle(this.state, { type: "invalidated" });
+  }
+
+  isStale(connection: ActiveChatConnection): boolean {
+    return this.state !== connection;
+  }
+}
+
+export class ChatResumeWorkTracker {
+  private state: ChatResumeLifecycleState = { kind: "idle" };
+
+  constructor(private readonly onInvalidate: () => void) {}
+
+  begin(threadId: string): ActiveChatResume {
+    const resume: ActiveChatResume = { kind: "resuming", threadId };
+    this.state = transitionChatResumeLifecycle(this.state, { type: "started", resume });
+    this.onInvalidate();
+    return resume;
+  }
+
+  invalidate(): void {
+    this.state = transitionChatResumeLifecycle(this.state, { type: "invalidated" });
+    this.onInvalidate();
+  }
+
+  isStale(resume: ActiveChatResume): boolean {
+    return this.state !== resume;
+  }
+}
+
 export function transitionChatConnectionLifecycle(
   state: ChatConnectionLifecycleState,
   event: ChatConnectionLifecycleEvent,

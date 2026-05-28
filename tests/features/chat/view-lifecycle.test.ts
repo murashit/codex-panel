@@ -3,6 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ChatConnectionWorkTracker,
+  ChatResumeWorkTracker,
   ChatViewDeferredTasks,
   transitionChatConnectionLifecycle,
   transitionChatResumeLifecycle,
@@ -51,6 +53,35 @@ describe("ChatViewDeferredTasks", () => {
 });
 
 describe("chat view lifecycle transitions", () => {
+  it("tracks active connection work by identity", () => {
+    const tracker = new ChatConnectionWorkTracker();
+    const connection = tracker.begin();
+    const stale = { kind: "connecting" as const, promise: Promise.resolve() };
+
+    expect(tracker.active()).toBe(connection);
+    expect(tracker.isStale(connection)).toBe(false);
+    expect(tracker.isStale(stale)).toBe(true);
+
+    const promise = Promise.resolve();
+    connection.promise = promise;
+    tracker.finish(connection, Promise.resolve());
+    expect(tracker.active()).toBe(connection);
+    tracker.finish(connection, promise);
+    expect(tracker.active()).toBeNull();
+  });
+
+  it("tracks resume work and calls the invalidation hook", () => {
+    const invalidate = vi.fn();
+    const tracker = new ChatResumeWorkTracker(invalidate);
+    const resume = tracker.begin("thread");
+
+    expect(invalidate).toHaveBeenCalledOnce();
+    expect(tracker.isStale(resume)).toBe(false);
+    tracker.invalidate();
+    expect(invalidate).toHaveBeenCalledTimes(2);
+    expect(tracker.isStale(resume)).toBe(true);
+  });
+
   it("keeps stale connection completions from clearing the active connection", () => {
     const firstPromise = Promise.resolve();
     const secondPromise = Promise.resolve();
