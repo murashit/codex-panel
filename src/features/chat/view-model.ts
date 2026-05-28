@@ -15,7 +15,7 @@ import { readRuntimeConfig } from "../../runtime/config";
 import { sortedAvailableModels } from "../../runtime/model";
 import { compactContextLabel } from "../../runtime/settings";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../runtime/view";
-import { getThreadTitle } from "../../domain/threads/model";
+import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../../domain/threads/model";
 import { connectionDiagnosticSections, diagnosticAlertLevel } from "./diagnostics";
 import type { ChatState } from "./chat-state";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
@@ -50,6 +50,12 @@ export interface RuntimeToolbarChoicesInput {
   snapshot: RuntimeSnapshot;
   setRequestedModel: (model: string | null) => void;
   setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void;
+}
+
+export interface RestoredThreadTitleSnapshot {
+  threadId: string;
+  title: string | null;
+  explicitName: string | null;
 }
 
 export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput): RuntimeSnapshot {
@@ -104,6 +110,30 @@ export function runtimeToolbarChoices(input: RuntimeToolbarChoicesInput): Pick<T
   }));
 
   return { modelChoices, effortChoices };
+}
+
+export function chatViewDisplayTitle(state: ChatState, restoredThreadTitle: string | null): string {
+  return codexPanelDisplayTitle(state.activeThreadId, state.listedThreads, restoredThreadTitle);
+}
+
+export function activeThreadTitle(state: ChatState): string | null {
+  const threadId = state.activeThreadId;
+  if (!threadId) return null;
+  const thread = state.listedThreads.find((item) => item.id === threadId);
+  return thread ? getThreadTitle(thread) : null;
+}
+
+export function activeComposerThreadName(state: ChatState, restoredThread: RestoredThreadTitleSnapshot | null): string | null {
+  const threadId = state.activeThreadId;
+  if (!threadId) return null;
+  const thread = state.listedThreads.find((item) => item.id === threadId);
+  const listedName = thread ? explicitThreadName(thread) : null;
+  if (listedName) return listedName;
+  return restoredThread?.threadId === threadId ? restoredThread.explicitName : null;
+}
+
+export function composerPlaceholder(threadName: string | null): string {
+  return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
 }
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {

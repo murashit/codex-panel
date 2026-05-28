@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
 import { createChatState } from "../../../src/features/chat/chat-state";
 import {
+  activeComposerThreadName,
+  activeThreadTitle,
+  chatViewDisplayTitle,
+  composerPlaceholder,
   effortStatusLines,
   runtimeToolbarChoices,
   modelStatusLines,
@@ -94,6 +98,21 @@ describe("chat view model", () => {
     expect(selectedModels).toEqual(["gpt-5-mini"]);
     expect(selectedEfforts).toEqual(["high"]);
   });
+
+  it("derives active thread titles and composer placeholders", () => {
+    const state = createChatState();
+    state.activeThreadId = "thread-1";
+    state.listedThreads = [threadFixture("thread-1", "Active")];
+
+    expect(chatViewDisplayTitle(state, null)).toBe("Codex: Active");
+    expect(activeThreadTitle(state)).toBe("Active");
+    expect(activeComposerThreadName(state, null)).toBe("Active");
+    expect(composerPlaceholder("Active")).toBe("Ask Codex to work on “Active”...");
+    expect(composerPlaceholder(null)).toBe("Ask Codex to work on this task...");
+
+    state.listedThreads = [threadFixture("thread-1", null)];
+    expect(activeComposerThreadName(state, { threadId: "thread-1", title: "Restored", explicitName: "Restored" })).toBe("Restored");
+  });
 });
 
 function effectiveConfigFixture(config: Record<string, unknown>): ConfigReadResponse {
@@ -104,7 +123,7 @@ function effectiveConfigFixture(config: Record<string, unknown>): ConfigReadResp
   };
 }
 
-function threadFixture(id: string, name: string): Thread {
+function threadFixture(id: string, name: string | null): Thread {
   return {
     id,
     sessionId: "session",

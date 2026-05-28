@@ -30,7 +30,6 @@ import {
   type ChatAction,
   type ChatState,
 } from "./chat-state";
-import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../../domain/threads/model";
 import {
   referencedThreadDisplay,
   referencedThreadPrompt,
@@ -50,7 +49,11 @@ import { ChatRuntimeSettingsController } from "./runtime-settings-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 import {
+  activeComposerThreadName as buildActiveComposerThreadName,
+  activeThreadTitle as buildActiveThreadTitle,
+  chatViewDisplayTitle,
   connectionDiagnosticsModel,
+  composerPlaceholder as buildComposerPlaceholder,
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
   runtimeToolbarChoices,
@@ -366,7 +369,7 @@ export class CodexChatView extends ItemView {
   }
 
   override getDisplayText(): string {
-    return codexPanelDisplayTitle(this.state.activeThreadId, this.state.listedThreads, this.restoredThreadTitle());
+    return chatViewDisplayTitle(this.state, this.restoredThreadTitle());
   }
 
   override getIcon(): string {
@@ -1026,10 +1029,7 @@ export class CodexChatView extends ItemView {
   }
 
   private activeThreadTitle(): string | null {
-    const threadId = this.state.activeThreadId;
-    if (!threadId) return null;
-    const thread = this.state.listedThreads.find((item) => item.id === threadId);
-    return thread ? getThreadTitle(thread) : null;
+    return buildActiveThreadTitle(this.state);
   }
 
   private restoredThreadPlaceholder() {
@@ -1045,18 +1045,11 @@ export class CodexChatView extends ItemView {
   }
 
   private composerPlaceholder(): string {
-    const threadName = this.activeComposerThreadName();
-    return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
+    return buildComposerPlaceholder(this.activeComposerThreadName());
   }
 
   private activeComposerThreadName(): string | null {
-    const threadId = this.state.activeThreadId;
-    if (!threadId) return null;
-    const thread = this.state.listedThreads.find((item) => item.id === threadId);
-    const listedName = thread ? explicitThreadName(thread) : null;
-    if (listedName) return listedName;
-    const restoredThread = this.restoredThreadPlaceholder();
-    return restoredThread?.threadId === threadId ? restoredThread.explicitName : null;
+    return buildActiveComposerThreadName(this.state, this.restoredThreadPlaceholder());
   }
 
   private readonly renderToolbarSlot = (toolbar: HTMLElement): void => {
