@@ -19,7 +19,7 @@ import type { CodexPanelSettings } from "../../settings/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import { activeTurnId, chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
 import { renderToolbar, type ToolbarViewModel } from "./ui/toolbar";
-import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
+import { unmountChatPanelShell } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
@@ -41,14 +41,7 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
   toolbarViewModel as buildToolbarViewModel,
 } from "./view-model";
-import {
-  composerSlotSnapshot,
-  latestProposedPlanItem,
-  messagesSlotSnapshot,
-  openPanelTurnLifecycle,
-  parseRestoredThreadState,
-  toolbarSlotSnapshot,
-} from "./view-snapshot";
+import { composerSlotSnapshot, latestProposedPlanItem, openPanelTurnLifecycle, parseRestoredThreadState } from "./view-snapshot";
 import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
@@ -65,6 +58,7 @@ import { ComposerSubmissionController } from "./composer-submission-controller";
 import { ChatConnectionController } from "./connection-controller";
 import { ThreadIdentityController } from "./thread-identity-controller";
 import { ThreadResumeController } from "./thread-resume-controller";
+import { ChatViewRenderController } from "./view-render-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -104,11 +98,11 @@ export class CodexChatView extends ItemView {
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
+  private readonly renderController: ChatViewRenderController;
   private readonly messageScroll: ChatMessageScrollController;
   private readonly turnSubmission: TurnSubmissionController;
   private readonly slashCommands: SlashCommandController;
   private readonly composerSubmission: ComposerSubmissionController;
-  private shellRenderVersion = 0;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
@@ -127,6 +121,25 @@ export class CodexChatView extends ItemView {
       stateStore: this.chatState,
       render: () => {
         this.render();
+      },
+    });
+    this.renderController = new ChatViewRenderController({
+      stateStore: this.chatState,
+      panelRoot: () => this.panelRoot(),
+      connected: () => this.connection.isConnected(),
+      pendingRequestsSignature: () => this.pendingRequestsSignature(),
+      activeComposerThreadName: () => this.activeComposerThreadName(),
+      renderToolbar: (toolbar) => {
+        this.renderToolbar(toolbar);
+      },
+      renderMessages: (parent) => {
+        this.renderMessages(parent);
+      },
+      renderComposer: (parent) => {
+        this.renderComposer(parent);
+      },
+      clearScheduledRender: () => {
+        this.deferredTasks.clearRender();
       },
     });
     this.turnSubmission = new TurnSubmissionController({
@@ -905,40 +918,14 @@ export class CodexChatView extends ItemView {
     return buildActiveComposerThreadName(this.state, this.restoredThreadPlaceholder());
   }
 
-  private readonly renderToolbarSlot = (toolbar: HTMLElement): void => {
-    this.renderToolbar(toolbar);
-  };
-
-  private readonly renderMessagesSlot = (parent: HTMLElement): void => {
-    this.renderMessages(parent);
-  };
-
-  private readonly renderComposerSlot = (parent: HTMLElement): void => {
-    this.renderComposer(parent);
-  };
-
-  private readonly toolbarSnapshot = (state: ChatState) => toolbarSlotSnapshot(state, this.connection.isConnected());
-
-  private readonly messagesSnapshot = (state: ChatState) => messagesSlotSnapshot(state, this.pendingRequestsSignature());
-
   private readonly composerSnapshot = (state: ChatState) => composerSlotSnapshot(state, this.activeComposerThreadName());
 
   private render(options: ChatViewRenderScheduleOptions = {}): void {
-    this.deferredTasks.clearRender();
-    const root = this.panelRoot();
-    if (!root) return;
-    if (options.forceSlots) this.shellRenderVersion += 1;
-    renderChatPanelShell(root, {
-      stateStore: this.chatState,
-      renderVersion: this.shellRenderVersion,
-      toolbar: { render: this.renderToolbarSlot, snapshot: this.toolbarSnapshot },
-      messages: { render: this.renderMessagesSlot, snapshot: this.messagesSnapshot },
-      composer: { render: this.renderComposerSlot, snapshot: this.composerSnapshot },
-    });
+    this.renderController.render(options);
   }
 
   private renderShellSlots(): void {
-    this.render({ forceSlots: true });
+    this.renderController.renderShellSlots();
   }
 
   private renderToolbar(toolbar: HTMLElement): void {
