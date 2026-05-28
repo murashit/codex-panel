@@ -17,12 +17,15 @@ export interface ChatConnectionControllerHost {
   connectionWork: ChatConnectionWorkTracker;
   appServer: ChatAppServerController;
   setClient: (client: AppServerClient | null) => void;
+  invalidateResumeWork: () => void;
   loadSharedThreadList: () => Promise<void>;
   scheduleDeferredDiagnostics: () => void;
   clearDeferredDiagnostics: () => void;
   refreshTabHeader: () => void;
+  resetThreadTurnPresence: (hadTurns: boolean) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
+  refreshLiveState: () => void;
   render: () => void;
   scheduleRender: () => void;
   notifyConnectionFailed: () => void;
@@ -52,6 +55,17 @@ export class ChatConnectionController {
 
   invalidate(): void {
     this.host.connectionWork.invalidate();
+  }
+
+  handleExit(): void {
+    this.invalidate();
+    this.host.invalidateResumeWork();
+    this.host.setStatus("Codex app-server stopped.");
+    this.dispatch({ type: "connection/scoped-cleared" });
+    this.host.resetThreadTurnPresence(false);
+    this.host.setClient(null);
+    this.host.refreshLiveState();
+    this.host.render();
   }
 
   async refreshThreads(): Promise<void> {

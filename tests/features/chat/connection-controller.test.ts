@@ -35,12 +35,15 @@ function createController({ connected = false, client = {} as AppServerClient } 
     connectionWork: new ChatConnectionWorkTracker(),
     appServer,
     setClient,
+    invalidateResumeWork: vi.fn(),
     loadSharedThreadList: vi.fn().mockResolvedValue(undefined),
     scheduleDeferredDiagnostics: vi.fn(),
     clearDeferredDiagnostics: vi.fn(),
     refreshTabHeader: vi.fn(),
+    resetThreadTurnPresence: vi.fn(),
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
+    refreshLiveState: vi.fn(),
     render: vi.fn(),
     scheduleRender: vi.fn(),
     notifyConnectionFailed: vi.fn(),
@@ -83,5 +86,32 @@ describe("ChatConnectionController", () => {
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
     expect(refreshPublishedCapabilityDiagnostics).toHaveBeenCalledOnce();
     expect(host.render).toHaveBeenCalledOnce();
+  });
+
+  it("clears connection-scoped state on server exit", () => {
+    const { controller, host, stateStore } = createController({ connected: true });
+    stateStore.dispatch({
+      type: "thread/list-applied",
+      threads: [{ id: "thread-1", title: "Thread 1" } as never],
+      threadsLoaded: true,
+      availableModels: [{ id: "model-1" } as never],
+      availableSkills: [{ name: "skill-1" } as never],
+    });
+
+    controller.handleExit();
+
+    expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
+    expect(host.setStatus).toHaveBeenCalledWith("Codex app-server stopped.");
+    expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
+    expect(host.setClient).toHaveBeenCalledWith(null);
+    expect(host.refreshLiveState).toHaveBeenCalledOnce();
+    expect(host.render).toHaveBeenCalledOnce();
+    expect(stateStore.getState()).toMatchObject({
+      listedThreads: [],
+      threadsLoaded: false,
+      availableModels: [],
+      availableSkills: [],
+      runtimePicker: null,
+    });
   });
 });

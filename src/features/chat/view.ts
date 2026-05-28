@@ -267,14 +267,7 @@ export class CodexChatView extends ItemView {
         this.render();
       },
       onExit: () => {
-        this.invalidateConnectionWork();
-        this.invalidateResumeWork();
-        this.setStatus("Codex app-server stopped.");
-        this.chatState.dispatch({ type: "connection/scoped-cleared" });
-        this.threadRename.resetThreadTurnPresence(false);
-        this.client = null;
-        this.plugin.refreshThreadsViewLiveState();
-        this.render();
+        this.connectionController.handleExit();
       },
     });
     this.openCloseController = new ChatViewOpenCloseController({
@@ -401,6 +394,9 @@ export class CodexChatView extends ItemView {
       setClient: (client) => {
         this.client = client;
       },
+      invalidateResumeWork: () => {
+        this.invalidateResumeWork();
+      },
       loadSharedThreadList: () => this.loadSharedThreadList(),
       scheduleDeferredDiagnostics: () => {
         this.scheduleDeferredDiagnostics();
@@ -411,11 +407,17 @@ export class CodexChatView extends ItemView {
       refreshTabHeader: () => {
         this.refreshTabHeader();
       },
+      resetThreadTurnPresence: (hadTurns) => {
+        this.threadRename.resetThreadTurnPresence(hadTurns);
+      },
       setStatus: (status) => {
         this.setStatus(status);
       },
       addSystemMessage: (text) => {
         this.addSystemMessage(text);
+      },
+      refreshLiveState: () => {
+        this.plugin.refreshThreadsViewLiveState();
       },
       render: () => {
         this.render();
