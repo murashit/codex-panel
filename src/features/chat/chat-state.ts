@@ -16,7 +16,7 @@ import type { ComposerSuggestion } from "./composer/suggestions";
 import type { DisplayItem } from "./display/types";
 import { upsertDisplayItem } from "./display/stream-updates";
 import type { PendingUserInput } from "./user-input/model";
-import { reportedServiceTier, type ReportedServiceTier, type ServiceTier } from "../../app-server/service-tier";
+import { reportedServiceTier, type ServiceTier } from "../../app-server/service-tier";
 import { defaultRuntimeOverride, resetRuntimeOverride, setRuntimeOverride, type RuntimeOverride } from "../../runtime/state";
 
 export interface PendingTurnStart {
@@ -39,7 +39,7 @@ export interface ChatState {
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
-  activeServiceTier: ReportedServiceTier | null;
+  activeServiceTier: ServiceTier | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   activeThreadCreationCliVersion: string | null;
   appServerDiagnostics: AppServerDiagnostics;
@@ -89,7 +89,7 @@ export type ChatAction =
       cwd: string;
       model: string | null;
       reasoningEffort: ReasoningEffort | null;
-      serviceTier: ReportedServiceTier | null;
+      serviceTier: ServiceTier | null;
       approvalsReviewer: ApprovalsReviewer | null;
       displayItems?: readonly DisplayItem[];
       status?: string;
@@ -160,7 +160,7 @@ export type ChatAction =
       model: string | null;
       reasoningEffort: ReasoningEffort | null;
       collaborationMode: ModeKind;
-      serviceTier: ReportedServiceTier | null;
+      serviceTier: ServiceTier | null;
       approvalsReviewer: ApprovalsReviewer | null;
     }
   | { type: "thread/restored-placeholder"; threadId: string; item: DisplayItem }

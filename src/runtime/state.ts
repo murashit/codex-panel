@@ -6,7 +6,7 @@ import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadRe
 import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
-import { serviceTierRequestValue, type ReportedServiceTier, type ServiceTier, type ServiceTierRequest } from "../app-server/service-tier";
+import { serviceTierRequestValue, type ServiceTier, type ServiceTierRequest } from "../app-server/service-tier";
 import { defaultCollaborationMode, planCollaborationMode } from "./collaboration-mode";
 import { findModelByIdOrName, supportedEffortsForModel } from "./model";
 import { compactModelLabel, compactReasoningEffortLabel } from "./settings";
@@ -20,7 +20,7 @@ export interface RuntimeSnapshot {
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ModeKind;
-  activeServiceTier: ReportedServiceTier | null;
+  activeServiceTier: ServiceTier | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   requestedModel: RuntimeOverride<string>;
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
@@ -126,7 +126,6 @@ export function fastModeLabel(
   const serviceTier = currentServiceTier(snapshot, config);
   if (serviceTier === "fast") return "on";
   if (serviceTier === "standard") return "off";
-  if (serviceTier) return `unknown (${serviceTier})`;
   return "Codex default";
 }
 

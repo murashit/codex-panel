@@ -32,13 +32,15 @@ describe("approval model", () => {
         commandActions: [],
         proposedExecpolicyAmendment: null,
         proposedNetworkPolicyAmendments: [],
+        availableDecisions: ["accept", "acceptForSession", "decline", "cancel"],
       },
     };
     const approval = expectPresent(toPendingApproval(request));
 
     expect(approvalTitle(approval)).toBe("Command approval");
     expect(approvalSummary(approval)).toBe("npm run build");
-    expect(approvalResponse(approval, "accept-session")).toEqual({ decision: "acceptForSession" });
+    expect(approvalActionOptions(approval).map((option) => option.label)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
+    expect(approvalResponse(approval, expectPresent(approvalActionOptions(approval)[1]).action)).toEqual({ decision: "acceptForSession" });
   });
 
   it("builds permission grants only for accept actions", () => {
@@ -92,6 +94,30 @@ describe("approval model", () => {
     expect(options.map((option) => option.label)).toEqual(["Allow network rule", "Deny"]);
     expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual({ decision: networkDecision });
     expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual({ decision: "decline" });
+  });
+
+  it("does not synthesize command approval actions when app-server omits decisions", () => {
+    const approval = expectPresent(
+      toPendingApproval({
+        id: 31,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          command: "npm run build",
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "command",
+          startedAtMs: 1,
+          reason: null,
+          commandActions: [],
+          proposedExecpolicyAmendment: null,
+          proposedNetworkPolicyAmendments: [],
+        },
+      }),
+    );
+
+    expect(approvalActionOptions(approval)).toEqual([]);
+    expect(() => approvalResponse(approval, "accept-session")).toThrow("Command approvals require an app-server decision.");
   });
 
   it("shows approval reasons first in pending request summaries", () => {
@@ -215,6 +241,7 @@ describe("approval model", () => {
             commandActions: [],
             proposedExecpolicyAmendment: null,
             proposedNetworkPolicyAmendments: [],
+            availableDecisions: ["acceptForSession", "cancel", "decline"],
           },
         },
         acceptSession: { decision: "acceptForSession" },
@@ -240,9 +267,16 @@ describe("approval model", () => {
 
     for (const { request, acceptSession, cancel } of requests) {
       const approval = expectPresent(toPendingApproval(request));
-      expect(approvalResponse(approval, "accept-session")).toEqual(acceptSession);
-      expect(approvalResponse(approval, "cancel")).toEqual(cancel);
-      expect(approvalResponse(approval, "decline")).toEqual({ decision: "decline" });
+      if (approval.method === "item/commandExecution/requestApproval") {
+        const options = approvalActionOptions(approval);
+        expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual(acceptSession);
+        expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual(cancel);
+        expect(approvalResponse(approval, expectPresent(options[2]).action)).toEqual({ decision: "decline" });
+      } else {
+        expect(approvalResponse(approval, "accept-session")).toEqual(acceptSession);
+        expect(approvalResponse(approval, "cancel")).toEqual(cancel);
+        expect(approvalResponse(approval, "decline")).toEqual({ decision: "decline" });
+      }
     }
   });
 });

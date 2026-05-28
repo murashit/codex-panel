@@ -6,15 +6,12 @@ describe("service tier", () => {
   it("accepts the service tiers supported by the panel UI", () => {
     expect(parseServiceTier("fast")).toBe("fast");
     expect(parseServiceTier("standard")).toBe("standard");
-    expect(parseServiceTier("default")).toBe("standard");
-    expect(parseServiceTier("flex")).toBe("standard");
-  });
-
-  it("normalizes Codex app-server priority responses to fast mode", () => {
-    expect(parseServiceTier("priority")).toBe("fast");
   });
 
   it("ignores unknown config values", () => {
+    expect(parseServiceTier("priority")).toBeNull();
+    expect(parseServiceTier("default")).toBeNull();
+    expect(parseServiceTier("flex")).toBeNull();
     expect(parseServiceTier("auto")).toBeNull();
     expect(parseServiceTier(null)).toBeNull();
   });

@@ -532,7 +532,7 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     effectiveConfig: effectiveConfigFixture({
       model: "gpt-5.5",
       model_reasoning_effort: "high",
-      service_tier: "flex",
+      service_tier: "standard",
       model_context_window: 100_000,
     }),
     activeThreadId: null,

@@ -30,15 +30,12 @@ export interface RuntimeConfigProjection {
   sandboxMode: SandboxMode | null;
   workspaceNetworkAccess: SandboxWorkspaceWrite["network_access"] | null;
   writableRoots: SandboxWorkspaceWrite["writable_roots"] | null;
-  hooksEnabled: unknown;
-  applyPatchFreeformEnabled: unknown;
   toolWebSearch: ToolsV2["web_search"] | null;
   apps: AppsConfig | null;
 }
 
 export function readRuntimeConfig(effectiveConfig: ConfigReadResponse | null): RuntimeConfigProjection {
   const config = asConfigRecord(effectiveConfig?.config);
-  const features = asRecord(config["features"]);
   const tools = config.tools ?? null;
   const workspaceWrite = config.sandbox_workspace_write ?? null;
   const effort = config.model_reasoning_effort;
@@ -59,8 +56,6 @@ export function readRuntimeConfig(effectiveConfig: ConfigReadResponse | null): R
     sandboxMode: config.sandbox_mode ?? null,
     workspaceNetworkAccess: workspaceWrite?.network_access ?? null,
     writableRoots: workspaceWrite?.writable_roots ?? null,
-    hooksEnabled: features["hooks"],
-    applyPatchFreeformEnabled: features["apply_patch_freeform"],
     toolWebSearch: tools?.web_search ?? null,
     apps: config.apps ?? null,
   };

@@ -1349,6 +1349,7 @@ function supportedApprovalRequests(): ServerRequest[] {
         commandActions: [],
         proposedExecpolicyAmendment: null,
         proposedNetworkPolicyAmendments: [],
+        availableDecisions: ["accept", "acceptForSession", "decline", "cancel"],
       },
     },
     {
