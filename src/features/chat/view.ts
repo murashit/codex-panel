@@ -39,7 +39,7 @@ import {
 import { renderToolbar, type ToolbarViewModel } from "./ui/toolbar";
 import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
-import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
+import { ChatMessageRenderer } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { ChatThreadActionController } from "./thread-actions";
@@ -86,6 +86,7 @@ import { resumedThreadAction, type ResumedThreadActionParams } from "./thread-re
 import { PendingRequestController } from "./pending-request-controller";
 import { ToolbarPanelController } from "./toolbar-panel-controller";
 import { ChatReconnectController } from "./reconnect-controller";
+import { ChatMessageScrollController } from "./message-scroll-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -122,12 +123,12 @@ export class CodexChatView extends ItemView {
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
+  private readonly messageScroll: ChatMessageScrollController;
   private shellRenderVersion = 0;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
   private closing = false;
-  private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -138,16 +139,18 @@ export class CodexChatView extends ItemView {
     this.resumeWork = new ChatResumeWorkTracker(() => {
       this.history.invalidate();
     });
+    this.messageScroll = new ChatMessageScrollController({
+      stateStore: this.chatState,
+      render: () => {
+        this.render();
+      },
+    });
     this.messageRenderer = new ChatMessageRenderer({
       app: this.app,
       owner: this,
       stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
-      consumeScrollIntent: () => {
-        const value = this.nextMessageScrollIntent;
-        this.nextMessageScrollIntent = "auto";
-        return value;
-      },
+      consumeScrollIntent: () => this.messageScroll.consumeIntent(),
       loadOlderTurns: () => void this.history.loadOlder(),
       rollbackThread: (threadId) => void this.threadActions.rollbackThread(threadId),
       implementPlan: (item) => void this.implementPlan(item),
@@ -170,7 +173,7 @@ export class CodexChatView extends ItemView {
         this.plugin.refreshThreadsViewLiveState();
       },
       onComposerResize: () => {
-        if (this.state.messagesPinnedToBottom) this.queueMessagesBottomScroll();
+        if (this.state.messagesPinnedToBottom) this.messageScroll.forceBottom();
       },
       onSubmit: () => void this.submitComposerAction(),
       onNewThread: () => void this.startNewThread(),
@@ -242,7 +245,7 @@ export class CodexChatView extends ItemView {
       currentClient: () => this.connection.currentClient(),
       runtimeSnapshot: () => this.runtimeSnapshot(),
       forceMessagesToBottom: () => {
-        this.queueMessagesBottomScroll();
+        this.messageScroll.forceBottom();
       },
       publishAppServerMetadata: (metadata) => {
         this.plugin.publishAppServerMetadata(metadata);
@@ -258,10 +261,10 @@ export class CodexChatView extends ItemView {
         this.addSystemMessage(text);
       },
       forceMessagesToBottom: () => {
-        this.queueMessagesBottomScroll();
+        this.messageScroll.forceBottom();
       },
       keepCurrentScrollPosition: () => {
-        this.preserveMessagesScrollPosition();
+        this.messageScroll.preservePosition();
       },
       setThreadTurnPresence: (hadTurns) => {
         this.threadRename.resetThreadTurnPresence(hadTurns);
@@ -485,7 +488,7 @@ export class CodexChatView extends ItemView {
     if (threadId && this.isRestoredThreadPending(threadId)) {
       await this.ensureRestoredThreadLoaded();
     }
-    this.scrollMessagesToBottomOnFocus();
+    this.messageScroll.scrollToBottomOnFocus();
     this.focusComposer();
   }
 
@@ -533,7 +536,7 @@ export class CodexChatView extends ItemView {
     });
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
-        if (leaf === this.leaf) this.scrollMessagesToBottomOnFocus();
+        if (leaf === this.leaf) this.messageScroll.scrollToBottomOnFocus();
       }),
     );
     this.applyCachedSharedAppServerState();
@@ -625,7 +628,7 @@ export class CodexChatView extends ItemView {
     this.clearActiveThreadContext();
     this.chatState.dispatch({ type: "ui/panel-set", panel: null });
     this.setStatus("New chat.");
-    this.queueMessagesBottomScroll();
+    this.messageScroll.forceBottom();
     this.render();
     this.focusComposer();
   }
@@ -685,7 +688,7 @@ export class CodexChatView extends ItemView {
       if (this.isStaleResumeWork(resume)) return;
       if (this.state.displayItems.length === 0) {
         this.addSystemMessage(`Resumed thread ${response.thread.id}`);
-        this.queueMessagesBottomScroll();
+        this.messageScroll.forceBottom();
         this.render();
       }
       this.plugin.refreshThreadsViewLiveState();
@@ -799,7 +802,7 @@ export class CodexChatView extends ItemView {
         item: optimistic.item,
         pendingTurnStart: optimistic.pendingTurnStart,
       });
-      this.queueMessagesBottomScroll();
+      this.messageScroll.forceBottom();
       this.composerController.setDraft("");
       this.render();
 
@@ -863,7 +866,7 @@ export class CodexChatView extends ItemView {
           codexInput,
         }),
       });
-      this.queueMessagesBottomScroll();
+      this.messageScroll.forceBottom();
       this.setStatus("Steered current turn.");
     } catch (error) {
       this.composerController.setDraft(text, { focus: true });
@@ -1264,20 +1267,6 @@ export class CodexChatView extends ItemView {
 
   private runtimeSnapshotForState(state: ChatState): RuntimeSnapshot {
     return runtimeSnapshotForChatState({ state });
-  }
-
-  private queueMessagesBottomScroll(): void {
-    this.dispatch({ type: "ui/messages-pinned-set", pinned: true });
-    this.nextMessageScrollIntent = "force-bottom";
-  }
-
-  private preserveMessagesScrollPosition(): void {
-    this.nextMessageScrollIntent = "preserve";
-  }
-
-  private scrollMessagesToBottomOnFocus(): void {
-    this.queueMessagesBottomScroll();
-    this.render();
   }
 
   private clearActiveThreadContext(): void {
