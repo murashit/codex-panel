@@ -5,7 +5,7 @@ import { renderRawDiffLines } from "../../../shared/diff/render";
 
 export interface ToolResultRenderContext {
   workspaceRoot?: string | null;
-  openDetails: Set<string>;
+  openDetails: ReadonlySet<string>;
   onDetailsToggle?: (key: string, open: boolean) => void;
   renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
 }

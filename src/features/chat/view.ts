@@ -84,8 +84,8 @@ export interface CodexChatHost {
   notifyThreadRenamed(threadId: string, name: string | null): void;
   refreshThreadsViewLiveState(): void;
   refreshSharedThreadListFromOpenSurface(): void;
-  refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]>;
-  cachedThreadList(): Thread[] | null;
+  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+  cachedThreadList(): readonly Thread[] | null;
   publishSessionMetadata(metadata: SharedSessionMetadata): void;
   cachedSessionMetadata(): SharedSessionMetadata | null;
 }
@@ -345,7 +345,7 @@ export class CodexChatView extends ItemView {
     return this.loadSharedThreadList();
   }
 
-  applyThreadListSnapshot(threads: Thread[]): void {
+  applyThreadListSnapshot(threads: readonly Thread[]): void {
     this.session.applyThreadList(threads);
     this.refreshTabHeader();
     this.render();
@@ -356,7 +356,7 @@ export class CodexChatView extends ItemView {
     this.render();
   }
 
-  applyAvailableModelsSnapshot(models: Model[]): void {
+  applyAvailableModelsSnapshot(models: readonly Model[]): void {
     this.dispatch({ type: "thread/list-applied", availableModels: models });
     this.render();
   }
@@ -496,7 +496,7 @@ export class CodexChatView extends ItemView {
   private async initializeConnection(generation: number): Promise<void> {
     this.setStatus("Starting Codex app-server...");
     try {
-      this.dispatch({ type: "state/patched", patch: { initializeResponse: await this.connection.connect() } });
+      this.dispatch({ type: "connection/initialized", initializeResponse: await this.connection.connect() });
       if (this.isStaleConnectionGeneration(generation)) return;
       this.client = this.connection.currentClient();
       if (!this.client) throw new Error("Codex app-server connection did not initialize.");
@@ -713,12 +713,9 @@ export class CodexChatView extends ItemView {
         markdown: true,
       };
       this.dispatch({
-        type: "state/patched",
-        patch: {
-          displayItems: [...this.state.displayItems, optimisticUserItem],
-          pendingTurnStart: { anchorItemId: optimisticUserId, promptSubmitHookItemIds: [] },
-          busy: true,
-        },
+        type: "turn/optimistic-started",
+        item: optimisticUserItem,
+        pendingTurnStart: { anchorItemId: optimisticUserId, promptSubmitHookItemIds: [] },
       });
       this.queueMessagesBottomScroll();
       this.composerController.setDraft("");
@@ -737,7 +734,7 @@ export class CodexChatView extends ItemView {
           pendingTurnStart.anchorItemId,
         );
       }
-      this.dispatch({ type: "state/patched", patch: { activeTurnId: response.turn.id, displayItems, pendingTurnStart: null } });
+      this.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
       this.setStatus("Turn running...");
     } catch (error) {
       let displayItems = optimisticUserId
@@ -749,7 +746,7 @@ export class CodexChatView extends ItemView {
         displayItems = displayItems.filter((item) => !hookIds.has(item.id));
         pendingTurnStart = null;
       }
-      this.dispatch({ type: "state/patched", patch: { busy: false, displayItems, pendingTurnStart } });
+      this.dispatch({ type: "turn/start-failed", displayItems, pendingTurnStart });
       this.composerController.setDraft(text);
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -1062,29 +1059,9 @@ export class CodexChatView extends ItemView {
     this.invalidateResumeWork();
     this.restoredThread = restoredThread;
     this.dispatch({
-      type: "state/patched",
-      patch: {
-        activeThreadId: restoredThread.threadId,
-        activeThreadCwd: null,
-        activeTurnId: null,
-        activeModel: null,
-        activeReasoningEffort: null,
-        activeCollaborationMode: "default",
-        activeServiceTier: null,
-        activeApprovalsReviewer: null,
-        activeThreadCreationCliVersion: null,
-        tokenUsage: null,
-        busy: false,
-        displayItems: [this.systemItem("Thread restored. Send a message to resume it.")],
-        pendingTurnStart: null,
-        turnDiffs: new Map(),
-        approvals: [],
-        pendingUserInputs: [],
-        userInputDrafts: new Map(),
-        historyCursor: null,
-        loadingHistory: false,
-        messagesPinnedToBottom: true,
-      },
+      type: "thread/restored-placeholder",
+      threadId: restoredThread.threadId,
+      item: this.systemItem("Thread restored. Send a message to resume it."),
     });
     this.setStatus("Thread ready to resume.");
     this.refreshTabHeader();
@@ -1383,16 +1360,7 @@ export class CodexChatView extends ItemView {
     this.clearDeferredDiagnostics();
     this.connection.reconnect();
     this.client = null;
-    this.dispatch({
-      type: "state/patched",
-      patch: {
-        busy: false,
-        activeTurnId: null,
-        approvals: [],
-        pendingUserInputs: [],
-        userInputDrafts: new Map(),
-      },
-    });
+    this.dispatch({ type: "turn/local-cleared" });
     this.setStatus("Reconnecting...");
     this.render();
 
@@ -1708,7 +1676,7 @@ export class CodexChatView extends ItemView {
   }
 }
 
-function latestProposedPlanItem(items: DisplayItem[]): DisplayItem | null {
+function latestProposedPlanItem(items: readonly DisplayItem[]): DisplayItem | null {
   return [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ?? null;
 }
 
@@ -1734,11 +1702,11 @@ function turnDiffsSignature(turnDiffs: ReadonlyMap<string, string>): string {
     .join("\n");
 }
 
-function displayItemsSignature(items: DisplayItem[]): string {
+function displayItemsSignature(items: readonly DisplayItem[]): string {
   return stableSignature(items);
 }
 
-function threadListSignature(threads: Thread[]): string {
+function threadListSignature(threads: readonly Thread[]): string {
   return threads
     .map((thread) =>
       signatureParts(thread.id, thread.name, thread.preview, thread.updatedAt, thread.cliVersion, thread.status, thread.gitInfo),
@@ -1746,7 +1714,7 @@ function threadListSignature(threads: Thread[]): string {
     .join("\n");
 }
 
-function modelsSignature(models: Model[]): string {
+function modelsSignature(models: readonly Model[]): string {
   return models.map((model) => stableSignature(model)).join("\n");
 }
 

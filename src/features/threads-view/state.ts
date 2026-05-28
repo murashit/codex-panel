@@ -29,7 +29,7 @@ const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
 };
 
 export function threadRows(
-  threads: Thread[],
+  threads: readonly Thread[],
   snapshots: OpenCodexPanelSnapshot[],
   renameDrafts: ReadonlyMap<string, string>,
   autoNameThreadId: string | null = null,

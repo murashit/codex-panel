@@ -58,7 +58,7 @@ export default class CodexPanelPlugin extends Plugin {
   private bootRestoredPanelLoadCancelled = false;
   private readonly bootRestoredPanelLoadTimers = new Set<number>();
   private sharedAppServerState: SharedAppServerState = createSharedAppServerState();
-  private threadListRefreshPromise: Promise<Thread[]> | null = null;
+  private threadListRefreshPromise: Promise<readonly Thread[]> | null = null;
 
   override async onload(): Promise<void> {
     this.bootRestoredPanelLoadCancelled = false;
@@ -230,7 +230,7 @@ export default class CodexPanelPlugin extends Plugin {
     if (threadsView) void threadsView.refresh();
   }
 
-  refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]> {
+  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]> {
     if (this.threadListRefreshPromise) return this.threadListRefreshPromise;
     const promise = fetchThreads()
       .then((threads) => {
@@ -244,7 +244,7 @@ export default class CodexPanelPlugin extends Plugin {
     return promise;
   }
 
-  applyThreadListSnapshot(threads: Thread[]): void {
+  applyThreadListSnapshot(threads: readonly Thread[]): void {
     this.sharedAppServerState = applySharedThreadList(this.sharedAppServerState, threads);
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
       if (leaf.view instanceof CodexChatView) {
@@ -258,7 +258,7 @@ export default class CodexPanelPlugin extends Plugin {
     }
   }
 
-  cachedThreadList(): Thread[] | null {
+  cachedThreadList(): readonly Thread[] | null {
     return this.sharedAppServerState.threads;
   }
 
@@ -292,7 +292,7 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   cachedModels(): Model[] {
-    return this.sharedAppServerState.availableModels;
+    return [...this.sharedAppServerState.availableModels];
   }
 
   refreshThreadsViewLiveState(): void {

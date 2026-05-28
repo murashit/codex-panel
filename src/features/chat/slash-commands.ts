@@ -15,7 +15,7 @@ import {
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;
   busy: boolean;
-  listedThreads: Thread[];
+  listedThreads: readonly Thread[];
   startNewThread: () => Promise<void>;
   resumeThread: (threadId: string) => Promise<void>;
   referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
@@ -249,7 +249,7 @@ function parseReferArgs(args: string): { threadQuery: string; message: string } 
   return threadQuery !== undefined && message !== undefined ? { threadQuery, message } : null;
 }
 
-export function resolveThreadArgument(args: string, threads: Thread[]): ThreadResolution {
+export function resolveThreadArgument(args: string, threads: readonly Thread[]): ThreadResolution {
   const query = args.trim();
   if (!query) {
     const thread = threads.at(0);

@@ -14,10 +14,10 @@ describe("chatReducer", () => {
     state.loadingHistory = true;
     state.composerDraft = "keep me";
     state.displayItems = [message("m1")];
-    state.turnDiffs.set("turn", "@@");
+    state.turnDiffs = new Map([["turn", "@@"]]);
     state.approvals = [approval(1)];
     state.pendingUserInputs = [userInput(2)];
-    state.userInputDrafts.set("2:note", "draft");
+    state.userInputDrafts = new Map([["2:note", "draft"]]);
 
     const next = chatReducer(state, { type: "thread/active-cleared" });
 
@@ -36,8 +36,8 @@ describe("chatReducer", () => {
 
   it("clones map and set backed state when updating turn diffs and open panels", () => {
     const state = createChatState();
-    state.turnDiffs.set("turn", "old");
-    state.openDetails.add("status-panel");
+    state.turnDiffs = new Map([["turn", "old"]]);
+    state.openDetails = new Set(["status-panel"]);
 
     const withDiff = chatReducer(state, { type: "display/turn-diff-updated", turnId: "turn", diff: "new" });
     const withHistoryPanel = chatReducer(withDiff, { type: "ui/panel-set", panel: "history" });

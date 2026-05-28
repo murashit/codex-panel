@@ -27,14 +27,14 @@ export class ThreadHistoryLoader {
 
   invalidate(): void {
     this.generation += 1;
-    this.dispatch({ type: "state/patched", patch: { loadingHistory: false } });
+    this.dispatch({ type: "history/loading-set", loading: false });
   }
 
   async loadLatest(threadId = this.state.activeThreadId): Promise<void> {
     const client = this.host.currentClient();
     if (!client || !threadId) return;
     const generation = ++this.generation;
-    this.dispatch({ type: "state/patched", patch: { loadingHistory: true } });
+    this.dispatch({ type: "history/loading-set", loading: true });
     this.host.render();
     try {
       const response = await client.threadTurnsList(threadId, null, 20);
@@ -47,7 +47,7 @@ export class ThreadHistoryLoader {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     } finally {
       if (!this.isStale(generation, threadId)) {
-        this.dispatch({ type: "state/patched", patch: { loadingHistory: false } });
+        this.dispatch({ type: "history/loading-set", loading: false });
         this.host.render();
       }
     }
@@ -60,7 +60,7 @@ export class ThreadHistoryLoader {
     const threadId = state.activeThreadId;
     const cursor = state.historyCursor;
     const generation = ++this.generation;
-    this.dispatch({ type: "state/patched", patch: { loadingHistory: true } });
+    this.dispatch({ type: "history/loading-set", loading: true });
     this.host.render();
     try {
       const response = await client.threadTurnsList(threadId, cursor, 20);
@@ -80,7 +80,7 @@ export class ThreadHistoryLoader {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     } finally {
       if (!this.isStale(generation, threadId)) {
-        this.dispatch({ type: "state/patched", patch: { loadingHistory: false } });
+        this.dispatch({ type: "history/loading-set", loading: false });
         this.host.render();
       }
     }

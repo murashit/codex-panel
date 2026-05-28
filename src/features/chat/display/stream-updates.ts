@@ -1,12 +1,12 @@
 import type { DisplayFileChange, DisplayItem, DisplayKind } from "./types";
 import { normalizeProposedPlanMarkdown } from "./plan";
 
-export function upsertDisplayItem(items: DisplayItem[], next: DisplayItem): DisplayItem[] {
+export function upsertDisplayItem(items: readonly DisplayItem[], next: DisplayItem): DisplayItem[] {
   const index = items.findIndex((item) => item.id === next.id);
   if (index === -1) return [...items, next];
   const copy = [...items];
   const previous = copy[index];
-  if (previous === undefined) return items;
+  if (previous === undefined) return [...items];
   copy[index] = {
     ...previous,
     ...next,
@@ -28,7 +28,7 @@ function mergeChanges(previous: DisplayItem, next: DisplayItem): DisplayFileChan
   return nextChanges && nextChanges.length > 0 ? nextChanges : previousChanges;
 }
 
-export function appendAssistantDelta(items: DisplayItem[], itemId: string, turnId: string, delta: string): DisplayItem[] {
+export function appendAssistantDelta(items: readonly DisplayItem[], itemId: string, turnId: string, delta: string): DisplayItem[] {
   const index = items.findIndex((item) => item.itemId === itemId && item.kind === "message" && item.role === "assistant");
   if (index !== -1) {
     return items.map((item, itemIndex) =>
@@ -58,7 +58,7 @@ export function appendAssistantDelta(items: DisplayItem[], itemId: string, turnI
   ];
 }
 
-export function completeReasoningItems(items: DisplayItem[], turnId: string): DisplayItem[] {
+export function completeReasoningItems(items: readonly DisplayItem[], turnId: string): DisplayItem[] {
   return items.map((item) =>
     item.kind === "reasoning" && item.turnId === turnId
       ? {
@@ -70,7 +70,7 @@ export function completeReasoningItems(items: DisplayItem[], turnId: string): Di
   );
 }
 
-export function appendPlanDelta(items: DisplayItem[], itemId: string, turnId: string, delta: string): DisplayItem[] {
+export function appendPlanDelta(items: readonly DisplayItem[], itemId: string, turnId: string, delta: string): DisplayItem[] {
   const index = items.findIndex((item) => item.itemId === itemId && item.kind === "message" && item.role === "assistant");
   if (index !== -1) {
     return items.map((item, itemIndex) =>
@@ -107,7 +107,7 @@ function appendPlanDeltaToMessage(item: Extract<DisplayItem, { kind: "message" }
 }
 
 export function appendItemText(
-  items: DisplayItem[],
+  items: readonly DisplayItem[],
   itemId: string,
   turnId: string,
   label: string,
@@ -132,7 +132,7 @@ export function appendItemText(
 }
 
 export function appendToolOutput(
-  items: DisplayItem[],
+  items: readonly DisplayItem[],
   itemId: string,
   turnId: string,
   delta: string,
@@ -162,7 +162,7 @@ export function appendToolOutput(
 }
 
 export function appendItemOutput(
-  items: DisplayItem[],
+  items: readonly DisplayItem[],
   itemId: string,
   turnId: string,
   delta: string,

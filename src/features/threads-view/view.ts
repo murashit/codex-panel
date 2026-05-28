@@ -20,8 +20,8 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
   notifyThreadArchived(threadId: string): void;
   notifyThreadRenamed(threadId: string, name: string | null): void;
-  refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]>;
-  cachedThreadList(): Thread[] | null;
+  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+  cachedThreadList(): readonly Thread[] | null;
 }
 
 export class CodexThreadsView extends ItemView {
@@ -34,7 +34,7 @@ export class CodexThreadsView extends ItemView {
   private refreshTimer: number | null = null;
   private status: string | null = null;
   private loading = false;
-  private threads: Thread[] = [];
+  private threads: readonly Thread[] = [];
   private readonly renameDrafts = new Map<string, string>();
   private renameAutoNameThreadId: string | null = null;
   private renameAutoNameGeneration = 0;
@@ -209,7 +209,7 @@ export class CodexThreadsView extends ItemView {
     this.scheduleRender();
   }
 
-  applyThreadListSnapshot(threads: Thread[]): void {
+  applyThreadListSnapshot(threads: readonly Thread[]): void {
     this.threads = threads;
     this.status = threads.length === 0 ? "No threads" : null;
     this.render();

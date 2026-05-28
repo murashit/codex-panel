@@ -170,7 +170,10 @@ export function selectionRewriteRuntime(settings: SelectionRewriteRuntimeSetting
   return runtimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
 }
 
-export function validatedSelectionRewriteRuntime(settings: SelectionRewriteRuntimeSettings, models: Model[]): SelectionRewriteRuntime {
+export function validatedSelectionRewriteRuntime(
+  settings: SelectionRewriteRuntimeSettings,
+  models: readonly Model[],
+): SelectionRewriteRuntime {
   return validatedRuntimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort }, models);
 }
 

@@ -4,7 +4,7 @@ import type { DisplayItem } from "./display/types";
 
 const MAX_CONTEXT_CHARS = 4_000;
 
-export function namingContextFromDisplayItems(turnId: string, items: DisplayItem[]): ThreadNamingContext | null {
+export function namingContextFromDisplayItems(turnId: string, items: readonly DisplayItem[]): ThreadNamingContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
   const userRequest = turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ?? "";
   const assistantResponse =
@@ -19,7 +19,7 @@ export function namingContextFromDisplayItems(turnId: string, items: DisplayItem
   };
 }
 
-export function firstNamingContextFromDisplayItems(items: DisplayItem[]): ThreadNamingContext | null {
+export function firstNamingContextFromDisplayItems(items: readonly DisplayItem[]): ThreadNamingContext | null {
   const turnIds = new Set<string>();
   for (const item of items) {
     if (!item.turnId || turnIds.has(item.turnId)) continue;

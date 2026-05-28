@@ -3,7 +3,7 @@ import { pathRelativeToRoot } from "./paths";
 import { executionState } from "./state";
 
 export function displayBlocksForItems(
-  items: DisplayItem[],
+  items: readonly DisplayItem[],
   activeTurnId: string | null,
   workspaceRoot?: string | null,
   turnDiffs?: ReadonlyMap<string, string>,
@@ -49,9 +49,9 @@ export function displayBlocksForItems(
   return blocks;
 }
 
-function moveActiveTaskProgressToEnd(items: DisplayItem[], activeTurnId: string): DisplayItem[] {
+function moveActiveTaskProgressToEnd(items: readonly DisplayItem[], activeTurnId: string): DisplayItem[] {
   const activeTaskProgress = items.filter((item) => item.kind === "taskProgress" && item.turnId === activeTurnId);
-  if (activeTaskProgress.length === 0) return items;
+  if (activeTaskProgress.length === 0) return [...items];
   return [...items.filter((item) => item.kind !== "taskProgress" || item.turnId !== activeTurnId), ...activeTaskProgress];
 }
 
@@ -64,7 +64,7 @@ function isCompletedTurnDetailItem(item: DisplayItem, finalAssistantIdByTurn: Ma
   return finalAssistantIdByTurn.get(item.turnId) !== item.id;
 }
 
-function finalAssistantItemsByTurn(items: DisplayItem[]): Map<string, string> {
+function finalAssistantItemsByTurn(items: readonly DisplayItem[]): Map<string, string> {
   const finalAssistantIdByTurn = new Map<string, string>();
   for (const item of items) {
     if (!item.turnId || !isFinalAssistantMessage(item)) continue;
@@ -99,7 +99,7 @@ function itemWithTurnSummaries(
   };
 }
 
-function editedFilesForTurns(items: DisplayItem[], workspaceRoot?: string | null): Map<string, string[]> {
+function editedFilesForTurns(items: readonly DisplayItem[], workspaceRoot?: string | null): Map<string, string[]> {
   const byTurn = new Map<string, Set<string>>();
   for (const item of items) {
     if (!item.turnId || item.kind !== "fileChange") continue;
@@ -120,7 +120,7 @@ function editedFilesForItem(item: DisplayItem, workspaceRoot?: string | null): s
   );
 }
 
-function autoReviewSummariesForTurns(items: DisplayItem[]): Map<string, string[]> {
+function autoReviewSummariesForTurns(items: readonly DisplayItem[]): Map<string, string[]> {
   const byTurn = new Map<string, string[]>();
   for (const item of items) {
     if (!item.turnId || item.kind !== "reviewResult") continue;
@@ -133,7 +133,7 @@ function autoReviewSummariesForTurns(items: DisplayItem[]): Map<string, string[]
   return byTurn;
 }
 
-function turnActivitySummary(items: DisplayItem[]): string {
+function turnActivitySummary(items: readonly DisplayItem[]): string {
   const parts = [
     countMatchingLabel(items, (item) => item.kind === "message" && item.role === "assistant", "response", "responses"),
     countLabel(items, "taskProgress", "task progress"),
@@ -153,7 +153,7 @@ function turnActivitySummary(items: DisplayItem[]): string {
 }
 
 function countMatchingLabel(
-  items: DisplayItem[],
+  items: readonly DisplayItem[],
   predicate: (item: DisplayItem) => boolean,
   label: string,
   pluralLabel = `${label}s`,
@@ -164,7 +164,7 @@ function countMatchingLabel(
   return `${String(count)} ${pluralLabel}`;
 }
 
-function countLabel(items: DisplayItem[], kind: DisplayKind, label: string, pluralLabel = `${label}s`): string | null {
+function countLabel(items: readonly DisplayItem[], kind: DisplayKind, label: string, pluralLabel = `${label}s`): string | null {
   const count = items.filter((item) => item.kind === kind).length;
   if (count === 0) return null;
   if (count === 1) return label;

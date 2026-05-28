@@ -49,9 +49,9 @@ export function parseSlashCommand(text: string): { command: SlashCommandName; ar
 export function activeComposerSuggestions(
   beforeCursor: string,
   notes: NoteCandidate[],
-  skills: SkillMetadata[],
-  threads: Thread[] = [],
-  models: Model[] = [],
+  skills: readonly SkillMetadata[],
+  threads: readonly Thread[] = [],
+  models: readonly Model[] = [],
   currentModel: string | null = null,
 ): ComposerSuggestion[] {
   return (
@@ -177,7 +177,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
     }));
 }
 
-export function activeThreadCommandSuggestions(beforeCursor: string, threads: Thread[]): ComposerSuggestion[] | null {
+export function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
   const match = /(?:^|\n)\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
@@ -207,7 +207,7 @@ export function activeThreadCommandSuggestions(beforeCursor: string, threads: Th
     }));
 }
 
-export function activeModelOverrideSuggestions(beforeCursor: string, models: Model[]): ComposerSuggestion[] | null {
+export function activeModelOverrideSuggestions(beforeCursor: string, models: readonly Model[]): ComposerSuggestion[] | null {
   const match = /(?:^|\n)\/model\s+([^\n]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
@@ -252,7 +252,7 @@ export function activeModelOverrideSuggestions(beforeCursor: string, models: Mod
 
 export function activeReasoningEffortSuggestions(
   beforeCursor: string,
-  models: Model[],
+  models: readonly Model[],
   currentModel: string | null,
 ): ComposerSuggestion[] | null {
   const match = /(?:^|\n)\/effort\s+([^\n]{0,120})$/.exec(beforeCursor);
@@ -287,7 +287,7 @@ export function activeReasoningEffortSuggestions(
   return suggestions.filter((item) => item.display.toLowerCase().startsWith(query)).slice(0, 8);
 }
 
-export function activeSkillSuggestions(beforeCursor: string, skills: SkillMetadata[]): ComposerSuggestion[] | null {
+export function activeSkillSuggestions(beforeCursor: string, skills: readonly SkillMetadata[]): ComposerSuggestion[] | null {
   const match = /(^|[\s([{])\$([^\s\])}]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 

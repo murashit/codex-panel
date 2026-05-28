@@ -38,7 +38,7 @@ export function userInputWithWikiLinkMentions(text: string, resolveMention: Wiki
 export function userInputWithWikiLinkMentionsAndSkills(
   text: string,
   resolveMention: WikiLinkMentionResolver,
-  skills: SkillMetadata[],
+  skills: readonly SkillMetadata[],
 ): UserInput[] {
   const input: UserInput[] = [{ type: "text", text, text_elements: [] }];
   const seenPaths = new Set<string>();
@@ -81,7 +81,7 @@ function parseWikiLink(raw: string): ParsedWikiLink | null {
   return parsed ? { raw, ...parsed } : null;
 }
 
-function firstEnabledSkillByName(skills: SkillMetadata[]): Map<string, SkillMetadata> {
+function firstEnabledSkillByName(skills: readonly SkillMetadata[]): Map<string, SkillMetadata> {
   const byName = new Map<string, SkillMetadata>();
   for (const skill of skills) {
     if (!skill.enabled) continue;

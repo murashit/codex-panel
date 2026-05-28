@@ -35,7 +35,7 @@ type ImageGenerationItem = Extract<ThreadItem, { type: "imageGeneration" }>;
 type ReviewModeItem = Extract<ThreadItem, { type: "enteredReviewMode" }> | Extract<ThreadItem, { type: "exitedReviewMode" }>;
 type ContextCompactionItem = Extract<ThreadItem, { type: "contextCompaction" }>;
 
-export function displayItemsFromTurns(turns: Turn[]): DisplayItem[] {
+export function displayItemsFromTurns(turns: readonly Turn[]): DisplayItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: DisplayItem[] = [];
   for (const turn of sortedTurns) {

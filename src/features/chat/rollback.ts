@@ -6,7 +6,7 @@ export interface RollbackCandidate {
   text: string;
 }
 
-export function rollbackCandidateFromItems(items: DisplayItem[]): RollbackCandidate | null {
+export function rollbackCandidateFromItems(items: readonly DisplayItem[]): RollbackCandidate | null {
   const lastTurnId = latestTurnId(items);
   if (!lastTurnId) return null;
 
@@ -26,7 +26,7 @@ export function isRollbackCandidateItem(item: DisplayItem, candidate: RollbackCa
   );
 }
 
-function latestTurnId(items: DisplayItem[]): string | null {
+function latestTurnId(items: readonly DisplayItem[]): string | null {
   for (const item of [...items].reverse()) {
     if (item.turnId) return item.turnId;
   }

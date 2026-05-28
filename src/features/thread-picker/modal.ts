@@ -10,8 +10,8 @@ export interface ThreadPickerHost {
   readonly app: App;
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
-  cachedThreadList(): Thread[] | null;
-  refreshThreadList(fetchThreads: () => Promise<Thread[]>): Promise<Thread[]>;
+  cachedThreadList(): readonly Thread[] | null;
+  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
@@ -41,7 +41,7 @@ export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
   }
 }
 
-export function threadPickerSuggestions(threads: Thread[], queryText: string): ThreadSuggestion[] {
+export function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {
   const query = queryText.trim().toLowerCase();
   return [...threads]
     .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -78,7 +78,7 @@ export function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): Thread
   return "current";
 }
 
-async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<Thread[]> {
+async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly Thread[]> {
   const cached = host.cachedThreadList();
   if (cached) return cached;
 
@@ -107,7 +107,7 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<Thread[]
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   constructor(
     private readonly host: ThreadPickerHost,
-    private readonly threads: Thread[],
+    private readonly threads: readonly Thread[],
   ) {
     super(host.app);
     this.limit = MAX_THREAD_PICKER_SUGGESTIONS;

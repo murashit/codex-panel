@@ -8,14 +8,14 @@ import type { Thread } from "../generated/app-server/v2/Thread";
 
 export interface SharedSessionMetadata {
   effectiveConfig: ConfigReadResponse | null;
-  availableModels: Model[];
-  availableSkills: SkillMetadata[];
+  availableModels: readonly Model[];
+  availableSkills: readonly SkillMetadata[];
   rateLimit: RateLimitSnapshot | null;
   appServerDiagnostics: AppServerDiagnostics;
 }
 
 export interface SharedAppServerState extends SharedSessionMetadata {
-  threads: Thread[] | null;
+  threads: readonly Thread[] | null;
   sessionMetadataLoaded: boolean;
 }
 
@@ -31,7 +31,7 @@ export function createSharedAppServerState(): SharedAppServerState {
   };
 }
 
-export function applySharedThreadList(state: SharedAppServerState, threads: Thread[]): SharedAppServerState {
+export function applySharedThreadList(state: SharedAppServerState, threads: readonly Thread[]): SharedAppServerState {
   return {
     ...state,
     threads,
@@ -46,7 +46,7 @@ export function applySharedSessionMetadata(state: SharedAppServerState, metadata
   };
 }
 
-export function applySharedModels(state: SharedAppServerState, models: Model[]): SharedAppServerState {
+export function applySharedModels(state: SharedAppServerState, models: readonly Model[]): SharedAppServerState {
   return {
     ...state,
     availableModels: models,

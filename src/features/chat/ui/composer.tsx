@@ -173,7 +173,7 @@ export function renderComposerSuggestions(
   suggestionsEl: HTMLElement | null,
   composer: HTMLTextAreaElement | null,
   viewId: string,
-  suggestions: ComposerSuggestion[],
+  suggestions: readonly ComposerSuggestion[],
   selectedIndex: number,
   callbacks: Pick<ComposerCallbacks, "onSuggestionHover" | "onSuggestionInsert">,
 ): void {
@@ -213,7 +213,7 @@ function ComposerSuggestions({
   container: HTMLElement;
   composer: HTMLTextAreaElement | null;
   viewId: string;
-  suggestions: ComposerSuggestion[];
+  suggestions: readonly ComposerSuggestion[];
   selectedIndex: number;
   callbacks: Pick<ComposerCallbacks, "onSuggestionHover" | "onSuggestionInsert">;
 }): ReactNode {

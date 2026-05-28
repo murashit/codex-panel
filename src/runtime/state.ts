@@ -30,7 +30,7 @@ export interface RuntimeSnapshot {
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   hasThreadTurns: boolean;
-  availableModels: Model[];
+  availableModels: readonly Model[];
 }
 
 export interface TurnRuntimeSettings {

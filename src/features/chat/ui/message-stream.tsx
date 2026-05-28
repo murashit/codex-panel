@@ -24,10 +24,10 @@ export interface MessageStreamContext {
   historyCursor: string | null;
   loadingHistory: boolean;
   busy: boolean;
-  displayItems: DisplayItem[];
+  displayItems: readonly DisplayItem[];
   turnDiffs?: ReadonlyMap<string, string>;
   workspaceRoot?: string | null;
-  openDetails: Set<string>;
+  openDetails: ReadonlySet<string>;
   onDetailsToggle?: (key: string, open: boolean) => void;
   loadOlderTurns: () => void;
   renderMarkdown: (parent: HTMLElement, text: string) => void;

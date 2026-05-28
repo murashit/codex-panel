@@ -22,16 +22,16 @@ export interface PendingRequestMessageActions {
 }
 
 export interface PendingRequestMessageDrafts {
-  values: Map<string, string>;
+  values: ReadonlyMap<string, string>;
   draftKey: (requestId: RequestId, questionId: string) => string;
   otherDraftKey: (requestId: RequestId, questionId: string) => string;
 }
 
 export function pendingRequestMessageNode(
-  approvals: PendingApproval[],
-  pendingUserInputs: PendingUserInput[],
+  approvals: readonly PendingApproval[],
+  pendingUserInputs: readonly PendingUserInput[],
   drafts: PendingRequestMessageDrafts,
-  openDetails: Set<string>,
+  openDetails: ReadonlySet<string>,
   actions: PendingRequestMessageActions,
 ): ReactNode {
   return (
@@ -52,10 +52,10 @@ function PendingRequestMessage({
   openDetails,
   actions,
 }: {
-  approvals: PendingApproval[];
-  pendingUserInputs: PendingUserInput[];
+  approvals: readonly PendingApproval[];
+  pendingUserInputs: readonly PendingUserInput[];
   drafts: PendingRequestMessageDrafts;
-  openDetails: Set<string>;
+  openDetails: ReadonlySet<string>;
   actions: PendingRequestMessageActions;
 }): ReactNode {
   if (approvals.length === 0 && pendingUserInputs.length === 0) return null;
@@ -78,7 +78,7 @@ function ApprovalCard({
   actions,
 }: {
   approval: PendingApproval;
-  openDetails: Set<string>;
+  openDetails: ReadonlySet<string>;
   actions: PendingRequestMessageActions;
 }): ReactNode {
   return (
@@ -110,7 +110,7 @@ function ApprovalDetails({
   actions,
 }: {
   approval: PendingApproval;
-  openDetails: Set<string>;
+  openDetails: ReadonlySet<string>;
   actions: PendingRequestMessageActions;
 }): ReactNode {
   const key = `approval:${String(approval.requestId)}:details`;

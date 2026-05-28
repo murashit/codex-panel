@@ -16,7 +16,7 @@ export function explicitThreadName(thread: Thread): string | null {
   return name.length > 0 ? name : null;
 }
 
-export function codexPanelDisplayTitle(activeThreadId: string | null, threads: Thread[], fallbackTitle?: string | null): string {
+export function codexPanelDisplayTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {
   if (!activeThreadId) return "Codex";
 
   const thread = threads.find((item) => item.id === activeThreadId);
@@ -24,12 +24,12 @@ export function codexPanelDisplayTitle(activeThreadId: string | null, threads: T
   return title ? `Codex: ${title}` : "Codex";
 }
 
-export function inheritedForkThreadName(threadId: string, threads: Thread[]): string | null {
+export function inheritedForkThreadName(threadId: string, threads: readonly Thread[]): string | null {
   const thread = threads.find((item) => item.id === threadId);
   return thread ? explicitThreadName(thread) : null;
 }
 
-export function upsertThread(threads: Thread[], thread: Thread): Thread[] {
+export function upsertThread(threads: readonly Thread[], thread: Thread): Thread[] {
   const index = threads.findIndex((item) => item.id === thread.id);
   if (index === -1) return [thread, ...threads];
   return threads.map((item, itemIndex) => (itemIndex === index ? { ...item, ...thread } : item));

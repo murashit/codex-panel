@@ -36,14 +36,14 @@ function hookRunDisplayId(run: Extract<ServerNotification, { method: "hook/start
 }
 
 export function attachHookRunsToTurn(
-  items: DisplayItem[],
+  items: readonly DisplayItem[],
   turnId: string,
   hookItemIds: readonly string[],
   afterItemId?: string | null,
 ): DisplayItem[] {
   const hookIdSet = new Set(hookItemIds);
   const attachedHooks = items.filter((item) => hookIdSet.has(item.id)).map((item) => ({ ...item, turnId }));
-  if (attachedHooks.length === 0) return items;
+  if (attachedHooks.length === 0) return [...items];
 
   const withoutAttachedHooks = items.filter((item) => !hookIdSet.has(item.id));
   const anchorItemId = afterItemId ?? lastUserMessageAnchorId(withoutAttachedHooks, turnId);
@@ -53,7 +53,7 @@ export function attachHookRunsToTurn(
   return [...withoutAttachedHooks.slice(0, insertAfterIndex + 1), ...attachedHooks, ...withoutAttachedHooks.slice(insertAfterIndex + 1)];
 }
 
-function lastUserMessageAnchorId(items: DisplayItem[], turnId: string): string | null {
+function lastUserMessageAnchorId(items: readonly DisplayItem[], turnId: string): string | null {
   const anchor = [...items]
     .reverse()
     .find((item) => item.kind === "message" && item.role === "user" && (!item.turnId || item.turnId === turnId));

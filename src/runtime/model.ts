@@ -11,13 +11,13 @@ export function normalizeReasoningEffort(value: unknown): ReasoningEffort | null
   return isReasoningEffort(value) ? value : null;
 }
 
-export function sortedAvailableModels(models: Model[]): Model[] {
+export function sortedAvailableModels(models: readonly Model[]): Model[] {
   return [...models]
     .filter((model) => !model.hidden)
     .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.model.localeCompare(b.model));
 }
 
-export function findModelByIdOrName(models: Model[], modelIdOrName: string | null | undefined): Model | null {
+export function findModelByIdOrName(models: readonly Model[], modelIdOrName: string | null | undefined): Model | null {
   if (!modelIdOrName) return null;
   return models.find((model) => !model.hidden && (model.model === modelIdOrName || model.id === modelIdOrName)) ?? null;
 }
@@ -44,7 +44,7 @@ export function runtimeOverride(settings: RuntimeOverrideSettings): RuntimeOverr
   };
 }
 
-export function validatedRuntimeOverride(settings: RuntimeOverrideSettings, models: Model[]): RuntimeOverride {
+export function validatedRuntimeOverride(settings: RuntimeOverrideSettings, models: readonly Model[]): RuntimeOverride {
   const runtime = runtimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
 

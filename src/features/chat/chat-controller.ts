@@ -254,7 +254,7 @@ export class ChatController {
     const { method, params } = notification;
     if (method === "thread/started") {
       if (!this.state.activeThreadId || this.state.activeThreadId === params.thread.id) {
-        this.dispatch({ type: "state/patched", patch: { activeThreadCwd: params.thread.cwd } });
+        this.dispatch({ type: "thread/cwd-set", cwd: params.thread.cwd });
       }
     } else if (method === "thread/archived") {
       this.dispatch({ type: "thread/list-applied", threads: this.state.listedThreads.filter((thread) => thread.id !== params.threadId) });
@@ -288,7 +288,7 @@ export class ChatController {
   private handleDiagnosticStatus(notification: ServerNotification): void {
     const { method, params } = notification;
     if (method === "thread/tokenUsage/updated") {
-      this.dispatch({ type: "state/patched", patch: { tokenUsage: params.tokenUsage } });
+      this.dispatch({ type: "thread/token-usage-set", tokenUsage: params.tokenUsage });
     } else if (method === "account/rateLimits/updated") {
       this.dispatch({ type: "thread/list-applied", rateLimit: params.rateLimits });
       this.actions.publishSessionMetadata();
@@ -356,7 +356,7 @@ export class ChatController {
     }
   }
 
-  private reconciledCompletedTurnItems(turn: Turn): DisplayItem[] {
+  private reconciledCompletedTurnItems(turn: Turn): readonly DisplayItem[] {
     const turnItems = displayItemsFromTurns([turn]);
     if (turnItems.length === 0) return this.state.displayItems;
     const serverUserTexts = new Set(turnItems.filter(isUserMessage).map((item) => item.text));
@@ -414,11 +414,9 @@ export class ChatController {
         : { ...this.state.pendingTurnStart, promptSubmitHookItemIds: [...hookIds, item.id] };
     }
     this.dispatch({
-      type: "state/patched",
-      patch: {
-        displayItems: upsertDisplayItem(this.state.displayItems, item),
-        pendingTurnStart,
-      },
+      type: "display/pending-turn-item-upserted",
+      item,
+      pendingTurnStart,
     });
   }
 
@@ -431,7 +429,7 @@ export class ChatController {
     return null;
   }
 
-  private displayItemsWithPendingPromptSubmitHooks(turnId: string): DisplayItem[] {
+  private displayItemsWithPendingPromptSubmitHooks(turnId: string): readonly DisplayItem[] {
     const pending = this.state.pendingTurnStart;
     if (!pending) return this.state.displayItems;
     return attachHookRunsToTurn(this.state.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
@@ -446,25 +444,22 @@ export class ChatController {
     settings: Extract<ServerNotification, { method: "thread/settings/updated" }>["params"]["threadSettings"],
   ): void {
     this.dispatch({
-      type: "state/patched",
-      patch: {
-        activeThreadCwd: settings.cwd,
-        activeModel: settings.model,
-        activeReasoningEffort: settings.effort,
-        activeCollaborationMode: settings.collaborationMode.mode,
-        requestedCollaborationMode: settings.collaborationMode.mode,
-        activeServiceTier: reportedServiceTier(settings.serviceTier),
-        activeApprovalsReviewer: settings.approvalsReviewer,
-      },
+      type: "thread/settings-applied",
+      cwd: settings.cwd,
+      model: settings.model,
+      reasoningEffort: settings.effort,
+      collaborationMode: settings.collaborationMode.mode,
+      serviceTier: reportedServiceTier(settings.serviceTier),
+      approvalsReviewer: settings.approvalsReviewer,
     });
   }
 }
 
-function removeUnstructuredAutoReviewWarnings(items: DisplayItem[]): DisplayItem[] {
+function removeUnstructuredAutoReviewWarnings(items: readonly DisplayItem[]): DisplayItem[] {
   return items.filter((item) => !isUnstructuredAutoReviewWarning(item));
 }
 
-function hasStructuredAutoReviewResult(items: DisplayItem[], activeTurnId: string | null): boolean {
+function hasStructuredAutoReviewResult(items: readonly DisplayItem[], activeTurnId: string | null): boolean {
   return items.some(
     (item) =>
       item.kind === "reviewResult" &&

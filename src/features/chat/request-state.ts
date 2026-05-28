@@ -19,7 +19,11 @@ export function userInputOtherDraftKey(requestId: RequestId, questionId: string)
   return `${String(requestId)}:${questionId}:other`;
 }
 
-export function pendingRequestsSignature(approvals: PendingApproval[], inputs: PendingUserInput[], drafts: Map<string, string>): string {
+export function pendingRequestsSignature(
+  approvals: readonly PendingApproval[],
+  inputs: readonly PendingUserInput[],
+  drafts: ReadonlyMap<string, string>,
+): string {
   if (approvals.length === 0 && inputs.length === 0) return "";
   return JSON.stringify({
     approvals: approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),

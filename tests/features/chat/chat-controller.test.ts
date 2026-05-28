@@ -820,7 +820,7 @@ describe("ChatController", () => {
           },
         },
       ];
-      state.userInputDrafts.set("50:note", "draft");
+      state.userInputDrafts = new Map([["50:note", "draft"]]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -867,7 +867,7 @@ describe("ChatController", () => {
       state.historyCursor = "cursor";
       state.loadingHistory = true;
       state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "stale" }];
-      state.turnDiffs.set("turn-active", "@@\n-stale\n+stale");
+      state.turnDiffs = new Map([["turn-active", "@@\n-stale\n+stale"]]);
       state.composerDraft = "keep local draft";
       state.busy = true;
       state.approvals = [
@@ -892,7 +892,7 @@ describe("ChatController", () => {
           },
         },
       ];
-      state.userInputDrafts.set("20:note", "draft");
+      state.userInputDrafts = new Map([["20:note", "draft"]]);
       const notifyThreadArchived = vi.fn();
       const controller = controllerForState(state, { notifyThreadArchived });
 
