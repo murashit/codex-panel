@@ -2,7 +2,6 @@ import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsi
 
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
-import type { SlashCommandName } from "./composer/slash-commands";
 import { parseSlashCommand } from "./composer/suggestions";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import { createSystemItem } from "./display/system";
@@ -13,8 +12,6 @@ import type { Thread } from "../../generated/app-server/v2/Thread";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/collaboration-mode";
 import { ChatController } from "./chat-controller";
 import { currentModel, type RuntimeSnapshot } from "../../runtime/state";
-import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
-import type { ThreadReferenceInput } from "./slash-commands";
 import { ChatAppServerController } from "./chat-app-server-controller";
 import { ThreadHistoryLoader } from "./thread-history";
 import { ThreadRenameController } from "./thread-rename";
@@ -22,11 +19,6 @@ import { pendingRequestsSignature as requestStateSignature } from "./request-sta
 import type { CodexPanelSettings } from "../../settings/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import { activeTurnId, chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
-import {
-  referencedThreadInput as buildReferencedThreadInput,
-  referencedThreadTurns,
-  REFERENCED_THREAD_TURN_LIMIT,
-} from "../../domain/threads/reference";
 import { renderToolbar, type ToolbarViewModel } from "./ui/toolbar";
 import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
@@ -72,6 +64,7 @@ import { ToolbarPanelController } from "./toolbar-panel-controller";
 import { ChatReconnectController } from "./reconnect-controller";
 import { ChatMessageScrollController } from "./message-scroll-controller";
 import { TurnSubmissionController } from "./turn-submission-controller";
+import { SlashCommandController } from "./slash-command-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -110,6 +103,7 @@ export class CodexChatView extends ItemView {
   private readonly messageRenderer: ChatMessageRenderer;
   private readonly messageScroll: ChatMessageScrollController;
   private readonly turnSubmission: TurnSubmissionController;
+  private readonly slashCommands: SlashCommandController;
   private shellRenderVersion = 0;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
@@ -163,6 +157,35 @@ export class CodexChatView extends ItemView {
       addSystemMessage: (text) => {
         this.addSystemMessage(text);
       },
+    });
+    this.slashCommands = new SlashCommandController({
+      stateStore: this.chatState,
+      currentClient: () => this.client,
+      codexInput: (text) => this.composerController.codexInput(text),
+      startNewThread: () => this.startNewThread(),
+      resumeThread: (threadId) => this.selectThread(threadId),
+      forkThread: (threadId) => this.threadActions.forkThread(threadId),
+      rollbackThread: (threadId) => this.threadActions.rollbackThread(threadId),
+      archiveThread: (threadId) => this.threadActions.archiveThread(threadId),
+      toggleFastMode: () => this.runtimeSettings.toggleFastMode(),
+      toggleCollaborationMode: () => this.runtimeSettings.toggleCollaborationMode(),
+      toggleAutoReview: () => void this.runtimeSettings.toggleAutoReview(),
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
+      },
+      addStructuredSystemMessage: (text, details) => {
+        this.addStructuredSystemMessage(text, details);
+      },
+      setStatus: (status) => {
+        this.setStatus(status);
+      },
+      setRequestedModel: (model) => this.runtimeSettings.setRequestedModel(model),
+      setRequestedReasoningEffort: (effort) => this.runtimeSettings.setRequestedReasoningEffort(effort),
+      statusSummaryLines: () => this.statusSummaryLines(),
+      connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
+      mcpStatusLines: () => this.mcpStatusLines(),
+      modelStatusLines: () => this.modelStatusLines(),
+      effortStatusLines: () => this.effortStatusLines(),
     });
     this.messageRenderer = new ChatMessageRenderer({
       app: this.app,
@@ -772,7 +795,7 @@ export class CodexChatView extends ItemView {
     const slashCommand = parseSlashCommand(text);
     if (slashCommand) {
       this.composerController.setDraft("", { clearSuggestions: true });
-      const result = await this.executeSlashCommand(slashCommand.command, slashCommand.args);
+      const result = await this.slashCommands.execute(slashCommand.command, slashCommand.args);
       if (result?.sendText) {
         await this.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
       }
@@ -809,61 +832,6 @@ export class CodexChatView extends ItemView {
       return;
     }
     await this.sendMessage();
-  }
-
-  private async executeSlashCommand(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined> {
-    if (!this.client) return;
-    return runSlashCommand(command, args, {
-      activeThreadId: this.state.activeThreadId,
-      listedThreads: this.state.listedThreads,
-      startNewThread: () => this.startNewThread(),
-      resumeThread: (threadId) => this.selectThread(threadId),
-      referThread: (thread, message) => this.referencedThreadInput(thread, message),
-      forkThread: (threadId) => this.threadActions.forkThread(threadId),
-      rollbackThread: (threadId) => this.threadActions.rollbackThread(threadId),
-      compactThread: async (threadId) => {
-        await this.client?.compactThread(threadId);
-      },
-      archiveThread: (threadId) => this.threadActions.archiveThread(threadId),
-      busy: this.turnBusy,
-      toggleFastMode: () => this.runtimeSettings.toggleFastMode(),
-      toggleCollaborationMode: () => this.runtimeSettings.toggleCollaborationMode(),
-      toggleAutoReview: () => void this.runtimeSettings.toggleAutoReview(),
-      addSystemMessage: (text) => {
-        this.addSystemMessage(text);
-      },
-      addStructuredSystemMessage: (text, details) => {
-        this.addStructuredSystemMessage(text, details);
-      },
-      setStatus: (status) => {
-        this.setStatus(status);
-      },
-      setRequestedModel: (model) => this.runtimeSettings.setRequestedModel(model),
-      setRequestedReasoningEffort: (effort) => this.runtimeSettings.setRequestedReasoningEffort(effort),
-      statusSummaryLines: () => this.statusSummaryLines(),
-      connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
-      mcpStatusLines: () => this.mcpStatusLines(),
-      modelStatusLines: () => this.modelStatusLines(),
-      effortStatusLines: () => this.effortStatusLines(),
-    });
-  }
-
-  private async referencedThreadInput(thread: Thread, message: string): Promise<ThreadReferenceInput | null> {
-    if (!this.client) return null;
-    try {
-      const response = await this.client.threadTurnsList(thread.id, null, REFERENCED_THREAD_TURN_LIMIT);
-      const turns = referencedThreadTurns(response.data);
-      if (turns.length === 0) {
-        this.addSystemMessage("Referenced thread has no readable conversation turns.");
-        return null;
-      }
-      const reference = buildReferencedThreadInput(thread, turns, message, this.composerController.codexInput(message));
-      this.setStatus(reference.status);
-      return reference;
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-      return null;
-    }
   }
 
   private canImplementPlanItem(item: DisplayItem): boolean {
