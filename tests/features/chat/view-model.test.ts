@@ -4,6 +4,7 @@ import { createAppServerDiagnostics } from "../../../src/app-server/compatibilit
 import { createChatState } from "../../../src/features/chat/chat-state";
 import {
   effortStatusLines,
+  runtimeToolbarChoices,
   modelStatusLines,
   runtimeSnapshotForChatState,
   statusSummaryLines,
@@ -62,6 +63,36 @@ describe("chat view model", () => {
     expect(modelStatusLines(state, snapshot, "Default")).toContain("Model: gpt-5.5");
     expect(modelStatusLines(state, snapshot, "Default")).toContain("Mode: Default");
     expect(effortStatusLines(state, snapshot)).toContain("Supported: high");
+  });
+
+  it("builds runtime toolbar choices from immutable chat state snapshots", () => {
+    const state = createChatState();
+    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
+    const selectedModels: (string | null)[] = [];
+    const selectedEfforts: string[] = [];
+
+    const choices = runtimeToolbarChoices({
+      state,
+      snapshot: runtimeSnapshotForChatState({ state }),
+      setRequestedModel: (model) => {
+        selectedModels.push(model);
+      },
+      setRequestedReasoningEffort: (effort) => {
+        if (effort) selectedEfforts.push(effort);
+      },
+    });
+
+    expect(choices.modelChoices).toMatchObject([
+      { label: "gpt-5-mini", selected: false },
+      { label: "gpt-5.5", selected: true },
+    ]);
+    expect(choices.effortChoices).toMatchObject([{ label: "high", selected: true }]);
+
+    choices.modelChoices[0]?.onClick();
+    choices.effortChoices[0]?.onClick();
+    expect(selectedModels).toEqual(["gpt-5-mini"]);
+    expect(selectedEfforts).toEqual(["high"]);
   });
 });
 

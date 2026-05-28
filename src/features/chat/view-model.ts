@@ -1,4 +1,5 @@
 import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { RuntimeSnapshot } from "../../runtime/state";
 import {
   autoReviewActive,
@@ -11,6 +12,7 @@ import {
   supportedReasoningEfforts,
 } from "../../runtime/state";
 import { readRuntimeConfig } from "../../runtime/config";
+import { sortedAvailableModels } from "../../runtime/model";
 import { compactContextLabel } from "../../runtime/settings";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../runtime/view";
 import { getThreadTitle } from "../../domain/threads/model";
@@ -43,6 +45,13 @@ export interface ConnectionDiagnosticsModelInput {
   configuredCommand: string;
 }
 
+export interface RuntimeToolbarChoicesInput {
+  state: ChatState;
+  snapshot: RuntimeSnapshot;
+  setRequestedModel: (model: string | null) => void;
+  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void;
+}
+
 export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput): RuntimeSnapshot {
   return {
     effectiveConfig: state.effectiveConfig,
@@ -64,6 +73,37 @@ export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput): Ru
     hasThreadTurns: state.displayItems.some((item) => item.turnId),
     availableModels: state.availableModels,
   };
+}
+
+export function runtimeToolbarChoices(input: RuntimeToolbarChoicesInput): Pick<ToolbarViewModel, "modelChoices" | "effortChoices"> {
+  const config = readRuntimeConfig(input.state.effectiveConfig);
+  const activeModel = currentModel(input.snapshot, config);
+  const models = sortedAvailableModels(input.state.availableModels);
+  const modelChoices: ToolbarChoice[] = models.slice(0, 12).map((model) => ({
+    label: model.model,
+    selected: activeModel === model.model,
+    onClick: () => {
+      input.setRequestedModel(model.model);
+    },
+  }));
+  if (models.length === 0) {
+    modelChoices.push({
+      label: "No model list available.",
+      disabled: true,
+      onClick: () => undefined,
+    });
+  }
+
+  const activeEffort = currentReasoningEffort(input.snapshot, config);
+  const effortChoices: ToolbarChoice[] = supportedReasoningEfforts(input.snapshot).map((effort) => ({
+    label: effort,
+    selected: activeEffort === effort,
+    onClick: () => {
+      input.setRequestedReasoningEffort(effort);
+    },
+  }));
+
+  return { modelChoices, effortChoices };
 }
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {

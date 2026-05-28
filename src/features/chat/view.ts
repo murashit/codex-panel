@@ -17,9 +17,7 @@ import type { ThreadResumeResponse } from "../../generated/app-server/v2/ThreadR
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/collaboration-mode";
 import { ChatController } from "./chat-controller";
-import { currentModel, currentReasoningEffort, supportedReasoningEfforts, type RuntimeSnapshot } from "../../runtime/state";
-import { readRuntimeConfig } from "../../runtime/config";
-import { sortedAvailableModels } from "../../runtime/model";
+import { currentModel, type RuntimeSnapshot } from "../../runtime/state";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import type { ThreadReferenceInput } from "./slash-commands";
 import { mcpStatusLines } from "./mcp-status";
@@ -48,7 +46,7 @@ import {
   type ReferencedThreadDisplay,
 } from "../../domain/threads/reference";
 import { pendingRequestMessageNode } from "./ui/pending-request-message";
-import { renderToolbar, type ToolbarChoice, type ToolbarViewModel } from "./ui/toolbar";
+import { renderToolbar, type ToolbarViewModel } from "./ui/toolbar";
 import { renderChatPanelShell, unmountChatPanelShell } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer, type ChatMessageScrollIntent } from "./chat-message-renderer";
@@ -62,6 +60,7 @@ import {
   connectionDiagnosticsModel,
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
+  runtimeToolbarChoices,
   runtimeSnapshotForChatState,
   statusSummaryLines as buildStatusSummaryLines,
   toolbarViewModel as buildToolbarViewModel,
@@ -1168,8 +1167,12 @@ export class CodexChatView extends ItemView {
       configuredCommand: this.plugin.settings.codexPath,
       archiveConfirmThreadId: this.archiveConfirmThreadId,
       archiveExportEnabled: this.plugin.settings.archiveExportEnabled,
-      modelChoices: this.modelToolbarChoices(),
-      effortChoices: this.effortToolbarChoices(),
+      ...runtimeToolbarChoices({
+        state: this.state,
+        snapshot: this.runtimeSnapshot(),
+        setRequestedModel: (model) => void this.setRequestedModelFromUi(model),
+        setRequestedReasoningEffort: (effort) => void this.setRequestedReasoningEffortFromUi(effort),
+      }),
       renameState: (threadId) => this.threadRename.editState(threadId),
     });
   }
@@ -1193,39 +1196,6 @@ export class CodexChatView extends ItemView {
     } catch (error) {
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
-  }
-
-  private modelToolbarChoices(): ToolbarChoice[] {
-    const snapshot = this.runtimeSnapshot();
-    const config = readRuntimeConfig(this.state.effectiveConfig);
-    const activeModel = currentModel(snapshot, config);
-    const models = sortedAvailableModels(this.state.availableModels);
-    const choices: ToolbarChoice[] = [
-      ...models.slice(0, 12).map((model) => ({
-        label: model.model,
-        selected: activeModel === model.model,
-        onClick: () => void this.setRequestedModelFromUi(model.model),
-      })),
-    ];
-    if (models.length === 0) {
-      choices.push({
-        label: "No model list available.",
-        disabled: true,
-        onClick: () => undefined,
-      });
-    }
-    return choices;
-  }
-
-  private effortToolbarChoices(): ToolbarChoice[] {
-    const snapshot = this.runtimeSnapshot();
-    const config = readRuntimeConfig(this.state.effectiveConfig);
-    const activeEffort = currentReasoningEffort(snapshot, config);
-    return supportedReasoningEfforts(snapshot).map((effort) => ({
-      label: effort,
-      selected: activeEffort === effort,
-      onClick: () => void this.setRequestedReasoningEffortFromUi(effort),
-    }));
   }
 
   private toggleHistoryPanel(): void {
