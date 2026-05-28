@@ -3,7 +3,7 @@ import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort
 
 export type SelectionRewriteStatus = "editing-prompt" | "generating" | "preview" | "applied" | "cancelled" | "failed";
 
-export interface SelectionRewriteSession {
+export interface SelectionRewriteState {
   filePath: string;
   targetRange: {
     from: EditorPosition;

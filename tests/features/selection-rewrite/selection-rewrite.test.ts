@@ -9,7 +9,7 @@ import {
   isSelectionRewriteGenerateKey,
   type SelectionRewriteGenerateKeyEvent,
 } from "../../../src/features/selection-rewrite/keys";
-import { canApplySelectionRewrite, type SelectionRewriteSession } from "../../../src/features/selection-rewrite/model";
+import { canApplySelectionRewrite, type SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
 import {
   parseSelectionRewriteOutput,
   selectionRewriteOutputFromTurn,
@@ -68,7 +68,7 @@ describe("selection selection rewrite output", () => {
 
 describe("selection rewrite prompt", () => {
   it("always includes note context with the selected text", () => {
-    const prompt = buildSelectionRewritePrompt(session());
+    const prompt = buildSelectionRewritePrompt(rewriteState());
 
     expect(prompt).toContain("Context mode: Selection + note context");
     expect(prompt).toContain("Current note context:");
@@ -77,7 +77,7 @@ describe("selection rewrite prompt", () => {
 
   it("uses fences that cannot be closed by note code blocks", () => {
     const prompt = buildSelectionRewritePrompt(
-      session({
+      rewriteState({
         originalText: "```ts\nconst value = 1;\n```",
         noteText: "````markdown\n```ts\nconst value = 1;\n```\n````",
       }),
@@ -137,7 +137,7 @@ describe("selection rewrite apply guard", () => {
 
 describe("selection rewrite popover", () => {
   it("enables Generate only after the instruction has content", () => {
-    const popover = new SelectionRewritePopover(popoverOptions({ session: session({ instruction: "" }) }));
+    const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
 
     popover.open();
 
@@ -162,7 +162,9 @@ describe("selection rewrite popover", () => {
       options.onPreview?.("Rewritten sentence.");
       return { replacementText: "Rewritten sentence." };
     });
-    const popover = new SelectionRewritePopover(popoverOptions({ editor: editor.editor, onClose, session: session({ instruction: "" }) }));
+    const popover = new SelectionRewritePopover(
+      popoverOptions({ editor: editor.editor, onClose, state: rewriteState({ instruction: "" }) }),
+    );
 
     popover.open();
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
@@ -257,7 +259,7 @@ describe("selection rewrite keys", () => {
   });
 });
 
-function session(overrides: Partial<SelectionRewriteSession> = {}): SelectionRewriteSession {
+function rewriteState(overrides: Partial<SelectionRewriteState> = {}): SelectionRewriteState {
   return {
     filePath: "Note.md",
     targetRange: {
@@ -284,7 +286,7 @@ function popoverOptions(
     editor: editorFixture().editor,
     runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
     sendShortcut: "enter",
-    session: session(),
+    state: rewriteState(),
     ...overrides,
   };
 }

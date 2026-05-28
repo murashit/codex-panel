@@ -1,4 +1,4 @@
-import type { SelectionRewriteSession } from "./model";
+import type { SelectionRewriteState } from "./model";
 
 const MAX_NOTE_CONTEXT_CHARS = 20_000;
 
@@ -12,7 +12,7 @@ export const SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS = [
   "Preserve Obsidian-specific syntax such as wikilinks, block ids, callouts, frontmatter-like text, and Dataview blocks unless the user's instruction explicitly asks to change them.",
 ].join("\n");
 
-export function buildSelectionRewritePrompt(session: SelectionRewriteSession): string {
+export function buildSelectionRewritePrompt(state: SelectionRewriteState): string {
   return [
     "Rewrite the selected text according to the user's instruction.",
     "",
@@ -23,18 +23,18 @@ export function buildSelectionRewritePrompt(session: SelectionRewriteSession): s
     "- Preserve the language and style of the surrounding note unless instructed otherwise.",
     "",
     "Target:",
-    `- File: ${session.filePath}`,
-    `- Selection: ${positionLabel(session.targetRange.from)} to ${positionLabel(session.targetRange.to)}`,
+    `- File: ${state.filePath}`,
+    `- Selection: ${positionLabel(state.targetRange.from)} to ${positionLabel(state.targetRange.to)}`,
     "- Context mode: Selection + note context",
     "",
     "User instruction:",
-    session.instruction,
+    state.instruction,
     "",
     "Selected text:",
-    fenced(session.originalText),
+    fenced(state.originalText),
     "",
     "Current note context:",
-    fenced(truncateNoteContext(session.noteText)),
+    fenced(truncateNoteContext(state.noteText)),
     "",
     "Reminder: use the note context only to make the selected-text replacement coherent.",
   ].join("\n");

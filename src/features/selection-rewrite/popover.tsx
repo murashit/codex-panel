@@ -8,7 +8,7 @@ import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { isSelectionRewriteActionKey, isSelectionRewriteGenerateKey } from "./keys";
-import { canApplySelectionRewrite, type SelectionRewriteRuntimeSettings, type SelectionRewriteSession } from "./model";
+import { canApplySelectionRewrite, type SelectionRewriteRuntimeSettings, type SelectionRewriteState } from "./model";
 import { SelectionRewriteOutputError } from "./output";
 import { positionSelectionRewritePopover } from "./position";
 import { buildSelectionRewritePrompt } from "./prompt";
@@ -24,7 +24,7 @@ export interface SelectionRewritePopoverOptions {
   onClose?: () => void;
   runtimeSettings: SelectionRewriteRuntimeSettings;
   sendShortcut: SendShortcut;
-  session: SelectionRewriteSession;
+  state: SelectionRewriteState;
 }
 
 type Cleanup = () => void;
@@ -44,7 +44,7 @@ export class SelectionRewritePopover {
   private statusActive = false;
 
   constructor(private readonly options: SelectionRewritePopoverOptions) {
-    this.instructionDraft = options.session.instruction;
+    this.instructionDraft = options.state.instruction;
   }
 
   open(): void {
@@ -80,8 +80,8 @@ export class SelectionRewritePopover {
 
   close(): void {
     const hadElements = this.elements !== null;
-    if (!hadElements && this.options.session.status !== "generating") return;
-    if (this.options.session.status === "generating") {
+    if (!hadElements && this.options.state.status !== "generating") return;
+    if (this.options.state.status === "generating") {
       this.abortController?.abort();
     }
     for (const cleanup of this.cleanups.splice(0)) cleanup();
@@ -94,7 +94,7 @@ export class SelectionRewritePopover {
   }
 
   private async generate(): Promise<void> {
-    if (this.options.session.status === "generating") return;
+    if (this.options.state.status === "generating") return;
     const instruction = this.instructionDraft.trim();
     if (!instruction) {
       new Notice("Enter a rewrite instruction first.");
@@ -112,7 +112,7 @@ export class SelectionRewritePopover {
       const output = await runSelectionRewrite({
         codexPath: this.options.codexPath,
         cwd: this.options.cwd,
-        prompt: buildSelectionRewritePrompt(this.options.session),
+        prompt: buildSelectionRewritePrompt(this.options.state),
         runtimeSettings: this.options.runtimeSettings,
         onActivity: (activity) => {
           this.updateActivity(activity);
@@ -126,26 +126,26 @@ export class SelectionRewritePopover {
       this.showSelectionRewritePreview(output.replacementText);
     } catch (error) {
       if (abortController.signal.aborted) {
-        this.options.session.status = "cancelled";
+        this.options.state.status = "cancelled";
         return;
       }
       this.showGenerationFailure(error);
     } finally {
       if (this.abortController === abortController) this.abortController = null;
       this.syncControls();
-      if (this.options.session.status === "preview") this.focusApplyButton();
+      if (this.options.state.status === "preview") this.focusApplyButton();
       this.position();
     }
   }
 
   private cancel(): void {
-    this.options.session.status = "cancelled";
+    this.options.state.status = "cancelled";
     this.abortController?.abort();
     this.close();
   }
 
   private updatePreview(text: string): void {
-    this.options.session.streamText = text;
+    this.options.state.streamText = text;
     this.setStatus("Writing replacement", { active: true });
     this.position();
   }
@@ -164,42 +164,42 @@ export class SelectionRewritePopover {
   }
 
   private startGeneration(instruction: string): void {
-    this.options.session.instruction = instruction;
-    this.options.session.status = "generating";
-    this.options.session.streamText = "";
-    this.options.session.replacementText = null;
-    this.options.session.debugText = null;
+    this.options.state.instruction = instruction;
+    this.options.state.status = "generating";
+    this.options.state.streamText = "";
+    this.options.state.replacementText = null;
+    this.options.state.debugText = null;
     this.renderView();
   }
 
   private showSelectionRewritePreview(replacementText: string): void {
-    this.options.session.replacementText = replacementText;
-    this.options.session.status = "preview";
-    this.options.session.streamText = "";
+    this.options.state.replacementText = replacementText;
+    this.options.state.status = "preview";
+    this.options.state.streamText = "";
     this.setStatus("");
   }
 
   private showGenerationFailure(error: unknown): void {
-    this.options.session.status = "failed";
-    this.options.session.debugText = error instanceof SelectionRewriteOutputError ? error.rawText : null;
-    this.options.session.streamText = "";
+    this.options.state.status = "failed";
+    this.options.state.debugText = error instanceof SelectionRewriteOutputError ? error.rawText : null;
+    this.options.state.streamText = "";
     this.setStatus(error instanceof Error ? error.message : String(error));
   }
 
   private apply(): void {
-    const replacement = this.options.session.replacementText;
+    const replacement = this.options.state.replacementText;
     if (replacement === null) return;
 
-    const { editor, session } = this.options;
-    const currentText = editor.getRange(session.targetRange.from, session.targetRange.to);
-    if (!canApplySelectionRewrite(currentText, session.originalText)) {
+    const { editor, state } = this.options;
+    const currentText = editor.getRange(state.targetRange.from, state.targetRange.to);
+    if (!canApplySelectionRewrite(currentText, state.originalText)) {
       new Notice("Selection changed. Generate the rewrite again before applying.");
       this.setStatus("Selection changed. Generate the rewrite again before applying.");
       return;
     }
 
-    editor.replaceRange(replacement, session.targetRange.from, session.targetRange.to, "codex-panel-rewrite");
-    session.status = "applied";
+    editor.replaceRange(replacement, state.targetRange.from, state.targetRange.to, "codex-panel-rewrite");
+    state.status = "applied";
     this.close();
   }
 
@@ -233,17 +233,17 @@ export class SelectionRewritePopover {
 
   private renderView(elements: SelectionRewriteElements | null = this.elements): void {
     if (!elements) return;
-    const session = this.options.session;
-    const replacement = session.replacementText;
+    const state = this.options.state;
+    const replacement = state.replacementText;
     renderReactRoot(
       elements.root,
       <SelectionRewritePopoverView
         applyButtonRef={(element) => {
           elements.applyButton = element;
         }}
-        debugText={session.debugText}
-        diff={replacement === null ? null : buildSelectionUnifiedDiff(session.filePath, session.originalText, replacement)}
-        generating={session.status === "generating"}
+        debugText={state.debugText}
+        diff={replacement === null ? null : buildSelectionUnifiedDiff(state.filePath, state.originalText, replacement)}
+        generating={state.status === "generating"}
         hasInstruction={Boolean(this.instructionDraft.trim())}
         hasReplacement={replacement !== null}
         instruction={this.instructionDraft}
@@ -264,7 +264,7 @@ export class SelectionRewritePopover {
           this.position();
         }}
         onInstructionKeyDown={(event) => {
-          const hasReplacement = this.options.session.replacementText !== null;
+          const hasReplacement = this.options.state.replacementText !== null;
           if (
             !(hasReplacement
               ? isSelectionRewriteActionKey(event.nativeEvent)
@@ -283,7 +283,7 @@ export class SelectionRewritePopover {
         }}
         statusActive={this.statusActive}
         statusText={this.statusText}
-        streamPreview={session.streamText.trim()}
+        streamPreview={state.streamText.trim()}
       />,
     );
   }

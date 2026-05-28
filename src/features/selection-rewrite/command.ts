@@ -1,6 +1,6 @@
 import { MarkdownView, Notice, type Editor, type Plugin } from "obsidian";
 
-import type { SelectionRewriteRuntimeSettings, SelectionRewriteSession } from "./model";
+import type { SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
 import { SelectionRewritePopover } from "./popover";
 import type { SendShortcut } from "../../shared/ui/keyboard";
 
@@ -35,7 +35,7 @@ export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandH
         return;
       }
 
-      const session: SelectionRewriteSession = {
+      const rewriteState: SelectionRewriteState = {
         filePath: view.file.path,
         targetRange: {
           from: clonePosition(editor.getCursor("from")),
@@ -57,7 +57,7 @@ export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandH
         onClose: () => activePopovers.delete(popover),
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,
-        session,
+        state: rewriteState,
       });
       popover.open();
       activePopovers.add(popover);
