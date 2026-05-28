@@ -1,13 +1,5 @@
 import { parseObsidianWikiLink } from "../obsidian/wikilinks";
 
-export function shortSignature(value: string): string {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) | 0;
-  }
-  return Math.abs(hash).toString(36);
-}
-
 export function renderTextWithWikiLinks(parent: HTMLElement, text: string, openLink: (target: string) => void): void {
   const wikilinkPattern = /\[\[([^\]\n]+?)\]\]/g;
   const doc = parent.ownerDocument;

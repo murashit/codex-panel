@@ -2,7 +2,7 @@ import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsi
 
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
-import { reportedServiceTier, requestedServiceTierRequestValue, type RequestedServiceTier } from "../../app-server/service-tier";
+import { parseServiceTier, requestedServiceTierRequestValue, type RequestedServiceTier } from "../../app-server/service-tier";
 import type { ApprovalAction, PendingApproval } from "./approvals/model";
 import type { SlashCommandName } from "./composer/slash-commands";
 import { parseSlashCommand } from "./composer/suggestions";
@@ -662,7 +662,7 @@ export class CodexChatView extends ItemView {
       cwd: response.cwd,
       model: response.model,
       reasoningEffort: response.reasoningEffort,
-      serviceTier: reportedServiceTier(response.serviceTier),
+      serviceTier: parseServiceTier(response.serviceTier),
       approvalPolicy: response.approvalPolicy,
       approvalsReviewer: response.approvalsReviewer,
       activePermissionProfile: response.activePermissionProfile,

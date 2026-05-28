@@ -3,11 +3,12 @@ import { useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "rea
 
 import { renderDisplayDiffLines } from "../../shared/diff/render";
 import { displayDiffLines } from "../../shared/diff/unified";
+import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
 import { IconButton } from "../../shared/ui/react-components";
 import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
-import { isSelectionRewriteActionKey, isSelectionRewriteGenerateKey } from "./keys";
+import { isSelectionRewriteActionKey } from "./keys";
 import {
   canApplySelectionRewrite,
   transitionSelectionRewriteState,
@@ -19,7 +20,6 @@ import { SelectionRewriteOutputError } from "./output";
 import { positionSelectionRewritePopover } from "./position";
 import { buildSelectionRewritePrompt } from "./prompt";
 import { runSelectionRewrite, type SelectionRewriteActivity } from "./runner";
-import type { SendShortcut } from "../../shared/ui/keyboard";
 
 const POPOVER_MARGIN = 8;
 
@@ -288,7 +288,7 @@ export class SelectionRewritePopover {
           if (
             !(hasReplacement
               ? isSelectionRewriteActionKey(event.nativeEvent)
-              : isSelectionRewriteGenerateKey(event.nativeEvent, this.options.sendShortcut))
+              : isComposerSendKey(event.nativeEvent, this.options.sendShortcut))
           ) {
             return;
           }

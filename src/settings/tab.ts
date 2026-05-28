@@ -14,7 +14,6 @@ import {
   createSettingsDynamicSectionLifecycle,
   loadHookData,
   loadSettingsData,
-  settingsDataRefreshLoading,
   transitionSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
   type SettingsDataRefreshLifecycleState,
@@ -345,7 +344,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private settingsDataLoading(): boolean {
-    return settingsDataRefreshLoading(this.settingsDataRefreshLifecycle);
+    return this.settingsDataRefreshLifecycle.kind === "loading";
   }
 
   private async loadHooks(): Promise<void> {

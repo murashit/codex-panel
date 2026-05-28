@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { renderTextWithWikiLinks, shortSignature } from "../../../../src/shared/ui/dom";
+import { renderTextWithWikiLinks } from "../../../../src/shared/ui/dom";
 import { installObsidianDomShims } from "./dom-test-helpers";
 
 installObsidianDomShims();
@@ -13,13 +13,6 @@ function expectPresent<T>(value: T | null | undefined): T {
 }
 
 describe("view DOM helpers", () => {
-  it("uses short signatures instead of embedding full text in data attributes", () => {
-    const long = "x".repeat(20_000);
-    expect(shortSignature(long).length).toBeLessThan(12);
-    expect(shortSignature(long)).toBe(shortSignature(long));
-    expect(shortSignature(`${long}y`)).not.toBe(shortSignature(long));
-  });
-
   it("renders wiki links and opens the target on click", () => {
     const parent = document.createElement("div");
     const openLink = vi.fn();

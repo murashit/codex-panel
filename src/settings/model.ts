@@ -35,7 +35,7 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
   const record = asRecord(data);
   return {
     codexPath: stringOrDefault(record["codexPath"], DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH,
-    threadNamingModel: threadNamingModelOrDefault(record["threadNamingModel"]),
+    threadNamingModel: modelOrDefault(record["threadNamingModel"]),
     threadNamingEffort: reasoningEffortOrDefault(record["threadNamingEffort"]),
     rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"]),
     rewriteSelectionEffort: reasoningEffortOrDefault(record["rewriteSelectionEffort"]),
@@ -79,10 +79,6 @@ function stringOrDefault(value: unknown, fallback: string): string {
 
 function booleanOrDefault(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
-}
-
-function threadNamingModelOrDefault(value: unknown): string | null {
-  return modelOrDefault(value);
 }
 
 function modelOrDefault(value: unknown): string | null {

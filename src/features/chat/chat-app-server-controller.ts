@@ -6,7 +6,7 @@ import {
   upsertMcpServerDiagnostic,
   type CapabilityProbeMethod,
 } from "../../app-server/compatibility";
-import { reportedServiceTier } from "../../app-server/service-tier";
+import { parseServiceTier } from "../../app-server/service-tier";
 import type { McpServerStatus } from "../../generated/app-server/v2/McpServerStatus";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
@@ -105,7 +105,7 @@ export class ChatAppServerController {
       cwd: response.cwd,
       model: response.model,
       reasoningEffort: response.reasoningEffort,
-      serviceTier: reportedServiceTier(response.serviceTier),
+      serviceTier: parseServiceTier(response.serviceTier),
       approvalPolicy: response.approvalPolicy,
       approvalsReviewer: response.approvalsReviewer,
       activePermissionProfile: response.activePermissionProfile,

@@ -1,5 +1,5 @@
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "./approvals/model";
-import { reportedServiceTier } from "../../app-server/service-tier";
+import { parseServiceTier } from "../../app-server/service-tier";
 import { planProgressDisplayItem } from "./display/plan";
 import { createAutoReviewResultItem, createReviewResultItem } from "./display/review";
 import {
@@ -457,7 +457,7 @@ export class ChatController {
       model: settings.model,
       reasoningEffort: settings.effort,
       collaborationMode: settings.collaborationMode.mode,
-      serviceTier: reportedServiceTier(settings.serviceTier),
+      serviceTier: parseServiceTier(settings.serviceTier),
       approvalPolicy: settings.approvalPolicy,
       approvalsReviewer: settings.approvalsReviewer,
       activePermissionProfile: settings.activePermissionProfile,

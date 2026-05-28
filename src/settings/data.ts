@@ -56,10 +56,6 @@ export function transitionSettingsDataRefreshLifecycle(
   }
 }
 
-export function settingsDataRefreshLoading(state: SettingsDataRefreshLifecycleState): boolean {
-  return state.kind === "loading";
-}
-
 export function createSettingsDynamicSectionLifecycle(): SettingsDynamicSectionLifecycleState {
   return { kind: "idle", status: "" };
 }

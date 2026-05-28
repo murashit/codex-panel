@@ -6,8 +6,6 @@ import { IconButton } from "../../../shared/ui/react-components";
 import { renderReactRoot } from "../../../shared/ui/react-root";
 import { shortThreadId } from "../../../utils";
 
-export { displayDiffLines } from "../../../shared/diff/unified";
-
 export interface ChatTurnDiffViewState {
   threadId: string;
   turnId: string;
@@ -129,7 +127,7 @@ function UnifiedDiff({ diff }: { diff: string }): ReactNode {
   return <div ref={ref} />;
 }
 
-export function renderUnifiedDiff(parent: HTMLElement, diff: string): HTMLElement {
+function renderUnifiedDiff(parent: HTMLElement, diff: string): HTMLElement {
   return renderDisplayDiffLines(parent, displayDiffLines(diff), { className: "codex-panel-chat-turn-diff__diff" });
 }
 

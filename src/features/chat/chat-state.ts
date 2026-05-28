@@ -18,7 +18,7 @@ import type { ComposerSuggestion } from "./composer/suggestions";
 import type { DisplayItem } from "./display/types";
 import { upsertDisplayItem } from "./display/stream-updates";
 import type { PendingUserInput } from "./user-input/model";
-import { reportedServiceTier, type RequestedServiceTier, type ServiceTier } from "../../app-server/service-tier";
+import { parseServiceTier, type RequestedServiceTier, type ServiceTier } from "../../app-server/service-tier";
 import { defaultRuntimeOverride, resetRuntimeOverride, setRuntimeOverride, type RuntimeOverride } from "../../runtime/state";
 
 export interface PendingTurnStart {
@@ -717,7 +717,7 @@ function commitPendingThreadSettings(state: ChatState, update: Omit<ThreadSettin
     ...("effort" in update
       ? { activeReasoningEffort: update.effort ?? null, requestedReasoningEffort: defaultRuntimeOverride<ReasoningEffort>() }
       : {}),
-    ...("serviceTier" in update ? { activeServiceTier: reportedServiceTier(update.serviceTier), requestedServiceTier: null } : {}),
+    ...("serviceTier" in update ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedServiceTier: null } : {}),
     ...("approvalsReviewer" in update
       ? { activeApprovalsReviewer: update.approvalsReviewer ?? null, requestedApprovalsReviewer: null }
       : {}),

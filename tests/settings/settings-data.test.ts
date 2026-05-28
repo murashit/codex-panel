@@ -5,7 +5,6 @@ import {
   createSettingsDynamicSectionLifecycle,
   loadHookData,
   loadSettingsData,
-  settingsDataRefreshLoading,
   transitionSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
 } from "../../src/settings/data";
@@ -16,12 +15,10 @@ describe("settings data", () => {
 
     const loading = transitionSettingsDataRefreshLifecycle(idle, { type: "started" });
     expect(loading).toEqual({ kind: "loading" });
-    expect(settingsDataRefreshLoading(loading)).toBe(true);
     expect(transitionSettingsDataRefreshLifecycle(loading, { type: "started" })).toBe(loading);
 
     const completed = transitionSettingsDataRefreshLifecycle(loading, { type: "completed", failedCount: 2 });
     expect(completed).toEqual({ kind: "completed", failedCount: 2 });
-    expect(settingsDataRefreshLoading(completed)).toBe(false);
   });
 
   it("tracks dynamic section lifecycle", () => {

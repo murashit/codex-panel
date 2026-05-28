@@ -11,7 +11,8 @@ import {
 } from "../../../../src/features/chat/ui/composer";
 import { renderToolbar, type ToolbarViewModel } from "../../../../src/features/chat/ui/toolbar";
 import { CodexChatTurnDiffView } from "../../../../src/features/chat/chat-turn-diff-view";
-import { displayDiffLines, persistedChatTurnDiffViewState, renderChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff";
+import { persistedChatTurnDiffViewState, renderChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff";
+import { displayDiffLines } from "../../../../src/shared/diff/unified";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "./dom-test-helpers";
 import { renderThreadsView } from "../../../../src/features/threads-view/renderer";
 import { liveStateForSnapshots, threadRows, type ThreadsRowModel } from "../../../../src/features/threads-view/state";

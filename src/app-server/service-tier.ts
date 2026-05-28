@@ -7,10 +7,6 @@ export function parseServiceTier(value: unknown): ServiceTier | null {
   return null;
 }
 
-export function reportedServiceTier(value: string | null | undefined): ServiceTier | null {
-  return parseServiceTier(value);
-}
-
 export function requestedServiceTierRequestValue(value: RequestedServiceTier | null): "fast" | null | undefined {
   if (value === "fast") return "fast";
   if (value === "off") return null;

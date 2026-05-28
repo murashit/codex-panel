@@ -23,11 +23,6 @@ export interface CapabilityProbeResult {
   checkedAt: number | null;
 }
 
-export type CapabilityProbeLifecycleEvent =
-  | { type: "reset" }
-  | { type: "succeeded"; summary: string | null; checkedAt: number }
-  | { type: "failed"; error: unknown; checkedAt: number };
-
 export interface McpServerDiagnostic {
   name: string;
   startupStatus: McpServerStartupState | "unknown";
@@ -66,34 +61,23 @@ export function capabilityProbeOk(
   summary: string | null = null,
   checkedAt = Date.now(),
 ): CapabilityProbeResult {
-  return transitionCapabilityProbeResult(createCapabilityProbeResult(method), { type: "succeeded", summary, checkedAt });
+  return {
+    method,
+    status: "ok",
+    message: null,
+    summary,
+    checkedAt,
+  };
 }
 
 export function capabilityProbeError(method: CapabilityProbeMethod, error: unknown, checkedAt = Date.now()): CapabilityProbeResult {
-  return transitionCapabilityProbeResult(createCapabilityProbeResult(method), { type: "failed", error, checkedAt });
-}
-
-export function transitionCapabilityProbeResult(probe: CapabilityProbeResult, event: CapabilityProbeLifecycleEvent): CapabilityProbeResult {
-  switch (event.type) {
-    case "reset":
-      return createCapabilityProbeResult(probe.method);
-    case "succeeded":
-      return {
-        ...probe,
-        status: "ok",
-        message: null,
-        summary: event.summary,
-        checkedAt: event.checkedAt,
-      };
-    case "failed":
-      return {
-        ...probe,
-        status: "failed",
-        message: shortErrorMessage(event.error),
-        summary: null,
-        checkedAt: event.checkedAt,
-      };
-  }
+  return {
+    method,
+    status: "failed",
+    message: shortErrorMessage(error),
+    summary: null,
+    checkedAt,
+  };
 }
 
 export function appServerIdentity(initializeResponse: InitializeResponse | null): string {

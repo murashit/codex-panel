@@ -4,11 +4,7 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
-import {
-  isSelectionRewriteActionKey,
-  isSelectionRewriteGenerateKey,
-  type SelectionRewriteGenerateKeyEvent,
-} from "../../../src/features/selection-rewrite/keys";
+import { isSelectionRewriteActionKey } from "../../../src/features/selection-rewrite/keys";
 import {
   canApplySelectionRewrite,
   transitionSelectionRewriteState,
@@ -38,6 +34,7 @@ import type { ReasoningEffort } from "../../../src/generated/app-server/Reasonin
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { ComposerSendKeyEvent } from "../../../src/shared/ui/keyboard";
 import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
@@ -379,7 +376,7 @@ describe("selection selection rewrite runtime", () => {
 });
 
 describe("selection rewrite keys", () => {
-  const baseEvent: SelectionRewriteGenerateKeyEvent = {
+  const baseEvent: ComposerSendKeyEvent = {
     key: "Enter",
     shiftKey: false,
     metaKey: false,
@@ -387,18 +384,6 @@ describe("selection rewrite keys", () => {
     altKey: false,
     isComposing: false,
   };
-
-  it("generates on plain Enter in Enter mode", () => {
-    expect(isSelectionRewriteGenerateKey(baseEvent, "enter")).toBe(true);
-    expect(isSelectionRewriteGenerateKey({ ...baseEvent, shiftKey: true }, "enter")).toBe(false);
-    expect(isSelectionRewriteGenerateKey({ ...baseEvent, metaKey: true }, "enter")).toBe(false);
-  });
-
-  it("generates on Cmd/Ctrl+Enter in mod-enter mode", () => {
-    expect(isSelectionRewriteGenerateKey({ ...baseEvent, metaKey: true }, "mod-enter")).toBe(true);
-    expect(isSelectionRewriteGenerateKey({ ...baseEvent, ctrlKey: true }, "mod-enter")).toBe(true);
-    expect(isSelectionRewriteGenerateKey(baseEvent, "mod-enter")).toBe(false);
-  });
 
   it("treats plain Enter and Cmd/Ctrl+Enter as preview action keys", () => {
     expect(isSelectionRewriteActionKey(baseEvent)).toBe(true);
