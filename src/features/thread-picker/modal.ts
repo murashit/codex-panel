@@ -25,7 +25,7 @@ type ThreadOpenMode = "current" | "available";
 
 const MAX_THREAD_PICKER_SUGGESTIONS = 20;
 
-export const THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS = { capture: true } as const;
+const THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS = { capture: true } as const;
 
 export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
   try {

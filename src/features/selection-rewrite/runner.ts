@@ -3,7 +3,6 @@ import {
   createStructuredTurnRunLifecycle,
   structuredTurnRunMatches,
   transitionStructuredTurnRunLifecycle,
-  type StructuredTurnRunLifecycleState,
 } from "../../app-server/structured-turn-run-lifecycle";
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { RequestId } from "../../generated/app-server/RequestId";
@@ -85,7 +84,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     handleNotification = (notification): void => {
       if (lifecycle.kind === "completed") return;
       if (notification.method === "item/agentMessage/delta") {
-        if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turnId)) return;
+        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turnId)) return;
         options.onActivity?.("writing");
         preview += notification.params.delta;
         options.onPreview?.(preview);
@@ -96,17 +95,17 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
         notification.method === "item/reasoning/textDelta" ||
         notification.method === "item/reasoning/summaryPartAdded"
       ) {
-        if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turnId)) return;
+        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turnId)) return;
         options.onActivity?.("reasoning");
         return;
       }
       if (notification.method === "item/completed") {
-        if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turnId)) return;
+        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turnId)) return;
         completedItems.push(notification.params.item);
         return;
       }
       if (notification.method === "turn/completed") {
-        if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
+        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
         lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
         resolve(turnWithCollectedItems(notification.params.turn, completedItems));
       }
@@ -168,10 +167,6 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     if (timeout !== undefined) window.clearTimeout(timeout);
     client.disconnect();
   }
-}
-
-function notificationMatchesSelectionRewriteTurn(lifecycle: StructuredTurnRunLifecycleState, threadId: string, turnId: string): boolean {
-  return structuredTurnRunMatches(lifecycle, threadId, turnId);
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {

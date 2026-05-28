@@ -16,7 +16,6 @@ import {
   createStructuredTurnRunLifecycle,
   structuredTurnRunMatches,
   transitionStructuredTurnRunLifecycle,
-  type StructuredTurnRunLifecycleState,
 } from "./structured-turn-run-lifecycle";
 
 const NAMING_SERVICE_NAME = "codex-panel-naming";
@@ -90,12 +89,12 @@ export async function generateThreadTitleWithCodex(
     const resolveIfNamingTurn = (notification: ServerNotification): void => {
       if (lifecycle.kind === "completed") return;
       if (notification.method === "item/completed") {
-        if (!notificationMatchesThreadNamingTurn(lifecycle, notification.params.threadId, notification.params.turnId)) return;
+        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turnId)) return;
         completedItems.push(notification.params.item);
         return;
       }
       if (notification.method === "turn/completed") {
-        if (!notificationMatchesThreadNamingTurn(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
+        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
         lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
         resolve(turnWithCollectedItems(notification.params.turn, completedItems));
       }
@@ -163,10 +162,6 @@ export function validatedNamingRuntime(settings: ThreadNamingRuntimeSettings, mo
 function turnWithCollectedItems(turn: Turn, items: ThreadItem[]): Turn {
   if (turn.items.length > 0 || items.length === 0) return turn;
   return { ...turn, items: [...items], itemsView: "full" };
-}
-
-function notificationMatchesThreadNamingTurn(lifecycle: StructuredTurnRunLifecycleState, threadId: string, turnId: string): boolean {
-  return structuredTurnRunMatches(lifecycle, threadId, turnId);
 }
 
 async function namingRuntimeForClient(client: ThreadNamingClient, settings: ThreadNamingRuntimeSettings): Promise<NamingRuntime> {

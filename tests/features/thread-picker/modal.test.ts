@@ -3,11 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import {
-  THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS,
-  threadOpenModeFromEvent,
-  threadPickerSuggestions,
-} from "../../../src/features/thread-picker/modal";
+import { threadOpenModeFromEvent, threadPickerSuggestions } from "../../../src/features/thread-picker/modal";
 
 describe("threadPickerSuggestions", () => {
   it("orders title and id prefix matches before looser matches", () => {
@@ -39,12 +35,6 @@ describe("threadOpenModeFromEvent", () => {
   it("uses an available panel for Cmd/Ctrl+Enter", () => {
     expect(threadOpenModeFromEvent(new KeyboardEvent("keydown", { key: "Enter", metaKey: true }))).toBe("available");
     expect(threadOpenModeFromEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true }))).toBe("available");
-  });
-});
-
-describe("THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS", () => {
-  it("captures modifier Enter before the default SuggestModal handler can select", () => {
-    expect(THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS).toEqual({ capture: true });
   });
 });
 

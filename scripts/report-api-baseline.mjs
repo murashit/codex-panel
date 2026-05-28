@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { readJson } from "./release-utils.mjs";
 
 const args = new Set(process.argv.slice(2));
 const shouldCheck = args.has("--check");
@@ -11,10 +12,6 @@ function fail(message) {
 
 function warn(message) {
   warnings.push(message);
-}
-
-async function readJson(path) {
-  return JSON.parse(await readFile(path, "utf8"));
 }
 
 function parseSemver(value) {
