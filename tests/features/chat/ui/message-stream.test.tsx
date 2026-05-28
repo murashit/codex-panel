@@ -257,7 +257,7 @@ describe("message stream block identity and message actions", () => {
 
     const empty = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message--system"));
     expect(empty.classList.contains("codex-panel__message")).toBe(true);
-    expect(empty.textContent).toBe("Send a message to start a new thread.");
+    expect(empty.textContent).toBe("Send a message to start a conversation.");
     unmountReactRoot(parent);
   });
 

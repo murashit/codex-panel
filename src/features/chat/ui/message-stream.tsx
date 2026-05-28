@@ -157,7 +157,7 @@ function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolea
 }
 
 function EmptyMessage(): ReactNode {
-  return <div className="codex-panel__message codex-panel__message--system">Send a message to start a new thread.</div>;
+  return <div className="codex-panel__message codex-panel__message--system">Send a message to start a conversation.</div>;
 }
 
 function ActivityGroup({

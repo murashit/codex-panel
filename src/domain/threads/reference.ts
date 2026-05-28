@@ -41,7 +41,7 @@ export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTu
   return [
     ...heading,
     "",
-    "Reference conversation:",
+    "Reference thread history:",
     ...turns.flatMap((turn, index) => {
       const lines = [`Turn ${String(index + 1)}:`];
       if (turn.userText) lines.push(`User:\n${turn.userText}`);

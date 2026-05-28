@@ -94,7 +94,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       "Included turns: 2/20",
       "Included history: user input and final Codex responses only.",
       "",
-      "Reference conversation:",
+      "Reference thread history:",
       "",
       "Turn 1:",
       "User:",

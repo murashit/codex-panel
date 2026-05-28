@@ -107,7 +107,7 @@ function lastAssistantMessage(items: ThreadItem[]): string | null {
 
 export function namingPrompt(context: ThreadNamingContext): string {
   return [
-    "Create a history title for the following Codex conversation.",
+    "Create a thread title for the following Codex thread.",
     "",
     "Requirements:",
     "- First infer the main language of the user's initial request. This does not need to be strict; use the dominant language if mixed.",

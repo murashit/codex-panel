@@ -124,7 +124,7 @@ describe("thread archive export", () => {
 
     expect(output).toContain("続きです");
     expect(output).toContain("> Referenced: 参照元 (1/20 turns, thread-ref)");
-    expect(output).not.toContain("Reference conversation:");
+    expect(output).not.toContain("Reference thread history:");
     expect(output).not.toContain("元の依頼");
   });
 

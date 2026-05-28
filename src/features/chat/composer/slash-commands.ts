@@ -16,7 +16,7 @@ export const SLASH_COMMANDS = [
   },
   { command: "/fork", usage: "/fork", argsKind: "none", detail: "Fork the active Codex thread." },
   { command: "/rollback", usage: "/rollback", argsKind: "none", detail: "Roll back the latest turn and restore its prompt." },
-  { command: "/compact", usage: "/compact", argsKind: "none", detail: "Compact the current conversation context." },
+  { command: "/compact", usage: "/compact", argsKind: "none", detail: "Compact the current thread context." },
   { command: "/archive", usage: "/archive <thread>", argsKind: "requiredThread", detail: "Archive the selected Codex thread." },
   {
     command: "/auto-review",
