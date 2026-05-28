@@ -190,22 +190,22 @@ describe("runtime settings", () => {
 
   it("uses active service tier before configured service tier", () => {
     const snapshot = runtimeSnapshot({
-      activeServiceTier: "standard",
+      activeServiceTier: "flex",
       effectiveConfig: effectiveConfigFixture({ service_tier: "fast" }),
     });
 
-    expect(currentServiceTier(snapshot)).toBe("standard");
+    expect(currentServiceTier(snapshot)).toBe("flex");
     expect(fastModeLabel(snapshot)).toBe("off");
   });
 
   it("uses requested service tier above active and configured service tiers", () => {
     const snapshot = runtimeSnapshot({
-      requestedServiceTier: "standard",
-      activeServiceTier: "standard",
+      requestedServiceTier: "off",
+      activeServiceTier: "flex",
       effectiveConfig: effectiveConfigFixture({ service_tier: "fast" }),
     });
 
-    expect(currentServiceTier(snapshot)).toBe("standard");
+    expect(currentServiceTier(snapshot)).toBeNull();
     expect(fastModeLabel(snapshot)).toBe("off");
   });
 
@@ -262,7 +262,7 @@ describe("runtime settings", () => {
       "requested effort": "(none)",
       "effective mode": "Plan",
       "requested mode": "(none)",
-      "configured service tier": "standard",
+      "configured service tier": "flex",
       "thread service tier": "(not reported)",
       "requested service tier": "(none)",
     });
@@ -432,16 +432,24 @@ describe("runtime settings", () => {
   it("serializes explicit fast off as a null service tier request", () => {
     const snapshot = runtimeSnapshot({
       effectiveConfig: effectiveConfigFixture({ service_tier: "fast" }),
-      requestedServiceTier: "standard",
+      requestedServiceTier: "off",
     });
 
-    expect(serviceTierLabel(snapshot)).toBe("standard");
+    expect(serviceTierLabel(snapshot)).toBe("(Codex default)");
     expect(fastModeLabel(snapshot)).toBe("off");
     expect(requestedOrConfiguredServiceTier(snapshot)).toBeNull();
   });
 
   it("omits service tier when neither config nor override selects one", () => {
     expect(requestedOrConfiguredServiceTier(runtimeSnapshot({ effectiveConfig: effectiveConfigFixture({}) }))).toBeUndefined();
+  });
+
+  it("passes through configured non-fast service tier ids", () => {
+    const snapshot = runtimeSnapshot({ effectiveConfig: effectiveConfigFixture({ service_tier: "flex" }) });
+
+    expect(serviceTierLabel(snapshot)).toBe("flex");
+    expect(fastModeLabel(snapshot)).toBe("off");
+    expect(requestedOrConfiguredServiceTier(snapshot)).toBe("flex");
   });
 
   it("summarizes Codex usage limits independently from context usage", () => {
@@ -532,7 +540,7 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     effectiveConfig: effectiveConfigFixture({
       model: "gpt-5.5",
       model_reasoning_effort: "high",
-      service_tier: "standard",
+      service_tier: "flex",
       model_context_window: 100_000,
     }),
     activeThreadId: null,

@@ -6,7 +6,13 @@ import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadRe
 import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
-import { serviceTierRequestValue, type ServiceTier, type ServiceTierRequest } from "../app-server/service-tier";
+import {
+  configuredServiceTierRequestValue,
+  requestedServiceTierRequestValue,
+  type RequestedServiceTier,
+  type ServiceTier,
+  type ServiceTierRequest,
+} from "../app-server/service-tier";
 import { defaultCollaborationMode, planCollaborationMode } from "./collaboration-mode";
 import { findModelByIdOrName, supportedEffortsForModel } from "./model";
 import { compactModelLabel, compactReasoningEffortLabel } from "./settings";
@@ -26,7 +32,7 @@ export interface RuntimeSnapshot {
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
   requestedApprovalsReviewer: ApprovalsReviewer | null;
   requestedCollaborationMode: ModeKind;
-  requestedServiceTier: ServiceTier | null;
+  requestedServiceTier: RequestedServiceTier | null;
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   hasThreadTurns: boolean;
@@ -42,7 +48,8 @@ export function currentServiceTier(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): string | null {
-  if (snapshot.requestedServiceTier !== null) return snapshot.requestedServiceTier;
+  if (snapshot.requestedServiceTier === "fast") return "fast";
+  if (snapshot.requestedServiceTier === "off") return null;
   return snapshot.activeServiceTier ?? config.serviceTier;
 }
 
@@ -50,7 +57,8 @@ export function requestedOrConfiguredServiceTier(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): ServiceTierRequest {
-  return serviceTierRequestValue(snapshot.requestedServiceTier ?? config.serviceTier);
+  if (snapshot.requestedServiceTier !== null) return requestedServiceTierRequestValue(snapshot.requestedServiceTier);
+  return configuredServiceTierRequestValue(config.serviceTier);
 }
 
 export function currentModel(
@@ -123,10 +131,10 @@ export function fastModeLabel(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): string {
+  if (snapshot.requestedServiceTier === "off") return "off";
   const serviceTier = currentServiceTier(snapshot, config);
   if (serviceTier === "fast") return "on";
-  if (serviceTier === "standard") return "off";
-  return "Codex default";
+  return serviceTier ? "off" : "Codex default";
 }
 
 export function defaultRuntimeOverride<T>(): RuntimeOverride<T> {

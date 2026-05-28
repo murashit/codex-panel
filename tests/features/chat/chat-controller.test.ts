@@ -1127,7 +1127,7 @@ describe("ChatController", () => {
     it("syncs null service tier from settings notifications", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
-      state.activeServiceTier = "standard";
+      state.activeServiceTier = "flex";
       const controller = controllerForState(state);
 
       controller.handleNotification({

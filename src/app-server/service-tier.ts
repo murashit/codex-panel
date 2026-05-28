@@ -1,9 +1,9 @@
-export type ServiceTier = "fast" | "standard";
-export type ServiceTierRequest = "fast" | null | undefined;
+export type ServiceTier = string;
+export type RequestedServiceTier = "fast" | "off";
+export type ServiceTierRequest = string | null | undefined;
 
 export function parseServiceTier(value: unknown): ServiceTier | null {
-  if (value === "fast") return "fast";
-  if (value === "standard") return "standard";
+  if (typeof value === "string" && value.length > 0) return value;
   return null;
 }
 
@@ -11,8 +11,12 @@ export function reportedServiceTier(value: string | null | undefined): ServiceTi
   return parseServiceTier(value);
 }
 
-export function serviceTierRequestValue(value: ServiceTier | null): ServiceTierRequest {
+export function requestedServiceTierRequestValue(value: RequestedServiceTier | null): "fast" | null | undefined {
   if (value === "fast") return "fast";
-  if (value === "standard") return null;
+  if (value === "off") return null;
   return undefined;
+}
+
+export function configuredServiceTierRequestValue(value: ServiceTier | null): string | undefined {
+  return value ?? undefined;
 }

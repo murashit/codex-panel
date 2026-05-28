@@ -2,7 +2,7 @@ import { ItemView, Notice, type ViewStateResult, type WorkspaceLeaf } from "obsi
 
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
-import { reportedServiceTier, serviceTierRequestValue, type ServiceTier } from "../../app-server/service-tier";
+import { reportedServiceTier, requestedServiceTierRequestValue, type RequestedServiceTier } from "../../app-server/service-tier";
 import type { ApprovalAction, PendingApproval } from "./approvals/model";
 import type { SlashCommandName } from "./composer/slash-commands";
 import { parseSlashCommand } from "./composer/suggestions";
@@ -941,7 +941,7 @@ export class CodexChatView extends ItemView {
       if (effort !== undefined) update.effort = effort;
     }
     if (this.state.requestedServiceTier !== null) {
-      const serviceTier = serviceTierRequestValue(this.state.requestedServiceTier);
+      const serviceTier = requestedServiceTierRequestValue(this.state.requestedServiceTier);
       if (serviceTier !== undefined) update.serviceTier = serviceTier;
     }
     if (this.state.requestedApprovalsReviewer !== null) {
@@ -963,7 +963,7 @@ export class CodexChatView extends ItemView {
 
   private async toggleFastMode(): Promise<void> {
     const current = currentServiceTier(this.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig));
-    const next: ServiceTier = current === "fast" ? "standard" : "fast";
+    const next: RequestedServiceTier = current === "fast" ? "off" : "fast";
     this.dispatch({ type: "runtime/requested-service-tier-set", serviceTier: next, activate: true });
     this.dispatch({ type: "ui/panel-set", panel: null });
     if (!(await this.applyPendingThreadSettings())) return;

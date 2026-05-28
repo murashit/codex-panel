@@ -16,7 +16,7 @@ import type { ComposerSuggestion } from "./composer/suggestions";
 import type { DisplayItem } from "./display/types";
 import { upsertDisplayItem } from "./display/stream-updates";
 import type { PendingUserInput } from "./user-input/model";
-import { reportedServiceTier, type ServiceTier } from "../../app-server/service-tier";
+import { reportedServiceTier, type RequestedServiceTier, type ServiceTier } from "../../app-server/service-tier";
 import { defaultRuntimeOverride, resetRuntimeOverride, setRuntimeOverride, type RuntimeOverride } from "../../runtime/state";
 
 export interface PendingTurnStart {
@@ -47,7 +47,7 @@ export interface ChatState {
   requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
   requestedApprovalsReviewer: ApprovalsReviewer | null;
   requestedCollaborationMode: ModeKind;
-  requestedServiceTier: ServiceTier | null;
+  requestedServiceTier: RequestedServiceTier | null;
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   displayItems: readonly DisplayItem[];
@@ -147,7 +147,7 @@ export type ChatAction =
   | { type: "request/user-input-draft-set"; key: string; value: string }
   | { type: "runtime/requested-model-set"; model: string | null }
   | { type: "runtime/requested-effort-set"; effort: ReasoningEffort | null }
-  | { type: "runtime/requested-service-tier-set"; serviceTier: ServiceTier | null; activate?: boolean }
+  | { type: "runtime/requested-service-tier-set"; serviceTier: RequestedServiceTier | null; activate?: boolean }
   | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null; activate?: boolean }
   | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: ModeKind }
   | { type: "runtime/pending-thread-settings-committed"; update: Omit<ThreadSettingsUpdateParams, "threadId"> }
@@ -343,7 +343,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "runtime/requested-service-tier-set":
       return patchChatState(state, {
         requestedServiceTier: action.serviceTier,
-        ...(action.activate ? { activeServiceTier: action.serviceTier } : {}),
+        ...(action.activate ? { activeServiceTier: action.serviceTier === "off" ? null : action.serviceTier } : {}),
       });
     case "runtime/requested-approvals-reviewer-set":
       return patchChatState(state, {
@@ -568,9 +568,7 @@ function commitPendingThreadSettings(state: ChatState, update: Omit<ThreadSettin
     ...("effort" in update
       ? { activeReasoningEffort: update.effort ?? null, requestedReasoningEffort: defaultRuntimeOverride<ReasoningEffort>() }
       : {}),
-    ...("serviceTier" in update
-      ? { activeServiceTier: state.requestedServiceTier ?? reportedServiceTier(update.serviceTier), requestedServiceTier: null }
-      : {}),
+    ...("serviceTier" in update ? { activeServiceTier: reportedServiceTier(update.serviceTier), requestedServiceTier: null } : {}),
     ...("approvalsReviewer" in update
       ? { activeApprovalsReviewer: update.approvalsReviewer ?? null, requestedApprovalsReviewer: null }
       : {}),
