@@ -27,6 +27,19 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
+function setNativeInputValue(input: HTMLInputElement, value: string): void {
+  const valueDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  if (!valueDescriptor?.set) throw new Error("Missing input value setter");
+  valueDescriptor.set.call(input, value);
+}
+
+function dispatchComposingInputValue(input: HTMLInputElement, value: string): void {
+  setNativeInputValue(input, value);
+  const event = new Event("input", { bubbles: true });
+  Object.defineProperty(event, "isComposing", { value: true });
+  input.dispatchEvent(event);
+}
+
 function testMessageStreamBlock(key: string, node: ReactNode): ReturnType<typeof rawMessageStreamBlocks>[number] {
   return { key, node };
 }
@@ -2089,6 +2102,88 @@ describe("pending request renderer decisions", () => {
     expect(radios.map((radio) => radio.checked)).toEqual([false, true]);
   });
 
+  it("keeps the other Plan mode radio selected when the custom answer is empty", () => {
+    const parent = document.createElement("div");
+    const drafts = new Map<string, string>();
+    const input = pendingOtherUserInput();
+    const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
+    const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
+    const actions = pendingRequestActions({
+      setUserInputDraft: vi.fn((key: string, value: string) => {
+        drafts.set(key, value);
+      }),
+    });
+    const render = () => {
+      renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
+    };
+
+    render();
+    const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
+    expect(radios.map((radio) => radio.checked)).toEqual([true, false]);
+
+    expectPresent(radios.at(1)).click();
+
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "");
+
+    render();
+    const rerenderedRadios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
+    expect(rerenderedRadios.map((radio) => radio.checked)).toEqual([false, true]);
+  });
+
+  it("keeps unselected other Plan mode text out of tab order", () => {
+    const parent = document.createElement("div");
+    const drafts = new Map<string, string>();
+    const input = pendingOtherUserInput();
+    const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
+    const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
+    const actions = pendingRequestActions({
+      setUserInputDraft: vi.fn((key: string, value: string) => {
+        drafts.set(key, value);
+      }),
+    });
+    const render = () => {
+      renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
+    };
+
+    render();
+
+    expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(-1);
+
+    expectPresent(parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio").item(1)).click();
+    render();
+
+    expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(0);
+  });
+
+  it("does not commit other Plan mode IME preedit text as the answer", () => {
+    const parent = document.createElement("div");
+    const drafts = new Map<string, string>();
+    const input = pendingOtherUserInput();
+    const draftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}`;
+    const otherDraftKey = (requestId: PendingUserInput["requestId"], questionId: string) => `${String(requestId)}:${questionId}:other`;
+    const actions = pendingRequestActions({
+      setUserInputDraft: vi.fn((key: string, value: string) => {
+        drafts.set(key, value);
+      }),
+    });
+
+    renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
+    const otherInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text"));
+
+    otherInput.dispatchEvent(new Event("compositionstart", { bubbles: true }));
+    dispatchComposingInputValue(otherInput, "にほん");
+
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "");
+    expect(actions.setUserInputDraft).not.toHaveBeenCalledWith("99:scope:other", "にほん");
+    expect(actions.setUserInputDraft).not.toHaveBeenCalledWith("99:scope", "にほん");
+
+    setNativeInputValue(otherInput, "日本");
+    otherInput.dispatchEvent(new Event("compositionend", { bubbles: true }));
+
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope:other", "日本");
+    expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "日本");
+  });
+
   it("renders pending approvals and Plan mode questions in the same request block", () => {
     const parent = document.createElement("div");
     const approval = pendingApproval();
@@ -2123,6 +2218,87 @@ describe("pending request renderer decisions", () => {
       "Submit",
       "Cancel",
     ]);
+  });
+
+  it("focuses Plan mode input when pending requests ask for autofocus", () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+    const input = pendingFreeformUserInput();
+
+    try {
+      renderPendingRequestNode(
+        parent,
+        [pendingApproval()],
+        [input],
+        {
+          values: new Map(),
+          draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
+          otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
+        },
+        new Set(),
+        pendingRequestActions(),
+        true,
+      );
+
+      expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-text"));
+    } finally {
+      unmountReactRoot(parent);
+      parent.remove();
+    }
+  });
+
+  it("focuses the selected Plan mode option before the other text field", () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+    const input = pendingOtherUserInput();
+
+    try {
+      renderPendingRequestNode(
+        parent,
+        [],
+        [input],
+        {
+          values: new Map(),
+          draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
+          otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
+        },
+        new Set(),
+        pendingRequestActions(),
+        true,
+      );
+
+      expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-radio:checked"));
+      expect(document.activeElement).not.toBe(parent.querySelector(".codex-panel__user-input-other-text"));
+    } finally {
+      unmountReactRoot(parent);
+      parent.remove();
+    }
+  });
+
+  it("focuses the approval action when pending approval asks for autofocus", () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+
+    try {
+      renderPendingRequestNode(
+        parent,
+        [pendingApproval()],
+        [],
+        {
+          values: new Map(),
+          draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
+          otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
+        },
+        new Set(),
+        pendingRequestActions(),
+        true,
+      );
+
+      expect(document.activeElement).toBe(parent.querySelector(".codex-panel__pending-request-button.mod-cta"));
+    } finally {
+      unmountReactRoot(parent);
+      parent.remove();
+    }
   });
 
   it("renders command approval buttons from app-server available decisions", () => {
@@ -2409,6 +2585,22 @@ function pendingOtherUserInput(): PendingUserInput {
           ...expectPresent(input.params.questions[0]),
           isOther: true,
           options: [{ label: "Narrow", description: "Small change" }],
+        },
+      ],
+    },
+  };
+}
+
+function pendingFreeformUserInput(): PendingUserInput {
+  const input = pendingUserInput();
+  return {
+    ...input,
+    params: {
+      ...input.params,
+      questions: [
+        {
+          ...expectPresent(input.params.questions[0]),
+          options: null,
         },
       ],
     },

@@ -122,6 +122,7 @@ export class CodexChatView extends ItemView {
   private opened = false;
   private closing = false;
   private nextMessageScrollIntent: ChatMessageScrollIntent = "auto";
+  private lastPendingRequestFocusSignature = "";
   private scheduledSessionWarmupTimer: number | null = null;
 
   constructor(
@@ -1628,7 +1629,26 @@ export class CodexChatView extends ItemView {
           this.dispatch({ type: "request/user-input-draft-set", key, value });
         },
       },
+      this.consumePendingRequestAutoFocus(),
     );
+  }
+
+  private consumePendingRequestAutoFocus(): boolean {
+    const signature = this.pendingRequestFocusSignature();
+    if (!signature) {
+      this.lastPendingRequestFocusSignature = "";
+      return false;
+    }
+    if (signature === this.lastPendingRequestFocusSignature) return false;
+    this.lastPendingRequestFocusSignature = signature;
+    return this.composerController.hasFocus();
+  }
+
+  private pendingRequestFocusSignature(): string {
+    const approvals = this.state.approvals.map((approval) => ({ id: approval.requestId, method: approval.method }));
+    const inputs = this.state.pendingUserInputs.map((input) => ({ id: input.requestId, method: input.method }));
+    if (approvals.length === 0 && inputs.length === 0) return "";
+    return JSON.stringify({ approvals, inputs });
   }
 
   private answersForUserInput(input: PendingUserInput): Record<string, string> {

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import {
   approvalActionOptions,
@@ -33,6 +33,7 @@ export function pendingRequestMessageNode(
   drafts: PendingRequestMessageDrafts,
   openDetails: ReadonlySet<string>,
   actions: PendingRequestMessageActions,
+  autoFocus = false,
 ): ReactNode {
   return (
     <PendingRequestMessage
@@ -41,6 +42,7 @@ export function pendingRequestMessageNode(
       drafts={drafts}
       openDetails={openDetails}
       actions={actions}
+      autoFocus={autoFocus}
     />
   );
 }
@@ -51,16 +53,23 @@ function PendingRequestMessage({
   drafts,
   openDetails,
   actions,
+  autoFocus,
 }: {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
   drafts: PendingRequestMessageDrafts;
   openDetails: ReadonlySet<string>;
   actions: PendingRequestMessageActions;
+  autoFocus: boolean;
 }): ReactNode {
+  const requestRef = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (!autoFocus) return;
+    focusPendingRequestControl(requestRef.current);
+  }, [autoFocus]);
   if (approvals.length === 0 && pendingUserInputs.length === 0) return null;
   return (
-    <div className={createWorkMessageClassName("codex-panel__pending-request-message", "warning")}>
+    <div ref={requestRef} className={createWorkMessageClassName("codex-panel__pending-request-message", "warning")}>
       <div className="codex-panel__message-role">Request</div>
       {approvals.map((approval) => (
         <ApprovalCard key={String(approval.requestId)} approval={approval} openDetails={openDetails} actions={actions} />
@@ -70,6 +79,22 @@ function PendingRequestMessage({
       ))}
     </div>
   );
+}
+
+function focusPendingRequestControl(container: HTMLElement | null): void {
+  if (!container) return;
+  for (const selector of [
+    ".codex-panel__user-input-radio:checked",
+    ".codex-panel__user-input-text",
+    ".codex-panel__user-input-radio",
+    ".codex-panel__pending-request-button.mod-cta",
+    ".codex-panel__pending-request-button",
+  ]) {
+    const target = container.querySelector<HTMLElement>(selector);
+    if (!target) continue;
+    target.focus({ preventScroll: true });
+    return;
+  }
 }
 
 function ApprovalCard({
@@ -222,6 +247,7 @@ function UserInputQuestions({
                       questionId={question.id}
                       groupName={`codex-panel-${String(input.requestId)}-${question.id}`}
                       current={current}
+                      optionLabels={new Set(question.options.map((option) => option.label))}
                       drafts={drafts}
                       actions={actions}
                     />
@@ -250,6 +276,7 @@ function OtherUserInputOption({
   questionId,
   groupName,
   current,
+  optionLabels,
   drafts,
   actions,
 }: {
@@ -257,12 +284,26 @@ function OtherUserInputOption({
   questionId: string;
   groupName: string;
   current: string;
+  optionLabels: ReadonlySet<string>;
   drafts: PendingRequestMessageDrafts;
   actions: PendingRequestMessageActions;
 }): ReactNode {
   const draftKey = drafts.draftKey(input.requestId, questionId);
   const otherKey = drafts.otherDraftKey(input.requestId, questionId);
   const otherValue = drafts.values.get(otherKey) ?? "";
+  const [inputValue, setInputValue] = useState(otherValue);
+  const composingRef = useRef(false);
+  const otherSelected = drafts.values.has(draftKey) && current === otherValue && !optionLabels.has(current);
+  useEffect(() => {
+    if (!composingRef.current) setInputValue(otherValue);
+  }, [otherValue]);
+  const selectOther = () => {
+    actions.setUserInputDraft(draftKey, otherValue);
+  };
+  const commitOtherValue = (value: string) => {
+    actions.setUserInputDraft(otherKey, value);
+    actions.setUserInputDraft(draftKey, value);
+  };
   return (
     <label className="codex-panel__user-input-option">
       <input
@@ -270,20 +311,32 @@ function OtherUserInputOption({
         type="radio"
         name={groupName}
         value="__other__"
-        checked={current === otherValue && otherValue.length > 0}
+        checked={otherSelected}
         onChange={(event) => {
-          if (event.currentTarget.checked) actions.setUserInputDraft(draftKey, drafts.values.get(otherKey) ?? "");
+          if (event.currentTarget.checked) selectOther();
         }}
       />
       <span className="codex-panel__user-input-option-label">Other</span>
       <input
         className="codex-panel__user-input-text codex-panel__user-input-other-text"
         type="text"
-        value={otherValue}
+        value={inputValue}
+        tabIndex={otherSelected ? 0 : -1}
         placeholder="Other answer"
+        onFocus={selectOther}
+        onCompositionStart={() => {
+          composingRef.current = true;
+          selectOther();
+        }}
+        onCompositionEnd={(event) => {
+          composingRef.current = false;
+          setInputValue(event.currentTarget.value);
+          commitOtherValue(event.currentTarget.value);
+        }}
         onChange={(event) => {
-          actions.setUserInputDraft(otherKey, event.currentTarget.value);
-          actions.setUserInputDraft(draftKey, event.currentTarget.value);
+          setInputValue(event.currentTarget.value);
+          const nativeEvent = event.nativeEvent as Event & { isComposing?: boolean };
+          if (nativeEvent.isComposing !== true && !composingRef.current) commitOtherValue(event.currentTarget.value);
         }}
       />
     </label>

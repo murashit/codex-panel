@@ -137,6 +137,10 @@ export class ChatComposerController {
     this.composer?.focus({ preventScroll: true });
   }
 
+  hasFocus(): boolean {
+    return this.composer !== null && this.composer.ownerDocument.activeElement === this.composer;
+  }
+
   dispose(): void {
     unmountReactRoot(this.suggestionsEl);
     this.composer = null;
