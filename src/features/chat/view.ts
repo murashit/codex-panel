@@ -62,6 +62,7 @@ import { PlanImplementationController } from "./plan-implementation-controller";
 import { ThreadSelectionController } from "./thread-selection-controller";
 import { ChatViewStateController } from "./view-state-controller";
 import { AppServerWarmupController } from "./app-server-warmup-controller";
+import { ServerRequestResponder } from "./server-request-responder";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -111,6 +112,7 @@ export class CodexChatView extends ItemView {
   private readonly composerSubmission: ComposerSubmissionController;
   private readonly planImplementation: PlanImplementationController;
   private readonly threadSelection: ThreadSelectionController;
+  private readonly serverRequestResponder: ServerRequestResponder;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
@@ -259,6 +261,9 @@ export class CodexChatView extends ItemView {
         this.addSystemMessage(text);
       },
     });
+    this.serverRequestResponder = new ServerRequestResponder({
+      currentClient: () => this.client,
+    });
     this.planImplementation = new PlanImplementationController({
       stateStore: this.chatState,
       currentClient: () => this.client,
@@ -381,8 +386,8 @@ export class CodexChatView extends ItemView {
         this.appServer.recordMcpStartupStatus(name, status, message);
         this.scheduleRender();
       },
-      respondToServerRequest: (requestId, result) => this.respondToServerRequest(requestId, result),
-      rejectServerRequest: (requestId, code, message) => this.rejectServerRequest(requestId, code, message),
+      respondToServerRequest: (requestId, result) => this.serverRequestResponder.respond(requestId, result),
+      rejectServerRequest: (requestId, code, message) => this.serverRequestResponder.reject(requestId, code, message),
     });
     this.pendingRequests = new PendingRequestController({
       stateStore: this.chatState,
@@ -877,24 +882,6 @@ export class CodexChatView extends ItemView {
 
   private async setRequestedReasoningEffortFromUi(effort: ReasoningEffort | null): Promise<void> {
     await this.runtimeSettings.setRequestedReasoningEffortFromUi(effort);
-  }
-
-  private respondToServerRequest(requestId: Parameters<AppServerClient["respondToServerRequest"]>[0], result: unknown): boolean {
-    try {
-      this.client?.respondToServerRequest(requestId, result);
-      return Boolean(this.client);
-    } catch {
-      return false;
-    }
-  }
-
-  private rejectServerRequest(requestId: Parameters<AppServerClient["rejectServerRequest"]>[0], code: number, message: string): boolean {
-    try {
-      this.client?.rejectServerRequest(requestId, code, message);
-      return Boolean(this.client);
-    } catch {
-      return false;
-    }
   }
 
   private systemItem(text: string): DisplayItem {
