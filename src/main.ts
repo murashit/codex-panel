@@ -122,6 +122,9 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   async activateView(): Promise<CodexChatView> {
+    const target = this.findCurrentThreadPanelTarget();
+    if (target) return this.activateThreadPanelTarget(target);
+
     const leaf = await this.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_PANEL, "right", {
       active: true,
       reveal: true,
@@ -392,6 +395,9 @@ export default class CodexPanelPlugin extends Plugin {
 
   private findCurrentThreadPanelTarget(): ThreadPanelTarget | null {
     const { workspace } = this.app;
+    const active = this.findActiveThreadPanelTarget();
+    if (active) return active;
+
     const mostRecent = workspace.getMostRecentLeaf(workspace.rightSplit);
     const target = mostRecent ? this.threadPanelTargetFromLeaf(mostRecent) : null;
     if (target) return target;
@@ -403,10 +409,40 @@ export default class CodexPanelPlugin extends Plugin {
     return null;
   }
 
+  private findActiveThreadPanelTarget(): ThreadPanelTarget | null {
+    const activeView = this.app.workspace.getActiveViewOfType(CodexChatView);
+    if (!activeView) return null;
+
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL)) {
+      if (leaf.view === activeView) return this.threadPanelTargetFromLeaf(leaf);
+    }
+    return null;
+  }
+
   private threadPanelTargetFromLeaf(leaf: WorkspaceLeaf): ThreadPanelTarget | null {
     if (leaf.view instanceof CodexChatView) return { kind: "reuse", leaf, view: leaf.view };
     if (leaf.getViewState().type === VIEW_TYPE_CODEX_PANEL) return { kind: "restored-reuse", leaf };
     return null;
+  }
+
+  private async activateThreadPanelTarget(target: ThreadPanelTarget): Promise<CodexChatView> {
+    if (target.kind === "new") return this.activateNewView();
+
+    await this.app.workspace.revealLeaf(target.leaf);
+    if ("view" in target) {
+      await target.view.connect();
+      target.view.focusComposer();
+      return target.view;
+    }
+
+    await target.leaf.loadIfDeferred();
+    if (target.leaf.view instanceof CodexChatView) {
+      await target.leaf.view.connect();
+      target.leaf.view.focusComposer();
+      return target.leaf.view;
+    }
+
+    return this.activateNewView();
   }
 
   private async openThreadInTarget(target: ThreadPanelTarget, threadId: string): Promise<void> {

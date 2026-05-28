@@ -145,6 +145,26 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(openOlderThread).not.toHaveBeenCalled();
   });
 
+  it("opens picker Enter selections in the active Codex panel before the right-sidebar fallback", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const fallbackLeaf = leaf();
+    fallbackLeaf.view = chatView(CodexChatView, fallbackLeaf);
+    const fallbackView = fallbackLeaf.view as CodexChatView;
+    const openFallbackThread = vi.spyOn(fallbackView, "openThread").mockResolvedValue(undefined);
+    const activeLeaf = leaf();
+    activeLeaf.view = chatView(CodexChatView, activeLeaf);
+    const activeView = activeLeaf.view as CodexChatView;
+    const openActiveThread = vi.spyOn(activeView, "openThread").mockResolvedValue(undefined);
+    const plugin = await pluginWithLeaves([fallbackLeaf, activeLeaf]);
+    (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(activeView);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(fallbackLeaf);
+
+    await plugin.openThreadInCurrentView("thread-1");
+
+    expect(openActiveThread).toHaveBeenCalledWith("thread-1");
+    expect(openFallbackThread).not.toHaveBeenCalled();
+  });
+
   it("focuses an already open thread before picker Enter overwrites the current panel", async () => {
     const { CodexChatView } = await import("../src/features/chat/view");
     const openLeaf = leaf();
@@ -202,6 +222,31 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(connect).not.toHaveBeenCalled();
     expect(focusComposer).toHaveBeenCalledOnce();
     expect(openThread).toHaveBeenCalledWith("thread-1");
+  });
+
+  it("activates the active Codex panel instead of the first existing panel", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const firstLeaf = leaf();
+    firstLeaf.view = chatView(CodexChatView, firstLeaf);
+    const firstView = firstLeaf.view as CodexChatView;
+    const connectFirst = vi.spyOn(firstView, "connect").mockResolvedValue(undefined);
+    const focusFirst = vi.spyOn(firstView, "focusComposer").mockImplementation(() => undefined);
+    const activeLeaf = leaf();
+    activeLeaf.view = chatView(CodexChatView, activeLeaf);
+    const activeView = activeLeaf.view as CodexChatView;
+    const connectActive = vi.spyOn(activeView, "connect").mockResolvedValue(undefined);
+    const focusActive = vi.spyOn(activeView, "focusComposer").mockImplementation(() => undefined);
+    const plugin = await pluginWithLeaves([firstLeaf, activeLeaf]);
+    (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(activeView);
+
+    await expect(plugin.activateView()).resolves.toBe(activeView);
+
+    expect((plugin.app.workspace.revealLeaf as ReturnType<typeof vi.fn>).mock.calls).toContainEqual([activeLeaf]);
+    expect(connectActive).toHaveBeenCalledOnce();
+    expect(focusActive).toHaveBeenCalledOnce();
+    expect(connectFirst).not.toHaveBeenCalled();
+    expect(focusFirst).not.toHaveBeenCalled();
+    expect((plugin.app.workspace.ensureSideLeaf as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
   });
 
   it("opens an empty new panel from the threads view action", async () => {
@@ -311,6 +356,9 @@ async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
         revealLeaf: vi.fn().mockResolvedValue(undefined),
         getRightLeaf: vi.fn(() => null),
         getMostRecentLeaf: vi.fn(() => null),
+        getActiveViewOfType: vi.fn(() => null),
+        ensureSideLeaf: vi.fn(() => Promise.reject(new Error("Unexpected ensureSideLeaf call."))),
+        activeLeaf: null,
         rightSplit: {},
       },
     } as never,
@@ -324,6 +372,8 @@ function leaf(options: { state?: Record<string, unknown> } = {}) {
   return {
     view: null as unknown,
     getViewState: vi.fn(() => ({ type: VIEW_TYPE_CODEX_PANEL, state: options.state ?? {} })),
+    getRoot: vi.fn(() => ({})),
+    parent: {},
     setViewState: vi.fn().mockResolvedValue(undefined),
     loadIfDeferred: vi.fn().mockResolvedValue(undefined),
   };
