@@ -1,6 +1,6 @@
 import { AppServerClient } from "./client";
 
-export async function withAppServerConnection<T>(
+export async function withShortLivedAppServerClient<T>(
   codexPath: string,
   cwd: string,
   operation: (client: AppServerClient) => Promise<T>,

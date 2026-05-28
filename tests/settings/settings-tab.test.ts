@@ -15,12 +15,12 @@ const { JSDOM } = require("jsdom") as {
   JSDOM: new (html: string) => { window: Window & typeof globalThis };
 };
 
-const { withAppServerConnectionMock } = vi.hoisted(() => ({
-  withAppServerConnectionMock: vi.fn(),
+const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
+  withShortLivedAppServerClientMock: vi.fn(),
 }));
 
-vi.mock("../../src/app-server/connection-client", () => ({
-  withAppServerConnection: withAppServerConnectionMock,
+vi.mock("../../src/app-server/short-lived-client", () => ({
+  withShortLivedAppServerClient: withShortLivedAppServerClientMock,
 }));
 
 describe("settings tab", () => {
@@ -33,7 +33,7 @@ describe("settings tab", () => {
     vi.stubGlobal("HTMLInputElement", dom.window.HTMLInputElement);
     vi.stubGlobal("HTMLSelectElement", dom.window.HTMLSelectElement);
     vi.stubGlobal("Event", dom.window.Event);
-    withAppServerConnectionMock.mockReset();
+    withShortLivedAppServerClientMock.mockReset();
     notices.length = 0;
   });
 
@@ -68,15 +68,15 @@ describe("settings tab", () => {
 
   it("auto-loads settings data once and keeps one global refresh button", async () => {
     const client = settingsClient();
-    withAppServerConnectionMock.mockImplementation((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-      operation(client),
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
     const tab = newSettingsTab();
 
     tab.display();
     await flushPromises();
 
-    expect(withAppServerConnectionMock).toHaveBeenCalledTimes(1);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(client.listModels).toHaveBeenCalledTimes(1);
     expect(client.listHooks).toHaveBeenCalledTimes(1);
     expect(client.listThreads).toHaveBeenCalledWith("/vault", true);
@@ -84,7 +84,7 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(withAppServerConnectionMock).toHaveBeenCalledTimes(1);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(buttonLabels(tab)).toContain("Refresh Codex data");
     expect(buttonTexts(tab)).not.toContain("Refresh Codex data");
     expect(buttonTexts(tab)).not.toContain("Load models");
@@ -155,7 +155,7 @@ describe("settings tab", () => {
       models: [model("gpt-5.5")],
       threads: [thread({ id: "thread-new", preview: "New" })],
     });
-    withAppServerConnectionMock
+    withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(firstClient),
       )
@@ -169,7 +169,7 @@ describe("settings tab", () => {
     clickButtonByLabel(tab, "Refresh Codex data");
     await flushPromises();
 
-    expect(withAppServerConnectionMock).toHaveBeenCalledTimes(2);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
     expect(tab.containerEl.textContent).toContain("New");
     expect(tab.containerEl.textContent).not.toContain("Old");
@@ -178,8 +178,8 @@ describe("settings tab", () => {
   it("uses cached models initially and publishes refreshed models", async () => {
     const publishModels = vi.fn();
     const client = settingsClient({ models: [model("gpt-5.5")] });
-    withAppServerConnectionMock.mockImplementation((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-      operation(client),
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
     const tab = newSettingsTab({ cachedModels: [model("gpt-cached")], publishModels });
 
@@ -199,8 +199,8 @@ describe("settings tab", () => {
       hooksError: new Error("hooks unavailable"),
       threads: [thread({ preview: "Archived thread" })],
     });
-    withAppServerConnectionMock.mockImplementation((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-      operation(client),
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
     const tab = newSettingsTab();
 
@@ -219,8 +219,8 @@ describe("settings tab", () => {
       hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", trustStatus: "untrusted" })],
       threads: [thread({ id: "thread-archived", preview: "Archived thread" })],
     });
-    withAppServerConnectionMock.mockImplementation((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-      operation(client),
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
     const tab = newSettingsTab();
 

@@ -132,7 +132,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
   try {
     await abortable(client.connect(), options.signal);
     const runtime = options.runtimeSettings
-      ? await abortable(selectionRewriteRuntimeForClient(client, options.runtimeSettings), options.signal)
+      ? await abortable(selectionRewriteRuntimeOverrideForClient(client, options.runtimeSettings), options.signal)
       : {};
     const threadResponse = await abortable(
       client.startEphemeralThread(options.cwd, SELECTION_REWRITE_SERVICE_NAME, SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS),
@@ -196,31 +196,31 @@ function turnWithCollectedItems(turn: Turn, completedItems: ThreadItem[]): Turn 
   return { ...turn, items: completedItems };
 }
 
-export interface SelectionRewriteRuntime {
+export interface SelectionRewriteRuntimeOverride {
   model?: string;
   effort?: ReasoningEffort;
 }
 
-export function selectionRewriteRuntime(settings: SelectionRewriteRuntimeSettings): SelectionRewriteRuntime {
+export function selectionRewriteRuntimeOverride(settings: SelectionRewriteRuntimeSettings): SelectionRewriteRuntimeOverride {
   return runtimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
 }
 
-export function validatedSelectionRewriteRuntime(
+export function validatedSelectionRewriteRuntimeOverride(
   settings: SelectionRewriteRuntimeSettings,
   models: readonly Model[],
-): SelectionRewriteRuntime {
+): SelectionRewriteRuntimeOverride {
   return validatedRuntimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort }, models);
 }
 
-async function selectionRewriteRuntimeForClient(
+async function selectionRewriteRuntimeOverrideForClient(
   client: SelectionRewriteClient,
   settings: SelectionRewriteRuntimeSettings,
-): Promise<SelectionRewriteRuntime> {
-  const runtime = selectionRewriteRuntime(settings);
+): Promise<SelectionRewriteRuntimeOverride> {
+  const runtime = selectionRewriteRuntimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
     const response = await client.listModels(false);
-    return validatedSelectionRewriteRuntime(settings, response.data);
+    return validatedSelectionRewriteRuntimeOverride(settings, response.data);
   } catch {
     return runtime;
   }

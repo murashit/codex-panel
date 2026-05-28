@@ -121,7 +121,7 @@ export async function generateThreadTitleWithCodex(
 
   try {
     await client.connect();
-    const runtime = await namingRuntimeForClient(client, runtimeSettings);
+    const runtime = await threadNamingRuntimeOverrideForClient(client, runtimeSettings);
     const threadResponse = await client.startEphemeralThread(cwd, NAMING_SERVICE_NAME, TITLE_DEVELOPER_INSTRUCTIONS);
     lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "thread-started", threadId: threadResponse.thread.id });
     const turnResponse = await client.startStructuredTurn(
@@ -146,16 +146,16 @@ export async function generateThreadTitleWithCodex(
   }
 }
 
-export interface NamingRuntime {
+export interface ThreadNamingRuntimeOverride {
   model?: string;
   effort?: ReasoningEffort;
 }
 
-export function namingRuntime(settings: ThreadNamingRuntimeSettings): NamingRuntime {
+export function threadNamingRuntimeOverride(settings: ThreadNamingRuntimeSettings): ThreadNamingRuntimeOverride {
   return runtimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }
 
-export function validatedNamingRuntime(settings: ThreadNamingRuntimeSettings, models: Model[]): NamingRuntime {
+export function validatedThreadNamingRuntimeOverride(settings: ThreadNamingRuntimeSettings, models: Model[]): ThreadNamingRuntimeOverride {
   return validatedRuntimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort }, models);
 }
 
@@ -164,12 +164,15 @@ function turnWithCollectedItems(turn: Turn, items: ThreadItem[]): Turn {
   return { ...turn, items: [...items], itemsView: "full" };
 }
 
-async function namingRuntimeForClient(client: ThreadNamingClient, settings: ThreadNamingRuntimeSettings): Promise<NamingRuntime> {
-  const runtime = namingRuntime(settings);
+async function threadNamingRuntimeOverrideForClient(
+  client: ThreadNamingClient,
+  settings: ThreadNamingRuntimeSettings,
+): Promise<ThreadNamingRuntimeOverride> {
+  const runtime = threadNamingRuntimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
     const response = await client.listModels(false);
-    return validatedNamingRuntime(settings, response.data);
+    return validatedThreadNamingRuntimeOverride(settings, response.data);
   } catch {
     return runtime;
   }

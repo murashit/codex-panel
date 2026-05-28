@@ -11,8 +11,8 @@ import {
 } from "../../../src/domain/threads/naming";
 import {
   generateThreadTitleWithCodex,
-  namingRuntime,
-  validatedNamingRuntime,
+  threadNamingRuntimeOverride,
+  validatedThreadNamingRuntimeOverride,
   type ThreadNamingClient,
   type ThreadNamingClientFactory,
 } from "../../../src/app-server/thread-naming";
@@ -175,20 +175,20 @@ describe("thread naming", () => {
     expect(prompt).not.toContain("English words");
   });
 
-  it("uses explicit naming runtime settings", () => {
-    expect(namingRuntime({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" })).toEqual({
+  it("uses explicit naming runtime overrides", () => {
+    expect(threadNamingRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" })).toEqual({
       model: "gpt-5.4-mini",
       effort: "minimal",
     });
   });
 
   it("omits naming runtime overrides that are set to Codex default", () => {
-    expect(namingRuntime({ threadNamingModel: null, threadNamingEffort: null })).toEqual({});
+    expect(threadNamingRuntimeOverride({ threadNamingModel: null, threadNamingEffort: null })).toEqual({});
   });
 
   it("omits an explicit naming effort when the selected model does not support it", () => {
     expect(
-      validatedNamingRuntime({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" }, [
+      validatedThreadNamingRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" }, [
         model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
       ]),
     ).toEqual({ model: "gpt-5.4-mini" });
@@ -196,7 +196,7 @@ describe("thread naming", () => {
 
   it("keeps an explicit naming effort when the selected model supports it", () => {
     expect(
-      validatedNamingRuntime({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" }, [
+      validatedThreadNamingRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" }, [
         model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
       ]),
     ).toEqual({ model: "gpt-5.4-mini", effort: "low" });

@@ -1,7 +1,7 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
-import { withAppServerConnection } from "../app-server/connection-client";
+import { withShortLivedAppServerClient } from "../app-server/short-lived-client";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
@@ -482,7 +482,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async withSettingsConnection<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    return withAppServerConnection(this.plugin.settings.codexPath, this.plugin.vaultPath, operation);
+    return withShortLivedAppServerClient(this.plugin.settings.codexPath, this.plugin.vaultPath, operation);
   }
 
   private nextSettingsDynamicOperationId(): number {

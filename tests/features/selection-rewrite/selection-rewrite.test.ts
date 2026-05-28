@@ -20,8 +20,8 @@ import { buildSelectionRewritePrompt } from "../../../src/features/selection-rew
 import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
 import {
   runSelectionRewrite,
-  selectionRewriteRuntime,
-  validatedSelectionRewriteRuntime,
+  selectionRewriteRuntimeOverride,
+  validatedSelectionRewriteRuntimeOverride,
   type SelectionRewriteClient,
   type SelectionRewriteClientFactory,
 } from "../../../src/features/selection-rewrite/runner";
@@ -354,21 +354,21 @@ describe("selection rewrite popover", () => {
   });
 });
 
-describe("selection selection rewrite runtime", () => {
-  it("uses explicit selection rewrite runtime settings", () => {
-    expect(selectionRewriteRuntime({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" })).toEqual({
+describe("selection rewrite runtime overrides", () => {
+  it("uses explicit selection rewrite runtime overrides", () => {
+    expect(selectionRewriteRuntimeOverride({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" })).toEqual({
       model: "gpt-5.4-mini",
       effort: "minimal",
     });
   });
 
   it("omits selection rewrite runtime overrides that are set to Codex default", () => {
-    expect(selectionRewriteRuntime({ rewriteSelectionModel: null, rewriteSelectionEffort: null })).toEqual({});
+    expect(selectionRewriteRuntimeOverride({ rewriteSelectionModel: null, rewriteSelectionEffort: null })).toEqual({});
   });
 
   it("omits an explicit selection rewrite effort when the selected model does not support it", () => {
     expect(
-      validatedSelectionRewriteRuntime({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" }, [
+      validatedSelectionRewriteRuntimeOverride({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" }, [
         model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
       ]),
     ).toEqual({ model: "gpt-5.4-mini" });
