@@ -53,10 +53,8 @@ import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
   ChatViewDeferredTasks,
-  type ActiveChatResume,
   type ChatViewRenderScheduleOptions,
 } from "./view-lifecycle";
-import { resumedThreadAction, type ResumedThreadActionParams } from "./thread-resume";
 import { PendingRequestController } from "./pending-request-controller";
 import { ToolbarPanelController } from "./toolbar-panel-controller";
 import { ChatReconnectController } from "./reconnect-controller";
@@ -66,6 +64,7 @@ import { SlashCommandController } from "./slash-command-controller";
 import { ComposerSubmissionController } from "./composer-submission-controller";
 import { ChatConnectionController } from "./connection-controller";
 import { ThreadIdentityController } from "./thread-identity-controller";
+import { ThreadResumeController } from "./thread-resume-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -91,6 +90,7 @@ export class CodexChatView extends ItemView {
   private readonly appServer: ChatAppServerController;
   private readonly connectionController: ChatConnectionController;
   private readonly history: ThreadHistoryLoader;
+  private readonly threadResume: ThreadResumeController;
   private readonly threadActions: ChatThreadActionController;
   private readonly runtimeSettings: ChatRuntimeSettingsController;
   private readonly restoredThread: RestoredThreadController;
@@ -460,6 +460,38 @@ export class CodexChatView extends ItemView {
         this.refreshTabHeader();
       },
     });
+    this.threadResume = new ThreadResumeController({
+      stateStore: this.chatState,
+      vaultPath: this.plugin.vaultPath,
+      resumeWork: this.resumeWork,
+      history: this.history,
+      restoredThread: this.restoredThread,
+      currentClient: () => this.client,
+      ensureConnected: () => this.ensureConnected(),
+      closing: () => this.closing,
+      systemItem: (text) => this.systemItem(text),
+      resetThreadTurnPresence: (hadTurns) => {
+        this.threadRename.resetThreadTurnPresence(hadTurns);
+      },
+      clearDeferredRestoredThreadHydration: () => {
+        this.clearDeferredRestoredThreadHydration();
+      },
+      notifyActiveThreadIdentityChanged: () => {
+        this.notifyActiveThreadIdentityChanged();
+      },
+      addSystemMessage: (text) => {
+        this.addSystemMessage(text);
+      },
+      forceMessagesToBottom: () => {
+        this.messageScroll.forceBottom();
+      },
+      render: () => {
+        this.render();
+      },
+      refreshLiveState: () => {
+        this.plugin.refreshThreadsViewLiveState();
+      },
+    });
     this.threadIdentity = new ThreadIdentityController({
       stateStore: this.chatState,
       restoredThread: this.restoredThread,
@@ -703,30 +735,7 @@ export class CodexChatView extends ItemView {
   }
 
   private async resumeThread(threadId: string): Promise<void> {
-    if (this.turnBusy && threadId !== this.state.activeThreadId) {
-      this.addSystemMessage("Finish or interrupt the current turn before switching threads.");
-      return;
-    }
-    const resume = this.beginResumeWork(threadId);
-    await this.ensureConnected();
-    if (!this.client || this.isStaleResumeWork(resume)) return;
-
-    try {
-      const response = await this.client.resumeThread(threadId, this.plugin.vaultPath);
-      if (this.isStaleResumeWork(resume)) return;
-      this.applyResumedThread(response);
-      await this.history.loadLatest(response.thread.id);
-      if (this.isStaleResumeWork(resume)) return;
-      if (this.state.displayItems.length === 0) {
-        this.addSystemMessage(`Resumed thread ${response.thread.id}`);
-        this.messageScroll.forceBottom();
-        this.render();
-      }
-      this.plugin.refreshThreadsViewLiveState();
-    } catch (error) {
-      if (this.isStaleResumeWork(resume)) return;
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
+    await this.threadResume.resumeThread(threadId);
   }
 
   private refreshTabHeader(): void {
@@ -739,18 +748,6 @@ export class CodexChatView extends ItemView {
     } else if (typeof leaf.updateDisplay === "function") {
       leaf.updateDisplay();
     }
-  }
-
-  private applyResumedThread(response: ResumedThreadActionParams["response"]): void {
-    this.dispatch(
-      resumedThreadAction({ response, listedThreads: this.state.listedThreads, displayItems: [this.systemItem("Loading thread...")] }),
-    );
-    this.clearRestoredThreadLifecycle();
-    this.clearDeferredRestoredThreadHydration();
-    this.threadRename.resetThreadTurnPresence(false);
-    this.notifyActiveThreadIdentityChanged();
-    this.render();
-    this.plugin.refreshThreadsViewLiveState();
   }
 
   private notifyActiveThreadIdentityChanged(): void {
@@ -852,16 +849,8 @@ export class CodexChatView extends ItemView {
     this.restoredThread.restore(restoredThread);
   }
 
-  private beginResumeWork(threadId: string): ActiveChatResume {
-    return this.resumeWork.begin(threadId);
-  }
-
   private invalidateResumeWork(): void {
     this.resumeWork.invalidate();
-  }
-
-  private isStaleResumeWork(resume: ActiveChatResume): boolean {
-    return this.resumeWork.isStale(resume) || this.closing;
   }
 
   private async ensureRestoredThreadLoaded(): Promise<boolean> {
