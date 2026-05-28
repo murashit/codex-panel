@@ -64,51 +64,44 @@ export interface SelectionRewriteClient {
 
 export type SelectionRewriteClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => SelectionRewriteClient;
 
+interface SelectionRewriteRunState {
+  lifecycle: ReturnType<typeof createStructuredTurnRunLifecycle>;
+  preview: string;
+  completedItems: readonly ThreadItem[];
+}
+
+interface SelectionRewriteNotificationResult {
+  state: SelectionRewriteRunState;
+  activity?: SelectionRewriteActivity;
+  preview?: string;
+  completedTurn?: Turn;
+}
+
 export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
   throwIfAborted(options.signal);
-  let lifecycle = createStructuredTurnRunLifecycle();
-  let preview = "";
+  let runState: SelectionRewriteRunState = {
+    lifecycle: createStructuredTurnRunLifecycle(),
+    preview: "",
+    completedItems: [],
+  };
   let timeout: number | undefined;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
-  const completedItems: ThreadItem[] = [];
 
   const completedTurn = new Promise<Turn>((resolve, reject) => {
     rejectCompletedTurn = reject;
     timeout = window.setTimeout(() => {
-      if (lifecycle.kind === "completed") return;
-      lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
+      if (runState.lifecycle.kind === "completed") return;
+      runState = completeSelectionRewriteRunState(runState);
       reject(new Error("Timed out while rewriting the selection."));
     }, SELECTION_REWRITE_TIMEOUT_MS);
 
     handleNotification = (notification): void => {
-      if (lifecycle.kind === "completed") return;
-      if (notification.method === "item/agentMessage/delta") {
-        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turnId)) return;
-        options.onActivity?.("writing");
-        preview += notification.params.delta;
-        options.onPreview?.(preview);
-        return;
-      }
-      if (
-        notification.method === "item/reasoning/summaryTextDelta" ||
-        notification.method === "item/reasoning/textDelta" ||
-        notification.method === "item/reasoning/summaryPartAdded"
-      ) {
-        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turnId)) return;
-        options.onActivity?.("reasoning");
-        return;
-      }
-      if (notification.method === "item/completed") {
-        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turnId)) return;
-        completedItems.push(notification.params.item);
-        return;
-      }
-      if (notification.method === "turn/completed") {
-        if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
-        lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
-        resolve(turnWithCollectedItems(notification.params.turn, completedItems));
-      }
+      const result = transitionSelectionRewriteRunNotification(runState, notification);
+      runState = result.state;
+      if (result.activity) options.onActivity?.(result.activity);
+      if (result.preview !== undefined) options.onPreview?.(result.preview);
+      if (result.completedTurn) resolve(result.completedTurn);
     };
   });
 
@@ -123,8 +116,8 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     },
     onLog: () => undefined,
     onExit: () => {
-      if (lifecycle.kind === "completed") return;
-      lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
+      if (runState.lifecycle.kind === "completed") return;
+      runState = completeSelectionRewriteRunState(runState);
       rejectCompletedTurn?.(new Error("Selection rewrite app-server exited."));
     },
   });
@@ -138,7 +131,10 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       client.startEphemeralThread(options.cwd, SELECTION_REWRITE_SERVICE_NAME, SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS),
       options.signal,
     );
-    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "thread-started", threadId: threadResponse.thread.id });
+    runState = {
+      ...runState,
+      lifecycle: transitionStructuredTurnRunLifecycle(runState.lifecycle, { type: "thread-started", threadId: threadResponse.thread.id }),
+    };
     const turnResponse = await abortable(
       client.startStructuredTurn(
         threadResponse.thread.id,
@@ -150,23 +146,66 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       ),
       options.signal,
     );
-    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, {
-      type: "turn-started",
-      threadId: threadResponse.thread.id,
-      turnId: turnResponse.turn.id,
-    });
+    runState = {
+      ...runState,
+      lifecycle: transitionStructuredTurnRunLifecycle(runState.lifecycle, {
+        type: "turn-started",
+        threadId: threadResponse.thread.id,
+        turnId: turnResponse.turn.id,
+      }),
+    };
     const turn =
       turnResponse.turn.status === "completed"
-        ? turnWithCollectedItems(turnResponse.turn, completedItems)
+        ? turnWithCollectedItems(turnResponse.turn, runState.completedItems)
         : await abortable(completedTurn, options.signal);
     const { output, rawText } = selectionRewriteOutputParseResultFromTurn(turn);
     if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
     return output;
   } finally {
-    lifecycle = transitionStructuredTurnRunLifecycle(lifecycle, { type: "completed" });
+    runState = completeSelectionRewriteRunState(runState);
     if (timeout !== undefined) window.clearTimeout(timeout);
     client.disconnect();
   }
+}
+
+function transitionSelectionRewriteRunNotification(
+  state: SelectionRewriteRunState,
+  notification: ServerNotification,
+): SelectionRewriteNotificationResult {
+  if (state.lifecycle.kind === "completed") return { state };
+  if (notification.method === "item/agentMessage/delta") {
+    if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
+    const preview = `${state.preview}${notification.params.delta}`;
+    return { state: { ...state, preview }, activity: "writing", preview };
+  }
+  if (
+    notification.method === "item/reasoning/summaryTextDelta" ||
+    notification.method === "item/reasoning/textDelta" ||
+    notification.method === "item/reasoning/summaryPartAdded"
+  ) {
+    if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
+    return { state, activity: "reasoning" };
+  }
+  if (notification.method === "item/completed") {
+    if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
+    return { state: { ...state, completedItems: [...state.completedItems, notification.params.item] } };
+  }
+  if (notification.method === "turn/completed") {
+    if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turn.id)) return { state };
+    const nextState = completeSelectionRewriteRunState(state);
+    return {
+      state: nextState,
+      completedTurn: turnWithCollectedItems(notification.params.turn, state.completedItems),
+    };
+  }
+  return { state };
+}
+
+function completeSelectionRewriteRunState(state: SelectionRewriteRunState): SelectionRewriteRunState {
+  return {
+    ...state,
+    lifecycle: transitionStructuredTurnRunLifecycle(state.lifecycle, { type: "completed" }),
+  };
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -191,9 +230,9 @@ function selectionRewriteAbortError(): Error {
   return new Error("Selection rewrite cancelled.");
 }
 
-function turnWithCollectedItems(turn: Turn, completedItems: ThreadItem[]): Turn {
+function turnWithCollectedItems(turn: Turn, completedItems: readonly ThreadItem[]): Turn {
   if (turn.items.length > 0 || completedItems.length === 0) return turn;
-  return { ...turn, items: completedItems };
+  return { ...turn, items: [...completedItems] };
 }
 
 export interface SelectionRewriteRuntimeOverride {
