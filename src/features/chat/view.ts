@@ -65,6 +65,7 @@ import { TurnSubmissionController } from "./turn-submission-controller";
 import { SlashCommandController } from "./slash-command-controller";
 import { ComposerSubmissionController } from "./composer-submission-controller";
 import { ChatConnectionController } from "./connection-controller";
+import { ThreadIdentityController } from "./thread-identity-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -93,6 +94,7 @@ export class CodexChatView extends ItemView {
   private readonly threadActions: ChatThreadActionController;
   private readonly runtimeSettings: ChatRuntimeSettingsController;
   private readonly restoredThread: RestoredThreadController;
+  private readonly threadIdentity: ThreadIdentityController;
   private readonly threadRename: ThreadRenameController;
   private readonly pendingRequests: PendingRequestController;
   private readonly toolbarPanels: ToolbarPanelController;
@@ -458,6 +460,31 @@ export class CodexChatView extends ItemView {
         this.refreshTabHeader();
       },
     });
+    this.threadIdentity = new ThreadIdentityController({
+      stateStore: this.chatState,
+      restoredThread: this.restoredThread,
+      invalidateResumeWork: () => {
+        this.invalidateResumeWork();
+      },
+      clearDeferredRestoredThreadHydration: () => {
+        this.clearDeferredRestoredThreadHydration();
+      },
+      resetThreadTurnPresence: (hadTurns) => {
+        this.threadRename.resetThreadTurnPresence(hadTurns);
+      },
+      notifyActiveThreadIdentityChanged: () => {
+        this.notifyActiveThreadIdentityChanged();
+      },
+      refreshTabHeader: () => {
+        this.refreshTabHeader();
+      },
+      refreshLiveState: () => {
+        this.plugin.refreshThreadsViewLiveState();
+      },
+      render: () => {
+        this.render();
+      },
+    });
     this.threadRename = new ThreadRenameController({
       stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
@@ -585,32 +612,11 @@ export class CodexChatView extends ItemView {
   }
 
   notifyThreadArchived(threadId: string): void {
-    if (this.clearArchivedActiveThread(threadId)) {
-      this.render();
-    }
+    this.threadIdentity.notifyThreadArchived(threadId);
   }
 
   notifyThreadRenamed(threadId: string, name: string | null): void {
-    let changed = false;
-    const listedThreads = this.state.listedThreads.map((thread) => {
-      if (thread.id !== threadId) return thread;
-      changed = true;
-      return { ...thread, name };
-    });
-    this.dispatch({ type: "thread/list-applied", threads: listedThreads });
-    const restoredThread = this.restoredThreadPlaceholder();
-    if (restoredThread?.threadId === threadId && (restoredThread.title !== name || restoredThread.explicitName !== name)) {
-      this.restoredThread.rename(threadId, name);
-      changed = true;
-    }
-    const activeThreadChanged = this.state.activeThreadId === threadId || this.isRestoredThreadPending(threadId);
-    if (!changed && !activeThreadChanged) return;
-    if (activeThreadChanged) {
-      this.notifyActiveThreadIdentityChanged();
-    } else {
-      this.refreshTabHeader();
-    }
-    this.render();
+    this.threadIdentity.notifyThreadRenamed(threadId, name);
   }
 
   override async onOpen(): Promise<void> {
@@ -672,7 +678,7 @@ export class CodexChatView extends ItemView {
   async startNewThread(): Promise<void> {
     if (this.turnBusy) return;
 
-    this.clearActiveThreadContext();
+    this.threadIdentity.clearActiveThreadContext();
     this.chatState.dispatch({ type: "ui/panel-set", panel: null });
     this.setStatus("New chat.");
     this.messageScroll.forceBottom();
@@ -1093,22 +1099,6 @@ export class CodexChatView extends ItemView {
 
   private runtimeSnapshotForState(state: ChatState): RuntimeSnapshot {
     return runtimeSnapshotForChatState({ state });
-  }
-
-  private clearActiveThreadContext(): void {
-    this.invalidateResumeWork();
-    this.clearRestoredThreadLifecycle();
-    this.clearDeferredRestoredThreadHydration();
-    this.chatState.dispatch({ type: "thread/active-cleared" });
-    this.threadRename.resetThreadTurnPresence(false);
-    this.notifyActiveThreadIdentityChanged();
-    this.plugin.refreshThreadsViewLiveState();
-  }
-
-  private clearArchivedActiveThread(threadId: string): boolean {
-    if (this.state.activeThreadId !== threadId) return false;
-    this.clearActiveThreadContext();
-    return true;
   }
 
   private renderMessages(parent: HTMLElement): void {
