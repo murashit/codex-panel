@@ -4,6 +4,7 @@ import { displayBlocksForItems } from "../display/blocks";
 import { executionState } from "../display/state";
 import type { ToolResultDisplayItem } from "../display/tool-view";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
+import { activeTurnId, type ChatTurnLifecycleState } from "../chat-state";
 import { IconButton } from "../../../shared/ui/react-components";
 import { toolResultNode } from "./tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "./work-items";
@@ -20,10 +21,9 @@ export interface MessageStreamBlock {
 
 export interface MessageStreamContext {
   activeThreadId: string | null;
-  activeTurnId: string | null;
+  turnLifecycle: ChatTurnLifecycleState;
   historyCursor: string | null;
   loadingHistory: boolean;
-  busy: boolean;
   displayItems: readonly DisplayItem[];
   turnDiffs?: ReadonlyMap<string, string>;
   workspaceRoot?: string | null;
@@ -40,6 +40,10 @@ export interface MessageStreamContext {
   openTurnDiff?: (state: ChatTurnDiffViewState) => void;
   pendingRequestsSignature?: string;
   renderPendingRequests?: () => ReactNode;
+}
+
+export function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLifecycle">): string | null {
+  return activeTurnId(context);
 }
 
 type RenderableMessageItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
@@ -71,6 +75,7 @@ function displayItemNode(item: DisplayItem, context: MessageStreamContext): Reac
 
 export function messageStreamBlocks(context: MessageStreamContext): MessageStreamBlock[] {
   const blocks: MessageStreamBlock[] = [];
+  const activeTurn = messageStreamActiveTurnId(context);
 
   if (context.activeThreadId && context.historyCursor) {
     blocks.push({
@@ -87,7 +92,7 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
     return blocks;
   }
 
-  for (const block of displayBlocksForItems(context.displayItems, context.activeTurnId, context.workspaceRoot, context.turnDiffs)) {
+  for (const block of displayBlocksForItems(context.displayItems, activeTurn, context.workspaceRoot, context.turnDiffs)) {
     if (block.type === "item") {
       blocks.push({
         key: `item:${block.item.id}`,
@@ -104,7 +109,7 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
   const agentSummary = activeAgentRunSummaryBlock(context);
   if (agentSummary) {
     blocks.push({
-      key: `active-agents:${context.activeTurnId ?? "none"}`,
+      key: `active-agents:${activeTurn ?? "none"}`,
       node: agentRunSummaryNode(agentSummary),
     });
   }
@@ -587,9 +592,10 @@ function displayRoleLabel(item: DisplayItem): string {
   return "System";
 }
 
-function isMessageCopyActionVisible(item: DisplayItem, context: Pick<MessageStreamContext, "busy" | "activeTurnId">): boolean {
+function isMessageCopyActionVisible(item: DisplayItem, context: Pick<MessageStreamContext, "turnLifecycle">): boolean {
   if (item.kind !== "message" || item.copyText === undefined) return false;
-  return !(context.busy && context.activeTurnId && item.role === "assistant" && item.turnId === context.activeTurnId);
+  const activeTurn = messageStreamActiveTurnId(context);
+  return !(activeTurn && item.role === "assistant" && item.turnId === activeTurn);
 }
 
 function messageClass(item: DisplayItem): string {

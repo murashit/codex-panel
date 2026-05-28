@@ -86,7 +86,7 @@ function snapshotsForThreads(snapshots: OpenCodexPanelSnapshot[]): Map<string, O
 function snapshotStatus(snapshot: OpenCodexPanelSnapshot): ThreadsLiveStatus {
   if (snapshot.pendingUserInputs > 0) return "needs-input";
   if (snapshot.pendingApprovals > 0) return "approval";
-  if (snapshot.busy) return "running";
+  if (snapshot.turnLifecycle.kind !== "idle") return "running";
   if (snapshot.hasComposerDraft) return "draft";
   if (!snapshot.connected) return "offline";
   return "open";

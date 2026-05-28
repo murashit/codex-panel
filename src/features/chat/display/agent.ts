@@ -32,8 +32,8 @@ export function agentDisplayItem(item: CollabAgentToolCallItem, turnId?: string)
   };
 }
 
-export function activeAgentRunSummary(items: readonly DisplayItem[], activeTurnId: string | null, busy: boolean): AgentRunSummary | null {
-  if (!busy || !activeTurnId) return null;
+export function activeAgentRunSummary(items: readonly DisplayItem[], activeTurnId: string | null): AgentRunSummary | null {
+  if (!activeTurnId) return null;
 
   const agentStatuses = new Map<string, AgentStateDisplay>();
   for (const item of items) {

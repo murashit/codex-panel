@@ -8,7 +8,7 @@ import { MessageScrollController, type MessageScrollIntent } from "./ui/scroll";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
-import { activeTurnId, chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
+import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import { unmountReactRoot } from "../../shared/ui/react-root";
 
 export interface ChatMessageRendererOptions {
@@ -63,16 +63,14 @@ export class ChatMessageRenderer {
     this.messagesEl = messagesEl;
     const scrollPlan = this.scrollController.prepareRender(messagesEl, this.options.consumeScrollIntent());
     const busy = chatTurnBusy(state);
-    const activeTurn = activeTurnId(state);
     const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.displayItems);
     const implementPlanCandidate = implementPlanCandidateFromState(state);
 
     const blocks = messageStreamBlocks({
       activeThreadId: state.activeThreadId,
-      activeTurnId: activeTurn,
+      turnLifecycle: state.turnLifecycle,
       historyCursor: state.historyCursor,
       loadingHistory: state.loadingHistory,
-      busy,
       displayItems: state.displayItems,
       turnDiffs: state.turnDiffs,
       workspaceRoot: state.activeThreadCwd ?? this.options.vaultPath,

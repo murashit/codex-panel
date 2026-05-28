@@ -1064,7 +1064,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    expect(activeAgentRunSummary(items, "t1", true)).toEqual({
+    expect(activeAgentRunSummary(items, "t1")).toEqual({
       running: 1,
       completed: 1,
       failed: 1,
@@ -1075,7 +1075,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       ],
       additionalAgents: 0,
     });
-    expect(activeAgentRunSummary(items, "t1", false)).toBeNull();
+    expect(activeAgentRunSummary(items, null)).toBeNull();
   });
 
   it("summarizes active subagent previews and fallback receiver states", () => {
@@ -1116,7 +1116,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    expect(activeAgentRunSummary(items, "t1", true)).toMatchObject({
+    expect(activeAgentRunSummary(items, "t1")).toMatchObject({
       running: 3,
       completed: 0,
       failed: 1,
@@ -1148,7 +1148,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    expect(activeAgentRunSummary(items, "t1", true)).toBeNull();
+    expect(activeAgentRunSummary(items, "t1")).toBeNull();
   });
 
   it("adds edited files to the final assistant message", () => {

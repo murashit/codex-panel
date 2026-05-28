@@ -388,8 +388,7 @@ export class CodexChatView extends ItemView {
     return {
       viewId: this.viewId,
       threadId: this.closing ? null : this.state.activeThreadId,
-      busy: this.turnBusy,
-      activeTurnId: this.activeTurnId,
+      turnLifecycle: openPanelTurnLifecycle(this.state.turnLifecycle),
       pendingApprovals: this.state.approvals.length,
       pendingUserInputs: this.state.pendingUserInputs.length,
       hasComposerDraft: this.state.composerDraft.trim().length > 0,
@@ -1720,6 +1719,12 @@ export class CodexChatView extends ItemView {
   private renderComposer(parent: HTMLElement): void {
     this.composerController.render(parent);
   }
+}
+
+function openPanelTurnLifecycle(state: ChatState["turnLifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
+  if (state.kind === "running") return { kind: "running", turnId: state.turnId };
+  if (state.kind === "starting") return { kind: "starting" };
+  return { kind: "idle" };
 }
 
 function latestProposedPlanItem(items: readonly DisplayItem[]): DisplayItem | null {

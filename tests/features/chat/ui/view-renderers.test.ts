@@ -16,6 +16,7 @@ import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomSh
 import { renderThreadsView } from "../../../../src/features/threads-view/renderer";
 import { liveStateForSnapshots, threadRows, type ThreadsRowModel } from "../../../../src/features/threads-view/state";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { OpenCodexPanelSnapshot } from "../../../../src/runtime/open-panel-snapshot";
 
 installObsidianDomShims();
 
@@ -41,19 +42,17 @@ function openPanelSnapshot(
   overrides: Partial<{
     viewId: string;
     threadId: string | null;
-    busy: boolean;
-    activeTurnId: string | null;
+    turnLifecycle: OpenCodexPanelSnapshot["turnLifecycle"];
     pendingApprovals: number;
     pendingUserInputs: number;
     hasComposerDraft: boolean;
     connected: boolean;
   }> = {},
-) {
+): OpenCodexPanelSnapshot {
   return {
     viewId: "view",
     threadId: "thread",
-    busy: false,
-    activeTurnId: null,
+    turnLifecycle: { kind: "idle" },
     pendingApprovals: 0,
     pendingUserInputs: 0,
     hasComposerDraft: false,
@@ -623,7 +622,7 @@ describe("threads view renderer decisions", () => {
     expect(
       liveStateForSnapshots([
         openPanelSnapshot({ viewId: "open", threadId: "thread" }),
-        openPanelSnapshot({ viewId: "running", threadId: "thread", busy: true }),
+        openPanelSnapshot({ viewId: "running", threadId: "thread", turnLifecycle: { kind: "running", turnId: "turn" } }),
         openPanelSnapshot({ viewId: "approval", threadId: "thread", pendingApprovals: 1 }),
         openPanelSnapshot({ viewId: "input", threadId: "thread", pendingUserInputs: 1 }),
       ]),
@@ -637,7 +636,9 @@ describe("threads view renderer decisions", () => {
       status: "offline",
       label: "Offline",
     });
-    expect(liveStateForSnapshots([openPanelSnapshot({ viewId: "none", threadId: null, busy: true })])).toBeNull();
+    expect(
+      liveStateForSnapshots([openPanelSnapshot({ viewId: "none", threadId: null, turnLifecycle: { kind: "running", turnId: "turn" } })]),
+    ).toBeNull();
   });
 
   it("renders thread rows with live state and routes open actions", () => {

@@ -8,6 +8,7 @@ import type { PendingUserInput } from "../../../../src/features/chat/user-input/
 import { pendingRequestMessageNode, type PendingRequestMessageActions } from "../../../../src/features/chat/ui/pending-request-message";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/chat-message-renderer";
+import type { ChatTurnLifecycleState } from "../../../../src/features/chat/chat-state";
 import { messageStreamBlocks as rawMessageStreamBlocks, renderMessageStreamBlocks } from "../../../../src/features/chat/ui/message-stream";
 import { changeInputValue, installObsidianDomShims, topLevelDetailsSummaries } from "./dom-test-helpers";
 import { renderReactRoot, unmountReactRoot } from "../../../../src/shared/ui/react-root";
@@ -67,6 +68,18 @@ function pendingRequestActions(overrides: Partial<PendingRequestMessageActions> 
     setUserInputDraft: vi.fn(),
     ...overrides,
   };
+}
+
+function idleTurnLifecycle(): ChatTurnLifecycleState {
+  return { kind: "idle" };
+}
+
+function runningTurnLifecycle(turnId = "turn"): ChatTurnLifecycleState {
+  return { kind: "running", turnId };
+}
+
+function startingTurnLifecycle(): ChatTurnLifecycleState {
+  return { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] } };
 }
 
 function withMessageContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {
@@ -139,10 +152,9 @@ describe("message stream block identity and message actions", () => {
     const parent = document.createElement("div");
     const baseContext = {
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
@@ -199,10 +211,9 @@ describe("message stream block identity and message actions", () => {
     const loadOlderTurns = vi.fn();
     const [historyBlock] = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: "cursor",
       loadingHistory: false,
-      busy: false,
       displayItems: [],
       openDetails: new Set(),
       loadOlderTurns,
@@ -229,10 +240,9 @@ describe("message stream block identity and message actions", () => {
   it("renders the empty message stream state as a React block", () => {
     const [emptyBlock] = messageStreamBlocks({
       activeThreadId: null,
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
@@ -254,10 +264,9 @@ describe("message stream block identity and message actions", () => {
   it("renders review result items as compact auto-review tool rows", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command.", markdown: false }],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
@@ -277,10 +286,9 @@ describe("message stream block identity and message actions", () => {
   it("renders review result details inside one auto-review details block", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "review-1",
@@ -334,10 +342,9 @@ describe("message stream block identity and message actions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: "turn",
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         displayItems: [
           {
             id: "cmd-1",
@@ -384,10 +391,9 @@ describe("message stream block identity and message actions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: "turn",
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         workspaceRoot: "/vault",
         displayItems: [
           {
@@ -415,10 +421,9 @@ describe("message stream block identity and message actions", () => {
   it("renders structured system result details as visible selectable meta rows", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "system-help",
@@ -461,10 +466,9 @@ describe("message stream block identity and message actions", () => {
     ] as const;
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [...items],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
@@ -488,10 +492,9 @@ describe("message stream block identity and message actions", () => {
     const copyText = vi.fn();
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         { id: "u1", kind: "message", role: "user", text: "rendered user", copyText: "**user**", turnId: "turn-1", markdown: true },
         { id: "a1", kind: "message", role: "assistant", text: "rendered answer", copyText: "# Answer", turnId: "turn-1", markdown: true },
@@ -524,10 +527,9 @@ describe("message stream block identity and message actions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: null,
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         displayItems: [
           {
             id: "p1",
@@ -569,10 +571,9 @@ describe("message stream block identity and message actions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: null,
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: true }],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
@@ -590,10 +591,9 @@ describe("message stream block identity and message actions", () => {
     const parent = document.createElement("div");
     const baseContext = {
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text: `markdown:${text}` }),
@@ -627,10 +627,9 @@ describe("message stream block identity and message actions", () => {
     });
     const baseContext = {
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown,
@@ -668,10 +667,9 @@ describe("message stream block identity and message actions", () => {
     });
     const context = {
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         { id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: true },
       ] satisfies DisplayItem[],
@@ -701,10 +699,9 @@ describe("message stream block identity and message actions", () => {
     } as const;
     const context = {
       activeThreadId: "thread",
-      activeTurnId: "turn-1",
+      turnLifecycle: runningTurnLifecycle("turn-1"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [item],
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
@@ -714,7 +711,7 @@ describe("message stream block identity and message actions", () => {
     };
 
     const runningBlock = messageStreamBlocks(context)[0];
-    const completedBlock = messageStreamBlocks({ ...context, busy: false, activeTurnId: null })[0];
+    const completedBlock = messageStreamBlocks({ ...context, turnLifecycle: idleTurnLifecycle() })[0];
 
     expect(renderMessageBlockElement(runningBlock).querySelector(".codex-panel__copy-message")).toBeNull();
     expect(renderMessageBlockElement(completedBlock).querySelector(".codex-panel__copy-message")).not.toBeNull();
@@ -724,10 +721,9 @@ describe("message stream block identity and message actions", () => {
     const onImplementPlanItem = vi.fn();
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "p1",
@@ -791,10 +787,9 @@ describe("message stream block identity and message actions", () => {
   it("does not render copy actions for tool items", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "tool-1",
@@ -820,10 +815,9 @@ describe("message stream block identity and message actions", () => {
     const onRollbackItem = vi.fn();
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [{ id: "u1", kind: "message", role: "user", text: "latest", copyText: "latest", turnId: "turn-1", markdown: true }],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
@@ -855,10 +849,9 @@ describe("message stream block identity and message actions", () => {
       });
       const block = messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: null,
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         displayItems: [
           { id: "u1", kind: "message", role: "user", text: "visible text", copyText: "full copied text", turnId: "turn-1", markdown: true },
         ],
@@ -898,10 +891,9 @@ describe("message stream block identity and message actions", () => {
     withMessageContentScrollHeight(120, () => {
       const shortUserBlock = messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: null,
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         displayItems: [{ id: "u1", kind: "message", role: "user", text: "short", turnId: "turn-1", markdown: true }],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
@@ -916,10 +908,9 @@ describe("message stream block identity and message actions", () => {
     withMessageContentScrollHeight(500, () => {
       const assistantBlock = messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: null,
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "long", turnId: "turn-1", markdown: true }],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
@@ -935,10 +926,9 @@ describe("message stream block identity and message actions", () => {
   it("does not render rollback action when no item is eligible", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: startingTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [{ id: "u1", kind: "message", role: "user", text: "running", turnId: "turn-1", markdown: true }],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
@@ -954,10 +944,9 @@ describe("message stream block identity and message actions", () => {
   it("renders command items as a compact summary with output behind details", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "cmd-1",
@@ -993,10 +982,9 @@ describe("message stream block identity and message actions", () => {
   it("omits command exit and duration rows while they are unavailable", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "cmd-1",
@@ -1029,10 +1017,9 @@ describe("message stream block identity and message actions", () => {
   it("uses read as the command header for parsed file reads", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "cmd-1",
@@ -1062,10 +1049,9 @@ describe("message stream block identity and message actions", () => {
   it("renders file diffs inside a single file change details block", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       workspaceRoot: "/vault/project",
       displayItems: [
         {
@@ -1101,10 +1087,9 @@ describe("message stream block identity and message actions", () => {
     const openTurnDiff = vi.fn();
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       workspaceRoot: "/vault/project",
       displayItems: [
         {
@@ -1145,10 +1130,9 @@ describe("message stream block identity and message actions", () => {
   it("renders referenced thread metadata without exposing hidden context", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "u1",
@@ -1182,10 +1166,9 @@ describe("message stream block identity and message actions", () => {
   it("renders resolved file mentions as a collapsed user message attachment", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "u1",
@@ -1214,10 +1197,9 @@ describe("message stream block identity and message actions", () => {
   it("does not render the open diff action without aggregated turn diff", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "patch-1",
@@ -1248,10 +1230,9 @@ describe("work log renderer decisions", () => {
   it("renders generic tool details as visible sections inside one details block", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "tool-1",
@@ -1288,10 +1269,9 @@ describe("work log renderer decisions", () => {
   it("keeps the tool summary as a separate row when details are open", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "cmd-1",
@@ -1323,10 +1303,9 @@ describe("work log renderer decisions", () => {
   it("renders generic tools without details as two compact rows", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "tool-plain",
@@ -1353,10 +1332,9 @@ describe("work log renderer decisions", () => {
   it("renders path summary tools relative to the workspace root", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       workspaceRoot: "/vault/project",
       displayItems: [
         {
@@ -1394,10 +1372,9 @@ describe("work log renderer decisions", () => {
     } as const;
     const baseContext = {
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [item] satisfies DisplayItem[],
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
@@ -1416,10 +1393,9 @@ describe("work log renderer decisions", () => {
   it("keeps path summary tools absolute outside the workspace root", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       workspaceRoot: "/vault/project",
       displayItems: [
         {
@@ -1446,10 +1422,9 @@ describe("work log renderer decisions", () => {
   it("does not treat generic tool summaries as paths without an explicit marker", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       workspaceRoot: "/vault/project",
       displayItems: [
         {
@@ -1475,10 +1450,9 @@ describe("work log renderer decisions", () => {
   it("renders hook metadata as rows inside one details block", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "hook-1",
@@ -1523,10 +1497,9 @@ describe("work log renderer decisions", () => {
   it("renders hook metadata when the hook is inside a completed-turn activity group", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         { id: "u1", kind: "message", role: "user", text: "do it", turnId: "turn", markdown: true },
         {
@@ -1575,10 +1548,9 @@ describe("work log renderer decisions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: null,
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         displayItems: [
           { id: "u1", kind: "message", role: "user", text: "do it", turnId: "turn", markdown: true },
           {
@@ -1643,10 +1615,9 @@ describe("work log renderer decisions", () => {
   it("renders task progress items as a dedicated task list", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "plan-progress-turn",
@@ -1684,10 +1655,9 @@ describe("work log renderer decisions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: "turn",
+        turnLifecycle: runningTurnLifecycle("turn"),
         historyCursor: null,
         loadingHistory: false,
-        busy: true,
         displayItems: [
           {
             id: "plan-progress-turn",
@@ -1720,10 +1690,9 @@ describe("work log renderer decisions", () => {
   it("renders agent activity with target state and prompt details", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "agent-1",
@@ -1766,10 +1735,9 @@ describe("work log renderer decisions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: "turn",
+        turnLifecycle: runningTurnLifecycle("turn"),
         historyCursor: null,
         loadingHistory: false,
-        busy: true,
         displayItems: [
           {
             id: "agent-1",
@@ -1814,10 +1782,9 @@ describe("work log renderer decisions", () => {
     const onDetailsToggle = vi.fn();
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "agent-1",
@@ -1860,10 +1827,9 @@ describe("work log renderer decisions", () => {
   it("renders a compact live agent summary while subagents are running", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "agent-1",
@@ -1907,10 +1873,9 @@ describe("work log renderer decisions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: "turn",
+        turnLifecycle: runningTurnLifecycle("turn"),
         historyCursor: null,
         loadingHistory: false,
-        busy: true,
         displayItems: [
           {
             id: "agent-1",
@@ -1951,10 +1916,9 @@ describe("work log renderer decisions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: "turn",
+        turnLifecycle: runningTurnLifecycle("turn"),
         historyCursor: null,
         loadingHistory: false,
-        busy: true,
         displayItems: [{ id: "reasoning-1", kind: "reasoning", role: "tool", text: "", turnId: "turn", status: "running" }],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
@@ -1975,10 +1939,9 @@ describe("work log renderer decisions", () => {
   it("hides the live agent summary once all subagents are complete", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "agent-1",
@@ -2008,10 +1971,9 @@ describe("work log renderer decisions", () => {
   it("marks the live agent summary failed when any subagent fails", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      busy: true,
       displayItems: [
         {
           id: "agent-1",
@@ -2357,10 +2319,9 @@ describe("pending request renderer decisions", () => {
   it("renders submitted user input separately from approvals", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "user-input-submitted-1",
@@ -2390,10 +2351,9 @@ describe("pending request renderer decisions", () => {
   it("renders manual approval results with completion state and details", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: "turn",
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "approval-1",
@@ -2436,10 +2396,9 @@ describe("pending request renderer decisions", () => {
   it("renders auto-review summaries under the final assistant message", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [
         {
           id: "assistant-1",
@@ -2466,10 +2425,9 @@ describe("pending request renderer decisions", () => {
   it("adds pending requests to the bottom of message stream blocks", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "Done", markdown: true }],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
@@ -2492,10 +2450,9 @@ describe("pending request renderer decisions", () => {
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
-        activeTurnId: null,
+        turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        busy: false,
         displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "Waiting", markdown: true }],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
@@ -2527,10 +2484,9 @@ describe("pending request renderer decisions", () => {
     const parent = document.createElement("div");
     const baseContext = {
       activeThreadId: "thread",
-      activeTurnId: null,
+      turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      busy: false,
       displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "Done", markdown: true }] satisfies DisplayItem[],
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),

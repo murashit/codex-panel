@@ -4,7 +4,7 @@ import { activeAgentRunSummary } from "../display/agent";
 import { executionState } from "../display/state";
 import type { AgentDisplayItem, AgentRunSummary, AgentRunSummaryAgent, TaskProgressDisplayItem, ToolDisplayItem } from "../display/types";
 import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel, taskStatusMarker } from "../display/labels";
-import type { MessageStreamContext } from "./message-stream";
+import { messageStreamActiveTurnId, type MessageStreamContext } from "./message-stream";
 import { createWorkMessageClassName } from "./work-message";
 import { shortThreadId } from "../../../utils";
 
@@ -14,7 +14,7 @@ type ReasoningDisplayItem = ToolDisplayItem & { kind: "reasoning" };
 export type WorkItemDisplayItem = TaskProgressDisplayItem | AgentDisplayItem | ReasoningDisplayItem;
 
 export function activeAgentRunSummaryBlock(context: MessageStreamContext): AgentRunSummary | null {
-  return activeAgentRunSummary(context.displayItems, context.activeTurnId, context.busy);
+  return activeAgentRunSummary(context.displayItems, messageStreamActiveTurnId(context));
 }
 
 export function agentRunSummaryNode(summary: AgentRunSummary): ReactNode {
@@ -229,8 +229,9 @@ function isLongAgentMessage(message: string): boolean {
 }
 
 function isReasoningActive(item: ReasoningDisplayItem, context: MessageStreamContext): boolean {
-  if (!context.busy || !context.activeTurnId || item.turnId !== context.activeTurnId) return false;
+  const activeTurn = messageStreamActiveTurnId(context);
+  if (!activeTurn || item.turnId !== activeTurn) return false;
   if (executionState(item) === "completed") return false;
-  const latestActiveTurnItem = [...context.displayItems].reverse().find((candidate) => candidate.turnId === context.activeTurnId);
+  const latestActiveTurnItem = [...context.displayItems].reverse().find((candidate) => candidate.turnId === activeTurn);
   return latestActiveTurnItem?.id === item.id;
 }

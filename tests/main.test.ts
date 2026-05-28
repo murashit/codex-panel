@@ -70,8 +70,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(openView, "openPanelSnapshot").mockReturnValue({
       viewId: "open-view",
       threadId: "thread-1",
-      busy: false,
-      activeTurnId: null,
+      turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
       hasComposerDraft: false,
@@ -98,8 +97,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(busyView, "openPanelSnapshot").mockReturnValue({
       viewId: "busy-view",
       threadId: "other-thread",
-      busy: false,
-      activeTurnId: null,
+      turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
       hasComposerDraft: false,
@@ -111,8 +109,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(emptyView, "openPanelSnapshot").mockReturnValue({
       viewId: "empty-view",
       threadId: null,
-      busy: false,
-      activeTurnId: null,
+      turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
       hasComposerDraft: false,
@@ -451,8 +448,7 @@ function panelSnapshot(
   return {
     viewId: "view",
     threadId: "thread",
-    busy: false,
-    activeTurnId: null,
+    turnLifecycle: { kind: "idle" },
     pendingApprovals: 0,
     pendingUserInputs: 0,
     hasComposerDraft: false,

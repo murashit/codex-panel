@@ -519,8 +519,7 @@ export default class CodexPanelPlugin extends Plugin {
 function isIdleEmptyPanelSnapshot(snapshot: OpenCodexPanelSnapshot): boolean {
   return (
     snapshot.threadId === null &&
-    !snapshot.busy &&
-    snapshot.activeTurnId === null &&
+    snapshot.turnLifecycle.kind === "idle" &&
     snapshot.pendingApprovals === 0 &&
     snapshot.pendingUserInputs === 0 &&
     !snapshot.hasComposerDraft

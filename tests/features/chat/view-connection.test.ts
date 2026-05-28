@@ -326,7 +326,7 @@ describe("CodexChatView connection lifecycle", () => {
     await submit;
 
     expect((view as unknown as { state: ChatState }).state.turnLifecycle).toEqual({ kind: "idle" });
-    expect(view.openPanelSnapshot()).toMatchObject({ busy: false, activeTurnId: null });
+    expect(view.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
   });
 
   it("requests a workspace layout save after resuming a thread", async () => {
@@ -352,7 +352,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(client.startThread).not.toHaveBeenCalled();
     expect(view.getState()).toEqual({ version: 1 });
-    expect(view.openPanelSnapshot()).toMatchObject({ threadId: null, busy: false, activeTurnId: null, hasComposerDraft: false });
+    expect(view.openPanelSnapshot()).toMatchObject({ threadId: null, turnLifecycle: { kind: "idle" }, hasComposerDraft: false });
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
   });
 
