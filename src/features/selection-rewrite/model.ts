@@ -2,6 +2,7 @@ import type { EditorPosition } from "obsidian";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 
 export type SelectionRewriteStatus = "editing-prompt" | "generating" | "preview" | "applied" | "cancelled" | "failed";
+const TERMINAL_SELECTION_REWRITE_STATUSES = new Set<SelectionRewriteStatus>(["applied", "cancelled"]);
 
 export interface SelectionRewriteState {
   filePath: string;
@@ -41,6 +42,7 @@ export function transitionSelectionRewriteState(
 ): SelectionRewriteState {
   switch (event.type) {
     case "generation-started":
+      if (TERMINAL_SELECTION_REWRITE_STATUSES.has(state.status)) return state;
       return {
         ...state,
         instruction: event.instruction,

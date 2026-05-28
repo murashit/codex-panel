@@ -1,10 +1,15 @@
-import { AppServerClient } from "../../app-server/client";
+import { AppServerClient, type AppServerClientHandlers } from "../../app-server/client";
+import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
+import type { RequestId } from "../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
+import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
+import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../generated/app-server/v2/Turn";
+import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
 import { runtimeOverride, validatedRuntimeOverride } from "../../runtime/model";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
@@ -31,16 +36,39 @@ export interface RunSelectionRewriteOptions {
   onActivity?: (activity: SelectionRewriteActivity) => void;
   onPreview?: (text: string) => void;
   signal?: AbortSignal;
+  clientFactory?: SelectionRewriteClientFactory;
 }
 
 export type SelectionRewriteActivity = "reasoning" | "writing";
 
+export interface SelectionRewriteClient {
+  connect(): Promise<InitializeResponse>;
+  disconnect(): void;
+  listModels(includeHidden?: boolean): Promise<ModelListResponse>;
+  rejectServerRequest(requestId: RequestId, code: number, message: string): void;
+  startEphemeralThread(cwd: string, serviceName: string, developerInstructions: string): Promise<ThreadStartResponse>;
+  startStructuredTurn(
+    threadId: string,
+    cwd: string,
+    text: string,
+    outputSchema: JsonValue,
+    model?: string,
+    effort?: ReasoningEffort,
+  ): Promise<TurnStartResponse>;
+}
+
+export type SelectionRewriteClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => SelectionRewriteClient;
+
+type SelectionRewriteRunLifecycleState =
+  | { kind: "starting" }
+  | { kind: "thread-started"; threadId: string }
+  | { kind: "turn-started"; threadId: string; turnId: string }
+  | { kind: "completed" };
+
 export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
   throwIfAborted(options.signal);
-  let threadId: string | null = null;
-  let expectedTurnId: string | null = null;
+  let lifecycle: SelectionRewriteRunLifecycleState = { kind: "starting" };
   let preview = "";
-  let completed = false;
   let timeout: number | undefined;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
@@ -49,16 +77,15 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
   const completedTurn = new Promise<Turn>((resolve, reject) => {
     rejectCompletedTurn = reject;
     timeout = window.setTimeout(() => {
-      if (completed) return;
-      completed = true;
+      if (lifecycle.kind === "completed") return;
+      lifecycle = { kind: "completed" };
       reject(new Error("Timed out while rewriting the selection."));
     }, SELECTION_REWRITE_TIMEOUT_MS);
 
     handleNotification = (notification): void => {
-      if (completed) return;
+      if (lifecycle.kind === "completed") return;
       if (notification.method === "item/agentMessage/delta") {
-        if (!threadId || notification.params.threadId !== threadId) return;
-        if (expectedTurnId && notification.params.turnId !== expectedTurnId) return;
+        if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turnId)) return;
         options.onActivity?.("writing");
         preview += notification.params.delta;
         options.onPreview?.(preview);
@@ -69,28 +96,26 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
         notification.method === "item/reasoning/textDelta" ||
         notification.method === "item/reasoning/summaryPartAdded"
       ) {
-        if (!threadId || notification.params.threadId !== threadId) return;
-        if (expectedTurnId && notification.params.turnId !== expectedTurnId) return;
+        if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turnId)) return;
         options.onActivity?.("reasoning");
         return;
       }
       if (notification.method === "item/completed") {
-        if (!threadId || notification.params.threadId !== threadId) return;
-        if (expectedTurnId && notification.params.turnId !== expectedTurnId) return;
+        if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turnId)) return;
         completedItems.push(notification.params.item);
         return;
       }
       if (notification.method === "turn/completed") {
-        if (!threadId || notification.params.threadId !== threadId) return;
-        if (expectedTurnId && notification.params.turn.id !== expectedTurnId) return;
-        completed = true;
+        if (!notificationMatchesSelectionRewriteTurn(lifecycle, notification.params.threadId, notification.params.turn.id)) return;
+        lifecycle = { kind: "completed" };
         resolve(turnWithCollectedItems(notification.params.turn, completedItems));
       }
     };
   });
 
-  let client!: AppServerClient;
-  client = new AppServerClient(options.codexPath, options.cwd, {
+  let client!: SelectionRewriteClient;
+  const clientFactory = options.clientFactory ?? ((codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers));
+  client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {
       handleNotification(notification);
     },
@@ -99,8 +124,8 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     },
     onLog: () => undefined,
     onExit: () => {
-      if (completed) return;
-      completed = true;
+      if (lifecycle.kind === "completed") return;
+      lifecycle = { kind: "completed" };
       rejectCompletedTurn?.(new Error("Selection rewrite app-server exited."));
     },
   });
@@ -114,12 +139,19 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       client.startEphemeralThread(options.cwd, SELECTION_REWRITE_SERVICE_NAME, SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS),
       options.signal,
     );
-    threadId = threadResponse.thread.id;
+    lifecycle = { kind: "thread-started", threadId: threadResponse.thread.id };
     const turnResponse = await abortable(
-      client.startStructuredTurn(threadId, options.cwd, options.prompt, SELECTION_REWRITE_OUTPUT_SCHEMA, runtime.model, runtime.effort),
+      client.startStructuredTurn(
+        threadResponse.thread.id,
+        options.cwd,
+        options.prompt,
+        SELECTION_REWRITE_OUTPUT_SCHEMA,
+        runtime.model,
+        runtime.effort,
+      ),
       options.signal,
     );
-    expectedTurnId = turnResponse.turn.id;
+    lifecycle = acknowledgeSelectionRewriteTurn(lifecycle, threadResponse.thread.id, turnResponse.turn.id);
     const turn =
       turnResponse.turn.status === "completed"
         ? turnWithCollectedItems(turnResponse.turn, completedItems)
@@ -128,10 +160,24 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
     return output;
   } finally {
-    completed = true;
+    lifecycle = { kind: "completed" };
     if (timeout !== undefined) window.clearTimeout(timeout);
     client.disconnect();
   }
+}
+
+function notificationMatchesSelectionRewriteTurn(lifecycle: SelectionRewriteRunLifecycleState, threadId: string, turnId: string): boolean {
+  if (lifecycle.kind === "thread-started") return lifecycle.threadId === threadId;
+  if (lifecycle.kind === "turn-started") return lifecycle.threadId === threadId && lifecycle.turnId === turnId;
+  return false;
+}
+
+function acknowledgeSelectionRewriteTurn(
+  lifecycle: SelectionRewriteRunLifecycleState,
+  threadId: string,
+  turnId: string,
+): SelectionRewriteRunLifecycleState {
+  return lifecycle.kind === "completed" ? lifecycle : { kind: "turn-started", threadId, turnId };
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -178,7 +224,7 @@ export function validatedSelectionRewriteRuntime(
 }
 
 async function selectionRewriteRuntimeForClient(
-  client: AppServerClient,
+  client: SelectionRewriteClient,
   settings: SelectionRewriteRuntimeSettings,
 ): Promise<SelectionRewriteRuntime> {
   const runtime = selectionRewriteRuntime(settings);
