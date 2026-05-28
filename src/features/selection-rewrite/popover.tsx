@@ -44,13 +44,17 @@ interface SelectionRewriteElements {
 type SelectionRewriteGenerationRunState = { kind: "idle" } | { kind: "running"; abortController: AbortController };
 type ActiveSelectionRewriteGenerationRun = Extract<SelectionRewriteGenerationRunState, { kind: "running" }>;
 
+interface SelectionRewritePopoverStatusState {
+  text: string;
+  active: boolean;
+}
+
 export class SelectionRewritePopover {
   private elements: SelectionRewriteElements | null = null;
   private generationRun: SelectionRewriteGenerationRunState = { kind: "idle" };
   private readonly cleanups: Cleanup[] = [];
   private instructionDraft: string;
-  private statusText = "";
-  private statusActive = false;
+  private status: SelectionRewritePopoverStatusState = { text: "", active: false };
 
   constructor(private readonly options: SelectionRewritePopoverOptions) {
     this.instructionDraft = options.state.instruction;
@@ -218,8 +222,7 @@ export class SelectionRewritePopover {
   }
 
   private setStatus(text: string, options: { active?: boolean } = {}): void {
-    this.statusText = text;
-    this.statusActive = Boolean(options.active);
+    this.status = { text, active: Boolean(options.active) };
     this.renderView();
   }
 
@@ -298,8 +301,7 @@ export class SelectionRewritePopover {
           event.preventDefault();
           this.apply();
         }}
-        statusActive={this.statusActive}
-        statusText={this.statusText}
+        status={this.status}
         streamPreview={state.streamText.trim()}
       />,
     );
@@ -345,8 +347,7 @@ interface SelectionRewritePopoverViewProps {
   onGenerate: () => void;
   onInstructionInput: (value: string) => void;
   onInstructionKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
-  statusActive: boolean;
-  statusText: string;
+  status: SelectionRewritePopoverStatusState;
   streamPreview: string;
 }
 
@@ -365,8 +366,7 @@ function SelectionRewritePopoverView({
   onGenerate,
   onInstructionInput,
   onInstructionKeyDown,
-  statusActive,
-  statusText,
+  status,
   streamPreview,
 }: SelectionRewritePopoverViewProps): ReactNode {
   return (
@@ -399,7 +399,7 @@ function SelectionRewritePopoverView({
           />
         </div>
       </div>
-      <SelectionRewriteStatus text={statusText} active={statusActive} />
+      <SelectionRewriteStatus status={status} />
       <pre className={`codex-panel-selection-rewrite__stream-preview${streamPreview ? "" : " is-hidden"}`}>{streamPreview}</pre>
       <div className={`codex-panel-selection-rewrite__result-row${hasReplacement ? "" : " is-hidden"}`}>
         <div className="codex-panel-selection-rewrite__diff">{diff ? <SelectionRewriteDiff diff={diff} /> : null}</div>
@@ -425,7 +425,8 @@ function SelectionRewritePopoverView({
   );
 }
 
-function SelectionRewriteStatus({ text, active }: { text: string; active: boolean }): ReactNode {
+function SelectionRewriteStatus({ status }: { status: SelectionRewritePopoverStatusState }): ReactNode {
+  const { text, active } = status;
   if (!text && !active) return <div className="codex-panel-selection-rewrite__status" />;
   return (
     <div className={`codex-panel-selection-rewrite__status${active ? " is-active" : ""}`}>

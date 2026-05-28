@@ -100,17 +100,20 @@ interface ClientResponseByMethod {
 
 type TypedClientRequestMethod = Extract<ClientRequestMethod, keyof ClientResponseByMethod>;
 
+type AppServerClientLifecycleState =
+  | { kind: "disconnected" }
+  | { kind: "starting"; transport: AppServerTransport }
+  | { kind: "initialized"; transport: AppServerTransport; initializeResponse: InitializeResponse };
+
 function toUserInput(input: string | UserInput[]): UserInput[] {
   if (typeof input !== "string") return input;
   return [{ type: "text", text: input, text_elements: [] }];
 }
 
 export class AppServerClient {
-  private transport: AppServerTransport | null = null;
+  private lifecycle: AppServerClientLifecycleState = { kind: "disconnected" };
   private nextId = 1;
   private pending = new Map<RequestId, PendingRequest>();
-  private initialized = false;
-  private initResponse: InitializeResponse | null = null;
 
   constructor(
     private readonly codexPath: string,
@@ -121,7 +124,7 @@ export class AppServerClient {
   ) {}
 
   async connect(): Promise<InitializeResponse> {
-    if (this.transport?.isRunning()) {
+    if (this.activeTransport()?.isRunning()) {
       throw new Error("Codex app-server is already running.");
     }
 
@@ -134,16 +137,16 @@ export class AppServerClient {
         this.rejectAll(error);
       },
       onExit: (code, signal) => {
-        this.initialized = false;
-        this.initResponse = null;
+        this.lifecycle = { kind: "disconnected" };
         this.rejectAll(new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`));
         this.handlers.onExit(code, signal);
       },
     };
-    this.transport = this.transportFactory
+    const transport = this.transportFactory
       ? this.transportFactory(transportHandlers)
       : new StdioAppServerTransport(this.codexPath, this.cwd, transportHandlers);
-    this.transport.start();
+    this.lifecycle = { kind: "starting", transport };
+    transport.start();
 
     const init = await this.request("initialize", {
       clientInfo: {
@@ -157,26 +160,23 @@ export class AppServerClient {
       },
     });
     this.notify({ method: "initialized" });
-    this.initialized = true;
-    this.initResponse = init;
+    this.lifecycle = { kind: "initialized", transport, initializeResponse: init };
     return init;
   }
 
   disconnect(): void {
-    this.initialized = false;
-    this.initResponse = null;
-    this.transport?.stop();
-    this.transport = null;
+    this.activeTransport()?.stop();
+    this.lifecycle = { kind: "disconnected" };
     this.rejectAll(new Error("Codex app-server disconnected."));
   }
 
   isConnected(): boolean {
-    return this.initialized && this.transport?.isRunning() === true;
+    return this.lifecycle.kind === "initialized" && this.lifecycle.transport.isRunning();
   }
 
   get initializeResponse(): InitializeResponse {
-    if (!this.initResponse) throw new Error("Codex app-server has not initialized.");
-    return this.initResponse;
+    if (this.lifecycle.kind !== "initialized") throw new Error("Codex app-server has not initialized.");
+    return this.lifecycle.initializeResponse;
   }
 
   readEffectiveConfig(cwd: string): Promise<ConfigReadResponse> {
@@ -438,10 +438,11 @@ export class AppServerClient {
   }
 
   private send(message: RpcOutboundMessage): void {
-    if (!this.transport?.isRunning()) {
+    const transport = this.activeTransport();
+    if (!transport?.isRunning()) {
       throw new Error("Codex app-server is not running.");
     }
-    this.transport.send(message);
+    transport.send(message);
   }
 
   private handleLine(line: string): void {
@@ -491,5 +492,9 @@ export class AppServerClient {
       pending.reject(error);
     }
     this.pending.clear();
+  }
+
+  private activeTransport(): AppServerTransport | null {
+    return this.lifecycle.kind === "disconnected" ? null : this.lifecycle.transport;
   }
 }

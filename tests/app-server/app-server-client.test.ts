@@ -33,6 +33,11 @@ class FakeTransport implements AppServerTransport {
   emitLine(message: unknown): void {
     this.handlers.onLine(JSON.stringify(message));
   }
+
+  emitExit(code: number | null = 0, signal: NodeJS.Signals | null = null): void {
+    this.running = false;
+    this.handlers.onExit(code, signal);
+  }
 }
 
 async function connectedClient(): Promise<{ client: AppServerClient; transport: FakeTransport }> {
@@ -146,6 +151,29 @@ describe("AppServerClient", () => {
       },
     });
     expect(serverRequests[0]?.method).toBe("item/commandExecution/requestApproval");
+  });
+
+  it("exposes initialized state through a single connection lifecycle", async () => {
+    const { client, transport } = await connectedClient();
+
+    expect(client.isConnected()).toBe(true);
+    expect(client.initializeResponse).toMatchObject({ codexHome: "/tmp/codex" });
+
+    transport.emitExit(0);
+
+    expect(client.isConnected()).toBe(false);
+    expect(() => client.initializeResponse).toThrow("Codex app-server has not initialized.");
+  });
+
+  it("clears initialized state and rejects pending requests on disconnect", async () => {
+    const { client } = await connectedClient();
+    const listing = client.listModels();
+
+    client.disconnect();
+
+    expect(client.isConnected()).toBe(false);
+    expect(() => client.initializeResponse).toThrow("Codex app-server has not initialized.");
+    await expect(listing).rejects.toThrow("Codex app-server disconnected.");
   });
 
   it("sends typed turn steering requests", async () => {

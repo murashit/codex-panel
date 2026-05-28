@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/client";
 import {
+  createSettingsDynamicSectionLifecycle,
   loadHookData,
   loadSettingsData,
   settingsDataRefreshLoading,
+  transitionSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
 } from "../../src/settings/data";
 
@@ -20,6 +22,29 @@ describe("settings data", () => {
     const completed = transitionSettingsDataRefreshLifecycle(loading, { type: "completed", failedCount: 2 });
     expect(completed).toEqual({ kind: "completed", failedCount: 2 });
     expect(settingsDataRefreshLoading(completed)).toBe(false);
+  });
+
+  it("tracks dynamic section lifecycle", () => {
+    const idle = createSettingsDynamicSectionLifecycle();
+    expect(idle).toEqual({ kind: "idle", status: "" });
+
+    const loading = transitionSettingsDynamicSectionLifecycle(idle, { type: "started", status: "Loading hooks...", operationId: 1 });
+    expect(loading).toEqual({ kind: "loading", status: "Loading hooks...", operationId: 1 });
+
+    expect(transitionSettingsDynamicSectionLifecycle(loading, { type: "loaded", status: "Stale result.", operationId: 0 })).toBe(loading);
+
+    const loaded = transitionSettingsDynamicSectionLifecycle(loading, { type: "loaded", status: "Loaded 1 hook.", operationId: 1 });
+    expect(loaded).toEqual({ kind: "loaded", status: "Loaded 1 hook.", operationId: 1 });
+
+    const failed = transitionSettingsDynamicSectionLifecycle(loaded, { type: "failed", status: "Could not load hooks.", operationId: 1 });
+    expect(failed).toEqual({ kind: "failed", status: "Could not load hooks.", operationId: 1 });
+
+    const laterLoaded = transitionSettingsDynamicSectionLifecycle(failed, { type: "loaded", status: "Loaded 2 hooks.", operationId: 2 });
+    expect(transitionSettingsDynamicSectionLifecycle(laterLoaded, { type: "failed", status: "Late old failure.", operationId: 1 })).toBe(
+      laterLoaded,
+    );
+
+    expect(transitionSettingsDynamicSectionLifecycle(failed, { type: "reset" })).toEqual(idle);
   });
 
   it("uses only hook rows for the requested cwd", async () => {

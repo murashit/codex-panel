@@ -11,9 +11,11 @@ import { findModelByIdOrName, REASONING_EFFORTS, sortedAvailableModels, supporte
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 import {
+  createSettingsDynamicSectionLifecycle,
   loadHookData,
   loadSettingsData,
   settingsDataRefreshLoading,
+  transitionSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
   type SettingsDataRefreshLifecycleState,
 } from "./data";
@@ -36,39 +38,18 @@ function settingsDataRefreshStatus(state: SettingsDataRefreshLifecycleState): st
   return "";
 }
 
-type SettingsDynamicSectionLifecycleState =
-  | { kind: "idle"; status: "" }
-  | { kind: "loading"; status: string }
-  | { kind: "loaded"; status: string }
-  | { kind: "failed"; status: string };
-
-function idleSettingsDynamicSection(): SettingsDynamicSectionLifecycleState {
-  return { kind: "idle", status: "" };
-}
-
-function loadingSettingsDynamicSection(status: string): SettingsDynamicSectionLifecycleState {
-  return { kind: "loading", status };
-}
-
-function loadedSettingsDynamicSection(status: string): SettingsDynamicSectionLifecycleState {
-  return { kind: "loaded", status };
-}
-
-function failedSettingsDynamicSection(status: string): SettingsDynamicSectionLifecycleState {
-  return { kind: "failed", status };
-}
-
 export class CodexPanelSettingTab extends PluginSettingTab {
   private settingsDataAutoLoadStarted = false;
+  private settingsDynamicOperationId = 0;
   private settingsDataRefreshLifecycle: SettingsDataRefreshLifecycleState = { kind: "idle" };
   private archivedThreads: Thread[] = [];
-  private archivedThreadsLifecycle = idleSettingsDynamicSection();
+  private archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
   private hooks: HookMetadata[] = [];
   private hookWarnings: string[] = [];
   private hookErrors: string[] = [];
-  private hooksLifecycle = idleSettingsDynamicSection();
+  private hooksLifecycle = createSettingsDynamicSectionLifecycle();
   private models: Model[] = [];
-  private modelsLifecycle = idleSettingsDynamicSection();
+  private modelsLifecycle = createSettingsDynamicSectionLifecycle();
 
   constructor(
     app: App,
@@ -260,10 +241,23 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async refreshSettingsData(): Promise<void> {
+    const operationId = this.nextSettingsDynamicOperationId();
     this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, { type: "started" });
-    this.modelsLifecycle = loadingSettingsDynamicSection("Loading models...");
-    this.archivedThreadsLifecycle = loadingSettingsDynamicSection("Loading archived threads...");
-    this.hooksLifecycle = loadingSettingsDynamicSection("Loading hooks...");
+    this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
+      type: "started",
+      status: "Loading models...",
+      operationId,
+    });
+    this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+      type: "started",
+      status: "Loading archived threads...",
+      operationId,
+    });
+    this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+      type: "started",
+      status: "Loading hooks...",
+      operationId,
+    });
     this.display();
 
     let failedCount = 0;
@@ -273,35 +267,71 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       if (result.models.ok) {
         this.models = result.models.data;
         this.plugin.publishModels(result.models.data);
-        this.modelsLifecycle = loadedSettingsDynamicSection(result.models.status);
+        this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
+          type: "loaded",
+          status: result.models.status,
+          operationId,
+        });
       } else {
         failedCount += 1;
-        this.modelsLifecycle = failedSettingsDynamicSection(result.models.status);
+        this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
+          type: "failed",
+          status: result.models.status,
+          operationId,
+        });
       }
 
       if (result.hooks.ok) {
         this.hooks = result.hooks.data.hooks;
         this.hookWarnings = result.hooks.data.warnings;
         this.hookErrors = result.hooks.data.errors;
-        this.hooksLifecycle = loadedSettingsDynamicSection(result.hooks.status);
+        this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+          type: "loaded",
+          status: result.hooks.status,
+          operationId,
+        });
       } else {
         failedCount += 1;
-        this.hooksLifecycle = failedSettingsDynamicSection(result.hooks.status);
+        this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+          type: "failed",
+          status: result.hooks.status,
+          operationId,
+        });
       }
 
       if (result.archivedThreads.ok) {
         this.archivedThreads = result.archivedThreads.data;
-        this.archivedThreadsLifecycle = loadedSettingsDynamicSection(result.archivedThreads.status);
+        this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+          type: "loaded",
+          status: result.archivedThreads.status,
+          operationId,
+        });
       } else {
         failedCount += 1;
-        this.archivedThreadsLifecycle = failedSettingsDynamicSection(result.archivedThreads.status);
+        this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+          type: "failed",
+          status: result.archivedThreads.status,
+          operationId,
+        });
       }
     } catch (error) {
       failedCount = 3;
       const message = errorMessage(error);
-      this.modelsLifecycle = failedSettingsDynamicSection(`Could not load models: ${message}`);
-      this.hooksLifecycle = failedSettingsDynamicSection(`Could not load hooks: ${message}`);
-      this.archivedThreadsLifecycle = failedSettingsDynamicSection(`Could not load archived threads: ${message}`);
+      this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
+        type: "failed",
+        status: `Could not load models: ${message}`,
+        operationId,
+      });
+      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+        type: "failed",
+        status: `Could not load hooks: ${message}`,
+        operationId,
+      });
+      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+        type: "failed",
+        status: `Could not load archived threads: ${message}`,
+        operationId,
+      });
     } finally {
       this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, {
         type: "completed",
@@ -319,16 +349,29 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async loadHooks(): Promise<void> {
-    this.hooksLifecycle = loadingSettingsDynamicSection("Loading hooks...");
+    const operationId = this.nextSettingsDynamicOperationId();
+    this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+      type: "started",
+      status: "Loading hooks...",
+      operationId,
+    });
     this.display();
     try {
       const hooks = await this.withSettingsConnection((client) => loadHookData(client, this.plugin.vaultPath));
       this.hooks = hooks.hooks;
       this.hookWarnings = hooks.warnings;
       this.hookErrors = hooks.errors;
-      this.hooksLifecycle = loadedSettingsDynamicSection(hooks.status);
+      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+        type: "loaded",
+        status: hooks.status,
+        operationId,
+      });
     } catch (error) {
-      this.hooksLifecycle = failedSettingsDynamicSection(`Could not load hooks: ${errorMessage(error)}`);
+      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+        type: "failed",
+        status: `Could not load hooks: ${errorMessage(error)}`,
+        operationId,
+      });
       new Notice("Could not load Codex hooks.");
     } finally {
       this.display();
@@ -336,28 +379,54 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async trustHook(hook: HookMetadata): Promise<void> {
-    this.hooksLifecycle = loadingSettingsDynamicSection("Loading hooks...");
+    const operationId = this.nextSettingsDynamicOperationId();
+    this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+      type: "started",
+      status: "Loading hooks...",
+      operationId,
+    });
     this.display();
     try {
       await this.withSettingsConnection((client) => client.trustHook(hook));
-      this.hooksLifecycle = loadedSettingsDynamicSection("Trusted hook definition.");
+      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+        type: "loaded",
+        status: "Trusted hook definition.",
+        operationId,
+      });
       await this.loadHooks();
     } catch (error) {
-      this.hooksLifecycle = failedSettingsDynamicSection(`Could not trust hook: ${errorMessage(error)}`);
+      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+        type: "failed",
+        status: `Could not trust hook: ${errorMessage(error)}`,
+        operationId,
+      });
       new Notice("Could not trust Codex hook.");
       this.display();
     }
   }
 
   private async setHookEnabled(hook: HookMetadata, enabled: boolean): Promise<void> {
-    this.hooksLifecycle = loadingSettingsDynamicSection("Loading hooks...");
+    const operationId = this.nextSettingsDynamicOperationId();
+    this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+      type: "started",
+      status: "Loading hooks...",
+      operationId,
+    });
     this.display();
     try {
       await this.withSettingsConnection((client) => client.setHookEnabled(hook, enabled));
-      this.hooksLifecycle = loadedSettingsDynamicSection(enabled ? "Enabled hook." : "Disabled hook.");
+      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+        type: "loaded",
+        status: enabled ? "Enabled hook." : "Disabled hook.",
+        operationId,
+      });
       await this.loadHooks();
     } catch (error) {
-      this.hooksLifecycle = failedSettingsDynamicSection(`Could not update hook: ${errorMessage(error)}`);
+      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+        type: "failed",
+        status: `Could not update hook: ${errorMessage(error)}`,
+        operationId,
+      });
       new Notice("Could not update Codex hook.");
       this.display();
     }
@@ -385,15 +454,28 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async restoreArchivedThread(threadId: string): Promise<void> {
-    this.archivedThreadsLifecycle = loadingSettingsDynamicSection("Loading archived threads...");
+    const operationId = this.nextSettingsDynamicOperationId();
+    this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+      type: "started",
+      status: "Loading archived threads...",
+      operationId,
+    });
     this.display();
     try {
       const response = await this.withSettingsConnection((client) => client.unarchiveThread(threadId));
       this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-      this.archivedThreadsLifecycle = loadedSettingsDynamicSection(`Restored "${archivedThreadDisplayTitle(response.thread)}".`);
+      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+        type: "loaded",
+        status: `Restored "${archivedThreadDisplayTitle(response.thread)}".`,
+        operationId,
+      });
       this.plugin.refreshSharedThreadListFromOpenSurface();
     } catch (error) {
-      this.archivedThreadsLifecycle = failedSettingsDynamicSection(`Could not restore archived thread: ${errorMessage(error)}`);
+      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+        type: "failed",
+        status: `Could not restore archived thread: ${errorMessage(error)}`,
+        operationId,
+      });
       new Notice("Could not restore archived Codex thread.");
     } finally {
       this.display();
@@ -402,6 +484,11 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async withSettingsConnection<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
     return withAppServerConnection(this.plugin.settings.codexPath, this.plugin.vaultPath, operation);
+  }
+
+  private nextSettingsDynamicOperationId(): number {
+    this.settingsDynamicOperationId += 1;
+    return this.settingsDynamicOperationId;
   }
 
   private modelOptions(): Model[] {
