@@ -23,8 +23,6 @@ import {
   nextCollaborationMode,
 } from "../../runtime/collaboration-mode";
 import { ChatController } from "./chat-controller";
-import { connectionDiagnosticSections, diagnosticAlertLevel } from "./diagnostics";
-import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../runtime/view";
 import {
   autoReviewActive,
   currentModel,
@@ -32,20 +30,16 @@ import {
   currentServiceTier,
   requestedTurnRuntimeSettings,
   runtimeOverridePayload,
-  runtimeOverrideLabel,
-  runtimeSummaryLabel,
-  serviceTierLabel,
   supportedReasoningEfforts,
   type RuntimeSnapshot,
 } from "../../runtime/state";
 import { readRuntimeConfig } from "../../runtime/config";
 import { sortedAvailableModels } from "../../runtime/model";
-import { compactContextLabel, modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/settings";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/settings";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult } from "./slash-commands";
 import type { ThreadReferenceInput } from "./slash-commands";
 import { mcpStatusLines } from "./mcp-status";
 import { ChatAppServerController } from "./chat-app-server-controller";
-import { statusValue, usageLimitStatusLines } from "./status-lines";
 import { ThreadHistoryLoader } from "./thread-history";
 import { ThreadRenameController } from "./thread-rename";
 import { pendingRequestsSignature as requestStateSignature, userInputDraftKey, userInputOtherDraftKey } from "./request-state";
@@ -78,6 +72,14 @@ import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { ChatThreadActionController } from "./thread-actions";
 import { unmountReactRoot } from "../../shared/ui/react-root";
+import {
+  connectionDiagnosticsModel,
+  effortStatusLines as buildEffortStatusLines,
+  modelStatusLines as buildModelStatusLines,
+  runtimeSnapshotForChatState,
+  statusSummaryLines as buildStatusSummaryLines,
+  toolbarViewModel as buildToolbarViewModel,
+} from "./view-model";
 import {
   ChatViewDeferredTasks,
   transitionChatConnectionLifecycle,
@@ -1338,55 +1340,19 @@ export class CodexChatView extends ItemView {
   }
 
   private toolbarViewModel(): ToolbarViewModel {
-    const snapshot = this.runtimeSnapshot();
-    const config = readRuntimeConfig(this.state.effectiveConfig);
-    const context = contextSummary(snapshot);
-    const limit = rateLimitSummary(snapshot);
-    const historyOpen = this.state.openDetails.has("history");
-    const statusPanelOpen = this.state.openDetails.has("status-panel");
-    const runtimeOpen = this.state.runtimePicker !== null;
-    const statusState = this.turnBusy ? "running" : this.connection.isConnected() ? "connected" : "offline";
-    const model = currentModel(snapshot, config);
-    const effort = currentReasoningEffort(snapshot, config);
-    const threads = this.state.listedThreads;
-    return {
+    return buildToolbarViewModel({
+      state: this.state,
+      snapshot: this.runtimeSnapshot(),
       connected: this.connection.isConnected(),
-      status: this.state.status,
-      statusState,
-      historyOpen,
-      statusPanelOpen,
-      runtimeOpen,
-      planActive: this.state.requestedCollaborationMode === "plan",
-      autoReviewActive: autoReviewActive(snapshot, config),
-      fastActive: currentServiceTier(snapshot, config) === "fast",
-      runtimeSummary: runtimeSummaryLabel(model, effort),
-      runtimeTitle: `Model: ${model ?? "(Codex default)"}; Effort: ${effort ?? "(Codex default)"}`,
-      runtimeEmphasized: false,
-      context: context ? { ...context, label: compactContextLabel(context.percent, context.label) } : null,
-      rateLimit: limit,
-      configSections: effectiveConfigSections(snapshot, this.plugin.vaultPath),
-      openPanel: historyOpen ? "history" : runtimeOpen ? "runtime" : statusPanelOpen ? "status" : null,
-      threads: threads.map((thread) => {
-        const threadId = thread.id;
-        return {
-          title: getThreadTitle(thread),
-          threadId,
-          selected: threadId === this.state.activeThreadId,
-          disabled: this.turnBusy && threadId !== this.state.activeThreadId,
-          canArchive: true,
-          archiveConfirm: {
-            active: this.archiveConfirmThreadId === threadId,
-            defaultSaveMarkdown: this.plugin.settings.archiveExportEnabled,
-          },
-          rename: this.threadRename.editState(threadId),
-        };
-      }),
+      turnBusy: this.turnBusy,
+      vaultPath: this.plugin.vaultPath,
+      configuredCommand: this.plugin.settings.codexPath,
+      archiveConfirmThreadId: this.archiveConfirmThreadId,
+      archiveExportEnabled: this.plugin.settings.archiveExportEnabled,
       modelChoices: this.modelToolbarChoices(),
       effortChoices: this.effortToolbarChoices(),
-      connectLabel: this.connection.isConnected() ? "Reconnect" : "Connect",
-      diagnostics: this.connectionDiagnosticSections(),
-      diagnosticAlertLevel: diagnosticAlertLevel(this.state.appServerDiagnostics),
-    };
+      renameState: (threadId) => this.threadRename.editState(threadId),
+    });
   }
 
   private async reconnectFromToolbar(): Promise<void> {
@@ -1540,47 +1506,22 @@ export class CodexChatView extends ItemView {
   }
 
   private statusSummaryLines(): string[] {
-    const snapshot = this.runtimeSnapshot();
-    const context = contextSummary(snapshot);
-    const limit = rateLimitSummary(snapshot);
-    return [
-      "Thread status",
-      `Thread: ${this.state.activeThreadId ?? "(none)"}`,
-      context ? context.title : "Context: not available",
-      ...(limit ? usageLimitStatusLines(limit) : ["Usage limits: not available"]),
-    ];
+    return buildStatusSummaryLines(this.state, this.runtimeSnapshot());
   }
 
   private modelStatusLines(): string[] {
-    const snapshot = this.runtimeSnapshot();
-    const config = readRuntimeConfig(this.state.effectiveConfig);
-    return [
-      `Model: ${currentModel(snapshot, config) ?? "(Codex default)"}`,
-      `Override: ${runtimeOverrideLabel(this.state.requestedModel)}`,
-      `Provider: ${statusValue(config.modelProvider, "(Codex default)")}`,
-      `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
-      `Mode: ${this.collaborationModeLabel()}`,
-      `Service tier: ${serviceTierLabel(snapshot, config)}`,
-    ];
+    return buildModelStatusLines(this.state, this.runtimeSnapshot(), this.collaborationModeLabel());
   }
 
   private effortStatusLines(): string[] {
-    const snapshot = this.runtimeSnapshot();
-    const config = readRuntimeConfig(this.state.effectiveConfig);
-    return [
-      `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
-      `Override: ${runtimeOverrideLabel(this.state.requestedReasoningEffort)}`,
-      `Supported: ${supportedReasoningEfforts(snapshot).join(", ")}`,
-    ];
+    return buildEffortStatusLines(this.state, this.runtimeSnapshot());
   }
 
   private connectionDiagnosticSections() {
-    return connectionDiagnosticSections({
+    return connectionDiagnosticsModel({
+      state: this.state,
       connected: this.connection.isConnected(),
       configuredCommand: this.plugin.settings.codexPath,
-      initializeResponse: this.state.initializeResponse,
-      activeThreadCreationCliVersion: this.state.activeThreadCreationCliVersion,
-      diagnostics: this.state.appServerDiagnostics,
     });
   }
 
@@ -1612,26 +1553,7 @@ export class CodexChatView extends ItemView {
   }
 
   private runtimeSnapshotForState(state: ChatState): RuntimeSnapshot {
-    return {
-      effectiveConfig: state.effectiveConfig,
-      activeThreadId: state.activeThreadId,
-      activeModel: state.activeModel,
-      activeReasoningEffort: state.activeReasoningEffort,
-      activeCollaborationMode: state.activeCollaborationMode,
-      activeServiceTier: state.activeServiceTier,
-      activeApprovalPolicy: state.activeApprovalPolicy,
-      activeApprovalsReviewer: state.activeApprovalsReviewer,
-      activePermissionProfile: state.activePermissionProfile,
-      requestedModel: state.requestedModel,
-      requestedReasoningEffort: state.requestedReasoningEffort,
-      requestedApprovalsReviewer: state.requestedApprovalsReviewer,
-      requestedCollaborationMode: state.requestedCollaborationMode,
-      requestedServiceTier: state.requestedServiceTier,
-      tokenUsage: state.tokenUsage,
-      rateLimit: state.rateLimit,
-      hasThreadTurns: state.displayItems.some((item) => item.turnId),
-      availableModels: state.availableModels,
-    };
+    return runtimeSnapshotForChatState({ state });
   }
 
   private pendingRequestMessageNode() {
