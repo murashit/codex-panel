@@ -19,7 +19,6 @@ import type { CodexPanelSettings } from "../../settings/model";
 import { ChatComposerController } from "./chat-composer-controller";
 import { activeTurnId, chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
 import { renderToolbar, type ToolbarViewModel } from "./ui/toolbar";
-import { unmountChatPanelShell } from "./ui/shell";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { ChatMessageRenderer } from "./chat-message-renderer";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
@@ -27,7 +26,6 @@ import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-st
 import { ChatThreadActionController } from "./thread-actions";
 import { ChatRuntimeSettingsController } from "./runtime-settings-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
-import { unmountReactRoot } from "../../shared/ui/react-root";
 import {
   activeComposerThreadName as buildActiveComposerThreadName,
   activeThreadTitle as buildActiveThreadTitle,
@@ -59,6 +57,7 @@ import { ChatConnectionController } from "./connection-controller";
 import { ThreadIdentityController } from "./thread-identity-controller";
 import { ThreadResumeController } from "./thread-resume-controller";
 import { ChatViewRenderController } from "./view-render-controller";
+import { ChatViewOpenCloseController } from "./view-open-close-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -99,6 +98,7 @@ export class CodexChatView extends ItemView {
   private readonly composerController: ChatComposerController;
   private readonly messageRenderer: ChatMessageRenderer;
   private readonly renderController: ChatViewRenderController;
+  private readonly openCloseController: ChatViewOpenCloseController;
   private readonly messageScroll: ChatMessageScrollController;
   private readonly turnSubmission: TurnSubmissionController;
   private readonly slashCommands: SlashCommandController;
@@ -275,6 +275,75 @@ export class CodexChatView extends ItemView {
         this.client = null;
         this.plugin.refreshThreadsViewLiveState();
         this.render();
+      },
+    });
+    this.openCloseController = new ChatViewOpenCloseController({
+      setOpened: (opened) => {
+        this.opened = opened;
+      },
+      setClosing: (closing) => {
+        this.closing = closing;
+      },
+      registerEvent: (eventRef) => {
+        this.registerEvent(eventRef);
+      },
+      registerComposerNoteIndexInvalidation: (register) => {
+        this.composerController.registerNoteIndexInvalidation(register);
+      },
+      registerPointerDown: (handler) => {
+        this.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
+      },
+      registerActiveLeafChange: (handler) => {
+        this.registerEvent(this.app.workspace.on("active-leaf-change", handler));
+      },
+      isOwnLeaf: (leaf) => leaf === this.leaf,
+      scrollMessagesToBottomOnFocus: () => {
+        this.messageScroll.scrollToBottomOnFocus();
+      },
+      applyCachedSharedAppServerState: () => {
+        this.applyCachedSharedAppServerState();
+      },
+      render: () => {
+        this.render();
+      },
+      scheduleDeferredAppServerWarmup: () => {
+        this.scheduleDeferredAppServerWarmup();
+      },
+      scheduleDeferredRestoredThreadHydration: () => {
+        this.scheduleDeferredRestoredThreadHydration();
+      },
+      closeToolbarPanelOnOutsidePointer: (event) => {
+        this.closeToolbarPanelOnOutsidePointer(event);
+      },
+      invalidateConnectionWork: () => {
+        this.invalidateConnectionWork();
+      },
+      invalidateResumeWork: () => {
+        this.invalidateResumeWork();
+      },
+      clearDeferredTasks: () => {
+        this.deferredTasks.clearAll();
+      },
+      panelRoot: () => this.panelRoot(),
+      disposeMessages: () => {
+        this.messageRenderer.dispose();
+      },
+      disposeComposer: () => {
+        this.composerController.dispose();
+      },
+      disconnect: () => {
+        this.connection.disconnect();
+      },
+      clearClient: () => {
+        this.client = null;
+      },
+      refreshLiveState: () => {
+        this.plugin.refreshThreadsViewLiveState();
+      },
+      deferRefreshLiveState: () => {
+        this.containerEl.win.setTimeout(() => {
+          this.plugin.refreshThreadsViewLiveState();
+        }, 0);
       },
     });
     this.controller = new ChatController(this.chatState, {
@@ -665,43 +734,11 @@ export class CodexChatView extends ItemView {
   }
 
   override async onOpen(): Promise<void> {
-    this.opened = true;
-    this.closing = false;
-    this.composerController.registerNoteIndexInvalidation((eventRef) => {
-      this.registerEvent(eventRef);
-    });
-    this.registerDomEvent(this.containerEl.doc, "pointerdown", (event) => {
-      this.closeToolbarPanelOnOutsidePointer(event);
-    });
-    this.registerEvent(
-      this.app.workspace.on("active-leaf-change", (leaf) => {
-        if (leaf === this.leaf) this.messageScroll.scrollToBottomOnFocus();
-      }),
-    );
-    this.applyCachedSharedAppServerState();
-    this.render();
-    this.scheduleDeferredAppServerWarmup();
-    this.scheduleDeferredRestoredThreadHydration();
+    this.openCloseController.open();
   }
 
   override async onClose(): Promise<void> {
-    this.opened = false;
-    this.closing = true;
-    this.invalidateConnectionWork();
-    this.invalidateResumeWork();
-    this.deferredTasks.clearAll();
-    const panelRoot = this.panelRoot();
-    unmountReactRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__toolbar") ?? null);
-    this.messageRenderer.dispose();
-    this.composerController.dispose();
-    unmountReactRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__slot--composer") ?? null);
-    unmountChatPanelShell(panelRoot);
-    this.connection.disconnect();
-    this.client = null;
-    this.plugin.refreshThreadsViewLiveState();
-    this.containerEl.win.setTimeout(() => {
-      this.plugin.refreshThreadsViewLiveState();
-    }, 0);
+    this.openCloseController.close();
   }
 
   setComposerText(text: string): void {
