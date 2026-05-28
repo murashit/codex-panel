@@ -578,16 +578,10 @@ export class CodexChatView extends ItemView {
   async startNewThread(): Promise<void> {
     if (this.turnBusy) return;
 
-    this.invalidateResumeWork();
-    this.clearRestoredThreadLifecycle();
-    this.clearDeferredRestoredThreadHydration();
-    this.chatState.dispatch({ type: "thread/active-cleared" });
-    this.threadRename.resetThreadTurnPresence(false);
+    this.clearActiveThreadContext();
     this.chatState.dispatch({ type: "ui/panel-set", panel: null });
     this.setStatus("New chat.");
     this.queueMessagesBottomScroll();
-    this.plugin.refreshThreadsViewLiveState();
-    this.notifyActiveThreadIdentityChanged();
     this.render();
     this.focusComposer();
   }
@@ -1402,8 +1396,7 @@ export class CodexChatView extends ItemView {
     this.render();
   }
 
-  private clearArchivedActiveThread(threadId: string): boolean {
-    if (this.state.activeThreadId !== threadId) return false;
+  private clearActiveThreadContext(): void {
     this.invalidateResumeWork();
     this.clearRestoredThreadLifecycle();
     this.clearDeferredRestoredThreadHydration();
@@ -1411,6 +1404,11 @@ export class CodexChatView extends ItemView {
     this.threadRename.resetThreadTurnPresence(false);
     this.notifyActiveThreadIdentityChanged();
     this.plugin.refreshThreadsViewLiveState();
+  }
+
+  private clearArchivedActiveThread(threadId: string): boolean {
+    if (this.state.activeThreadId !== threadId) return false;
+    this.clearActiveThreadContext();
     return true;
   }
 
