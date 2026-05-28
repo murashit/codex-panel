@@ -1,4 +1,4 @@
-import { chatTurnBusy, type ChatState, type ChatStateStore } from "./chat-state";
+import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 
 export interface ThreadSelectionControllerHost {
   stateStore: ChatStateStore;
@@ -22,7 +22,18 @@ export class ThreadSelectionController {
     await this.host.resumeThread(threadId);
   }
 
+  async selectThreadFromToolbar(threadId: string): Promise<void> {
+    if (chatTurnBusy(this.state) && threadId !== this.state.activeThreadId) return;
+
+    this.dispatch({ type: "ui/panel-set", panel: null });
+    await this.selectThread(threadId);
+  }
+
   private get state(): ChatState {
     return this.host.stateStore.getState();
+  }
+
+  private dispatch(action: ChatAction): void {
+    this.host.stateStore.dispatch(action);
   }
 }

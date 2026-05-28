@@ -989,11 +989,7 @@ export class CodexChatView extends ItemView {
       },
       connect: () => void this.reconnectActions.reconnectFromToolbar(),
       refreshStatus: () => void this.refreshStatusPanel(),
-      resumeThread: (threadId) => {
-        if (this.turnBusy && threadId !== this.state.activeThreadId) return;
-        this.dispatch({ type: "ui/panel-set", panel: null });
-        void this.selectThread(threadId);
-      },
+      resumeThread: (threadId) => void this.threadSelection.selectThreadFromToolbar(threadId),
       startArchiveThread: (threadId) => {
         this.toolbarPanels.startArchive(threadId);
       },

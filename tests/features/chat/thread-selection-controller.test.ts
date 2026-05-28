@@ -64,4 +64,29 @@ describe("ThreadSelectionController", () => {
     expect(host.focusThreadInOpenView).not.toHaveBeenCalled();
     expect(host.resumeThread).not.toHaveBeenCalled();
   });
+
+  it("closes the toolbar panel before selecting from the toolbar", async () => {
+    const { controller, host, stateStore } = createController();
+    stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
+
+    await controller.selectThreadFromToolbar("thread");
+
+    expect(stateStore.getState().openDetails.size).toBe(0);
+    expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
+    expect(host.resumeThread).toHaveBeenCalledWith("thread");
+  });
+
+  it("ignores toolbar selection while another thread is busy", async () => {
+    const { controller, host, stateStore } = createController();
+    resumeThreadState(stateStore, "active");
+    stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
+    stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
+
+    await controller.selectThreadFromToolbar("other");
+
+    expect(stateStore.getState().openDetails.has("history")).toBe(true);
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+    expect(host.closeForThreadSelection).not.toHaveBeenCalled();
+    expect(host.resumeThread).not.toHaveBeenCalled();
+  });
 });
