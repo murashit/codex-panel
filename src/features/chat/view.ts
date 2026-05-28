@@ -52,7 +52,6 @@ import { pendingRequestsSignature as requestStateSignature, userInputDraftKey, u
 import type { CodexPanelSettings } from "../../settings/model";
 import { questionDefaultAnswer, type PendingUserInput } from "./user-input/model";
 import { ChatComposerController } from "./chat-composer-controller";
-import { attachHookRunsToTurn } from "./hook-display";
 import {
   activeTurnId,
   chatTurnBusy,
@@ -93,6 +92,7 @@ import {
   type RestoredThreadPlaceholderState,
   type RestoredThreadState,
 } from "./view-lifecycle";
+import { acknowledgeOptimisticTurnStart, cleanupFailedTurnStart, localUserMessageItem } from "./turn-submission";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -747,16 +747,12 @@ export class CodexChatView extends ItemView {
       const codexInput = codexInputOverride ?? this.composerController.codexInput(text);
       const mentionedFiles = fileMentionsFromInput(codexInput);
       optimisticUserId = `local-user-${String(Date.now())}`;
-      const optimisticUserItem: DisplayItem = {
+      const optimisticUserItem = localUserMessageItem({
         id: optimisticUserId,
-        kind: "message",
-        role: "user",
         text,
-        copyText: text,
-        ...(referencedThread ? { referencedThread } : {}),
-        ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
-        markdown: true,
-      };
+        referencedThread,
+        mentionedFiles,
+      });
       this.dispatch({
         type: "turn/optimistic-started",
         item: optimisticUserItem,
@@ -772,29 +768,21 @@ export class CodexChatView extends ItemView {
       const responseMatchesCurrentStart =
         pendingTurnStart?.anchorItemId === optimisticUserId || (!pendingTurnStart && currentTurnId === response.turn.id);
       if (responseMatchesCurrentStart) {
-        let displayItems = this.state.displayItems.map((item) =>
-          item.id === optimisticUserId ? { ...item, turnId: response.turn.id } : item,
-        );
-        if (pendingTurnStart) {
-          displayItems = attachHookRunsToTurn(
-            displayItems,
-            response.turn.id,
-            pendingTurnStart.promptSubmitHookItemIds,
-            pendingTurnStart.anchorItemId,
-          );
-        }
+        const displayItems = acknowledgeOptimisticTurnStart({
+          items: this.state.displayItems,
+          optimisticUserId,
+          turnId: response.turn.id,
+          pendingTurnStart,
+        });
         this.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
         this.setStatus("Turn running...");
       }
     } catch (error) {
-      let displayItems = optimisticUserId
-        ? this.state.displayItems.filter((item) => item.id !== optimisticUserId)
-        : this.state.displayItems;
-      const pendingTurnStart = this.pendingTurnStart;
-      if (pendingTurnStart) {
-        const hookIds = new Set(pendingTurnStart.promptSubmitHookItemIds);
-        displayItems = displayItems.filter((item) => !hookIds.has(item.id));
-      }
+      const displayItems = cleanupFailedTurnStart({
+        items: this.state.displayItems,
+        optimisticUserId,
+        pendingTurnStart: this.pendingTurnStart,
+      });
       this.dispatch({ type: "turn/start-failed", displayItems });
       this.composerController.setDraft(text);
       this.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -823,17 +811,13 @@ export class CodexChatView extends ItemView {
       await this.client.steerTurn(threadId, expectedTurnId, codexInput);
       this.dispatch({
         type: "system/message-added",
-        item: {
+        item: localUserMessageItem({
           id: `local-steer-${String(Date.now())}`,
-          kind: "message",
-          role: "user",
           text,
-          copyText: text,
           turnId: expectedTurnId,
-          ...(referencedThread ? { referencedThread } : {}),
-          ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
-          markdown: true,
-        },
+          referencedThread,
+          mentionedFiles,
+        }),
       });
       this.queueMessagesBottomScroll();
       this.setStatus("Steered current turn.");
