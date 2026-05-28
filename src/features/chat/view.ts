@@ -1033,7 +1033,7 @@ export class CodexChatView extends ItemView {
   }
 
   private systemItem(text: string): DisplayItem {
-    return createSystemItem(text);
+    return createSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text);
   }
 
   private addSystemMessage(text: string): void {

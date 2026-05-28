@@ -12,11 +12,11 @@ interface DisplayRow {
   value: string;
 }
 
-export function createReviewResultItem(text: string): DisplayItem {
+export function createReviewResultItem(id: string, text: string): DisplayItem {
   const parsed = parseAutomaticApprovalReviewMessage(text);
   if (parsed) {
     return {
-      id: `review-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
+      id,
       kind: "reviewResult",
       role: "tool",
       text: parsed.summary,
@@ -26,7 +26,7 @@ export function createReviewResultItem(text: string): DisplayItem {
     };
   }
   return {
-    id: `review-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
+    id,
     kind: "reviewResult",
     role: "tool",
     text,

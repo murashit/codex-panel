@@ -31,6 +31,12 @@ const reactFormRestrictions = [
     message: "Keep React form state explicit with controlled value or checked props.",
   },
 ];
+const removedChatStateEscapeHatchRestrictions = [
+  {
+    selector: "Literal[value='state/patched']",
+    message: "Use a named ChatAction instead of reintroducing the generic state patch escape hatch.",
+  },
+];
 const chatStateRestrictions = [
   {
     selector: "AssignmentExpression[left.type='MemberExpression'][left.object.name='state']",
@@ -49,6 +55,32 @@ const chatStateRestrictions = [
     selector:
       "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.type='MemberExpression'][callee.object.object.property.name='state']",
     message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
+  },
+];
+const pureChatModelRestrictions = [
+  {
+    selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+    message: "Keep chat state and display model transforms deterministic; generate IDs or timestamps at the controller/view boundary.",
+  },
+  {
+    selector: "NewExpression[callee.name='Date']",
+    message: "Keep chat state and display model transforms deterministic; pass dates in from the controller/view boundary.",
+  },
+  {
+    selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
+    message: "Keep chat state and display model transforms deterministic; generate IDs at the controller/view boundary.",
+  },
+  {
+    selector: "NewExpression[callee.name=/^(AppServerClient|ConnectionManager|Notice)$/]",
+    message: "Keep app-server and Obsidian side effects out of chat state and display model transforms.",
+  },
+  {
+    selector: "CallExpression[callee.property.name=/^(setTimeout|clearTimeout|requestAnimationFrame)$/]",
+    message: "Keep scheduling side effects out of chat state and display model transforms.",
+  },
+  {
+    selector: "MemberExpression[object.name=/^(document|localStorage|sessionStorage)$/]",
+    message: "Keep browser globals out of chat state and display model transforms.",
   },
 ];
 const chatImperativeDomBridgeFiles = [
@@ -161,26 +193,73 @@ export default defineConfig([
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles],
     rules: {
-      "no-restricted-syntax": ["error", ...imperativeDomRestrictions, ...reactFormRestrictions],
+      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...imperativeDomRestrictions, ...reactFormRestrictions],
     },
   },
   {
     files: ["src/features/chat/**/*.{ts,tsx}"],
     ignores: chatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...imperativeDomRestrictions, ...reactFormRestrictions, ...chatStateRestrictions],
+      "no-restricted-syntax": [
+        "error",
+        ...removedChatStateEscapeHatchRestrictions,
+        ...imperativeDomRestrictions,
+        ...reactFormRestrictions,
+        ...chatStateRestrictions,
+      ],
     },
   },
   {
     files: chatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...reactFormRestrictions, ...chatStateRestrictions],
+      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...reactFormRestrictions, ...chatStateRestrictions],
     },
   },
   {
     files: nonChatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...reactFormRestrictions],
+      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...reactFormRestrictions],
+    },
+  },
+  {
+    files: ["src/features/chat/chat-state.ts", "src/features/chat/display/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...removedChatStateEscapeHatchRestrictions,
+        ...imperativeDomRestrictions,
+        ...reactFormRestrictions,
+        ...chatStateRestrictions,
+        ...pureChatModelRestrictions,
+      ],
+    },
+  },
+  {
+    files: ["src/app-server/**/*.{ts,tsx}", "src/domain/**/*.{ts,tsx}", "src/runtime/**/*.{ts,tsx}", "src/shared/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "src/features",
+                "src/features/**",
+                "../features",
+                "../features/**",
+                "../../features",
+                "../../features/**",
+                "../../../features",
+                "../../../features/**",
+                "../../../../features",
+                "../../../../features/**",
+              ],
+              message:
+                "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, runtime, or app-server.",
+            },
+          ],
+        },
+      ],
     },
   },
   eslintConfigPrettier,

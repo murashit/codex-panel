@@ -782,6 +782,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   it("structures automatic approval review summary messages", () => {
     expect(
       createReviewResultItem(
+        "review-1",
         "Automatic approval review approved (risk: low, authorization: unknown): Auto-review returned a low-risk allow decision.",
       ),
     ).toMatchObject({

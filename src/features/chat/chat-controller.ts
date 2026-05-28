@@ -146,15 +146,15 @@ export class ChatController {
   }
 
   addSystemMessage(text: string): void {
-    this.dispatch({ type: "system/message-added", item: createSystemItem(text) });
+    this.dispatch({ type: "system/message-added", item: createSystemItem(this.localItemId("system"), text) });
   }
 
   addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
-    this.dispatch({ type: "system/message-added", item: createStructuredSystemItem(text, details) });
+    this.dispatch({ type: "system/message-added", item: createStructuredSystemItem(this.localItemId("system"), text, details) });
   }
 
   addDedupedSystemMessage(text: string): void {
-    this.dispatch({ type: "system/deduped-log-added", text, item: createSystemItem(text) });
+    this.dispatch({ type: "system/deduped-log-added", text, item: createSystemItem(this.localItemId("system"), text) });
   }
 
   private handleStreamUpdate(notification: ServerNotification): void {
@@ -221,7 +221,7 @@ export class ChatController {
         items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(this.state.displayItems), reviewItem),
       });
     } else if (method === "guardianWarning") {
-      const item = createReviewResultItem(params.message);
+      const item = createReviewResultItem(this.localItemId("review"), params.message);
       if (!isUnstructuredAutoReviewWarning(item) || !hasStructuredAutoReviewResult(this.state.displayItems, this.state.activeTurnId)) {
         this.dispatch({ type: "display/item-upserted", item });
       }
@@ -452,6 +452,10 @@ export class ChatController {
       serviceTier: reportedServiceTier(settings.serviceTier),
       approvalsReviewer: settings.approvalsReviewer,
     });
+  }
+
+  private localItemId(prefix: string): string {
+    return `${prefix}-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
   }
 }
 

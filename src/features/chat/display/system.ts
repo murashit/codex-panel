@@ -1,22 +1,18 @@
 import type { DisplayItem } from "./types";
 import type { DisplayDetailSection } from "./types";
 
-function systemId(): string {
-  return `system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
-}
-
-export function createSystemItem(text: string): DisplayItem {
+export function createSystemItem(id: string, text: string): DisplayItem {
   return {
-    id: systemId(),
+    id,
     kind: "system",
     role: "system",
     text,
   };
 }
 
-export function createStructuredSystemItem(text: string, details: DisplayDetailSection[]): DisplayItem {
+export function createStructuredSystemItem(id: string, text: string, details: DisplayDetailSection[]): DisplayItem {
   return {
-    id: systemId(),
+    id,
     kind: "system",
     role: "system",
     text,
