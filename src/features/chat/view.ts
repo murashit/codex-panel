@@ -61,6 +61,7 @@ import { ChatViewOpenCloseController } from "./view-open-close-controller";
 import { PlanImplementationController } from "./plan-implementation-controller";
 import { ThreadSelectionController } from "./thread-selection-controller";
 import { ChatViewStateController } from "./view-state-controller";
+import { AppServerWarmupController } from "./app-server-warmup-controller";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -103,6 +104,7 @@ export class CodexChatView extends ItemView {
   private readonly renderController: ChatViewRenderController;
   private readonly openCloseController: ChatViewOpenCloseController;
   private readonly viewStateController: ChatViewStateController;
+  private readonly appServerWarmup: AppServerWarmupController;
   private readonly messageScroll: ChatMessageScrollController;
   private readonly turnSubmission: TurnSubmissionController;
   private readonly slashCommands: SlashCommandController;
@@ -281,6 +283,13 @@ export class CodexChatView extends ItemView {
       onExit: () => {
         this.connectionController.handleExit();
       },
+    });
+    this.appServerWarmup = new AppServerWarmupController({
+      deferredTasks: this.deferredTasks,
+      opened: () => this.opened,
+      closing: () => this.closing,
+      connected: () => this.connection.isConnected(),
+      ensureConnected: () => this.ensureConnected(),
     });
     this.openCloseController = new ChatViewOpenCloseController({
       setOpened: (opened) => {
@@ -936,15 +945,7 @@ export class CodexChatView extends ItemView {
   }
 
   private scheduleDeferredAppServerWarmup(): void {
-    if (!this.opened || this.connection.isConnected()) return;
-    this.deferredTasks.scheduleAppServerWarmup(() => {
-      if (!this.opened || this.closing || this.connection.isConnected()) return;
-      void this.ensureConnected();
-    });
-  }
-
-  private clearDeferredAppServerWarmup(): void {
-    this.deferredTasks.clearAppServerWarmup();
+    this.appServerWarmup.schedule();
   }
 
   private activeThreadTitle(): string | null {
