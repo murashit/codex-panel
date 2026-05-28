@@ -64,7 +64,7 @@ import { ChatViewOpenCloseController } from "./controllers/view/view-open-close-
 import { ChatViewRenderController } from "./controllers/view/view-render-controller";
 import { ChatViewStateController } from "./controllers/view/view-state-controller";
 import { ToolbarPanelController } from "./toolbar-panel-controller";
-import type { ChatViewEffects } from "./view-effects";
+import { createChatViewEffects, type ChatViewEffects } from "./view-effects";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;
@@ -162,18 +162,18 @@ export class CodexChatView extends ItemView {
       currentClient: () => this.client,
       ensureRestoredThreadLoaded: () => this.ensureRestoredThreadLoaded(),
       startThread: () => this.appServer.startThread(),
-      notifyActiveThreadIdentityChanged: this.effects.notifyActiveThreadIdentityChanged,
-      resetThreadTurnPresence: this.effects.resetThreadTurnPresence,
+      notifyActiveThreadIdentityChanged: this.effects.thread.notifyIdentityChanged,
+      resetThreadTurnPresence: this.effects.thread.resetTurnPresence,
       applyPendingThreadSettings: () => this.runtimeSettings.applyPendingThreadSettings(),
       codexInput: (text) => this.composerController.codexInput(text),
       setDraft: (text, options) => {
         this.composerController.setDraft(text, options);
       },
-      forceMessagesToBottom: this.effects.forceMessagesToBottom,
-      render: this.effects.render,
-      scheduleRender: this.effects.scheduleRender,
-      setStatus: this.effects.setStatus,
-      addSystemMessage: this.effects.addSystemMessage,
+      forceMessagesToBottom: this.effects.scroll.forceBottom,
+      render: this.effects.render.now,
+      scheduleRender: this.effects.render.schedule,
+      setStatus: this.effects.status.set,
+      addSystemMessage: this.effects.status.addSystemMessage,
     });
     this.slashCommands = new SlashCommandController({
       stateStore: this.chatState,
@@ -187,9 +187,9 @@ export class CodexChatView extends ItemView {
       toggleFastMode: () => this.runtimeSettings.toggleFastMode(),
       toggleCollaborationMode: () => this.runtimeSettings.toggleCollaborationMode(),
       toggleAutoReview: () => void this.runtimeSettings.toggleAutoReview(),
-      addSystemMessage: this.effects.addSystemMessage,
-      addStructuredSystemMessage: this.effects.addStructuredSystemMessage,
-      setStatus: this.effects.setStatus,
+      addSystemMessage: this.effects.status.addSystemMessage,
+      addStructuredSystemMessage: this.effects.status.addStructuredSystemMessage,
+      setStatus: this.effects.status.set,
       setRequestedModel: (model) => this.runtimeSettings.setRequestedModel(model),
       setRequestedReasoningEffort: (effort) => this.runtimeSettings.setRequestedReasoningEffort(effort),
       statusSummaryLines: () => this.statusSummaryLines(),
@@ -219,10 +219,10 @@ export class CodexChatView extends ItemView {
       canInterrupt: () => this.turnBusy && Boolean(this.state.activeThreadId && this.activeTurnId),
       composerPlaceholder: () => this.composerPlaceholder(),
       currentModelForSuggestions: () => currentModel(this.runtimeSnapshot()),
-      renderIfDetached: this.effects.render,
-      onDraftChange: this.effects.refreshLiveState,
+      renderIfDetached: this.effects.render.now,
+      onDraftChange: this.effects.liveState.refresh,
       onComposerResize: () => {
-        if (this.state.messagesPinnedToBottom) this.effects.forceMessagesToBottom();
+        if (this.state.messagesPinnedToBottom) this.effects.scroll.forceBottom();
       },
       onSubmit: () => void this.composerSubmission.submit(),
       onNewThread: () => void this.startNewThread(),
@@ -233,9 +233,9 @@ export class CodexChatView extends ItemView {
       slashCommands: this.slashCommands,
       turnSubmission: this.turnSubmission,
       currentClient: () => this.client,
-      ensureConnected: this.effects.ensureConnected,
-      setStatus: this.effects.setStatus,
-      addSystemMessage: this.effects.addSystemMessage,
+      ensureConnected: this.effects.client.ensureConnected,
+      setStatus: this.effects.status.set,
+      addSystemMessage: this.effects.status.addSystemMessage,
     });
     this.serverRequestResponder = new ServerRequestResponder({
       currentClient: () => this.client,
@@ -243,23 +243,23 @@ export class CodexChatView extends ItemView {
     this.planImplementation = new PlanImplementationController({
       stateStore: this.chatState,
       currentClient: () => this.client,
-      ensureConnected: this.effects.ensureConnected,
+      ensureConnected: this.effects.client.ensureConnected,
       sendTurnText: (text) => this.turnSubmission.sendTurnText(text),
     });
     this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath, {
       onNotification: (notification) => {
         this.controller.handleNotification(notification);
-        this.effects.refreshLiveState();
-        this.effects.scheduleRender();
+        this.effects.liveState.refresh();
+        this.effects.render.schedule();
       },
       onServerRequest: (request) => {
         this.controller.handleServerRequest(request);
-        this.effects.refreshLiveState();
-        this.effects.render();
+        this.effects.liveState.refresh();
+        this.effects.render.now();
       },
       onLog: (message) => {
         this.controller.handleAppServerLog(message);
-        this.effects.render();
+        this.effects.render.now();
       },
       onExit: () => {
         this.connectionController.handleExit();
@@ -270,7 +270,7 @@ export class CodexChatView extends ItemView {
       opened: () => this.opened,
       closing: () => this.closing,
       connected: () => this.connection.isConnected(),
-      ensureConnected: this.effects.ensureConnected,
+      ensureConnected: this.effects.client.ensureConnected,
     });
     this.openCloseController = new ChatViewOpenCloseController({
       setOpened: (opened) => {
@@ -292,18 +292,18 @@ export class CodexChatView extends ItemView {
         this.registerEvent(this.app.workspace.on("active-leaf-change", handler));
       },
       isOwnLeaf: (leaf) => leaf === this.leaf,
-      scrollMessagesToBottomOnFocus: this.effects.scrollMessagesToBottomOnFocus,
+      scrollMessagesToBottomOnFocus: this.effects.scroll.bottomOnFocus,
       applyCachedSharedAppServerState: () => {
         this.applyCachedSharedAppServerState();
       },
-      render: this.effects.render,
-      scheduleDeferredAppServerWarmup: this.effects.scheduleDeferredAppServerWarmup,
-      scheduleDeferredRestoredThreadHydration: this.effects.scheduleDeferredRestoredThreadHydration,
+      render: this.effects.render.now,
+      scheduleDeferredAppServerWarmup: this.effects.lifecycle.scheduleDeferredAppServerWarmup,
+      scheduleDeferredRestoredThreadHydration: this.effects.lifecycle.scheduleDeferredRestoredThreadHydration,
       closeToolbarPanelOnOutsidePointer: (event) => {
         this.closeToolbarPanelOnOutsidePointer(event);
       },
-      invalidateConnectionWork: this.effects.invalidateConnectionWork,
-      invalidateResumeWork: this.effects.invalidateResumeWork,
+      invalidateConnectionWork: this.effects.lifecycle.invalidateConnectionWork,
+      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
       clearDeferredTasks: () => {
         this.deferredTasks.clearAll();
       },
@@ -317,9 +317,9 @@ export class CodexChatView extends ItemView {
       disconnect: () => {
         this.connection.disconnect();
       },
-      clearClient: this.effects.clearClient,
-      refreshLiveState: this.effects.refreshLiveState,
-      deferRefreshLiveState: this.effects.deferRefreshLiveState,
+      clearClient: this.effects.client.clear,
+      refreshLiveState: this.effects.liveState.refresh,
+      deferRefreshLiveState: this.effects.liveState.deferRefresh,
     });
     this.controller = new ChatController(this.chatState, {
       refreshThreads: () => {
@@ -340,7 +340,7 @@ export class CodexChatView extends ItemView {
       },
       recordMcpStartupStatus: (name, status, message) => {
         this.appServer.recordMcpStartupStatus(name, status, message);
-        this.effects.scheduleRender();
+        this.effects.render.schedule();
       },
       respondToServerRequest: (requestId, result) => this.serverRequestResponder.respond(requestId, result),
       rejectServerRequest: (requestId, code, message) => this.serverRequestResponder.reject(requestId, code, message),
@@ -349,15 +349,15 @@ export class CodexChatView extends ItemView {
       stateStore: this.chatState,
       controller: this.controller,
       composerHasFocus: () => this.composerController.hasFocus(),
-      refreshLiveState: this.effects.refreshLiveState,
-      render: this.effects.render,
+      refreshLiveState: this.effects.liveState.refresh,
+      render: this.effects.render.now,
     });
     this.appServer = new ChatAppServerController({
       stateStore: this.chatState,
       vaultPath: this.plugin.vaultPath,
       currentClient: () => this.connection.currentClient(),
       runtimeSnapshot: () => this.runtimeSnapshot(),
-      forceMessagesToBottom: this.effects.forceMessagesToBottom,
+      forceMessagesToBottom: this.effects.scroll.forceBottom,
       publishAppServerMetadata: (metadata) => {
         this.plugin.publishAppServerMetadata(metadata);
       },
@@ -370,17 +370,17 @@ export class CodexChatView extends ItemView {
       setClient: (client) => {
         this.client = client;
       },
-      invalidateResumeWork: this.effects.invalidateResumeWork,
+      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
       loadSharedThreadList: () => this.loadSharedThreadList(),
-      scheduleDeferredDiagnostics: this.effects.scheduleDeferredDiagnostics,
-      clearDeferredDiagnostics: this.effects.clearDeferredDiagnostics,
-      refreshTabHeader: this.effects.refreshTabHeader,
-      resetThreadTurnPresence: this.effects.resetThreadTurnPresence,
-      setStatus: this.effects.setStatus,
-      addSystemMessage: this.effects.addSystemMessage,
-      refreshLiveState: this.effects.refreshLiveState,
-      render: this.effects.render,
-      scheduleRender: this.effects.scheduleRender,
+      scheduleDeferredDiagnostics: this.effects.lifecycle.scheduleDeferredDiagnostics,
+      clearDeferredDiagnostics: this.effects.lifecycle.clearDeferredDiagnostics,
+      refreshTabHeader: this.effects.thread.refreshTabHeader,
+      resetThreadTurnPresence: this.effects.thread.resetTurnPresence,
+      setStatus: this.effects.status.set,
+      addSystemMessage: this.effects.status.addSystemMessage,
+      refreshLiveState: this.effects.liveState.refresh,
+      render: this.effects.render.now,
+      scheduleRender: this.effects.render.schedule,
       notifyConnectionFailed: () => {
         new Notice("Codex app-server connection failed.");
       },
@@ -388,11 +388,11 @@ export class CodexChatView extends ItemView {
     this.history = new ThreadHistoryLoader({
       stateStore: this.chatState,
       currentClient: () => this.client,
-      render: this.effects.render,
-      addSystemMessage: this.effects.addSystemMessage,
-      forceMessagesToBottom: this.effects.forceMessagesToBottom,
-      keepCurrentScrollPosition: this.effects.preserveMessageScrollPosition,
-      setThreadTurnPresence: this.effects.resetThreadTurnPresence,
+      render: this.effects.render.now,
+      addSystemMessage: this.effects.status.addSystemMessage,
+      forceMessagesToBottom: this.effects.scroll.forceBottom,
+      keepCurrentScrollPosition: this.effects.scroll.preservePosition,
+      setThreadTurnPresence: this.effects.thread.resetTurnPresence,
     });
     this.threadActions = new ChatThreadActionController({
       stateStore: this.chatState,
@@ -402,9 +402,9 @@ export class CodexChatView extends ItemView {
       ensureConnected: () => this.ensureConnected(),
       currentClient: () => this.client,
       history: this.history,
-      addSystemMessage: this.effects.addSystemMessage,
-      setStatus: this.effects.setStatus,
-      setComposerText: this.effects.setComposerText,
+      addSystemMessage: this.effects.status.addSystemMessage,
+      setStatus: this.effects.status.set,
+      setComposerText: this.effects.composer.setText,
       openThreadInNewView: (threadId) => this.plugin.openThreadInNewView(threadId),
       notifyThreadArchived: (threadId) => {
         this.plugin.notifyThreadArchived(threadId);
@@ -412,7 +412,7 @@ export class CodexChatView extends ItemView {
       notifyThreadRenamed: (threadId, name) => {
         this.plugin.notifyThreadRenamed(threadId, name);
       },
-      notifyActiveThreadIdentityChanged: this.effects.notifyActiveThreadIdentityChanged,
+      notifyActiveThreadIdentityChanged: this.effects.thread.notifyIdentityChanged,
       refreshThreads: () => this.refreshThreads(),
       refreshSharedThreadListFromOpenSurface: () => {
         this.plugin.refreshSharedThreadListFromOpenSurface();
@@ -421,7 +421,7 @@ export class CodexChatView extends ItemView {
     this.toolbarPanels = new ToolbarPanelController({
       stateStore: this.chatState,
       threadActions: this.threadActions,
-      scheduleRender: this.effects.scheduleRender,
+      scheduleRender: this.effects.render.schedule,
     });
     this.threadSelection = new ThreadSelectionController({
       stateStore: this.chatState,
@@ -430,47 +430,47 @@ export class CodexChatView extends ItemView {
       },
       focusThreadInOpenView: (threadId) => this.plugin.focusThreadInOpenView(threadId),
       resumeThread: (threadId) => this.resumeThread(threadId),
-      addSystemMessage: this.effects.addSystemMessage,
+      addSystemMessage: this.effects.status.addSystemMessage,
     });
     this.reconnectActions = new ChatReconnectController({
       stateStore: this.chatState,
       activeThreadId: () => this.state.activeThreadId,
-      invalidateConnectionWork: this.effects.invalidateConnectionWork,
-      invalidateResumeWork: this.effects.invalidateResumeWork,
-      clearDeferredDiagnostics: this.effects.clearDeferredDiagnostics,
+      invalidateConnectionWork: this.effects.lifecycle.invalidateConnectionWork,
+      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
+      clearDeferredDiagnostics: this.effects.lifecycle.clearDeferredDiagnostics,
       reconnect: () => {
         this.connection.reconnect();
       },
-      clearClient: this.effects.clearClient,
-      setStatus: this.effects.setStatus,
-      render: this.effects.render,
-      ensureConnected: this.effects.ensureConnected,
+      clearClient: this.effects.client.clear,
+      setStatus: this.effects.status.set,
+      render: this.effects.render.now,
+      ensureConnected: this.effects.client.ensureConnected,
       resumeThread: (threadId) => this.resumeThread(threadId),
-      addSystemMessage: this.effects.addSystemMessage,
+      addSystemMessage: this.effects.status.addSystemMessage,
     });
     this.runtimeSettings = new ChatRuntimeSettingsController({
       stateStore: this.chatState,
       currentClient: () => this.client,
       runtimeSnapshot: () => this.runtimeSnapshot(),
       collaborationModeLabel: () => this.collaborationModeLabel(),
-      addSystemMessage: this.effects.addSystemMessage,
+      addSystemMessage: this.effects.status.addSystemMessage,
     });
     this.restoredThread = new RestoredThreadController({
       deferredTasks: this.deferredTasks,
       opened: () => this.opened,
       resumeThread: (threadId) => this.resumeThread(threadId),
-      invalidateResumeWork: this.effects.invalidateResumeWork,
-      dispatch: this.effects.dispatch,
-      systemItem: this.effects.systemItem,
-      setStatus: this.effects.setStatus,
-      refreshTabHeader: this.effects.refreshTabHeader,
+      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
+      dispatch: this.effects.state.dispatch,
+      systemItem: this.effects.state.systemItem,
+      setStatus: this.effects.status.set,
+      refreshTabHeader: this.effects.thread.refreshTabHeader,
     });
     this.viewStateController = new ChatViewStateController({
-      invalidateResumeWork: this.effects.invalidateResumeWork,
-      clearRestoredThreadLifecycle: this.effects.clearRestoredThreadLifecycle,
-      clearDeferredRestoredThreadHydration: this.effects.clearDeferredRestoredThreadHydration,
-      scheduleDeferredAppServerWarmup: this.effects.scheduleDeferredAppServerWarmup,
-      restoreThreadPlaceholder: this.effects.restoreThreadPlaceholder,
+      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
+      clearRestoredThreadLifecycle: this.effects.thread.clearRestoredLifecycle,
+      clearDeferredRestoredThreadHydration: this.effects.lifecycle.clearDeferredRestoredThreadHydration,
+      scheduleDeferredAppServerWarmup: this.effects.lifecycle.scheduleDeferredAppServerWarmup,
+      restoreThreadPlaceholder: this.effects.thread.restorePlaceholder,
     });
     this.threadResume = new ThreadResumeController({
       stateStore: this.chatState,
@@ -479,27 +479,27 @@ export class CodexChatView extends ItemView {
       history: this.history,
       restoredThread: this.restoredThread,
       currentClient: () => this.client,
-      ensureConnected: this.effects.ensureConnected,
+      ensureConnected: this.effects.client.ensureConnected,
       closing: () => this.closing,
-      systemItem: this.effects.systemItem,
-      resetThreadTurnPresence: this.effects.resetThreadTurnPresence,
-      clearDeferredRestoredThreadHydration: this.effects.clearDeferredRestoredThreadHydration,
-      notifyActiveThreadIdentityChanged: this.effects.notifyActiveThreadIdentityChanged,
-      addSystemMessage: this.effects.addSystemMessage,
-      forceMessagesToBottom: this.effects.forceMessagesToBottom,
-      render: this.effects.render,
-      refreshLiveState: this.effects.refreshLiveState,
+      systemItem: this.effects.state.systemItem,
+      resetThreadTurnPresence: this.effects.thread.resetTurnPresence,
+      clearDeferredRestoredThreadHydration: this.effects.lifecycle.clearDeferredRestoredThreadHydration,
+      notifyActiveThreadIdentityChanged: this.effects.thread.notifyIdentityChanged,
+      addSystemMessage: this.effects.status.addSystemMessage,
+      forceMessagesToBottom: this.effects.scroll.forceBottom,
+      render: this.effects.render.now,
+      refreshLiveState: this.effects.liveState.refresh,
     });
     this.threadIdentity = new ThreadIdentityController({
       stateStore: this.chatState,
       restoredThread: this.restoredThread,
-      invalidateResumeWork: this.effects.invalidateResumeWork,
-      clearDeferredRestoredThreadHydration: this.effects.clearDeferredRestoredThreadHydration,
-      resetThreadTurnPresence: this.effects.resetThreadTurnPresence,
-      notifyActiveThreadIdentityChanged: this.effects.notifyActiveThreadIdentityChanged,
-      refreshTabHeader: this.effects.refreshTabHeader,
-      refreshLiveState: this.effects.refreshLiveState,
-      render: this.effects.render,
+      invalidateResumeWork: this.effects.lifecycle.invalidateResumeWork,
+      clearDeferredRestoredThreadHydration: this.effects.lifecycle.clearDeferredRestoredThreadHydration,
+      resetThreadTurnPresence: this.effects.thread.resetTurnPresence,
+      notifyActiveThreadIdentityChanged: this.effects.thread.notifyIdentityChanged,
+      refreshTabHeader: this.effects.thread.refreshTabHeader,
+      refreshLiveState: this.effects.liveState.refresh,
+      render: this.effects.render.now,
     });
     this.threadRename = new ThreadRenameController({
       stateStore: this.chatState,
@@ -508,8 +508,8 @@ export class CodexChatView extends ItemView {
       ensureConnected: () => this.ensureConnected(),
       currentClient: () => this.connection.currentClient(),
       refreshThreads: () => this.refreshThreads(),
-      render: this.effects.renderShellSlots,
-      addSystemMessage: this.effects.addSystemMessage,
+      render: this.effects.render.shellSlots,
+      addSystemMessage: this.effects.status.addSystemMessage,
       notifyThreadRenamed: (threadId, name) => {
         this.plugin.notifyThreadRenamed(threadId, name);
       },
@@ -517,7 +517,7 @@ export class CodexChatView extends ItemView {
   }
 
   private createEffects(): ChatViewEffects {
-    return {
+    return createChatViewEffects({
       render: () => {
         this.render();
       },
@@ -600,7 +600,7 @@ export class CodexChatView extends ItemView {
         this.setComposerText(text);
       },
       ensureConnected: () => this.ensureConnected(),
-    };
+    });
   }
 
   private get state(): ChatState {
