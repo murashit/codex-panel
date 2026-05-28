@@ -12,6 +12,7 @@ export interface ComposerElements {
 
 export interface ComposerCallbacks {
   onInput: (value: string) => void;
+  onComposerResize: () => void;
   onUpdateSuggestions: () => void;
   onKeydown: (event: KeyboardEvent) => void;
   onNewThread: () => void;
@@ -94,7 +95,7 @@ function ComposerShell({
         aria-controls={`${viewId}-composer-suggestions`}
         value={draft}
         onChange={(event) => {
-          syncComposerHeight(event.currentTarget);
+          if (syncComposerHeight(event.currentTarget)) callbacks.onComposerResize();
           callbacks.onInput(event.currentTarget.value);
         }}
         onKeyUp={callbacks.onUpdateSuggestions}
@@ -162,11 +163,14 @@ function ComposerIconButton({
   );
 }
 
-export function syncComposerHeight(composer: HTMLTextAreaElement | null): void {
+export function syncComposerHeight(composer: HTMLTextAreaElement | null): boolean {
+  const previousHeight = composer?.style.height ?? "";
+  const previousOverflowY = composer?.style.overflowY ?? "";
   syncTextareaHeight(composer, {
     minHeightFallback: 56,
     maxHeightFallback: composer ? Math.min(208, composer.win.innerHeight * 0.4) : 208,
   });
+  return Boolean(composer && (composer.style.height !== previousHeight || composer.style.overflowY !== previousOverflowY));
 }
 
 export function renderComposerSuggestions(

@@ -27,6 +27,7 @@ export interface ChatComposerControllerOptions {
   currentModelForSuggestions: () => string | null;
   renderIfDetached: () => void;
   onDraftChange: () => void;
+  onComposerResize: () => void;
   onSubmit: () => void;
   onNewThread: () => void;
 }
@@ -80,6 +81,9 @@ export class ChatComposerController {
           this.options.onDraftChange();
           this.updateSuggestions();
           this.refreshControls();
+        },
+        onComposerResize: () => {
+          this.options.onComposerResize();
         },
         onUpdateSuggestions: () => {
           this.updateSuggestions();

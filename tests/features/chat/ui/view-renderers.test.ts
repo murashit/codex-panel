@@ -27,6 +27,7 @@ function expectPresent<T>(value: T | null | undefined): T {
 function composerCallbacks() {
   return {
     onInput: vi.fn(),
+    onComposerResize: vi.fn(),
     onUpdateSuggestions: vi.fn(),
     onKeydown: vi.fn(),
     onNewThread: vi.fn(),
@@ -813,6 +814,7 @@ describe("composer renderer decisions", () => {
     const onSuggestionInsert = vi.fn();
     const { composer, suggestions } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", {
       onInput: vi.fn(),
+      onComposerResize: vi.fn(),
       onUpdateSuggestions: vi.fn(),
       onKeydown: vi.fn(),
       onNewThread: vi.fn(),
@@ -846,6 +848,32 @@ describe("composer renderer decisions", () => {
     changeInputValue(composer, "Draft text");
 
     expect(callbacks.onInput).toHaveBeenCalledWith("Draft text");
+  });
+
+  it("reports composer resize when autogrow changes the input height", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    let scrollHeight = 56;
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "scrollHeight");
+    Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
+      get: () => scrollHeight,
+      configurable: true,
+    });
+    try {
+      const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", callbacks);
+      callbacks.onComposerResize.mockClear();
+
+      scrollHeight = 120;
+      changeInputValue(composer, "line one\nline two");
+
+      expect(callbacks.onComposerResize).toHaveBeenCalledOnce();
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);
+      } else {
+        Reflect.deleteProperty(HTMLTextAreaElement.prototype, "scrollHeight");
+      }
+    }
   });
 
   it("scrolls the selected composer suggestion fully into view below the viewport", () => {

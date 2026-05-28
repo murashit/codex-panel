@@ -160,6 +160,9 @@ export class CodexChatView extends ItemView {
       onDraftChange: () => {
         this.plugin.refreshThreadsViewLiveState();
       },
+      onComposerResize: () => {
+        if (this.state.messagesPinnedToBottom) this.queueMessagesBottomScroll();
+      },
       onSubmit: () => void this.submitComposerAction(),
       onNewThread: () => void this.startNewThread(),
     });

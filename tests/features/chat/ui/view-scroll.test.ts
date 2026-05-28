@@ -2,12 +2,21 @@
 
 import { describe, expect, it } from "vitest";
 
-import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "../../../../src/features/chat/ui/scroll";
+import {
+  bottomScrollTop,
+  captureScrollAnchor,
+  isNearScrollBottom,
+  MessageScrollController,
+  restoreScrollAnchor,
+} from "../../../../src/features/chat/ui/scroll";
+import { installObsidianDomShims } from "./dom-test-helpers";
+
+installObsidianDomShims();
 
 describe("message scroll helpers", () => {
   it("detects whether the transcript is pinned near the bottom", () => {
-    expect(isNearScrollBottom({ scrollHeight: 1000, scrollTop: 620, clientHeight: 320 })).toBe(true);
-    expect(isNearScrollBottom({ scrollHeight: 1000, scrollTop: 500, clientHeight: 320 })).toBe(false);
+    expect(isNearScrollBottom({ scrollHeight: 1000, scrollTop: 677, clientHeight: 320 })).toBe(true);
+    expect(isNearScrollBottom({ scrollHeight: 1000, scrollTop: 676, clientHeight: 320 })).toBe(false);
   });
 
   it("uses the full scroll height for bottom pinning", () => {
@@ -40,11 +49,215 @@ describe("message scroll helpers", () => {
 
     expect(container.scrollTop).toBe(150);
   });
+
+  it("keeps the scroll container pinned after an observed message block grows", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 997, scrollHeight: 1000, clientHeight: 100 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    expect(container.scrollTop).toBe(1000);
+
+    setScrollHeight(container, 1200);
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(1200);
+    expect(pinned).toBe(true);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
+  it("keeps the pinned state when content growth fires a scroll event before resize correction", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 997, scrollHeight: 1000, clientHeight: 100 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    expect(container.scrollTop).toBe(1000);
+
+    setScrollHeight(container, 1400);
+    container.dispatchEvent(new Event("scroll"));
+    expect(pinned).toBe(true);
+
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(1400);
+    expect(pinned).toBe(true);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
+  it("keeps the pinned state when scroll anchoring moves down during content growth", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 997, scrollHeight: 1000, clientHeight: 100 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    expect(container.scrollTop).toBe(1000);
+
+    setScrollHeight(container, 1400);
+    container.scrollTop = 1150;
+    container.dispatchEvent(new Event("scroll"));
+    expect(pinned).toBe(true);
+
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(1400);
+    expect(pinned).toBe(true);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
+  it("restores the remembered message block after an observed size change while reading history", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 150, scrollHeight: 1000, clientHeight: 300 });
+    const first = messageBlock("first", 0, 120);
+    const second = messageBlock("second", 120, 160);
+    container.append(first, second);
+    let pinned = false;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "preserve"));
+    await animationFrame(container);
+
+    setLayout(second, 360, 160);
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(390);
+    expect(pinned).toBe(false);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
+  it("unpins immediately when the user scrolls upward from the pinned bottom", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 920, scrollHeight: 1000, clientHeight: 100 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    expect(container.scrollTop).toBe(1000);
+
+    container.scrollTop = 990;
+    container.dispatchEvent(new Event("scroll"));
+    expect(pinned).toBe(false);
+
+    setScrollHeight(container, 1200);
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(990);
+    expect(pinned).toBe(false);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
+  it("repins after the user scrolls back to the bottom", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 920, scrollHeight: 1000, clientHeight: 100 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    container.scrollTop = 990;
+    container.dispatchEvent(new Event("scroll"));
+    expect(pinned).toBe(false);
+
+    setScrollHeight(container, 1200);
+    container.scrollTop = 1197;
+    container.dispatchEvent(new Event("scroll"));
+    expect(pinned).toBe(true);
+
+    setScrollHeight(container, 1300);
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(1300);
+    expect(pinned).toBe(true);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
+  it("honors a forced bottom scroll after the user unpinned streaming output", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 920, scrollHeight: 1000, clientHeight: 100 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    container.scrollTop = 990;
+    container.dispatchEvent(new Event("scroll"));
+    expect(pinned).toBe(false);
+
+    setScrollHeight(container, 1200);
+    controller.completeRender(controller.prepareRender(container, "force-bottom"));
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(1200);
+    expect(pinned).toBe(true);
+    controller.dispose();
+    resizeObserver.restore();
+  });
 });
 
 function messageContainer(metrics: { scrollTop: number; scrollHeight: number; clientHeight: number }): HTMLElement {
   const container = document.createElement("div");
   let scrollTop = metrics.scrollTop;
+  let scrollHeight = metrics.scrollHeight;
   Object.defineProperties(container, {
     scrollTop: {
       get: () => scrollTop,
@@ -53,8 +266,16 @@ function messageContainer(metrics: { scrollTop: number; scrollHeight: number; cl
       },
       configurable: true,
     },
-    scrollHeight: { value: metrics.scrollHeight, configurable: true },
+    scrollHeight: {
+      get: () => scrollHeight,
+      configurable: true,
+    },
     clientHeight: { value: metrics.clientHeight, configurable: true },
+  });
+  Object.defineProperty(container, "setTestScrollHeight", {
+    value: (value: number) => {
+      scrollHeight = value;
+    },
   });
   return container;
 }
@@ -71,4 +292,63 @@ function setLayout(element: HTMLElement, offsetTop: number, offsetHeight: number
     offsetTop: { value: offsetTop, configurable: true },
     offsetHeight: { value: offsetHeight, configurable: true },
   });
+}
+
+function setScrollHeight(container: HTMLElement, value: number): void {
+  (container as HTMLElement & { setTestScrollHeight: (scrollHeight: number) => void }).setTestScrollHeight(value);
+}
+
+function animationFrame(element: HTMLElement): Promise<void> {
+  return new Promise((resolve) => {
+    element.win.requestAnimationFrame(() => {
+      resolve();
+    });
+  });
+}
+
+function installResizeObserver(): {
+  trigger: () => void;
+  restore: () => void;
+} {
+  const win = window as Window & { ResizeObserver?: typeof ResizeObserver };
+  const original = Reflect.get(win, "ResizeObserver") as typeof ResizeObserver | undefined;
+  let currentCallback: ResizeObserverCallback | null = null;
+
+  class TestResizeObserver {
+    constructor(callback: ResizeObserverCallback) {
+      currentCallback = callback;
+    }
+
+    observe(): void {
+      // The tests trigger observer notifications explicitly.
+    }
+
+    unobserve(): void {
+      // The tests trigger observer notifications explicitly.
+    }
+
+    disconnect(): void {
+      currentCallback = null;
+    }
+
+    trigger(): void {
+      currentCallback?.([], this as unknown as ResizeObserver);
+    }
+  }
+
+  win.ResizeObserver = TestResizeObserver as unknown as typeof ResizeObserver;
+
+  return {
+    trigger: () => {
+      if (!currentCallback) throw new Error("ResizeObserver was not installed.");
+      currentCallback([], {} as ResizeObserver);
+    },
+    restore: () => {
+      if (original === undefined) {
+        Reflect.deleteProperty(win, "ResizeObserver");
+      } else {
+        win.ResizeObserver = original;
+      }
+    },
+  };
 }

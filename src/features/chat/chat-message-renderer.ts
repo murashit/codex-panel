@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
 import { messageStreamBlocks, renderMessageStreamBlocks } from "./ui/message-stream";
-import { bottomScrollTop, captureScrollAnchor, isNearScrollBottom, restoreScrollAnchor } from "./ui/scroll";
+import { MessageScrollController, type MessageScrollIntent } from "./ui/scroll";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
@@ -25,14 +25,20 @@ export interface ChatMessageRendererOptions {
   renderPendingRequests: () => ReactNode;
 }
 
-export type ChatMessageScrollIntent = "auto" | "force-bottom" | "preserve";
+export type ChatMessageScrollIntent = MessageScrollIntent;
 
 export class ChatMessageRenderer {
-  private renderGeneration = 0;
   private messagesEl: HTMLElement | null = null;
+  private readonly scrollController: MessageScrollController;
   private readonly markdownRenderer: MarkdownMessageRenderer;
 
   constructor(private readonly options: ChatMessageRendererOptions) {
+    this.scrollController = new MessageScrollController({
+      messagesPinnedToBottom: () => this.state.messagesPinnedToBottom,
+      setMessagesPinnedToBottom: (pinned) => {
+        this.dispatch({ type: "ui/messages-pinned-set", pinned });
+      },
+    });
     this.markdownRenderer = new MarkdownMessageRenderer({
       app: options.app,
       owner: options.owner,
@@ -53,19 +59,9 @@ export class ChatMessageRenderer {
   }
 
   render(messagesEl: HTMLElement): void {
-    const generation = ++this.renderGeneration;
     const state = this.state;
     this.messagesEl = messagesEl;
-    messagesEl.onscroll = () => {
-      this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });
-    };
-    const scrollIntent = this.options.consumeScrollIntent();
-    const shouldPreserveScroll = scrollIntent === "preserve";
-    const wasNearBottom = shouldPreserveScroll ? false : isNearScrollBottom(messagesEl);
-    const shouldScrollToBottom =
-      !shouldPreserveScroll && (scrollIntent === "force-bottom" || state.messagesPinnedToBottom || wasNearBottom);
-    const scrollAnchor = shouldScrollToBottom ? null : captureScrollAnchor(messagesEl);
-    this.dispatch({ type: "ui/messages-pinned-set", pinned: shouldScrollToBottom });
+    const scrollPlan = this.scrollController.prepareRender(messagesEl, this.options.consumeScrollIntent());
     const rollbackCandidate = state.busy ? null : rollbackCandidateFromItems(state.displayItems);
     const implementPlanCandidate = implementPlanCandidateFromState(state);
 
@@ -81,9 +77,6 @@ export class ChatMessageRenderer {
       openDetails: state.openDetails,
       onDetailsToggle: (key, open) => {
         this.setOpenDetail(key, open);
-        messagesEl.win.requestAnimationFrame(() => {
-          this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });
-        });
       },
       loadOlderTurns: () => {
         this.options.loadOlderTurns();
@@ -110,25 +103,14 @@ export class ChatMessageRenderer {
       renderPendingRequests: () => this.options.renderPendingRequests(),
     });
     renderMessageStreamBlocks(messagesEl, blocks);
-
-    messagesEl.win.requestAnimationFrame(() => {
-      if (generation !== this.renderGeneration) return;
-      if (shouldScrollToBottom) {
-        if (!this.state.messagesPinnedToBottom) return;
-        this.pinMessagesToBottom(messagesEl);
-      } else {
-        restoreScrollAnchor(messagesEl, scrollAnchor);
-        this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });
-      }
-    });
+    this.scrollController.completeRender(scrollPlan);
   }
 
   dispose(): void {
-    this.renderGeneration += 1;
     if (this.messagesEl) {
-      this.messagesEl.onscroll = null;
       unmountReactRoot(this.messagesEl);
     }
+    this.scrollController.dispose();
     this.messagesEl = null;
   }
 
@@ -137,8 +119,7 @@ export class ChatMessageRenderer {
   }
 
   private pinMessagesToBottom(messagesEl: HTMLElement): void {
-    messagesEl.scrollTop = bottomScrollTop(messagesEl);
-    this.dispatch({ type: "ui/messages-pinned-set", pinned: isNearScrollBottom(messagesEl) });
+    this.scrollController.pinToBottom(messagesEl);
   }
 
   private setOpenDetail(key: string, open: boolean): void {
