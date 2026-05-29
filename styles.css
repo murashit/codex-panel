@@ -1393,6 +1393,7 @@
 }
 
 .codex-panel__message:hover .codex-panel__message-action,
+.codex-panel__message-role--fork-open .codex-panel__message-action,
 .codex-panel__message-action:focus-visible {
   opacity: 1;
 }

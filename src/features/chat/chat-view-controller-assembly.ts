@@ -108,6 +108,7 @@ export interface ChatViewControllerAssemblyHost {
   registerActiveLeafChange: (handler: (leaf: WorkspaceLeaf | null) => void) => void;
   isOwnLeaf: (leaf: WorkspaceLeaf | null) => boolean;
   archiveAdapter: () => ArchiveExportAdapter;
+  closePanel: () => void;
 }
 
 export function createChatViewControllerAssembly(host: ChatViewControllerAssemblyHost): ChatViewControllerAssembly {
@@ -200,6 +201,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     consumeScrollIntent: () => host.messageScroll.consumeIntent(),
     loadOlderTurns: () => void history.loadOlder(),
     rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),
+    forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
     implementPlan: (item) => void planImplementation.implement(item),
     openTurnDiff: (state) => void host.plugin.openTurnDiff(state),
     pendingRequestsSignature: host.pendingRequestsSignature,
@@ -397,6 +399,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     refreshSharedThreadListFromOpenSurface: () => {
       host.plugin.refreshSharedThreadListFromOpenSurface();
     },
+    closePanel: host.closePanel,
   });
   toolbarPanels = new ToolbarPanelController({
     stateStore: host.stateStore,

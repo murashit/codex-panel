@@ -7,6 +7,7 @@ import type { CodexPanelSettings } from "../../settings/model";
 import type { ArchiveExportAdapter } from "../../domain/threads/export";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import type { ThreadHistoryLoader } from "./thread-history";
+import { turnsAfterTurnId } from "./fork";
 import { rollbackCandidateFromItems } from "./rollback";
 
 export interface ChatThreadActionControllerHost {
@@ -26,6 +27,7 @@ export interface ChatThreadActionControllerHost {
   notifyActiveThreadIdentityChanged: () => void;
   refreshThreads: () => Promise<void>;
   refreshSharedThreadListFromOpenSurface: () => void;
+  closePanel: () => void;
 }
 
 export class ChatThreadActionController {
@@ -40,12 +42,16 @@ export class ChatThreadActionController {
   }
 
   async archiveThread(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<void> {
+    await this.archiveThreadWithResult(threadId, saveMarkdown);
+  }
+
+  private async archiveThreadWithResult(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<boolean> {
     if (chatTurnBusy(this.state)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
-      return;
+      return false;
     }
     const client = this.host.currentClient();
-    if (!client) return;
+    if (!client) return false;
     try {
       const settings = this.host.settings();
       if (saveMarkdown) {
@@ -59,12 +65,18 @@ export class ChatThreadActionController {
       }
       await client.archiveThread(threadId);
       this.host.notifyThreadArchived(threadId);
+      return true;
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      return false;
     }
   }
 
   async forkThread(threadId: string): Promise<void> {
+    await this.forkThreadFromTurn(threadId, null, false);
+  }
+
+  async forkThreadFromTurn(threadId: string, turnId: string | null, archiveSource: boolean): Promise<void> {
     if (chatTurnBusy(this.state)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
       return;
@@ -73,10 +85,19 @@ export class ChatThreadActionController {
     const client = this.host.currentClient();
     if (!client) return;
 
+    const turnsToDrop = turnId ? turnsAfterTurnId(this.state.displayItems, turnId) : 0;
+    if (turnsToDrop === null) {
+      this.host.addSystemMessage("Could not find the selected turn to fork.");
+      return;
+    }
+
     try {
       const sourceName = inheritedForkThreadName(threadId, this.state.listedThreads);
       const response = await client.forkThread(threadId, this.host.vaultPath);
       const forkedThreadId = response.thread.id;
+      if (turnsToDrop > 0) {
+        await client.rollbackThread(forkedThreadId, turnsToDrop);
+      }
       if (sourceName) {
         try {
           await client.setThreadName(forkedThreadId, sourceName);
@@ -86,11 +107,18 @@ export class ChatThreadActionController {
           this.host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
         }
       }
+      let openedForkPanel = false;
       try {
         await this.host.openThreadInNewView(forkedThreadId);
+        openedForkPanel = true;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in a new panel: ${message}`);
+      }
+      if (archiveSource) {
+        if (!openedForkPanel) return;
+        const archived = await this.archiveThreadWithResult(threadId);
+        if (archived) this.host.closePanel();
       }
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));

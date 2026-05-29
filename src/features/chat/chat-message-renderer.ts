@@ -8,6 +8,7 @@ import type { ComposerBoundaryScrollAction } from "./composer/boundary-scroll";
 import { MessageScrollController, type MessageScrollIntent } from "./ui/scroll";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
+import { forkCandidatesFromItems, isForkCandidateItem } from "./fork";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import { implementPlanCandidateFromState } from "./plan-implementation";
@@ -21,6 +22,7 @@ export interface ChatMessageRendererOptions {
   consumeScrollIntent: () => MessageScrollIntent;
   loadOlderTurns: () => void;
   rollbackThread: (threadId: string) => void;
+  forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
   implementPlan: (item: DisplayItem) => void;
   openTurnDiff: (state: ChatTurnDiffViewState) => void;
   pendingRequestsSignature: () => string;
@@ -64,6 +66,7 @@ export class ChatMessageRenderer {
     const scrollPlan = this.scrollController.prepareRender(messagesEl, this.options.consumeScrollIntent());
     const busy = chatTurnBusy(state);
     const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.displayItems);
+    const forkCandidates = busy ? [] : forkCandidatesFromItems(state.displayItems);
     const implementPlanCandidate = implementPlanCandidateFromState(state);
 
     const blocks = messageStreamBlocks({
@@ -95,6 +98,10 @@ export class ChatMessageRenderer {
       canRollbackItem: (item: DisplayItem) => isRollbackCandidateItem(item, rollbackCandidate),
       onRollbackItem: () => {
         if (state.activeThreadId) this.options.rollbackThread(state.activeThreadId);
+      },
+      canForkItem: (item: DisplayItem) => isForkCandidateItem(item, forkCandidates),
+      onForkItem: (item, archiveSource) => {
+        if (state.activeThreadId && item.turnId) this.options.forkThreadFromTurn(state.activeThreadId, item.turnId, archiveSource);
       },
       openTurnDiff: (turnDiffState) => {
         this.options.openTurnDiff(turnDiffState);
@@ -131,6 +138,13 @@ export class ChatMessageRenderer {
   }
 
   private setOpenDetail(key: string, open: boolean): void {
+    if (open && key.startsWith("message:fork-actions:")) {
+      for (const openKey of this.state.openDetails) {
+        if (openKey.startsWith("message:fork-actions:") && openKey !== key) {
+          this.dispatch({ type: "ui/detail-open-set", key: openKey, open: false });
+        }
+      }
+    }
     this.dispatch({ type: "ui/detail-open-set", key, open });
   }
 }

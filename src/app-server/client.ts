@@ -257,8 +257,8 @@ export class AppServerClient {
     return this.request("thread/unarchive", { threadId });
   }
 
-  rollbackThread(threadId: string): Promise<ThreadRollbackResponse> {
-    return this.request("thread/rollback", { threadId, numTurns: 1 });
+  rollbackThread(threadId: string, numTurns = 1): Promise<ThreadRollbackResponse> {
+    return this.request("thread/rollback", { threadId, numTurns });
   }
 
   setThreadName(threadId: string, name: string): Promise<ThreadSetNameResponse> {

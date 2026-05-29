@@ -518,6 +518,102 @@ describe("message stream block identity and message actions", () => {
     expect(copyText).toHaveBeenNthCalledWith(2, "# Answer");
   });
 
+  it("expands assistant fork actions in the copy slot and defaults repeat clicks to plain fork", () => {
+    const onDetailsToggle = vi.fn();
+    const onForkItem = vi.fn();
+    const item: DisplayItem = {
+      id: "a1",
+      kind: "message",
+      role: "assistant",
+      text: "answer",
+      copyText: "answer",
+      turnId: "turn-1",
+      markdown: true,
+    };
+
+    const closedBlock = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [item],
+      openDetails: new Set(),
+      onDetailsToggle,
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      copyText: vi.fn(),
+      canForkItem: () => true,
+      onForkItem,
+    })[0];
+
+    const closedElement = renderMessageBlockElement(closedBlock);
+    expect(closedElement.querySelector(".codex-panel__copy-message")).not.toBeNull();
+    const initialFork = expectPresent(closedElement.querySelector<HTMLButtonElement>(".codex-panel__fork-message"));
+    expect(initialFork.getAttribute("aria-label")).toBe("Fork from here");
+    initialFork.click();
+    expect(onDetailsToggle).toHaveBeenCalledWith("message:fork-actions:a1", true);
+
+    const openBlock = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [item],
+      openDetails: new Set(["message:fork-actions:a1"]),
+      onDetailsToggle,
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      copyText: vi.fn(),
+      canForkItem: () => true,
+      onForkItem,
+    })[0];
+
+    const openElement = renderMessageBlockElement(openBlock);
+    expect(openElement.querySelector(".codex-panel__copy-message")).toBeNull();
+    expect(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-message")?.getAttribute("aria-label")).toBe(
+      "Fork and archive",
+    );
+    const openFork = expectPresent(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-message"));
+    expect(openFork.getAttribute("aria-label")).toBe("Fork");
+    openFork.click();
+    expect(onForkItem).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }), false);
+  });
+
+  it("runs fork and archive from the expanded assistant fork actions", () => {
+    const onForkItem = vi.fn();
+    const item: DisplayItem = {
+      id: "a1",
+      kind: "message",
+      role: "assistant",
+      text: "answer",
+      copyText: "answer",
+      turnId: "turn-1",
+      markdown: true,
+    };
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [item],
+      openDetails: new Set(["message:fork-actions:a1"]),
+      onDetailsToggle: vi.fn(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      copyText: vi.fn(),
+      canForkItem: () => true,
+      onForkItem,
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+    expectPresent(element.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-message")).click();
+
+    expect(onForkItem).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }), true);
+  });
+
   it("keeps message React actions mounted in the message stream host", () => {
     const parent = document.createElement("div");
     const copyText = vi.fn();

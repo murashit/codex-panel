@@ -1,0 +1,37 @@
+import { describe, expect, it } from "vitest";
+
+import { forkCandidatesFromItems, isForkCandidateItem, turnsAfterTurnId } from "../../../src/features/chat/fork";
+import type { DisplayItem } from "../../../src/features/chat/display/types";
+
+describe("fork candidates", () => {
+  it("selects final assistant messages and counts later turns", () => {
+    const items: DisplayItem[] = [
+      { id: "u1", kind: "message", role: "user", text: "first", turnId: "turn-1", markdown: true },
+      { id: "a1", kind: "message", role: "assistant", text: "first answer", turnId: "turn-1", markdown: true },
+      { id: "tool-1", kind: "tool", role: "tool", text: "work", turnId: "turn-2" },
+      { id: "a2-delta", kind: "message", role: "assistant", text: "draft", turnId: "turn-2", markdown: false },
+      { id: "a2", kind: "message", role: "assistant", text: "second answer", turnId: "turn-2", markdown: true },
+      { id: "u3", kind: "message", role: "user", text: "third", turnId: "turn-3", markdown: true },
+      { id: "a3", kind: "message", role: "assistant", text: "third answer", turnId: "turn-3", markdown: true },
+    ];
+
+    const candidates = forkCandidatesFromItems(items);
+
+    expect(candidates).toEqual([
+      { itemId: "a1", turnId: "turn-1" },
+      { itemId: "a2", turnId: "turn-2" },
+      { itemId: "a3", turnId: "turn-3" },
+    ]);
+    expect(isForkCandidateItem(expectPresent(items[4]), candidates)).toBe(true);
+    expect(isForkCandidateItem(expectPresent(items[3]), candidates)).toBe(false);
+    expect(turnsAfterTurnId(items, "turn-1")).toBe(2);
+    expect(turnsAfterTurnId(items, "turn-2")).toBe(1);
+    expect(turnsAfterTurnId(items, "turn-3")).toBe(0);
+    expect(turnsAfterTurnId(items, "missing")).toBeNull();
+  });
+});
+
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) throw new Error("Expected value to be present");
+  return value;
+}

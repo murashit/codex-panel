@@ -243,6 +243,7 @@ function chatMessageRenderer(
     consumeScrollIntent: () => "auto",
     loadOlderTurns: vi.fn(),
     rollbackThread: vi.fn(),
+    forkThreadFromTurn: vi.fn(),
     implementPlan: vi.fn(),
     openTurnDiff: vi.fn(),
     pendingRequestsSignature: () => "",

@@ -1,4 +1,5 @@
 import type { DisplayBlock, DisplayItem, DisplayKind } from "./types";
+import { isFinalAssistantMessage } from "./final-assistant";
 import { pathRelativeToRoot } from "./paths";
 import { executionState } from "./state";
 
@@ -71,10 +72,6 @@ function finalAssistantItemsByTurn(items: readonly DisplayItem[]): Map<string, s
     finalAssistantIdByTurn.set(item.turnId, item.id);
   }
   return finalAssistantIdByTurn;
-}
-
-function isFinalAssistantMessage(item: DisplayItem): boolean {
-  return item.kind === "message" && item.role === "assistant" && item.markdown !== false;
 }
 
 function itemWithTurnSummaries(
