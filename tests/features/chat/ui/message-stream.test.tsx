@@ -1943,7 +1943,7 @@ describe("work log renderer decisions", () => {
     ]);
   });
 
-  it("renders agent activity with target state and prompt details", () => {
+  it("renders agent activity as a one-line summary with consolidated details", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
@@ -1977,10 +1977,13 @@ describe("work log renderer decisions", () => {
     expect(element.classList.contains("codex-panel__work-message")).toBe(true);
     expect(element.classList.contains("codex-panel__agent-activity")).toBe(true);
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("agent");
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("spawn child (completed)");
-    expect(element.textContent).toContain("child");
-    expect(element.textContent).toContain("completed: Done");
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details", "Prompt"]);
+    const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__tool-summary"));
+    expect(summary.textContent).toBe("spawn child: Inspect the renderer. (completed)");
+    expect(summary.classList.contains("codex-panel__agent-activity-summary")).toBe(true);
+    expect([...element.querySelectorAll("details summary")].map((detailsSummary) => detailsSummary.textContent)).toEqual(["Details"]);
+    expect(element.textContent).toContain("targetchild");
+    expect(element.textContent).toContain("PromptInspect the renderer.");
+    expect(element.textContent).toContain("childcompleted: Done");
   });
 
   it("keeps agent React details mounted in the message stream host", () => {
@@ -2021,15 +2024,53 @@ describe("work log renderer decisions", () => {
 
     const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:agent-1"]'));
     expect(block.querySelector(".codex-panel__agent-activity .codex-panel__message-role")?.textContent).toBe("agent");
-    expect(block.querySelector(".codex-panel__tool-summary")?.textContent).toBe("spawn child (completed)");
-    expect([...block.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details", "Prompt"]);
+    expect(block.querySelector(".codex-panel__tool-summary")?.textContent).toBe("spawn child: Inspect the renderer. (completed)");
+    expect([...block.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details"]);
 
     const details = expectPresent(block.querySelector<HTMLDetailsElement>("details"));
-    details.open = true;
-    details.dispatchEvent(new Event("toggle", { bubbles: false }));
+    act(() => {
+      details.open = true;
+      details.dispatchEvent(new Event("toggle", { bubbles: false }));
+    });
 
     expect(onDetailsToggle).toHaveBeenCalledWith("agent-1:agent-details", true);
+    expect(expectPresent(block.querySelector(".codex-panel__agent-activity")).classList.contains("is-open")).toBe(true);
     unmountReactRoot(parent);
+  });
+
+  it("keeps agent activity prompt previews visually constrained to one line", () => {
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: runningTurnLifecycle("turn"),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        {
+          id: "agent-1",
+          kind: "agent",
+          role: "tool",
+          text: "Spawn agent",
+          turnId: "turn",
+          tool: "spawnAgent",
+          status: "running",
+          senderThreadId: "parent",
+          receiverThreadIds: ["child"],
+          prompt: `Inspect the renderer.\n${"a".repeat(180)}`,
+          model: null,
+          reasoningEffort: null,
+          agents: [],
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+    const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__agent-activity-summary"));
+
+    expect(summary.textContent).toBe(`spawn child: Inspect the renderer. ${"a".repeat(73)}... (running)`);
   });
 
   it("collapses long agent output away from the agent status row", () => {
@@ -2070,10 +2111,9 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__agent-thread")?.textContent).toBe("019e061e");
     expect(element.querySelector(".codex-panel__agent-status")?.textContent).toBe("completed: Done");
     expect(element.querySelector(".codex-panel__agent-status")?.textContent).not.toContain("a".repeat(180));
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual([
-      "Details",
-      "Agent output 019e061e",
-    ]);
+    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details"]);
+    expect(element.textContent).toContain("Agent output 019e061e");
+    expect(element.textContent).toContain(longMessage);
     const details = element.querySelector("details");
     expect(details?.hasAttribute("open")).toBe(false);
     details?.dispatchEvent(new Event("toggle"));

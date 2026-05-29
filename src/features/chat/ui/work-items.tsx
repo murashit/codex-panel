@@ -13,9 +13,10 @@ import type {
 import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel, taskStatusMarker } from "../display/labels";
 import { activeTurnId, type ChatTurnLifecycleState } from "../chat-state";
 import { createWorkMessageClassName } from "./work-message";
-import { shortThreadId } from "../../../utils";
+import { shortThreadId, truncate } from "../../../utils";
 
 const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
+const AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT = 96;
 
 type ReasoningDisplayItem = ToolDisplayItem & { kind: "reasoning" };
 export type WorkItemDisplayItem = TaskProgressDisplayItem | AgentDisplayItem | ReasoningDisplayItem;
@@ -75,15 +76,24 @@ function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): ReactNod
 }
 
 function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkItemContext }): ReactNode {
+  const detailsKey = `${item.id}:agent-details`;
+  const [detailsOpen, setDetailsOpen] = useState(context.openDetails.has(detailsKey));
+  useLayoutEffect(() => {
+    setDetailsOpen(context.openDetails.has(detailsKey));
+  }, [context.openDetails, detailsKey]);
   return (
-    <WorkMessage label="agent" className="codex-panel__agent-activity" state={executionState(item)}>
-      <div className="codex-panel__tool-summary">{agentSummaryText(item)}</div>
-      <RememberedDetails
-        detailsClassName="codex-panel__output codex-panel__agent-details"
-        detailsKey={`${item.id}:agent-details`}
-        summary="Details"
-        context={context}
+    <WorkMessage label="agent" className={`codex-panel__agent-activity${detailsOpen ? " is-open" : ""}`} state={executionState(item)}>
+      <div className="codex-panel__tool-summary codex-panel__agent-activity-summary">{agentSummaryText(item)}</div>
+      <details
+        className="codex-panel__output codex-panel__agent-details"
+        open={detailsOpen}
+        onToggle={(event) => {
+          const nextOpen = event.currentTarget.open;
+          setDetailsOpen(nextOpen);
+          context.onDetailsToggle?.(detailsKey, nextOpen);
+        }}
       >
+        <summary>Details</summary>
         <dl className="codex-panel__meta-grid">
           <MetaPair name="tool" value={agentActivityMetaLabel(item.tool)} />
           <MetaPair name="status" value={item.status} />
@@ -92,35 +102,31 @@ function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkIte
           {item.model ? <MetaPair name="model" value={item.model} /> : null}
           {item.reasoningEffort ? <MetaPair name="effort" value={item.reasoningEffort} /> : null}
         </dl>
-      </RememberedDetails>
-      {item.agents.length > 0 ? (
-        <ul className="codex-panel__agent-list">
-          {item.agents.map((agent) => (
-            <li key={agent.threadId} className="codex-panel__agent-row">
-              <span className="codex-panel__agent-thread">{shortThreadId(agent.threadId)}</span>
-              <span className="codex-panel__agent-status">{agentStatusLabel(agent.status, agent.message)}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {item.agents.map((agent) =>
-        agent.message && isLongAgentMessage(agent.message) ? (
-          <RememberedDetails
-            key={agent.threadId}
-            detailsClassName="codex-panel__output"
-            detailsKey={`${item.id}:agent:${agent.threadId}:message`}
-            summary={`Agent output ${shortThreadId(agent.threadId)}`}
-            context={context}
-          >
-            <pre>{agent.message}</pre>
-          </RememberedDetails>
-        ) : null,
-      )}
-      {item.prompt ? (
-        <RememberedDetails detailsClassName="codex-panel__output" detailsKey={`${item.id}:prompt`} summary="Prompt" context={context}>
-          <pre>{item.prompt}</pre>
-        </RememberedDetails>
-      ) : null}
+        {item.prompt ? (
+          <section className="codex-panel__agent-detail-section">
+            <div className="codex-panel__output-title">Prompt</div>
+            <pre>{item.prompt}</pre>
+          </section>
+        ) : null}
+        {item.agents.length > 0 ? (
+          <ul className="codex-panel__agent-list">
+            {item.agents.map((agent) => (
+              <li key={agent.threadId} className="codex-panel__agent-row">
+                <span className="codex-panel__agent-thread">{shortThreadId(agent.threadId)}</span>
+                <span className="codex-panel__agent-status">{agentStatusLabel(agent.status, agent.message)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {item.agents.map((agent) =>
+          agent.message && isLongAgentMessage(agent.message) ? (
+            <section key={agent.threadId} className="codex-panel__agent-detail-section">
+              <div className="codex-panel__output-title">Agent output {shortThreadId(agent.threadId)}</div>
+              <pre>{agent.message}</pre>
+            </section>
+          ) : null,
+        )}
+      </details>
     </WorkMessage>
   );
 }
@@ -166,39 +172,6 @@ function WorkMessage({
   );
 }
 
-function RememberedDetails({
-  detailsClassName,
-  detailsKey,
-  summary,
-  context,
-  children,
-}: {
-  detailsClassName: string;
-  detailsKey: string;
-  summary: string;
-  context: WorkItemContext;
-  children: ReactNode;
-}): ReactNode {
-  const [open, setOpen] = useState(context.openDetails.has(detailsKey));
-  useLayoutEffect(() => {
-    setOpen(context.openDetails.has(detailsKey));
-  }, [context.openDetails, detailsKey]);
-  return (
-    <details
-      className={detailsClassName}
-      open={open}
-      onToggle={(event) => {
-        const nextOpen = event.currentTarget.open;
-        setOpen(nextOpen);
-        context.onDetailsToggle?.(detailsKey, nextOpen);
-      }}
-    >
-      <summary>{summary}</summary>
-      {children}
-    </details>
-  );
-}
-
 function MetaPair({ name, value }: { name: string; value: string }): ReactNode {
   return (
     <>
@@ -230,7 +203,14 @@ function AgentSummaryRows({ summary }: { summary: AgentRunSummary }): ReactNode 
 
 function agentSummaryText(item: AgentDisplayItem): string {
   const target = item.receiverThreadIds.length === 0 ? "" : ` ${item.receiverThreadIds.map(shortThreadId).join(", ")}`;
-  return `${agentActivityMetaLabel(item.tool)}${target} (${item.status})`;
+  const promptPreview = agentPromptPreview(item.prompt);
+  return `${agentActivityMetaLabel(item.tool)}${target}${promptPreview ? `: ${promptPreview}` : ""} (${item.status})`;
+}
+
+function agentPromptPreview(prompt: string | null): string | null {
+  if (!prompt) return null;
+  const normalized = prompt.trim().replace(/\s+/g, " ");
+  return normalized ? truncate(normalized, AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT) : null;
 }
 
 function agentStatusLabel(status: string, message: string | null): string {

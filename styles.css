@@ -1885,6 +1885,27 @@
   overflow-wrap: anywhere;
 }
 
+.codex-panel__agent-activity > .codex-panel__agent-activity-summary {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-panel__agent-activity.is-open > .codex-panel__agent-activity-summary {
+  display: none;
+}
+
+.codex-panel__agent-detail-section {
+  margin-top: var(--codex-panel-section-gap);
+}
+
+.codex-panel__agent-detail-section > pre {
+  margin: var(--codex-panel-item-gap) 0 0;
+}
+
 .codex-panel__agent-list--summary {
   margin-top: var(--codex-panel-panel-gap);
 }
