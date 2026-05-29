@@ -209,7 +209,7 @@ describe("settings tab", () => {
 
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 model.");
     expect(tab.containerEl.textContent).toContain("Could not load hooks: hooks unavailable");
-    expect(tab.containerEl.querySelector(".codex-panel-settings__refresh-status")?.textContent).toBe("Could not refresh all Codex data.");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__refresh-status")).toBeNull();
     expect(tab.containerEl.textContent).toContain("Archived thread");
     expect(notices).toEqual(["Could not refresh all Codex data."]);
   });

@@ -40,11 +40,9 @@ export function renderHookSection(containerEl: HTMLElement, state: HookSectionSt
     .setName("Hook status")
     .setDesc("Review discovered hooks, trust changes, and turn hooks on or off.");
 
-  if (state.loading) {
-    section.createEl("p", { cls: "setting-item-description codex-panel-settings__dynamic-section-status", text: "Loading hooks..." });
-  } else if (state.loaded) {
+  if (state.loaded) {
     renderHooks(section, state);
-  } else if (state.status) {
+  } else if (!state.loading && state.status) {
     section.createEl("p", { cls: "setting-item-description codex-panel-settings__dynamic-section-status", text: state.status });
   }
 }
@@ -63,19 +61,14 @@ export function renderArchivedThreadSection(containerEl: HTMLElement, state: Arc
 
   renderArchiveExportSettings(section, state);
 
-  if (state.loading) {
-    section.createEl("p", {
-      cls: "setting-item-description codex-panel-settings__dynamic-section-status",
-      text: "Loading archived threads...",
-    });
-  } else if (state.loaded && state.threads.length === 0) {
+  if (state.loaded && state.threads.length === 0) {
     section.createEl("p", {
       cls: "setting-item-description codex-panel-settings__dynamic-section-status",
       text: "No archived threads.",
     });
   } else if (state.loaded) {
     renderArchivedThreadList(section, state);
-  } else if (state.status) {
+  } else if (!state.loading && state.status) {
     section.createEl("p", {
       cls: "setting-item-description codex-panel-settings__dynamic-section-status",
       text: state.status,

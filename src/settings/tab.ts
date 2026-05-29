@@ -22,6 +22,8 @@ import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sectio
 import type { CodexPanelSettings } from "./model";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";
+const SETTINGS_INTRO_TEXT =
+  "Codex Panel stores only panel preferences. Models, sandboxing, approvals, MCP servers, hooks, and network access still come from Codex config.";
 const SEND_SHORTCUT_LABELS = {
   enter: "Enter",
   "mod-enter": "Cmd/Ctrl+Enter",
@@ -29,12 +31,6 @@ const SEND_SHORTCUT_LABELS = {
 
 function renderSettingsHeading(containerEl: HTMLElement, name: string): void {
   new Setting(containerEl).setClass("codex-panel-settings__section-heading").setHeading().setName(name);
-}
-
-function settingsDataRefreshStatus(state: SettingsDataRefreshLifecycleState): string {
-  if (state.kind === "loading") return "Refreshing Codex data...";
-  if (state.kind === "completed" && state.failedCount > 0) return "Could not refresh all Codex data.";
-  return "";
 }
 
 export class CodexPanelSettingTab extends PluginSettingTab {
@@ -63,13 +59,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("codex-panel-settings");
 
-    this.renderHeaderActions(containerEl);
+    this.renderHeaderActions(containerEl, SETTINGS_INTRO_TEXT);
 
     const configSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__general-section" });
-    configSection.createEl("p", {
-      cls: "setting-item-description codex-panel-settings__section-intro",
-      text: "Codex Panel stores only panel preferences. Models, sandboxing, approvals, MCP servers, hooks, and network access still come from Codex config.",
-    });
 
     new Setting(configSection)
       .setName("Codex executable")
@@ -177,7 +169,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
-    if (this.modelsLifecycle.kind === "loading" || this.modelsLifecycle.kind === "failed") {
+    if (this.modelsLifecycle.kind === "failed") {
       configSection.createEl("p", {
         cls: "setting-item-description codex-panel-settings__section-status",
         text: this.modelsLifecycle.status,
@@ -214,12 +206,11 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.maybeAutoLoadSettingsData();
   }
 
-  private renderHeaderActions(containerEl: HTMLElement): void {
+  private renderHeaderActions(containerEl: HTMLElement, introText: string): void {
     const header = containerEl.createDiv({ cls: "codex-panel-settings__header" });
-    const status = settingsDataRefreshStatus(this.settingsDataRefreshLifecycle);
     header.createEl("span", {
-      cls: "setting-item-description codex-panel-settings__refresh-status",
-      text: status,
+      cls: "setting-item-description codex-panel-settings__section-intro",
+      text: introText,
     });
     const button = header.createEl("button", {
       cls: "clickable-icon codex-panel-settings__refresh-button",
