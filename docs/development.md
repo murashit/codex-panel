@@ -8,6 +8,7 @@ npm run build
 ```
 
 Run `npm run format` after edits and before `npm run check` so Prettier-only issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, ESLint, Prettier check, and a production esbuild bundle.
+The local `npm run check` path runs checks in parallel and uses ESLint's local cache. Use `npm run check:ci` when you need to reproduce the sequential, non-cached CI validation path.
 
 `main.js`, `data.json`, and `node_modules/` are ignored by Git. `main.js` is still the file Obsidian loads, so run `npm run build` or `npm run build:prod` after source changes.
 
