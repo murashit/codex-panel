@@ -1068,11 +1068,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       running: 1,
       completed: 1,
       failed: 1,
-      agents: [
-        { threadId: "failed", status: "errored", messagePreview: null },
-        { threadId: "running", status: "running", messagePreview: null },
-        { threadId: "done", status: "completed", messagePreview: null },
-      ],
+      agents: [{ threadId: "running", status: "running", messagePreview: null }],
       additionalAgents: 0,
     });
     expect(activeAgentRunSummary(items, null)).toBeNull();
@@ -1104,7 +1100,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         tool: "wait",
         status: "running",
         senderThreadId: "parent",
-        receiverThreadIds: ["a", "b", "c"],
+        receiverThreadIds: ["a", "b", "c", "d", "e"],
         prompt: null,
         model: null,
         reasoningEffort: null,
@@ -1112,20 +1108,24 @@ describe("display block grouping keeps work logs subordinate to conversation mes
           { threadId: "a", status: "running", message: "\n  Inspecting   renderer   tests  \nmore details" },
           { threadId: "b", status: "failed", message: "Could not reproduce" },
           { threadId: "c", status: "running", message: null },
+          { threadId: "d", status: "running", message: "Reviewing details" },
+          { threadId: "e", status: "running", message: "Checking scroll behavior" },
         ],
       },
     ];
 
     expect(activeAgentRunSummary(items, "t1")).toMatchObject({
-      running: 3,
+      running: 5,
       completed: 0,
       failed: 1,
       agents: [
-        { threadId: "b", status: "failed", messagePreview: "Could not reproduce" },
         { threadId: "a", status: "running", messagePreview: "Inspecting renderer tests" },
         { threadId: "c", status: "running", messagePreview: null },
+        { threadId: "d", status: "running", messagePreview: "Reviewing details" },
+        { threadId: "e", status: "running", messagePreview: "Checking scroll behavior" },
+        { threadId: "fallback-child", status: "inProgress", messagePreview: null },
       ],
-      additionalAgents: 1,
+      additionalAgents: 0,
     });
   });
 

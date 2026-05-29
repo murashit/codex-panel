@@ -2159,7 +2159,7 @@ describe("work log renderer decisions", () => {
     expect(summary.textContent).toContain("agents");
     expect(summary.textContent).toContain("Agents 1 running, 1 done");
     expect(summary.textContent).toContain("runningrunning: Inspecting renderer");
-    expect(summary.textContent).toContain("donecompleted");
+    expect(summary.textContent).not.toContain("donecompleted");
   });
 
   it("renders the compact live agent summary as a React block", () => {
@@ -2300,7 +2300,8 @@ describe("work log renderer decisions", () => {
 
     expect(summary.classList.contains("codex-panel__execution--failed")).toBe(true);
     expect(summary.textContent).toContain("Agents 1 failed, 1 running");
-    expect(summary.textContent).toContain("failederrored: Failed");
+    expect(summary.textContent).toContain("runningrunning");
+    expect(summary.textContent).not.toContain("failederrored: Failed");
   });
 });
 

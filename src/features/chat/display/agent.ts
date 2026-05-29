@@ -5,7 +5,6 @@ import { agentActivitySummaryLabel, agentMessagePreview } from "./labels";
 import { classifyExecutionState } from "./state";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
-const ACTIVE_AGENT_PREVIEW_COUNT = 3;
 type AgentRunState = "running" | "completed" | "failed";
 type CollabAgentToolCallItem = Extract<ThreadItem, { type: "collabAgentToolCall" }>;
 
@@ -60,13 +59,14 @@ export function activeAgentRunSummary(items: readonly DisplayItem[], activeTurnI
 
   if (summary.running === 0 && summary.failed === 0) return null;
 
-  const visibleAgents = agents.sort(compareActiveAgentStates).slice(0, ACTIVE_AGENT_PREVIEW_COUNT);
-  summary.agents = visibleAgents.map((agent) => ({
-    threadId: agent.threadId,
-    status: agent.status,
-    messagePreview: agentMessagePreview(agent.message, ACTIVE_AGENT_PREVIEW_LIMIT),
-  }));
-  summary.additionalAgents = Math.max(0, agents.length - visibleAgents.length);
+  summary.agents = agents
+    .filter((agent) => agentRunState(agent.status) === "running")
+    .sort((a, b) => a.threadId.localeCompare(b.threadId))
+    .map((agent) => ({
+      threadId: agent.threadId,
+      status: agent.status,
+      messagePreview: agentMessagePreview(agent.message, ACTIVE_AGENT_PREVIEW_LIMIT),
+    }));
 
   return summary;
 }
@@ -95,16 +95,4 @@ function collabAgentExecutionState(status: string, receiverThreadIds: string[], 
 
 function agentRunState(status: string): AgentRunState {
   return classifyExecutionState({ status }) ?? "running";
-}
-
-function compareActiveAgentStates(a: AgentStateDisplay, b: AgentStateDisplay): number {
-  const stateDiff = agentRunStatePriority(agentRunState(a.status)) - agentRunStatePriority(agentRunState(b.status));
-  if (stateDiff !== 0) return stateDiff;
-  return a.threadId.localeCompare(b.threadId);
-}
-
-function agentRunStatePriority(state: AgentRunState): number {
-  if (state === "failed") return 0;
-  if (state === "running") return 1;
-  return 2;
 }
