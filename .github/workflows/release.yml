@@ -17,16 +17,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
-          cache: npm
+          package-manager-cache: false
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Check release version
         run: npm run release:check
@@ -37,7 +39,7 @@ jobs:
         run: npm run check
 
       - name: Generate artifact attestations
-        uses: actions/attest@v4
+        uses: actions/attest@281a49d4cbb0a72c9575a50d18f6deb515a11deb # v4
         with:
           subject-path: |
             main.js
