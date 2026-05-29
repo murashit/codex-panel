@@ -7,6 +7,7 @@ import type { Personality } from "../Personality";
 import type { ReasoningEffort } from "../ReasoningEffort";
 import type { ReasoningSummary } from "../ReasoningSummary";
 import type { JsonValue } from "../serde_json/JsonValue";
+import type { AdditionalContextEntry } from "./AdditionalContextEntry";
 import type { ApprovalsReviewer } from "./ApprovalsReviewer";
 import type { AskForApproval } from "./AskForApproval";
 import type { SandboxPolicy } from "./SandboxPolicy";
@@ -18,6 +19,10 @@ export type TurnStartParams = { threadId: string, input: Array<UserInput>,
  * Optional turn-scoped Responses API client metadata.
  */
 responsesapiClientMetadata?: { [key in string]?: string } | null,
+/**
+ * Optional client-provided context fragments keyed by an opaque source identifier.
+ */
+additionalContext?: { [key in string]?: AdditionalContextEntry } | null,
 /**
  * Optional turn-scoped environments.
  *

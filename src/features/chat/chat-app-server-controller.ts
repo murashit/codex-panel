@@ -229,7 +229,7 @@ export class ChatAppServerController {
       ),
       this.probeCapability(
         "mcpServerStatus/list",
-        () => client.listMcpServerStatus(),
+        () => client.listMcpServerStatus(mcpServerStatusParams(this.state.activeThreadId)),
         (response) => {
           this.recordMcpServerStatus(response.data);
           const issueCount = response.data.filter((server) => server.authStatus === "notLoggedIn").length;
@@ -270,7 +270,7 @@ export class ChatAppServerController {
     if (!client) return ["MCP servers", "Codex app-server is not connected."];
 
     try {
-      const response = await client.listMcpServerStatus();
+      const response = await client.listMcpServerStatus(mcpServerStatusParams(this.state.activeThreadId));
       return buildMcpStatusLines(response.data, this.state.appServerDiagnostics.mcpServers);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -327,5 +327,13 @@ function cloneAppServerDiagnostics(diagnostics: AppServerDiagnostics): AppServer
   return {
     probes: { ...diagnostics.probes },
     mcpServers: diagnostics.mcpServers.map((server) => ({ ...server })),
+  };
+}
+
+function mcpServerStatusParams(threadId: string | null): Parameters<AppServerClient["listMcpServerStatus"]>[0] {
+  return {
+    detail: "toolsAndAuthOnly",
+    limit: 100,
+    ...(threadId ? { threadId } : {}),
   };
 }

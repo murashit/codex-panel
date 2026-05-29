@@ -63,9 +63,12 @@ describe("ChatAppServerController", () => {
   });
 
   it("loads MCP status lines with cached startup diagnostics", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const state = createChatState();
+    state.activeThreadId = "thread-1";
+    const stateStore = createChatStateStore(state);
+    const listMcpServerStatus = vi.fn().mockResolvedValue({ data: [mcpServerStatus()] });
     const client = {
-      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [mcpServerStatus()] }),
+      listMcpServerStatus,
     } as unknown as AppServerClient;
     const controller = new ChatAppServerController({
       stateStore,
@@ -79,6 +82,11 @@ describe("ChatAppServerController", () => {
     controller.recordMcpStartupStatus("github", "ready", null);
 
     await expect(controller.mcpStatusLines()).resolves.toEqual(["MCP servers", "github: ready, auth oAuth, 1 tool, 0 resources"]);
+    expect(listMcpServerStatus).toHaveBeenCalledWith({
+      detail: "toolsAndAuthOnly",
+      limit: 100,
+      threadId: "thread-1",
+    });
   });
 });
 
