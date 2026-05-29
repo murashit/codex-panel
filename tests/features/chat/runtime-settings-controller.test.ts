@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ChatRuntimeSettingsController } from "../../../src/features/chat/runtime-settings-controller";
-import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore, type ChatAction } from "../../../src/features/chat/chat-state";
 import type { AppServerClient } from "../../../src/app-server/client";
+import type { Model } from "../../../src/generated/app-server/v2/Model";
 
 describe("ChatRuntimeSettingsController", () => {
   it("applies pending runtime overrides through thread settings and commits them", async () => {
@@ -60,6 +61,30 @@ describe("ChatRuntimeSettingsController", () => {
     expect(store.getState().requestedServiceTier).toBeNull();
     expect(store.getState().activeServiceTier).toBe("fast");
     expect(messages).toEqual(["Fast mode on for subsequent turns."]);
+  });
+
+  it("requests the catalog Fast tier id and toggles it off from the reported effective id", async () => {
+    const state = createChatState();
+    state.activeThreadId = "thread";
+    state.activeModel = "gpt-5.5";
+    // Codex app-server 0.134.0 advertises Fast as id "priority" and reports that id as the effective service tier.
+    state.availableModels = [modelFixture("gpt-5.5", "priority")];
+    const store = createChatStateStore(state);
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await controller.toggleFastMode();
+
+    expect(client.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "priority" });
+    expect(store.getState().activeServiceTier).toBe("priority");
+
+    store.dispatch({ type: "thread/settings-applied", ...threadSettings("priority") });
+    await controller.toggleFastMode();
+
+    expect(client.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: null });
+    expect(store.getState().activeServiceTier).toBeNull();
+    expect(messages).toEqual(["Fast mode on for subsequent turns.", "Fast mode off for subsequent turns."]);
   });
 
   it("leaves pending override in place when the app-server update fails", async () => {
@@ -120,5 +145,39 @@ function clientFixture(
   return {
     updateThreadSettings: vi.fn().mockResolvedValue({}),
     ...overrides,
+  };
+}
+
+function modelFixture(model: string, fastTierId: string): Model {
+  return {
+    id: model,
+    model,
+    upgrade: null,
+    upgradeInfo: null,
+    availabilityNux: null,
+    displayName: model,
+    description: "",
+    hidden: false,
+    supportedReasoningEfforts: [],
+    defaultReasoningEffort: "medium",
+    inputModalities: [],
+    supportsPersonality: true,
+    additionalSpeedTiers: ["fast"],
+    serviceTiers: [{ id: fastTierId, name: "Fast", description: "" }],
+    defaultServiceTier: null,
+    isDefault: true,
+  };
+}
+
+function threadSettings(serviceTier: string | null): Omit<Extract<ChatAction, { type: "thread/settings-applied" }>, "type"> {
+  return {
+    cwd: "/vault",
+    model: "gpt-5.5",
+    reasoningEffort: "high",
+    collaborationMode: "default",
+    serviceTier,
+    approvalPolicy: "on-request",
+    approvalsReviewer: "user",
+    activePermissionProfile: null,
   };
 }

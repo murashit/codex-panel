@@ -10,6 +10,7 @@ import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnap
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
 import {
   configuredServiceTierRequestValue,
+  isFastServiceTier,
   requestedServiceTierRequestValue,
   type RequestedServiceTier,
   type ServiceTier,
@@ -61,7 +62,9 @@ export function requestedOrConfiguredServiceTier(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): ServiceTierRequest {
-  if (snapshot.requestedServiceTier !== null) return requestedServiceTierRequestValue(snapshot.requestedServiceTier);
+  if (snapshot.requestedServiceTier !== null) {
+    return requestedServiceTierRequestValue(snapshot.requestedServiceTier, fastServiceTierRequestValue(snapshot, config));
+  }
   return configuredServiceTierRequestValue(config.serviceTier);
 }
 
@@ -138,14 +141,28 @@ export function serviceTierLabel(
   return currentServiceTier(snapshot, config) ?? "(Codex default)";
 }
 
+export function fastModeActive(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+): boolean {
+  return isFastServiceTier(currentServiceTier(snapshot, config), currentModelServiceTiers(snapshot, config));
+}
+
 export function fastModeLabel(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): string {
   if (snapshot.requestedServiceTier === "off") return "off";
+  if (fastModeActive(snapshot, config)) return "on";
   const serviceTier = currentServiceTier(snapshot, config);
-  if (serviceTier === "fast") return "on";
   return serviceTier ? "off" : "Codex default";
+}
+
+export function fastServiceTierRequestValue(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+): string {
+  return currentModelServiceTiers(snapshot, config).find((tier) => tier.name.trim().toLowerCase() === "fast")?.id ?? "fast";
 }
 
 export function defaultRuntimeOverride<T>(): RuntimeOverride<T> {
@@ -174,4 +191,11 @@ export function runtimeOverrideLabel<T>(override: RuntimeOverride<T>): string {
 
 function isAutoReviewReviewer(value: ApprovalsReviewer | null): boolean {
   return value === "auto_review" || value === "guardian_subagent";
+}
+
+function currentModelServiceTiers(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+): Model["serviceTiers"] {
+  return findModelByIdOrName(snapshot.availableModels, currentModel(snapshot, config))?.serviceTiers ?? [];
 }

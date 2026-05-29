@@ -19,6 +19,8 @@ import {
   currentModel,
   currentReasoningEffort,
   currentServiceTier,
+  fastModeActive,
+  fastServiceTierRequestValue,
   fastModeLabel,
   requestedOrConfiguredServiceTier,
   requestedTurnRuntimeSettings,
@@ -238,6 +240,40 @@ describe("runtime settings", () => {
     });
 
     expect(currentServiceTier(snapshot)).toBe("flex");
+    expect(fastModeLabel(snapshot)).toBe("off");
+  });
+
+  it("treats the catalog Fast service tier id as fast mode while preserving the id", () => {
+    const model = modelFixture("gpt-5.5");
+    // This mirrors Codex app-server 0.134.0 model/list: Fast is named "Fast" but its id is "priority".
+    model.serviceTiers = [{ id: "priority", name: "Fast", description: "1.5x speed, increased usage" }];
+    const snapshot = runtimeSnapshot({
+      activeModel: "gpt-5.5",
+      activeServiceTier: "priority",
+      effectiveConfig: effectiveConfigFixture({ model: "gpt-5.5" }),
+      availableModels: [model],
+    });
+
+    expect(currentServiceTier(snapshot)).toBe("priority");
+    expect(serviceTierLabel(snapshot)).toBe("priority");
+    expect(fastModeActive(snapshot)).toBe(true);
+    expect(fastModeLabel(snapshot)).toBe("on");
+    expect(fastServiceTierRequestValue(snapshot)).toBe("priority");
+  });
+
+  it("treats the Codex 0.134.0 reported default tier after clearing Fast as fast mode off", () => {
+    const model = modelFixture("gpt-5.5");
+    model.serviceTiers = [{ id: "priority", name: "Fast", description: "1.5x speed, increased usage" }];
+    const snapshot = runtimeSnapshot({
+      activeModel: "gpt-5.5",
+      activeServiceTier: "default",
+      effectiveConfig: effectiveConfigFixture({ model: "gpt-5.5" }),
+      availableModels: [model],
+    });
+
+    expect(currentServiceTier(snapshot)).toBe("default");
+    expect(serviceTierLabel(snapshot)).toBe("default");
+    expect(fastModeActive(snapshot)).toBe(false);
     expect(fastModeLabel(snapshot)).toBe("off");
   });
 
@@ -492,6 +528,19 @@ describe("runtime settings", () => {
     expect(serviceTierLabel(snapshot)).toBe("(Codex default)");
     expect(fastModeLabel(snapshot)).toBe("off");
     expect(requestedOrConfiguredServiceTier(snapshot)).toBeNull();
+  });
+
+  it("serializes requested fast mode using the catalog Fast service tier id", () => {
+    const model = modelFixture("gpt-5.5");
+    model.serviceTiers = [{ id: "priority", name: "Fast", description: "1.5x speed, increased usage" }];
+    const snapshot = runtimeSnapshot({
+      requestedServiceTier: "fast",
+      effectiveConfig: effectiveConfigFixture({ model: "gpt-5.5" }),
+      availableModels: [model],
+    });
+
+    expect(fastModeLabel(snapshot)).toBe("on");
+    expect(requestedOrConfiguredServiceTier(snapshot)).toBe("priority");
   });
 
   it("omits service tier when neither config nor override selects one", () => {

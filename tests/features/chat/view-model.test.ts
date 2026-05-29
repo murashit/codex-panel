@@ -51,6 +51,30 @@ describe("chat view model", () => {
     expect(model.modelChoices).toHaveLength(1);
   });
 
+  it("marks fast active for the catalog Fast service tier id", () => {
+    const state = createChatState();
+    state.activeModel = "gpt-5.5";
+    state.activeServiceTier = "priority";
+    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.availableModels = [modelFixture("gpt-5.5", "priority")];
+
+    const model = toolbarViewModel({
+      state,
+      snapshot: runtimeSnapshotForChatState({ state }),
+      connected: true,
+      turnBusy: false,
+      vaultPath: "/vault",
+      configuredCommand: "codex",
+      archiveConfirmThreadId: null,
+      archiveExportEnabled: true,
+      modelChoices: [],
+      effortChoices: [],
+      renameState: () => null,
+    });
+
+    expect(model.fastActive).toBe(true);
+  });
+
   it("builds slash-command status lines from chat state", () => {
     const state = createChatState();
     state.activeThreadId = "thread-1";
@@ -147,7 +171,7 @@ function threadFixture(id: string, name: string | null): Thread {
   };
 }
 
-function modelFixture(model: string): Model {
+function modelFixture(model: string, fastTierId?: string): Model {
   return {
     id: model,
     model,
@@ -161,8 +185,8 @@ function modelFixture(model: string): Model {
     defaultReasoningEffort: "high",
     inputModalities: [],
     supportsPersonality: false,
-    additionalSpeedTiers: [],
-    serviceTiers: [],
+    additionalSpeedTiers: fastTierId ? ["fast"] : [],
+    serviceTiers: fastTierId ? [{ id: fastTierId, name: "Fast", description: "" }] : [],
     defaultServiceTier: null,
     isDefault: true,
   };

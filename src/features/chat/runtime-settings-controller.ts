@@ -8,7 +8,8 @@ import { collaborationModeToggleMessage, nextCollaborationMode } from "../../run
 import { readRuntimeConfig } from "../../runtime/config";
 import {
   autoReviewActive,
-  currentServiceTier,
+  fastModeActive,
+  fastServiceTierRequestValue,
   requestedTurnRuntimeSettings,
   runtimeOverridePayload,
   type RuntimeSnapshot,
@@ -78,8 +79,9 @@ export class ChatRuntimeSettingsController {
   }
 
   async toggleFastMode(): Promise<void> {
-    const current = currentServiceTier(this.host.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig));
-    const next: RequestedServiceTier = current === "fast" ? "off" : "fast";
+    const snapshot = this.host.runtimeSnapshot();
+    const config = readRuntimeConfig(this.state.effectiveConfig);
+    const next: RequestedServiceTier = fastModeActive(snapshot, config) ? "off" : "fast";
     this.dispatch({ type: "runtime/requested-service-tier-set", serviceTier: next });
     this.dispatch({ type: "ui/panel-set", panel: null });
     if (!(await this.applyPendingThreadSettings())) return;
@@ -112,7 +114,8 @@ export class ChatRuntimeSettingsController {
   private pendingThreadSettingsUpdate(): ThreadSettingsUpdate {
     const update: ThreadSettingsUpdate = {};
     const state = this.state;
-    const turnSettings = requestedTurnRuntimeSettings(this.host.runtimeSnapshot());
+    const snapshot = this.host.runtimeSnapshot();
+    const turnSettings = requestedTurnRuntimeSettings(snapshot);
 
     if (state.requestedModel.kind !== "default") {
       const model = runtimeOverridePayload(state.requestedModel);
@@ -123,7 +126,10 @@ export class ChatRuntimeSettingsController {
       if (effort !== undefined) update.effort = effort;
     }
     if (state.requestedServiceTier !== null) {
-      const serviceTier = requestedServiceTierRequestValue(state.requestedServiceTier);
+      const serviceTier = requestedServiceTierRequestValue(
+        state.requestedServiceTier,
+        fastServiceTierRequestValue(snapshot, readRuntimeConfig(state.effectiveConfig)),
+      );
       if (serviceTier !== undefined) update.serviceTier = serviceTier;
     }
     if (state.requestedApprovalsReviewer !== null) {
