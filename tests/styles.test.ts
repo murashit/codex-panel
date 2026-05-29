@@ -17,13 +17,18 @@ describe("panel CSS token scope", () => {
 });
 
 describe("chat toolbar CSS", () => {
-  it("does not let mouse-focus reset override active toolbar controls", () => {
+  it("keeps mouse-focus reset less specific than active toolbar controls", () => {
     const toolbarMouseFocus =
-      /\.codex-panel-ui__toolbar-control:not\(\.is-active\):focus:not\(:hover\):not\(:focus-visible\) \{(?<body>[^}]+)\}/.exec(styles)
-        ?.groups?.["body"] ?? "";
+      /\.codex-panel-ui__toolbar-control:where\(:focus:not\(:hover\):not\(:focus-visible\)\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
+        "body"
+      ] ?? "";
 
     expect(toolbarMouseFocus).toContain("background: transparent");
     expect(toolbarMouseFocus).toContain("color: var(--icon-color)");
+  });
+
+  it("keeps class selectors out of zero-specificity :where selectors", () => {
+    expect(styles).not.toMatch(/:where\([^)]*[.#[]/);
   });
 });
 

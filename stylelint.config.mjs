@@ -1,6 +1,15 @@
+import noSpecificityWhere from "./scripts/stylelint-no-specificity-where.mjs";
+
 export default {
   extends: ["stylelint-config-standard"],
+  plugins: [noSpecificityWhere],
   rules: {
+    "codex-panel/no-specificity-where": [
+      true,
+      {
+        severity: "warning",
+      },
+    ],
     "color-named": [
       "never",
       {

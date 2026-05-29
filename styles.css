@@ -373,7 +373,7 @@
   stroke: currentcolor;
 }
 
-.codex-panel-ui__toolbar-control:not(.is-active):focus:not(:hover):not(:focus-visible) {
+.codex-panel-ui__toolbar-control:where(:focus:not(:hover):not(:focus-visible)) {
   background: transparent;
   box-shadow: none;
   color: var(--icon-color);
@@ -619,24 +619,20 @@
   font-size: var(--codex-panel-toolbar-meta-size);
 }
 
-.codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)) {
+.codex-panel__toolbar-panel-item:hover:not(:disabled):not(.is-disabled) {
   color: var(--nav-item-color-hover, var(--text-normal));
   background: var(--background-modifier-hover);
   box-shadow: none;
   transform: none;
 }
 
-.codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-label,
-.codex-panel__toolbar-panel-item:focus:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-label,
-.codex-panel__toolbar-panel-item:focus-visible:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-label,
-.codex-panel__toolbar-panel-item:active:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-label {
+.codex-panel__toolbar-panel-item:where(:hover, :focus, :focus-visible, :active):not(:disabled):not(.is-disabled)
+  .codex-panel__toolbar-panel-label {
   color: var(--nav-item-color-hover, var(--text-normal));
 }
 
-.codex-panel__toolbar-panel-item:hover:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-meta,
-.codex-panel__toolbar-panel-item:focus:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-meta,
-.codex-panel__toolbar-panel-item:focus-visible:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-meta,
-.codex-panel__toolbar-panel-item:active:not(:where(:disabled, .is-disabled)) .codex-panel__toolbar-panel-meta {
+.codex-panel__toolbar-panel-item:where(:hover, :focus, :focus-visible, :active):not(:disabled):not(.is-disabled)
+  .codex-panel__toolbar-panel-meta {
   color: var(--nav-item-color-hover, var(--text-normal));
 }
 
@@ -1242,7 +1238,7 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
-.codex-panel__thread:hover:not(:where(:disabled, .is-disabled)),
+.codex-panel__thread:hover:not(:disabled):not(.is-disabled),
 .codex-panel__thread.is-checked {
   background: transparent;
 }
@@ -1653,11 +1649,11 @@
   animation: codex-panel-reasoning-dot 1.2s infinite ease-in-out;
 }
 
-.codex-panel__reasoning:where(.is-active) .codex-panel__reasoning-dots span:nth-child(2) {
+.codex-panel__reasoning.is-active .codex-panel__reasoning-dots span:where(:nth-child(2)) {
   animation-delay: 0.18s;
 }
 
-.codex-panel__reasoning:where(.is-active) .codex-panel__reasoning-dots span:nth-child(3) {
+.codex-panel__reasoning.is-active .codex-panel__reasoning-dots span:where(:nth-child(3)) {
   animation-delay: 0.36s;
 }
 
@@ -2093,11 +2089,11 @@
   animation: codex-panel-reasoning-dot 1.2s infinite ease-in-out;
 }
 
-.codex-panel-selection-rewrite__status:where(.is-active) .codex-panel-selection-rewrite__status-dots span:nth-child(2) {
+.codex-panel-selection-rewrite__status.is-active .codex-panel-selection-rewrite__status-dots span:where(:nth-child(2)) {
   animation-delay: 0.18s;
 }
 
-.codex-panel-selection-rewrite__status:where(.is-active) .codex-panel-selection-rewrite__status-dots span:nth-child(3) {
+.codex-panel-selection-rewrite__status.is-active .codex-panel-selection-rewrite__status-dots span:where(:nth-child(3)) {
   animation-delay: 0.36s;
 }
 
