@@ -16,6 +16,17 @@ describe("panel CSS token scope", () => {
   });
 });
 
+describe("chat toolbar CSS", () => {
+  it("does not let mouse-focus reset override active toolbar controls", () => {
+    const toolbarMouseFocus =
+      /\.codex-panel-ui__toolbar-control:not\(\.is-active\):focus:not\(:hover\):not\(:focus-visible\) \{(?<body>[^}]+)\}/.exec(styles)
+        ?.groups?.["body"] ?? "";
+
+    expect(toolbarMouseFocus).toContain("background: transparent");
+    expect(toolbarMouseFocus).toContain("color: var(--icon-color)");
+  });
+});
+
 describe("threads view CSS", () => {
   it("keeps long row titles clear of trailing actions", () => {
     const titleLine = /\.codex-panel-threads__row-title-line \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";

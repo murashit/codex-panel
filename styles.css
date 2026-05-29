@@ -373,7 +373,7 @@
   stroke: currentcolor;
 }
 
-.codex-panel-ui__toolbar-control:focus:not(:hover):not(:focus-visible) {
+.codex-panel-ui__toolbar-control:not(.is-active):focus:not(:hover):not(:focus-visible) {
   background: transparent;
   box-shadow: none;
   color: var(--icon-color);
