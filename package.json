@@ -22,15 +22,15 @@
     "api:baseline": "node scripts/report-api-baseline.mjs",
     "api:baseline:check": "node scripts/report-api-baseline.mjs --check",
     "generate:app-server-types": "node scripts/clean-generated-types.mjs && codex app-server generate-ts --experimental --out src/generated/app-server && node scripts/normalize-generated-types.mjs",
-    "lint": "npm run lint:ts && npm run lint:css",
+    "lint": "node scripts/run-parallel.mjs lint:ts lint:css",
     "lint:css": "stylelint \"*.css\" \"src/**/*.css\" --max-warnings=0",
-    "lint:ts": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0",
+    "lint:ts": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0 --cache --cache-location node_modules/.cache/eslint/ --cache-strategy content",
     "release:check": "node scripts/check-release.mjs",
     "release:preflight": "node scripts/preflight-release.mjs",
     "release:prepare": "node scripts/prepare-release.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "npm run typecheck && npm run test && npm run lint && npm run format:check && npm run build:prod"
+    "check": "node scripts/run-parallel.mjs typecheck test lint:ts lint:css format:check && npm run build:prod"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
