@@ -6,7 +6,7 @@ import {
   createAppServerDiagnostics,
   upsertMcpServerDiagnostic,
 } from "../../../src/app-server/compatibility";
-import { connectionDiagnosticSections, diagnosticAlertLevel } from "../../../src/features/chat/diagnostics";
+import { connectionDiagnosticSections, hasDiagnosticIssue } from "../../../src/features/chat/diagnostics";
 
 describe("connection diagnostics", () => {
   it("formats base rows, capability probes, and MCP issues for /doctor", () => {
@@ -60,15 +60,15 @@ describe("connection diagnostics", () => {
     );
   });
 
-  it("derives a top-level diagnostic alert without treating unknown probes as warnings", () => {
-    expect(diagnosticAlertLevel(createAppServerDiagnostics())).toBe("normal");
+  it("detects diagnostic issues without treating unknown probes as issues", () => {
+    expect(hasDiagnosticIssue(createAppServerDiagnostics())).toBe(false);
 
     const failed = createAppServerDiagnostics();
     failed.probes["model/list"] = capabilityProbeError("model/list", new Error("network down"), 1);
-    expect(diagnosticAlertLevel(failed)).toBe("error");
+    expect(hasDiagnosticIssue(failed)).toBe(true);
   });
 
-  it("derives MCP diagnostic alerts with error priority", () => {
+  it("detects MCP diagnostic issues", () => {
     let authIssue = upsertMcpServerDiagnostic(createAppServerDiagnostics(), {
       name: "docs",
       startupStatus: "ready",
@@ -76,7 +76,7 @@ describe("connection diagnostics", () => {
       toolCount: 0,
       message: null,
     });
-    expect(diagnosticAlertLevel(authIssue)).toBe("warning");
+    expect(hasDiagnosticIssue(authIssue)).toBe(true);
 
     authIssue = upsertMcpServerDiagnostic(authIssue, {
       name: "github",
@@ -85,6 +85,6 @@ describe("connection diagnostics", () => {
       toolCount: null,
       message: "missing token",
     });
-    expect(diagnosticAlertLevel(authIssue)).toBe("error");
+    expect(hasDiagnosticIssue(authIssue)).toBe(true);
   });
 });

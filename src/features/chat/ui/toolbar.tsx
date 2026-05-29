@@ -132,13 +132,11 @@ function ContextMeter({ context }: { context: ToolbarViewModel["context"] }): Re
 }
 
 function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): ReactNode {
-  const alertClass = model.diagnosticAlertLevel === "normal" ? "" : `codex-panel__status-dot--diagnostic-${model.diagnosticAlertLevel}`;
   return (
     <button
       className={[
         "clickable-icon codex-panel-ui__toolbar-control codex-panel__status-dot",
         `codex-panel__status-dot--${model.statusState}`,
-        alertClass,
         model.statusPanelOpen ? "is-active" : "",
       ]
         .filter(Boolean)
@@ -147,14 +145,7 @@ function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: To
       aria-label={model.statusPanelOpen ? "Hide connection status" : "Show connection status"}
       aria-expanded={model.statusPanelOpen ? "true" : "false"}
       onClick={actions.toggleStatusPanel}
-    >
-      {model.diagnosticAlertLevel !== "normal" ? (
-        <span
-          className={`codex-panel__status-dot-diagnostic codex-panel__status-dot-diagnostic--${model.diagnosticAlertLevel}`}
-          aria-hidden="true"
-        />
-      ) : null}
-    </button>
+    />
   );
 }
 

@@ -1,8 +1,7 @@
 import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/view";
 
 export type ToolbarPanelKind = "history" | "status" | "runtime";
-export type ToolbarStatusState = "offline" | "connected" | "running";
-export type ToolbarDiagnosticAlertLevel = "normal" | "warning" | "error";
+export type ToolbarStatusState = "offline" | "ready" | "degraded" | "blocked" | "running";
 
 export interface ToolbarChoice {
   label: string;
@@ -58,5 +57,4 @@ export interface ToolbarViewModel {
   effortChoices: ToolbarChoice[];
   connectLabel: string;
   diagnostics: ToolbarDiagnosticSection[];
-  diagnosticAlertLevel: ToolbarDiagnosticAlertLevel;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
+import { capabilityProbeError, createAppServerDiagnostics, upsertMcpServerDiagnostic } from "../../../src/app-server/compatibility";
 import { createChatState } from "../../../src/features/chat/chat-state";
 import {
   activeComposerThreadName,
@@ -11,6 +11,7 @@ import {
   runtimeToolbarChoices,
   modelStatusLines,
   runtimeSnapshotForChatState,
+  statusDotState,
   statusSummaryLines,
   toolbarViewModel,
 } from "../../../src/features/chat/view-model";
@@ -73,6 +74,68 @@ describe("chat view model", () => {
     });
 
     expect(model.fastActive).toBe(true);
+  });
+
+  it("derives status dot state with running and offline priority", () => {
+    const diagnostics = createAppServerDiagnostics();
+
+    expect(statusDotState({ connected: true, turnBusy: true, diagnostics })).toBe("running");
+    expect(statusDotState({ connected: false, turnBusy: false, diagnostics })).toBe("offline");
+    expect(statusDotState({ connected: true, turnBusy: false, diagnostics })).toBe("ready");
+    expect(statusDotState({ connected: true, turnBusy: false, diagnostics, turnStartBlocked: true })).toBe("blocked");
+  });
+
+  it("marks connected status dot as degraded for non-fatal diagnostic issues", () => {
+    const failedProbe = createAppServerDiagnostics();
+    failedProbe.probes["model/list"] = capabilityProbeError("model/list", new Error("network down"), 1);
+    expect(statusDotState({ connected: true, turnBusy: false, diagnostics: failedProbe })).toBe("degraded");
+    expect(statusDotState({ connected: true, turnBusy: true, diagnostics: failedProbe })).toBe("running");
+
+    const authIssue = upsertMcpServerDiagnostic(createAppServerDiagnostics(), {
+      name: "docs",
+      startupStatus: "ready",
+      authStatus: "notLoggedIn",
+      toolCount: 0,
+      message: null,
+    });
+    expect(statusDotState({ connected: true, turnBusy: false, diagnostics: authIssue })).toBe("degraded");
+  });
+
+  it("wires status dot state into the toolbar model", () => {
+    const state = createChatState();
+    state.appServerDiagnostics.probes["model/list"] = capabilityProbeError("model/list", new Error("network down"), 1);
+
+    const model = toolbarViewModel({
+      state,
+      snapshot: runtimeSnapshotForChatState({ state }),
+      connected: true,
+      turnBusy: false,
+      vaultPath: "/vault",
+      configuredCommand: "codex",
+      archiveConfirmThreadId: null,
+      archiveExportEnabled: true,
+      modelChoices: [],
+      effortChoices: [],
+      renameState: () => null,
+    });
+
+    expect(model.statusState).toBe("degraded");
+
+    const runningModel = toolbarViewModel({
+      state,
+      snapshot: runtimeSnapshotForChatState({ state }),
+      connected: true,
+      turnBusy: true,
+      vaultPath: "/vault",
+      configuredCommand: "codex",
+      archiveConfirmThreadId: null,
+      archiveExportEnabled: true,
+      modelChoices: [],
+      effortChoices: [],
+      renameState: () => null,
+    });
+
+    expect(runningModel.statusState).toBe("running");
   });
 
   it("builds slash-command status lines from chat state", () => {

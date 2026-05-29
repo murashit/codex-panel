@@ -14,8 +14,6 @@ export interface DiagnosticSection {
   rows: DiagnosticRow[];
 }
 
-export type DiagnosticAlertLevel = "normal" | "warning" | "error";
-
 export interface ConnectionDiagnosticsInput {
   connected: boolean;
   configuredCommand: string;
@@ -50,16 +48,15 @@ export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput):
   ];
 }
 
-export function diagnosticAlertLevel(diagnostics: AppServerDiagnostics): DiagnosticAlertLevel {
-  let hasWarning = false;
+export function hasDiagnosticIssue(diagnostics: AppServerDiagnostics): boolean {
   for (const probe of Object.values(diagnostics.probes)) {
-    if (probe.status === "failed") return "error";
+    if (probe.status === "failed") return true;
   }
   for (const server of diagnostics.mcpServers) {
-    if (server.startupStatus === "failed") return "error";
-    if (server.authStatus === "notLoggedIn") hasWarning = true;
+    if (server.startupStatus === "failed") return true;
+    if (server.authStatus === "notLoggedIn") return true;
   }
-  return hasWarning ? "warning" : "normal";
+  return false;
 }
 
 function capabilityDiagnosticRow(probe: CapabilityProbeResult): DiagnosticRow {

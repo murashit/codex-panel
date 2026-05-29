@@ -437,26 +437,15 @@ describe("toolbar renderer decisions", () => {
     expect(refreshStatus).toHaveBeenCalled();
   });
 
-  it("renders diagnostic alert badges on the status dot", () => {
-    const normal = document.createElement("div");
-    renderToolbar(normal, toolbarModel({ diagnosticAlertLevel: "normal" }), toolbarActions());
-    const normalStatus = normal.querySelector(".codex-panel__status-dot");
-    expect(normalStatus?.querySelector(".codex-panel__status-dot-diagnostic")).toBeNull();
-    expect(normalStatus?.getAttribute("aria-label")).toBe("Show connection status");
-
-    const warning = document.createElement("div");
-    renderToolbar(warning, toolbarModel({ diagnosticAlertLevel: "warning" }), toolbarActions());
-    const warningStatus = warning.querySelector(".codex-panel__status-dot");
-    expect(warningStatus?.classList.contains("codex-panel__status-dot--diagnostic-warning")).toBe(true);
-    expect(warningStatus?.querySelector(".codex-panel__status-dot-diagnostic--warning")).not.toBeNull();
-    expect(warningStatus?.getAttribute("aria-label")).toBe("Show connection status");
-
-    const error = document.createElement("div");
-    renderToolbar(error, toolbarModel({ diagnosticAlertLevel: "error" }), toolbarActions());
-    const errorStatus = error.querySelector(".codex-panel__status-dot");
-    expect(errorStatus?.classList.contains("codex-panel__status-dot--diagnostic-error")).toBe(true);
-    expect(errorStatus?.querySelector(".codex-panel__status-dot-diagnostic--error")).not.toBeNull();
-    expect(errorStatus?.getAttribute("aria-label")).toBe("Show connection status");
+  it("renders status dot states without diagnostic overlay badges", () => {
+    for (const statusState of ["ready", "degraded", "blocked", "running", "offline"] as const) {
+      const parent = document.createElement("div");
+      renderToolbar(parent, toolbarModel({ statusState }), toolbarActions());
+      const status = parent.querySelector(".codex-panel__status-dot");
+      expect(status?.classList.contains(`codex-panel__status-dot--${statusState}`)).toBe(true);
+      expect(status?.childElementCount).toBe(0);
+      expect(status?.getAttribute("aria-label")).toBe("Show connection status");
+    }
   });
 
   it("renders effective config inside the status menu without a separate toggle", () => {
@@ -965,7 +954,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
   return {
     connected: true,
     status: "Connected.",
-    statusState: "connected",
+    statusState: "ready",
     historyOpen: false,
     statusPanelOpen: false,
     runtimeOpen: true,
@@ -984,7 +973,6 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     effortChoices: [{ label: "Default", selected: true, onClick: vi.fn() }],
     connectLabel: "Reconnect",
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
-    diagnosticAlertLevel: "normal",
     ...overrides,
   };
 }

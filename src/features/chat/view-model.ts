@@ -16,10 +16,11 @@ import { sortedAvailableModels } from "../../runtime/model";
 import { compactContextLabel } from "../../runtime/settings";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../runtime/view";
 import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../../domain/threads/model";
-import { connectionDiagnosticSections, diagnosticAlertLevel } from "./diagnostics";
+import type { AppServerDiagnostics } from "../../app-server/compatibility";
+import { connectionDiagnosticSections, hasDiagnosticIssue } from "./diagnostics";
 import type { ChatState } from "./chat-state";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
-import type { ToolbarChoice, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
+import type { ToolbarChoice, ToolbarStatusState, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
 
 export interface RuntimeSnapshotInput {
   state: ChatState;
@@ -43,6 +44,13 @@ export interface ConnectionDiagnosticsModelInput {
   state: ChatState;
   connected: boolean;
   configuredCommand: string;
+}
+
+export interface StatusDotStateInput {
+  connected: boolean;
+  turnBusy: boolean;
+  diagnostics: AppServerDiagnostics;
+  turnStartBlocked?: boolean;
 }
 
 export interface RuntimeToolbarChoicesInput {
@@ -144,7 +152,11 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
   const historyOpen = state.openDetails.has("history");
   const statusPanelOpen = state.openDetails.has("status-panel");
   const runtimeOpen = state.runtimePicker !== null;
-  const statusState = input.turnBusy ? "running" : input.connected ? "connected" : "offline";
+  const statusState = statusDotState({
+    connected: input.connected,
+    turnBusy: input.turnBusy,
+    diagnostics: state.appServerDiagnostics,
+  });
   const model = currentModel(snapshot, config);
   const effort = currentReasoningEffort(snapshot, config);
   return {
@@ -180,8 +192,14 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
       connected: input.connected,
       configuredCommand: input.configuredCommand,
     }),
-    diagnosticAlertLevel: diagnosticAlertLevel(state.appServerDiagnostics),
   };
+}
+
+export function statusDotState(input: StatusDotStateInput): ToolbarStatusState {
+  if (input.turnBusy) return "running";
+  if (!input.connected) return "offline";
+  if (input.turnStartBlocked) return "blocked";
+  return hasDiagnosticIssue(input.diagnostics) ? "degraded" : "ready";
 }
 
 export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): ReturnType<typeof connectionDiagnosticSections> {

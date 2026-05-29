@@ -59,6 +59,8 @@
   --codex-panel-color-danger: var(--text-error);
   --codex-panel-status-ring-faint: color-mix(in srgb, var(--codex-panel-text-faint) 12%, transparent);
   --codex-panel-status-ring-success: color-mix(in srgb, var(--codex-panel-color-success) 12%, transparent);
+  --codex-panel-status-ring-warning: color-mix(in srgb, var(--codex-panel-color-warning) 14%, transparent);
+  --codex-panel-status-ring-danger: color-mix(in srgb, var(--codex-panel-color-danger) 14%, transparent);
   --codex-panel-status-ring-accent: color-mix(in srgb, var(--codex-panel-color-accent) 14%, transparent);
   --codex-panel-edge-padding-x: var(--size-4-3, 12px);
   --codex-panel-toolbar-button-gap: var(--size-2-1, 2px);
@@ -776,7 +778,6 @@
   cursor: pointer;
   flex: 0 0 auto;
   margin-left: auto;
-  position: relative;
 }
 
 .codex-panel__status-dot::before {
@@ -788,32 +789,24 @@
   box-shadow: 0 0 0 3px var(--codex-panel-status-ring-faint);
 }
 
-.codex-panel__status-dot--connected::before {
+.codex-panel__status-dot--ready::before {
   background: var(--codex-panel-color-success);
   box-shadow: 0 0 0 3px var(--codex-panel-status-ring-success);
+}
+
+.codex-panel__status-dot--degraded::before {
+  background: var(--codex-panel-color-warning);
+  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-warning);
+}
+
+.codex-panel__status-dot--blocked::before {
+  background: var(--codex-panel-color-danger);
+  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-danger);
 }
 
 .codex-panel__status-dot--running::before {
   background: var(--codex-panel-color-accent);
   box-shadow: 0 0 0 3px var(--codex-panel-status-ring-accent);
-}
-
-.codex-panel__status-dot-diagnostic {
-  position: absolute;
-  top: var(--codex-panel-control-gap);
-  right: var(--codex-panel-control-gap);
-  width: var(--codex-panel-item-gap);
-  height: var(--codex-panel-item-gap);
-  border: var(--border-width, 1px) solid var(--codex-panel-surface);
-  border-radius: var(--codex-panel-radius-pill);
-}
-
-.codex-panel__status-dot-diagnostic--warning {
-  background: var(--codex-panel-color-warning);
-}
-
-.codex-panel__status-dot-diagnostic--error {
-  background: var(--codex-panel-color-danger);
 }
 
 .codex-panel__meter-compact {
