@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { composerBoundaryScrollDirection } from "../../../../src/features/chat/composer/boundary-scroll";
+import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "../../../../src/features/chat/composer/boundary-scroll";
 
 describe("composer boundary scroll shortcuts", () => {
   it("scrolls up from the first composer line", () => {
-    expect(direction("ArrowUp", "first\nsecond", 3)).toBe(-1);
-    expect(direction("p", "first\nsecond", 3, { ctrlKey: true })).toBe(-1);
+    expect(direction("ArrowUp", "first\nsecond", 3)).toEqual({ direction: -1, amount: "text-lines" });
+    expect(direction("p", "first\nsecond", 3, { ctrlKey: true })).toEqual({ direction: -1, amount: "text-lines" });
   });
 
   it("scrolls down from the last composer line", () => {
-    expect(direction("ArrowDown", "first\nsecond", 9)).toBe(1);
-    expect(direction("n", "first\nsecond", 9, { ctrlKey: true })).toBe(1);
+    expect(direction("ArrowDown", "first\nsecond", 9)).toEqual({ direction: 1, amount: "text-lines" });
+    expect(direction("n", "first\nsecond", 9, { ctrlKey: true })).toEqual({ direction: 1, amount: "text-lines" });
+  });
+
+  it("scrolls by page from any composer line for PageUp and PageDown", () => {
+    expect(direction("PageUp", "first\nsecond", 9)).toEqual({ direction: -1, amount: "page" });
+    expect(direction("PageDown", "first\nsecond", 3)).toEqual({ direction: 1, amount: "page" });
+    expect(direction("PageDown", "first\nsecond", 3, { selectionEnd: 8 })).toEqual({ direction: 1, amount: "page" });
   });
 
   it("keeps normal cursor movement away from composer edges", () => {
@@ -38,7 +44,7 @@ function direction(
     isComposing: boolean;
     selectionEnd: number;
   }> = {},
-): -1 | 1 | null {
+): ComposerBoundaryScrollAction | null {
   return composerBoundaryScrollDirection(
     {
       key,

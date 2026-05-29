@@ -1,6 +1,6 @@
 import type { App, EventRef } from "obsidian";
 
-import { composerBoundaryScrollDirection, type ComposerBoundaryScrollDirection } from "./composer/boundary-scroll";
+import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "./composer/boundary-scroll";
 import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
 import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./composer/obsidian-context";
 import {
@@ -32,7 +32,7 @@ export interface ChatComposerControllerOptions {
   onComposerResize: () => void;
   onSubmit: () => void;
   onNewThread: () => void;
-  onThreadScrollFromComposer: (direction: ComposerBoundaryScrollDirection) => void;
+  onThreadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
 }
 
 export class ChatComposerController {
@@ -203,11 +203,11 @@ export class ChatComposerController {
   private handleBoundaryScrollKeydown(event: KeyboardEvent): boolean {
     if (!this.composer || !this.options.scrollThreadFromComposerEdges()) return false;
 
-    const direction = composerBoundaryScrollDirection(event, this.composer);
-    if (!direction) return false;
+    const action = composerBoundaryScrollDirection(event, this.composer);
+    if (!action) return false;
 
     event.preventDefault();
-    this.options.onThreadScrollFromComposer(direction);
+    this.options.onThreadScrollFromComposer(action);
     return true;
   }
 

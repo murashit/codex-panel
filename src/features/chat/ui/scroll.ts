@@ -138,6 +138,15 @@ export class MessageScrollController {
     this.rememberCurrentAnchor(container);
   }
 
+  scrollByPage(direction: MessageScrollDirection, container = this.container): void {
+    if (!container) return;
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const delta = Math.max(1, Math.floor(container.clientHeight * 0.8)) * direction;
+    this.setScrollTop(container, Math.min(maxScrollTop, Math.max(0, container.scrollTop + delta)));
+    this.updatePinnedState(container);
+    this.rememberCurrentAnchor(container);
+  }
+
   dispose(): void {
     this.cancelRenderFrame();
     this.cancelResizeFrame();

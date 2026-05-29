@@ -287,6 +287,40 @@ describe("message scroll helpers", () => {
     controller.dispose();
     resizeObserver.restore();
   });
+
+  it("scrolls by a viewport step for composer PageUp and PageDown shortcuts", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 400, scrollHeight: 1200, clientHeight: 200 });
+    container.append(messageBlock("message", 0, 1200));
+    let pinned = false;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "preserve"));
+    await animationFrame(container);
+    controller.scrollByPage(-1);
+
+    expect(container.scrollTop).toBe(240);
+    expect(pinned).toBe(false);
+
+    controller.scrollByPage(1);
+
+    expect(container.scrollTop).toBe(400);
+    expect(pinned).toBe(false);
+
+    container.scrollTop = 950;
+    controller.scrollByPage(1);
+
+    expect(container.scrollTop).toBe(1000);
+    expect(pinned).toBe(true);
+
+    controller.dispose();
+    resizeObserver.restore();
+  });
 });
 
 function messageContainer(metrics: { scrollTop: number; scrollHeight: number; clientHeight: number }): HTMLElement {

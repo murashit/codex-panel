@@ -1,4 +1,10 @@
 export type ComposerBoundaryScrollDirection = -1 | 1;
+export type ComposerBoundaryScrollAmount = "text-lines" | "page";
+
+export interface ComposerBoundaryScrollAction {
+  direction: ComposerBoundaryScrollDirection;
+  amount: ComposerBoundaryScrollAmount;
+}
 
 export interface ComposerBoundaryScrollKeyEvent {
   key: string;
@@ -18,26 +24,35 @@ export interface ComposerBoundaryScrollTextState {
 export function composerBoundaryScrollDirection(
   event: ComposerBoundaryScrollKeyEvent,
   composer: ComposerBoundaryScrollTextState,
-): ComposerBoundaryScrollDirection | null {
+): ComposerBoundaryScrollAction | null {
   if (event.isComposing || event.metaKey || event.altKey || event.shiftKey) return null;
 
-  const keyDirection = composerBoundaryScrollKeyDirection(event);
-  if (!keyDirection) return null;
+  const keyAction = composerBoundaryScrollKeyAction(event);
+  if (!keyAction) return null;
+  if (keyAction.amount === "page") return keyAction;
   if (composer.selectionStart !== composer.selectionEnd) return null;
 
-  return keyDirection === -1 ? (composerCursorOnFirstLine(composer) ? -1 : null) : composerCursorOnLastLine(composer) ? 1 : null;
+  return keyAction.direction === -1
+    ? composerCursorOnFirstLine(composer)
+      ? keyAction
+      : null
+    : composerCursorOnLastLine(composer)
+      ? keyAction
+      : null;
 }
 
-function composerBoundaryScrollKeyDirection(event: ComposerBoundaryScrollKeyEvent): ComposerBoundaryScrollDirection | null {
+function composerBoundaryScrollKeyAction(event: ComposerBoundaryScrollKeyEvent): ComposerBoundaryScrollAction | null {
   if (!event.ctrlKey) {
-    if (event.key === "ArrowUp") return -1;
-    if (event.key === "ArrowDown") return 1;
+    if (event.key === "ArrowUp") return { direction: -1, amount: "text-lines" };
+    if (event.key === "ArrowDown") return { direction: 1, amount: "text-lines" };
+    if (event.key === "PageUp") return { direction: -1, amount: "page" };
+    if (event.key === "PageDown") return { direction: 1, amount: "page" };
     return null;
   }
 
   const key = event.key.toLowerCase();
-  if (key === "p") return -1;
-  if (key === "n") return 1;
+  if (key === "p") return { direction: -1, amount: "text-lines" };
+  if (key === "n") return { direction: 1, amount: "text-lines" };
   return null;
 }
 

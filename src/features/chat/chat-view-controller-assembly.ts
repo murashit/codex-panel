@@ -222,8 +222,8 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     },
     onSubmit: () => void composerSubmission.submit(),
     onNewThread: () => void host.startNewThread(),
-    onThreadScrollFromComposer: (direction) => {
-      messageRenderer.scrollByTextLines(direction);
+    onThreadScrollFromComposer: (action) => {
+      messageRenderer.scrollFromComposer(action);
     },
   });
   composerSubmission = new ComposerSubmissionController({
