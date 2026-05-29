@@ -275,6 +275,28 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(refreshSharedThreadList).toHaveBeenCalledOnce();
   });
 
+  it("closes matching chat panels only when archive notification requests it", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const matchingLeaf = leaf();
+    matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
+    vi.spyOn(matchingLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
+    const otherLeaf = leaf();
+    otherLeaf.view = chatView(CodexChatView, otherLeaf);
+    vi.spyOn(otherLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-2" }));
+    const plugin = await pluginWithLeaves([matchingLeaf, otherLeaf]);
+    vi.spyOn(plugin, "refreshSharedThreadListFromOpenSurface").mockImplementation(() => undefined);
+
+    plugin.notifyThreadArchived("thread-1");
+
+    expect(matchingLeaf.detach).not.toHaveBeenCalled();
+    expect(otherLeaf.detach).not.toHaveBeenCalled();
+
+    plugin.notifyThreadArchived("thread-1", { closeOpenPanels: true });
+
+    expect(matchingLeaf.detach).toHaveBeenCalledOnce();
+    expect(otherLeaf.detach).not.toHaveBeenCalled();
+  });
+
   it("refreshes shared thread lists after rename lifecycle notifications", async () => {
     const plugin = await pluginWithLeaves([]);
     const refreshSharedThreadList = vi.spyOn(plugin, "refreshSharedThreadListFromOpenSurface").mockImplementation(() => undefined);
@@ -373,6 +395,7 @@ function leaf(options: { state?: Record<string, unknown> } = {}) {
     parent: {},
     setViewState: vi.fn().mockResolvedValue(undefined),
     loadIfDeferred: vi.fn().mockResolvedValue(undefined),
+    detach: vi.fn(),
   };
 }
 

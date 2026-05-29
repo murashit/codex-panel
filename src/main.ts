@@ -299,10 +299,14 @@ export default class CodexPanelPlugin extends Plugin {
     }
   }
 
-  notifyThreadArchived(threadId: string): void {
+  notifyThreadArchived(threadId: string, options: { closeOpenPanels?: boolean } = {}): void {
+    const leavesToClose = options.closeOpenPanels ? this.panelLeavesForThread(threadId) : [];
     this.notifyOpenPanels((view) => {
       view.notifyThreadArchived(threadId);
     });
+    for (const leaf of leavesToClose) {
+      leaf.detach();
+    }
     this.refreshThreadSurfaces();
   }
 
@@ -369,6 +373,13 @@ export default class CodexPanelPlugin extends Plugin {
       return { kind: "open", leaf, view: leaf.view };
     }
     return null;
+  }
+
+  private panelLeavesForThread(threadId: string): WorkspaceLeaf[] {
+    return this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL).filter((leaf) => {
+      if (leaf.view instanceof CodexChatView) return leaf.view.openPanelSnapshot().threadId === threadId;
+      return restoredPanelThreadId(leaf) === threadId;
+    });
   }
 
   private findRestoredThreadPanelTarget(threadId: string): ThreadPanelTarget | null {

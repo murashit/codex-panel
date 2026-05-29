@@ -27,7 +27,7 @@ export interface CodexThreadsHost {
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
-  notifyThreadArchived(threadId: string): void;
+  notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
   notifyThreadRenamed(threadId: string, name: string | null): void;
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
   cachedThreadList(): readonly Thread[] | null;
@@ -374,7 +374,7 @@ export class CodexThreadsView extends ItemView {
       await this.client.archiveThread(threadId);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
-      this.plugin.notifyThreadArchived(threadId);
+      this.plugin.notifyThreadArchived(threadId, { closeOpenPanels: true });
     } catch (error) {
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();

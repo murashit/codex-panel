@@ -278,7 +278,7 @@ describe("CodexThreadsView", () => {
 
     await vi.waitFor(() => {
       expect(archiveThread).toHaveBeenCalledWith("thread");
-      expect(host.notifyThreadArchived).toHaveBeenCalledWith("thread");
+      expect(host.notifyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
     });
   });
 
