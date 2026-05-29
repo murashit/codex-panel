@@ -94,7 +94,8 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
     return blocks;
   }
 
-  for (const block of displayBlocksForItems(context.displayItems, activeTurn, context.workspaceRoot, context.turnDiffs)) {
+  const streamItems = activeTurn ? withoutActiveTaskProgress(context.displayItems, activeTurn) : context.displayItems;
+  for (const block of displayBlocksForItems(streamItems, activeTurn, context.workspaceRoot, context.turnDiffs)) {
     if (block.type === "item") {
       blocks.push({
         key: `item:${block.item.id}`,
@@ -108,13 +109,14 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
     }
   }
 
-  const agentSummary = activeAgentRunSummaryBlock(context);
-  if (agentSummary) {
-    blocks.push({
-      key: `active-agents:${activeTurn ?? "none"}`,
-      node: agentRunSummaryNode(agentSummary),
-    });
-  }
+  blocks.push(...bottomLiveBlocks(context, activeTurn));
+
+  return blocks;
+}
+
+function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | null): MessageStreamBlock[] {
+  const blocks: MessageStreamBlock[] = [];
+  if (activeTurn) blocks.push(...activeTurnLiveBlocks(context, activeTurn));
 
   if (context.renderPendingRequests && context.pendingRequestsSignature) {
     blocks.push({
@@ -122,8 +124,43 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
       node: context.renderPendingRequests(),
     });
   }
-
   return blocks;
+}
+
+function activeTurnLiveBlocks(context: MessageStreamContext, activeTurn: string): MessageStreamBlock[] {
+  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(context.displayItems, activeTurn);
+  const agentSummary = agentSummaryAnchorId ? activeAgentRunSummaryBlock(context) : null;
+  const blocks = context.displayItems.flatMap((item): MessageStreamBlock[] => {
+    if (item.kind === "taskProgress" && item.turnId === activeTurn) {
+      return [
+        {
+          key: `live-task:${item.id}`,
+          node: workItemNode(item, context),
+        },
+      ];
+    }
+    if (item.id === agentSummaryAnchorId) {
+      return agentSummary
+        ? [
+            {
+              key: `live-agents:${activeTurn}`,
+              node: agentRunSummaryNode(agentSummary),
+            },
+          ]
+        : [];
+    }
+    return [];
+  });
+  return blocks;
+}
+
+function activeAgentRunSummaryAnchorId(items: readonly DisplayItem[], activeTurn: string): string | null {
+  const firstActiveAgent = items.find((item) => item.kind === "agent" && item.turnId === activeTurn);
+  return firstActiveAgent?.id ?? null;
+}
+
+function withoutActiveTaskProgress(items: readonly DisplayItem[], activeTurn: string): DisplayItem[] {
+  return items.filter((item) => item.kind !== "taskProgress" || item.turnId !== activeTurn);
 }
 
 export function renderMessageStreamBlocks(parent: HTMLElement, blocks: MessageStreamBlock[]): void {

@@ -985,7 +985,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(displayBlocksForItems(items, "t1").map((block) => block.type)).toEqual(["item", "item"]);
   });
 
-  it("moves active task progress to the end of the live turn", () => {
+  it("keeps active task progress chronological in the display model", () => {
     const items: DisplayItem[] = [
       { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
       {
@@ -1003,7 +1003,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
     const blocks = displayBlocksForItems(items, "t1");
 
-    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "a1", "plan-progress-t1"]);
+    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "plan-progress-t1", "a1"]);
   });
 
   it("summarizes task progress and agent activity separately from tools", () => {

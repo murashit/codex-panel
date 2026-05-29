@@ -10,7 +10,6 @@ export function displayBlocksForItems(
   turnDiffs?: ReadonlyMap<string, string>,
 ): DisplayBlock[] {
   const visibleItems = items.filter(shouldShowDisplayItem);
-  const orderedItems = activeTurnId ? moveActiveTaskProgressToEnd(visibleItems, activeTurnId) : visibleItems;
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
   const finalAssistantIdByTurn = finalAssistantItemsByTurn(visibleItems);
@@ -18,7 +17,7 @@ export function displayBlocksForItems(
   const summaryAssistantIdByTurn = new Map([...finalAssistantIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
 
   const groupedActivities = new Map<string, DisplayItem[]>();
-  for (const item of orderedItems) {
+  for (const item of visibleItems) {
     if (!item.turnId || !groupedTurnIds.has(item.turnId) || !isCompletedTurnDetailItem(item, finalAssistantIdByTurn)) continue;
     const group = groupedActivities.get(item.turnId) ?? [];
     group.push(item);
@@ -26,7 +25,7 @@ export function displayBlocksForItems(
   }
 
   const blocks: DisplayBlock[] = [];
-  for (const item of orderedItems) {
+  for (const item of visibleItems) {
     const turnId = item.turnId;
     if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, finalAssistantIdByTurn)) {
       continue;
@@ -48,12 +47,6 @@ export function displayBlocksForItems(
   }
 
   return blocks;
-}
-
-function moveActiveTaskProgressToEnd(items: readonly DisplayItem[], activeTurnId: string): DisplayItem[] {
-  const activeTaskProgress = items.filter((item) => item.kind === "taskProgress" && item.turnId === activeTurnId);
-  if (activeTaskProgress.length === 0) return [...items];
-  return [...items.filter((item) => item.kind !== "taskProgress" || item.turnId !== activeTurnId), ...activeTaskProgress];
 }
 
 function shouldShowDisplayItem(item: DisplayItem): boolean {

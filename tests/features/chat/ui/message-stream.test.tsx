@@ -1776,11 +1776,171 @@ describe("work log renderer decisions", () => {
       }),
     );
 
-    const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:plan-progress-turn"]'));
+    const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="live-task:plan-progress-turn"]'));
     expect(block.querySelector(".codex-panel__task-progress .codex-panel__message-role")?.textContent).toBe("tasks");
     expect(block.textContent).toContain("[x]Inspect code");
     expect(block.textContent).toContain("[>]Patch UI");
     unmountReactRoot(parent);
+  });
+
+  it("renders active task progress with the shared bottom live blocks", () => {
+    const blocks = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: runningTurnLifecycle("turn"),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        { id: "u1", kind: "message", role: "user", text: "Do it", turnId: "turn", markdown: true },
+        {
+          id: "plan-progress-turn",
+          kind: "taskProgress",
+          role: "tool",
+          text: "[>] Patch UI",
+          turnId: "turn",
+          explanation: null,
+          steps: [{ step: "Patch UI", status: "inProgress" }],
+          status: "inProgress",
+        },
+        { id: "a1", kind: "message", role: "assistant", text: "Working", turnId: "turn", markdown: true },
+        {
+          id: "agent-1",
+          kind: "agent",
+          role: "tool",
+          text: "Wait for agent",
+          turnId: "turn",
+          tool: "wait",
+          status: "running",
+          senderThreadId: "parent",
+          receiverThreadIds: ["running"],
+          prompt: null,
+          model: null,
+          reasoningEffort: null,
+          agents: [{ threadId: "running", status: "running", message: "Inspecting renderer" }],
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      pendingRequestsSignature: "request:1",
+      renderPendingRequests: () => "Request",
+    });
+
+    expect(blocks.map((block) => block.key)).toEqual([
+      "item:u1",
+      "item:a1",
+      "item:agent-1",
+      "live-task:plan-progress-turn",
+      "live-agents:turn",
+      "pending-requests",
+    ]);
+  });
+
+  it("orders shared bottom live blocks by insertion order", () => {
+    const blocks = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: runningTurnLifecycle("turn"),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        { id: "u1", kind: "message", role: "user", text: "Do it", turnId: "turn", markdown: true },
+        {
+          id: "agent-1",
+          kind: "agent",
+          role: "tool",
+          text: "Wait for agent",
+          turnId: "turn",
+          tool: "wait",
+          status: "running",
+          senderThreadId: "parent",
+          receiverThreadIds: ["running"],
+          prompt: null,
+          model: null,
+          reasoningEffort: null,
+          agents: [{ threadId: "running", status: "running", message: null }],
+        },
+        {
+          id: "plan-progress-turn",
+          kind: "taskProgress",
+          role: "tool",
+          text: "[>] Patch UI",
+          turnId: "turn",
+          explanation: null,
+          steps: [{ step: "Patch UI", status: "inProgress" }],
+          status: "inProgress",
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    });
+
+    expect(blocks.map((block) => block.key)).toEqual(["item:u1", "item:agent-1", "live-agents:turn", "live-task:plan-progress-turn"]);
+  });
+
+  it("anchors the live agent summary at the first agent activity", () => {
+    const blocks = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: runningTurnLifecycle("turn"),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        { id: "u1", kind: "message", role: "user", text: "Do it", turnId: "turn", markdown: true },
+        {
+          id: "agent-spawn",
+          kind: "agent",
+          role: "tool",
+          text: "Spawn agent",
+          turnId: "turn",
+          tool: "spawnAgent",
+          status: "completed",
+          senderThreadId: "parent",
+          receiverThreadIds: ["child"],
+          prompt: "Inspect the renderer.",
+          model: null,
+          reasoningEffort: null,
+          agents: [{ threadId: "child", status: "completed", message: null }],
+        },
+        {
+          id: "plan-progress-turn",
+          kind: "taskProgress",
+          role: "tool",
+          text: "[>] Patch UI",
+          turnId: "turn",
+          explanation: null,
+          steps: [{ step: "Patch UI", status: "inProgress" }],
+          status: "inProgress",
+        },
+        {
+          id: "agent-wait",
+          kind: "agent",
+          role: "tool",
+          text: "Wait for agent",
+          turnId: "turn",
+          tool: "wait",
+          status: "running",
+          senderThreadId: "parent",
+          receiverThreadIds: ["child"],
+          prompt: null,
+          model: null,
+          reasoningEffort: null,
+          agents: [{ threadId: "child", status: "running", message: "Inspecting renderer" }],
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    });
+
+    expect(blocks.map((block) => block.key)).toEqual([
+      "item:u1",
+      "item:agent-spawn",
+      "item:agent-wait",
+      "live-agents:turn",
+      "live-task:plan-progress-turn",
+    ]);
   });
 
   it("renders agent activity with target state and prompt details", () => {
@@ -1999,7 +2159,7 @@ describe("work log renderer decisions", () => {
       }),
     );
 
-    const summary = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="active-agents:turn"]'));
+    const summary = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="live-agents:turn"]'));
     expect(summary.querySelector(".codex-panel__agent-summary")?.textContent).toContain("Agents 1 running, 1 done");
     expect(summary.textContent).toContain("runningrunning: Inspecting renderer");
     unmountReactRoot(parent);
@@ -2061,7 +2221,7 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
-    expect(blocks.some((block) => block.key.startsWith("active-agents:"))).toBe(false);
+    expect(blocks.some((block) => block.key.startsWith("live-agents:"))).toBe(false);
   });
 
   it("marks the live agent summary failed when any subagent fails", () => {
