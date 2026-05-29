@@ -277,22 +277,25 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
   it("closes matching chat panels only when archive notification requests it", async () => {
     const { CodexChatView } = await import("../src/features/chat/view");
+    const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
     const matchingLeaf = leaf();
     matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
     vi.spyOn(matchingLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
     const otherLeaf = leaf();
     otherLeaf.view = chatView(CodexChatView, otherLeaf);
     vi.spyOn(otherLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-2" }));
-    const plugin = await pluginWithLeaves([matchingLeaf, otherLeaf]);
+    const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
     vi.spyOn(plugin, "refreshSharedThreadListFromOpenSurface").mockImplementation(() => undefined);
 
     plugin.notifyThreadArchived("thread-1");
 
+    expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
 
     plugin.notifyThreadArchived("thread-1", { closeOpenPanels: true });
 
+    expect(restoredMatchingLeaf.detach).toHaveBeenCalledOnce();
     expect(matchingLeaf.detach).toHaveBeenCalledOnce();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
   });
