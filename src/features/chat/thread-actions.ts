@@ -42,10 +42,12 @@ export class ChatThreadActionController {
   }
 
   async archiveThread(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<void> {
-    await this.archiveThreadWithResult(threadId, saveMarkdown);
+    if (await this.archiveThreadOnServer(threadId, saveMarkdown)) {
+      this.host.notifyThreadArchived(threadId);
+    }
   }
 
-  private async archiveThreadWithResult(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<boolean> {
+  private async archiveThreadOnServer(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<boolean> {
     if (chatTurnBusy(this.state)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
       return false;
@@ -64,7 +66,6 @@ export class ChatThreadActionController {
         new Notice(`Saved archived thread to ${result.path}.`);
       }
       await client.archiveThread(threadId);
-      this.host.notifyThreadArchived(threadId);
       return true;
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -117,8 +118,9 @@ export class ChatThreadActionController {
       }
       if (archiveSource) {
         if (!openedForkPanel) return;
-        const archived = await this.archiveThreadWithResult(threadId);
-        if (archived) this.host.closePanel();
+        if (!(await this.archiveThreadOnServer(threadId))) return;
+        this.host.closePanel();
+        this.host.notifyThreadArchived(threadId);
       }
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));

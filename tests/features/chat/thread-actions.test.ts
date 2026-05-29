@@ -46,10 +46,11 @@ describe("ChatThreadActionController", () => {
     expect(client.rollbackThread).not.toHaveBeenCalled();
     expect(client.archiveThread).toHaveBeenCalledWith("source");
     expect(host.closePanel).not.toHaveBeenCalled();
+    expect(host.notifyThreadArchived).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("archive failed");
   });
 
-  it("closes the source panel after fork and archive succeeds", async () => {
+  it("closes the source panel before notifying surfaces after fork and archive succeeds", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
     const controller = new ChatThreadActionController(host);
@@ -58,6 +59,11 @@ describe("ChatThreadActionController", () => {
 
     expect(client.archiveThread).toHaveBeenCalledWith("source");
     expect(host.closePanel).toHaveBeenCalledOnce();
+    expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
+    const closeOrder = host.closePanel.mock.invocationCallOrder[0];
+    const notifyOrder = host.notifyThreadArchived.mock.invocationCallOrder[0];
+    if (closeOrder === undefined || notifyOrder === undefined) throw new Error("Expected close and archive notification calls.");
+    expect(closeOrder).toBeLessThan(notifyOrder);
   });
 });
 

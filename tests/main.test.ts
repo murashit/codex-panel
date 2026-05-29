@@ -362,6 +362,35 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(disconnectedRefresh).not.toHaveBeenCalled();
     expect(connectedRefresh).toHaveBeenCalledOnce();
   });
+
+  it("refreshes shared thread lists from a remaining connected panel after the archived panel is detached", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const sourceLeaf = leaf();
+    sourceLeaf.view = chatView(CodexChatView, sourceLeaf);
+    const sourceView = sourceLeaf.view as CodexChatView;
+    vi.spyOn(sourceView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "source", threadId: "thread-1", connected: true }));
+    const sourceRefresh = vi.spyOn(sourceView, "refreshSharedThreadList").mockResolvedValue(undefined);
+
+    const remainingLeaf = leaf();
+    remainingLeaf.view = chatView(CodexChatView, remainingLeaf);
+    const remainingView = remainingLeaf.view as CodexChatView;
+    vi.spyOn(remainingView, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "remaining", threadId: "forked-thread", connected: true }),
+    );
+    const remainingRefresh = vi.spyOn(remainingView, "refreshSharedThreadList").mockResolvedValue(undefined);
+
+    const leaves = [sourceLeaf, remainingLeaf];
+    sourceLeaf.detach.mockImplementation(() => {
+      leaves.splice(leaves.indexOf(sourceLeaf), 1);
+    });
+    const plugin = await pluginWithLeaves(leaves);
+
+    sourceLeaf.detach();
+    plugin.notifyThreadArchived("thread-1");
+
+    expect(sourceRefresh).not.toHaveBeenCalled();
+    expect(remainingRefresh).toHaveBeenCalledOnce();
+  });
 });
 
 async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
