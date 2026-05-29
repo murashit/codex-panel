@@ -252,6 +252,41 @@ describe("message scroll helpers", () => {
     controller.dispose();
     resizeObserver.restore();
   });
+
+  it("scrolls by two text lines for composer edge shortcuts", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = messageContainer({ scrollTop: 400, scrollHeight: 1200, clientHeight: 200 });
+    container.style.lineHeight = "18px";
+    container.append(messageBlock("message", 0, 1200));
+    let pinned = false;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "preserve"));
+    await animationFrame(container);
+    controller.scrollByTextLines(-1);
+
+    expect(container.scrollTop).toBe(364);
+    expect(pinned).toBe(false);
+
+    controller.scrollByTextLines(1);
+
+    expect(container.scrollTop).toBe(400);
+    expect(pinned).toBe(false);
+
+    container.scrollTop = 950;
+    controller.scrollByTextLines(1);
+
+    expect(container.scrollTop).toBe(986);
+    expect(pinned).toBe(false);
+
+    controller.dispose();
+    resizeObserver.restore();
+  });
 });
 
 function messageContainer(metrics: { scrollTop: number; scrollHeight: number; clientHeight: number }): HTMLElement {

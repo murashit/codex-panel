@@ -210,6 +210,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     stateStore: host.stateStore,
     viewId: host.viewId,
     sendShortcut: () => host.plugin.settings.sendShortcut,
+    scrollThreadFromComposerEdges: () => host.plugin.settings.scrollThreadFromComposerEdges,
     canInterrupt: () =>
       host.getState().turnLifecycle.kind !== "idle" && Boolean(host.getState().activeThreadId && activeTurnId(host.getState())),
     composerPlaceholder: host.composerPlaceholder,
@@ -221,6 +222,9 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     },
     onSubmit: () => void composerSubmission.submit(),
     onNewThread: () => void host.startNewThread(),
+    onThreadScrollFromComposer: (direction) => {
+      messageRenderer.scrollByTextLines(direction);
+    },
   });
   composerSubmission = new ComposerSubmissionController({
     stateStore: host.stateStore,

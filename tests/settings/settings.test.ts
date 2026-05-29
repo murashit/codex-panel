@@ -22,6 +22,7 @@ describe("settings", () => {
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
+      scrollThreadFromComposerEdges: true,
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
       archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
@@ -39,6 +40,7 @@ describe("settings", () => {
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
+      scrollThreadFromComposerEdges: true,
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
       archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
@@ -61,6 +63,7 @@ describe("settings", () => {
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
       sendShortcut: "mod-enter",
+      scrollThreadFromComposerEdges: true,
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives",
       archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
@@ -96,6 +99,13 @@ describe("settings", () => {
   it("normalizes the send shortcut", () => {
     expect(normalizeSettings({ sendShortcut: "mod-enter" }).sendShortcut).toBe("mod-enter");
     expect(normalizeSettings({ sendShortcut: "invalid" }).sendShortcut).toBe(DEFAULT_SETTINGS.sendShortcut);
+  });
+
+  it("normalizes composer edge scrolling", () => {
+    expect(normalizeSettings({ scrollThreadFromComposerEdges: true }).scrollThreadFromComposerEdges).toBe(true);
+    expect(normalizeSettings({ scrollThreadFromComposerEdges: "yes" }).scrollThreadFromComposerEdges).toBe(
+      DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
+    );
   });
 
   it("normalizes archive export settings", () => {

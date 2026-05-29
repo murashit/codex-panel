@@ -93,6 +93,15 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           this.display();
         });
       });
+    new Setting(composerSection)
+      .setName("Scroll thread from composer edges")
+      .setDesc("When enabled, Up/Ctrl+P on the first composer line and Down/Ctrl+N on the last line scroll the thread.")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.scrollThreadFromComposerEdges).onChange(async (value) => {
+          this.plugin.settings.scrollThreadFromComposerEdges = value;
+          await this.plugin.saveSettings();
+        });
+      });
 
     const helperSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__helper-section" });
     renderSettingsHeading(helperSection, "Codex helpers");

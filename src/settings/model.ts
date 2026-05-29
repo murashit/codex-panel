@@ -12,6 +12,7 @@ export interface CodexPanelSettings {
   rewriteSelectionModel: string | null;
   rewriteSelectionEffort: ReasoningEffort | null;
   sendShortcut: SendShortcut;
+  scrollThreadFromComposerEdges: boolean;
   archiveExportEnabled: boolean;
   archiveExportFolderTemplate: string;
   archiveExportFilenameTemplate: string;
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   rewriteSelectionModel: null,
   rewriteSelectionEffort: null,
   sendShortcut: "enter",
+  scrollThreadFromComposerEdges: false,
   archiveExportEnabled: false,
   archiveExportFolderTemplate: "Codex Archives",
   archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
@@ -40,6 +42,10 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
     rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"]),
     rewriteSelectionEffort: reasoningEffortOrDefault(record["rewriteSelectionEffort"]),
     sendShortcut: sendShortcutOrDefault(record["sendShortcut"]),
+    scrollThreadFromComposerEdges: booleanOrDefault(
+      record["scrollThreadFromComposerEdges"],
+      DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
+    ),
     archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),
     archiveExportFolderTemplate: stringOrDefault(
       record["archiveExportFolderTemplate"],
@@ -55,13 +61,14 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
 export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelSettings): boolean {
   const record = asRecord(data);
   return (
-    Object.keys(record).length === 10 &&
+    Object.keys(record).length === 11 &&
     record["codexPath"] === settings.codexPath &&
     record["threadNamingModel"] === settings.threadNamingModel &&
     record["threadNamingEffort"] === settings.threadNamingEffort &&
     record["rewriteSelectionModel"] === settings.rewriteSelectionModel &&
     record["rewriteSelectionEffort"] === settings.rewriteSelectionEffort &&
     record["sendShortcut"] === settings.sendShortcut &&
+    record["scrollThreadFromComposerEdges"] === settings.scrollThreadFromComposerEdges &&
     record["archiveExportEnabled"] === settings.archiveExportEnabled &&
     record["archiveExportFolderTemplate"] === settings.archiveExportFolderTemplate &&
     record["archiveExportFilenameTemplate"] === settings.archiveExportFilenameTemplate &&

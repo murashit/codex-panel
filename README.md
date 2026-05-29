@@ -54,7 +54,7 @@ Codex Panel adds vault-aware behavior where Obsidian benefits from a different s
 
 - Keep Codex next to your notes in Obsidian panes. The Threads view adds a left sidebar list with live status for currently open threads, and forks open in a new pane in the right sidebar so the source thread stays visible.
 - Use Obsidian commands and the ribbon icon for panel and thread navigation.
-- Compose with Obsidian-friendly shortcuts: `Enter` sends by default, `Shift+Enter` inserts a newline, and you can switch sending to `Cmd/Ctrl+Enter` in Codex Panel settings.
+- Compose with Obsidian-friendly shortcuts: `Enter` sends by default, `Shift+Enter` inserts a newline, and you can switch sending to `Cmd/Ctrl+Enter` in Codex Panel settings. You can also opt in to scrolling the thread with `Up`/`Ctrl+P` from the first composer line and `Down`/`Ctrl+N` from the last composer line.
 - Use vault-aware links while composing and reading messages. Wikilink suggestions use Obsidian file search and recent notes; sent wikilinks resolve to Codex file mentions when the target exists; rendered Markdown links to vault files open in Obsidian.
 - Review Codex file changes in an Obsidian diff view with changed files and a copy-diff action. Use rollback to restore the latest prompt, not to undo file edits.
 - Archive threads as Markdown notes in the vault with configurable folder, filename template, and tags, or archive without saving from the chat toolbar or Threads view.

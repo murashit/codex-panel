@@ -96,6 +96,7 @@ describe("settings tab", () => {
       "Codex executable",
       "Composer",
       "Send shortcut",
+      "Scroll thread from composer edges",
       "Codex helpers",
       "Automatic thread naming",
       "Selection rewrite",
@@ -121,12 +122,28 @@ describe("settings tab", () => {
     expect(tab.containerEl.querySelector(".codex-panel-settings__section-status")?.textContent ?? "").not.toContain("Obsidian hotkeys");
   });
 
+  it("saves the composer edge scroll setting", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const toggle = inputForSetting(tab, "Scroll thread from composer edges");
+    if (!toggle) throw new Error("Missing composer edge scroll toggle");
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(settingDesc(tab, "Scroll thread from composer edges")).toContain("Up/Ctrl+P");
+  });
+
   it("saves archive export settings", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    const toggle = tab.containerEl.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const toggle = inputForSetting(tab, "Save note by default");
     const folder = inputForSetting(tab, "Saved note folder");
     const filename = inputForSetting(tab, "Saved note filename");
     const tags = inputForSetting(tab, "Saved note tags");
@@ -348,6 +365,7 @@ function newSettingsTab(
         rewriteSelectionModel: null,
         rewriteSelectionEffort: null,
         sendShortcut: options.sendShortcut ?? "enter",
+        scrollThreadFromComposerEdges: false,
         archiveExportEnabled: false,
         archiveExportFolderTemplate: "Codex Archives",
         archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
 import { messageStreamBlocks, renderMessageStreamBlocks } from "./ui/message-stream";
-import { MessageScrollController, type MessageScrollIntent } from "./ui/scroll";
+import { MessageScrollController, type MessageScrollDirection, type MessageScrollIntent } from "./ui/scroll";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
@@ -111,6 +111,10 @@ export class ChatMessageRenderer {
     }
     this.scrollController.dispose();
     this.messagesEl = null;
+  }
+
+  scrollByTextLines(direction: MessageScrollDirection): void {
+    this.scrollController.scrollByTextLines(direction);
   }
 
   private async copyMessageText(text: string): Promise<void> {

@@ -11,6 +11,7 @@ export interface ScrollAnchor {
 }
 
 export type MessageScrollIntent = "auto" | "force-bottom" | "preserve";
+export type MessageScrollDirection = -1 | 1;
 
 export interface MessageScrollRenderPlan {
   generation: number;
@@ -124,6 +125,15 @@ export class MessageScrollController {
   pinToBottom(container = this.container): void {
     if (!container) return;
     this.setScrollTop(container, bottomScrollTop(container));
+    this.updatePinnedState(container);
+    this.rememberCurrentAnchor(container);
+  }
+
+  scrollByTextLines(direction: MessageScrollDirection, container = this.container): void {
+    if (!container) return;
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const delta = Math.max(1, Math.round(textLineHeight(container) * 2)) * direction;
+    this.setScrollTop(container, Math.min(maxScrollTop, Math.max(0, container.scrollTop + delta)));
     this.updatePinnedState(container);
     this.rememberCurrentAnchor(container);
   }
@@ -252,4 +262,13 @@ export class MessageScrollController {
     const scrollTop = restoredAnchorScrollTop(container, anchor);
     if (scrollTop !== null) this.setScrollTop(container, scrollTop);
   }
+}
+
+function textLineHeight(element: HTMLElement): number {
+  const style = element.win.getComputedStyle(element);
+  const lineHeight = Number.parseFloat(style.lineHeight);
+  if (Number.isFinite(lineHeight)) return lineHeight;
+
+  const fontSize = Number.parseFloat(style.fontSize);
+  return Number.isFinite(fontSize) ? fontSize * 1.5 : 20;
 }
