@@ -239,7 +239,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("keeps spawned agents running until child state completes", () => {
+  it("marks completed spawn calls complete even before child state arrives", () => {
     const item: ThreadItem = {
       type: "collabAgentToolCall",
       id: "agent-1",
@@ -256,7 +256,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
       kind: "agent",
       status: "completed",
-      state: "running",
+      state: "completed",
     });
   });
 

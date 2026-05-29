@@ -27,7 +27,7 @@ export function agentDisplayItem(item: CollabAgentToolCallItem, turnId?: string)
     model: item.model,
     reasoningEffort: item.reasoningEffort,
     agents,
-    state: collabAgentExecutionState(item.status, item.receiverThreadIds, agents),
+    state: collabAgentExecutionState(item.tool, item.status, item.receiverThreadIds, agents),
   };
 }
 
@@ -81,7 +81,8 @@ function agentStatesDisplay(states: CollabAgentToolCallItem["agentsStates"]): Ag
     .sort((a, b) => a.threadId.localeCompare(b.threadId));
 }
 
-function collabAgentExecutionState(status: string, receiverThreadIds: string[], agents: AgentStateDisplay[]): ExecutionState {
+function collabAgentExecutionState(tool: string, status: string, receiverThreadIds: string[], agents: AgentStateDisplay[]): ExecutionState {
+  if (tool === "spawnAgent") return classifyExecutionState({ status });
   if (agents.some((agent) => classifyExecutionState({ status: agent.status }) === "failed")) return "failed";
   if (agents.some((agent) => classifyExecutionState({ status: agent.status }) === "running")) return "running";
   if (agents.length > 0 && agents.every((agent) => classifyExecutionState({ status: agent.status }) === "completed")) {
