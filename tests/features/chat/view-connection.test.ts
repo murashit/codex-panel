@@ -948,6 +948,7 @@ function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
     notifyThreadRenamed: vi.fn(),
     refreshSharedThreadListFromOpenSurface: vi.fn(),
     refreshThreadsViewLiveState: vi.fn(),
+    applyThreadListSnapshot: vi.fn(),
     refreshThreadList: vi.fn(
       (fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>,
     ) as CodexChatHost["refreshThreadList"],

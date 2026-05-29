@@ -410,6 +410,7 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
       notifyThreadRenamed: vi.fn(),
       refreshSharedThreadListFromOpenSurface: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
+      applyThreadListSnapshot: vi.fn(),
       refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
       cachedThreadList: vi.fn(() => null),
       publishAppServerMetadata: vi.fn(),

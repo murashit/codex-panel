@@ -15,7 +15,7 @@ export interface TurnSubmissionControllerHost {
   vaultPath: string;
   currentClient: () => AppServerClient | null;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
-  startThread: () => Promise<unknown>;
+  startThread: (preview?: string) => Promise<unknown>;
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
@@ -44,7 +44,7 @@ export class TurnSubmissionController {
     let optimisticUserId: string | null = null;
     try {
       if (!this.state.activeThreadId) {
-        const threadResponse = await this.host.startThread();
+        const threadResponse = await this.host.startThread(text);
         if (!threadResponse) return;
         this.host.notifyActiveThreadIdentityChanged();
         this.host.resetThreadTurnPresence(false);

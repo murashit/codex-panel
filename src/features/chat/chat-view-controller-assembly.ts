@@ -155,7 +155,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     vaultPath: host.plugin.vaultPath,
     currentClient: host.getClient,
     ensureRestoredThreadLoaded: host.ensureRestoredThreadLoaded,
-    startThread: () => appServer.startThread(),
+    startThread: (preview) => appServer.startThread(preview),
     notifyActiveThreadIdentityChanged: host.effects.thread.notifyIdentityChanged,
     resetThreadTurnPresence: host.effects.thread.resetTurnPresence,
     applyPendingThreadSettings: () => runtimeSettings.applyPendingThreadSettings(),
@@ -335,6 +335,9 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     currentClient: () => connection.currentClient(),
     runtimeSnapshot: host.runtimeSnapshot,
     forceMessagesToBottom: host.effects.scroll.forceBottom,
+    publishThreadList: (threads) => {
+      host.plugin.applyThreadListSnapshot(threads);
+    },
     publishAppServerMetadata: (metadata) => {
       host.plugin.publishAppServerMetadata(metadata);
     },

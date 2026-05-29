@@ -7,8 +7,78 @@ import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { McpServerStatus } from "../../../src/generated/app-server/v2/McpServerStatus";
 import type { RateLimitSnapshot } from "../../../src/generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
+import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 
 describe("ChatAppServerController", () => {
+  it("publishes newly started threads before the first turn completes", async () => {
+    const state = createChatState();
+    const existing = threadFixture("existing");
+    state.listedThreads = [existing];
+    const stateStore = createChatStateStore(state);
+    const started = threadFixture("started");
+    const optimistic = { ...started, preview: "first prompt" };
+    const publishThreadList = vi.fn();
+    const client = {
+      startThread: vi.fn().mockResolvedValue({
+        thread: started,
+        cwd: "/vault",
+        model: "gpt-5",
+        serviceTier: null,
+        approvalPolicy: null,
+        approvalsReviewer: null,
+        activePermissionProfile: null,
+        reasoningEffort: null,
+      }),
+    } as unknown as AppServerClient;
+
+    const controller = new ChatAppServerController({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      runtimeSnapshot: () => ({ requestedServiceTier: null, effectiveConfig: null }) as never,
+      forceMessagesToBottom: () => undefined,
+      publishThreadList,
+      publishAppServerMetadata: () => undefined,
+    });
+
+    await controller.startThread("first prompt");
+
+    expect(stateStore.getState().listedThreads.map((thread) => thread.id)).toEqual(["started", "existing"]);
+    expect(publishThreadList).toHaveBeenCalledWith([optimistic, existing]);
+  });
+
+  it("keeps app-server preview when newly started threads already have one", async () => {
+    const stateStore = createChatStateStore(createChatState());
+    const started = threadFixture("started", { preview: "server preview" });
+    const publishThreadList = vi.fn();
+    const client = {
+      startThread: vi.fn().mockResolvedValue({
+        thread: started,
+        cwd: "/vault",
+        model: "gpt-5",
+        serviceTier: null,
+        approvalPolicy: null,
+        approvalsReviewer: null,
+        activePermissionProfile: null,
+        reasoningEffort: null,
+      }),
+    } as unknown as AppServerClient;
+
+    const controller = new ChatAppServerController({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      runtimeSnapshot: () => ({ requestedServiceTier: null, effectiveConfig: null }) as never,
+      forceMessagesToBottom: () => undefined,
+      publishThreadList,
+      publishAppServerMetadata: () => undefined,
+    });
+
+    await controller.startThread("local preview");
+
+    expect(publishThreadList).toHaveBeenCalledWith([started]);
+  });
+
   it("reuses cached app-server metadata for deferred diagnostics", async () => {
     const state = createChatState();
     const stateStore = createChatStateStore(state);
@@ -34,6 +104,7 @@ describe("ChatAppServerController", () => {
       currentClient: () => client,
       runtimeSnapshot: () => ({}) as never,
       forceMessagesToBottom: () => undefined,
+      publishThreadList: () => undefined,
       publishAppServerMetadata: () => undefined,
     });
 
@@ -76,6 +147,7 @@ describe("ChatAppServerController", () => {
       currentClient: () => client,
       runtimeSnapshot: () => ({}) as never,
       forceMessagesToBottom: () => undefined,
+      publishThreadList: () => undefined,
       publishAppServerMetadata: () => undefined,
     });
 
@@ -89,6 +161,31 @@ describe("ChatAppServerController", () => {
     });
   });
 });
+
+function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
+  return {
+    id,
+    sessionId: id,
+    forkedFromId: null,
+    preview: "",
+    ephemeral: false,
+    modelProvider: "openai",
+    createdAt: 0,
+    updatedAt: 0,
+    status: { type: "idle" },
+    path: null,
+    cwd: "/vault",
+    cliVersion: "test",
+    source: "appServer",
+    threadSource: null,
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: null,
+    turns: [],
+    ...overrides,
+  };
+}
 
 function mcpServerStatus(): McpServerStatus {
   return {

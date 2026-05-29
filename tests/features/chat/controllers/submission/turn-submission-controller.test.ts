@@ -84,7 +84,7 @@ describe("TurnSubmissionController", () => {
 
     await controller.sendTurnText("hello");
 
-    expect(host.startThread).toHaveBeenCalledOnce();
+    expect(host.startThread).toHaveBeenCalledWith("hello");
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(startTurn).toHaveBeenCalledWith("thread", "/vault", textInput("hello"));

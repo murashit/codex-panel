@@ -10,8 +10,10 @@ import type { McpServerStatus } from "../../generated/app-server/v2/McpServerSta
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata";
+import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../runtime/state";
+import { upsertThread } from "../../domain/threads/model";
 import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
 import { mcpStatusLines as buildMcpStatusLines } from "./mcp-status";
 import { resumedThreadAction } from "./thread-resume";
@@ -22,6 +24,7 @@ export interface ChatAppServerControllerHost {
   currentClient: () => AppServerClient | null;
   runtimeSnapshot: () => RuntimeSnapshot;
   forceMessagesToBottom: () => void;
+  publishThreadList: (threads: readonly Thread[]) => void;
   publishAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
 }
 
@@ -106,12 +109,14 @@ export class ChatAppServerController {
     this.host.publishAppServerMetadata(this.appServerMetadataSnapshot());
   }
 
-  async startThread(): Promise<Awaited<ReturnType<AppServerClient["startThread"]>> | null> {
+  async startThread(preview?: string): Promise<Awaited<ReturnType<AppServerClient["startThread"]>> | null> {
     const client = this.host.currentClient();
     if (!client) return null;
     const serviceTier = requestedOrConfiguredServiceTier(this.host.runtimeSnapshot());
     const response = await client.startThread(this.host.vaultPath, serviceTier);
-    this.dispatch(resumedThreadAction({ response, forceMessagesToBottom: true }));
+    const listedThreads = upsertThread(this.state.listedThreads, threadWithPreviewFallback(response.thread, preview));
+    this.dispatch(resumedThreadAction({ response, listedThreads, forceMessagesToBottom: true }));
+    this.host.publishThreadList(listedThreads);
     this.host.forceMessagesToBottom();
     return response;
   }
@@ -321,6 +326,12 @@ export class ChatAppServerController {
     }
     this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
   }
+}
+
+function threadWithPreviewFallback(thread: Thread, preview: string | undefined): Thread {
+  if (thread.preview.trim().length > 0) return thread;
+  const fallback = preview?.trim();
+  return fallback ? { ...thread, preview: fallback } : thread;
 }
 
 function cloneAppServerDiagnostics(diagnostics: AppServerDiagnostics): AppServerDiagnostics {

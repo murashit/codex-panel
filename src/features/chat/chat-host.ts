@@ -14,6 +14,7 @@ export interface CodexChatHost {
   notifyThreadRenamed(threadId: string, name: string | null): void;
   refreshThreadsViewLiveState(): void;
   refreshSharedThreadListFromOpenSurface(): void;
+  applyThreadListSnapshot(threads: readonly Thread[]): void;
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
   cachedThreadList(): readonly Thread[] | null;
   publishAppServerMetadata(metadata: SharedAppServerMetadata): void;
