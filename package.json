@@ -18,7 +18,8 @@
     "build:prod": "node esbuild.config.mjs --production",
     "dev": "node esbuild.config.mjs --watch",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"scripts/**/*.{js,mjs}\" \"*.{ts,json,mjs,md,css}\" \"!src/generated/**\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"scripts/**/*.{js,mjs}\" \"*.{ts,json,mjs,md,css}\" \"!src/generated/**\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"scripts/**/*.{js,mjs}\" \"*.{ts,json,mjs,md,css}\" \"!src/generated/**\" --cache --cache-location node_modules/.cache/prettier/.prettier-cache --cache-strategy content",
+    "format:check:ci": "prettier --check \"src/**/*.{ts,tsx,js,mjs,json,css,md}\" \"tests/**/*.{ts,tsx,js,mjs,json,css,md}\" \"scripts/**/*.{js,mjs}\" \"*.{ts,json,mjs,md,css}\" \"!src/generated/**\"",
     "api:baseline": "node scripts/report-api-baseline.mjs",
     "api:baseline:check": "node scripts/report-api-baseline.mjs --check",
     "generate:app-server-types": "node scripts/clean-generated-types.mjs && codex app-server generate-ts --experimental --out src/generated/app-server && node scripts/normalize-generated-types.mjs",
@@ -29,10 +30,12 @@
     "release:check": "node scripts/check-release.mjs",
     "release:preflight": "node scripts/preflight-release.mjs",
     "release:prepare": "node scripts/prepare-release.mjs",
-    "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --cache",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo",
+    "typecheck:ci": "tsc -p tsconfig.json --noEmit",
     "check": "node scripts/run-parallel.mjs typecheck test lint:ts lint:css format:check && npm run build:prod",
-    "check:ci": "npm run typecheck && npm run test && npm run lint:ts:ci && npm run lint:css && npm run format:check && npm run build:prod"
+    "check:ci": "npm run typecheck:ci && npm run test:ci && npm run lint:ts:ci && npm run lint:css && npm run format:check:ci && npm run build:prod"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
