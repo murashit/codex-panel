@@ -1,9 +1,10 @@
 import esbuild from "esbuild";
 
-const production = process.argv.includes("--production");
-const watch = process.argv.includes("--watch");
+import { buildStyles } from "./scripts/build-styles.mjs";
 
-const context = await esbuild.context({
+await buildStyles();
+
+await esbuild.build({
   entryPoints: ["src/main.ts"],
   bundle: true,
   external: ["obsidian"],
@@ -12,15 +13,7 @@ const context = await esbuild.context({
   target: "es2022",
   jsx: "automatic",
   outfile: "main.js",
-  sourcemap: production ? false : "inline",
-  minify: production,
+  sourcemap: false,
+  minify: true,
   logLevel: "info",
 });
-
-if (watch) {
-  await context.watch();
-  console.log("Watching Codex Panel plugin...");
-} else {
-  await context.rebuild();
-  await context.dispose();
-}
