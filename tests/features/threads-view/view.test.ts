@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import type * as ThreadNamingModule from "../../../src/app-server/thread-naming";
+import { waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
 const connectionMock = vi.hoisted(() => {
@@ -103,7 +104,7 @@ describe("CodexThreadsView", () => {
     const view = await threadsView();
 
     const refresh = view.refresh();
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(listThreads).toHaveBeenCalled();
     });
     await view.onClose();
@@ -122,7 +123,7 @@ describe("CodexThreadsView", () => {
     const view = await threadsView();
 
     const refresh = view.refresh();
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(listThreads).toHaveBeenCalled();
     });
     connectionMock.state.onExit?.();
@@ -156,11 +157,11 @@ describe("CodexThreadsView", () => {
     const view = await threadsView();
 
     const firstRefresh = view.refresh();
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(listThreads).toHaveBeenCalledTimes(1);
     });
     const secondRefresh = view.refresh();
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(listThreads).toHaveBeenCalledTimes(2);
     });
 
@@ -188,7 +189,7 @@ describe("CodexThreadsView", () => {
     expect(row?.getAttribute("aria-label")).toBeNull();
     row?.click();
 
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(host.openThreadInAvailableView).toHaveBeenCalledWith("thread");
     });
   });
@@ -205,7 +206,7 @@ describe("CodexThreadsView", () => {
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Open new panel"]')?.click();
 
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(host.openNewPanel).toHaveBeenCalledOnce();
     });
     expect(host.openThreadInAvailableView).not.toHaveBeenCalled();
@@ -219,7 +220,7 @@ describe("CodexThreadsView", () => {
     await view.refresh();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Refresh threads"]')?.click();
 
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(listThreads).toHaveBeenCalledTimes(2);
     });
   });
@@ -276,7 +277,7 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
 
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(archiveThread).toHaveBeenCalledWith("thread");
       expect(host.notifyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
     });
@@ -303,7 +304,7 @@ describe("CodexThreadsView", () => {
       .querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")
       ?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
       expect(host.notifyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed thread");
     });
@@ -330,7 +331,7 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(threadTurnsList).toHaveBeenCalledWith("thread", null, 20, "asc");
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
@@ -358,7 +359,7 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
     });
 
@@ -392,7 +393,7 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
     });
 
@@ -402,7 +403,7 @@ describe("CodexThreadsView", () => {
 
     changeInputValue(input, "Manual draft");
     title.resolve("Late title");
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Manual draft");
     });
   });

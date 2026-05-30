@@ -9,6 +9,7 @@ import { createChatState, type ChatState } from "../../../src/features/chat/chat
 import { composerSlotSnapshot } from "../../../src/features/chat/view-snapshot";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import { notices } from "../../mocks/obsidian";
+import { waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
 const connectionMock = vi.hoisted(() => {
@@ -111,7 +112,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     const firstConnect = view.connect();
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
     });
 
@@ -210,7 +211,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     const connecting = view.connect();
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
     });
     connectionMock.state.onExit?.();
@@ -379,7 +380,7 @@ describe("CodexChatView connection lifecycle", () => {
     await view.openThread("thread-1");
     view.setComposerText("hello");
     const submit = (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(client.startTurn).toHaveBeenCalled();
     });
 
@@ -673,7 +674,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     const opening = view.openThread("thread-1");
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
     });
 
@@ -694,11 +695,11 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     const firstOpen = view.openThread("thread-1");
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     });
     const secondOpen = view.openThread("thread-2");
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(client.resumeThread).toHaveBeenCalledWith("thread-2", "/vault");
     });
 
@@ -724,11 +725,11 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     const firstOpen = view.openThread("thread-1");
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
     });
     const secondOpen = view.openThread("thread-2");
-    await vi.waitFor(() => {
+    await waitForAsyncWork(() => {
       expect(client.threadTurnsList).toHaveBeenCalledWith("thread-2", null, 20);
     });
 

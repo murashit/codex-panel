@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   bottomScrollTop,
@@ -12,6 +12,7 @@ import {
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
+installTestAnimationFrame();
 
 describe("message scroll helpers", () => {
   it("detects whether the transcript is pinned near the bottom", () => {
@@ -372,6 +373,41 @@ function animationFrame(element: HTMLElement): Promise<void> {
     element.win.requestAnimationFrame(() => {
       resolve();
     });
+  });
+}
+
+function installTestAnimationFrame(): void {
+  let originalRequestAnimationFrame: typeof window.requestAnimationFrame;
+  let originalCancelAnimationFrame: typeof window.cancelAnimationFrame;
+  let callbacks: Map<number, FrameRequestCallback>;
+  let nextAnimationFrameId: number;
+
+  beforeEach(() => {
+    originalRequestAnimationFrame = window.requestAnimationFrame;
+    originalCancelAnimationFrame = window.cancelAnimationFrame;
+    callbacks = new Map();
+    nextAnimationFrameId = 1;
+
+    window.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+      const id = nextAnimationFrameId;
+      nextAnimationFrameId += 1;
+      callbacks.set(id, callback);
+      queueMicrotask(() => {
+        const scheduled = callbacks.get(id);
+        if (!scheduled) return;
+        callbacks.delete(id);
+        scheduled(0);
+      });
+      return id;
+    };
+    window.cancelAnimationFrame = (id: number): void => {
+      callbacks.delete(id);
+    };
+  });
+
+  afterEach(() => {
+    window.requestAnimationFrame = originalRequestAnimationFrame;
+    window.cancelAnimationFrame = originalCancelAnimationFrame;
   });
 }
 
