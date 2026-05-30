@@ -20,6 +20,7 @@ export interface ThreadsRowModel {
 }
 
 export type ThreadsRenameState = { kind: "editing"; draft: string } | { kind: "generating"; draft: string; originalDraft: string };
+export type ThreadsGeneratingRenameState = Extract<ThreadsRenameState, { kind: "generating" }>;
 
 const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
   "needs-input": 5,
@@ -72,6 +73,38 @@ export function liveStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): Thre
     viewId: winner.viewId,
     openPanels: liveSnapshots.length,
   };
+}
+
+export function editingThreadRenameState(draft: string): ThreadsRenameState {
+  return { kind: "editing", draft };
+}
+
+export function updatedThreadRenameState(current: ThreadsRenameState | undefined, draft: string): ThreadsRenameState {
+  return current?.kind === "generating" ? { ...current, draft } : editingThreadRenameState(draft);
+}
+
+export function startedThreadAutoNameState(current: ThreadsRenameState | undefined): ThreadsGeneratingRenameState | null {
+  if (!current || current.kind === "generating") return null;
+  return { kind: "generating", draft: current.draft, originalDraft: current.draft };
+}
+
+export function generatedThreadAutoNameState(
+  current: ThreadsRenameState | undefined,
+  generatingState: ThreadsGeneratingRenameState,
+  title: string,
+): ThreadsRenameState | null {
+  if (current !== generatingState) return null;
+  if (current.draft !== generatingState.originalDraft) return null;
+  return { ...generatingState, draft: title };
+}
+
+export function completedThreadAutoNameState(
+  current: ThreadsRenameState | undefined,
+  generatingState: ThreadsGeneratingRenameState,
+): ThreadsRenameState | undefined {
+  if (current?.kind !== "generating") return undefined;
+  const draft = current === generatingState ? generatingState.draft : current.draft;
+  return editingThreadRenameState(draft);
 }
 
 function snapshotsForThreads(snapshots: OpenCodexPanelSnapshot[]): Map<string, OpenCodexPanelSnapshot[]> {

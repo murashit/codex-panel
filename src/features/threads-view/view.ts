@@ -10,7 +10,16 @@ import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import { findThreadNamingContext, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/naming";
 import { generateThreadTitleWithCodex } from "../../app-server/thread-naming";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
-import { threadRows, type ThreadsRenameState } from "./state";
+import {
+  completedThreadAutoNameState,
+  editingThreadRenameState,
+  generatedThreadAutoNameState,
+  startedThreadAutoNameState,
+  threadRows,
+  updatedThreadRenameState,
+  type ThreadsGeneratingRenameState,
+  type ThreadsRenameState,
+} from "./state";
 import {
   ThreadsViewDeferredTasks,
   transitionThreadsViewConnectionLifecycle,
@@ -265,13 +274,12 @@ export class CodexThreadsView extends ItemView {
 
   private startRename(threadId: string, value: string): void {
     this.archiveConfirmThreadId = null;
-    this.renameStates.set(threadId, { kind: "editing", draft: value });
+    this.renameStates.set(threadId, editingThreadRenameState(value));
     this.render();
   }
 
   private updateRename(threadId: string, value: string): void {
-    const current = this.renameStates.get(threadId);
-    this.renameStates.set(threadId, current?.kind === "generating" ? { ...current, draft: value } : { kind: "editing", draft: value });
+    this.renameStates.set(threadId, updatedThreadRenameState(this.renameStates.get(threadId), value));
     this.render();
   }
 
@@ -302,14 +310,8 @@ export class CodexThreadsView extends ItemView {
   }
 
   private async autoNameThread(threadId: string): Promise<void> {
-    const editingState = this.renameStates.get(threadId);
-    if (!editingState || editingState.kind === "generating") return;
-
-    const generatingState: ThreadsRenameState = {
-      kind: "generating",
-      draft: editingState.draft,
-      originalDraft: editingState.draft,
-    };
+    const generatingState = startedThreadAutoNameState(this.renameStates.get(threadId));
+    if (!generatingState) return;
     this.renameStates.set(threadId, generatingState);
     this.render();
 
@@ -328,10 +330,8 @@ export class CodexThreadsView extends ItemView {
         threadNamingEffort: this.plugin.settings.threadNamingEffort,
       });
       if (!title) throw new Error("Codex did not return a usable thread title.");
-      const current = this.renameStates.get(threadId);
-      if (current !== generatingState) return;
-      if (current.draft !== generatingState.originalDraft) return;
-      this.renameStates.set(threadId, { ...generatingState, draft: title });
+      const renamedState = generatedThreadAutoNameState(this.renameStates.get(threadId), generatingState, title);
+      if (renamedState) this.renameStates.set(threadId, renamedState);
     } catch (error) {
       if (this.renameStates.get(threadId) === generatingState) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
@@ -381,11 +381,10 @@ export class CodexThreadsView extends ItemView {
     }
   }
 
-  private finishAutoNameThread(threadId: string, generatingState: ThreadsRenameState): void {
-    const current = this.renameStates.get(threadId);
-    if (current?.kind !== "generating") return;
-    const draft = current === generatingState ? generatingState.draft : current.draft;
-    this.renameStates.set(threadId, { kind: "editing", draft });
+  private finishAutoNameThread(threadId: string, generatingState: ThreadsGeneratingRenameState): void {
+    const nextState = completedThreadAutoNameState(this.renameStates.get(threadId), generatingState);
+    if (!nextState) return;
+    this.renameStates.set(threadId, nextState);
     this.render();
   }
 }
