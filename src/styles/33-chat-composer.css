@@ -1,0 +1,78 @@
+.codex-panel__composer {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--codex-panel-section-gap);
+  padding: var(--codex-panel-section-gap) var(--codex-panel-edge-padding-x)
+    calc(var(--codex-panel-section-gap) + var(--codex-panel-bottom-safe-area));
+}
+
+.codex-panel__composer-input {
+  min-height: var(--codex-panel-composer-min-height);
+  max-height: min(var(--codex-panel-size-composer-input-max-height), 40vh);
+}
+
+.codex-panel__composer-action {
+  flex: 0 0 auto;
+}
+
+.codex-panel__composer-action.is-interrupt {
+  color: var(--icon-color-focused);
+}
+
+.codex-panel__composer-action.is-steer {
+  color: var(--icon-color-active);
+}
+
+.codex-panel__composer-suggestions {
+  position: absolute;
+  right: var(--codex-panel-edge-padding-x);
+  bottom: calc(100% - var(--codex-panel-control-gap));
+  left: var(--codex-panel-edge-padding-x);
+  z-index: var(--layer-popover, 30);
+  display: flex;
+  flex-direction: column;
+  width: auto;
+  max-height: min(var(--codex-panel-size-composer-suggestions-max-height), 36vh);
+  overflow-y: auto;
+  margin: 0;
+  border: var(--codex-panel-border);
+  border-radius: var(--codex-panel-card-radius);
+  background: var(--codex-panel-surface);
+  box-shadow: var(--shadow-s);
+}
+
+.codex-panel__composer-suggestion.suggestion-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--codex-panel-panel-gap);
+  width: 100%;
+  line-height: var(--codex-panel-compact-line-height);
+  text-align: left;
+}
+
+.codex-panel__composer-suggestion.suggestion-item.is-selected {
+  background: var(--background-modifier-hover);
+}
+
+.codex-panel__suggestion-label,
+.codex-panel__suggestion-detail {
+  display: block;
+  min-width: 0;
+}
+
+.codex-panel__suggestion-label {
+  color: var(--codex-panel-item-title-color);
+  font-size: var(--codex-panel-item-title-size);
+  font-weight: var(--codex-panel-item-title-weight);
+}
+
+.codex-panel__suggestion-detail {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel__composer-suggestion.is-selected .codex-panel__suggestion-label {
+  color: var(--text-normal);
+}

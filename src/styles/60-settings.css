@@ -1,0 +1,109 @@
+.codex-panel-settings__section,
+.codex-panel-settings__dynamic-section {
+  margin-top: var(--size-4-6);
+}
+
+.codex-panel-settings__header {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) auto;
+  align-items: start;
+  justify-content: start;
+  gap: var(--size-4-2);
+  min-height: var(--input-height);
+}
+
+.codex-panel-settings__refresh-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--input-height);
+  height: var(--input-height);
+  padding: 0;
+}
+
+.codex-panel-settings__section-heading.setting-item-heading,
+.codex-panel-settings__dynamic-section-heading.setting-item-heading {
+  margin-bottom: var(--size-4-2);
+}
+
+.codex-panel-settings__dynamic-section-status {
+  padding: 0 var(--size-4-4);
+}
+
+.codex-panel-settings__section-status {
+  padding: 0 var(--size-4-4);
+}
+
+.codex-panel-settings__section-intro,
+.codex-panel-settings__dynamic-list-summary {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-normal);
+}
+
+.codex-panel-settings__section-intro {
+  margin: 0;
+}
+
+.codex-panel-settings__dynamic-list-summary {
+  padding: 0 var(--size-4-4);
+  margin: 0 0 var(--size-2-3);
+}
+
+.codex-panel-settings__dynamic-list {
+  margin: var(--size-2-3) 0 0;
+  overflow: auto;
+  border: var(--codex-panel-border);
+  border-radius: var(--codex-panel-card-radius);
+  background: var(--codex-panel-surface);
+}
+
+.codex-panel-settings__archived-list {
+  max-height: min(var(--codex-panel-size-settings-archived-list-max-height), 45vh);
+}
+
+.codex-panel-settings__hook-list {
+  max-height: min(var(--codex-panel-size-settings-hook-list-max-height), 50vh);
+}
+
+.codex-panel-settings__dynamic-row.setting-item {
+  margin: 0;
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 0;
+  border-top: var(--codex-panel-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.codex-panel-settings__dynamic-row.setting-item:first-child {
+  border-top: 0;
+}
+
+.codex-panel-settings__dynamic-row .setting-item-info {
+  min-width: 0;
+}
+
+.codex-panel-settings__dynamic-row .setting-item-name,
+.codex-panel-settings__dynamic-row .setting-item-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-panel-settings__hook-hash {
+  overflow: hidden;
+  padding-top: var(--size-2-1);
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-panel-settings__hook-warning {
+  color: var(--codex-panel-color-warning);
+}
+
+.codex-panel-settings__hook-error {
+  color: var(--codex-panel-color-danger);
+}

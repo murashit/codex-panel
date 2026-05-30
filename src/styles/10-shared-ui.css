@@ -1,0 +1,149 @@
+.codex-panel {
+  box-sizing: border-box;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--codex-panel-text-normal);
+}
+
+.codex-panel-ui__toolbar-control,
+.codex-panel-ui__icon-button,
+.codex-panel-threads__icon-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color);
+  font: inherit;
+  line-height: var(--line-height-tight);
+  cursor: pointer;
+  user-select: none;
+}
+
+.codex-panel-ui__toolbar-control:disabled,
+.codex-panel-ui__icon-button:disabled,
+.codex-panel-threads__icon-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.codex-panel-ui__toolbar-control {
+  --icon-size: var(--codex-panel-control-icon-size);
+  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
+  min-width: var(--codex-panel-icon-button-inline-size);
+  width: auto;
+  height: auto;
+  padding: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
+  border-radius: var(--codex-panel-control-radius);
+}
+
+.codex-panel-ui__toolbar-control:hover,
+.codex-panel-ui__toolbar-control:focus-visible,
+.codex-panel-ui__toolbar-control:active {
+  background: var(--background-modifier-hover);
+  box-shadow: none;
+  color: var(--icon-color);
+}
+
+.codex-panel-ui__toolbar-control:active svg {
+  color: var(--icon-color);
+  stroke: currentcolor;
+}
+
+.codex-panel-ui__toolbar-control:where(:focus:not(:hover):not(:focus-visible)) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color);
+}
+
+.codex-panel-ui__icon-button {
+  --icon-size: var(--codex-panel-control-icon-size);
+  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
+  min-width: var(--codex-panel-composer-control-size);
+  width: auto;
+  height: auto;
+  padding: var(--codex-panel-control-gap);
+  border-radius: var(--codex-panel-control-radius);
+}
+
+.codex-panel-threads__icon-button {
+  --icon-size: var(--codex-panel-control-icon-size);
+  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
+  padding: var(--codex-panel-control-gap);
+}
+
+.codex-panel-threads__toolbar-button {
+  --icon-size: var(--codex-panel-control-icon-size);
+  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
+  width: var(--codex-panel-size-clickable-icon);
+  height: var(--codex-panel-size-clickable-icon);
+  padding: var(--clickable-icon-padding, var(--codex-panel-control-gap));
+  border-radius: var(--clickable-icon-radius, var(--codex-panel-control-radius));
+}
+
+.codex-panel-threads__row-button {
+  --icon-size: var(--codex-panel-size-icon-s);
+  --icon-stroke: var(--icon-s-stroke-width, 1.75px);
+}
+
+.codex-panel-threads__toolbar-button:hover,
+.codex-panel-threads__toolbar-button:focus-visible {
+  background: var(--background-modifier-hover);
+  box-shadow: none;
+  color: var(--icon-color);
+}
+
+.codex-panel-threads__toolbar-button:focus:not(:hover):not(:focus-visible) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color);
+}
+
+.codex-panel-threads__row-button:hover,
+.codex-panel-threads__row-button:focus,
+.codex-panel-threads__row-button:focus-visible,
+.codex-panel-threads__row-button:active {
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color-active);
+}
+
+.codex-panel-ui__toolbar-control svg,
+.codex-panel-ui__icon-button svg,
+.codex-panel-threads__icon-button svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  stroke-width: var(--icon-stroke);
+}
+
+.codex-panel-ui__text-input {
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--codex-panel-content-font);
+  font-size: var(--codex-panel-content-font-size);
+  resize: none;
+}
+
+.codex-panel-ui__action-stack {
+  height: 100%;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--codex-panel-control-gap);
+}
+
+.workspace-leaf-content[data-type="codex-panel-view"] .view-content.codex-panel {
+  padding: 0;
+  overflow: hidden;
+}

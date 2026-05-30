@@ -1,0 +1,170 @@
+.codex-panel__body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.codex-panel__slot {
+  min-width: 0;
+}
+
+.codex-panel__slot--messages {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.codex-panel__config {
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--codex-panel-section-gap);
+  border-bottom: var(--codex-panel-divider);
+  color: var(--codex-panel-text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel__toolbar-panel .codex-panel__config {
+  margin-top: var(--codex-panel-panel-gap);
+  padding: var(--codex-panel-item-gap) 0 0;
+  border-top: var(--codex-panel-divider-muted);
+  border-bottom: 0;
+}
+
+.codex-panel__toolbar-panel .codex-panel__config-title {
+  padding: var(--codex-panel-section-label-padding);
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
+}
+
+.codex-panel__toolbar-panel .codex-panel__config-list {
+  margin: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.codex-panel__toolbar-panel .codex-panel__config-section {
+  padding: var(--codex-panel-section-label-block-padding);
+  border-top: 0;
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
+}
+
+.codex-panel__toolbar-panel .codex-panel__config-section:first-child {
+  padding-top: 0;
+}
+
+.codex-panel__toolbar-panel .codex-panel__config-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
+  gap: var(--codex-panel-section-gap);
+  padding: var(--codex-panel-control-gap) var(--codex-panel-section-gap);
+  border-top: 0;
+}
+
+.codex-panel__toolbar-panel .codex-panel__config-row dt,
+.codex-panel__toolbar-panel .codex-panel__config-row dd {
+  font-size: var(--font-ui-smaller);
+  line-height: var(--codex-panel-compact-line-height);
+  cursor: text;
+  user-select: text;
+}
+
+.codex-panel__config-title,
+.codex-panel__approval-details summary,
+.codex-panel__output summary,
+.codex-panel-diff-file summary,
+.codex-panel__output-title {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel__approval-details summary:hover,
+.codex-panel__output summary:hover,
+.codex-panel-diff-file summary:hover {
+  color: var(--text-normal);
+}
+
+.codex-panel__config-list {
+  margin: var(--codex-panel-section-gap) 0 0;
+  overflow: hidden;
+  border: var(--codex-panel-border);
+  border-radius: var(--codex-panel-card-radius);
+  background: var(--codex-panel-surface);
+}
+
+.codex-panel__config-row {
+  display: grid;
+  grid-template-columns: minmax(82px, 34%) minmax(0, 1fr);
+  gap: var(--codex-panel-section-gap);
+  align-items: start;
+  padding: var(--codex-panel-control-gap) var(--codex-panel-section-gap);
+  border-top: var(--codex-panel-divider-muted);
+}
+
+.codex-panel__config-row:first-child {
+  border-top: 0;
+}
+
+.codex-panel__config-section {
+  padding: var(--codex-panel-section-label-block-padding);
+  border-top: var(--codex-panel-divider-muted);
+  color: var(--codex-panel-section-label-color);
+  font-size: var(--codex-panel-section-label-size);
+  font-weight: var(--codex-panel-section-label-weight);
+  line-height: var(--codex-panel-section-label-line-height);
+}
+
+.codex-panel__config-section:first-child {
+  border-top: 0;
+}
+
+.codex-panel__config-row dt,
+.codex-panel__config-row dd {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--font-ui-smaller);
+  line-height: var(--codex-panel-compact-line-height);
+}
+
+.codex-panel__config-row dt {
+  color: var(--codex-panel-text-faint);
+}
+
+.codex-panel__config-row dd {
+  color: var(--codex-panel-text-muted);
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.codex-panel__meta-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--codex-panel-control-gap) var(--codex-panel-section-gap);
+  margin: var(--codex-panel-item-gap) 0;
+  font-size: var(--font-ui-smaller);
+  cursor: text;
+  user-select: text;
+}
+
+.codex-panel__meta-grid dt {
+  color: var(--text-faint);
+  cursor: text;
+  user-select: text;
+}
+
+.codex-panel__meta-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+  white-space: pre-wrap;
+}
