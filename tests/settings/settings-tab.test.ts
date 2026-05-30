@@ -1,4 +1,5 @@
-import { createRequire } from "node:module";
+// @vitest-environment jsdom
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
@@ -9,11 +10,9 @@ import { findModelByIdOrName, sortedAvailableModels, supportedEffortsForModel } 
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import { archivedThreadDisplayTitle } from "../../src/domain/threads/model";
 import { notices } from "../mocks/obsidian";
+import { installObsidianDomShims } from "../support/dom";
 
-const require = createRequire(import.meta.url);
-const { JSDOM } = require("jsdom") as {
-  JSDOM: new (html: string) => { window: Window & typeof globalThis };
-};
+installObsidianDomShims();
 
 const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
   withShortLivedAppServerClientMock: vi.fn(),
@@ -25,14 +24,6 @@ vi.mock("../../src/app-server/short-lived-client", () => ({
 
 describe("settings tab", () => {
   beforeEach(() => {
-    const dom = new JSDOM("<!doctype html><html><body></body></html>");
-    vi.stubGlobal("document", dom.window.document);
-    vi.stubGlobal("HTMLElement", dom.window.HTMLElement);
-    vi.stubGlobal("HTMLButtonElement", dom.window.HTMLButtonElement);
-    vi.stubGlobal("HTMLDivElement", dom.window.HTMLDivElement);
-    vi.stubGlobal("HTMLInputElement", dom.window.HTMLInputElement);
-    vi.stubGlobal("HTMLSelectElement", dom.window.HTMLSelectElement);
-    vi.stubGlobal("Event", dom.window.Event);
     withShortLivedAppServerClientMock.mockReset();
     notices.length = 0;
   });

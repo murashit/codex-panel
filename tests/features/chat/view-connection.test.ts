@@ -9,7 +9,7 @@ import { createChatState, type ChatState } from "../../../src/features/chat/chat
 import { composerSlotSnapshot } from "../../../src/features/chat/view-snapshot";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import { notices } from "../../mocks/obsidian";
-import { installObsidianDomShims } from "./ui/dom-test-helpers";
+import { installObsidianDomShims } from "../../support/dom";
 
 const connectionMock = vi.hoisted(() => {
   const state = {

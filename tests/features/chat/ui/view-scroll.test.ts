@@ -9,7 +9,7 @@ import {
   MessageScrollController,
   restoreScrollAnchor,
 } from "../../../../src/features/chat/ui/scroll";
-import { installObsidianDomShims } from "./dom-test-helpers";
+import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
 

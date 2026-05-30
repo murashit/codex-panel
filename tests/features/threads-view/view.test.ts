@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import type * as ThreadNamingModule from "../../../src/app-server/thread-naming";
-import { changeInputValue, installObsidianDomShims } from "../chat/ui/dom-test-helpers";
+import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
 const connectionMock = vi.hoisted(() => {
   const state = {

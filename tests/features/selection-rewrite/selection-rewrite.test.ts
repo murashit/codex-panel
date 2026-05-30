@@ -39,7 +39,7 @@ import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem
 import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../../src/generated/app-server/v2/TurnStartResponse";
-import { installObsidianDomShims } from "../chat/ui/dom-test-helpers";
+import { installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();
 

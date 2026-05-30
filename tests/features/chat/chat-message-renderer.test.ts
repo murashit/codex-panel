@@ -6,7 +6,7 @@ import { TFile } from "obsidian";
 import { ChatMessageRenderer } from "../../../src/features/chat/chat-message-renderer";
 import { chatReducer, createChatState, type ChatAction, type ChatState, type ChatStateStore } from "../../../src/features/chat/chat-state";
 import { bindRenderedWikiLinks, type RenderedMarkdownLinkContext } from "../../../src/features/chat/markdown-message-renderer";
-import { installObsidianDomShims } from "./ui/dom-test-helpers";
+import { installObsidianDomShims } from "../../support/dom";
 import { notices } from "../../mocks/obsidian";
 
 installObsidianDomShims();

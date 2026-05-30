@@ -7,7 +7,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import type { CodexChatView } from "../src/features/chat/view";
 import type { Thread } from "../src/generated/app-server/v2/Thread";
-import { installObsidianDomShims } from "./features/chat/ui/dom-test-helpers";
+import { installObsidianDomShims } from "./support/dom";
 
 installObsidianDomShims();
 
