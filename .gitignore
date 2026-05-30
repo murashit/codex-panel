@@ -1,6 +1,7 @@
 node_modules/
 .jj/
 main.js
+styles.css
 data.json
 *.log
 .DS_Store
