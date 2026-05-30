@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { readJson } from "./release-utils.mjs";
+import { readJson } from "./release/utils.mjs";
 
 const args = new Set(process.argv.slice(2));
 const shouldCheck = args.has("--check");
@@ -118,6 +118,7 @@ const manifestJson = await readJson("manifest.json");
 const versionsJson = await readJson("versions.json");
 const readme = await readFile("README.md", "utf8");
 const clientSource = await readFile("src/app-server/client.ts", "utf8");
+const appServerGenerateSource = await readFile("scripts/generate-app-server-types.mjs", "utf8");
 const readmeBaselines = readCompatibilityBaselines(readme);
 
 const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
@@ -134,9 +135,10 @@ const obsidianSpecSemver = parseSemver(obsidianSpec);
 const obsidianLockSemver = parseSemver(obsidianLockVersion);
 const obsidianMinSemver = parseSemver(obsidianMinVersion);
 
-const appServerGenerateScript = packageJson.scripts?.["generate:app-server-types"] ?? "";
 const appServerGenerationExperimental =
-  appServerGenerateScript.includes("codex app-server generate-ts") && appServerGenerateScript.includes("--experimental");
+  appServerGenerateSource.includes("app-server") &&
+  appServerGenerateSource.includes("generate-ts") &&
+  appServerGenerateSource.includes("--experimental");
 const initializeExperimentalApi = /experimentalApi:\s*true/.test(clientSource);
 const initializeRequestAttestationDisabled = /requestAttestation:\s*false/.test(clientSource);
 

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { compareVersions, isExpectedNextVersion, parseVersion, readJson, writeJson } from "./release-utils.mjs";
+import { compareVersions, isExpectedNextVersion, parseVersion, readJson, writeJson } from "./utils.mjs";
 
 function fail(message) {
   console.error(`release prepare failed: ${message}`);
@@ -17,6 +17,8 @@ const packageJson = await readJson("package.json");
 const packageLockJson = await readJson("package-lock.json");
 const manifestJson = await readJson("manifest.json");
 const versionsJson = await readJson("versions.json");
+const notesDir = path.join(".github", "release-notes");
+const notesPath = path.join(notesDir, `${releaseVersion}.md`);
 
 const versionKeys = Object.keys(versionsJson);
 const previousVersionKey = versionKeys.at(-1);
@@ -29,6 +31,12 @@ if (!isExpectedNextVersion(previousVersion, currentVersion)) {
   fail(`release version ${releaseVersion} is not the expected next version after ${previousVersionKey}`);
 }
 if (versionsJson[releaseVersion] !== undefined) fail(`versions.json already contains ${releaseVersion}`);
+try {
+  await readFile(notesPath, "utf8");
+  fail(`${notesPath} already exists`);
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
 
 packageJson.version = releaseVersion;
 packageLockJson.version = releaseVersion;
@@ -42,15 +50,7 @@ await writeJson("package-lock.json", packageLockJson);
 await writeJson("manifest.json", manifestJson);
 await writeJson("versions.json", versionsJson);
 
-const notesDir = path.join(".github", "release-notes");
-const notesPath = path.join(notesDir, `${releaseVersion}.md`);
 await mkdir(notesDir, { recursive: true });
-try {
-  await readFile(notesPath, "utf8");
-  fail(`${notesPath} already exists`);
-} catch (error) {
-  if (error.code !== "ENOENT") throw error;
-}
 await writeFile(notesPath, "## Changes\n\n- \n");
 
 console.log(`prepared release ${releaseVersion}`);
