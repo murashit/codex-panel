@@ -1,8 +1,9 @@
-import type { ChatAction, ChatStateStore } from "../../chat-state";
+import type { ConnectionStatePort, PanelUiStatePort, ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ChatReconnectControllerHost {
-  stateStore: ChatStateStore;
-  activeThreadId: () => string | null;
+  connectionState: ConnectionStatePort;
+  panelState: PanelUiStatePort;
+  threadState: ThreadLifecycleStatePort;
   invalidateConnectionWork: () => void;
   invalidateResumeWork: () => void;
   clearDeferredDiagnostics: () => void;
@@ -19,14 +20,14 @@ export class ChatReconnectController {
   constructor(private readonly host: ChatReconnectControllerHost) {}
 
   async reconnectFromToolbar(): Promise<void> {
-    const threadId = this.host.activeThreadId();
-    this.dispatch({ type: "ui/panel-set", panel: null });
+    const threadId = this.host.threadState.activeThreadId();
+    this.host.panelState.closePanels();
     this.host.invalidateConnectionWork();
     this.host.invalidateResumeWork();
     this.host.clearDeferredDiagnostics();
     this.host.reconnect();
     this.host.clearClient();
-    this.dispatch({ type: "turn/local-cleared" });
+    this.host.connectionState.clearLocalTurn();
     this.host.setStatus("Reconnecting...");
     this.host.render();
 
@@ -37,9 +38,5 @@ export class ChatReconnectController {
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
-  }
-
-  private dispatch(action: ChatAction): void {
-    this.host.stateStore.dispatch(action);
   }
 }

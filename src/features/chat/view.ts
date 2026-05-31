@@ -40,6 +40,7 @@ import {
 import { ChatMessageScrollController } from "./controllers/view/message-scroll-controller";
 import { createChatViewEffects, type ChatViewEffects } from "./view-effects";
 import { createChatViewControllerAssembly, type ChatViewControllerAssembly } from "./chat-view-controller-assembly";
+import { createPanelUiStatePort } from "./controllers/state-ports";
 
 export type { CodexChatHost } from "./chat-host";
 
@@ -87,7 +88,7 @@ export class CodexChatView extends ItemView {
       this.history.invalidate();
     });
     this.messageScroll = new ChatMessageScrollController({
-      stateStore: this.chatState,
+      state: createPanelUiStatePort(this.chatState),
       render: () => {
         this.render();
       },

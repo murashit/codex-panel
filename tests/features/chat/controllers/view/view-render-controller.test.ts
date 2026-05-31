@@ -1,28 +1,15 @@
-// @vitest-environment jsdom
+import { describe, expect, it, vi } from "vitest";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
+import type { ChatShellRenderPort } from "../../../../../src/features/chat/controllers/state-ports";
 import { ChatViewRenderController } from "../../../../../src/features/chat/controllers/view/view-render-controller";
-import { renderChatPanelShell } from "../../../../../src/features/chat/ui/shell";
-
-vi.mock("../../../../../src/features/chat/ui/shell", () => ({
-  renderChatPanelShell: vi.fn(),
-}));
 
 describe("ChatViewRenderController", () => {
-  beforeEach(() => {
-    vi.mocked(renderChatPanelShell).mockClear();
-  });
-
   it("renders the shell with stable slot delegates", () => {
-    const root = document.createElement("div");
+    const root = {} as HTMLElement;
+    const render = vi.fn<ChatShellRenderPort["render"]>();
     const controller = new ChatViewRenderController({
-      stateStore: createChatStateStore(createChatState()),
+      shell: { render },
       panelRoot: () => root,
-      connected: () => true,
-      pendingRequestsSignature: () => "",
-      activeComposerThreadName: () => null,
       renderToolbar: vi.fn(),
       renderMessages: vi.fn(),
       renderComposer: vi.fn(),
@@ -31,25 +18,26 @@ describe("ChatViewRenderController", () => {
 
     controller.render();
 
-    expect(renderChatPanelShell).toHaveBeenCalledWith(
+    expect(render).toHaveBeenCalledWith(
       root,
+      0,
       expect.objectContaining({
-        renderVersion: 0,
-        toolbar: expect.objectContaining({ render: expect.any(Function), snapshot: expect.any(Function) }),
-        messages: expect.objectContaining({ render: expect.any(Function), snapshot: expect.any(Function) }),
-        composer: expect.objectContaining({ render: expect.any(Function), snapshot: expect.any(Function) }),
+        renderToolbar: expect.any(Function),
+        renderMessages: expect.any(Function),
+        renderComposer: expect.any(Function),
       }),
     );
   });
 
   it("increments the render version when forcing slot rerender", () => {
-    const root = document.createElement("div");
+    const root = {} as HTMLElement;
+    const renderVersions: number[] = [];
+    const render: ChatShellRenderPort["render"] = vi.fn((_root: HTMLElement, renderVersion: number) => {
+      renderVersions.push(renderVersion);
+    });
     const controller = new ChatViewRenderController({
-      stateStore: createChatStateStore(createChatState()),
+      shell: { render },
       panelRoot: () => root,
-      connected: () => true,
-      pendingRequestsSignature: () => "",
-      activeComposerThreadName: () => null,
       renderToolbar: vi.fn(),
       renderMessages: vi.fn(),
       renderComposer: vi.fn(),
@@ -59,6 +47,6 @@ describe("ChatViewRenderController", () => {
     controller.render();
     controller.renderShellSlots();
 
-    expect(vi.mocked(renderChatPanelShell).mock.calls.map(([, model]) => model.renderVersion)).toEqual([0, 1]);
+    expect(renderVersions).toEqual([0, 1]);
   });
 });

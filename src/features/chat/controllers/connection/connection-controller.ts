@@ -1,9 +1,9 @@
 import { StaleConnectionError } from "../../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../../app-server/client";
 import type { InitializeResponse } from "../../../../generated/app-server/InitializeResponse";
-import type { ChatAction, ChatStateStore } from "../../chat-state";
 import type { ChatAppServerController } from "../../chat-app-server-controller";
 import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../../view-lifecycle";
+import type { ConnectionStatePort } from "../state-ports";
 
 export interface ChatConnectionAdapter {
   connect(): Promise<InitializeResponse>;
@@ -12,7 +12,7 @@ export interface ChatConnectionAdapter {
 }
 
 export interface ChatConnectionControllerHost {
-  stateStore: ChatStateStore;
+  state: ConnectionStatePort;
   connection: ChatConnectionAdapter;
   connectionWork: ChatConnectionWorkTracker;
   appServer: ChatAppServerController;
@@ -62,7 +62,7 @@ export class ChatConnectionController {
     this.invalidate();
     this.host.invalidateResumeWork();
     this.host.setStatus("Codex app-server stopped.");
-    this.dispatch({ type: "connection/scoped-cleared" });
+    this.host.state.clearConnectionScope();
     this.host.resetThreadTurnPresence(false);
     this.host.setClient(null);
     this.host.refreshLiveState();
@@ -110,7 +110,7 @@ export class ChatConnectionController {
   private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
     this.host.setStatus("Starting Codex app-server...");
     try {
-      this.dispatch({ type: "connection/initialized", initializeResponse: await this.host.connection.connect() });
+      this.host.state.connectionInitialized(await this.host.connection.connect());
       if (this.host.connectionWork.isStale(connection)) return;
       const client = this.host.connection.currentClient();
       this.host.setClient(client);
@@ -132,10 +132,6 @@ export class ChatConnectionController {
     if (!this.host.connectionWork.isStale(connection)) {
       this.host.scheduleRender();
     }
-  }
-
-  private dispatch(action: ChatAction): void {
-    this.host.stateStore.dispatch(action);
   }
 }
 

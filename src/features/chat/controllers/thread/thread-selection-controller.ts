@@ -1,7 +1,8 @@
-import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../../chat-state";
+import type { PanelUiStatePort, ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ThreadSelectionControllerHost {
-  stateStore: ChatStateStore;
+  panelState: PanelUiStatePort;
+  threadState: ThreadLifecycleStatePort;
   closeForThreadSelection: () => void;
   focusThreadInOpenView: (threadId: string) => Promise<boolean>;
   resumeThread: (threadId: string) => Promise<void>;
@@ -12,7 +13,7 @@ export class ThreadSelectionController {
   constructor(private readonly host: ThreadSelectionControllerHost) {}
 
   async selectThread(threadId: string): Promise<void> {
-    if (chatTurnBusy(this.state) && threadId !== this.state.activeThreadId) {
+    if (!this.host.threadState.canSwitchToThread(threadId)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
@@ -23,17 +24,9 @@ export class ThreadSelectionController {
   }
 
   async selectThreadFromToolbar(threadId: string): Promise<void> {
-    if (chatTurnBusy(this.state) && threadId !== this.state.activeThreadId) return;
+    if (!this.host.threadState.canSwitchToThread(threadId)) return;
 
-    this.dispatch({ type: "ui/panel-set", panel: null });
+    this.host.panelState.closePanels();
     await this.selectThread(threadId);
-  }
-
-  private get state(): ChatState {
-    return this.host.stateStore.getState();
-  }
-
-  private dispatch(action: ChatAction): void {
-    this.host.stateStore.dispatch(action);
   }
 }

@@ -1,6 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/client";
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
-import { activeTurnId, chatTurnBusy, pendingTurnStart, type ChatStateStore } from "../../chat-state";
 import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
 import {
   acknowledgeOptimisticTurnStart,
@@ -9,9 +8,10 @@ import {
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./turn-submission";
+import type { SubmissionStatePort } from "../state-ports";
 
 export interface TurnSubmissionControllerHost {
-  stateStore: ChatStateStore;
+  state: SubmissionStatePort;
   vaultPath: string;
   currentClient: () => AppServerClient | null;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
@@ -36,7 +36,7 @@ export class TurnSubmissionController {
     const client = this.host.currentClient();
     if (!client) return;
 
-    if (chatTurnBusy(this.state)) {
+    if (this.state.busy) {
       await this.steerCurrentTurn(client, text, codexInputOverride, referencedThread);
       return;
     }
@@ -61,21 +61,17 @@ export class TurnSubmissionController {
         codexInput,
         referencedThread,
       });
-      this.host.stateStore.dispatch({
-        type: "turn/optimistic-started",
-        item: optimistic.item,
-        pendingTurnStart: optimistic.pendingTurnStart,
-      });
+      this.host.state.optimisticTurnStarted(optimistic.item, optimistic.pendingTurnStart);
       this.host.forceMessagesToBottom();
       this.host.setDraft("");
       this.host.render();
 
       const response = await client.startTurn(activeThreadId, this.host.vaultPath, codexInput);
-      const pendingStart = pendingTurnStart(this.state);
+      const pendingStart = this.state.pendingTurnStart;
       if (
         shouldAcknowledgeTurnStart({
           pendingTurnStart: pendingStart,
-          activeTurnId: activeTurnIdForState(this.host.stateStore),
+          activeTurnId: this.state.activeTurnId,
           optimisticUserId,
           responseTurnId: response.turn.id,
         })
@@ -86,16 +82,16 @@ export class TurnSubmissionController {
           turnId: response.turn.id,
           pendingTurnStart: pendingStart,
         });
-        this.host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
+        this.host.state.turnStartAcknowledged(response.turn.id, displayItems);
         this.host.setStatus("Turn running...");
       }
     } catch (error) {
       const displayItems = cleanupFailedTurnStart({
         items: this.state.displayItems,
         optimisticUserId,
-        pendingTurnStart: pendingTurnStart(this.state),
+        pendingTurnStart: this.state.pendingTurnStart,
       });
-      this.host.stateStore.dispatch({ type: "turn/start-failed", displayItems });
+      this.host.state.turnStartFailed(displayItems);
       this.host.setDraft(text);
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -109,7 +105,7 @@ export class TurnSubmissionController {
     referencedThread?: ReferencedThreadDisplay,
   ): Promise<void> {
     const threadId = this.state.activeThreadId;
-    const expectedTurnId = activeTurnIdForState(this.host.stateStore);
+    const expectedTurnId = this.state.activeTurnId;
     if (!threadId || !expectedTurnId) {
       this.host.addSystemMessage("Current turn is not steerable yet.");
       return;
@@ -120,16 +116,15 @@ export class TurnSubmissionController {
 
     try {
       await client.steerTurn(threadId, expectedTurnId, codexInput);
-      this.host.stateStore.dispatch({
-        type: "system/message-added",
-        item: localUserMessageItemFromInput({
+      this.host.state.addLocalUserMessage(
+        localUserMessageItemFromInput({
           id: `local-steer-${String(Date.now())}`,
           text,
           turnId: expectedTurnId,
           referencedThread,
           codexInput,
         }),
-      });
+      );
       this.host.forceMessagesToBottom();
       this.host.setStatus("Steered current turn.");
     } catch (error) {
@@ -141,10 +136,6 @@ export class TurnSubmissionController {
   }
 
   private get state() {
-    return this.host.stateStore.getState();
+    return this.host.state.snapshot();
   }
-}
-
-function activeTurnIdForState(stateStore: ChatStateStore): string | null {
-  return activeTurnId(stateStore.getState());
 }

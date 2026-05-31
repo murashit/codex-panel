@@ -1,14 +1,13 @@
 import type { AppServerClient } from "../../../../app-server/client";
-import type { ChatStateStore } from "../../chat-state";
-import { chatTurnBusy } from "../../chat-state";
 import type { DisplayItem } from "../../display/types";
 import type { RestoredThreadController } from "./restored-thread-controller";
-import { resumedThreadAction, type ThreadActivationResponse } from "../../thread-resume";
+import type { ThreadActivationResponse } from "../../thread-resume";
 import type { ThreadHistoryLoader } from "../../thread-history";
 import type { ChatResumeWorkTracker, ActiveChatResume } from "../../view-lifecycle";
+import type { ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ThreadResumeControllerHost {
-  stateStore: ChatStateStore;
+  state: ThreadLifecycleStatePort;
   vaultPath: string;
   resumeWork: ChatResumeWorkTracker;
   history: ThreadHistoryLoader;
@@ -30,8 +29,7 @@ export class ThreadResumeController {
   constructor(private readonly host: ThreadResumeControllerHost) {}
 
   async resumeThread(threadId: string): Promise<void> {
-    const state = this.host.stateStore.getState();
-    if (chatTurnBusy(state) && threadId !== state.activeThreadId) {
+    if (!this.host.state.canSwitchToThread(threadId)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
@@ -46,7 +44,7 @@ export class ThreadResumeController {
       this.applyResumedThread(response);
       await this.host.history.loadLatest(response.thread.id);
       if (this.isStale(resume)) return;
-      if (this.host.stateStore.getState().displayItems.length === 0) {
+      if (this.host.state.displayItemsEmpty()) {
         this.host.addSystemMessage(`Resumed thread ${response.thread.id}`);
         this.host.forceMessagesToBottom();
         this.host.render();
@@ -59,13 +57,7 @@ export class ThreadResumeController {
   }
 
   private applyResumedThread(response: ThreadActivationResponse): void {
-    this.host.stateStore.dispatch(
-      resumedThreadAction({
-        response,
-        listedThreads: this.host.stateStore.getState().listedThreads,
-        displayItems: [this.host.systemItem("Loading thread...")],
-      }),
-    );
+    this.host.state.applyResumedThread(response, [this.host.systemItem("Loading thread...")]);
     this.host.restoredThread.clear();
     this.host.clearDeferredRestoredThreadHydration();
     this.host.resetThreadTurnPresence(false);

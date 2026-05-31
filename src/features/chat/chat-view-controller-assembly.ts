@@ -24,6 +24,14 @@ import { ChatConnectionController } from "./controllers/connection/connection-co
 import { ChatReconnectController } from "./controllers/connection/reconnect-controller";
 import { PendingRequestController } from "./controllers/requests/pending-request-controller";
 import { ServerRequestResponder } from "./controllers/requests/server-request-responder";
+import {
+  createChatShellRenderPort,
+  createConnectionStatePort,
+  createPanelUiStatePort,
+  createPendingRequestStatePort,
+  createSubmissionStatePort,
+  createThreadLifecycleStatePort,
+} from "./controllers/state-ports";
 import { ComposerSubmissionController } from "./controllers/submission/composer-submission-controller";
 import { PlanImplementationController } from "./controllers/submission/plan-implementation-controller";
 import { SlashCommandController } from "./controllers/submission/slash-command-controller";
@@ -137,13 +145,18 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
   let planImplementation!: PlanImplementationController;
   let threadSelection!: ThreadSelectionController;
   let serverRequestResponder!: ServerRequestResponder;
+  const connectionState = createConnectionStatePort(host.stateStore);
+  const panelState = createPanelUiStatePort(host.stateStore);
+  const submissionState = createSubmissionStatePort(host.stateStore);
+  const threadState = createThreadLifecycleStatePort(host.stateStore);
 
   renderController = new ChatViewRenderController({
-    stateStore: host.stateStore,
+    shell: createChatShellRenderPort(host.stateStore, {
+      connected: () => connection.isConnected(),
+      pendingRequestsSignature: host.pendingRequestsSignature,
+      activeComposerThreadName: host.activeComposerThreadName,
+    }),
     panelRoot: host.panelRoot,
-    connected: () => connection.isConnected(),
-    pendingRequestsSignature: host.pendingRequestsSignature,
-    activeComposerThreadName: host.activeComposerThreadName,
     renderToolbar: host.renderToolbar,
     renderMessages: host.renderMessages,
     renderComposer: host.renderComposer,
@@ -152,7 +165,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     },
   });
   turnSubmission = new TurnSubmissionController({
-    stateStore: host.stateStore,
+    state: submissionState,
     vaultPath: host.plugin.vaultPath,
     currentClient: host.getClient,
     ensureRestoredThreadLoaded: host.ensureRestoredThreadLoaded,
@@ -171,7 +184,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     addSystemMessage: host.effects.status.addSystemMessage,
   });
   slashCommands = new SlashCommandController({
-    stateStore: host.stateStore,
+    state: submissionState,
     currentClient: host.getClient,
     codexInput: (text) => composerController.codexInput(text),
     startNewThread: host.startNewThread,
@@ -229,7 +242,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     },
   });
   composerSubmission = new ComposerSubmissionController({
-    stateStore: host.stateStore,
+    state: submissionState,
     composer: composerController,
     slashCommands,
     turnSubmission,
@@ -242,7 +255,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     currentClient: host.getClient,
   });
   planImplementation = new PlanImplementationController({
-    stateStore: host.stateStore,
+    state: submissionState,
     currentClient: host.getClient,
     ensureConnected: host.effects.client.ensureConnected,
     sendTurnText: (text) => turnSubmission.sendTurnText(text),
@@ -329,7 +342,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     rejectServerRequest: (requestId, code, message) => serverRequestResponder.reject(requestId, code, message),
   });
   pendingRequests = new PendingRequestController({
-    stateStore: host.stateStore,
+    state: createPendingRequestStatePort(host.stateStore),
     controller,
     composerHasFocus: () => composerController.hasFocus(),
     refreshLiveState: host.effects.liveState.refresh,
@@ -349,7 +362,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     },
   });
   connectionController = new ChatConnectionController({
-    stateStore: host.stateStore,
+    state: connectionState,
     connection,
     connectionWork: host.connectionWork,
     appServer,
@@ -408,7 +421,8 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     scheduleRender: host.effects.render.schedule,
   });
   threadSelection = new ThreadSelectionController({
-    stateStore: host.stateStore,
+    panelState,
+    threadState,
     closeForThreadSelection: () => {
       toolbarPanels.closeForThreadSelection();
     },
@@ -417,8 +431,9 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     addSystemMessage: host.effects.status.addSystemMessage,
   });
   reconnectActions = new ChatReconnectController({
-    stateStore: host.stateStore,
-    activeThreadId: () => host.getState().activeThreadId,
+    connectionState,
+    panelState,
+    threadState,
     invalidateConnectionWork: host.effects.lifecycle.invalidateConnectionWork,
     invalidateResumeWork: host.effects.lifecycle.invalidateResumeWork,
     clearDeferredDiagnostics: host.effects.lifecycle.clearDeferredDiagnostics,
@@ -444,7 +459,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     opened: host.getOpened,
     resumeThread: host.resumeThread,
     invalidateResumeWork: host.effects.lifecycle.invalidateResumeWork,
-    dispatch: host.effects.state.dispatch,
+    state: threadState,
     systemItem: host.effects.state.systemItem,
     setStatus: host.effects.status.set,
     refreshTabHeader: host.effects.thread.refreshTabHeader,
@@ -457,7 +472,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     restoreThreadPlaceholder: host.effects.thread.restorePlaceholder,
   });
   threadResume = new ThreadResumeController({
-    stateStore: host.stateStore,
+    state: threadState,
     vaultPath: host.plugin.vaultPath,
     resumeWork: host.resumeWork,
     history,
@@ -475,7 +490,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     refreshLiveState: host.effects.liveState.refresh,
   });
   threadIdentity = new ThreadIdentityController({
-    stateStore: host.stateStore,
+    state: threadState,
     restoredThread,
     invalidateResumeWork: host.effects.lifecycle.invalidateResumeWork,
     clearDeferredRestoredThreadHydration: host.effects.lifecycle.clearDeferredRestoredThreadHydration,

@@ -7,6 +7,7 @@ import {
   PlanImplementationController,
   type PlanImplementationControllerHost,
 } from "../../../../../src/features/chat/controllers/submission/plan-implementation-controller";
+import { createSubmissionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 
 const planItem = (id: string): DisplayItem => ({
@@ -36,7 +37,7 @@ function resumeThread(stateStore: ChatStateStore, displayItems: readonly Display
 function createController({ client = {} as AppServerClient } = {}) {
   const stateStore = createChatStateStore(createChatState());
   const host: PlanImplementationControllerHost = {
-    stateStore,
+    state: createSubmissionStatePort(stateStore),
     currentClient: () => client,
     ensureConnected: vi.fn().mockResolvedValue(undefined),
     sendTurnText: vi.fn().mockResolvedValue(undefined),

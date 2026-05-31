@@ -5,15 +5,15 @@ import {
   REFERENCED_THREAD_TURN_LIMIT,
 } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../generated/app-server/v2/Thread";
-import { chatTurnBusy, type ChatStateStore } from "../../chat-state";
 import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult, type ThreadReferenceInput } from "../../slash-commands";
 import type { SlashCommandName } from "../../composer/slash-commands";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ReasoningEffort } from "../../../../generated/app-server/ReasoningEffort";
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
+import type { SubmissionStatePort } from "../state-ports";
 
 export interface SlashCommandControllerHost {
-  stateStore: ChatStateStore;
+  state: SubmissionStatePort;
   currentClient: () => AppServerClient | null;
   codexInput: (text: string) => UserInput[];
   startNewThread: () => Promise<void>;
@@ -42,7 +42,7 @@ export class SlashCommandController {
   async execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined> {
     const client = this.host.currentClient();
     if (!client) return;
-    const state = this.host.stateStore.getState();
+    const state = this.host.state.snapshot();
     return runSlashCommand(command, args, {
       activeThreadId: state.activeThreadId,
       listedThreads: state.listedThreads,
@@ -55,7 +55,7 @@ export class SlashCommandController {
         await client.compactThread(threadId);
       },
       archiveThread: (threadId) => this.host.archiveThread(threadId),
-      busy: chatTurnBusy(state),
+      busy: state.busy,
       toggleFastMode: () => this.host.toggleFastMode(),
       toggleCollaborationMode: () => this.host.toggleCollaborationMode(),
       toggleAutoReview: () => this.host.toggleAutoReview(),

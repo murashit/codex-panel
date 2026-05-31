@@ -1,14 +1,9 @@
-import type { ChatState, ChatStateStore } from "../../chat-state";
 import type { ChatViewRenderScheduleOptions } from "../../view-lifecycle";
-import { composerSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "../../view-snapshot";
-import { renderChatPanelShell } from "../../ui/shell";
+import type { ChatShellRenderPort } from "../state-ports";
 
 export interface ChatViewRenderControllerHost {
-  stateStore: ChatStateStore;
+  shell: ChatShellRenderPort;
   panelRoot: () => HTMLElement | null;
-  connected: () => boolean;
-  pendingRequestsSignature: () => string;
-  activeComposerThreadName: () => string | null;
   renderToolbar: (toolbar: HTMLElement) => void;
   renderMessages: (parent: HTMLElement) => void;
   renderComposer: (parent: HTMLElement) => void;
@@ -25,12 +20,10 @@ export class ChatViewRenderController {
     const root = this.host.panelRoot();
     if (!root) return;
     if (options.forceSlots) this.shellRenderVersion += 1;
-    renderChatPanelShell(root, {
-      stateStore: this.host.stateStore,
-      renderVersion: this.shellRenderVersion,
-      toolbar: { render: this.renderToolbarSlot, snapshot: this.toolbarSnapshot },
-      messages: { render: this.renderMessagesSlot, snapshot: this.messagesSnapshot },
-      composer: { render: this.renderComposerSlot, snapshot: this.composerSnapshot },
+    this.host.shell.render(root, this.shellRenderVersion, {
+      renderToolbar: this.renderToolbarSlot,
+      renderMessages: this.renderMessagesSlot,
+      renderComposer: this.renderComposerSlot,
     });
   }
 
@@ -49,10 +42,4 @@ export class ChatViewRenderController {
   private readonly renderComposerSlot = (parent: HTMLElement): void => {
     this.host.renderComposer(parent);
   };
-
-  private readonly toolbarSnapshot = (state: ChatState) => toolbarSlotSnapshot(state, this.host.connected());
-
-  private readonly messagesSnapshot = (state: ChatState) => messagesSlotSnapshot(state, this.host.pendingRequestsSignature());
-
-  private readonly composerSnapshot = (state: ChatState) => composerSlotSnapshot(state, this.host.activeComposerThreadName());
 }

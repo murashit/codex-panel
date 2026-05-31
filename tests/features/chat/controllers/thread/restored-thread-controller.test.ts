@@ -2,21 +2,21 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+import type { ThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { RestoredThreadController } from "../../../../../src/features/chat/controllers/thread/restored-thread-controller";
 import { ChatViewDeferredTasks } from "../../../../../src/features/chat/view-lifecycle";
-import type { ChatAction } from "../../../../../src/features/chat/chat-state";
 
 describe("RestoredThreadController", () => {
   it("restores a placeholder and schedules deferred hydration", () => {
     vi.useFakeTimers();
-    const actions: ChatAction[] = [];
+    const restorePlaceholder = vi.fn();
     const resumeThread = vi.fn().mockResolvedValue(undefined);
     const controller = new RestoredThreadController({
       deferredTasks: new ChatViewDeferredTasks(() => window),
       opened: () => true,
       resumeThread,
       invalidateResumeWork: vi.fn(),
-      dispatch: (action) => actions.push(action),
+      state: restoredThreadState({ restorePlaceholder }),
       systemItem: (text) => ({ id: "system", kind: "system", role: "system", text }),
       setStatus: vi.fn(),
       refreshTabHeader: vi.fn(),
@@ -25,7 +25,7 @@ describe("RestoredThreadController", () => {
     controller.restore({ threadId: "thread", title: "Title", explicitName: null });
 
     expect(controller.placeholder()).toMatchObject({ threadId: "thread", title: "Title" });
-    expect(actions).toHaveLength(1);
+    expect(restorePlaceholder).toHaveBeenCalledOnce();
     vi.advanceTimersByTime(1_500);
     expect(resumeThread).toHaveBeenCalledWith("thread");
     vi.useRealTimers();
@@ -63,12 +63,26 @@ function restoredThreadControllerFixture(overrides: Partial<ConstructorParameter
     opened: () => false,
     resumeThread: vi.fn().mockResolvedValue(undefined),
     invalidateResumeWork: vi.fn(),
-    dispatch: vi.fn(),
+    state: restoredThreadState(),
     systemItem: (text) => ({ id: "system", kind: "system", role: "system", text }),
     setStatus: vi.fn(),
     refreshTabHeader: vi.fn(),
     ...overrides,
   });
+}
+
+function restoredThreadState(overrides: Partial<ThreadLifecycleStatePort> = {}): ThreadLifecycleStatePort {
+  return {
+    activeThreadId: () => null,
+    canSwitchToThread: () => true,
+    listedThreads: [],
+    clearActiveThread: vi.fn(),
+    applyThreadList: vi.fn(),
+    restorePlaceholder: vi.fn(),
+    displayItemsEmpty: () => true,
+    applyResumedThread: vi.fn(),
+    ...overrides,
+  };
 }
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {

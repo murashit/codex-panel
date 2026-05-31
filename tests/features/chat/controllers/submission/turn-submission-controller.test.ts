@@ -6,6 +6,7 @@ import {
   TurnSubmissionController,
   type TurnSubmissionControllerHost,
 } from "../../../../../src/features/chat/controllers/submission/turn-submission-controller";
+import { createSubmissionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
 import type { UserInput } from "../../../../../src/generated/app-server/v2/UserInput";
 
@@ -44,7 +45,7 @@ function createHost(overrides: Partial<TurnSubmissionControllerHost> = {}) {
     steerTurn,
   } as unknown as AppServerClient;
   const host: TurnSubmissionControllerHost = {
-    stateStore,
+    state: createSubmissionStatePort(stateStore),
     vaultPath: "/vault",
     currentClient: () => client,
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),

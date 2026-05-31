@@ -1,8 +1,8 @@
-import type { ChatStateStore } from "../../chat-state";
 import type { MessageScrollIntent } from "../../ui/scroll";
+import type { PanelUiStatePort } from "../state-ports";
 
 export interface ChatMessageScrollControllerHost {
-  stateStore: ChatStateStore;
+  state: PanelUiStatePort;
   render: () => void;
 }
 
@@ -18,7 +18,7 @@ export class ChatMessageScrollController {
   }
 
   forceBottom(): void {
-    this.host.stateStore.dispatch({ type: "ui/messages-pinned-set", pinned: true });
+    this.host.state.pinMessagesToBottom();
     this.nextIntent = "force-bottom";
   }
 

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/client";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
 import { ComposerSubmissionController } from "../../../../../src/features/chat/controllers/submission/composer-submission-controller";
+import { createSubmissionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { ChatComposerController } from "../../../../../src/features/chat/chat-composer-controller";
 import type { SlashCommandController } from "../../../../../src/features/chat/controllers/submission/slash-command-controller";
 import type { TurnSubmissionController } from "../../../../../src/features/chat/controllers/submission/turn-submission-controller";
@@ -40,7 +41,7 @@ function createController(draft: string) {
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const execute = vi.fn().mockResolvedValue(undefined);
   const controller = new ComposerSubmissionController({
-    stateStore,
+    state: createSubmissionStatePort(stateStore),
     composer: {
       get trimmedDraft() {
         return draft;

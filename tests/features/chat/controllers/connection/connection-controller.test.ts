@@ -6,6 +6,7 @@ import {
   ChatConnectionController,
   type ChatConnectionAdapter,
 } from "../../../../../src/features/chat/controllers/connection/connection-controller";
+import { createConnectionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { ChatConnectionWorkTracker } from "../../../../../src/features/chat/view-lifecycle";
 import type { ChatAppServerController } from "../../../../../src/features/chat/chat-app-server-controller";
 
@@ -33,7 +34,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
     currentClient = next;
   });
   const host = {
-    stateStore,
+    state: createConnectionStatePort(stateStore),
     connection,
     connectionWork: new ChatConnectionWorkTracker(),
     appServer,

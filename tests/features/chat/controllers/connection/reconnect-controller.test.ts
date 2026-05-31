@@ -5,13 +5,30 @@ import {
   ChatReconnectController,
   type ChatReconnectControllerHost,
 } from "../../../../../src/features/chat/controllers/connection/reconnect-controller";
+import {
+  createConnectionStatePort,
+  createPanelUiStatePort,
+  createThreadLifecycleStatePort,
+} from "../../../../../src/features/chat/controllers/state-ports";
 
 function createHost(overrides: Partial<ChatReconnectControllerHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
+  stateStore.dispatch({
+    type: "thread/resumed",
+    thread: { id: "thread" } as never,
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalPolicy: null,
+    approvalsReviewer: null,
+    activePermissionProfile: null,
+  });
   const host: ChatReconnectControllerHost = {
-    stateStore,
-    activeThreadId: () => "thread",
+    connectionState: createConnectionStatePort(stateStore),
+    panelState: createPanelUiStatePort(stateStore),
+    threadState: createThreadLifecycleStatePort(stateStore),
     invalidateConnectionWork: vi.fn(),
     invalidateResumeWork: vi.fn(),
     clearDeferredDiagnostics: vi.fn(),

@@ -1,12 +1,12 @@
 import type { AppServerClient } from "../../../../app-server/client";
 import { parseSlashCommand } from "../../composer/suggestions";
-import { activeTurnId, chatTurnBusy, type ChatStateStore } from "../../chat-state";
 import type { ChatComposerController } from "../../chat-composer-controller";
 import type { SlashCommandController } from "./slash-command-controller";
 import type { TurnSubmissionController } from "./turn-submission-controller";
+import type { SubmissionStatePort } from "../state-ports";
 
 export interface ComposerSubmissionControllerHost {
-  stateStore: ChatStateStore;
+  state: SubmissionStatePort;
   composer: ChatComposerController;
   slashCommands: SlashCommandController;
   turnSubmission: TurnSubmissionController;
@@ -21,8 +21,8 @@ export class ComposerSubmissionController {
 
   async submit(): Promise<void> {
     const draft = this.host.composer.trimmedDraft;
-    const state = this.host.stateStore.getState();
-    if (chatTurnBusy(state) && state.activeThreadId && activeTurnId(state) && draft.length === 0) {
+    const state = this.host.state.snapshot();
+    if (state.busy && state.activeThreadId && state.activeTurnId && draft.length === 0) {
       await this.interruptTurn();
       return;
     }
@@ -50,8 +50,8 @@ export class ComposerSubmissionController {
   }
 
   private async interruptTurn(): Promise<void> {
-    const state = this.host.stateStore.getState();
-    const turnId = activeTurnId(state);
+    const state = this.host.state.snapshot();
+    const turnId = state.activeTurnId;
     const client = this.host.currentClient();
     if (!client || !state.activeThreadId || !turnId) return;
     try {
