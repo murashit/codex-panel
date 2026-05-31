@@ -21,6 +21,12 @@ function prefixedOutput(script, text) {
     .join("\n");
 }
 
+function flushOutput(script, output) {
+  const text = Buffer.concat(output).toString();
+  if (!text.trim()) return;
+  process.stdout.write(`${prefixedOutput(script, text)}\n`);
+}
+
 function runScript(script) {
   const startedAt = process.hrtime.bigint();
   console.log(`[${script.padEnd(longestNameLength)}] started`);
@@ -43,16 +49,17 @@ function runScript(script) {
 
     child.on("close", (code, signal) => {
       running.delete(child);
+      flushOutput(script, output);
       const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
       const elapsedSeconds = (elapsedMs / 1000).toFixed(1);
 
       if (code === 0) {
         console.log(`[${script.padEnd(longestNameLength)}] passed in ${elapsedSeconds}s`);
-        resolve({ script, status: 0, output: Buffer.concat(output).toString() });
+        resolve({ script, status: 0 });
       } else {
         const detail = signal ? `signal ${signal}` : `exit ${code ?? 1}`;
         console.error(`[${script.padEnd(longestNameLength)}] failed with ${detail} after ${elapsedSeconds}s`);
-        resolve({ script, status: code ?? 1, output: Buffer.concat(output).toString() });
+        resolve({ script, status: code ?? 1 });
       }
     });
   });
@@ -76,12 +83,6 @@ const results = await Promise.all(scripts.map(runScript));
 const failed = results.filter((result) => result.status !== 0);
 
 if (failed.length > 0) {
-  for (const result of failed) {
-    if (!result.output.trim()) continue;
-    console.error(`\nOutput from ${result.script}:`);
-    console.error(prefixedOutput(result.script, result.output));
-  }
-
   console.error(`Failed checks: ${failed.map((result) => result.script).join(", ")}`);
   process.exit(1);
 }
