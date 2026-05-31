@@ -66,7 +66,7 @@ export class ChatComposerController {
     registerEvent(this.options.app.vault.on("modify", invalidate));
   }
 
-  render(parent: HTMLElement): void {
+  render(parent: HTMLElement, options: { updateSuggestions?: boolean } = {}): void {
     this.parent = parent;
     const state = this.state;
     const elements = renderComposerShell(
@@ -119,7 +119,7 @@ export class ChatComposerController {
     );
     this.composer = elements.composer;
     syncComposerHeight(this.composer);
-    this.updateSuggestions({ renderOnChange: true });
+    if (options.updateSuggestions !== false) this.updateSuggestions({ renderOnChange: true });
   }
 
   setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean; renderIfDetached?: boolean } = {}): void {
@@ -151,9 +151,9 @@ export class ChatComposerController {
     this.parent = null;
   }
 
-  refreshControls(parent: HTMLElement | null = this.parent): void {
+  refreshControls(parent: HTMLElement | null = this.parent, options: { updateSuggestions?: boolean } = {}): void {
     if (!parent) return;
-    this.render(parent);
+    this.render(parent, options);
   }
 
   codexInput(text: string): UserInput[] {
@@ -257,7 +257,7 @@ export class ChatComposerController {
 
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
     this.options.onDraftChange();
-    this.refreshControls();
+    this.refreshControls(this.parent, { updateSuggestions: false });
     syncComposerHeight(this.composer);
     this.composer.focus();
     this.composer.setSelectionRange(insertion.cursor, insertion.cursor);

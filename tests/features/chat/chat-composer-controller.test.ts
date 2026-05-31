@@ -1,0 +1,83 @@
+// @vitest-environment jsdom
+
+import type { App } from "obsidian";
+import { describe, expect, it, vi } from "vitest";
+
+import { ChatComposerController } from "../../../src/features/chat/chat-composer-controller";
+import { createChatStateStore } from "../../../src/features/chat/chat-state";
+import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
+import { installObsidianDomShims } from "../../support/dom";
+
+installObsidianDomShims();
+
+describe("ChatComposerController", () => {
+  it("keeps suggestions closed after inserting at a cursor before later trigger text", () => {
+    const stateStore = createChatStateStore();
+    stateStore.dispatch({ type: "thread/list-applied", availableSkills: [skill("obsidian-search")] });
+    stateStore.dispatch({ type: "composer/draft-set", draft: "/pla then $ob" });
+    const parent = document.createElement("div");
+    const controller = new ChatComposerController({
+      app: app(),
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      canInterrupt: () => false,
+      composerPlaceholder: () => "Ask Codex to work on this task...",
+      currentModelForSuggestions: () => null,
+      renderIfDetached: vi.fn(),
+      onDraftChange: vi.fn(),
+      onComposerResize: vi.fn(),
+      onSubmit: vi.fn(),
+      onNewThread: vi.fn(),
+      onThreadScrollFromComposer: vi.fn(),
+    });
+
+    controller.render(parent);
+    composer(parent).setSelectionRange(4, 4);
+    composer(parent).dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "a" }));
+
+    const planSuggestion = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__composer-suggestion"));
+    expect(planSuggestion.textContent).toContain("/plan");
+
+    planSuggestion.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+    expect(composer(parent).value).toBe("/plan then $ob");
+    expect(composer(parent).selectionStart).toBe("/plan".length);
+    expect(stateStore.getState().composerSuggestions).toEqual([]);
+    expect(composer(parent).getAttribute("aria-expanded")).toBe("false");
+    expect(composer(parent).hasAttribute("aria-activedescendant")).toBe(false);
+  });
+});
+
+function app(): App {
+  return {
+    workspace: {
+      getActiveFile: () => null,
+      getLastOpenFiles: () => [],
+    },
+    vault: {
+      getFiles: () => [],
+    },
+  } as unknown as App;
+}
+
+function skill(name: string): SkillMetadata {
+  return {
+    name,
+    description: `${name} description`,
+    path: `/vault/skills/${name}/SKILL.md`,
+    scope: "repo",
+    enabled: true,
+  };
+}
+
+function composer(parent: HTMLElement): HTMLTextAreaElement {
+  return expectPresent(parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input"));
+}
+
+function expectPresent<T>(value: T | null | undefined): T {
+  expect(value).not.toBeNull();
+  expect(value).not.toBeUndefined();
+  return value as T;
+}
