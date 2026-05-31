@@ -1,9 +1,14 @@
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
+import type { ButtonHTMLAttributes, TargetedKeyboardEvent } from "preact";
+import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
 
 import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/view";
 import { IconButton, ObsidianIcon } from "../../../shared/ui/react-components";
 import { renderReactRoot } from "../../../shared/ui/react-root";
 import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../toolbar-model";
+
+type ButtonProps = ButtonHTMLAttributes & {
+  disabled?: boolean | undefined;
+};
 
 export interface ToolbarActions {
   toggleHistory: () => void;
@@ -66,7 +71,7 @@ function ToolbarIconButton({
   icon: string;
   label: string;
   className?: string;
-} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "type">): ReactNode {
+} & Omit<ButtonProps, "className" | "type">): ReactNode {
   return (
     <IconButton
       {...props}
@@ -444,7 +449,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  if (!event.nativeEvent.isComposing && !generating) actions.saveRenameThread(thread.threadId, event.currentTarget.value);
+                  if (!event.isComposing && !generating) actions.saveRenameThread(thread.threadId, event.currentTarget.value);
                   return;
                 }
                 if (event.key === "Escape") {
@@ -498,7 +503,7 @@ function ToolbarPanelItem({
   renderContent?: () => ReactNode;
   onClick?: () => void;
 }): ReactNode {
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+  const onKeyDown = (event: TargetedKeyboardEvent<HTMLElement>) => {
     if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
     onClick?.();

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { act } from "react";
+import { act } from "preact/test-utils";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
@@ -395,7 +395,7 @@ describe("work log renderer decisions", () => {
     expect(group.querySelector(".codex-panel__agent-activity .codex-panel__tool-summary")?.textContent).toBe("spawn child (completed)");
 
     const details = expectPresent(group.querySelector<HTMLDetailsElement>(".codex-panel__activity-group"));
-    act(() => {
+    void act(() => {
       details.open = false;
       details.dispatchEvent(new Event("toggle", { bubbles: false }));
     });
@@ -724,7 +724,7 @@ describe("work log renderer decisions", () => {
     expect([...block.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details"]);
 
     const details = expectPresent(block.querySelector<HTMLDetailsElement>("details"));
-    act(() => {
+    void act(() => {
       details.open = true;
       details.dispatchEvent(new Event("toggle", { bubbles: false }));
     });

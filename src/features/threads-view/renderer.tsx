@@ -1,8 +1,13 @@
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
+import type { ButtonHTMLAttributes, TargetedKeyboardEvent } from "preact";
+import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
 
 import { IconButton } from "../../shared/ui/react-components";
 import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";
 import type { ThreadsRowModel } from "./state";
+
+type ButtonProps = ButtonHTMLAttributes & {
+  disabled?: boolean | undefined;
+};
 
 export interface ThreadsViewModel {
   status: string | null;
@@ -82,7 +87,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
     if (row.rename.active || archiveConfirm.active) return;
     actions.openThread(row.thread.id);
   };
-  const openFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+  const openFromKeyboard = (event: TargetedKeyboardEvent<HTMLDivElement>) => {
     if (row.rename.active || archiveConfirm.active) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
@@ -204,7 +209,7 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                if (!event.nativeEvent.isComposing && !row.rename.generating) actions.saveRename(row.thread.id, event.currentTarget.value);
+                if (!event.isComposing && !row.rename.generating) actions.saveRename(row.thread.id, event.currentTarget.value);
                 return;
               }
               if (event.key === "Escape") {
@@ -247,7 +252,7 @@ function ThreadsIconButton({
   icon: string;
   label: string;
   className: string;
-} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "type">): ReactNode {
+} & Omit<ButtonProps, "className" | "type">): ReactNode {
   return (
     <IconButton
       {...props}

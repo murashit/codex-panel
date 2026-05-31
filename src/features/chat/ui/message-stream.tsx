@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, forwardRef, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "preact/compat";
 
 import { displayBlocksForItems } from "../display/blocks";
 import { executionState } from "../display/state";

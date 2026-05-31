@@ -1,6 +1,8 @@
-import type { ReactNode } from "react";
-import { flushSync } from "react-dom";
-import { createRoot, type Root } from "react-dom/client";
+import type { ReactNode } from "preact/compat";
+import { flushSync } from "preact/compat";
+import { createRoot } from "preact/compat/client";
+
+type Root = ReturnType<typeof createRoot>;
 
 const roots = new WeakMap<HTMLElement, Root>();
 const guardedContainers = new WeakSet<HTMLElement>();

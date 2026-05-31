@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "preact/compat";
 
 import { activeAgentRunSummary } from "../display/agent";
 import { executionState } from "../display/state";

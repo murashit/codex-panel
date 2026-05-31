@@ -105,6 +105,9 @@ export class MessageScrollController {
 
     this.observeMessageBlocks(container);
     this.cancelRenderFrame();
+    if (plan.shouldScrollToBottom && this.options.messagesPinnedToBottom()) {
+      this.pinToBottom(container);
+    }
     this.renderFrame = container.win.requestAnimationFrame(() => {
       this.renderFrame = null;
       if (plan.generation !== this.renderGeneration) return;

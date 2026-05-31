@@ -1,5 +1,6 @@
 import { vi } from "vitest";
-import { act, type ReactNode } from "react";
+import type { ReactNode } from "preact/compat";
+import { act } from "preact/test-utils";
 
 import type { PendingApproval } from "../../../../../src/features/chat/approvals/model";
 import type { PendingUserInput } from "../../../../../src/features/chat/user-input/model";
@@ -50,23 +51,23 @@ export function renderMessageBlockElement(block: ReturnType<typeof rawMessageStr
 }
 
 export function actEvent(action: () => void): void {
-  act(action);
+  void act(action);
 }
 
 export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: MessageStreamBlock[]): void {
-  act(() => {
+  void act(() => {
     renderMessageStreamBlocks(parent, blocks);
   });
 }
 
 export function renderReactRootInAct(parent: HTMLElement, node: ReactNode): void {
-  act(() => {
+  void act(() => {
     renderReactRoot(parent, node);
   });
 }
 
 export function unmountReactRootInAct(parent: HTMLElement): void {
-  act(() => {
+  void act(() => {
     unmountReactRoot(parent);
   });
 }

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
 
 import { renderDisplayDiffLines } from "../../../shared/diff/render";
 import { displayDiffLines } from "../../../shared/diff/unified";

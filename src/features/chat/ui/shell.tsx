@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "preact/compat";
 
 import { renderReactRoot, unmountReactRoot } from "../../../shared/ui/react-root";
 import type { ChatState, ChatStateStore } from "../chat-state";
@@ -19,8 +19,11 @@ interface ChatPanelShellSlots {
   composer?: HTMLElement;
 }
 
+const shellSlotsByContainer = new WeakMap<HTMLElement, ChatPanelShellSlots>();
+
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
-  const mountedSlots: ChatPanelShellSlots = {};
+  const mountedSlots = shellSlotsByContainer.get(container) ?? {};
+  shellSlotsByContainer.set(container, mountedSlots);
   container.addClass("codex-panel");
   renderReactRoot(
     container,
@@ -36,6 +39,7 @@ export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShe
 
 export function unmountChatPanelShell(container: HTMLElement | null): void {
   if (!container) return;
+  shellSlotsByContainer.delete(container);
   unmountReactRoot(container);
 }
 
@@ -50,6 +54,7 @@ function ChatPanelShell({
   return (
     <>
       <ChatPanelSlot
+        key="toolbar"
         name="toolbar"
         className="codex-panel__toolbar"
         stateStore={stateStore}
@@ -57,9 +62,10 @@ function ChatPanelShell({
         slot={toolbar}
         onSlotReady={onSlotReady}
       />
-      <div className="codex-panel__body">
-        <div className="codex-panel__slot codex-panel__slot--config" />
+      <div key="body" className="codex-panel__body">
+        <div key="config" className="codex-panel__slot codex-panel__slot--config" />
         <ChatPanelSlot
+          key="messages"
           name="messages"
           className="codex-panel__slot codex-panel__slot--messages"
           renderTargetClassName="codex-panel__messages"
@@ -69,6 +75,7 @@ function ChatPanelShell({
           onSlotReady={onSlotReady}
         />
         <ChatPanelSlot
+          key="composer"
           name="composer"
           className="codex-panel__slot codex-panel__slot--composer"
           stateStore={stateStore}
@@ -106,7 +113,6 @@ function ChatPanelSlot({
   const snapshot = useSyncExternalStore(
     (listener) => stateStore.subscribe(listener),
     () => slot.snapshot(stateStore.getState()),
-    () => slot.snapshot(stateStore.getState()),
   );
   const ref = useRef<HTMLDivElement | null>(null);
   const renderGeneration = useRef(0);
@@ -126,7 +132,15 @@ function ChatPanelSlot({
   }, [name, onSlotReady, renderKey, renderTargetClassName, slot]);
 
   return (
-    <div ref={ref} className={className}>
+    <div
+      ref={(element) => {
+        ref.current = element;
+        if (!element) return;
+        const renderTarget = renderTargetClassName ? element.querySelector<HTMLElement>(`:scope > .${renderTargetClassName}`) : element;
+        if (renderTarget) onSlotReady(name, renderTarget);
+      }}
+      className={className}
+    >
       {renderTargetClassName ? <div className={renderTargetClassName} /> : null}
     </div>
   );

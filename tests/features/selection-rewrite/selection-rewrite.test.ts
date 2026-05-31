@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
@@ -243,7 +243,7 @@ describe("selection rewrite popover", () => {
     const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
     expect(generate.disabled).toBe(true);
 
-    act(() => {
+    void act(() => {
       setTextareaValue(instruction, "Make it concise.");
       instruction.dispatchEvent(new Event("input", { bubbles: true }));
     });
@@ -266,7 +266,7 @@ describe("selection rewrite popover", () => {
 
     openPopover(popover);
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
-    act(() => {
+    void act(() => {
       setTextareaValue(instruction, "Make it concise.");
       instruction.dispatchEvent(new Event("input", { bubbles: true }));
     });
@@ -414,13 +414,13 @@ function rewriteState(overrides: Partial<SelectionRewriteState> = {}): Selection
 }
 
 function openPopover(popover: SelectionRewritePopover): void {
-  act(() => {
+  void act(() => {
     popover.open();
   });
 }
 
 function closePopover(popover: SelectionRewritePopover): void {
-  act(() => {
+  void act(() => {
     popover.close();
   });
 }

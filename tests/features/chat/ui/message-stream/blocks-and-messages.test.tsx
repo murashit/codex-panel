@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { act, createElement } from "react";
+import { createElement } from "preact/compat";
+import { act } from "preact/test-utils";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 import { implementPlanCandidateFromState } from "../../../../../src/features/chat/chat-message-renderer";
@@ -297,7 +298,7 @@ describe("message stream block identity and message actions", () => {
     expect(renderTextWithWikiLinks).toHaveBeenCalledWith(expect.any(HTMLElement), "npm test");
 
     const details = expectPresent(result.querySelector<HTMLDetailsElement>("details"));
-    act(() => {
+    void act(() => {
       details.open = true;
       details.dispatchEvent(new Event("toggle", { bubbles: false }));
     });
@@ -890,7 +891,7 @@ describe("message stream block identity and message actions", () => {
       expect(details?.querySelector("summary")?.textContent).toBe("Show more");
 
       if (details) {
-        act(() => {
+        void act(() => {
           details.open = true;
           details.dispatchEvent(new Event("toggle"));
         });

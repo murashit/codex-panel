@@ -70,6 +70,7 @@ export class ThreadResumeController {
     this.host.clearDeferredRestoredThreadHydration();
     this.host.resetThreadTurnPresence(false);
     this.host.notifyActiveThreadIdentityChanged();
+    this.host.forceMessagesToBottom();
     this.host.render();
     this.host.refreshLiveState();
   }

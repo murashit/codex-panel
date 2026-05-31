@@ -12,6 +12,7 @@ await esbuild.build({
   platform: "node",
   target: "es2022",
   jsx: "automatic",
+  jsxImportSource: "preact",
   outfile: "main.js",
   sourcemap: false,
   minify: true,

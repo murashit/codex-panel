@@ -429,8 +429,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    const composer = composerElement(view);
-    const focus = vi.spyOn(composer, "focus");
+    const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus").mockImplementation(() => undefined);
 
     await view.openThread("thread-1");
     await view.focusThread("thread-1");
@@ -509,20 +508,17 @@ describe("CodexChatView connection lifecycle", () => {
     const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(messages).not.toBeNull();
     if (!messages) return;
-    Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
-    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
+    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1000, clientHeight: 100 });
     messages.scrollTop = 0;
 
     view.setComposerText("/resume thread-1");
     await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
-    await new Promise<void>((resolve) => {
-      messages.win.requestAnimationFrame(() => {
-        resolve();
-      });
-    });
+    await waitForMessagesFrame(messages);
+    await waitForMessagesFrame(messages);
 
     const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(renderedMessages?.scrollTop).toBe(1000);
+    restoreMessagesLayout();
   });
 
   it("routes slash archive through shared panel notifications", async () => {
@@ -650,19 +646,16 @@ describe("CodexChatView connection lifecycle", () => {
     const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(messages).not.toBeNull();
     if (!messages) return;
-    Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
-    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
+    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1000, clientHeight: 100 });
     messages.scrollTop = 0;
 
     await view.openThread("thread-1");
-    await new Promise<void>((resolve) => {
-      messages.win.requestAnimationFrame(() => {
-        resolve();
-      });
-    });
+    await waitForMessagesFrame(messages);
+    await waitForMessagesFrame(messages);
 
     const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(renderedMessages?.scrollTop).toBe(1000);
+    restoreMessagesLayout();
   });
 
   it("renders resumed thread metadata before history hydration completes", async () => {
@@ -931,6 +924,43 @@ function composerElement(view: { containerEl: HTMLElement }): HTMLTextAreaElemen
 
 function composerPlaceholder(view: { containerEl: HTMLElement }): string | null {
   return composerElement(view).getAttribute("placeholder");
+}
+
+function waitForMessagesFrame(messages: HTMLElement): Promise<void> {
+  return new Promise((resolve) => {
+    messages.win.requestAnimationFrame(() => {
+      resolve();
+    });
+  });
+}
+
+function mockMessagesLayout(metrics: { scrollHeight: number; clientHeight: number }): () => void {
+  const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
+  const clientHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
+  Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+    configurable: true,
+    get() {
+      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.scrollHeight : 0;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+    configurable: true,
+    get() {
+      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientHeight : 0;
+    },
+  });
+  return () => {
+    restorePrototypeProperty(HTMLElement.prototype, "scrollHeight", scrollHeightDescriptor);
+    restorePrototypeProperty(HTMLElement.prototype, "clientHeight", clientHeightDescriptor);
+  };
+}
+
+function restorePrototypeProperty<T extends object>(target: T, property: keyof T, descriptor: PropertyDescriptor | undefined): void {
+  if (descriptor) {
+    Object.defineProperty(target, property, descriptor);
+  } else {
+    Reflect.deleteProperty(target, property);
+  }
 }
 
 function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {

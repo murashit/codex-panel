@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { act } from "react";
+import { act } from "preact/test-utils";
 
 import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";

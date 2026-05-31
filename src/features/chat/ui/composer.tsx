@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import type { ButtonHTMLAttributes } from "preact";
+import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
 
 import type { ComposerSuggestion } from "../composer/suggestions";
 import { IconButton } from "../../../shared/ui/react-components";
@@ -20,6 +21,10 @@ export interface ComposerCallbacks {
   onSuggestionHover: (index: number) => void;
   onSuggestionInsert: (suggestion: ComposerSuggestion) => void;
 }
+
+type ButtonProps = ButtonHTMLAttributes & {
+  disabled?: boolean | undefined;
+};
 
 export function renderComposerShell(
   parent: HTMLElement,
@@ -102,7 +107,7 @@ function ComposerShell({
         onClick={callbacks.onUpdateSuggestions}
         onSelect={callbacks.onUpdateSuggestions}
         onKeyDown={(event) => {
-          callbacks.onKeydown(event.nativeEvent);
+          callbacks.onKeydown(event);
         }}
       />
       <div className="codex-panel-ui__action-stack codex-panel__composer-actions">
@@ -152,7 +157,7 @@ function ComposerIconButton({
   icon: string;
   label: string;
   className: string;
-} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "type">): ReactNode {
+} & Omit<ButtonProps, "className" | "type">): ReactNode {
   return (
     <IconButton
       {...props}
@@ -237,7 +242,7 @@ function ComposerSuggestions({
         return (
           <div
             key={optionId}
-            ref={selected ? selectedRef : undefined}
+            ref={selected ? selectedRef : null}
             className={`suggestion-item codex-panel__composer-suggestion ${selected ? "is-selected" : ""}`}
             id={optionId}
             role="option"

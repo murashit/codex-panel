@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "preact/compat";
 
 import {
   approvalActionOptions,
@@ -312,6 +312,9 @@ function OtherUserInputOption({
         name={groupName}
         value="__other__"
         checked={otherSelected}
+        onClick={(event) => {
+          if (event.currentTarget.checked) selectOther();
+        }}
         onChange={(event) => {
           if (event.currentTarget.checked) selectOther();
         }}
@@ -335,7 +338,7 @@ function OtherUserInputOption({
         }}
         onChange={(event) => {
           setInputValue(event.currentTarget.value);
-          const nativeEvent = event.nativeEvent as Event & { isComposing?: boolean };
+          const nativeEvent = event as Event & { isComposing?: boolean };
           if (nativeEvent.isComposing !== true && !composingRef.current) commitOtherValue(event.currentTarget.value);
         }}
       />

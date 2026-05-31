@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian";
-import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type MutableRefObject, type ReactNode, type Ref } from "react";
+import type { ButtonHTMLAttributes } from "preact";
+import { useLayoutEffect, useRef, type MutableRefObject, type ReactNode, type Ref } from "preact/compat";
 
 export interface ObsidianIconProps {
   icon: string;
@@ -17,10 +18,12 @@ export function ObsidianIcon({ icon, className }: ObsidianIconProps): ReactNode 
   return <span ref={ref} className={className} aria-hidden="true" />;
 }
 
-export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface IconButtonProps extends ButtonHTMLAttributes {
   icon: string;
   label: string;
   buttonRef?: Ref<HTMLButtonElement>;
+  disabled?: boolean | undefined;
+  type?: "button" | "submit" | "reset" | undefined;
 }
 
 export function IconButton({ icon, label, buttonRef, className, children, ...props }: IconButtonProps): ReactNode {

@@ -1,5 +1,6 @@
 import { Notice, type Editor } from "obsidian";
-import { useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import type { TargetedKeyboardEvent } from "preact";
+import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
 
 import { renderDisplayDiffLines } from "../../shared/diff/render";
 import { displayDiffLines } from "../../shared/diff/unified";
@@ -16,6 +17,7 @@ import {
   type SelectionRewriteRuntimeSettings,
   type SelectionRewriteState,
 } from "./model";
+
 import { SelectionRewriteOutputError } from "./output";
 import { positionSelectionRewritePopover } from "./position";
 import { buildSelectionRewritePrompt } from "./prompt";
@@ -285,11 +287,7 @@ export class SelectionRewritePopover {
         }}
         onInstructionKeyDown={(event) => {
           const hasReplacement = this.options.state.replacementText !== null;
-          if (
-            !(hasReplacement
-              ? isSelectionRewriteActionKey(event.nativeEvent)
-              : isComposerSendKey(event.nativeEvent, this.options.sendShortcut))
-          ) {
+          if (!(hasReplacement ? isSelectionRewriteActionKey(event) : isComposerSendKey(event, this.options.sendShortcut))) {
             return;
           }
           event.preventDefault();
@@ -297,7 +295,7 @@ export class SelectionRewritePopover {
           void this.generate();
         }}
         onApplyKeyDown={(event) => {
-          if (!isSelectionRewriteActionKey(event.nativeEvent)) return;
+          if (!isSelectionRewriteActionKey(event)) return;
           event.preventDefault();
           this.apply();
         }}
@@ -342,11 +340,11 @@ interface SelectionRewritePopoverViewProps {
   instruction: string;
   instructionRef: (element: HTMLTextAreaElement | null) => void;
   onApply: () => void;
-  onApplyKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  onApplyKeyDown: (event: TargetedKeyboardEvent<HTMLButtonElement>) => void;
   onCancel: () => void;
   onGenerate: () => void;
   onInstructionInput: (value: string) => void;
-  onInstructionKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  onInstructionKeyDown: (event: TargetedKeyboardEvent<HTMLTextAreaElement>) => void;
   status: SelectionRewritePopoverStatusState;
   streamPreview: string;
 }
