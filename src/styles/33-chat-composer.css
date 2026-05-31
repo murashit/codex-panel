@@ -42,6 +42,10 @@
   box-shadow: var(--shadow-s);
 }
 
+.codex-panel__composer-suggestions[hidden] {
+  display: none;
+}
+
 .codex-panel__composer-suggestion.suggestion-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
