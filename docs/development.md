@@ -26,7 +26,7 @@ The source tree is organized by responsibility rather than by the original singl
 - `src/shared/` contains feature-neutral helpers, including reusable DOM pieces and unified diff display helpers shared by chat and selection rewrite.
 - `src/settings/` contains Obsidian settings models, settings-tab rendering, and app-server-backed dynamic settings data.
 - `src/domain/threads/` contains thread title, reference, and archive export helpers shared outside the chat feature.
-- `src/styles/` contains the authored CSS modules and `manifest.json` concatenation order. `scripts/build-styles.mjs` concatenates them into the ignored root `styles.css`, which remains the Obsidian release asset.
+- `src/styles/` contains the authored CSS modules and `order.json` concatenation order. `scripts/build-styles.mjs` concatenates them into the ignored root `styles.css`, which remains the Obsidian release asset.
 
 Keep new code near the state or API it owns. Feature code should not import from another feature directly; move shared behavior to `src/shared/`, `src/domain/`, `src/app-server/`, or `src/runtime/` when more than one feature needs it.
 

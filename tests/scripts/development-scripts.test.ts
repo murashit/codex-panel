@@ -26,17 +26,17 @@ describe("development scripts", () => {
     expect(result.status).toBe(7);
   });
 
-  it("fails style builds when CSS files are missing from the style manifest", async () => {
+  it("fails style builds when CSS files are missing from the style order file", async () => {
     const cwd = await tempWorkspace();
     await mkdir(path.join(cwd, "src", "styles"), { recursive: true });
-    await writeJson(path.join(cwd, "src", "styles", "manifest.json"), ["00-tokens.css"]);
+    await writeJson(path.join(cwd, "src", "styles", "order.json"), ["00-tokens.css"]);
     await writeFile(path.join(cwd, "src", "styles", "00-tokens.css"), ".codex-panel { color: var(--text-normal); }\n");
     await writeFile(path.join(cwd, "src", "styles", "10-unlisted.css"), ".codex-panel__extra { display: block; }\n");
 
     const result = runNodeScript("scripts/build-styles.mjs", ["--check"], cwd);
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("CSS files missing from src/styles/manifest.json: 10-unlisted.css");
+    expect(result.stderr).toContain("CSS files missing from src/styles/order.json: 10-unlisted.css");
   });
 
   it("passes the expected codex generate-ts arguments", async () => {

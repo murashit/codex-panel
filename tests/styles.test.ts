@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sourceDir = path.join("src", "styles");
-const sourceFiles = JSON.parse(readFileSync(path.join(sourceDir, "manifest.json"), "utf8")) as string[];
+const sourceFiles = JSON.parse(readFileSync(path.join(sourceDir, "order.json"), "utf8")) as string[];
 const styles = `${sourceFiles.map((file) => readFileSync(path.join(sourceDir, file), "utf8").trimEnd()).join("\n\n")}\n`;
 
 describe("panel CSS token scope", () => {
