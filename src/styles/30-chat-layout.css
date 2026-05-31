@@ -85,10 +85,10 @@
   font-size: var(--font-ui-small);
 }
 
-.codex-panel__approval-details summary:hover,
-.codex-panel__output summary:hover,
-.codex-panel-diff-file summary:hover {
-  color: var(--text-normal);
+.codex-panel__approval-details summary,
+.codex-panel__output summary,
+.codex-panel-diff-file summary {
+  cursor: pointer;
 }
 
 .codex-panel__config-list {

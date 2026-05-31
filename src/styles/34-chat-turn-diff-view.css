@@ -40,6 +40,10 @@
   margin: 0;
 }
 
+.codex-panel-chat-turn-diff__files > summary {
+  cursor: pointer;
+}
+
 .codex-panel-chat-turn-diff__files ul {
   margin-block: var(--codex-panel-control-gap) 0;
 }

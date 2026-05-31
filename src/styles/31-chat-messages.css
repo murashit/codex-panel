@@ -133,10 +133,6 @@
   font-size: var(--font-ui-small);
 }
 
-.codex-panel__activity-group > summary:hover {
-  color: var(--text-normal);
-}
-
 .codex-panel__activity-group[open] {
   padding-bottom: var(--codex-panel-panel-gap);
 }
@@ -205,10 +201,6 @@
   font-size: var(--font-ui-smaller);
 }
 
-.codex-panel__message-collapse-details > summary:hover {
-  color: var(--text-normal);
-}
-
 .codex-panel__edited-files,
 .codex-panel__referenced-thread,
 .codex-panel__mentioned-files,
@@ -240,6 +232,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--codex-panel-control-gap);
+}
+
+.codex-panel__edited-files-details > summary,
+.codex-panel__mentioned-files-details > summary,
+.codex-panel__auto-reviews > summary {
+  cursor: pointer;
 }
 
 .codex-panel__open-turn-diff {
