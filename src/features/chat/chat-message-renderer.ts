@@ -1,5 +1,5 @@
 import type { App, Component } from "obsidian";
-import type { ReactNode } from "preact/compat";
+import type { ComponentChild as ReactNode } from "preact";
 
 import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";

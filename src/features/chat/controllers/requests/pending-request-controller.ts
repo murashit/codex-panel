@@ -1,4 +1,4 @@
-import type { ReactNode } from "preact/compat";
+import type { ComponentChild as ReactNode } from "preact";
 
 import type { ApprovalAction, PendingApproval } from "../../approvals/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../../chat-state";

@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "preact/compat";
+import type { ComponentChild as ReactNode } from "preact";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import {
   approvalActionOptions,

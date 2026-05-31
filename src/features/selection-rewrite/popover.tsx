@@ -1,6 +1,6 @@
 import { Notice, type Editor } from "obsidian";
-import type { TargetedKeyboardEvent } from "preact";
-import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
+import type { ComponentChild as ReactNode, TargetedKeyboardEvent } from "preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { renderDisplayDiffLines } from "../../shared/diff/render";
 import { displayDiffLines } from "../../shared/diff/unified";

@@ -1,5 +1,5 @@
-import type { ButtonHTMLAttributes, TargetedKeyboardEvent } from "preact";
-import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
+import type { ButtonHTMLAttributes, ComponentChild as ReactNode, TargetedKeyboardEvent } from "preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/view";
 import { IconButton, ObsidianIcon } from "../../../shared/ui/react-components";

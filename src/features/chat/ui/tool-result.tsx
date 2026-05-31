@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "preact/compat";
+import type { ComponentChild as ReactNode } from "preact";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { toolResultView, type ToolResultDetailSection, type ToolResultDisplayItem, type ToolResultView } from "../display/tool-view";
 import { renderRawDiffLines } from "../../../shared/diff/render";

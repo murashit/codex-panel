@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, TargetedKeyboardEvent } from "preact";
-import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
+import type { ComponentChild as ReactNode } from "preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { IconButton } from "../../shared/ui/react-components";
 import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";

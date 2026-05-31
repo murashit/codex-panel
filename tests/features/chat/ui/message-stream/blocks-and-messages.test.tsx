@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { createElement } from "preact/compat";
+import { createElement } from "preact";
 import { act } from "preact/test-utils";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";

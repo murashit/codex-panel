@@ -1,5 +1,5 @@
-import type { ButtonHTMLAttributes, Ref } from "preact";
-import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
+import type { ButtonHTMLAttributes, ComponentChild as ReactNode, Ref } from "preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../composer/suggestions";
 import { IconButton } from "../../../shared/ui/react-components";

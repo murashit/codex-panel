@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { ReactNode } from "preact/compat";
+import type { ComponentChild as ReactNode } from "preact";
 import { act } from "preact/test-utils";
 
 import type { PendingApproval } from "../../../../../src/features/chat/approvals/model";
