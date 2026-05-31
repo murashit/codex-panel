@@ -6,11 +6,10 @@ import type { PendingApproval } from "../../../../../src/features/chat/approvals
 import type { PendingUserInput } from "../../../../../src/features/chat/user-input/model";
 import { pendingRequestMessageNode } from "../../../../../src/features/chat/ui/pending-request-message";
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
-import { renderMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream";
 import { changeInputValue } from "../../../../support/dom";
-import { unmountReactRoot } from "../../../../../src/shared/ui/react-root";
 import "./setup";
 import {
+  actEvent,
   dispatchComposingInputValue,
   expectPresent,
   idleTurnLifecycle,
@@ -21,8 +20,10 @@ import {
   pendingRequestActions,
   pendingUserInput,
   renderMessageBlockElement,
+  renderMessageStreamBlocksInAct,
   renderPendingRequestNode,
   setNativeInputValue,
+  unmountReactRootInAct,
 } from "./test-helpers";
 
 describe("pending request renderer decisions", () => {
@@ -55,7 +56,9 @@ describe("pending request renderer decisions", () => {
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-radio")?.checked).toBe(true);
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-radio")?.type).toBe("radio");
     expect(parent.querySelector(".codex-panel__user-input-marker")).toBeNull();
-    parent.querySelector<HTMLButtonElement>(".mod-cta")?.click();
+    actEvent(() => {
+      parent.querySelector<HTMLButtonElement>(".mod-cta")?.click();
+    });
     expect(resolveUserInput).toHaveBeenCalledWith(input);
   });
 
@@ -75,7 +78,9 @@ describe("pending request renderer decisions", () => {
     };
 
     render();
-    changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
+    actEvent(() => {
+      changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
+    });
 
     expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope:other", "Custom scope");
     expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "Custom scope");
@@ -104,7 +109,9 @@ describe("pending request renderer decisions", () => {
     const radios = [...parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio")];
     expect(radios.map((radio) => radio.checked)).toEqual([true, false]);
 
-    expectPresent(radios.at(1)).click();
+    actEvent(() => {
+      expectPresent(radios.at(1)).click();
+    });
 
     expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "");
 
@@ -132,7 +139,9 @@ describe("pending request renderer decisions", () => {
 
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(-1);
 
-    expectPresent(parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio").item(1)).click();
+    actEvent(() => {
+      expectPresent(parent.querySelectorAll<HTMLInputElement>(".codex-panel__user-input-radio").item(1)).click();
+    });
     render();
 
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.tabIndex).toBe(0);
@@ -153,15 +162,19 @@ describe("pending request renderer decisions", () => {
     renderPendingRequestNode(parent, [], [input], { values: drafts, draftKey, otherDraftKey }, new Set(), actions);
     const otherInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text"));
 
-    otherInput.dispatchEvent(new Event("compositionstart", { bubbles: true }));
-    dispatchComposingInputValue(otherInput, "にほん");
+    actEvent(() => {
+      otherInput.dispatchEvent(new Event("compositionstart", { bubbles: true }));
+      dispatchComposingInputValue(otherInput, "にほん");
+    });
 
     expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "");
     expect(actions.setUserInputDraft).not.toHaveBeenCalledWith("99:scope:other", "にほん");
     expect(actions.setUserInputDraft).not.toHaveBeenCalledWith("99:scope", "にほん");
 
     setNativeInputValue(otherInput, "日本");
-    otherInput.dispatchEvent(new Event("compositionend", { bubbles: true }));
+    actEvent(() => {
+      otherInput.dispatchEvent(new Event("compositionend", { bubbles: true }));
+    });
 
     expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope:other", "日本");
     expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "日本");
@@ -225,7 +238,7 @@ describe("pending request renderer decisions", () => {
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-text"));
     } finally {
-      unmountReactRoot(parent);
+      unmountReactRootInAct(parent);
       parent.remove();
     }
   });
@@ -253,7 +266,7 @@ describe("pending request renderer decisions", () => {
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-radio:checked"));
       expect(document.activeElement).not.toBe(parent.querySelector(".codex-panel__user-input-other-text"));
     } finally {
-      unmountReactRoot(parent);
+      unmountReactRootInAct(parent);
       parent.remove();
     }
   });
@@ -279,7 +292,7 @@ describe("pending request renderer decisions", () => {
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__pending-request-button.mod-cta"));
     } finally {
-      unmountReactRoot(parent);
+      unmountReactRootInAct(parent);
       parent.remove();
     }
   });
@@ -326,7 +339,9 @@ describe("pending request renderer decisions", () => {
     expect(buttons.map((button) => button.textContent)).toEqual(["Allow network rule", "Deny"]);
     const allowButton = buttons.at(0);
     if (!allowButton) throw new Error("Missing allow button");
-    allowButton.click();
+    actEvent(() => {
+      allowButton.click();
+    });
     expect(resolveApproval).toHaveBeenCalledWith(approval, {
       kind: "command-decision",
       decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },
@@ -463,7 +478,7 @@ describe("pending request renderer decisions", () => {
     const approval = pendingApproval();
     const resolveApproval = vi.fn();
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -491,10 +506,12 @@ describe("pending request renderer decisions", () => {
       }),
     );
 
-    parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button")?.click();
+    actEvent(() => {
+      parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button")?.click();
+    });
 
     expect(resolveApproval).toHaveBeenCalledWith(approval, "accept");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("removes pending request blocks when the signature clears", () => {
@@ -511,7 +528,7 @@ describe("pending request renderer decisions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         ...baseContext,
@@ -521,10 +538,10 @@ describe("pending request renderer decisions", () => {
     );
     expect(parent.querySelector('[data-codex-panel-block-key="pending-requests"]')).not.toBeNull();
 
-    renderMessageStreamBlocks(parent, messageStreamBlocks(baseContext));
+    renderMessageStreamBlocksInAct(parent, messageStreamBlocks(baseContext));
 
     expect(parent.querySelector('[data-codex-panel-block-key="pending-requests"]')).toBeNull();
     expect(parent.querySelector('[data-codex-panel-block-key="item:a1"]')).not.toBeNull();
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 });

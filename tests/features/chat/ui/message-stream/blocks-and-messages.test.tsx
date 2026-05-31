@@ -5,49 +5,50 @@ import { act, createElement } from "react";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 import { implementPlanCandidateFromState } from "../../../../../src/features/chat/chat-message-renderer";
-import { renderMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
-import { renderReactRoot, unmountReactRoot } from "../../../../../src/shared/ui/react-root";
 import "./setup";
 import {
   expectPresent,
   idleTurnLifecycle,
   messageStreamBlocks,
   renderMessageBlockElement,
+  renderMessageStreamBlocksInAct,
+  renderReactRootInAct,
   runningTurnLifecycle,
   startingTurnLifecycle,
   testMessageStreamBlock,
+  unmountReactRootInAct,
   withMessageContentScrollHeight,
 } from "./test-helpers";
 
 describe("message stream block identity and message actions", () => {
   it("reuses keyed React message block hosts across rerenders", () => {
     const parent = document.createElement("div");
-    renderMessageStreamBlocks(parent, [testMessageStreamBlock("one", createElement("section", null, "first"))]);
+    renderMessageStreamBlocksInAct(parent, [testMessageStreamBlock("one", createElement("section", null, "first"))]);
 
     const host = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="one"]'));
     expect(host.classList.contains("codex-panel__message-block")).toBe(true);
     expect(host.firstElementChild?.tagName).toBe("SECTION");
     expect(host.textContent).toBe("first");
 
-    renderMessageStreamBlocks(parent, [testMessageStreamBlock("one", createElement("section", null, "still first"))]);
+    renderMessageStreamBlocksInAct(parent, [testMessageStreamBlock("one", createElement("section", null, "still first"))]);
 
     expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
     expect(host.firstElementChild?.tagName).toBe("SECTION");
     expect(host.textContent).toBe("still first");
 
-    renderMessageStreamBlocks(parent, [testMessageStreamBlock("one", createElement("article", null, "replacement"))]);
+    renderMessageStreamBlocksInAct(parent, [testMessageStreamBlock("one", createElement("article", null, "replacement"))]);
 
     expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
     expect(host.firstElementChild?.tagName).toBe("ARTICLE");
-    renderMessageStreamBlocks(parent, []);
+    renderMessageStreamBlocksInAct(parent, []);
     expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBeNull();
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("leaves stable ordered React message block hosts in place during repeated renders", () => {
     const parent = document.createElement("div");
-    renderMessageStreamBlocks(parent, [
+    renderMessageStreamBlocksInAct(parent, [
       testMessageStreamBlock("one", createElement("section", null, "one")),
       testMessageStreamBlock("two", createElement("article", null, "two")),
     ]);
@@ -55,7 +56,7 @@ describe("message stream block identity and message actions", () => {
     const secondHost = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="two"]'));
 
     const insertBefore = vi.spyOn(parent, "insertBefore");
-    renderMessageStreamBlocks(parent, [
+    renderMessageStreamBlocksInAct(parent, [
       testMessageStreamBlock("one", createElement("section", null, "one again")),
       testMessageStreamBlock("two", createElement("article", null, "two again")),
     ]);
@@ -64,7 +65,7 @@ describe("message stream block identity and message actions", () => {
     expect([...parent.children]).toEqual([firstHost, secondHost]);
     expect(firstHost.firstElementChild?.tagName).toBe("SECTION");
     expect(secondHost.firstElementChild?.tagName).toBe("ARTICLE");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("inserts completed-turn activity groups without replacing stable conversation nodes", () => {
@@ -80,7 +81,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         ...baseContext,
@@ -93,7 +94,7 @@ describe("message stream block identity and message actions", () => {
     const userNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:u1"]');
     const assistantNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:a1"]');
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         ...baseContext,
@@ -123,7 +124,7 @@ describe("message stream block identity and message actions", () => {
     expect(parent.querySelector('[data-codex-panel-block-key="activity:turn-t1-activity"] summary')?.textContent).toBe(
       "Work details: hook",
     );
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders the history bar as a React block", () => {
@@ -143,7 +144,7 @@ describe("message stream block identity and message actions", () => {
 
     expect(historyBlock.key).toBe("history-bar");
     expect(historyBlock.node).not.toBeUndefined();
-    renderReactRoot(parent, historyBlock.node);
+    renderReactRootInAct(parent, historyBlock.node);
 
     const button = expectPresent(parent.querySelector<HTMLButtonElement>("button"));
     expect(parent.querySelector(".codex-panel__history-bar")).not.toBeNull();
@@ -153,7 +154,7 @@ describe("message stream block identity and message actions", () => {
     button.click();
 
     expect(loadOlderTurns).toHaveBeenCalledOnce();
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders the empty message stream state as a React block", () => {
@@ -172,12 +173,12 @@ describe("message stream block identity and message actions", () => {
 
     expect(emptyBlock.key).toBe("empty");
     expect(emptyBlock.node).not.toBeUndefined();
-    renderReactRoot(parent, emptyBlock.node);
+    renderReactRootInAct(parent, emptyBlock.node);
 
     const empty = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message--system"));
     expect(empty.classList.contains("codex-panel__message")).toBe(true);
     expect(empty.textContent).toBe("Send a message to start a conversation.");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders review result items as compact auto-review tool rows", () => {
@@ -257,7 +258,7 @@ describe("message stream block identity and message actions", () => {
       element.createDiv({ text: `linked:${text}` });
     });
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -296,17 +297,19 @@ describe("message stream block identity and message actions", () => {
     expect(renderTextWithWikiLinks).toHaveBeenCalledWith(expect.any(HTMLElement), "npm test");
 
     const details = expectPresent(result.querySelector<HTMLDetailsElement>("details"));
-    details.open = true;
-    details.dispatchEvent(new Event("toggle", { bubbles: false }));
+    act(() => {
+      details.open = true;
+      details.dispatchEvent(new Event("toggle", { bubbles: false }));
+    });
 
     expect(onDetailsToggle).toHaveBeenCalledWith("cmd-1:command-details", true);
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders file change diffs through the React tool result adapter", () => {
     const parent = document.createElement("div");
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -334,7 +337,7 @@ describe("message stream block identity and message actions", () => {
     expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/app.ts");
     expect(parent.querySelector(".codex-panel-diff-file .codex-panel__output-title")?.textContent).toBe("modified src/app.ts");
     expect([...parent.querySelectorAll(".codex-panel-diff__line")].map((line) => line.textContent)).toEqual(["old", "new"]);
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders structured system result details as visible selectable meta rows", () => {
@@ -538,7 +541,7 @@ describe("message stream block identity and message actions", () => {
     const copyText = vi.fn();
     const onImplementPlanItem = vi.fn();
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -573,7 +576,7 @@ describe("message stream block identity and message actions", () => {
     expect(copyText).toHaveBeenCalledWith("Plan");
     expect(onImplementPlanItem).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }));
     expect(parent.querySelector('[data-codex-panel-block-key="item:p1"] .codex-panel__message--assistant')).not.toBeNull();
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders message markdown through the React content adapter", () => {
@@ -582,7 +585,7 @@ describe("message stream block identity and message actions", () => {
       element.createDiv({ text: `rendered:${text}` });
     });
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -599,7 +602,7 @@ describe("message stream block identity and message actions", () => {
 
     expect(renderMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "**answer**");
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("rendered:**answer**");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("updates message content when the markdown mode changes", () => {
@@ -615,7 +618,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text: `text:${text}` }),
     };
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         ...baseContext,
@@ -624,7 +627,7 @@ describe("message stream block identity and message actions", () => {
     );
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("text:**answer**");
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         ...baseContext,
@@ -632,7 +635,7 @@ describe("message stream block identity and message actions", () => {
       }),
     );
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:**answer**");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("updates keyed message content without replacing the stream block host", () => {
@@ -651,7 +654,7 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         ...baseContext,
@@ -661,7 +664,7 @@ describe("message stream block identity and message actions", () => {
     const host = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:a1"]'));
     expect(host.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:first");
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         ...baseContext,
@@ -672,7 +675,7 @@ describe("message stream block identity and message actions", () => {
     expect(parent.querySelector('[data-codex-panel-block-key="item:a1"]')).toBe(host);
     expect(host.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:second");
     expect(renderMarkdown).toHaveBeenCalledTimes(2);
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("does not rerender unchanged message markdown when the stream rerenders", () => {
@@ -694,11 +697,11 @@ describe("message stream block identity and message actions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
-    renderMessageStreamBlocks(parent, messageStreamBlocks(context));
-    renderMessageStreamBlocks(parent, messageStreamBlocks({ ...context, loadingHistory: true }));
+    renderMessageStreamBlocksInAct(parent, messageStreamBlocks(context));
+    renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...context, loadingHistory: true }));
 
     expect(renderMarkdown).toHaveBeenCalledOnce();
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("hides copy action for the active assistant message while a turn is running", () => {
@@ -887,8 +890,8 @@ describe("message stream block identity and message actions", () => {
       expect(details?.querySelector("summary")?.textContent).toBe("Show more");
 
       if (details) {
-        details.open = true;
         act(() => {
+          details.open = true;
           details.dispatchEvent(new Event("toggle"));
         });
       }

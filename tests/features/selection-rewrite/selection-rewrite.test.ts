@@ -42,6 +42,7 @@ import type { TurnStartResponse } from "../../../src/generated/app-server/v2/Tur
 import { installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 beforeEach(() => {
   Object.defineProperty(globalThis, "activeDocument", { configurable: true, value: document });
@@ -236,7 +237,7 @@ describe("selection rewrite popover", () => {
   it("enables Generate only after the instruction has content", () => {
     const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
 
-    popover.open();
+    openPopover(popover);
 
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
     const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
@@ -249,7 +250,7 @@ describe("selection rewrite popover", () => {
 
     expect(generate.disabled).toBe(false);
 
-    popover.close();
+    closePopover(popover);
   });
 
   it("generates from the Enter shortcut, renders a preview diff, and applies from the action shortcut", async () => {
@@ -263,7 +264,7 @@ describe("selection rewrite popover", () => {
       popoverOptions({ editor: editor.editor, onClose, state: rewriteState({ instruction: "" }) }),
     );
 
-    popover.open();
+    openPopover(popover);
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
     act(() => {
       setTextareaValue(instruction, "Make it concise.");
@@ -294,10 +295,10 @@ describe("selection rewrite popover", () => {
     const onClose = vi.fn();
     const popover = new SelectionRewritePopover(popoverOptions({ onClose }));
 
-    popover.open();
+    openPopover(popover);
     expect(document.querySelector(".codex-panel-selection-rewrite__instruction")).not.toBeNull();
 
-    popover.close();
+    closePopover(popover);
 
     expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
     expect(onClose).toHaveBeenCalledOnce();
@@ -312,13 +313,13 @@ describe("selection rewrite popover", () => {
     });
     const popover = new SelectionRewritePopover(popoverOptions());
 
-    popover.open();
+    openPopover(popover);
     await act(async () => {
       expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
       await Promise.resolve();
     });
 
-    popover.close();
+    closePopover(popover);
     expect(signal?.aborted).toBe(true);
 
     rewrite.resolve({ replacementText: "Late rewrite" });
@@ -335,7 +336,7 @@ describe("selection rewrite popover", () => {
     vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockReturnValue(rewrite.promise);
     const popover = new SelectionRewritePopover(popoverOptions());
 
-    popover.open();
+    openPopover(popover);
     const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
     await act(async () => {
       generate.click();
@@ -410,6 +411,18 @@ function rewriteState(overrides: Partial<SelectionRewriteState> = {}): Selection
     debugText: null,
     ...overrides,
   } as SelectionRewriteState;
+}
+
+function openPopover(popover: SelectionRewritePopover): void {
+  act(() => {
+    popover.open();
+  });
+}
+
+function closePopover(popover: SelectionRewritePopover): void {
+  act(() => {
+    popover.close();
+  });
 }
 
 function popoverOptions(

@@ -4,11 +4,17 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "react";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
-import { renderMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
-import { unmountReactRoot } from "../../../../../src/shared/ui/react-root";
 import "./setup";
-import { expectPresent, idleTurnLifecycle, messageStreamBlocks, renderMessageBlockElement, runningTurnLifecycle } from "./test-helpers";
+import {
+  expectPresent,
+  idleTurnLifecycle,
+  messageStreamBlocks,
+  renderMessageBlockElement,
+  renderMessageStreamBlocksInAct,
+  runningTurnLifecycle,
+  unmountReactRootInAct,
+} from "./test-helpers";
 
 describe("work log renderer decisions", () => {
   it("renders generic tool details as visible sections inside one details block", () => {
@@ -166,12 +172,12 @@ describe("work log renderer decisions", () => {
       renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
-    renderMessageStreamBlocks(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault" }));
+    renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault" }));
     expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("project/assets/image.png");
 
-    renderMessageStreamBlocks(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault/project" }));
+    renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault/project" }));
     expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("assets/image.png");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("keeps path summary tools absolute outside the workspace root", () => {
@@ -328,7 +334,7 @@ describe("work log renderer decisions", () => {
     const parent = document.createElement("div");
     const onDetailsToggle = vi.fn();
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -389,11 +395,13 @@ describe("work log renderer decisions", () => {
     expect(group.querySelector(".codex-panel__agent-activity .codex-panel__tool-summary")?.textContent).toBe("spawn child (completed)");
 
     const details = expectPresent(group.querySelector<HTMLDetailsElement>(".codex-panel__activity-group"));
-    details.open = false;
-    details.dispatchEvent(new Event("toggle", { bubbles: false }));
+    act(() => {
+      details.open = false;
+      details.dispatchEvent(new Event("toggle", { bubbles: false }));
+    });
 
     expect(onDetailsToggle).toHaveBeenCalledWith("turn:turn:activity", false);
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders task progress items as a dedicated task list", () => {
@@ -435,7 +443,7 @@ describe("work log renderer decisions", () => {
   it("keeps task progress React items mounted in the message stream host", () => {
     const parent = document.createElement("div");
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -468,7 +476,7 @@ describe("work log renderer decisions", () => {
     expect(block.querySelector(".codex-panel__task-progress .codex-panel__message-role")?.textContent).toBe("tasks");
     expect(block.textContent).toContain("[x]Inspect code");
     expect(block.textContent).toContain("[>]Patch UI");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders active task progress with the shared bottom live blocks", () => {
@@ -678,7 +686,7 @@ describe("work log renderer decisions", () => {
     const parent = document.createElement("div");
     const onDetailsToggle = vi.fn();
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -723,7 +731,7 @@ describe("work log renderer decisions", () => {
 
     expect(onDetailsToggle).toHaveBeenCalledWith("agent-1:agent-details", true);
     expect(expectPresent(block.querySelector(".codex-panel__agent-activity")).classList.contains("is-open")).toBe(true);
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("keeps agent activity prompt previews visually constrained to one line", () => {
@@ -853,7 +861,7 @@ describe("work log renderer decisions", () => {
   it("renders the compact live agent summary as a React block", () => {
     const parent = document.createElement("div");
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -890,13 +898,13 @@ describe("work log renderer decisions", () => {
     const summary = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="live-agents:turn"]'));
     expect(summary.querySelector(".codex-panel__agent-summary")?.textContent).toContain("Agents 1 running, 1 done");
     expect(summary.textContent).toContain("runningrunning: Inspecting renderer");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("renders active reasoning as a React message stream block", () => {
     const parent = document.createElement("div");
 
-    renderMessageStreamBlocks(
+    renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         activeThreadId: "thread",
@@ -917,7 +925,7 @@ describe("work log renderer decisions", () => {
     expect(reasoning.classList.contains("is-active")).toBe(true);
     expect(reasoning.querySelector(".codex-panel__reasoning-role")?.textContent).toBe("reasoning");
     expect(reasoning.querySelector(".codex-panel__reasoning-content")?.textContent).toBe("Reasoning...");
-    unmountReactRoot(parent);
+    unmountReactRootInAct(parent);
   });
 
   it("hides the live agent summary once all subagents are complete", () => {

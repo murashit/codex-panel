@@ -553,8 +553,8 @@ function AutoReviewSummaries({ summaries }: { summaries: string[] }): ReactNode 
     <details className="codex-panel__auto-reviews">
       <summary>{label}</summary>
       <ul>
-        {summaries.map((summary) => (
-          <li key={summary}>{summary}</li>
+        {summaries.map((summary, index) => (
+          <li key={`${String(index)}:${summary}`}>{summary}</li>
         ))}
       </ul>
     </details>

@@ -6,10 +6,11 @@ import type { PendingUserInput } from "../../../../../src/features/chat/user-inp
 import { pendingRequestMessageNode, type PendingRequestMessageActions } from "../../../../../src/features/chat/ui/pending-request-message";
 import type { ChatTurnLifecycleState } from "../../../../../src/features/chat/chat-state";
 import {
+  type MessageStreamBlock,
   messageStreamBlocks as rawMessageStreamBlocks,
   renderMessageStreamBlocks,
 } from "../../../../../src/features/chat/ui/message-stream";
-import { renderReactRoot } from "../../../../../src/shared/ui/react-root";
+import { renderReactRoot, unmountReactRoot } from "../../../../../src/shared/ui/react-root";
 
 export function messageStreamBlocks(
   ...args: Parameters<typeof rawMessageStreamBlocks>
@@ -43,15 +44,35 @@ export function testMessageStreamBlock(key: string, node: ReactNode): ReturnType
 
 export function renderMessageBlockElement(block: ReturnType<typeof rawMessageStreamBlocks>[number]): HTMLElement {
   const parent = document.createElement("div");
-  act(() => {
-    renderMessageStreamBlocks(parent, [block]);
-  });
+  renderMessageStreamBlocksInAct(parent, [block]);
   const host = expectPresent(parent.querySelector<HTMLElement>(`[data-codex-panel-block-key="${block.key}"]`));
   return expectPresent(host.firstElementChild as HTMLElement | null);
 }
 
+export function actEvent(action: () => void): void {
+  act(action);
+}
+
+export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: MessageStreamBlock[]): void {
+  act(() => {
+    renderMessageStreamBlocks(parent, blocks);
+  });
+}
+
+export function renderReactRootInAct(parent: HTMLElement, node: ReactNode): void {
+  act(() => {
+    renderReactRoot(parent, node);
+  });
+}
+
+export function unmountReactRootInAct(parent: HTMLElement): void {
+  act(() => {
+    unmountReactRoot(parent);
+  });
+}
+
 export function renderPendingRequestNode(parent: HTMLElement, ...args: Parameters<typeof pendingRequestMessageNode>): void {
-  renderReactRoot(parent, pendingRequestMessageNode(...args));
+  renderReactRootInAct(parent, pendingRequestMessageNode(...args));
 }
 
 export function pendingRequestActions(overrides: Partial<PendingRequestMessageActions> = {}): PendingRequestMessageActions {

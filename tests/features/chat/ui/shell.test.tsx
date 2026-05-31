@@ -29,7 +29,9 @@ describe("ChatPanelShell", () => {
     expect(container.querySelector(".codex-panel__slot--messages > .codex-panel__messages")).not.toBeNull();
     expect(container.querySelector(".codex-panel__slot--composer")?.textContent).toBe("ready");
 
-    unmountChatPanelShell(container);
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
   });
 
   it("rerenders child slots when the subscribed store changes", async () => {
@@ -56,7 +58,9 @@ describe("ChatPanelShell", () => {
     expect(renderers.composer.render).not.toHaveBeenCalled();
     expect(container.querySelector(".codex-panel__toolbar")?.textContent).toBe("Working");
 
-    unmountChatPanelShell(container);
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
   });
 
   it("forces all slots to rerender when the render version changes", async () => {
@@ -82,7 +86,9 @@ describe("ChatPanelShell", () => {
     expect(renderers.messages.render).toHaveBeenCalledTimes(1);
     expect(renderers.composer.render).toHaveBeenCalledTimes(1);
 
-    unmountChatPanelShell(container);
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
   });
 
   it("stops subscribed slot rendering after unmount", async () => {
@@ -97,7 +103,9 @@ describe("ChatPanelShell", () => {
     });
     vi.mocked(renderers.toolbar.render).mockClear();
 
-    unmountChatPanelShell(container);
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
     store.dispatch({ type: "status/set", status: "Closed" });
     await settleShellEffects();
 
