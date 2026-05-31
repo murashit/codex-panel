@@ -2,12 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  renderComposerShell,
-  renderComposerSuggestions,
-  scrollComposerSuggestionIntoView,
-  syncComposerHeight,
-} from "../../../../../src/features/chat/ui/composer";
+import { renderComposerShell, scrollComposerSuggestionIntoView, syncComposerHeight } from "../../../../../src/features/chat/ui/composer";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
@@ -36,51 +31,80 @@ describe("composer renderer decisions", () => {
       false,
       false,
       "Ask Codex to work on “Refactor terminal streaming”...",
+      [],
+      0,
       callbacks,
     );
 
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Refactor terminal streaming”...");
 
-    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on “Renamed thread”...", callbacks);
+    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on “Renamed thread”...", [], 0, callbacks);
 
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
   });
 
-  it("renders composer suggestions outside normal input flow callbacks", () => {
+  it("renders composer suggestions inside the composer root", () => {
     const parent = document.createElement("div");
     const onSuggestionInsert = vi.fn();
-    const { composer, suggestions } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", {
-      onInput: vi.fn(),
-      onComposerResize: vi.fn(),
-      onUpdateSuggestions: vi.fn(),
-      onKeydown: vi.fn(),
-      onNewThread: vi.fn(),
-      onSendOrInterrupt: vi.fn(),
-      onSuggestionHover: vi.fn(),
-      onSuggestionInsert,
-    });
-
-    renderComposerSuggestions(
-      suggestions,
-      composer,
+    const { composer } = renderComposerShell(
+      parent,
       "view",
+      "",
+      false,
+      false,
+      "Ask Codex to work on this task...",
       [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
       0,
-      { onSuggestionHover: vi.fn(), onSuggestionInsert },
+      {
+        onInput: vi.fn(),
+        onComposerResize: vi.fn(),
+        onUpdateSuggestions: vi.fn(),
+        onKeydown: vi.fn(),
+        onNewThread: vi.fn(),
+        onSendOrInterrupt: vi.fn(),
+        onSuggestionHover: vi.fn(),
+        onSuggestionInsert,
+      },
     );
 
+    const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
+    if (!suggestions) throw new Error("Expected composer suggestions to render.");
     expect(suggestions.getAttribute("role")).toBe("listbox");
     expect(composer.getAttribute("aria-expanded")).toBe("true");
+    expect(composer.getAttribute("aria-activedescendant")).toBe("view-composer-suggestion-0");
     suggestions
       .querySelector<HTMLElement>(".codex-panel__composer-suggestion")
       ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     expect(onSuggestionInsert).toHaveBeenCalled();
   });
 
+  it("clears composer suggestion accessibility state on rerender", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const { composer } = renderComposerShell(
+      parent,
+      "view",
+      "",
+      false,
+      false,
+      "Ask Codex to work on this task...",
+      [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
+      0,
+      callbacks,
+    );
+
+    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
+
+    const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
+    expect(composer.getAttribute("aria-expanded")).toBe("false");
+    expect(composer.hasAttribute("aria-activedescendant")).toBe(false);
+    expect(suggestions?.hidden).toBe(true);
+  });
+
   it("reports composer draft changes from the controlled input", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", callbacks);
+    const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
 
     changeInputValue(composer, "Draft text");
 
@@ -97,7 +121,7 @@ describe("composer renderer decisions", () => {
       configurable: true,
     });
     try {
-      const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", callbacks);
+      const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
       callbacks.onComposerResize.mockClear();
 
       scrollHeight = 120;
@@ -155,7 +179,7 @@ describe("composer renderer decisions", () => {
   it("uses the composer action for interrupt only when a running turn has no steering text", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = renderComposerShell(parent, "view", "", true, true, "Ask Codex to work on this task...", callbacks);
+    const { composer } = renderComposerShell(parent, "view", "", true, true, "Ask Codex to work on this task...", [], 0, callbacks);
     let sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
 
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
@@ -164,7 +188,7 @@ describe("composer renderer decisions", () => {
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");
 
-    renderComposerShell(parent, "view", "adjust course", true, true, "Ask Codex to work on this task...", callbacks);
+    renderComposerShell(parent, "view", "adjust course", true, true, "Ask Codex to work on this task...", [], 0, callbacks);
     sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
     expect(composer.getAttribute("placeholder")).toBe("Add steering message...");

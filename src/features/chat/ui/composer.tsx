@@ -1,14 +1,13 @@
-import type { ButtonHTMLAttributes } from "preact";
+import type { ButtonHTMLAttributes, Ref } from "preact";
 import { useLayoutEffect, useRef, type ReactNode } from "preact/compat";
 
 import type { ComposerSuggestion } from "../composer/suggestions";
 import { IconButton } from "../../../shared/ui/react-components";
-import { renderReactRoot, unmountReactRoot } from "../../../shared/ui/react-root";
+import { renderReactRoot } from "../../../shared/ui/react-root";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 
 export interface ComposerElements {
   composer: HTMLTextAreaElement;
-  suggestions: HTMLElement;
 }
 
 export interface ComposerCallbacks {
@@ -33,6 +32,8 @@ export function renderComposerShell(
   busy: boolean,
   canInterrupt: boolean,
   normalPlaceholder: string,
+  suggestions: readonly ComposerSuggestion[],
+  selectedSuggestionIndex: number,
   callbacks: ComposerCallbacks,
 ): ComposerElements {
   const elements: Partial<ComposerElements> = {};
@@ -44,17 +45,16 @@ export function renderComposerShell(
       busy={busy}
       canInterrupt={canInterrupt}
       normalPlaceholder={normalPlaceholder}
+      suggestions={suggestions}
+      selectedSuggestionIndex={selectedSuggestionIndex}
       callbacks={callbacks}
       onComposer={(composer) => {
         elements.composer = composer;
       }}
-      onSuggestions={(suggestions) => {
-        elements.suggestions = suggestions;
-      }}
     />,
   );
-  if (!elements.composer || !elements.suggestions) throw new Error("Expected composer shell elements to mount.");
-  return { composer: elements.composer, suggestions: elements.suggestions };
+  if (!elements.composer) throw new Error("Expected composer shell elements to mount.");
+  return { composer: elements.composer };
 }
 
 function ComposerShell({
@@ -63,30 +63,40 @@ function ComposerShell({
   busy,
   canInterrupt,
   normalPlaceholder,
+  suggestions,
+  selectedSuggestionIndex,
   callbacks,
   onComposer,
-  onSuggestions,
 }: {
   viewId: string;
   draft: string;
   busy: boolean;
   canInterrupt: boolean;
   normalPlaceholder: string;
+  suggestions: readonly ComposerSuggestion[];
+  selectedSuggestionIndex: number;
   callbacks: ComposerCallbacks;
   onComposer: (composer: HTMLTextAreaElement) => void;
-  onSuggestions: (suggestions: HTMLElement) => void;
 }): ReactNode {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
+  const selectedSuggestionRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     const composer = composerRef.current;
-    const suggestions = suggestionsRef.current;
-    if (!composer || !suggestions) return;
+    if (!composer) return;
     onComposer(composer);
-    onSuggestions(suggestions);
     syncComposerHeight(composer);
-  }, [onComposer, onSuggestions]);
+  }, [onComposer]);
+  useLayoutEffect(() => {
+    const container = suggestionsRef.current;
+    const selected = selectedSuggestionRef.current;
+    if (!container || !selected) return;
+    scrollComposerSuggestionIntoView(container, selected);
+  }, [suggestions, selectedSuggestionIndex]);
   const sendMode = composerSendMode(busy, canInterrupt, draft);
+  const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
+  const selectedSuggestionId =
+    suggestions.length > 0 ? `${viewId}-composer-suggestion-${String(normalizedSelectedSuggestionIndex)}` : undefined;
 
   return (
     <div className="codex-panel__composer">
@@ -96,8 +106,9 @@ function ComposerShell({
         placeholder={sendMode.canInterrupt ? "Add steering message..." : normalPlaceholder}
         role="combobox"
         aria-autocomplete="list"
-        aria-expanded="false"
+        aria-expanded={suggestions.length > 0 ? "true" : "false"}
         aria-controls={`${viewId}-composer-suggestions`}
+        aria-activedescendant={selectedSuggestionId}
         value={draft}
         onChange={(event) => {
           if (syncComposerHeight(event.currentTarget)) callbacks.onComposerResize();
@@ -126,7 +137,14 @@ function ComposerShell({
           onClick={callbacks.onSendOrInterrupt}
         />
       </div>
-      <div ref={suggestionsRef} className="codex-panel__composer-suggestions" id={`${viewId}-composer-suggestions`} role="listbox" />
+      <ComposerSuggestions
+        containerRef={suggestionsRef}
+        selectedRef={selectedSuggestionRef}
+        viewId={viewId}
+        suggestions={suggestions}
+        selectedIndex={normalizedSelectedSuggestionIndex}
+        callbacks={callbacks}
+      />
     </div>
   );
 }
@@ -178,64 +196,29 @@ export function syncComposerHeight(composer: HTMLTextAreaElement | null): boolea
   return Boolean(composer && (composer.style.height !== previousHeight || composer.style.overflowY !== previousOverflowY));
 }
 
-export function renderComposerSuggestions(
-  suggestionsEl: HTMLElement | null,
-  composer: HTMLTextAreaElement | null,
-  viewId: string,
-  suggestions: readonly ComposerSuggestion[],
-  selectedIndex: number,
-  callbacks: Pick<ComposerCallbacks, "onSuggestionHover" | "onSuggestionInsert">,
-): void {
-  if (!suggestionsEl) return;
-
-  if (suggestions.length === 0) {
-    composer?.setAttr("aria-expanded", "false");
-    composer?.removeAttribute("aria-activedescendant");
-    unmountReactRoot(suggestionsEl);
-    suggestionsEl.hide();
-    return;
-  }
-
-  composer?.setAttr("aria-expanded", "true");
-  suggestionsEl.show();
-  renderReactRoot(
-    suggestionsEl,
-    <ComposerSuggestions
-      container={suggestionsEl}
-      composer={composer}
-      viewId={viewId}
-      suggestions={suggestions}
-      selectedIndex={selectedIndex}
-      callbacks={callbacks}
-    />,
-  );
-}
-
 function ComposerSuggestions({
-  container,
-  composer,
+  containerRef,
+  selectedRef,
   viewId,
   suggestions,
   selectedIndex,
   callbacks,
 }: {
-  container: HTMLElement;
-  composer: HTMLTextAreaElement | null;
+  containerRef: Ref<HTMLDivElement>;
+  selectedRef: Ref<HTMLDivElement>;
   viewId: string;
   suggestions: readonly ComposerSuggestion[];
   selectedIndex: number;
   callbacks: Pick<ComposerCallbacks, "onSuggestionHover" | "onSuggestionInsert">;
 }): ReactNode {
-  const selectedRef = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const selected = selectedRef.current;
-    if (!selected) return;
-    composer?.setAttr("aria-activedescendant", selected.id);
-    scrollComposerSuggestionIntoView(container, selected);
-  }, [composer, container, selectedIndex]);
-
   return (
-    <>
+    <div
+      ref={containerRef}
+      className="codex-panel__composer-suggestions"
+      id={`${viewId}-composer-suggestions`}
+      role="listbox"
+      hidden={suggestions.length === 0}
+    >
       {suggestions.map((suggestion, index) => {
         const selected = index === selectedIndex;
         const optionId = `${viewId}-composer-suggestion-${String(index)}`;
@@ -261,7 +244,7 @@ function ComposerSuggestions({
           </div>
         );
       })}
-    </>
+    </div>
   );
 }
 
