@@ -89,6 +89,7 @@ const chatImperativeDomBridgeFiles = [
   "src/features/chat/ui/composer.tsx",
   "src/features/chat/ui/message-stream.tsx",
   "src/features/chat/ui/scroll.ts",
+  "src/features/chat/ui/shell.tsx",
   "src/features/chat/ui/tool-result.tsx",
   "src/features/chat/ui/turn-diff.tsx",
 ];

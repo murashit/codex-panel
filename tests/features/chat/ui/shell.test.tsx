@@ -5,6 +5,7 @@ import { act } from "preact/test-utils";
 
 import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
+import { renderReactRoot } from "../../../../src/shared/ui/react-root";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -91,6 +92,35 @@ describe("ChatPanelShell", () => {
     });
   });
 
+  it("keeps nested root content mounted in its owning slot after shell rerenders", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const renderers = nestedRootShellRenderers(store);
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+
+    await act(async () => {
+      store.dispatch({ type: "status/set", status: "Working" });
+      store.dispatch({ type: "ui/panel-set", panel: "model" });
+      store.dispatch({ type: "system/message-added", item: { id: "system-1", kind: "system", role: "system", text: "Model set." } });
+      await settleShellEffects();
+    });
+
+    expect(container.querySelector(".codex-panel__toolbar .test-toolbar")?.textContent).toBe("Working");
+    expect(container.querySelector(".codex-panel__slot--messages .test-messages")?.textContent).toBe("1");
+    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__slot--composer .test-composer textarea")?.value).toBe("ready");
+    expect(container.querySelector(".codex-panel__slot--composer .test-toolbar")).toBeNull();
+    expect(container.querySelector(".codex-panel__slot--composer .test-messages")).toBeNull();
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
   it("stops subscribed slot rendering after unmount", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
@@ -132,6 +162,43 @@ function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
     composer: {
       render: vi.fn((composer: HTMLElement) => {
         composer.textContent = chatTurnBusy(store.getState()) ? "busy" : "ready";
+      }),
+      snapshot: () => chatTurnBusy(store.getState()),
+    },
+  };
+}
+
+function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>) {
+  return {
+    stateStore: store,
+    renderVersion: 0,
+    toolbar: {
+      render: vi.fn((toolbar: HTMLElement) => {
+        renderReactRoot(
+          toolbar,
+          <>
+            <div className="test-toolbar">{store.getState().status}</div>
+            <div className="test-toolbar-panel">panel</div>
+          </>,
+        );
+      }),
+      snapshot: () => store.getState().status,
+    },
+    messages: {
+      render: vi.fn((messages: HTMLElement) => {
+        renderReactRoot(messages, <div className="test-messages">{String(store.getState().displayItems.length)}</div>);
+      }),
+      snapshot: () => store.getState().displayItems.length,
+    },
+    composer: {
+      render: vi.fn((composer: HTMLElement) => {
+        renderReactRoot(
+          composer,
+          <div className="test-composer">
+            <textarea value={chatTurnBusy(store.getState()) ? "busy" : "ready"} readOnly />
+            <button type="button">Send</button>
+          </div>,
+        );
       }),
       snapshot: () => chatTurnBusy(store.getState()),
     },

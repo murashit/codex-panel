@@ -167,7 +167,7 @@ describe("CodexChatView connection lifecycle", () => {
     );
   });
 
-  it("renders the Preact shell on the view content root", async () => {
+  it("renders the chat shell on the view content root", async () => {
     const view = await chatView();
 
     await view.onOpen();

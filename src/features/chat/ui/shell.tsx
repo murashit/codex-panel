@@ -1,6 +1,4 @@
-import { useLayoutEffect, useRef, useSyncExternalStore, type ReactNode } from "preact/compat";
-
-import { renderReactRoot, unmountReactRoot } from "../../../shared/ui/react-root";
+import { unmountReactRoot } from "../../../shared/ui/react-root";
 import type { ChatState, ChatStateStore } from "../chat-state";
 
 export type ChatPanelSlotSnapshot = string | number | boolean | null;
@@ -13,79 +11,41 @@ export interface ChatPanelShellProps {
   composer: ChatPanelSlotProps;
 }
 
-interface ChatPanelShellSlots {
-  toolbar?: HTMLElement;
-  messages?: HTMLElement;
-  composer?: HTMLElement;
+interface ChatPanelShellMount {
+  props: ChatPanelShellProps;
+  stateStore: ChatStateStore;
+  unsubscribe: () => void;
 }
 
-const shellSlotsByContainer = new WeakMap<HTMLElement, ChatPanelShellSlots>();
+const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
 
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
-  const mountedSlots = shellSlotsByContainer.get(container) ?? {};
-  shellSlotsByContainer.set(container, mountedSlots);
   container.addClass("codex-panel");
-  renderReactRoot(
-    container,
-    <ChatPanelShell
-      {...props}
-      onSlotReady={(name, element) => {
-        mountedSlots[name] = element;
-      }}
-    />,
-  );
-  renderMountedSlots(mountedSlots, props);
+  ensureShellDom(container);
+  const existing = shellMounts.get(container);
+  if (existing?.stateStore === props.stateStore) {
+    existing.props = props;
+  } else {
+    existing?.unsubscribe();
+    shellMounts.set(container, {
+      props,
+      stateStore: props.stateStore,
+      unsubscribe: props.stateStore.subscribe(() => {
+        const mount = shellMounts.get(container);
+        if (!mount) return;
+        renderMountedSlots(container, mount.props);
+      }),
+    });
+  }
+  renderMountedSlots(container, props);
 }
 
 export function unmountChatPanelShell(container: HTMLElement | null): void {
   if (!container) return;
-  shellSlotsByContainer.delete(container);
-  unmountReactRoot(container);
-}
-
-function ChatPanelShell({
-  stateStore,
-  renderVersion,
-  toolbar,
-  messages,
-  composer,
-  onSlotReady,
-}: ChatPanelShellProps & { onSlotReady: (name: keyof ChatPanelShellSlots, element: HTMLElement) => void }): ReactNode {
-  return (
-    <>
-      <ChatPanelSlot
-        key="toolbar"
-        name="toolbar"
-        className="codex-panel__toolbar"
-        stateStore={stateStore}
-        renderVersion={renderVersion}
-        slot={toolbar}
-        onSlotReady={onSlotReady}
-      />
-      <div key="body" className="codex-panel__body">
-        <div key="config" className="codex-panel__slot codex-panel__slot--config" />
-        <ChatPanelSlot
-          key="messages"
-          name="messages"
-          className="codex-panel__slot codex-panel__slot--messages"
-          renderTargetClassName="codex-panel__messages"
-          stateStore={stateStore}
-          renderVersion={renderVersion}
-          slot={messages}
-          onSlotReady={onSlotReady}
-        />
-        <ChatPanelSlot
-          key="composer"
-          name="composer"
-          className="codex-panel__slot codex-panel__slot--composer"
-          stateStore={stateStore}
-          renderVersion={renderVersion}
-          slot={composer}
-          onSlotReady={onSlotReady}
-        />
-      </div>
-    </>
-  );
+  shellMounts.get(container)?.unsubscribe();
+  shellMounts.delete(container);
+  unmountSlotRoots(container);
+  container.replaceChildren();
 }
 
 interface ChatPanelSlotProps {
@@ -93,66 +53,22 @@ interface ChatPanelSlotProps {
   snapshot: (state: ChatState) => ChatPanelSlotSnapshot;
 }
 
-function ChatPanelSlot({
-  name,
-  className,
-  renderTargetClassName,
-  stateStore,
-  renderVersion,
-  slot,
-  onSlotReady,
-}: {
-  name: keyof ChatPanelShellSlots;
-  className: string;
-  renderTargetClassName?: string;
-  stateStore: ChatStateStore;
-  renderVersion: number;
-  slot: ChatPanelSlotProps;
-  onSlotReady: (name: keyof ChatPanelShellSlots, element: HTMLElement) => void;
-}): ReactNode {
-  const snapshot = useSyncExternalStore(
-    (listener) => stateStore.subscribe(listener),
-    () => slot.snapshot(stateStore.getState()),
-  );
-  const ref = useRef<HTMLDivElement | null>(null);
-  const renderGeneration = useRef(0);
-  const renderKey = `${String(renderVersion)}\u001f${String(snapshot)}`;
-
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const renderTarget = renderTargetClassName ? element.querySelector<HTMLElement>(`:scope > .${renderTargetClassName}`) : element;
-    if (!renderTarget) return;
-    onSlotReady(name, renderTarget);
-    const generation = ++renderGeneration.current;
-    void Promise.resolve().then(() => {
-      if (generation !== renderGeneration.current || !element.isConnected) return;
-      renderSlotIfNeeded(renderTarget, slot, renderKey);
-    });
-  }, [name, onSlotReady, renderKey, renderTargetClassName, slot]);
-
-  return (
-    <div
-      ref={(element) => {
-        ref.current = element;
-        if (!element) return;
-        const renderTarget = renderTargetClassName ? element.querySelector<HTMLElement>(`:scope > .${renderTargetClassName}`) : element;
-        if (renderTarget) onSlotReady(name, renderTarget);
-      }}
-      className={className}
-    >
-      {renderTargetClassName ? <div className={renderTargetClassName} /> : null}
-    </div>
-  );
-}
-
-function renderMountedSlots(slots: ChatPanelShellSlots, props: ChatPanelShellProps): void {
-  const state = props.stateStore.getState();
-  if (slots.toolbar) renderSlotIfNeeded(slots.toolbar, props.toolbar, slotRenderKey(props.renderVersion, props.toolbar.snapshot(state)));
-  if (slots.messages)
-    renderSlotIfNeeded(slots.messages, props.messages, slotRenderKey(props.renderVersion, props.messages.snapshot(state)));
-  if (slots.composer)
-    renderSlotIfNeeded(slots.composer, props.composer, slotRenderKey(props.renderVersion, props.composer.snapshot(state)));
+function ensureShellDom(container: HTMLElement): void {
+  if (
+    container.querySelector(":scope > .codex-panel__toolbar") &&
+    container.querySelector(":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages") &&
+    container.querySelector(":scope > .codex-panel__body > .codex-panel__slot--composer")
+  ) {
+    return;
+  }
+  unmountSlotRoots(container);
+  container.replaceChildren();
+  container.createDiv({ cls: "codex-panel__toolbar" });
+  const body = container.createDiv({ cls: "codex-panel__body" });
+  body.createDiv({ cls: "codex-panel__slot codex-panel__slot--config" });
+  const messagesSlot = body.createDiv({ cls: "codex-panel__slot codex-panel__slot--messages" });
+  messagesSlot.createDiv({ cls: "codex-panel__messages" });
+  body.createDiv({ cls: "codex-panel__slot codex-panel__slot--composer" });
 }
 
 function renderSlotIfNeeded(element: HTMLElement, slot: ChatPanelSlotProps, renderKey: string): void {
@@ -161,6 +77,26 @@ function renderSlotIfNeeded(element: HTMLElement, slot: ChatPanelSlotProps, rend
   element.dataset["codexPanelSlotRenderKey"] = renderKey;
 }
 
-function slotRenderKey(renderVersion: number, snapshot: ChatPanelSlotSnapshot): string {
+function renderMountedSlots(container: HTMLElement, props: ChatPanelShellProps): void {
+  const state = props.stateStore.getState();
+  const toolbar = container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar");
+  const messages = container.querySelector<HTMLElement>(
+    ":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages",
+  );
+  const composer = container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--composer");
+  if (toolbar) renderSlotIfNeeded(toolbar, props.toolbar, renderKey(props.renderVersion, props.toolbar.snapshot(state)));
+  if (messages) renderSlotIfNeeded(messages, props.messages, renderKey(props.renderVersion, props.messages.snapshot(state)));
+  if (composer) renderSlotIfNeeded(composer, props.composer, renderKey(props.renderVersion, props.composer.snapshot(state)));
+}
+
+function unmountSlotRoots(container: HTMLElement): void {
+  unmountReactRoot(container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar"));
+  unmountReactRoot(
+    container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages"),
+  );
+  unmountReactRoot(container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--composer"));
+}
+
+function renderKey(renderVersion: number, snapshot: ChatPanelSlotSnapshot): string {
   return `${String(renderVersion)}\u001f${String(snapshot)}`;
 }
