@@ -25,6 +25,7 @@ export interface ChatConnectionControllerHost {
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
+  configuredCommand: () => string;
   refreshLiveState: () => void;
   render: () => void;
   scheduleRender: () => void;
@@ -125,7 +126,7 @@ export class ChatConnectionController {
       if (this.host.connectionWork.isStale(connection)) return;
       if (error instanceof StaleConnectionError) return;
       this.host.setStatus("Connection failed.");
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      this.host.addSystemMessage(connectionErrorMessage(error, this.host.configuredCommand()));
       this.host.notifyConnectionFailed();
     }
     if (!this.host.connectionWork.isStale(connection)) {
@@ -136,4 +137,16 @@ export class ChatConnectionController {
   private dispatch(action: ChatAction): void {
     this.host.stateStore.dispatch(action);
   }
+}
+
+function connectionErrorMessage(error: unknown, configuredCommand: string): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (!isMissingCommandError(error)) return message;
+  return `Could not start Codex app-server because the configured command was not found: ${configuredCommand}. Check the Codex command path in settings. (${message})`;
+}
+
+function isMissingCommandError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const candidate = error as { code?: unknown; syscall?: unknown };
+  return candidate.code === "ENOENT" && candidate.syscall === "spawn";
 }

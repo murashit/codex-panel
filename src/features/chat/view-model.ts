@@ -50,6 +50,7 @@ export interface StatusDotStateInput {
   connected: boolean;
   turnBusy: boolean;
   diagnostics: AppServerDiagnostics;
+  connectionFailed?: boolean;
   turnStartBlocked?: boolean;
 }
 
@@ -156,6 +157,7 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
     connected: input.connected,
     turnBusy: input.turnBusy,
     diagnostics: state.appServerDiagnostics,
+    connectionFailed: state.status === "Connection failed.",
   });
   const model = currentModel(snapshot, config);
   const effort = currentReasoningEffort(snapshot, config);
@@ -197,6 +199,7 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
 
 export function statusDotState(input: StatusDotStateInput): ToolbarStatusState {
   if (input.turnBusy) return "running";
+  if (input.connectionFailed) return "blocked";
   if (!input.connected) return "offline";
   if (input.turnStartBlocked) return "blocked";
   return hasDiagnosticIssue(input.diagnostics) ? "degraded" : "ready";

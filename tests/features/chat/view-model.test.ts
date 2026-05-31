@@ -81,6 +81,7 @@ describe("chat view model", () => {
 
     expect(statusDotState({ connected: true, turnBusy: true, diagnostics })).toBe("running");
     expect(statusDotState({ connected: false, turnBusy: false, diagnostics })).toBe("offline");
+    expect(statusDotState({ connected: false, turnBusy: false, diagnostics, connectionFailed: true })).toBe("blocked");
     expect(statusDotState({ connected: true, turnBusy: false, diagnostics })).toBe("ready");
     expect(statusDotState({ connected: true, turnBusy: false, diagnostics, turnStartBlocked: true })).toBe("blocked");
   });
@@ -136,6 +137,27 @@ describe("chat view model", () => {
     });
 
     expect(runningModel.statusState).toBe("running");
+  });
+
+  it("marks connection failure status as blocked in the toolbar model", () => {
+    const state = createChatState();
+    state.status = "Connection failed.";
+
+    const model = toolbarViewModel({
+      state,
+      snapshot: runtimeSnapshotForChatState({ state }),
+      connected: false,
+      turnBusy: false,
+      vaultPath: "/vault",
+      configuredCommand: "codex",
+      archiveConfirmThreadId: null,
+      archiveExportEnabled: true,
+      modelChoices: [],
+      effortChoices: [],
+      renameState: () => null,
+    });
+
+    expect(model.statusState).toBe("blocked");
   });
 
   it("builds slash-command status lines from chat state", () => {

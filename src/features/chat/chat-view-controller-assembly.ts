@@ -362,6 +362,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     resetThreadTurnPresence: host.effects.thread.resetTurnPresence,
     setStatus: host.effects.status.set,
     addSystemMessage: host.effects.status.addSystemMessage,
+    configuredCommand: () => host.plugin.settings.codexPath,
     refreshLiveState: host.effects.liveState.refresh,
     render: host.effects.render.now,
     scheduleRender: host.effects.render.schedule,

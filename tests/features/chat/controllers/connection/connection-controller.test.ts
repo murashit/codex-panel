@@ -46,6 +46,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
     resetThreadTurnPresence: vi.fn(),
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
+    configuredCommand: () => "codex",
     refreshLiveState: vi.fn(),
     render: vi.fn(),
     scheduleRender: vi.fn(),
@@ -116,5 +117,19 @@ describe("ChatConnectionController", () => {
       availableSkills: [],
       runtimePicker: null,
     });
+  });
+
+  it("explains missing configured command failures", async () => {
+    const { controller, connect, host } = createController();
+    const error = Object.assign(new Error("spawn codex ENOENT"), { code: "ENOENT", syscall: "spawn" });
+    connect.mockRejectedValueOnce(error);
+
+    await controller.ensureConnected();
+
+    expect(host.setStatus).toHaveBeenCalledWith("Connection failed.");
+    expect(host.addSystemMessage).toHaveBeenCalledWith(
+      "Could not start Codex app-server because the configured command was not found: codex. Check the Codex command path in settings. (spawn codex ENOENT)",
+    );
+    expect(host.notifyConnectionFailed).toHaveBeenCalledOnce();
   });
 });
