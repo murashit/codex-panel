@@ -158,7 +158,7 @@ function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCand
 }
 
 export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
-  const match = /(?:^|\n)(\/[A-Za-z-]*)$/.exec(beforeCursor);
+  const match = /^(\/[A-Za-z-]*)$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
   const rawQuery = match[1];
@@ -178,7 +178,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
 }
 
 export function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
-  const match = /(?:^|\n)\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/.exec(beforeCursor);
+  const match = /^\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
   const rawQuery = match[1];
@@ -208,7 +208,7 @@ export function activeThreadCommandSuggestions(beforeCursor: string, threads: re
 }
 
 export function activeModelOverrideSuggestions(beforeCursor: string, models: readonly Model[]): ComposerSuggestion[] | null {
-  const match = /(?:^|\n)\/model\s+([^\n]{0,120})$/.exec(beforeCursor);
+  const match = /^\/model\s+([^\n]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
   const rawQuery = match[1];
@@ -255,7 +255,7 @@ export function activeReasoningEffortSuggestions(
   models: readonly Model[],
   currentModel: string | null,
 ): ComposerSuggestion[] | null {
-  const match = /(?:^|\n)\/effort\s+([^\n]{0,120})$/.exec(beforeCursor);
+  const match = /^\/effort\s+([^\n]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
   const rawQuery = match[1];

@@ -175,6 +175,16 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
   });
 
+  it("limits slash command suggestions to the start of the composer", () => {
+    const threads = [thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Codex Panel実装" })];
+    const models = [model("gpt-5.5", ["low", "medium", "high"])];
+
+    expect(activeComposerSuggestions("please\n/sta", notes, [])).toEqual([]);
+    expect(activeComposerSuggestions("please\n/resume codex", notes, [], threads)).toEqual([]);
+    expect(activeComposerSuggestions("please\n/model gpt", notes, [], [], models)).toEqual([]);
+    expect(activeComposerSuggestions("please\n/effort h", notes, [], [], models, "gpt-5.5")).toEqual([]);
+  });
+
   it("suggests recent threads for /resume, /refer, and /archive arguments", () => {
     const threads = [
       thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Codex Panel実装" }),
