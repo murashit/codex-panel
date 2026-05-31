@@ -291,7 +291,7 @@ describe("selection rewrite popover", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("unmounts and removes the React popover when closed", () => {
+  it("unmounts and removes the Preact popover when closed", () => {
     const onClose = vi.fn();
     const popover = new SelectionRewritePopover(popoverOptions({ onClose }));
 

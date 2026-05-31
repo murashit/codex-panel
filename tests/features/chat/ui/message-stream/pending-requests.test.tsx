@@ -473,7 +473,7 @@ describe("pending request renderer decisions", () => {
     expect(expectPresent(blocks[1]).node).not.toBeUndefined();
   });
 
-  it("keeps pending request React events mounted in the message stream host", () => {
+  it("keeps pending request Preact events mounted in the message stream host", () => {
     const parent = document.createElement("div");
     const approval = pendingApproval();
     const resolveApproval = vi.fn();

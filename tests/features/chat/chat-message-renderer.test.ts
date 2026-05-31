@@ -185,7 +185,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     expect(state.messagesPinnedToBottom).toBe(false);
   });
 
-  it("unmounts the React message stream root on dispose", () => {
+  it("unmounts the Preact message stream root on dispose", () => {
     const state = createChatState();
     state.activeThreadId = "thread";
     state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Rendered message", turnId: "turn" }];

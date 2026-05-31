@@ -24,18 +24,3 @@ updates:
         update-types:
           - "version-update:semver-minor"
           - "version-update:semver-major"
-      # Keep React on 18.x for Obsidian Community plugin review compatibility.
-      # React DOM 19 bundles runtime code that Obsidian's automated review flags
-      # as script injection; see docs/development.md.
-      - dependency-name: "react"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "react-dom"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "@types/react"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "@types/react-dom"
-        update-types:
-          - "version-update:semver-major"

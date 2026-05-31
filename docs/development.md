@@ -30,9 +30,9 @@ The source tree is organized by responsibility rather than by the original singl
 
 Keep new code near the state or API it owns. Feature code should not import from another feature directly; move shared behavior to `src/shared/`, `src/domain/`, `src/app-server/`, or `src/runtime/` when more than one feature needs it.
 
-Codex Panel's runtime UI is React-owned. Keep chat panel UI, the Threads view, and the selection rewrite popover in React components. Imperative DOM writes are limited to explicit bridge modules or Obsidian-owned API boundaries such as `MarkdownRenderer`, diff rendering, icon rendering, `SuggestModal`, and the Obsidian `Setting`-based settings tab. ESLint enforces this boundary with allowlisted bridge files; add a new allowlist entry only when the code is genuinely bridging an external DOM API.
+Codex Panel's runtime UI is Preact-owned through `preact/compat`. Keep chat panel UI, the Threads view, and the selection rewrite popover in Preact components, using the React-compatible adapter layer until a targeted compat-removal pass is worthwhile. Imperative DOM writes are limited to explicit bridge modules or Obsidian-owned API boundaries such as `MarkdownRenderer`, diff rendering, icon rendering, `SuggestModal`, and the Obsidian `Setting`-based settings tab. ESLint enforces this boundary with allowlisted bridge files; add a new allowlist entry only when the code is genuinely bridging an external DOM API.
 
-React is pinned to 18.x for Obsidian Community plugin review compatibility. React DOM 19 currently bundles runtime code that creates `<script>` elements, which is flagged by Obsidian's automated review even though Codex Panel does not dynamically load external scripts. Revisit this pin only after Obsidian's review tooling can distinguish that React runtime code from plugin-controlled script injection.
+The bundled UI runtime should stay on Preact rather than React/React DOM. This avoids React DOM runtime code that creates `<script>` elements and can be flagged by Obsidian Community plugin review automation, while preserving the current component model through `preact/compat`. Do not reintroduce `react`, `react-dom`, `@types/react`, or `@types/react-dom` unless the review tradeoff is explicitly revisited.
 
 ## App-Server Bindings
 

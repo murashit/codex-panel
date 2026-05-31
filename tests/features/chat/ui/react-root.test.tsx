@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderReactRoot, unmountReactRoot } from "../../../../src/shared/ui/react-root";
 
-describe("React root adapter", () => {
+describe("Preact compat root adapter", () => {
   it("reuses roots that render no host children", () => {
     const parent = document.createElement("div");
 

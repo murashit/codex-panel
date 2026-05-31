@@ -25,10 +25,10 @@ const imperativeDomRestrictions = [
     message: "Keep imperative DOM event wiring in an explicit bridge module or Obsidian-owned UI boundary.",
   },
 ];
-const reactFormRestrictions = [
+const preactFormRestrictions = [
   {
     selector: "JSXAttribute[name.name=/^(defaultValue|defaultChecked)$/]",
-    message: "Keep React form state explicit with controlled value or checked props.",
+    message: "Keep Preact form state explicit with controlled value or checked props.",
   },
 ];
 const removedChatStateEscapeHatchRestrictions = [
@@ -194,7 +194,12 @@ export default defineConfig([
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles],
     rules: {
-      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...imperativeDomRestrictions, ...reactFormRestrictions],
+      "no-restricted-syntax": [
+        "error",
+        ...removedChatStateEscapeHatchRestrictions,
+        ...imperativeDomRestrictions,
+        ...preactFormRestrictions,
+      ],
     },
   },
   {
@@ -205,7 +210,7 @@ export default defineConfig([
         "error",
         ...removedChatStateEscapeHatchRestrictions,
         ...imperativeDomRestrictions,
-        ...reactFormRestrictions,
+        ...preactFormRestrictions,
         ...chatStateRestrictions,
       ],
     },
@@ -213,13 +218,13 @@ export default defineConfig([
   {
     files: chatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...reactFormRestrictions, ...chatStateRestrictions],
+      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...preactFormRestrictions, ...chatStateRestrictions],
     },
   },
   {
     files: nonChatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...reactFormRestrictions],
+      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...preactFormRestrictions],
     },
   },
   {
@@ -229,7 +234,7 @@ export default defineConfig([
         "error",
         ...removedChatStateEscapeHatchRestrictions,
         ...imperativeDomRestrictions,
-        ...reactFormRestrictions,
+        ...preactFormRestrictions,
         ...chatStateRestrictions,
         ...pureChatModelRestrictions,
       ],

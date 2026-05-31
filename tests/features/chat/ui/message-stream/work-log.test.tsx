@@ -330,7 +330,7 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
   });
 
-  it("keeps completed-turn activity group items mounted through React", () => {
+  it("keeps completed-turn activity group items mounted through Preact", () => {
     const parent = document.createElement("div");
     const onDetailsToggle = vi.fn();
 
@@ -440,7 +440,7 @@ describe("work log renderer decisions", () => {
     expect(element.textContent).toContain("[>]Patch UI");
   });
 
-  it("keeps task progress React items mounted in the message stream host", () => {
+  it("keeps task progress Preact items mounted in the message stream host", () => {
     const parent = document.createElement("div");
 
     renderMessageStreamBlocksInAct(
@@ -682,7 +682,7 @@ describe("work log renderer decisions", () => {
     expect(element.textContent).toContain("childcompleted: Done");
   });
 
-  it("keeps agent React details mounted in the message stream host", () => {
+  it("keeps agent Preact details mounted in the message stream host", () => {
     const parent = document.createElement("div");
     const onDetailsToggle = vi.fn();
 
@@ -858,7 +858,7 @@ describe("work log renderer decisions", () => {
     expect(summary.textContent).not.toContain("donecompleted");
   });
 
-  it("renders the compact live agent summary as a React block", () => {
+  it("renders the compact live agent summary as a Preact block", () => {
     const parent = document.createElement("div");
 
     renderMessageStreamBlocksInAct(
@@ -901,7 +901,7 @@ describe("work log renderer decisions", () => {
     unmountReactRootInAct(parent);
   });
 
-  it("renders active reasoning as a React message stream block", () => {
+  it("renders active reasoning as a Preact message stream block", () => {
     const parent = document.createElement("div");
 
     renderMessageStreamBlocksInAct(

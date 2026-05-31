@@ -153,7 +153,7 @@ describe("chat turn diff view decisions", () => {
     expect(parent.querySelector(".codex-panel-chat-turn-diff__diff")).toBeNull();
   });
 
-  it("unmounts the turn diff React root when the view closes", async () => {
+  it("unmounts the turn diff Preact root when the view closes", async () => {
     const containerEl = document.createElement("div");
     const view = new CodexChatTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
 

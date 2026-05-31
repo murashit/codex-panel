@@ -23,7 +23,7 @@ import {
 } from "./test-helpers";
 
 describe("message stream block identity and message actions", () => {
-  it("reuses keyed React message block hosts across rerenders", () => {
+  it("reuses keyed Preact message block hosts across rerenders", () => {
     const parent = document.createElement("div");
     renderMessageStreamBlocksInAct(parent, [testMessageStreamBlock("one", createElement("section", null, "first"))]);
 
@@ -47,7 +47,7 @@ describe("message stream block identity and message actions", () => {
     unmountReactRootInAct(parent);
   });
 
-  it("leaves stable ordered React message block hosts in place during repeated renders", () => {
+  it("leaves stable ordered Preact message block hosts in place during repeated renders", () => {
     const parent = document.createElement("div");
     renderMessageStreamBlocksInAct(parent, [
       testMessageStreamBlock("one", createElement("section", null, "one")),
@@ -128,7 +128,7 @@ describe("message stream block identity and message actions", () => {
     unmountReactRootInAct(parent);
   });
 
-  it("renders the history bar as a React block", () => {
+  it("renders the history bar as a Preact block", () => {
     const loadOlderTurns = vi.fn();
     const [historyBlock] = messageStreamBlocks({
       activeThreadId: "thread",
@@ -158,7 +158,7 @@ describe("message stream block identity and message actions", () => {
     unmountReactRootInAct(parent);
   });
 
-  it("renders the empty message stream state as a React block", () => {
+  it("renders the empty message stream state as a Preact block", () => {
     const [emptyBlock] = messageStreamBlocks({
       activeThreadId: null,
       turnLifecycle: idleTurnLifecycle(),
@@ -252,7 +252,7 @@ describe("message stream block identity and message actions", () => {
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
   });
 
-  it("keeps tool result React details mounted in the message stream host", () => {
+  it("keeps tool result Preact details mounted in the message stream host", () => {
     const parent = document.createElement("div");
     const onDetailsToggle = vi.fn();
     const renderTextWithWikiLinks = vi.fn((element: HTMLElement, text: string) => {
@@ -307,7 +307,7 @@ describe("message stream block identity and message actions", () => {
     unmountReactRootInAct(parent);
   });
 
-  it("renders file change diffs through the React tool result adapter", () => {
+  it("renders file change diffs through the Preact tool result adapter", () => {
     const parent = document.createElement("div");
 
     renderMessageStreamBlocksInAct(
@@ -537,7 +537,7 @@ describe("message stream block identity and message actions", () => {
     expect(onForkItem).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }), true);
   });
 
-  it("keeps message React actions mounted in the message stream host", () => {
+  it("keeps message Preact actions mounted in the message stream host", () => {
     const parent = document.createElement("div");
     const copyText = vi.fn();
     const onImplementPlanItem = vi.fn();
@@ -580,7 +580,7 @@ describe("message stream block identity and message actions", () => {
     unmountReactRootInAct(parent);
   });
 
-  it("renders message markdown through the React content adapter", () => {
+  it("renders message markdown through the Preact content adapter", () => {
     const parent = document.createElement("div");
     const renderMarkdown = vi.fn((element: HTMLElement, text: string) => {
       element.createDiv({ text: `rendered:${text}` });
