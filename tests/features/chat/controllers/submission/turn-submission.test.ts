@@ -45,6 +45,23 @@ describe("chat turn submission helpers", () => {
     });
   });
 
+  it("formats resolved skill references in optimistic user messages only for display", () => {
+    const text = "Use $obsidian-codex-panel-maintain and $missing.";
+    const input = [
+      { type: "text" as const, text, text_elements: [] },
+      {
+        type: "skill" as const,
+        name: "obsidian-codex-panel-maintain",
+        path: "/skills/obsidian-codex-panel-maintain/SKILL.md",
+      },
+    ];
+
+    expect(localUserMessageItemFromInput({ id: "steer", text, codexInput: input })).toMatchObject({
+      text: "Use `$obsidian-codex-panel-maintain` and $missing.",
+      copyText: "Use $obsidian-codex-panel-maintain and $missing.",
+    });
+  });
+
   it("keeps turn start acknowledgement matching explicit", () => {
     expect(
       shouldAcknowledgeTurnStart({

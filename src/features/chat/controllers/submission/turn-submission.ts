@@ -1,12 +1,13 @@
 import type { PendingTurnStart } from "../../chat-state";
 import type { DisplayFileMention, DisplayItem, MessageDisplayItem } from "../../display/types";
-import { fileMentionsFromInput } from "../../display/thread-items";
+import { fileMentionsFromInput, userMessageDisplayText } from "../../display/thread-items";
 import { attachHookRunsToTurn } from "../../hook-display";
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
 
 export interface LocalUserMessageParams {
   id: string;
   text: string;
+  copyText?: string;
   turnId?: string;
   referencedThread?: MessageDisplayItem["referencedThread"];
   mentionedFiles?: readonly DisplayFileMention[];
@@ -50,7 +51,7 @@ export function localUserMessageItem(params: LocalUserMessageParams): MessageDis
     kind: "message",
     role: "user",
     text: params.text,
-    copyText: params.text,
+    copyText: params.copyText ?? params.text,
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     ...(mentionedFiles.length > 0 ? { mentionedFiles: [...mentionedFiles] } : {}),
@@ -61,7 +62,8 @@ export function localUserMessageItem(params: LocalUserMessageParams): MessageDis
 export function localUserMessageItemFromInput(params: LocalUserMessageFromInputParams): MessageDisplayItem {
   return localUserMessageItem({
     id: params.id,
-    text: params.text,
+    text: userMessageDisplayText(params.text, params.codexInput),
+    copyText: params.text,
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     mentionedFiles: fileMentionsFromInput([...params.codexInput]),
