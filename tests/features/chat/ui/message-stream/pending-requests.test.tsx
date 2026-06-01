@@ -362,7 +362,7 @@ describe("pending request renderer decisions", () => {
           text: "Input submitted for 1 question.",
           turnId: "turn",
           markdown: false,
-          state: "completed",
+          executionState: "completed",
           details: [{ title: "Question: Scope", rows: [{ key: "Answer", value: "Narrow" }] }],
         },
       ],
@@ -394,7 +394,7 @@ describe("pending request renderer decisions", () => {
           text: "Allowed for this session: Need access",
           turnId: "turn",
           markdown: false,
-          state: "completed",
+          executionState: "completed",
           details: [
             {
               title: "Approval",

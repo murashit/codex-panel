@@ -64,7 +64,7 @@ export function completeReasoningItems(items: readonly DisplayItem[], turnId: st
       ? {
           ...item,
           status: "completed",
-          state: "completed",
+          executionState: "completed",
         }
       : item,
   );
@@ -191,11 +191,13 @@ export function appendItemOutput(
         ? {
             status: "inProgress",
             changes: [],
+            executionState: "running",
           }
         : {
             command: fallbackText,
             cwd: "(unknown)",
             status: "running",
+            executionState: "running",
           }),
     },
   ] as DisplayItem[];

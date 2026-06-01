@@ -83,7 +83,7 @@ describe("ChatController", () => {
 
       expect(state.displayItems).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ id: "r1", kind: "reasoning", status: "completed", state: "completed" }),
+          expect.objectContaining({ id: "r1", kind: "reasoning", status: "completed", executionState: "completed" }),
           expect.objectContaining({ id: "a1", kind: "message", text: "answer" }),
         ]),
       );
@@ -732,7 +732,7 @@ describe("ChatController", () => {
         role: "tool",
         text: "Allowed for this session: Need access",
         turnId: "turn",
-        state: "completed",
+        executionState: "completed",
         details: [
           {
             title: "Approval",
@@ -1304,7 +1304,7 @@ describe("ChatController", () => {
         id: "review-review-1",
         kind: "reviewResult",
         text: "Auto-review approved: npm test",
-        state: "completed",
+        executionState: "completed",
       });
       const reviewItem = expectPresent(state.displayItems[0]);
       expect("details" in reviewItem ? reviewItem.details[0] : null).toMatchObject({

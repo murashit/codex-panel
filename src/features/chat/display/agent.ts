@@ -27,7 +27,7 @@ export function agentDisplayItem(item: CollabAgentToolCallItem, turnId?: string)
     model: item.model,
     reasoningEffort: item.reasoningEffort,
     agents,
-    state: collabAgentExecutionState(item.tool, item.status, item.receiverThreadIds, agents),
+    executionState: collabAgentExecutionState(item.tool, item.status, item.receiverThreadIds, agents),
   };
 }
 

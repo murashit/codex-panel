@@ -23,7 +23,7 @@ export interface DisplayBase {
   text: string;
   turnId?: string;
   itemId?: string;
-  state?: ExecutionState;
+  executionState?: ExecutionState;
 }
 
 export interface DisplayDetailMetaRow {

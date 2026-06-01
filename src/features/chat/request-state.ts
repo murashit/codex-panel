@@ -58,7 +58,7 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     text: approvalResultText(approval, action),
     ...definedProp("turnId", approvalTurnId(approval)),
     markdown: false,
-    state: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
+    executionState: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
     details: [
       {
         title: "Approval",
@@ -94,7 +94,7 @@ export function createUserInputResultItem(
     text: status === "submitted" ? `Input submitted for ${label}.` : `Input request cancelled for ${label}.`,
     ...definedProp("turnId", input.params.turnId),
     markdown: false,
-    state: status === "submitted" ? "completed" : "failed",
+    executionState: status === "submitted" ? "completed" : "failed",
     details,
   };
 }

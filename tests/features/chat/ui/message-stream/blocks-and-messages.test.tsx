@@ -218,7 +218,7 @@ describe("message stream block identity and message actions", () => {
           text: "Auto-review approved: npm test",
           turnId: "turn",
           markdown: false,
-          state: "completed",
+          executionState: "completed",
           details: [
             {
               title: "Review",
@@ -276,7 +276,7 @@ describe("message stream block identity and message actions", () => {
             cwd: "/vault",
             status: "completed",
             output: "ok",
-            state: "completed",
+            executionState: "completed",
           },
         ],
         openDetails: new Set(),

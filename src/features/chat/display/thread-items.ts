@@ -203,7 +203,7 @@ function mcpToolCallDisplayItem(item: McpToolCallItem, turnId?: string): Display
       ["Error JSON", item.error],
     ]),
     output: "",
-    state: mcpToolCallExecutionState(item.status),
+    executionState: mcpToolCallExecutionState(item.status),
   };
 }
 
@@ -225,7 +225,7 @@ function dynamicToolCallDisplayItem(item: DynamicToolCallItem, turnId?: string):
       ["Result JSON", item.contentItems],
     ]),
     output: "",
-    state: dynamicToolCallExecutionState(item.status, item.success),
+    executionState: dynamicToolCallExecutionState(item.status, item.success),
   };
 }
 
@@ -274,7 +274,7 @@ function imageGenerationDisplayItem(item: ImageGenerationItem, turnId?: string):
       ...bodyDetail("Result", item.result),
     ],
     output: "",
-    state: imageGenerationExecutionState(item.status),
+    executionState: imageGenerationExecutionState(item.status),
   };
 }
 
@@ -465,7 +465,7 @@ export function commandDisplayItem(item: CommandExecutionItem, turnId?: string):
     ...definedProp("exitCode", exitCode),
     ...definedProp("durationMs", durationMs),
     output: item.aggregatedOutput ?? "",
-    state: commandExecutionState(item.status, exitCode),
+    executionState: commandExecutionState(item.status, exitCode),
   };
 }
 
@@ -481,7 +481,7 @@ export function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): Di
     itemId: item.id,
     status: item.status,
     changes,
-    state: patchApplyExecutionState(item.status),
+    executionState: patchApplyExecutionState(item.status),
   };
 }
 

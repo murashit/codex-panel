@@ -46,13 +46,7 @@ const AGENT_FAILED = ["interrupted", "errored", "notFound"] as const satisfies r
 const AGENT_FAILED_COMPAT = ["failed"] as const;
 
 export function executionState(item: DisplayItem): ExecutionState {
-  if (item.state) return item.state;
-  if (item.kind === "command") return commandExecutionState(item.status, item.exitCode);
-  if (item.kind === "fileChange") return patchApplyExecutionState(item.status);
-  if (item.kind === "taskProgress") return taskProgressExecutionState(item.status);
-  if (item.kind === "agent") return collabAgentToolCallExecutionState(item.status);
-  if (item.kind === "tool" || item.kind === "hook" || item.kind === "reasoning") return toolStatusExecutionState(item.status);
-  return null;
+  return item.executionState ?? null;
 }
 
 export function commandExecutionState(status: string, exitCode?: number): ExecutionState {

@@ -25,6 +25,6 @@ export function planProgressDisplayItem(turnId: string, explanation: string | nu
     explanation: trimmedExplanation !== undefined && trimmedExplanation.length > 0 ? trimmedExplanation : null,
     steps: plan.map((step) => ({ step: step.step, status: step.status })),
     status,
-    state: taskProgressExecutionState(status),
+    executionState: taskProgressExecutionState(status),
   };
 }

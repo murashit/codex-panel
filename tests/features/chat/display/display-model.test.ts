@@ -13,7 +13,7 @@ import {
 import { normalizeProposedPlanMarkdown, planProgressDisplayItem } from "../../../../src/features/chat/display/plan";
 import { pathRelativeToRoot } from "../../../../src/features/chat/display/paths";
 import { createAutoReviewResultItem, createReviewResultItem } from "../../../../src/features/chat/display/review";
-import { executionState } from "../../../../src/features/chat/display/state";
+import { commandExecutionState, executionState } from "../../../../src/features/chat/display/state";
 import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/display/thread-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
@@ -27,7 +27,17 @@ function expectPresent<T>(value: T | null | undefined): T {
 }
 
 function commandItem(id: string, text: string, turnId: string): DisplayItem {
-  return { id, kind: "command", role: "tool", text, turnId, command: text, cwd: "/vault", status: "completed" };
+  return {
+    id,
+    kind: "command",
+    role: "tool",
+    text,
+    turnId,
+    command: text,
+    cwd: "/vault",
+    status: "completed",
+    executionState: "completed",
+  };
 }
 
 function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): DisplayItem {
@@ -38,6 +48,7 @@ function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): Displ
     text: "File change completed",
     turnId,
     status: "completed",
+    executionState: "completed",
     changes: [{ kind: "update", path, diff: "" }],
   };
 }
@@ -225,7 +236,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       model: "gpt-5.5",
       reasoningEffort: "high",
       agents: [{ threadId: "child-thread", status: "completed", message: "Done" }],
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -246,7 +257,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
       kind: "agent",
       status: "completed",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -269,7 +280,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "command",
       text: "npm run check (exit 1)",
       output: "stderr with many details",
-      state: "failed",
+      executionState: "failed",
     });
   });
 
@@ -292,7 +303,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "command",
       actionLabel: "read",
       text: "src/main.ts",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -317,7 +328,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       text: "src/main.ts",
       command: "nl -ba src/main.ts | sed -n '1,20p'",
       cwd: "/vault",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -340,7 +351,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "command",
       actionLabel: "read",
       text: "/vault/src/main.ts",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -365,7 +376,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       text: "npm run check",
       command: "/bin/zsh -lc 'npm run check'",
       cwd: "/vault",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -390,7 +401,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       text: '"command target" in src/display',
       command: "rg 'command target' src/display",
       cwd: "/vault",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -413,7 +424,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "command",
       actionLabel: "search",
       text: "target in src/display",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -436,7 +447,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "command",
       actionLabel: "search",
       text: "target in src/display",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -459,7 +470,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "command",
       actionLabel: "list files",
       text: "src/display",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -485,7 +496,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "command",
       actionLabel: "search",
       text: "target in src",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -508,7 +519,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "command",
       actionLabel: "list files",
       text: "workspace",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -530,7 +541,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
       kind: "command",
       text: "rg error src",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -569,16 +580,16 @@ describe("thread item conversion preserves app-server semantics", () => {
 
     expect(displayItemFromThreadItem(command, "t1")).toMatchObject({
       text: "npm run check",
-      state: "running",
+      executionState: "running",
     });
     expect(displayItemFromThreadItem(fileChange, "t1")).toMatchObject({
       text: "src/main.ts",
-      state: "running",
+      executionState: "running",
     });
     expect(displayItemFromThreadItem(tool, "t1")).toMatchObject({
       text: "123",
       toolLabel: "github.pull_request_read",
-      state: "running",
+      executionState: "running",
     });
   });
 
@@ -604,7 +615,7 @@ describe("thread item conversion preserves app-server semantics", () => {
         { title: "Arguments JSON", body: expect.stringContaining('"id": 123') },
         { title: "Error JSON", body: expect.stringContaining("Not found") },
       ],
-      state: "failed",
+      executionState: "failed",
     });
   });
 
@@ -629,7 +640,7 @@ describe("thread item conversion preserves app-server semantics", () => {
         { title: "Arguments JSON", body: expect.stringContaining("https://example.com") },
         { title: "Result JSON", body: expect.stringContaining("ok") },
       ],
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -669,7 +680,7 @@ describe("thread item conversion preserves app-server semantics", () => {
         { title: "Revised prompt", body: "A precise UI mockup." },
         { title: "Result", body: "image result" },
       ],
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -711,7 +722,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "tool",
       text: "details",
       toolLabel: "multi_tool_use.parallel",
-      state: "completed",
+      executionState: "completed",
     });
   });
 
@@ -778,7 +789,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     ).toMatchObject({
       kind: "reviewResult",
       text: "Auto-review approved: Auto-review returned a low-risk allow decision.",
-      state: "completed",
+      executionState: "completed",
       details: [
         {
           title: "Review",
@@ -898,7 +909,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         role: "tool",
         text: "Auto-review approved: npm test",
         turnId: "t1",
-        state: "completed",
+        executionState: "completed",
       },
       {
         id: "review-2",
@@ -906,7 +917,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         role: "tool",
         text: "Auto-review approved: npm test",
         turnId: "t1",
-        state: "completed",
+        executionState: "completed",
       },
       { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
     ];
@@ -926,7 +937,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   it("hides empty completed reasoning items", () => {
     const items: DisplayItem[] = [
       { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
-      { id: "r1", kind: "reasoning", role: "tool", text: "", turnId: "t1", status: "completed" },
+      { id: "r1", kind: "reasoning", role: "tool", text: "", turnId: "t1", status: "completed", executionState: "completed" },
       { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
     ];
 
@@ -1177,7 +1188,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         role: "tool",
         text: "Auto-review approved: npm test",
         turnId: "t1",
-        state: "completed",
+        executionState: "completed",
       },
       {
         id: "review-2",
@@ -1185,7 +1196,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         role: "tool",
         text: "Auto-review approved: npm test",
         turnId: "t1",
-        state: "completed",
+        executionState: "completed",
       },
       { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
     ];
@@ -1205,7 +1216,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         role: "tool",
         text: "Auto-review approved: npm test",
         turnId: "t1",
-        state: "completed",
+        executionState: "completed",
       },
       { id: "a1", kind: "message", role: "assistant", text: "still working", turnId: "t1" },
     ];
@@ -1239,47 +1250,15 @@ describe("workspace path summaries stay readable without hiding audit paths", ()
 
 describe("execution state uses typed status adapters before rendered text", () => {
   it("detects failed command state", () => {
-    expect(
-      executionState({
-        id: "c1",
-        kind: "command",
-        role: "tool",
-        text: "Command",
-        command: "npm test",
-        cwd: "/vault",
-        status: "failed",
-        exitCode: 1,
-      }),
-    ).toBe("failed");
+    expect(commandExecutionState("failed", 1)).toBe("failed");
   });
 
   it("does not infer command failure from the command text", () => {
-    expect(
-      executionState({
-        id: "c1",
-        kind: "command",
-        role: "tool",
-        text: "rg error src",
-        command: "rg error src",
-        cwd: "/vault",
-        status: "completed",
-        exitCode: 0,
-      }),
-    ).toBe("completed");
+    expect(commandExecutionState("completed", 0)).toBe("completed");
   });
 
   it("uses typed command status before command text", () => {
-    expect(
-      executionState({
-        id: "c1",
-        kind: "command",
-        role: "tool",
-        text: "rg error src",
-        command: "rg error src",
-        cwd: "/vault",
-        status: "inProgress",
-      }),
-    ).toBe("running");
+    expect(commandExecutionState("inProgress")).toBe("running");
   });
 
   it("does not infer unknown status strings with broad matching", () => {
