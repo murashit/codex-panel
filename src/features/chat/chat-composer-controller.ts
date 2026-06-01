@@ -15,6 +15,7 @@ import {
 import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-context";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { renderComposerShell, syncComposerHeight } from "./ui/composer";
+import { composerCursorAtVisualTextareaBoundary } from "./ui/textarea-caret";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 
 export interface ChatComposerControllerOptions {
@@ -202,7 +203,10 @@ export class ChatComposerController {
   private handleBoundaryScrollKeydown(event: KeyboardEvent): boolean {
     if (!this.composer || !this.options.scrollThreadFromComposerEdges()) return false;
 
-    const action = composerBoundaryScrollDirection(event, this.composer);
+    const composer = this.composer;
+    const action = composerBoundaryScrollDirection(event, composer, {
+      cursorAtVisualBoundary: (direction) => composerCursorAtVisualTextareaBoundary(direction, composer),
+    });
     if (!action) return false;
 
     event.preventDefault();

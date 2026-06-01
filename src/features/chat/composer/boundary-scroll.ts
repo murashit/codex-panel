@@ -21,9 +21,14 @@ export interface ComposerBoundaryScrollTextState {
   selectionEnd: number;
 }
 
+export interface ComposerBoundaryScrollOptions {
+  cursorAtVisualBoundary?: (direction: ComposerBoundaryScrollDirection, composer: ComposerBoundaryScrollTextState) => boolean;
+}
+
 export function composerBoundaryScrollDirection(
   event: ComposerBoundaryScrollKeyEvent,
   composer: ComposerBoundaryScrollTextState,
+  options: ComposerBoundaryScrollOptions = {},
 ): ComposerBoundaryScrollAction | null {
   if (event.isComposing || event.metaKey || event.altKey || event.shiftKey) return null;
 
@@ -33,10 +38,10 @@ export function composerBoundaryScrollDirection(
   if (composer.selectionStart !== composer.selectionEnd) return null;
 
   return keyAction.direction === -1
-    ? composerCursorOnFirstLine(composer)
+    ? composerCursorOnFirstLine(composer) && composerCursorAtVisualBoundary(keyAction.direction, composer, options)
       ? keyAction
       : null
-    : composerCursorOnLastLine(composer)
+    : composerCursorOnLastLine(composer) && composerCursorAtVisualBoundary(keyAction.direction, composer, options)
       ? keyAction
       : null;
 }
@@ -62,4 +67,12 @@ function composerCursorOnFirstLine(composer: ComposerBoundaryScrollTextState): b
 
 function composerCursorOnLastLine(composer: ComposerBoundaryScrollTextState): boolean {
   return !composer.value.slice(composer.selectionEnd).includes("\n");
+}
+
+function composerCursorAtVisualBoundary(
+  direction: ComposerBoundaryScrollDirection,
+  composer: ComposerBoundaryScrollTextState,
+  options: ComposerBoundaryScrollOptions,
+): boolean {
+  return options.cursorAtVisualBoundary?.(direction, composer) ?? true;
 }

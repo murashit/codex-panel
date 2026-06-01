@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "../../../../src/features/chat/composer/boundary-scroll";
 
@@ -24,6 +24,18 @@ describe("composer boundary scroll shortcuts", () => {
     expect(direction("ArrowDown", "first\nsecond", 3)).toBeNull();
   });
 
+  it("keeps cursor movement when the visual line has not reached the composer edge", () => {
+    expect(direction("ArrowUp", "wrapped first line", 8, { visualBoundary: false })).toBeNull();
+    expect(direction("ArrowDown", "wrapped last line", 8, { visualBoundary: false })).toBeNull();
+  });
+
+  it("does not measure visual boundaries away from logical composer edges", () => {
+    const visualBoundary = vi.fn(() => true);
+    expect(direction("ArrowUp", "first\nsecond", 8, { visualBoundary })).toBeNull();
+    expect(direction("ArrowDown", "first\nsecond", 3, { visualBoundary })).toBeNull();
+    expect(visualBoundary).not.toHaveBeenCalled();
+  });
+
   it("ignores selections, composition, and modified arrow keys", () => {
     expect(direction("ArrowUp", "first\nsecond", 3, { selectionEnd: 4 })).toBeNull();
     expect(direction("ArrowUp", "first\nsecond", 3, { isComposing: true })).toBeNull();
@@ -43,8 +55,16 @@ function direction(
     shiftKey: boolean;
     isComposing: boolean;
     selectionEnd: number;
+    visualBoundary: boolean | ((direction: -1 | 1) => boolean);
   }> = {},
 ): ComposerBoundaryScrollAction | null {
+  const visualOptions =
+    options.visualBoundary === undefined
+      ? {}
+      : {
+          cursorAtVisualBoundary:
+            typeof options.visualBoundary === "function" ? options.visualBoundary : () => options.visualBoundary as boolean,
+        };
   return composerBoundaryScrollDirection(
     {
       key,
@@ -59,5 +79,6 @@ function direction(
       selectionStart,
       selectionEnd: options.selectionEnd ?? selectionStart,
     },
+    visualOptions,
   );
 }
