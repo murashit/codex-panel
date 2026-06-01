@@ -27,5 +27,5 @@ Use this skill when Codex Panel needs to follow Codex CLI or experimental `codex
 ## Verification
 
 - Run `npm run check` after regenerated bindings or compatibility changes.
-- If the change must be reflected in Obsidian, run `npm run build` or `npm run build:prod` and verify the plugin reload path separately.
+- If the change must be reflected in Obsidian, run `npm run build` and verify the plugin reload path separately.
 - Report the tested Codex CLI version, the generation command used, and any app-server compatibility behavior that changed.
