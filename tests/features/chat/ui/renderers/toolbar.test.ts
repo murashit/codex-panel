@@ -34,13 +34,21 @@ describe("toolbar renderer decisions", () => {
     expect(historyButton?.classList.contains("clickable-icon")).toBe(true);
     historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
+    const planButton = parent.querySelector<HTMLButtonElement>(".codex-panel__plan-toggle");
+    expect(planButton?.getAttribute("aria-label")).toBe("Toggle plan mode");
+    expect(planButton?.getAttribute("aria-pressed")).toBe("false");
+    expect(planButton?.classList.contains("codex-panel__runtime-icon")).toBe(true);
     const autoReviewButton = parent.querySelector<HTMLButtonElement>(".codex-panel__auto-review-toggle");
     expect(autoReviewButton?.getAttribute("aria-label")).toBe("Toggle auto-review");
     expect(autoReviewButton?.getAttribute("aria-pressed")).toBe("false");
+    expect(autoReviewButton?.classList.contains("codex-panel__runtime-icon")).toBe(true);
     expect(autoReviewButton?.classList.contains("nav-action-button")).toBe(false);
     expect(autoReviewButton?.classList.contains("clickable-icon")).toBe(true);
     autoReviewButton?.click();
     expect(toggleAutoReview).toHaveBeenCalled();
+    expect([...parent.querySelectorAll(".codex-panel__runtime-strip > button")].map((button) => button.getAttribute("aria-label"))).toEqual(
+      ["Toggle plan mode", "Toggle auto-review", "Toggle fast mode", "Change model and reasoning effort"],
+    );
 
     parent.empty();
     renderToolbar(parent, toolbarModel({ status: "Turn running...", statusState: "running", autoReviewActive: true }), toolbarActions());

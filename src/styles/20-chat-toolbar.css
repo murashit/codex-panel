@@ -32,10 +32,6 @@
   min-width: 0;
 }
 
-.codex-panel__auto-review-toggle {
-  flex: 0 0 auto;
-}
-
 .codex-panel__runtime-strip {
   display: inline-flex;
   align-items: center;

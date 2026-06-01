@@ -44,13 +44,6 @@ function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: Toolbar
           aria-pressed={model.historyOpen ? "true" : "false"}
           onClick={actions.toggleHistory}
         />
-        <ToolbarIconButton
-          icon="shield"
-          label="Toggle auto-review"
-          className={`codex-panel__auto-review-toggle ${model.autoReviewActive ? "is-active" : ""}`}
-          aria-pressed={model.autoReviewActive ? "true" : "false"}
-          onClick={actions.toggleAutoReview}
-        />
         <div className="codex-panel__runtime-area">
           <RuntimeStrip model={model} actions={actions} />
         </div>
@@ -85,7 +78,20 @@ function ToolbarIconButton({
 function RuntimeStrip({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): ReactNode {
   return (
     <div className="codex-panel__runtime-strip">
-      <RuntimeIcon icon="list-checks" label="Toggle plan mode" active={model.planActive} onClick={actions.togglePlan} />
+      <RuntimeIcon
+        icon="list-checks"
+        label="Toggle plan mode"
+        className="codex-panel__plan-toggle"
+        active={model.planActive}
+        onClick={actions.togglePlan}
+      />
+      <RuntimeIcon
+        icon="shield"
+        label="Toggle auto-review"
+        className="codex-panel__auto-review-toggle"
+        active={model.autoReviewActive}
+        onClick={actions.toggleAutoReview}
+      />
       <RuntimeIcon icon="zap" label="Toggle fast mode" active={model.fastActive} onClick={actions.toggleFast} />
       <button
         className={[
@@ -109,12 +115,24 @@ function RuntimeStrip({ model, actions }: { model: ToolbarViewModel; actions: To
   );
 }
 
-function RuntimeIcon({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }): ReactNode {
+function RuntimeIcon({
+  icon,
+  label,
+  className,
+  active,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  className?: string;
+  active: boolean;
+  onClick: () => void;
+}): ReactNode {
   return (
     <ToolbarIconButton
       icon={icon}
       label={label}
-      className={`codex-panel__runtime-icon ${active ? "is-active" : ""}`}
+      className={`codex-panel__runtime-icon ${className ?? ""} ${active ? "is-active" : ""}`}
       aria-pressed={active ? "true" : "false"}
       onClick={onClick}
     />
