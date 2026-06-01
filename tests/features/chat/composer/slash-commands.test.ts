@@ -225,13 +225,13 @@ describe("slash commands", () => {
     expect(result).toBeUndefined();
   });
 
-  it("returns message text after toggling auto-review for /auto-review arguments", async () => {
+  it("rejects /auto-review arguments", async () => {
     const ctx = context();
 
-    const result = await executeSlashCommand("auto-review", "この依頼からお願いします", ctx);
+    await executeSlashCommand("auto-review", "この依頼からお願いします", ctx);
 
-    expect(ctx.toggleAutoReview).toHaveBeenCalledOnce();
-    expect(result).toEqual({ sendText: "この依頼からお願いします" });
+    expect(ctx.toggleAutoReview).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/auto-review does not take arguments. Usage: /auto-review");
   });
 
   it("rejects /compact arguments", async () => {
@@ -367,10 +367,8 @@ describe("slash commands", () => {
     );
   });
 
-  it("documents that /auto-review can take a message", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/auto-review"))).toBe(
-      "/auto-review [message] - Toggle approval auto-review, optionally with a message.",
-    );
+  it("documents auto-review", () => {
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/auto-review"))).toBe("/auto-review - Toggle approval auto-review.");
   });
 
   it("documents rollback", () => {

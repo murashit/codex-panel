@@ -154,7 +154,6 @@ export async function executeSlashCommand(
 
   if (command === "auto-review") {
     await context.toggleAutoReview();
-    if (args) return { sendText: args };
     return;
   }
 

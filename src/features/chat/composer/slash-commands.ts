@@ -20,9 +20,9 @@ export const SLASH_COMMANDS = [
   { command: "/archive", usage: "/archive <thread>", argsKind: "requiredThread", detail: "Archive the selected Codex thread." },
   {
     command: "/auto-review",
-    usage: "/auto-review [message]",
-    argsKind: "optionalMessage",
-    detail: "Toggle approval auto-review, optionally with a message.",
+    usage: "/auto-review",
+    argsKind: "none",
+    detail: "Toggle approval auto-review.",
   },
   { command: "/fast", usage: "/fast", argsKind: "none", detail: "Toggle fast service tier for subsequent turns." },
   { command: "/plan", usage: "/plan [message]", argsKind: "optionalMessage", detail: "Toggle Plan mode, optionally with a message." },
