@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Panel Obsidian Dev"
+  short_description: "Verify Codex Panel in live Obsidian"
+  default_prompt: "Use $codex-panel-obsidian-dev to reload and inspect Codex Panel in Obsidian."
