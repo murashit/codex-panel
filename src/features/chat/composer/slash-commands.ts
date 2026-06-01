@@ -2,10 +2,10 @@ export type SlashCommandArgsKind = "none" | "optionalThread" | "requiredThread" 
 
 export const SLASH_COMMANDS = [
   {
-    command: "/new",
-    usage: "/new [message]",
-    argsKind: "optionalMessage",
-    detail: "Start a new Codex thread, optionally with a message.",
+    command: "/clear",
+    usage: "/clear",
+    argsKind: "none",
+    detail: "Clear the current panel and start a fresh Codex thread.",
   },
   { command: "/resume", usage: "/resume [thread]", argsKind: "optionalThread", detail: "Resume a recent Codex thread." },
   {

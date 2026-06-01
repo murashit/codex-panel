@@ -60,9 +60,8 @@ export async function executeSlashCommand(
     return;
   }
 
-  if (command === "new") {
+  if (command === "clear") {
     await context.startNewThread();
-    if (args) return { sendText: args };
     return;
   }
 

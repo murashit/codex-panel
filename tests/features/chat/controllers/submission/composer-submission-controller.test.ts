@@ -68,13 +68,13 @@ describe("ComposerSubmissionController", () => {
   });
 
   it("executes slash commands and forwards command send results", async () => {
-    const { controller, execute, sendTurnText, setDraft } = createController("/new hello");
+    const { controller, execute, sendTurnText, setDraft } = createController("/clear hello");
     execute.mockResolvedValue({ sendText: "hello" });
 
     await controller.submit();
 
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(execute).toHaveBeenCalledWith("new", "hello");
+    expect(execute).toHaveBeenCalledWith("clear", "hello");
     expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
   });
 

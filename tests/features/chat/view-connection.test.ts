@@ -439,7 +439,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
   });
 
-  it("starts a thread only when /new includes a message to send", async () => {
+  it("does not start a thread when /clear is given arguments", async () => {
     const client = connectedClient({
       startThread: vi.fn().mockResolvedValue(startedThread("thread-new")),
     });
@@ -449,11 +449,11 @@ describe("CodexChatView connection lifecycle", () => {
     await view.onOpen();
     await view.onOpen();
     await view.connect();
-    view.setComposerText("/new hello");
+    view.setComposerText("/clear hello");
     await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
 
-    expect(client.startThread).toHaveBeenCalledOnce();
-    expect(client.startTurn).toHaveBeenCalledWith("thread-new", "/vault", [{ type: "text", text: "hello", text_elements: [] }]);
+    expect(client.startThread).not.toHaveBeenCalled();
+    expect(client.startTurn).not.toHaveBeenCalled();
   });
 
   it("focuses an open panel instead of resuming a duplicate slash resume thread", async () => {

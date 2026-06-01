@@ -62,21 +62,21 @@ function thread(overrides: Partial<Thread> = {}): Thread {
 }
 
 describe("slash commands", () => {
-  it("starts a new thread for /new", async () => {
+  it("clears the current panel for /clear", async () => {
     const ctx = context();
 
-    await executeSlashCommand("new", "", ctx);
+    await executeSlashCommand("clear", "", ctx);
 
     expect(ctx.startNewThread).toHaveBeenCalledOnce();
   });
 
-  it("returns message text after starting a new thread for /new arguments", async () => {
+  it("rejects /clear arguments", async () => {
     const ctx = context();
 
-    const result = await executeSlashCommand("new", "最初の依頼です", ctx);
+    await executeSlashCommand("clear", "最初の依頼です", ctx);
 
-    expect(ctx.startNewThread).toHaveBeenCalledOnce();
-    expect(result).toEqual({ sendText: "最初の依頼です" });
+    expect(ctx.startNewThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/clear does not take arguments. Usage: /clear");
   });
 
   it("resumes the latest listed thread for bare /resume", async () => {

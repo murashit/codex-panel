@@ -99,7 +99,7 @@ describe("composer suggestions", () => {
 
   it("parses supported slash commands only", () => {
     expect(parseSlashCommand("/status")).toEqual({ command: "status", args: "" });
-    expect(parseSlashCommand("/new")).toEqual({ command: "new", args: "" });
+    expect(parseSlashCommand("/clear")).toEqual({ command: "clear", args: "" });
     expect(parseSlashCommand("/resume thread-1")).toEqual({ command: "resume", args: "thread-1" });
     expect(parseSlashCommand("/refer thread-1 続きです")).toEqual({ command: "refer", args: "thread-1 続きです" });
     expect(parseSlashCommand("/fork")).toEqual({ command: "fork", args: "" });
@@ -110,6 +110,7 @@ describe("composer suggestions", () => {
     expect(parseSlashCommand("/plan OK、実装してください")).toEqual({ command: "plan", args: "OK、実装してください" });
     expect(parseSlashCommand("/model gpt-5.5")).toEqual({ command: "model", args: "gpt-5.5" });
     expect(parseSlashCommand("/effort high")).toEqual({ command: "effort", args: "high" });
+    expect(parseSlashCommand("/new")).toBeNull();
     expect(parseSlashCommand("/unknown")).toBeNull();
   });
 

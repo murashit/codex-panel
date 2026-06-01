@@ -38,7 +38,7 @@ Use **Codex Panel: Open thread...** to search non-archived threads from a picker
 
 Codex Panel supports Codex App Server workflows that fit a persistent panel in Obsidian:
 
-- Manage thread history from the panel or slash commands: start (`/new`), resume (`/resume`), rename, auto-name, fork (`/fork`), roll back (`/rollback`), compact (`/compact`), and archive (`/archive`) Codex threads.
+- Manage thread history from the panel or slash commands: clear (`/clear`), resume (`/resume`), rename, auto-name, fork (`/fork`), roll back (`/rollback`), compact (`/compact`), and archive (`/archive`) Codex threads.
 - Compose with Codex-aware completions for slash commands, enabled skills (`$skill-name`), recent threads, models, and supported reasoning efforts; use `/help` to show available slash commands.
 - Reference another non-archived thread without switching away from the current one (`/refer`).
 - Control subsequent turns from the toolbar or slash commands: Plan mode (`/plan`), fast mode (`/fast`), approval auto-review (`/auto-review`), model (`/model`), and reasoning effort (`/effort`).

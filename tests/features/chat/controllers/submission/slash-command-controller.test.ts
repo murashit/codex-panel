@@ -73,10 +73,10 @@ describe("SlashCommandController", () => {
     const { host } = createHost();
     const controller = new SlashCommandController(host);
 
-    const result = await controller.execute("new", "hello");
+    const result = await controller.execute("clear", "");
 
     expect(host.startNewThread).toHaveBeenCalledOnce();
-    expect(result).toEqual({ sendText: "hello" });
+    expect(result).toBeUndefined();
   });
 
   it("uses the current client for app-server commands", async () => {
