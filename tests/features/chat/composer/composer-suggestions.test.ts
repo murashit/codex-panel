@@ -293,7 +293,7 @@ describe("composer suggestions", () => {
     const wikilink = expectPresent(activeComposerSuggestions("[[bet", notes, [])[0]);
 
     expect(slash).toMatchObject({
-      detail: "Diagnostics: /status - Show current thread, context, and usage limits.",
+      detail: "/status - Show current thread, context, and usage limits.",
       replacement: "/status",
       appendSpaceOnInsert: true,
     });
