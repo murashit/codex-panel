@@ -1,7 +1,7 @@
 import type { DisplayItem } from "./types";
 import type { TurnPlanStep } from "../../../generated/app-server/v2/TurnPlanStep";
 import { taskStatusMarker } from "./labels";
-import { classifyExecutionState } from "./state";
+import { taskProgressExecutionState } from "./state";
 
 export function normalizeProposedPlanMarkdown(text: string): string {
   return text
@@ -25,6 +25,6 @@ export function planProgressDisplayItem(turnId: string, explanation: string | nu
     explanation: trimmedExplanation !== undefined && trimmedExplanation.length > 0 ? trimmedExplanation : null,
     steps: plan.map((step) => ({ step: step.step, status: step.status })),
     status,
-    state: classifyExecutionState({ status }),
+    state: taskProgressExecutionState(status),
   };
 }

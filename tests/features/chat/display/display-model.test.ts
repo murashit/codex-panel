@@ -1247,7 +1247,7 @@ describe("workspace path summaries stay readable without hiding audit paths", ()
   });
 });
 
-describe("execution state uses structured status before rendered text", () => {
+describe("execution state uses typed status adapters before rendered text", () => {
   it("detects failed command state", () => {
     expect(
       executionState({
@@ -1278,7 +1278,7 @@ describe("execution state uses structured status before rendered text", () => {
     ).toBe("completed");
   });
 
-  it("uses structured command status before command text", () => {
+  it("uses typed command status before command text", () => {
     expect(
       executionState({
         id: "c1",
@@ -1287,9 +1287,23 @@ describe("execution state uses structured status before rendered text", () => {
         text: "rg error src",
         command: "rg error src",
         cwd: "/vault",
-        status: "running",
+        status: "inProgress",
       }),
     ).toBe("running");
+  });
+
+  it("does not infer unknown status strings with broad matching", () => {
+    expect(
+      executionState({
+        id: "c1",
+        kind: "command",
+        role: "tool",
+        text: "Command",
+        command: "npm test",
+        cwd: "/vault",
+        status: "done_with_errors",
+      }),
+    ).toBeNull();
   });
 
   it("does not overwrite streamed output with an empty completed item", () => {

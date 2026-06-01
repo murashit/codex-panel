@@ -4,7 +4,7 @@ import type { ItemGuardianApprovalReviewCompletedNotification } from "../../../g
 import type { ItemGuardianApprovalReviewStartedNotification } from "../../../generated/app-server/v2/ItemGuardianApprovalReviewStartedNotification";
 import type { DisplayItem } from "./types";
 import { pathsRelativeToRoot } from "./paths";
-import { classifyExecutionState } from "./state";
+import { autoReviewExecutionState } from "./state";
 
 type AutoReviewNotification = ItemGuardianApprovalReviewStartedNotification | ItemGuardianApprovalReviewCompletedNotification;
 interface DisplayRow {
@@ -21,7 +21,7 @@ export function createReviewResultItem(id: string, text: string): DisplayItem {
       role: "tool",
       text: parsed.summary,
       markdown: false,
-      state: classifyExecutionState({ status: parsed.status }),
+      state: autoReviewExecutionState(parsed.status),
       details: [{ title: "Review", rows: parsed.rows }],
     };
   }
@@ -55,7 +55,7 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Disp
     text,
     turnId: params.turnId,
     markdown: false,
-    state: completed ? classifyExecutionState({ status }) : "running",
+    state: completed ? autoReviewExecutionState(status) : "running",
     details: [{ title: "Review", rows }],
   };
 }

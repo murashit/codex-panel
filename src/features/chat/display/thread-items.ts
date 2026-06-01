@@ -9,7 +9,13 @@ import { userItemText } from "../../../domain/threads/transcript";
 import { agentDisplayItem } from "./agent";
 import { pathRelativeToRoot } from "./paths";
 import { normalizeProposedPlanMarkdown } from "./plan";
-import { classifyExecutionState } from "./state";
+import {
+  commandExecutionState,
+  dynamicToolCallExecutionState,
+  imageGenerationExecutionState,
+  mcpToolCallExecutionState,
+  patchApplyExecutionState,
+} from "./state";
 import {
   bodyDetail,
   compactToolSummary,
@@ -197,7 +203,7 @@ function mcpToolCallDisplayItem(item: McpToolCallItem, turnId?: string): Display
       ["Error JSON", item.error],
     ]),
     output: "",
-    state: classifyExecutionState({ status: item.status }),
+    state: mcpToolCallExecutionState(item.status),
   };
 }
 
@@ -219,7 +225,7 @@ function dynamicToolCallDisplayItem(item: DynamicToolCallItem, turnId?: string):
       ["Result JSON", item.contentItems],
     ]),
     output: "",
-    state: item.success === false ? "failed" : classifyExecutionState({ status: item.status }),
+    state: dynamicToolCallExecutionState(item.status, item.success),
   };
 }
 
@@ -268,7 +274,7 @@ function imageGenerationDisplayItem(item: ImageGenerationItem, turnId?: string):
       ...bodyDetail("Result", item.result),
     ],
     output: "",
-    state: classifyExecutionState({ status: item.status }),
+    state: imageGenerationExecutionState(item.status),
   };
 }
 
@@ -459,7 +465,7 @@ export function commandDisplayItem(item: CommandExecutionItem, turnId?: string):
     ...definedProp("exitCode", exitCode),
     ...definedProp("durationMs", durationMs),
     output: item.aggregatedOutput ?? "",
-    state: classifyExecutionState({ ...definedProp("exitCode", exitCode), status: item.status }),
+    state: commandExecutionState(item.status, exitCode),
   };
 }
 
@@ -475,7 +481,7 @@ export function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): Di
     itemId: item.id,
     status: item.status,
     changes,
-    state: classifyExecutionState({ status: item.status }),
+    state: patchApplyExecutionState(item.status),
   };
 }
 

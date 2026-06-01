@@ -2,7 +2,7 @@ import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";
 import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateDisplay, DisplayItem, ExecutionState } from "./types";
 import { definedProp } from "../../../utils";
 import { agentActivitySummaryLabel, agentMessagePreview } from "./labels";
-import { classifyExecutionState } from "./state";
+import { collabAgentStateExecutionState, collabAgentToolCallExecutionState } from "./state";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
 type AgentRunState = "running" | "completed" | "failed";
@@ -82,18 +82,18 @@ function agentStatesDisplay(states: CollabAgentToolCallItem["agentsStates"]): Ag
 }
 
 function collabAgentExecutionState(tool: string, status: string, receiverThreadIds: string[], agents: AgentStateDisplay[]): ExecutionState {
-  if (tool === "spawnAgent") return classifyExecutionState({ status });
-  if (agents.some((agent) => classifyExecutionState({ status: agent.status }) === "failed")) return "failed";
-  if (agents.some((agent) => classifyExecutionState({ status: agent.status }) === "running")) return "running";
-  if (agents.length > 0 && agents.every((agent) => classifyExecutionState({ status: agent.status }) === "completed")) {
+  if (tool === "spawnAgent") return collabAgentToolCallExecutionState(status);
+  if (agents.some((agent) => collabAgentStateExecutionState(agent.status) === "failed")) return "failed";
+  if (agents.some((agent) => collabAgentStateExecutionState(agent.status) === "running")) return "running";
+  if (agents.length > 0 && agents.every((agent) => collabAgentStateExecutionState(agent.status) === "completed")) {
     return "completed";
   }
-  if (receiverThreadIds.length > 0 && classifyExecutionState({ status }) === "completed") return "running";
-  const state = classifyExecutionState({ status });
+  if (receiverThreadIds.length > 0 && collabAgentToolCallExecutionState(status) === "completed") return "running";
+  const state = collabAgentToolCallExecutionState(status);
   if (state) return state;
   return null;
 }
 
 function agentRunState(status: string): AgentRunState {
-  return classifyExecutionState({ status }) ?? "running";
+  return collabAgentStateExecutionState(status) ?? "running";
 }
