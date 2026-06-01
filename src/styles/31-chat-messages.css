@@ -253,6 +253,7 @@
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
+  cursor: pointer;
 }
 
 .codex-panel__open-turn-diff:hover {

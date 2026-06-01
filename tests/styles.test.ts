@@ -35,6 +35,14 @@ describe("chat toolbar CSS", () => {
   });
 });
 
+describe("chat message CSS", () => {
+  it("uses a pointer cursor for the inline turn diff action", () => {
+    const openTurnDiff = /\.codex-panel__open-turn-diff \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(openTurnDiff).toContain("cursor: pointer");
+  });
+});
+
 describe("threads view CSS", () => {
   it("keeps long row titles clear of trailing actions", () => {
     const titleLine = /\.codex-panel-threads__row-title-line \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
