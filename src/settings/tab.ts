@@ -60,7 +60,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     containerEl.addClass("codex-panel-settings");
 
     this.renderHeaderActions(containerEl, SETTINGS_INTRO_TEXT);
+    this.renderPanelPreferenceSections(containerEl);
+    this.renderCodexDynamicSections(containerEl);
 
+    this.maybeAutoLoadSettingsData();
+  }
+
+  private renderPanelPreferenceSections(containerEl: HTMLElement): void {
     const configSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__general-section" });
 
     new Setting(configSection)
@@ -184,7 +190,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         text: this.modelsLifecycle.status,
       });
     }
+  }
 
+  private renderCodexDynamicSections(containerEl: HTMLElement): void {
     renderArchivedThreadSection(containerEl, {
       exportEnabled: this.plugin.settings.archiveExportEnabled,
       exportFolderTemplate: this.plugin.settings.archiveExportFolderTemplate,
@@ -211,8 +219,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       onTrust: (hook) => void this.trustHook(hook),
       onToggleEnabled: (hook, enabled) => void this.setHookEnabled(hook, enabled),
     });
-
-    this.maybeAutoLoadSettingsData();
   }
 
   private renderHeaderActions(containerEl: HTMLElement, introText: string): void {
