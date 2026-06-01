@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { slashCommandHelpLines, slashCommandHelpRows } from "../../../../src/features/chat/composer/slash-commands";
+import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../src/features/chat/composer/slash-commands";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
 import { executeSlashCommand, type SlashCommandExecutionContext } from "../../../../src/features/chat/slash-commands";
 
@@ -303,7 +303,37 @@ describe("slash commands", () => {
     await executeSlashCommand("help", "", ctx);
 
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Available slash commands", [{ rows: slashCommandHelpRows() }]);
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Available slash commands", slashCommandHelpSections());
+  });
+
+  it("groups slash command help by command surface", () => {
+    expect(slashCommandHelpSections()).toEqual([
+      {
+        title: "Panel actions",
+        rows: expect.arrayContaining([
+          { key: "/clear", value: "Clear the current panel and start a fresh Codex thread." },
+          { key: "/archive <thread>", value: "Archive the selected Codex thread." },
+        ]),
+      },
+      {
+        title: "Thread settings",
+        rows: expect.arrayContaining([
+          { key: "/plan [message]", value: "Toggle Plan mode, optionally with a message." },
+          { key: "/model [model|default]", value: "Show or set the model for subsequent turns." },
+        ]),
+      },
+      {
+        title: "Diagnostics",
+        rows: expect.arrayContaining([
+          { key: "/status", value: "Show current thread, context, and usage limits." },
+          { key: "/help", value: "Show available Codex slash commands." },
+        ]),
+      },
+      {
+        title: "Composition",
+        rows: [{ key: "/refer <thread> <message>", value: "Send a message with recent turns from another non-archived thread." }],
+      },
+    ]);
   });
 
   it("rejects /help arguments", async () => {

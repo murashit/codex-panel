@@ -9,7 +9,7 @@ import {
   sortedAvailableModels,
   supportedEffortsForModel,
 } from "../../../runtime/model";
-import { SLASH_COMMANDS, type SlashCommandName } from "./slash-commands";
+import { SLASH_COMMANDS, SLASH_COMMAND_SURFACE_LABELS, type SlashCommandName } from "./slash-commands";
 import { getThreadTitle } from "../../../domain/threads/model";
 import { shortThreadId } from "../../../utils";
 
@@ -170,7 +170,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
     .slice(0, 8)
     .map((item) => ({
       display: item.command,
-      detail: `${item.usage} - ${item.detail}`,
+      detail: `${SLASH_COMMAND_SURFACE_LABELS[item.surface]}: ${item.usage} - ${item.detail}`,
       replacement: item.command,
       start,
       appendSpaceOnInsert: true,

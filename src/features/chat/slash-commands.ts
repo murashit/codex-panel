@@ -3,7 +3,7 @@ import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { ReferencedThreadDisplay } from "../../domain/threads/reference";
-import { slashCommandDefinition, slashCommandHelpRows, type SlashCommandName } from "./composer/slash-commands";
+import { slashCommandDefinition, slashCommandHelpSections, type SlashCommandName } from "./composer/slash-commands";
 import type { DisplayDetailSection, DisplayDetailMetaRow } from "./display/types";
 import {
   modelOverrideMessage,
@@ -206,7 +206,7 @@ export async function executeSlashCommand(
     return;
   }
 
-  context.addStructuredSystemMessage("Available slash commands", [{ rows: slashCommandHelpRows() }]);
+  context.addStructuredSystemMessage("Available slash commands", slashCommandHelpSections());
 }
 
 function validateSlashCommandArguments(command: SlashCommandName, args: string): string | null {
