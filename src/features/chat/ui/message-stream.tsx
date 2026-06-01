@@ -304,6 +304,21 @@ function MessageRole({ item, context }: { item: RenderableMessageItem; context: 
       ) : (
         copyAction
       )}
+      {context.canForkItem?.(item) ? (
+        <MessageAction
+          icon="git-fork"
+          label={forkActionsOpen ? "Fork" : "Fork from here"}
+          className="codex-panel__fork-message"
+          onClick={() => {
+            if (forkActionsOpen) {
+              context.onDetailsToggle?.(forkActionsKey, false);
+              context.onForkItem?.(item, false);
+            } else {
+              context.onDetailsToggle?.(forkActionsKey, true);
+            }
+          }}
+        />
+      ) : null}
       {context.canImplementPlanItem?.(item) ? (
         <MessageAction
           icon="play"
@@ -318,21 +333,6 @@ function MessageRole({ item, context }: { item: RenderableMessageItem; context: 
           label="Rollback last turn"
           className="codex-panel__rollback-turn"
           onClick={() => context.onRollbackItem?.(item)}
-        />
-      ) : null}
-      {context.canForkItem?.(item) ? (
-        <MessageAction
-          icon="git-fork"
-          label={forkActionsOpen ? "Fork" : "Fork from here"}
-          className="codex-panel__fork-message"
-          onClick={() => {
-            if (forkActionsOpen) {
-              context.onDetailsToggle?.(forkActionsKey, false);
-              context.onForkItem?.(item, false);
-            } else {
-              context.onDetailsToggle?.(forkActionsKey, true);
-            }
-          }}
         />
       ) : null}
     </div>

@@ -772,6 +772,41 @@ describe("message stream block identity and message actions", () => {
     expect(onImplementPlanItem).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }));
   });
 
+  it("orders copy, fork, and implement actions for plan messages", () => {
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        {
+          id: "p1",
+          kind: "message",
+          role: "assistant",
+          text: "# Plan",
+          copyText: "# Plan",
+          turnId: "turn-1",
+          markdown: true,
+          proposedPlan: true,
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+      copyText: vi.fn(),
+      canForkItem: () => true,
+      onForkItem: vi.fn(),
+      canImplementPlanItem: () => true,
+      onImplementPlanItem: vi.fn(),
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+    const actions = Array.from(element.querySelectorAll<HTMLButtonElement>(".codex-panel__message-role button"));
+
+    expect(actions.map((action) => action.getAttribute("aria-label"))).toEqual(["Copy message", "Fork from here", "Implement plan"]);
+  });
+
   it("selects only the latest proposed plan as an implement candidate", () => {
     const firstPlan = {
       id: "p1",
