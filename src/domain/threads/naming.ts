@@ -1,7 +1,7 @@
 import type { SortDirection } from "../../generated/app-server/v2/SortDirection";
-import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
-import { inputToText, truncate } from "../../utils";
+import { truncate } from "../../utils";
+import { completedTurnConversationSummary, turnConversationSummary } from "./transcript";
 
 const MAX_CONTEXT_CHARS = 4_000;
 const MAX_TITLE_CHARS = 40;
@@ -29,15 +29,12 @@ export type ThreadNamingContextPageReader = (
 ) => Promise<ThreadNamingContextPage>;
 
 export function namingContextFromTurn(turn: Turn): ThreadNamingContext | null {
-  if (turn.status !== "completed") return null;
-
-  const userRequest = firstUserMessage(turn.items);
-  const assistantResponse = lastAssistantMessage(turn.items);
-  if (!userRequest || !assistantResponse) return null;
+  const summary = completedTurnConversationSummary(turn);
+  if (!summary?.userText || !summary.assistantText) return null;
 
   return {
-    userRequest: truncateForPrompt(userRequest),
-    assistantResponse: truncateForPrompt(assistantResponse),
+    userRequest: truncateForPrompt(summary.userText),
+    assistantResponse: truncateForPrompt(summary.assistantText),
   };
 }
 
@@ -65,7 +62,7 @@ export async function findThreadNamingContext(options: {
 }
 
 export function titleFromNamingTurn(turn: Turn): string | null {
-  const response = lastAssistantMessage(turn.items);
+  const response = turnConversationSummary(turn).assistantText;
   if (!response) return null;
   return normalizeGeneratedTitle(extractTitleFromModelText(response));
 }
@@ -83,26 +80,6 @@ export function normalizeGeneratedTitle(value: unknown): string | null {
     .trim();
   if (!title) return null;
   return title.length > MAX_TITLE_CHARS ? title.slice(0, MAX_TITLE_CHARS).trimEnd() : title;
-}
-
-function firstUserMessage(items: ThreadItem[]): string | null {
-  for (const item of items) {
-    if (item.type !== "userMessage") continue;
-    const text = inputToText(item.content).trim();
-    if (text) return text;
-  }
-  return null;
-}
-
-function lastAssistantMessage(items: ThreadItem[]): string | null {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (item === undefined) continue;
-    if (item.type !== "agentMessage" && item.type !== "plan") continue;
-    const text = item.text.trim();
-    if (text) return text;
-  }
-  return null;
 }
 
 export function namingPrompt(context: ThreadNamingContext): string {

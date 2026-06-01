@@ -1,9 +1,9 @@
 import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
-import { inputToText, shortThreadId } from "../../utils";
+import { shortThreadId } from "../../utils";
 import { getThreadTitle } from "./model";
+import { chronologicalTurnConversationSummaries } from "./transcript";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
 
@@ -26,13 +26,7 @@ export interface ReferencedThreadInput {
 }
 
 export function referencedThreadTurns(turns: Turn[]): ReferencedThreadTurn[] {
-  return [...turns]
-    .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))
-    .map((turn) => ({
-      userText: firstUserMessage(turn.items),
-      assistantText: lastAssistantMessage(turn.items),
-    }))
-    .filter((turn) => turn.userText !== null || turn.assistantText !== null);
+  return chronologicalTurnConversationSummaries(turns);
 }
 
 export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTurn[], userRequest: string): string {
@@ -125,24 +119,4 @@ function lineValue(text: string, key: string): string | null {
     ?.slice(prefix.length)
     .trim();
   return line && line.length > 0 ? line : null;
-}
-
-function firstUserMessage(items: ThreadItem[]): string | null {
-  for (const item of items) {
-    if (item.type !== "userMessage") continue;
-    const text = inputToText(item.content).trim();
-    if (text) return text;
-  }
-  return null;
-}
-
-function lastAssistantMessage(items: ThreadItem[]): string | null {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (item === undefined) continue;
-    if (item.type !== "agentMessage" && item.type !== "plan") continue;
-    const text = item.text.trim();
-    if (text) return text;
-  }
-  return null;
 }

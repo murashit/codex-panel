@@ -1,9 +1,9 @@
 import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
-import { inputToText, shortThreadId } from "../../utils";
+import { shortThreadId } from "../../utils";
 import { getThreadTitle } from "./model";
 import { referencedThreadDisplayFromPrompt } from "./reference";
+import { turnTranscriptEntries, type TurnTranscriptEntry } from "./transcript";
 
 export interface ArchiveExportAdapter {
   exists(path: string): Promise<boolean>;
@@ -118,36 +118,31 @@ export function normalizedArchiveTags(value: string): string[] {
 function turnMarkdownLines(turns: Turn[]): string[] {
   return [...turns]
     .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))
-    .flatMap((turn) => turn.items.flatMap((item) => markdownLinesFromItem(item, turn)));
+    .flatMap((turn) => turnTranscriptEntries(turn).flatMap(markdownLinesFromTranscriptEntry));
 }
 
-function markdownLinesFromItem(item: ThreadItem, turn: Turn): string[] {
-  if (item.type === "userMessage") {
-    const text = inputToText(item.content).trim();
-    if (!text) return [];
-    const heading = timestampedHeading("User", turn.startedAt);
-    const referenced = referencedThreadDisplayFromPrompt(text);
-    if (referenced) {
-      return [
-        heading,
-        "",
-        referenced.text,
-        "",
-        `> Referenced: ${referenced.reference.title} (${String(referenced.reference.includedTurns)}/${String(referenced.reference.turnLimit)} turns, ${referenced.reference.threadId})`,
-        "",
-      ];
+function markdownLinesFromTranscriptEntry(entry: TurnTranscriptEntry): string[] {
+  switch (entry.kind) {
+    case "user": {
+      const heading = timestampedHeading("User", entry.timestamp);
+      const referenced = referencedThreadDisplayFromPrompt(entry.text);
+      if (referenced) {
+        return [
+          heading,
+          "",
+          referenced.text,
+          "",
+          `> Referenced: ${referenced.reference.title} (${String(referenced.reference.includedTurns)}/${String(referenced.reference.turnLimit)} turns, ${referenced.reference.threadId})`,
+          "",
+        ];
+      }
+      return [heading, "", entry.text, ""];
     }
-    return [heading, "", text, ""];
+    case "assistant":
+      return [timestampedHeading("Codex", entry.timestamp), "", entry.text, ""];
+    case "plan":
+      return [timestampedHeading("Proposed plan", entry.timestamp), "", entry.text, ""];
   }
-  if (item.type === "agentMessage") {
-    const text = item.text.trim();
-    return text ? [timestampedHeading("Codex", turn.completedAt ?? turn.startedAt), "", text, ""] : [];
-  }
-  if (item.type === "plan") {
-    const text = item.text.trim();
-    return text ? [timestampedHeading("Proposed plan", turn.completedAt ?? turn.startedAt), "", text, ""] : [];
-  }
-  return [];
 }
 
 function timestampedHeading(label: string, unixSeconds: number | null): string {
