@@ -15,7 +15,9 @@ import { pathRelativeToRoot } from "../../../../src/features/chat/display/paths"
 import { createAutoReviewResultItem, createReviewResultItem } from "../../../../src/features/chat/display/review";
 import { executionState } from "../../../../src/features/chat/display/state";
 import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/display/thread-items";
+import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
+import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
 
@@ -87,26 +89,14 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("hides persisted /refer context in displayed user messages", () => {
-    const text = [
-      "[Codex Panel referenced thread]",
-      "Title: 参照元",
-      "Thread ID: thread-reference",
-      "Included turns: 2/20",
-      "Included history: user input and final Codex responses only.",
-      "",
-      "Reference thread history:",
-      "",
-      "Turn 1:",
-      "User:",
-      "元の依頼",
-      "Codex:",
-      "元の回答",
-      "",
-      "[/Codex Panel referenced thread]",
-      "",
-      "Current user request:",
+    const text = referencedThreadPrompt(
+      { id: "thread-reference", name: "参照元", preview: "", turns: [] } as unknown as Thread,
+      [
+        { userText: "元の依頼", assistantText: "元の回答" },
+        { userText: "次の依頼", assistantText: "次の回答" },
+      ],
       "この続きです",
-    ].join("\n");
+    );
 
     expect(
       displayItemFromThreadItem({

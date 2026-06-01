@@ -14,6 +14,12 @@ export interface ReferencedThreadDisplay {
   turnLimit: number;
 }
 
+export interface ReferencedThreadEnvelope {
+  version: 1;
+  reference: ReferencedThreadDisplay;
+  visibleText: string;
+}
+
 export interface ReferencedThreadTurn {
   userText: string | null;
   assistantText: string | null;
@@ -30,17 +36,12 @@ export function referencedThreadTurns(turns: Turn[]): ReferencedThreadTurn[] {
 }
 
 export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTurn[], userRequest: string): string {
-  const title = getThreadTitle(thread);
-  const heading = [
-    "[Codex Panel referenced thread]",
-    `Title: ${title}`,
-    `Thread ID: ${thread.id}`,
-    `Included turns: ${String(turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)}`,
-    "Included history: user input and final Codex responses only.",
-  ];
+  const reference = referencedThreadDisplay(thread, turns.length);
+  const envelope = referencedThreadEnvelope(reference, userRequest);
 
   return [
-    ...heading,
+    REFERENCED_THREAD_ENVELOPE_START,
+    JSON.stringify(envelopeMetadata(envelope)),
     "",
     "Reference thread history:",
     ...turns.flatMap((turn, index) => {
@@ -50,10 +51,10 @@ export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTu
       return ["", ...lines];
     }),
     "",
-    "[/Codex Panel referenced thread]",
+    REFERENCED_THREAD_ENVELOPE_END,
     "",
     "Current user request:",
-    userRequest,
+    envelope.visibleText,
   ].join("\n");
 }
 
@@ -85,38 +86,104 @@ export function referencedThreadInput(
 }
 
 export function referencedThreadDisplayFromPrompt(text: string): { text: string; reference: ReferencedThreadDisplay } | null {
-  const headerStart = text.indexOf("[Codex Panel referenced thread]");
-  const headerEnd = text.indexOf("[/Codex Panel referenced thread]");
+  const envelope = referencedThreadEnvelopeFromPrompt(text);
+  return envelope ? { text: envelope.visibleText, reference: envelope.reference } : null;
+}
+
+const REFERENCED_THREAD_ENVELOPE_START = "[Codex Panel referenced thread v1]";
+const REFERENCED_THREAD_ENVELOPE_END = "[/Codex Panel referenced thread]";
+
+interface ReferencedThreadEnvelopeMetadata {
+  version: 1;
+  threadId: string;
+  title: string;
+  includedTurns: number;
+  turnLimit: number;
+}
+
+function referencedThreadEnvelope(reference: ReferencedThreadDisplay, visibleText: string): ReferencedThreadEnvelope {
+  return {
+    version: 1,
+    reference,
+    visibleText,
+  };
+}
+
+function envelopeMetadata(envelope: ReferencedThreadEnvelope): ReferencedThreadEnvelopeMetadata {
+  return {
+    version: envelope.version,
+    threadId: envelope.reference.threadId,
+    title: envelope.reference.title,
+    includedTurns: envelope.reference.includedTurns,
+    turnLimit: envelope.reference.turnLimit,
+  };
+}
+
+function referencedThreadEnvelopeFromPrompt(text: string): ReferencedThreadEnvelope | null {
+  const headerStart = text.indexOf(REFERENCED_THREAD_ENVELOPE_START);
+  const headerEnd = text.indexOf(REFERENCED_THREAD_ENVELOPE_END);
   const requestMarker = "\nCurrent user request:\n";
   const requestStart = text.indexOf(requestMarker);
   if (headerStart !== 0 || headerEnd === -1 || requestStart === -1 || requestStart < headerEnd) return null;
 
-  const header = text.slice(headerStart, headerEnd);
-  const title = lineValue(header, "Title") ?? "Referenced thread";
-  const threadId = lineValue(header, "Thread ID") ?? "";
-  const included = lineValue(header, "Included turns") ?? "";
-  const turnsMatch = /^(\d+)\/(\d+)$/.exec(included);
-  const includedTurns = turnsMatch?.[1] ? Number.parseInt(turnsMatch[1], 10) : REFERENCED_THREAD_TURN_LIMIT;
-  const turnLimit = turnsMatch?.[2] ? Number.parseInt(turnsMatch[2], 10) : REFERENCED_THREAD_TURN_LIMIT;
+  const metadataText = firstNonEmptyLine(text.slice(REFERENCED_THREAD_ENVELOPE_START.length, headerEnd));
+  const metadata = referencedThreadEnvelopeMetadataFromJson(metadataText);
   const visibleText = text.slice(requestStart + requestMarker.length).trim();
-  if (!visibleText || !threadId) return null;
+  if (!metadata || !visibleText) return null;
   return {
-    text: visibleText,
+    version: 1,
+    visibleText,
     reference: {
-      threadId,
-      title,
-      includedTurns,
-      turnLimit,
+      threadId: metadata.threadId,
+      title: metadata.title,
+      includedTurns: metadata.includedTurns,
+      turnLimit: metadata.turnLimit,
     },
   };
 }
 
-function lineValue(text: string, key: string): string | null {
-  const prefix = `${key}:`;
-  const line = text
-    .split(/\r?\n/)
-    .find((candidate) => candidate.startsWith(prefix))
-    ?.slice(prefix.length)
-    .trim();
-  return line && line.length > 0 ? line : null;
+function firstNonEmptyLine(text: string): string | null {
+  return (
+    text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) ?? null
+  );
+}
+
+function referencedThreadEnvelopeMetadataFromJson(text: string | null): ReferencedThreadEnvelopeMetadata | null {
+  if (!text) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const value = parsed as Record<string, unknown>;
+  if (value["version"] !== 1) return null;
+  const threadId = stringValue(value["threadId"]);
+  const title = stringValue(value["title"]);
+  const includedTurns = finiteNonNegativeInteger(value["includedTurns"]);
+  const turnLimit = finitePositiveInteger(value["turnLimit"]);
+  if (!threadId || !title || includedTurns === null || turnLimit === null) return null;
+  return {
+    version: 1,
+    threadId,
+    title,
+    includedTurns,
+    turnLimit,
+  };
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function finiteNonNegativeInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function finitePositiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 }

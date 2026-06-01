@@ -84,7 +84,10 @@ describe("thread reference context", () => {
     const longText = "x".repeat(5000);
     const prompt = referencedThreadPrompt(thread(), [{ userText: longText, assistantText: "回答" }], "この続きです");
 
-    expect(prompt).toContain("Included turns: 1/20");
+    expect(prompt).toContain("[Codex Panel referenced thread v1]");
+    expect(prompt).toContain('"version":1');
+    expect(prompt).toContain('"includedTurns":1');
+    expect(prompt).toContain('"turnLimit":20');
     expect(prompt).toContain(longText);
     expect(prompt).toContain("Current user request:\nこの続きです");
   });
@@ -101,6 +104,64 @@ describe("thread reference context", () => {
         turnLimit: 20,
       },
     });
+  });
+
+  it("does not parse the old line-based reference prompt format", () => {
+    expect(
+      referencedThreadDisplayFromPrompt(
+        [
+          "[Codex Panel referenced thread]",
+          "Title: 参照元",
+          "Thread ID: thread-ref",
+          "Included turns: 1/20",
+          "",
+          "Reference thread history:",
+          "",
+          "Turn 1:",
+          "User:",
+          "元の依頼",
+          "",
+          "[/Codex Panel referenced thread]",
+          "",
+          "Current user request:",
+          "この続きです",
+        ].join("\n"),
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects malformed or unsupported reference envelopes", () => {
+    expect(
+      referencedThreadDisplayFromPrompt(
+        [
+          "[Codex Panel referenced thread v1]",
+          "{not-json}",
+          "",
+          "Reference thread history:",
+          "",
+          "[/Codex Panel referenced thread]",
+          "",
+          "Current user request:",
+          "この続きです",
+        ].join("\n"),
+      ),
+    ).toBeNull();
+
+    expect(
+      referencedThreadDisplayFromPrompt(
+        [
+          "[Codex Panel referenced thread v1]",
+          '{"version":2,"threadId":"thread-ref","title":"参照元","includedTurns":1,"turnLimit":20}',
+          "",
+          "Reference thread history:",
+          "",
+          "[/Codex Panel referenced thread]",
+          "",
+          "Current user request:",
+          "この続きです",
+        ].join("\n"),
+      ),
+    ).toBeNull();
   });
 
   it("builds slash command input while preserving non-text attachments", () => {
