@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Panel App-Server Update"
+  short_description: "Update Codex app-server compatibility"
+  default_prompt: "Use $codex-panel-app-server-update to update Codex Panel for a new Codex app-server version."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Panel Release"
+  short_description: "Prepare and verify Codex Panel releases"
+  default_prompt: "Use $codex-panel-release to prepare and verify a Codex Panel release."
