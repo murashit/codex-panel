@@ -21,7 +21,7 @@ import { findModelByIdOrName, supportedEffortsForModel } from "./model";
 import { compactModelLabel, compactReasoningEffortLabel } from "./settings";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 
-export type RuntimeOverride<T> = { kind: "default" } | { kind: "set"; value: T } | { kind: "resetPending" };
+export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
 
 export interface RuntimeSnapshot {
   effectiveConfig: ConfigReadResponse | null;
@@ -33,11 +33,11 @@ export interface RuntimeSnapshot {
   activeApprovalPolicy: AskForApproval | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   activePermissionProfile: ActivePermissionProfile | null;
-  requestedModel: RuntimeOverride<string>;
-  requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
-  requestedApprovalsReviewer: ApprovalsReviewer | null;
-  requestedCollaborationMode: ModeKind;
-  requestedServiceTier: RequestedServiceTier | null;
+  requestedModel: PendingRuntimeSetting<string>;
+  requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
+  requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
+  selectedCollaborationMode: ModeKind;
+  requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   hasThreadTurns: boolean;
@@ -53,8 +53,9 @@ export function currentServiceTier(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): string | null {
-  if (snapshot.requestedServiceTier === "fast") return "fast";
-  if (snapshot.requestedServiceTier === "off") return null;
+  if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "fast") return "fast";
+  if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off") return null;
+  if (snapshot.requestedServiceTier.kind === "resetToConfig") return config.serviceTier;
   return snapshot.activeServiceTier ?? config.serviceTier;
 }
 
@@ -62,8 +63,11 @@ export function requestedOrConfiguredServiceTier(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): ServiceTierRequest {
-  if (snapshot.requestedServiceTier !== null) {
-    return requestedServiceTierRequestValue(snapshot.requestedServiceTier, fastServiceTierRequestValue(snapshot, config));
+  if (snapshot.requestedServiceTier.kind === "set") {
+    return requestedServiceTierRequestValue(snapshot.requestedServiceTier.value, fastServiceTierRequestValue(snapshot, config));
+  }
+  if (snapshot.requestedServiceTier.kind === "resetToConfig") {
+    return null;
   }
   return configuredServiceTierRequestValue(config.serviceTier);
 }
@@ -74,7 +78,7 @@ export function currentModel(
 ): string | null {
   const configModel = config.model;
   if (snapshot.requestedModel.kind === "set") return snapshot.requestedModel.value;
-  if (snapshot.requestedModel.kind === "resetPending" && configModel) return configModel;
+  if (snapshot.requestedModel.kind === "resetToConfig" && configModel) return configModel;
   return snapshot.activeModel ?? configModel;
 }
 
@@ -83,7 +87,7 @@ export function currentReasoningEffort(
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): ReasoningEffort | null {
   if (snapshot.requestedReasoningEffort.kind === "set") return snapshot.requestedReasoningEffort.value;
-  if (snapshot.requestedReasoningEffort.kind === "resetPending") return config.reasoningEffort;
+  if (snapshot.requestedReasoningEffort.kind === "resetToConfig") return config.reasoningEffort;
   return snapshot.activeReasoningEffort ?? config.reasoningEffort;
 }
 
@@ -91,7 +95,8 @@ export function currentApprovalsReviewer(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): ApprovalsReviewer | null {
-  if (snapshot.requestedApprovalsReviewer !== null) return snapshot.requestedApprovalsReviewer;
+  if (snapshot.requestedApprovalsReviewer.kind === "set") return snapshot.requestedApprovalsReviewer.value;
+  if (snapshot.requestedApprovalsReviewer.kind === "resetToConfig") return config.approvalsReviewer;
   return snapshot.activeApprovalsReviewer ?? config.approvalsReviewer;
 }
 
@@ -113,7 +118,7 @@ export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRun
   const model = currentModel(snapshot);
   const effort = currentReasoningEffort(snapshot);
   const collaborationMode = model
-    ? snapshot.requestedCollaborationMode === "plan"
+    ? snapshot.selectedCollaborationMode === "plan"
       ? planCollaborationMode(model, effort)
       : defaultCollaborationMode(model, effort)
     : null;
@@ -152,7 +157,7 @@ export function fastModeLabel(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): string {
-  if (snapshot.requestedServiceTier === "off") return "off";
+  if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off") return "off";
   if (fastModeActive(snapshot, config)) return "on";
   const serviceTier = currentServiceTier(snapshot, config);
   return serviceTier ? "off" : "Codex default";
@@ -165,27 +170,27 @@ export function fastServiceTierRequestValue(
   return currentModelServiceTiers(snapshot, config).find((tier) => tier.name.trim().toLowerCase() === "fast")?.id ?? "fast";
 }
 
-export function defaultRuntimeOverride<T>(): RuntimeOverride<T> {
-  return { kind: "default" };
+export function unchangedRuntimeSetting<T>(): PendingRuntimeSetting<T> {
+  return { kind: "unchanged" };
 }
 
-export function setRuntimeOverride<T>(value: T): RuntimeOverride<T> {
+export function setPendingRuntimeSetting<T>(value: T): PendingRuntimeSetting<T> {
   return { kind: "set", value };
 }
 
-export function resetRuntimeOverride<T>(): RuntimeOverride<T> {
-  return { kind: "resetPending" };
+export function resetRuntimeSettingToConfig<T>(): PendingRuntimeSetting<T> {
+  return { kind: "resetToConfig" };
 }
 
-export function runtimeOverridePayload<T>(override: RuntimeOverride<T>): T | null | undefined {
-  if (override.kind === "set") return override.value;
-  if (override.kind === "resetPending") return null;
+export function pendingRuntimeSettingPayload<T>(setting: PendingRuntimeSetting<T>): T | null | undefined {
+  if (setting.kind === "set") return setting.value;
+  if (setting.kind === "resetToConfig") return null;
   return undefined;
 }
 
-export function runtimeOverrideLabel<T>(override: RuntimeOverride<T>): string {
-  if (override.kind === "set") return String(override.value);
-  if (override.kind === "resetPending") return "(reset to config)";
+export function pendingRuntimeSettingLabel<T>(setting: PendingRuntimeSetting<T>): string {
+  if (setting.kind === "set") return String(setting.value);
+  if (setting.kind === "resetToConfig") return "(reset to config)";
   return "(none)";
 }
 

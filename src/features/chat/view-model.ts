@@ -6,7 +6,7 @@ import {
   currentModel,
   currentReasoningEffort,
   fastModeActive,
-  runtimeOverrideLabel,
+  pendingRuntimeSettingLabel,
   runtimeSummaryLabel,
   serviceTierLabel,
   supportedReasoningEfforts,
@@ -81,7 +81,7 @@ export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput): Ru
     requestedModel: state.requestedModel,
     requestedReasoningEffort: state.requestedReasoningEffort,
     requestedApprovalsReviewer: state.requestedApprovalsReviewer,
-    requestedCollaborationMode: state.requestedCollaborationMode,
+    selectedCollaborationMode: state.selectedCollaborationMode,
     requestedServiceTier: state.requestedServiceTier,
     tokenUsage: state.tokenUsage,
     rateLimit: state.rateLimit,
@@ -168,7 +168,7 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
     historyOpen,
     statusPanelOpen,
     runtimeOpen,
-    planActive: state.requestedCollaborationMode === "plan",
+    planActive: state.selectedCollaborationMode === "plan",
     autoReviewActive: autoReviewActive(snapshot, config),
     fastActive: fastModeActive(snapshot, config),
     runtimeSummary: runtimeSummaryLabel(model, effort),
@@ -230,7 +230,7 @@ export function modelStatusLines(state: ChatState, snapshot: RuntimeSnapshot, co
   const config = readRuntimeConfig(state.effectiveConfig);
   return [
     `Model: ${currentModel(snapshot, config) ?? "(Codex default)"}`,
-    `Override: ${runtimeOverrideLabel(state.requestedModel)}`,
+    `Override: ${pendingRuntimeSettingLabel(state.requestedModel)}`,
     `Provider: ${statusValue(config.modelProvider, "(Codex default)")}`,
     `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
     `Mode: ${collaborationModeLabel}`,
@@ -242,7 +242,7 @@ export function effortStatusLines(state: ChatState, snapshot: RuntimeSnapshot): 
   const config = readRuntimeConfig(state.effectiveConfig);
   return [
     `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
-    `Override: ${runtimeOverrideLabel(state.requestedReasoningEffort)}`,
+    `Override: ${pendingRuntimeSettingLabel(state.requestedReasoningEffort)}`,
     `Supported: ${supportedReasoningEfforts(snapshot).join(", ")}`,
   ];
 }

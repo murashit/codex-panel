@@ -10,7 +10,7 @@ import {
   currentReasoningEffort,
   autoReviewActive,
   fastModeLabel,
-  runtimeOverrideLabel,
+  pendingRuntimeSettingLabel,
   serviceTierLabel,
   type RuntimeSnapshot,
 } from "./state";
@@ -122,25 +122,25 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
         { key: "effective model", value: currentModel(snapshot, config) ?? CODEX_DEFAULT_LABEL },
         { key: "configured model", value: configuredModel(snapshot, config) ?? NOT_REPORTED_LABEL },
         { key: "thread model", value: activeRuntimeValueLabel(snapshot.activeModel) },
-        { key: "requested model", value: runtimeOverrideLabel(snapshot.requestedModel) },
+        { key: "requested model", value: pendingRuntimeSettingLabel(snapshot.requestedModel) },
         { key: "effective effort", value: currentReasoningEffort(snapshot, config) ?? CODEX_DEFAULT_LABEL },
         { key: "configured effort", value: configuredReasoningEffort(snapshot, config) ?? NOT_REPORTED_LABEL },
         { key: "thread effort", value: activeRuntimeValueLabel(snapshot.activeReasoningEffort) },
-        { key: "requested effort", value: runtimeOverrideLabel(snapshot.requestedReasoningEffort) },
+        { key: "requested effort", value: pendingRuntimeSettingLabel(snapshot.requestedReasoningEffort) },
         { key: "reasoning summary", value: stringValue(config.reasoningSummary, CODEX_DEFAULT_LABEL) },
         { key: "verbosity", value: stringValue(config.verbosity, CODEX_DEFAULT_LABEL) },
         { key: "effective mode", value: snapshot.activeCollaborationMode === "plan" ? "Plan" : "Default" },
         {
           key: "requested mode",
           value:
-            snapshot.requestedCollaborationMode === snapshot.activeCollaborationMode
+            snapshot.selectedCollaborationMode === snapshot.activeCollaborationMode
               ? "(none)"
-              : modeLabel(snapshot.requestedCollaborationMode),
+              : modeLabel(snapshot.selectedCollaborationMode),
         },
         { key: "effective service tier", value: serviceTierLabel(snapshot, config) },
         { key: "configured service tier", value: config.serviceTier ?? CODEX_DEFAULT_LABEL },
         { key: "thread service tier", value: activeRuntimeValueLabel(snapshot.activeServiceTier) },
-        { key: "requested service tier", value: snapshot.requestedServiceTier ?? "(none)" },
+        { key: "requested service tier", value: pendingRuntimeSettingLabel(snapshot.requestedServiceTier) },
         { key: "fast mode", value: fastModeLabel(snapshot, config) },
         { key: "context window", value: tokenLimitLabel(config.modelContextWindow) },
         { key: "auto compact limit", value: tokenLimitLabel(config.autoCompactTokenLimit) },
@@ -157,7 +157,7 @@ export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: st
         { key: "auto-review", value: autoReviewActive(snapshot, config) ? "on" : "off" },
         { key: "configured reviewer", value: config.approvalsReviewer ?? CODEX_DEFAULT_LABEL },
         { key: "thread reviewer", value: activeRuntimeValueLabel(snapshot.activeApprovalsReviewer) },
-        { key: "requested reviewer", value: snapshot.requestedApprovalsReviewer ?? "(none)" },
+        { key: "requested reviewer", value: pendingRuntimeSettingLabel(snapshot.requestedApprovalsReviewer) },
         { key: "sandbox", value: stringValue(config.sandboxMode, CODEX_DEFAULT_LABEL) },
         { key: "workspace network", value: stringValue(config.workspaceNetworkAccess, CODEX_DEFAULT_LABEL) },
         { key: "writable roots", value: writableRootsLabel(config.writableRoots) },
@@ -191,7 +191,7 @@ function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeCon
   );
 }
 
-function modeLabel(mode: RuntimeSnapshot["requestedCollaborationMode"]): string {
+function modeLabel(mode: RuntimeSnapshot["selectedCollaborationMode"]): string {
   return mode === "plan" ? "Plan" : "Default";
 }
 

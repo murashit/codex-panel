@@ -219,13 +219,13 @@ describe("chatReducer", () => {
     });
 
     expect(next.activeModel).toBe("gpt-5.1");
-    expect(next.requestedModel).toEqual({ kind: "default" });
+    expect(next.requestedModel).toEqual({ kind: "unchanged" });
     expect(next.activeReasoningEffort).toBe("high");
-    expect(next.requestedReasoningEffort).toEqual({ kind: "default" });
+    expect(next.requestedReasoningEffort).toEqual({ kind: "unchanged" });
     expect(next.activeServiceTier).toBe("fast");
-    expect(next.requestedServiceTier).toBeNull();
+    expect(next.requestedServiceTier).toEqual({ kind: "unchanged" });
     expect(next.activeApprovalsReviewer).toBe("auto_review");
-    expect(next.requestedApprovalsReviewer).toBeNull();
+    expect(next.requestedApprovalsReviewer).toEqual({ kind: "unchanged" });
     expect(next.activeCollaborationMode).toBe("plan");
   });
 
@@ -237,9 +237,9 @@ describe("chatReducer", () => {
     state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: "fast" });
     state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: "auto_review" });
 
-    expect(state.requestedServiceTier).toBe("fast");
+    expect(state.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
     expect(state.activeServiceTier).toBe("flex");
-    expect(state.requestedApprovalsReviewer).toBe("auto_review");
+    expect(state.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(state.activeApprovalsReviewer).toBe("user");
   });
 

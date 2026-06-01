@@ -68,7 +68,7 @@ describe("PlanImplementationController", () => {
     await controller.implement(plan);
 
     expect(host.ensureConnected).toHaveBeenCalledOnce();
-    expect(stateStore.getState().requestedCollaborationMode).toBe("default");
+    expect(stateStore.getState().selectedCollaborationMode).toBe("default");
     expect(stateStore.getState().runtimePicker).toBeNull();
     expect(host.sendTurnText).toHaveBeenCalledWith("Please implement this plan.");
   });

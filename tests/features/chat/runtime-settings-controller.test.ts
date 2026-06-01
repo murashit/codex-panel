@@ -28,7 +28,7 @@ describe("ChatRuntimeSettingsController", () => {
         requestedModel: store.getState().requestedModel,
         requestedReasoningEffort: store.getState().requestedReasoningEffort,
         requestedApprovalsReviewer: store.getState().requestedApprovalsReviewer,
-        requestedCollaborationMode: store.getState().requestedCollaborationMode,
+        selectedCollaborationMode: store.getState().selectedCollaborationMode,
         requestedServiceTier: store.getState().requestedServiceTier,
         tokenUsage: store.getState().tokenUsage,
         rateLimit: store.getState().rateLimit,
@@ -42,7 +42,7 @@ describe("ChatRuntimeSettingsController", () => {
     await expect(controller.setRequestedModel("gpt-5.5")).resolves.toBe(true);
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
-    expect(store.getState().requestedModel).toEqual({ kind: "default" });
+    expect(store.getState().requestedModel).toEqual({ kind: "unchanged" });
     expect(store.getState().activeModel).toBe("gpt-5.5");
     expect(messages).toEqual([]);
   });
@@ -58,7 +58,7 @@ describe("ChatRuntimeSettingsController", () => {
     await controller.toggleFastMode();
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { serviceTier: "fast" });
-    expect(store.getState().requestedServiceTier).toBeNull();
+    expect(store.getState().requestedServiceTier).toEqual({ kind: "unchanged" });
     expect(store.getState().activeServiceTier).toBe("fast");
     expect(messages).toEqual(["Fast mode on for subsequent turns."]);
   });
@@ -126,7 +126,7 @@ function runtimeControllerFixture(
         requestedModel: state.requestedModel,
         requestedReasoningEffort: state.requestedReasoningEffort,
         requestedApprovalsReviewer: state.requestedApprovalsReviewer,
-        requestedCollaborationMode: state.requestedCollaborationMode,
+        selectedCollaborationMode: state.selectedCollaborationMode,
         requestedServiceTier: state.requestedServiceTier,
         tokenUsage: state.tokenUsage,
         rateLimit: state.rateLimit,

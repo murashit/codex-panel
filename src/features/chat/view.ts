@@ -691,7 +691,7 @@ export class CodexChatView extends ItemView {
   }
 
   private collaborationModeLabel(): string {
-    return formatCollaborationModeLabel(this.state.requestedCollaborationMode);
+    return formatCollaborationModeLabel(this.state.selectedCollaborationMode);
   }
 
   private runtimeSnapshot(): RuntimeSnapshot {

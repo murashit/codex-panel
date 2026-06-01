@@ -10,8 +10,8 @@ import {
   autoReviewActive,
   fastModeActive,
   fastServiceTierRequestValue,
+  pendingRuntimeSettingPayload,
   requestedTurnRuntimeSettings,
-  runtimeOverridePayload,
   type RuntimeSnapshot,
 } from "../../runtime/state";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/settings";
@@ -89,7 +89,7 @@ export class ChatRuntimeSettingsController {
   }
 
   async toggleCollaborationMode(): Promise<void> {
-    const next = nextCollaborationMode(this.state.requestedCollaborationMode);
+    const next = nextCollaborationMode(this.state.selectedCollaborationMode);
     await this.setCollaborationMode(next);
   }
 
@@ -117,25 +117,28 @@ export class ChatRuntimeSettingsController {
     const snapshot = this.host.runtimeSnapshot();
     const turnSettings = requestedTurnRuntimeSettings(snapshot);
 
-    if (state.requestedModel.kind !== "default") {
-      const model = runtimeOverridePayload(state.requestedModel);
+    if (state.requestedModel.kind !== "unchanged") {
+      const model = pendingRuntimeSettingPayload(state.requestedModel);
       if (model !== undefined) update.model = model;
     }
-    if (state.requestedReasoningEffort.kind !== "default") {
-      const effort = runtimeOverridePayload(state.requestedReasoningEffort);
+    if (state.requestedReasoningEffort.kind !== "unchanged") {
+      const effort = pendingRuntimeSettingPayload(state.requestedReasoningEffort);
       if (effort !== undefined) update.effort = effort;
     }
-    if (state.requestedServiceTier !== null) {
+    if (state.requestedServiceTier.kind === "set") {
       const serviceTier = requestedServiceTierRequestValue(
-        state.requestedServiceTier,
+        state.requestedServiceTier.value,
         fastServiceTierRequestValue(snapshot, readRuntimeConfig(state.effectiveConfig)),
       );
       if (serviceTier !== undefined) update.serviceTier = serviceTier;
+    } else if (state.requestedServiceTier.kind === "resetToConfig") {
+      update.serviceTier = null;
     }
-    if (state.requestedApprovalsReviewer !== null) {
-      update.approvalsReviewer = state.requestedApprovalsReviewer;
+    if (state.requestedApprovalsReviewer.kind !== "unchanged") {
+      const approvalsReviewer = pendingRuntimeSettingPayload(state.requestedApprovalsReviewer);
+      if (approvalsReviewer !== undefined) update.approvalsReviewer = approvalsReviewer;
     }
-    if (state.requestedCollaborationMode !== state.activeCollaborationMode) {
+    if (state.selectedCollaborationMode !== state.activeCollaborationMode) {
       if (turnSettings.warning) {
         this.host.addSystemMessage(`${this.host.collaborationModeLabel()} mode is selected, but ${turnSettings.warning}`);
       } else if (turnSettings.collaborationMode) {

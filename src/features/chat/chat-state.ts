@@ -19,7 +19,12 @@ import type { DisplayItem } from "./display/types";
 import { upsertDisplayItem } from "./display/stream-updates";
 import type { PendingUserInput } from "./user-input/model";
 import { parseServiceTier, type RequestedServiceTier, type ServiceTier } from "../../app-server/service-tier";
-import { defaultRuntimeOverride, resetRuntimeOverride, setRuntimeOverride, type RuntimeOverride } from "../../runtime/state";
+import {
+  resetRuntimeSettingToConfig,
+  setPendingRuntimeSetting,
+  unchangedRuntimeSetting,
+  type PendingRuntimeSetting,
+} from "../../runtime/state";
 
 export interface PendingTurnStart {
   anchorItemId: string;
@@ -56,11 +61,11 @@ export interface ChatState {
   activePermissionProfile: ActivePermissionProfile | null;
   activeThreadCreationCliVersion: string | null;
   appServerDiagnostics: AppServerDiagnostics;
-  requestedModel: RuntimeOverride<string>;
-  requestedReasoningEffort: RuntimeOverride<ReasoningEffort>;
-  requestedApprovalsReviewer: ApprovalsReviewer | null;
-  requestedCollaborationMode: ModeKind;
-  requestedServiceTier: RequestedServiceTier | null;
+  requestedModel: PendingRuntimeSetting<string>;
+  requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
+  requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
+  selectedCollaborationMode: ModeKind;
+  requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   displayItems: readonly DisplayItem[];
@@ -214,11 +219,11 @@ export function createChatState(): ChatState {
     activePermissionProfile: null,
     activeThreadCreationCliVersion: null,
     appServerDiagnostics: createAppServerDiagnostics(),
-    requestedModel: defaultRuntimeOverride(),
-    requestedReasoningEffort: defaultRuntimeOverride(),
-    requestedApprovalsReviewer: null,
-    requestedCollaborationMode: "default",
-    requestedServiceTier: null,
+    requestedModel: unchangedRuntimeSetting(),
+    requestedReasoningEffort: unchangedRuntimeSetting(),
+    requestedApprovalsReviewer: unchangedRuntimeSetting(),
+    selectedCollaborationMode: "default",
+    requestedServiceTier: unchangedRuntimeSetting(),
     tokenUsage: null,
     rateLimit: null,
     displayItems: [],
@@ -362,7 +367,7 @@ function reduceThreadState(state: ChatState, action: ThreadAction): ChatState {
         activeModel: action.model,
         activeReasoningEffort: action.reasoningEffort,
         activeCollaborationMode: action.collaborationMode,
-        requestedCollaborationMode: action.collaborationMode,
+        selectedCollaborationMode: action.collaborationMode,
         activeServiceTier: action.serviceTier,
         activeApprovalPolicy: action.approvalPolicy,
         activeApprovalsReviewer: action.approvalsReviewer,
@@ -526,21 +531,24 @@ function reduceUiState(state: ChatState, action: UiAction): ChatState {
 function reduceRuntimeState(state: ChatState, action: RuntimeAction): ChatState {
   switch (action.type) {
     case "runtime/requested-model-set":
-      return patchChatState(state, { requestedModel: action.model === null ? resetRuntimeOverride() : setRuntimeOverride(action.model) });
+      return patchChatState(state, {
+        requestedModel: action.model === null ? resetRuntimeSettingToConfig() : setPendingRuntimeSetting(action.model),
+      });
     case "runtime/requested-effort-set":
       return patchChatState(state, {
-        requestedReasoningEffort: action.effort === null ? resetRuntimeOverride() : setRuntimeOverride(action.effort),
+        requestedReasoningEffort: action.effort === null ? resetRuntimeSettingToConfig() : setPendingRuntimeSetting(action.effort),
       });
     case "runtime/requested-service-tier-set":
       return patchChatState(state, {
-        requestedServiceTier: action.serviceTier,
+        requestedServiceTier: action.serviceTier === null ? unchangedRuntimeSetting() : setPendingRuntimeSetting(action.serviceTier),
       });
     case "runtime/requested-approvals-reviewer-set":
       return patchChatState(state, {
-        requestedApprovalsReviewer: action.approvalsReviewer,
+        requestedApprovalsReviewer:
+          action.approvalsReviewer === null ? unchangedRuntimeSetting() : setPendingRuntimeSetting(action.approvalsReviewer),
       });
     case "runtime/requested-collaboration-mode-set":
-      return patchChatState(state, { requestedCollaborationMode: action.collaborationMode });
+      return patchChatState(state, { selectedCollaborationMode: action.collaborationMode });
     case "runtime/pending-thread-settings-committed":
       return commitPendingThreadSettings(state, action.update);
   }
@@ -713,13 +721,18 @@ function setUserInputDraftState(state: ChatState, key: string, value: string): C
 
 function commitPendingThreadSettings(state: ChatState, update: Omit<ThreadSettingsUpdateParams, "threadId">): ChatState {
   return patchChatState(state, {
-    ...("model" in update ? { activeModel: update.model ?? null, requestedModel: defaultRuntimeOverride<string>() } : {}),
+    ...("model" in update ? { activeModel: update.model ?? null, requestedModel: unchangedRuntimeSetting<string>() } : {}),
     ...("effort" in update
-      ? { activeReasoningEffort: update.effort ?? null, requestedReasoningEffort: defaultRuntimeOverride<ReasoningEffort>() }
+      ? { activeReasoningEffort: update.effort ?? null, requestedReasoningEffort: unchangedRuntimeSetting<ReasoningEffort>() }
       : {}),
-    ...("serviceTier" in update ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedServiceTier: null } : {}),
+    ...("serviceTier" in update
+      ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedServiceTier: unchangedRuntimeSetting<RequestedServiceTier>() }
+      : {}),
     ...("approvalsReviewer" in update
-      ? { activeApprovalsReviewer: update.approvalsReviewer ?? null, requestedApprovalsReviewer: null }
+      ? {
+          activeApprovalsReviewer: update.approvalsReviewer ?? null,
+          requestedApprovalsReviewer: unchangedRuntimeSetting<ApprovalsReviewer>(),
+        }
       : {}),
     ...(update.collaborationMode ? { activeCollaborationMode: update.collaborationMode.mode } : {}),
   });
