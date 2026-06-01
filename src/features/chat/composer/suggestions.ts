@@ -178,15 +178,11 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
 }
 
 export function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
-  const match = /^\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/.exec(beforeCursor);
-  if (match?.index === undefined) return null;
+  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/);
+  if (!completion) return null;
 
-  const rawQuery = match[1];
-  if (rawQuery === undefined) return null;
-  const query = rawQuery.trim().toLowerCase();
-  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  const { query, start } = completion;
   if (threads.some((thread) => thread.id.toLowerCase() === query)) return null;
-  const start = beforeCursor.length - rawQuery.length;
   return threads
     .map((thread, index) => {
       const title = getThreadTitle(thread);
@@ -208,16 +204,12 @@ export function activeThreadCommandSuggestions(beforeCursor: string, threads: re
 }
 
 export function activeModelOverrideSuggestions(beforeCursor: string, models: readonly Model[]): ComposerSuggestion[] | null {
-  const match = /^\/model\s+([^\n]{0,120})$/.exec(beforeCursor);
-  if (match?.index === undefined) return null;
+  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/model\s+([^\n]{0,120})$/);
+  if (!completion) return null;
 
-  const rawQuery = match[1];
-  if (rawQuery === undefined) return null;
-  const query = rawQuery.trim().toLowerCase();
-  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  const { query, start } = completion;
   if (query === "default") return null;
   if (models.some((model) => !model.hidden && model.model.toLowerCase() === query)) return null;
-  const start = beforeCursor.length - rawQuery.length;
   const suggestions = [
     {
       display: "default",
@@ -255,15 +247,11 @@ export function activeReasoningEffortSuggestions(
   models: readonly Model[],
   currentModel: string | null,
 ): ComposerSuggestion[] | null {
-  const match = /^\/effort\s+([^\n]{0,120})$/.exec(beforeCursor);
-  if (match?.index === undefined) return null;
+  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/effort\s+([^\n]{0,120})$/);
+  if (!completion) return null;
 
-  const rawQuery = match[1];
-  if (rawQuery === undefined) return null;
-  const query = rawQuery.trim().toLowerCase();
-  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  const { query, start } = completion;
   if (query === "default" || isReasoningEffort(query)) return null;
-  const start = beforeCursor.length - rawQuery.length;
   const model = findModelByIdOrName(models, currentModel);
   const efforts = model ? supportedEffortsForModel(model) : REASONING_EFFORTS;
   const modelDetail = model ? `Supported by ${model.model}` : "Supported reasoning effort";
@@ -285,6 +273,17 @@ export function activeReasoningEffortSuggestions(
   ];
 
   return suggestions.filter((item) => item.display.toLowerCase().startsWith(query)).slice(0, 8);
+}
+
+function activeCommandArgumentCompletionQuery(beforeCursor: string, pattern: RegExp): { query: string; start: number } | null {
+  const match = pattern.exec(beforeCursor);
+  if (!match) return null;
+
+  const rawQuery = match[1];
+  if (rawQuery === undefined) return null;
+  const query = rawQuery.trim().toLowerCase();
+  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  return { query, start: beforeCursor.length - rawQuery.length };
 }
 
 export function activeSkillSuggestions(beforeCursor: string, skills: readonly SkillMetadata[]): ComposerSuggestion[] | null {
