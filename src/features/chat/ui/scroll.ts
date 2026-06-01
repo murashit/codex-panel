@@ -79,6 +79,8 @@ export class MessageScrollController {
   private currentAnchor: ScrollAnchor | null = null;
   private lastScrollTop: number | null = null;
   private lastScrollHeight: number | null = null;
+  private lastClientHeight: number | null = null;
+  private userScrolledAwayFromBottom = false;
 
   constructor(private readonly options: MessageScrollControllerOptions) {}
 
@@ -128,8 +130,13 @@ export class MessageScrollController {
   pinToBottom(container = this.container): void {
     if (!container) return;
     this.setScrollTop(container, bottomScrollTop(container));
+    this.userScrolledAwayFromBottom = false;
     this.updatePinnedState(container);
     this.rememberCurrentAnchor(container);
+  }
+
+  correctAfterLayoutChange(): void {
+    this.scheduleSizeChangeCorrection();
   }
 
   scrollByTextLines(direction: MessageScrollDirection, container = this.container): void {
@@ -163,6 +170,8 @@ export class MessageScrollController {
     this.currentAnchor = null;
     this.lastScrollTop = null;
     this.lastScrollHeight = null;
+    this.lastClientHeight = null;
+    this.userScrolledAwayFromBottom = false;
   }
 
   private attach(container: HTMLElement): void {
@@ -172,6 +181,7 @@ export class MessageScrollController {
     this.container = container;
     this.lastScrollTop = container.scrollTop;
     this.lastScrollHeight = container.scrollHeight;
+    this.lastClientHeight = container.clientHeight;
     container.onscroll = this.handleScroll;
 
     const ResizeObserverConstructor = (container.win as Window & { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
@@ -179,6 +189,7 @@ export class MessageScrollController {
       this.resizeObserver = new ResizeObserverConstructor(() => {
         this.scheduleSizeChangeCorrection();
       });
+      this.resizeObserver.observe(container);
     }
   }
 
@@ -187,23 +198,31 @@ export class MessageScrollController {
     if (!container) return;
     const previousScrollTop = this.lastScrollTop ?? container.scrollTop;
     const previousScrollHeight = this.lastScrollHeight ?? container.scrollHeight;
-    const wasPinnedBeforeGrowth =
+    const previousClientHeight = this.lastClientHeight ?? container.clientHeight;
+    const wasPinnedBeforeLayoutChange =
       previousScrollHeight > 0 &&
       isNearScrollBottom({
         scrollHeight: previousScrollHeight,
         scrollTop: previousScrollTop,
-        clientHeight: container.clientHeight,
+        clientHeight: previousClientHeight,
       });
     const grewSinceLastScroll = container.scrollHeight > previousScrollHeight;
+    const viewportHeightChanged = container.clientHeight !== previousClientHeight;
     this.lastScrollTop = container.scrollTop;
     this.lastScrollHeight = container.scrollHeight;
-    if (container.scrollTop < previousScrollTop) {
+    this.lastClientHeight = container.clientHeight;
+    if (viewportHeightChanged && wasPinnedBeforeLayoutChange) {
+      this.userScrolledAwayFromBottom = false;
+      this.options.setMessagesPinnedToBottom(true);
+    } else if (container.scrollTop < previousScrollTop) {
+      this.userScrolledAwayFromBottom = true;
       this.options.setMessagesPinnedToBottom(false);
     } else if (
       !this.options.messagesPinnedToBottom() ||
-      (container.scrollTop > previousScrollTop && (!grewSinceLastScroll || !wasPinnedBeforeGrowth))
+      (container.scrollTop > previousScrollTop && (!grewSinceLastScroll || !wasPinnedBeforeLayoutChange))
     ) {
       this.updatePinnedState(container);
+      if (this.options.messagesPinnedToBottom()) this.userScrolledAwayFromBottom = false;
     }
     this.rememberCurrentAnchor(container);
   };
@@ -217,7 +236,7 @@ export class MessageScrollController {
       const activeContainer = this.container;
       if (!activeContainer) return;
 
-      if (this.options.messagesPinnedToBottom()) {
+      if (this.options.messagesPinnedToBottom() || (!this.userScrolledAwayFromBottom && this.wasPinnedAtLastMeasurement(activeContainer))) {
         this.pinToBottom(activeContainer);
       } else {
         this.restoreAnchor(activeContainer, this.currentAnchor);
@@ -268,11 +287,24 @@ export class MessageScrollController {
     container.scrollTop = scrollTop;
     this.lastScrollTop = container.scrollTop;
     this.lastScrollHeight = container.scrollHeight;
+    this.lastClientHeight = container.clientHeight;
   }
 
   private restoreAnchor(container: HTMLElement, anchor: ScrollAnchor | null): void {
     const scrollTop = restoredAnchorScrollTop(container, anchor);
     if (scrollTop !== null) this.setScrollTop(container, scrollTop);
+  }
+
+  private wasPinnedAtLastMeasurement(container: HTMLElement): boolean {
+    const scrollHeight = this.lastScrollHeight ?? container.scrollHeight;
+    return (
+      scrollHeight > 0 &&
+      isNearScrollBottom({
+        scrollHeight,
+        scrollTop: this.lastScrollTop ?? container.scrollTop,
+        clientHeight: this.lastClientHeight ?? container.clientHeight,
+      })
+    );
   }
 }
 

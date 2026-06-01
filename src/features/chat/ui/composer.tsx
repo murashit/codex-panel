@@ -85,8 +85,8 @@ function ComposerShell({
     const composer = composerRef.current;
     if (!composer) return;
     onComposer(composer);
-    syncComposerHeight(composer);
-  }, [onComposer]);
+    if (syncComposerHeight(composer)) callbacks.onComposerResize();
+  }, [callbacks, onComposer]);
   useLayoutEffect(() => {
     const container = suggestionsRef.current;
     const selected = selectedSuggestionRef.current;

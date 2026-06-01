@@ -135,6 +135,68 @@ describe("ChatMessageRenderer scroll pinning", () => {
     expect(state.messagesPinnedToBottom).toBe(true);
   });
 
+  it("can repin the current scroll container after composer growth shrinks the viewport", async () => {
+    const state = createChatState();
+    state.activeThreadId = "thread";
+    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Streaming message", turnId: "turn" }];
+    const parent = document.createElement("div");
+    const renderer = chatMessageRenderer(state);
+
+    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(messages, "clientHeight", { value: 160, configurable: true });
+    messages.scrollTop = 1000;
+    renderer.render(messages);
+    await settleMessageRender(messages);
+
+    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
+    messages.scrollTop = 940;
+
+    renderer.forceMessagesToBottom();
+
+    expect(messages.scrollTop).toBe(1000);
+    expect(state.messagesPinnedToBottom).toBe(true);
+  });
+
+  it("repins after composer growth has changed the scroll viewport height", async () => {
+    const state = createChatState();
+    state.activeThreadId = "thread";
+    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Streaming message", turnId: "turn" }];
+    const parent = document.createElement("div");
+    const renderer = chatMessageRenderer(state);
+
+    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    let scrollTop = 0;
+    let layoutSettled = false;
+    Object.defineProperties(messages, {
+      scrollHeight: { value: 1000, configurable: true },
+      clientHeight: {
+        get: () => (layoutSettled ? 100 : 160),
+        configurable: true,
+      },
+      scrollTop: {
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = Math.min(value, 1000 - messages.clientHeight);
+        },
+        configurable: true,
+      },
+    });
+    messages.scrollTop = 1000;
+    renderer.render(messages);
+    await settleMessageRender(messages);
+    expect(messages.scrollTop).toBe(840);
+
+    renderer.forceMessagesToBottom();
+    expect(messages.scrollTop).toBe(840);
+
+    layoutSettled = true;
+    await settleMessageRender(messages);
+
+    expect(messages.scrollTop).toBe(900);
+    expect(state.messagesPinnedToBottom).toBe(true);
+  });
+
   it("does not force the bottom into view when the user is reading older messages", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";

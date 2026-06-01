@@ -211,6 +211,10 @@ export class CodexChatView extends ItemView {
       },
       forceMessagesToBottom: () => {
         this.messageScroll.forceBottom();
+        this.messageRenderer.forceMessagesToBottom();
+      },
+      correctMessagesAfterLayoutChange: () => {
+        this.messageRenderer.correctMessagesAfterLayoutChange();
       },
       preserveMessageScrollPosition: () => {
         this.messageScroll.preservePosition();

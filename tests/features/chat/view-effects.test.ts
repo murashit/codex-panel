@@ -15,6 +15,7 @@ function createHost(): ChatViewEffectHost {
     refreshLiveState: vi.fn(),
     deferRefreshLiveState: vi.fn(),
     forceMessagesToBottom: vi.fn(),
+    correctMessagesAfterLayoutChange: vi.fn(),
     preserveMessageScrollPosition: vi.fn(),
     scrollMessagesToBottomOnFocus: vi.fn(),
     setStatus: vi.fn(),
@@ -54,6 +55,7 @@ describe("createChatViewEffects", () => {
     effects.liveState.refresh();
     effects.liveState.deferRefresh();
     effects.scroll.forceBottom();
+    effects.scroll.correctAfterLayoutChange();
     effects.scroll.preservePosition();
     effects.scroll.bottomOnFocus();
     effects.status.set("ready");
@@ -83,6 +85,7 @@ describe("createChatViewEffects", () => {
     expect(host.refreshLiveState).toHaveBeenCalledOnce();
     expect(host.deferRefreshLiveState).toHaveBeenCalledOnce();
     expect(host.forceMessagesToBottom).toHaveBeenCalledOnce();
+    expect(host.correctMessagesAfterLayoutChange).toHaveBeenCalledOnce();
     expect(host.preserveMessageScrollPosition).toHaveBeenCalledOnce();
     expect(host.scrollMessagesToBottomOnFocus).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("ready");

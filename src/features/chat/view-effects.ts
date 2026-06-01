@@ -9,6 +9,7 @@ export interface ChatViewEffectHost {
   refreshLiveState: () => void;
   deferRefreshLiveState: () => void;
   forceMessagesToBottom: () => void;
+  correctMessagesAfterLayoutChange: () => void;
   preserveMessageScrollPosition: () => void;
   scrollMessagesToBottomOnFocus: () => void;
   setStatus: (status: string) => void;
@@ -45,6 +46,7 @@ export interface ChatViewEffects {
   };
   scroll: {
     forceBottom: () => void;
+    correctAfterLayoutChange: () => void;
     preservePosition: () => void;
     bottomOnFocus: () => void;
   };
@@ -95,6 +97,7 @@ export function createChatViewEffects(host: ChatViewEffectHost): ChatViewEffects
     },
     scroll: {
       forceBottom: host.forceMessagesToBottom,
+      correctAfterLayoutChange: host.correctMessagesAfterLayoutChange,
       preservePosition: host.preserveMessageScrollPosition,
       bottomOnFocus: host.scrollMessagesToBottomOnFocus,
     },

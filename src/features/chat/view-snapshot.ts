@@ -59,7 +59,7 @@ export function messagesSlotSnapshot(state: ChatState, pendingRequestsSignature:
     state.loadingHistory,
     chatTurnBusy(state),
     state.messagesPinnedToBottom,
-    state.composerDraft,
+    state.composerDraft.trim().length > 0,
     state.selectedCollaborationMode,
     displayItemsSignature(state.displayItems),
     turnDiffsSignature(state.turnDiffs),

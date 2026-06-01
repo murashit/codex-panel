@@ -31,6 +31,7 @@ export interface ChatMessageRendererOptions {
 
 export class ChatMessageRenderer {
   private messagesEl: HTMLElement | null = null;
+  private bottomPinFrame: number | null = null;
   private readonly scrollController: MessageScrollController;
   private readonly markdownRenderer: MarkdownMessageRenderer;
 
@@ -114,6 +115,7 @@ export class ChatMessageRenderer {
   }
 
   dispose(): void {
+    this.cancelBottomPinFrame();
     if (this.messagesEl) {
       unmountReactRoot(this.messagesEl);
     }
@@ -127,6 +129,15 @@ export class ChatMessageRenderer {
     } else {
       this.scrollController.scrollByTextLines(action.direction);
     }
+  }
+
+  forceMessagesToBottom(): void {
+    this.scrollController.pinToBottom(this.messagesEl);
+    this.scheduleBottomPinAfterLayout();
+  }
+
+  correctMessagesAfterLayoutChange(): void {
+    this.scrollController.correctAfterLayoutChange();
   }
 
   private async copyMessageText(text: string): Promise<void> {
@@ -146,6 +157,24 @@ export class ChatMessageRenderer {
       }
     }
     this.dispatch({ type: "ui/detail-open-set", key, open });
+  }
+
+  private scheduleBottomPinAfterLayout(): void {
+    const messagesEl = this.messagesEl;
+    if (!messagesEl || this.bottomPinFrame !== null) return;
+
+    this.bottomPinFrame = messagesEl.win.requestAnimationFrame(() => {
+      this.bottomPinFrame = null;
+      if (!this.state.messagesPinnedToBottom) return;
+      this.scrollController.pinToBottom(this.messagesEl);
+    });
+  }
+
+  private cancelBottomPinFrame(): void {
+    const messagesEl = this.messagesEl;
+    if (!messagesEl || this.bottomPinFrame === null) return;
+    messagesEl.win.cancelAnimationFrame(this.bottomPinFrame);
+    this.bottomPinFrame = null;
   }
 }
 

@@ -233,7 +233,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     renderIfDetached: host.effects.render.now,
     onDraftChange: host.effects.liveState.refresh,
     onComposerResize: () => {
-      if (host.getState().messagesPinnedToBottom) host.effects.scroll.forceBottom();
+      host.effects.scroll.correctAfterLayoutChange();
     },
     onSubmit: () => void composerSubmission.submit(),
     onNewThread: () => void host.startNewThread(),

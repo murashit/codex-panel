@@ -136,6 +136,89 @@ describe("message scroll helpers", () => {
     resizeObserver.restore();
   });
 
+  it("keeps the scroll container pinned after the viewport height shrinks", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = clampedMessageContainer({ scrollTop: 0, scrollHeight: 1000, clientHeight: 160 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    expect(container.scrollTop).toBe(840);
+
+    setClientHeight(container, 100);
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(900);
+    expect(pinned).toBe(true);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
+  it("repins viewport shrink from the last measured bottom even when state was stale", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = clampedMessageContainer({ scrollTop: 0, scrollHeight: 1000, clientHeight: 160 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    expect(container.scrollTop).toBe(840);
+
+    pinned = false;
+    setClientHeight(container, 100);
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(900);
+    expect(pinned).toBe(true);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
+  it("keeps pinned state when viewport growth clamps scroll top downward", async () => {
+    const resizeObserver = installResizeObserver();
+    const container = clampedMessageContainer({ scrollTop: 0, scrollHeight: 1000, clientHeight: 100 });
+    container.append(messageBlock("message", 0, 1000));
+    let pinned = true;
+    const controller = new MessageScrollController({
+      messagesPinnedToBottom: () => pinned,
+      setMessagesPinnedToBottom: (value) => {
+        pinned = value;
+      },
+    });
+
+    controller.completeRender(controller.prepareRender(container, "auto"));
+    await animationFrame(container);
+    expect(container.scrollTop).toBe(900);
+
+    setClientHeight(container, 160);
+    container.dispatchEvent(new Event("scroll"));
+    expect(container.scrollTop).toBe(840);
+    expect(pinned).toBe(true);
+
+    resizeObserver.trigger();
+    await animationFrame(container);
+
+    expect(container.scrollTop).toBe(840);
+    expect(pinned).toBe(true);
+    controller.dispose();
+    resizeObserver.restore();
+  });
+
   it("restores the remembered message block after an observed size change while reading history", async () => {
     const resizeObserver = installResizeObserver();
     const container = messageContainer({ scrollTop: 150, scrollHeight: 1000, clientHeight: 300 });
@@ -350,6 +433,37 @@ function messageContainer(metrics: { scrollTop: number; scrollHeight: number; cl
   return container;
 }
 
+function clampedMessageContainer(metrics: { scrollTop: number; scrollHeight: number; clientHeight: number }): HTMLElement {
+  const container = document.createElement("div");
+  let scrollTop = metrics.scrollTop;
+  const scrollHeight = metrics.scrollHeight;
+  let clientHeight = metrics.clientHeight;
+  Object.defineProperties(container, {
+    scrollTop: {
+      get: () => scrollTop,
+      set: (value: number) => {
+        scrollTop = Math.min(value, Math.max(0, scrollHeight - clientHeight));
+      },
+      configurable: true,
+    },
+    scrollHeight: {
+      get: () => scrollHeight,
+      configurable: true,
+    },
+    clientHeight: {
+      get: () => clientHeight,
+      configurable: true,
+    },
+  });
+  Object.defineProperty(container, "setTestClientHeight", {
+    value: (value: number) => {
+      clientHeight = value;
+      scrollTop = Math.min(scrollTop, Math.max(0, scrollHeight - clientHeight));
+    },
+  });
+  return container;
+}
+
 function messageBlock(key: string, offsetTop: number, offsetHeight: number): HTMLElement {
   const element = document.createElement("div");
   element.setAttribute("data-codex-panel-block-key", key);
@@ -366,6 +480,10 @@ function setLayout(element: HTMLElement, offsetTop: number, offsetHeight: number
 
 function setScrollHeight(container: HTMLElement, value: number): void {
   (container as HTMLElement & { setTestScrollHeight: (scrollHeight: number) => void }).setTestScrollHeight(value);
+}
+
+function setClientHeight(container: HTMLElement, value: number): void {
+  (container as HTMLElement & { setTestClientHeight: (clientHeight: number) => void }).setTestClientHeight(value);
 }
 
 function animationFrame(element: HTMLElement): Promise<void> {

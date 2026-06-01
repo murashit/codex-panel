@@ -40,6 +40,11 @@ describe("chat view snapshots", () => {
     expect(messagesSlotSnapshot(changedDraft, "")).not.toBe(messages);
     expect(composerSlotSnapshot(changedDraft, null)).not.toBe(composer);
 
+    const changedNonEmptyDraftText = { ...state, composerDraft: "hello again" };
+    expect(messagesSlotSnapshot(changedNonEmptyDraftText, "")).not.toBe(messages);
+    expect(messagesSlotSnapshot(changedNonEmptyDraftText, "")).toBe(messagesSlotSnapshot(changedDraft, ""));
+    expect(composerSlotSnapshot(changedNonEmptyDraftText, null)).not.toBe(composer);
+
     const changedStatus = { ...state, status: "Connected." };
     expect(toolbarSlotSnapshot(changedStatus, false)).not.toBe(toolbar);
     expect(messagesSlotSnapshot(changedStatus, "")).toBe(messages);
