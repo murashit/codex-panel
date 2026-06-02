@@ -36,7 +36,12 @@ describe("thread naming", () => {
     expect(
       namingContextFromTurn(
         turn([
-          { type: "userMessage", id: "u1", content: [{ type: "text", text: "Codex Panelに自動命名を付けたい", text_elements: [] }] },
+          {
+            type: "userMessage",
+            id: "u1",
+            clientId: null,
+            content: [{ type: "text", text: "Codex Panelに自動命名を付けたい", text_elements: [] }],
+          },
           { type: "agentMessage", id: "a1", text: "実装方針をまとめました。", phase: "final_answer", memoryCitation: null },
         ]),
       ),
@@ -49,7 +54,7 @@ describe("thread naming", () => {
   it("does not build naming context for failed or incomplete turns", () => {
     expect(
       namingContextFromTurn(
-        turn([{ type: "userMessage", id: "u1", content: [{ type: "text", text: "hello", text_elements: [] }] }], {
+        turn([{ type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] }], {
           status: "failed",
         }),
       ),
@@ -94,7 +99,7 @@ describe("thread naming", () => {
         if (cursor === null) {
           return {
             data: [
-              turn([{ type: "userMessage", id: "u1", content: [{ type: "text", text: "本文だけ", text_elements: [] }] }], {
+              turn([{ type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "本文だけ", text_elements: [] }] }], {
                 id: "turn-1",
               }),
             ],
@@ -105,7 +110,12 @@ describe("thread naming", () => {
           data: [
             turn(
               [
-                { type: "userMessage", id: "u2", content: [{ type: "text", text: "古い履歴から命名したい", text_elements: [] }] },
+                {
+                  type: "userMessage",
+                  id: "u2",
+                  clientId: null,
+                  content: [{ type: "text", text: "古い履歴から命名したい", text_elements: [] }],
+                },
                 { type: "agentMessage", id: "a2", text: "古いturnを使って候補を作ります。", phase: "final_answer", memoryCitation: null },
               ],
               { id: "turn-2" },

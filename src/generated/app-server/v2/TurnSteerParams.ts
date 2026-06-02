@@ -4,7 +4,7 @@
 import type { AdditionalContextEntry } from "./AdditionalContextEntry";
 import type { UserInput } from "./UserInput";
 
-export type TurnSteerParams = { threadId: string, input: Array<UserInput>,
+export type TurnSteerParams = { threadId: string, clientUserMessageId?: string | null, input: Array<UserInput>,
 /**
  * Optional turn-scoped Responses API client metadata.
  */

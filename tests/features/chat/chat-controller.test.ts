@@ -536,7 +536,7 @@ describe("ChatController", () => {
             error: null,
             itemsView: "full",
             items: [
-              { type: "userMessage", id: "u1", content: [{ type: "text", text: "hello", text_elements: [] }] },
+              { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
               { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
             ],
           },
@@ -1030,7 +1030,7 @@ describe("ChatController", () => {
             durationMs: null,
             itemsView: "full",
             items: [
-              { type: "userMessage", id: "u1", content: [{ type: "text", text: "hello", text_elements: [] }] },
+              { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
               { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
             ],
           },
@@ -1059,7 +1059,7 @@ describe("ChatController", () => {
         durationMs: null,
         itemsView: "full",
         items: [
-          { type: "userMessage", id: "u1", content: [{ type: "text", text: "hello", text_elements: [] }] },
+          { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
         ],
       };

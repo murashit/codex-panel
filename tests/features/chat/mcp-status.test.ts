@@ -6,6 +6,7 @@ import { mcpStatusLines } from "../../../src/features/chat/mcp-status";
 function mcpServer(overrides: Partial<McpServerStatus> = {}): McpServerStatus {
   return {
     name: "github",
+    serverInfo: null,
     tools: {
       search_issues: { name: "search_issues", description: null, inputSchema: {} },
       fetch_pr: { name: "fetch_pr", description: null, inputSchema: {} },

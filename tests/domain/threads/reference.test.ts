@@ -51,7 +51,7 @@ describe("thread reference context", () => {
   it("extracts user messages and final Codex responses in chronological order", () => {
     const turns = referencedThreadTurns([
       turn("turn-2", 2, [
-        { type: "userMessage", id: "u2", content: [{ type: "text", text: "次の依頼", text_elements: [] }] },
+        { type: "userMessage", id: "u2", clientId: null, content: [{ type: "text", text: "次の依頼", text_elements: [] }] },
         {
           type: "commandExecution",
           id: "cmd",
@@ -68,7 +68,7 @@ describe("thread reference context", () => {
         { type: "agentMessage", id: "a2", text: "次の回答", phase: "final_answer", memoryCitation: null },
       ]),
       turn("turn-1", 1, [
-        { type: "userMessage", id: "u1", content: [{ type: "text", text: "最初の依頼", text_elements: [] }] },
+        { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "最初の依頼", text_elements: [] }] },
         { type: "agentMessage", id: "draft", text: "途中経過", phase: null, memoryCitation: null },
         { type: "agentMessage", id: "a1", text: "最終回答", phase: "final_answer", memoryCitation: null },
       ]),

@@ -55,7 +55,12 @@ function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): Displ
 
 describe("thread item conversion preserves app-server semantics", () => {
   it("sorts app-server turns oldest first before converting messages", () => {
-    const userMessage: ThreadItem = { type: "userMessage", id: "u1", content: [{ type: "text", text: "hello", text_elements: [] }] };
+    const userMessage: ThreadItem = {
+      type: "userMessage",
+      id: "u1",
+      clientId: null,
+      content: [{ type: "text", text: "hello", text_elements: [] }],
+    };
     const assistantMessage: ThreadItem = { type: "agentMessage", id: "a1", text: "world", phase: null, memoryCitation: null };
     const turns: Turn[] = [
       {
@@ -80,6 +85,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     const userMessage: ThreadItem = {
       type: "userMessage",
       id: "u1",
+      clientId: null,
       content: [
         { type: "text", text: "Read [[Alpha]] and [[Beta]].", text_elements: [] },
         { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
@@ -113,6 +119,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       displayItemFromThreadItem({
         type: "userMessage",
         id: "u1",
+        clientId: null,
         content: [{ type: "text", text, text_elements: [] }],
       }),
     ).toMatchObject({
@@ -132,6 +139,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     const item: ThreadItem = {
       type: "userMessage",
       id: "u1",
+      clientId: null,
       content: [
         { type: "text", text: "Use $obsidian-codex-panel-maintain and $missing.", text_elements: [] },
         { type: "skill", name: "obsidian-codex-panel-maintain", path: "/skills/obsidian-codex-panel-maintain/SKILL.md" },
@@ -148,6 +156,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     const item: ThreadItem = {
       type: "userMessage",
       id: "u1",
+      clientId: null,
       content: [
         {
           type: "text",

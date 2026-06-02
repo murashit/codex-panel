@@ -895,7 +895,7 @@ function turnWithUserMessage(text: string) {
     id: "turn-1",
     startedAt: 1,
     completedAt: 2,
-    items: [{ type: "userMessage", id: "user-1", content: [{ type: "text", text, text_elements: [] }] }],
+    items: [{ type: "userMessage", id: "user-1", clientId: null, content: [{ type: "text", text, text_elements: [] }] }],
   };
 }
 
@@ -909,7 +909,7 @@ function completedTurn(turnId: string) {
     durationMs: 1,
     itemsView: "full",
     items: [
-      { type: "userMessage", id: "user-1", content: [{ type: "text", text: "hello", text_elements: [] }] },
+      { type: "userMessage", id: "user-1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
       { type: "agentMessage", id: "agent-1", text: "done", phase: "final_answer", memoryCitation: null },
     ],
   };
@@ -948,7 +948,7 @@ function turnCompletedNotification(threadId: string, turnId: string): Extract<Se
         durationMs: 1,
         itemsView: "full",
         items: [
-          { type: "userMessage", id: "user-1", content: [{ type: "text", text: "hello", text_elements: [] }] },
+          { type: "userMessage", id: "user-1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { type: "agentMessage", id: "agent-1", text: "done", phase: "final_answer", memoryCitation: null },
         ],
       },

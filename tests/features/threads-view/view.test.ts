@@ -312,7 +312,12 @@ describe("CodexThreadsView", () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [
         turnFixture([
-          { type: "userMessage", id: "u1", content: [{ type: "text", text: "threads viewのrenameを直したい", text_elements: [] }] },
+          {
+            type: "userMessage",
+            id: "u1",
+            clientId: null,
+            content: [{ type: "text", text: "threads viewのrenameを直したい", text_elements: [] }],
+          },
           { type: "agentMessage", id: "a1", text: "rename UIを調整しました。", phase: "final_answer", memoryCitation: null },
         ]),
       ],

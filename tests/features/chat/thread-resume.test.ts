@@ -62,6 +62,7 @@ function responseFixture(thread: Thread): ThreadResumeResponse {
     sandbox: { type: "readOnly", networkAccess: false },
     activePermissionProfile: null,
     reasoningEffort: "high",
+    initialTurnsPage: null,
   };
 }
 

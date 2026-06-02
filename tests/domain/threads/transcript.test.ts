@@ -69,7 +69,7 @@ function turn(items: ThreadItem[], overrides: Partial<Turn> = {}): Turn {
 }
 
 function userMessage(id: string, text: string): ThreadItem {
-  return { type: "userMessage", id, content: [{ type: "text", text, text_elements: [] }] };
+  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
 }
 
 function assistantMessage(id: string, text: string): ThreadItem {

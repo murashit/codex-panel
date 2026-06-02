@@ -8,6 +8,7 @@ import type { ApprovalsReviewer } from "./ApprovalsReviewer";
 import type { AskForApproval } from "./AskForApproval";
 import type { SandboxPolicy } from "./SandboxPolicy";
 import type { Thread } from "./Thread";
+import type { TurnsPage } from "./TurnsPage";
 
 export type ThreadResumeResponse = { thread: Thread, model: string, modelProvider: string, serviceTier: string | null, cwd: AbsolutePathBuf,
 /**
@@ -32,4 +33,8 @@ sandbox: SandboxPolicy,
  * Named or implicit built-in profile that produced the active
  * permissions, when known.
  */
-activePermissionProfile: ActivePermissionProfile | null, reasoningEffort: ReasoningEffort | null, };
+activePermissionProfile: ActivePermissionProfile | null, reasoningEffort: ReasoningEffort | null,
+/**
+ * `thread/turns/list` page returned when requested by `initialTurnsPage`.
+ */
+initialTurnsPage: TurnsPage | null, };

@@ -190,6 +190,7 @@ function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
 function mcpServerStatus(): McpServerStatus {
   return {
     name: "github",
+    serverInfo: null,
     tools: {
       search_issues: { name: "search_issues", inputSchema: {} },
     },
