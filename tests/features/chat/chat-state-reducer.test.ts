@@ -14,7 +14,7 @@ import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 
 describe("chatReducer", () => {
-  it("clears active turn and thread state without dropping local composer draft", () => {
+  it("clears active turn and thread-scoped state", () => {
     const state = createChatState();
     state.activeThreadId = "thread";
     state.turnLifecycle = { kind: "running", turnId: "turn" };
@@ -27,6 +27,9 @@ describe("chatReducer", () => {
     state.approvals = [approval(1)];
     state.pendingUserInputs = [userInput(2)];
     state.userInputDrafts = new Map([["2:note", "draft"]]);
+    state.composerSuggestSelected = 1;
+    state.composerSuggestions = [suggestion("/plan")];
+    state.composerSuggestionsDismissedSignature = "dismissed";
 
     const next = chatReducer(state, { type: "thread/active-cleared" });
 
@@ -40,7 +43,76 @@ describe("chatReducer", () => {
     expect(next.approvals).toEqual([]);
     expect(next.pendingUserInputs).toEqual([]);
     expect(next.userInputDrafts.size).toBe(0);
-    expect(next.composerDraft).toBe("keep me");
+    expect(next.composerDraft).toBe("");
+    expect(next.composerSuggestSelected).toBe(0);
+    expect(next.composerSuggestions).toEqual([]);
+    expect(next.composerSuggestionsDismissedSignature).toBeNull();
+  });
+
+  it("resets thread-scoped state when resuming a thread", () => {
+    const state = createChatState();
+    state.activeThreadId = "previous-thread";
+    state.turnLifecycle = { kind: "running", turnId: "previous-turn" };
+    state.historyCursor = "cursor";
+    state.loadingHistory = true;
+    state.composerDraft = "previous draft";
+    state.displayItems = [message("previous-message")];
+    state.turnDiffs = new Map([["previous-turn", "@@"]]);
+    state.approvals = [approval(1)];
+    state.pendingUserInputs = [userInput(2)];
+    state.userInputDrafts = new Map([["2:note", "draft"]]);
+    state.composerSuggestSelected = 1;
+    state.composerSuggestions = [suggestion("/plan")];
+    state.composerSuggestionsDismissedSignature = "dismissed";
+    state.messagesPinnedToBottom = false;
+    const resumedItems = [message("resumed-message")];
+
+    const next = chatReducer(state, {
+      type: "thread/resumed",
+      thread: thread("resumed-thread"),
+      cwd: "/vault",
+      model: "gpt-5.1",
+      reasoningEffort: "high",
+      serviceTier: "fast",
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      activePermissionProfile: null,
+      displayItems: resumedItems,
+    });
+
+    expect(next.activeThreadId).toBe("resumed-thread");
+    expect(activeTurnId(next)).toBeNull();
+    expect(next.historyCursor).toBeNull();
+    expect(next.loadingHistory).toBe(false);
+    expect(next.composerDraft).toBe("");
+    expect(next.displayItems).toEqual(resumedItems);
+    expect(next.turnDiffs.size).toBe(0);
+    expect(next.approvals).toEqual([]);
+    expect(next.pendingUserInputs).toEqual([]);
+    expect(next.userInputDrafts.size).toBe(0);
+    expect(next.composerSuggestSelected).toBe(0);
+    expect(next.composerSuggestions).toEqual([]);
+    expect(next.composerSuggestionsDismissedSignature).toBeNull();
+    expect(next.messagesPinnedToBottom).toBe(true);
+  });
+
+  it("starts resumed threads with empty display state when no history items are supplied", () => {
+    const state = createChatState();
+    state.displayItems = [message("previous-message")];
+
+    const next = chatReducer(state, {
+      type: "thread/resumed",
+      thread: thread("resumed-thread"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+
+    expect(next.displayItems).toEqual([]);
   });
 
   it("clones map and set backed state when updating turn diffs and open panels", () => {
@@ -254,6 +326,58 @@ describe("chatReducer", () => {
     expect(store.getState().displayItems).toEqual([message("initial"), message("next")]);
   });
 
+  it("keeps panel-local thread, request, and composer state isolated across stores", () => {
+    const panelA = createChatStateStore();
+    const panelB = createChatStateStore();
+
+    panelA.dispatch({
+      type: "thread/resumed",
+      thread: thread("thread-a"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    panelA.dispatch({ type: "composer/draft-set", draft: "panel A draft" });
+    panelA.dispatch({ type: "request/user-input-queued", input: userInput(1) });
+    panelA.dispatch({ type: "request/user-input-draft-set", key: "1:note", value: "panel A answer" });
+
+    panelB.dispatch({
+      type: "thread/resumed",
+      thread: thread("thread-b"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    panelB.dispatch({ type: "composer/draft-set", draft: "panel B draft" });
+    panelB.dispatch({ type: "request/user-input-queued", input: userInput(2) });
+    panelB.dispatch({ type: "request/user-input-draft-set", key: "2:note", value: "panel B answer" });
+
+    panelA.dispatch({ type: "request/resolved", requestId: 1 });
+    panelA.dispatch({ type: "thread/active-cleared" });
+
+    expect(panelA.getState()).toMatchObject({
+      activeThreadId: null,
+      composerDraft: "",
+      pendingUserInputs: [],
+    });
+    expect(panelA.getState().userInputDrafts.size).toBe(0);
+
+    expect(panelB.getState()).toMatchObject({
+      activeThreadId: "thread-b",
+      composerDraft: "panel B draft",
+      pendingUserInputs: [expect.objectContaining({ requestId: 2 })],
+    });
+    expect(panelB.getState().userInputDrafts.get("2:note")).toBe("panel B answer");
+  });
+
   it("notifies ChatStateStore subscribers only when the state reference changes", () => {
     const store = createChatStateStore();
     const listener = vi.fn();
@@ -273,6 +397,10 @@ describe("chatReducer", () => {
 
 function message(id: string): DisplayItem {
   return { id, kind: "message", role: "assistant", text: id };
+}
+
+function suggestion(display: string): ChatState["composerSuggestions"][number] {
+  return { display, detail: "Plan mode", replacement: display, start: 0, appendSpaceOnInsert: true };
 }
 
 function approval(requestId: number): ChatState["approvals"][number] {

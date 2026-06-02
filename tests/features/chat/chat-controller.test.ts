@@ -922,7 +922,7 @@ describe("ChatController", () => {
       state.loadingHistory = true;
       state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "stale" }];
       state.turnDiffs = new Map([["turn-active", "@@\n-stale\n+stale"]]);
-      state.composerDraft = "keep local draft";
+      state.composerDraft = "thread draft";
       state.approvals = [
         {
           requestId: 10,
@@ -964,7 +964,7 @@ describe("ChatController", () => {
       expect(state.loadingHistory).toBe(false);
       expect(state.displayItems).toEqual([]);
       expect(state.turnDiffs.size).toBe(0);
-      expect(state.composerDraft).toBe("keep local draft");
+      expect(state.composerDraft).toBe("");
       expect(chatTurnBusy(state)).toBe(false);
       expect(state.approvals).toEqual([]);
       expect(state.pendingUserInputs).toEqual([]);
