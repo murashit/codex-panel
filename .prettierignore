@@ -1,0 +1,8 @@
+node_modules/
+.jj/
+.codex/
+main.js
+styles.css
+data.json
+dist/
+tmp/
