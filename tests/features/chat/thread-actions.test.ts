@@ -18,24 +18,23 @@ describe("ChatThreadActionController", () => {
     expect(client.rollbackThread).toHaveBeenCalledWith("forked", 2);
     expect(host.openThreadInNewView).toHaveBeenCalledWith("forked");
     expect(client.archiveThread).not.toHaveBeenCalled();
-    expect(host.closePanel).not.toHaveBeenCalled();
+    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
 
-  it("does not archive the source when fork and archive cannot open the fork panel", async () => {
+  it("does not open the fork in a new panel before archiving the source", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
-    host.openThreadInNewView.mockRejectedValue(new Error("no panel"));
     const controller = new ChatThreadActionController(host);
 
     await controller.forkThreadFromTurn("source", "turn-2", true);
 
     expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
     expect(client.rollbackThread).toHaveBeenCalledWith("forked", 1);
-    expect(client.archiveThread).not.toHaveBeenCalled();
-    expect(host.closePanel).not.toHaveBeenCalled();
+    expect(host.openThreadInNewView).not.toHaveBeenCalled();
+    expect(client.archiveThread).toHaveBeenCalledWith("source");
   });
 
-  it("does not close the source panel when fork and archive fails to archive", async () => {
+  it("keeps the source panel when fork and archive fails to archive", async () => {
     const client = clientMock();
     client.archiveThread.mockRejectedValue(new Error("archive failed"));
     const host = hostMock({ client, displayItems: turnItems() });
@@ -45,12 +44,12 @@ describe("ChatThreadActionController", () => {
 
     expect(client.rollbackThread).not.toHaveBeenCalled();
     expect(client.archiveThread).toHaveBeenCalledWith("source");
-    expect(host.closePanel).not.toHaveBeenCalled();
+    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
     expect(host.notifyThreadArchived).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("archive failed");
   });
 
-  it("closes the source panel before notifying surfaces after fork and archive succeeds", async () => {
+  it("replaces the source panel before notifying surfaces after fork and archive succeeds", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
     const controller = new ChatThreadActionController(host);
@@ -58,12 +57,25 @@ describe("ChatThreadActionController", () => {
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
     expect(client.archiveThread).toHaveBeenCalledWith("source");
-    expect(host.closePanel).toHaveBeenCalledOnce();
+    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
-    const closeOrder = host.closePanel.mock.invocationCallOrder[0];
+    const openOrder = host.openThreadInCurrentPanel.mock.invocationCallOrder[0];
     const notifyOrder = host.notifyThreadArchived.mock.invocationCallOrder[0];
-    if (closeOrder === undefined || notifyOrder === undefined) throw new Error("Expected close and archive notification calls.");
-    expect(closeOrder).toBeLessThan(notifyOrder);
+    if (openOrder === undefined || notifyOrder === undefined) throw new Error("Expected open and archive notification calls.");
+    expect(openOrder).toBeLessThan(notifyOrder);
+  });
+
+  it("notifies surfaces when fork and archive succeeds but the fork cannot replace the source panel", async () => {
+    const client = clientMock();
+    const host = hostMock({ client, displayItems: turnItems() });
+    host.openThreadInCurrentPanel.mockRejectedValue(new Error("resume failed"));
+    const controller = new ChatThreadActionController(host);
+
+    await controller.forkThreadFromTurn("source", "turn-3", true);
+
+    expect(client.archiveThread).toHaveBeenCalledWith("source");
+    expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Archived thread source, but could not open forked thread forked: resume failed");
   });
 });
 
@@ -103,11 +115,11 @@ function hostMock({ client, displayItems }: { client: ReturnType<typeof clientMo
     setStatus: vi.fn(),
     setComposerText: vi.fn(),
     openThreadInNewView: vi.fn().mockResolvedValue(undefined),
+    openThreadInCurrentPanel: vi.fn().mockResolvedValue(undefined),
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshThreads: vi.fn().mockResolvedValue(undefined),
     refreshSharedThreadListFromOpenSurface: vi.fn(),
-    closePanel: vi.fn(),
   } satisfies ChatThreadActionControllerHost;
 }

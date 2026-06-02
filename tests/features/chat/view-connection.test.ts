@@ -540,6 +540,31 @@ describe("CodexChatView connection lifecycle", () => {
     expect(notifyThreadArchived).toHaveBeenCalledWith("thread-1");
   });
 
+  it("replaces the current panel with the forked thread after fork and archive", async () => {
+    const notifyThreadArchived = vi.fn();
+    const host = chatHost({ notifyThreadArchived });
+    const client = connectedClient({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("source")] }),
+      resumeThread: vi.fn((threadId: string) => Promise.resolve(resumedThread(threadId))),
+      threadTurnsList: vi.fn().mockResolvedValue({ data: [completedTurn("turn-1")], nextCursor: null }),
+      forkThread: vi.fn().mockResolvedValue({ thread: threadFixture("forked") }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView({ host });
+
+    await view.connect();
+    await view.openThread("source");
+    await (view as unknown as { threadActions: { forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => Promise<void> } })
+      .threadActions.forkThreadFromTurn("source", "turn-1", true);
+
+    expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
+    expect(client.archiveThread).toHaveBeenCalledWith("source");
+    expect(client.resumeThread).toHaveBeenLastCalledWith("forked", "/vault");
+    expect(view.getState()).toEqual({ version: 1, threadId: "forked", threadTitle: "Restored thread" });
+    expect(view.openPanelSnapshot()).toMatchObject({ threadId: "forked" });
+    expect(notifyThreadArchived).toHaveBeenCalledWith("source");
+  });
+
   it("clears the active thread when another view archives it", async () => {
     const requestSaveLayout = vi.fn();
     const client = connectedClient();
@@ -778,6 +803,10 @@ function baseClient() {
     resumeThread: vi.fn().mockResolvedValue(resumedThread("thread-1")),
     threadTurnsList: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     startTurn: vi.fn().mockResolvedValue({ turn: { id: "turn-1" } }),
+    forkThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
+    rollbackThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
+    setThreadName: vi.fn().mockResolvedValue({}),
+    readThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-1") }),
     archiveThread: vi.fn().mockResolvedValue({}),
   };
 }
@@ -864,6 +893,22 @@ function turnWithUserMessage(text: string) {
     startedAt: 1,
     completedAt: 2,
     items: [{ type: "userMessage", id: "user-1", content: [{ type: "text", text, text_elements: [] }] }],
+  };
+}
+
+function completedTurn(turnId: string) {
+  return {
+    id: turnId,
+    status: "completed",
+    error: null,
+    startedAt: 1,
+    completedAt: 2,
+    durationMs: 1,
+    itemsView: "full",
+    items: [
+      { type: "userMessage", id: "user-1", content: [{ type: "text", text: "hello", text_elements: [] }] },
+      { type: "agentMessage", id: "agent-1", text: "done", phase: "final_answer", memoryCitation: null },
+    ],
   };
 }
 

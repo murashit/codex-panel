@@ -52,7 +52,7 @@ Codex goal management is not supported. Incoming goal notifications are shown on
 
 Codex Panel adds vault-aware behavior where Obsidian benefits from a different surface than the terminal UI:
 
-- Keep Codex next to your notes in Obsidian panes. The Threads view adds a left sidebar list with live status for currently open threads, and forks open in a new pane in the right sidebar so the source thread stays visible.
+- Keep Codex next to your notes in Obsidian panes. The Threads view adds a left sidebar list with live status for currently open threads. Regular forks open in a new pane in the right sidebar so the source thread stays visible; fork-and-archive replaces the source panel with the forked thread.
 - Use Obsidian commands and the ribbon icon for panel and thread navigation.
 - Compose with Obsidian-friendly shortcuts: `Enter` sends by default, `Shift+Enter` inserts a newline, and you can switch sending to `Cmd/Ctrl+Enter` in Codex Panel settings. You can also opt in to scrolling the thread with `Up`/`Ctrl+P` from the first composer line and `Down`/`Ctrl+N` from the last composer line.
 - Use vault-aware links while composing and reading messages. Wikilink suggestions use Obsidian file search and recent notes; sent wikilinks resolve to Codex file mentions when the target exists; rendered Markdown links to vault files open in Obsidian.

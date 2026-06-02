@@ -162,9 +162,6 @@ export class CodexChatView extends ItemView {
       },
       isOwnLeaf: (candidateLeaf) => candidateLeaf === this.leaf,
       archiveAdapter: () => this.app.vault.adapter,
-      closePanel: () => {
-        this.leaf.detach();
-      },
     });
     this.connection = controllers.connection;
     this.controller = controllers.controller;

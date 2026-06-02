@@ -22,12 +22,12 @@ export interface ChatThreadActionControllerHost {
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<unknown>;
+  openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyThreadArchived: (threadId: string) => void;
   notifyThreadRenamed: (threadId: string, name: string) => void;
   notifyActiveThreadIdentityChanged: () => void;
   refreshThreads: () => Promise<void>;
   refreshSharedThreadListFromOpenSurface: () => void;
-  closePanel: () => void;
 }
 
 export class ChatThreadActionController {
@@ -108,19 +108,22 @@ export class ChatThreadActionController {
           this.host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
         }
       }
-      let openedForkPanel = false;
+      if (archiveSource) {
+        if (!(await this.archiveThreadOnServer(threadId))) return;
+        try {
+          await this.host.openThreadInCurrentPanel(forkedThreadId);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.host.addSystemMessage(`Archived thread ${threadId}, but could not open forked thread ${forkedThreadId}: ${message}`);
+        }
+        this.host.notifyThreadArchived(threadId);
+        return;
+      }
       try {
         await this.host.openThreadInNewView(forkedThreadId);
-        openedForkPanel = true;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         this.host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in a new panel: ${message}`);
-      }
-      if (archiveSource) {
-        if (!openedForkPanel) return;
-        if (!(await this.archiveThreadOnServer(threadId))) return;
-        this.host.closePanel();
-        this.host.notifyThreadArchived(threadId);
       }
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));

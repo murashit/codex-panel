@@ -116,7 +116,6 @@ export interface ChatViewControllerAssemblyHost {
   registerActiveLeafChange: (handler: (leaf: WorkspaceLeaf | null) => void) => void;
   isOwnLeaf: (leaf: WorkspaceLeaf | null) => boolean;
   archiveAdapter: () => ArchiveExportAdapter;
-  closePanel: () => void;
 }
 
 export function createChatViewControllerAssembly(host: ChatViewControllerAssemblyHost): ChatViewControllerAssembly {
@@ -404,6 +403,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     setStatus: host.effects.status.set,
     setComposerText: host.effects.composer.setText,
     openThreadInNewView: (threadId) => host.plugin.openThreadInNewView(threadId),
+    openThreadInCurrentPanel: host.selectThread,
     notifyThreadArchived: host.plugin.notifyThreadArchived.bind(host.plugin),
     notifyThreadRenamed: (threadId, name) => {
       host.plugin.notifyThreadRenamed(threadId, name);
@@ -413,7 +413,6 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     refreshSharedThreadListFromOpenSurface: () => {
       host.plugin.refreshSharedThreadListFromOpenSurface();
     },
-    closePanel: host.closePanel,
   });
   toolbarPanels = new ToolbarPanelController({
     stateStore: host.stateStore,
