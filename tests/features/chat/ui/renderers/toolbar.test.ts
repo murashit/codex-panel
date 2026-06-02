@@ -83,9 +83,9 @@ describe("toolbar renderer decisions", () => {
     for (const choice of parent.querySelectorAll(".codex-panel__runtime-choice")) {
       expect(choice.getAttribute("role")).toBe("option");
       expect(choice.getAttribute("aria-selected")).toBe("true");
-      expect(choice.querySelector<HTMLElement>(".codex-panel__toolbar-panel-check")?.dataset["icon"]).toBe("check");
+      expect(choice.querySelector<HTMLElement>(".codex-panel__toolbar-panel-check")).toBeNull();
       expect(choice.classList.contains("selected")).toBe(false);
-      expect(choice.classList.contains("is-selected")).toBe(false);
+      expect(choice.classList.contains("is-selected")).toBe(true);
     }
   });
 
@@ -229,10 +229,11 @@ describe("toolbar renderer decisions", () => {
 
     parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
     expect(startRenameThread).toHaveBeenCalledWith("thread");
+    expect(parent.querySelector(".codex-panel__thread-row")?.classList.contains("codex-panel__thread-row--selected")).toBe(true);
 
     const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
     if (!input) throw new Error("Missing thread rename input");
-    expect(input.closest(".codex-panel__thread-rename")?.querySelector(".codex-panel__toolbar-panel-check")).not.toBeNull();
+    expect(input.closest(".codex-panel__thread-rename")?.querySelector(".codex-panel__toolbar-panel-check")).toBeNull();
     expect(input.value).toBe("Draft title");
     changeInputValue(input, "New title");
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");

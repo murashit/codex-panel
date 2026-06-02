@@ -23,6 +23,15 @@
   background: var(--background-modifier-hover);
 }
 
+.codex-panel__thread-row--selected {
+  background: var(--nav-item-background-active, var(--background-modifier-active));
+}
+
+.codex-panel__thread-row--selected:hover,
+.codex-panel__thread-row--selected:focus-within {
+  background: var(--nav-item-background-active, var(--background-modifier-active));
+}
+
 .codex-panel__thread-row--renaming {
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -31,14 +40,22 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
-.codex-panel__thread:hover:not(:disabled):not(.is-disabled),
-.codex-panel__thread.is-checked {
+.codex-panel__thread:hover:not(:disabled):not(.is-disabled) {
   background: transparent;
 }
 
 .codex-panel__thread-row:hover .codex-panel__thread,
 .codex-panel__thread-row:focus-within .codex-panel__thread {
   color: var(--nav-item-color-hover, var(--text-normal));
+}
+
+.codex-panel__thread-row--selected .codex-panel__thread,
+.codex-panel__thread-row--selected:hover .codex-panel__thread,
+.codex-panel__thread-row--selected:focus-within .codex-panel__thread,
+.codex-panel__thread-row--selected .codex-panel__toolbar-panel-label,
+.codex-panel__thread-row--selected:hover .codex-panel__toolbar-panel-label,
+.codex-panel__thread-row--selected:focus-within .codex-panel__toolbar-panel-label {
+  color: var(--nav-item-color-active, var(--text-normal));
 }
 
 .codex-panel__thread-rename {

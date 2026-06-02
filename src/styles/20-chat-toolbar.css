@@ -120,22 +120,6 @@
   user-select: none;
 }
 
-.codex-panel__toolbar-panel-check {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--codex-panel-size-icon-s);
-  width: var(--codex-panel-size-icon-s);
-  height: var(--codex-panel-size-icon-s);
-  color: var(--text-accent);
-}
-
-.codex-panel__toolbar-panel-check svg {
-  width: var(--codex-panel-size-icon-s);
-  height: var(--codex-panel-size-icon-s);
-}
-
 .codex-panel__toolbar-panel-label,
 .codex-panel__toolbar-panel-meta {
   min-width: 0;
@@ -159,6 +143,12 @@
   transform: none;
 }
 
+.codex-panel__toolbar-panel-item.is-selected {
+  color: var(--nav-item-color-active, var(--text-normal));
+  background: var(--nav-item-background-active, var(--background-modifier-active));
+  font-weight: var(--nav-item-weight-active, var(--font-medium));
+}
+
 .codex-panel__toolbar-panel-item:where(:hover, :focus, :focus-visible, :active):not(:disabled):not(.is-disabled)
   .codex-panel__toolbar-panel-label {
   color: var(--nav-item-color-hover, var(--text-normal));
@@ -169,9 +159,20 @@
   color: var(--nav-item-color-hover, var(--text-normal));
 }
 
-.codex-panel__toolbar-panel-item:focus,
-.codex-panel__toolbar-panel-item:focus-visible,
-.codex-panel__toolbar-panel-item:active {
+.codex-panel__toolbar-panel-item.is-selected .codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-item.is-selected:where(:hover, :focus, :focus-visible, :active) .codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-item.is-selected .codex-panel__toolbar-panel-meta,
+.codex-panel__toolbar-panel-item.is-selected:where(:hover, :focus, :focus-visible, :active) .codex-panel__toolbar-panel-meta {
+  color: var(--nav-item-color-active, var(--text-normal));
+}
+
+.codex-panel__toolbar-panel-item.is-selected:where(:hover, :focus, :focus-visible, :active):not(:disabled):not(.is-disabled) {
+  background: var(--nav-item-background-active, var(--background-modifier-active));
+}
+
+.codex-panel__toolbar-panel-item:focus:not(.is-selected),
+.codex-panel__toolbar-panel-item:focus-visible:not(.is-selected),
+.codex-panel__toolbar-panel-item:active:not(.is-selected) {
   background: transparent;
   box-shadow: none;
   outline: none;
@@ -189,7 +190,7 @@
 }
 
 .codex-panel__runtime-picker-label {
-  padding: var(--size-4-1) var(--size-4-2) var(--size-2-1) calc(var(--codex-panel-size-icon-s) + var(--size-4-2) * 2);
+  padding: var(--size-4-1) var(--size-4-2) var(--size-2-1);
   color: var(--text-faint);
   font-size: var(--codex-panel-toolbar-meta-size);
   font-weight: var(--font-medium);

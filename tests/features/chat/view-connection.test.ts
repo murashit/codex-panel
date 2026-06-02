@@ -554,8 +554,11 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.connect();
     await view.openThread("source");
-    await (view as unknown as { threadActions: { forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => Promise<void> } })
-      .threadActions.forkThreadFromTurn("source", "turn-1", true);
+    await (
+      view as unknown as {
+        threadActions: { forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => Promise<void> };
+      }
+    ).threadActions.forkThreadFromTurn("source", "turn-1", true);
 
     expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
     expect(client.archiveThread).toHaveBeenCalledWith("source");

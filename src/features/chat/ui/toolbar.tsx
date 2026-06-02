@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ComponentChild as UiNode, TargetedKeyboardEv
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/view";
-import { IconButton, ObsidianIcon } from "../../../shared/ui/components";
+import { IconButton } from "../../../shared/ui/components";
 import { renderUiRoot } from "../../../shared/ui/ui-root";
 import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../toolbar-model";
 
@@ -344,6 +344,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
     <div
       className={[
         "codex-panel__thread-row",
+        thread.selected ? "codex-panel__thread-row--selected" : "",
         thread.rename ? "codex-panel__thread-row--renaming" : "",
         archiveConfirm.active ? "codex-panel__thread-row--archive-confirming" : "",
         archiveConfirm.active ? "codex-panel__archive-confirm" : "",
@@ -358,6 +359,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
           <ToolbarPanelItem
             label={thread.title}
             selected={thread.selected}
+            selectionStyle="row"
             disabled={thread.disabled}
             className="codex-panel__thread"
             onClick={() => {
@@ -504,6 +506,7 @@ function ToolbarPanelItem({
   label,
   selected = false,
   disabled = false,
+  selectionStyle = "item",
   meta,
   className = "",
   interactive = true,
@@ -514,6 +517,7 @@ function ToolbarPanelItem({
   label: string;
   selected?: boolean | undefined;
   disabled?: boolean | undefined;
+  selectionStyle?: "item" | "row" | undefined;
   meta?: string | undefined;
   className?: string | undefined;
   interactive?: boolean | undefined;
@@ -528,7 +532,12 @@ function ToolbarPanelItem({
   };
   return (
     <div
-      className={["codex-panel__toolbar-panel-item", className, selected ? "is-checked" : "", disabled ? "is-disabled" : ""]
+      className={[
+        "codex-panel__toolbar-panel-item",
+        className,
+        selected && selectionStyle === "item" ? "is-selected" : "",
+        disabled ? "is-disabled" : "",
+      ]
         .filter(Boolean)
         .join(" ")}
       role={interactive ? role : undefined}
@@ -545,7 +554,6 @@ function ToolbarPanelItem({
       }
       onKeyDown={interactive ? onKeyDown : undefined}
     >
-      <ToolbarPanelCheck selected={selected} />
       {renderContent ? (
         renderContent()
       ) : (
@@ -555,14 +563,6 @@ function ToolbarPanelItem({
         </>
       )}
     </div>
-  );
-}
-
-function ToolbarPanelCheck({ selected }: { selected: boolean }): UiNode {
-  return selected ? (
-    <ObsidianIcon icon="check" className="codex-panel__toolbar-panel-check" />
-  ) : (
-    <span className="codex-panel__toolbar-panel-check" aria-hidden="true" />
   );
 }
 

@@ -33,6 +33,21 @@ describe("chat toolbar CSS", () => {
   it("keeps class selectors out of zero-specificity :where selectors", () => {
     expect(styles).not.toMatch(/:where\([^)]*[.#[]/);
   });
+
+  it("keeps selected toolbar rows stable while hovered", () => {
+    const selectedToolbarHover =
+      /\.codex-panel__toolbar-panel-item\.is-selected:where\(:hover, :focus, :focus-visible, :active\):not\(:disabled\):not\(\.is-disabled\) \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
+    const selectedThreadHover =
+      /\.codex-panel__thread-row--selected:hover,\n\.codex-panel__thread-row--selected:focus-within \{(?<body>[^}]+)\}/.exec(styles)
+        ?.groups?.["body"] ?? "";
+
+    expect(selectedToolbarHover).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
+    expect(selectedThreadHover).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
+    expect(selectedToolbarHover).not.toContain("nav-item-background-active-hover");
+    expect(selectedThreadHover).not.toContain("nav-item-background-active-hover");
+  });
 });
 
 describe("chat message CSS", () => {
