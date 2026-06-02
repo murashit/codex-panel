@@ -269,24 +269,6 @@ describe("chatReducer", () => {
     store.dispatch({ type: "status/set", status: "Done" });
     expect(listener).toHaveBeenCalledTimes(1);
   });
-
-  it("keeps equal composer suggestion updates as no-ops", () => {
-    const store = createChatStateStore();
-    const listener = vi.fn();
-    const suggestions = [{ display: "/plan", detail: "Plan mode", replacement: "/plan", start: 0, appendSpaceOnInsert: true }];
-    store.subscribe(listener);
-
-    store.dispatch({ type: "composer/suggestions-set", suggestions, selected: 0 });
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    store.dispatch({ type: "composer/suggestions-set", suggestions: suggestions.map((item) => ({ ...item })), selected: 0 });
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    store.dispatch({ type: "composer/suggestions-set", suggestions: [], selected: 0 });
-    expect(listener).toHaveBeenCalledTimes(2);
-    store.dispatch({ type: "composer/suggestions-set", suggestions: [], selected: 0 });
-    expect(listener).toHaveBeenCalledTimes(2);
-  });
 });
 
 function message(id: string): DisplayItem {

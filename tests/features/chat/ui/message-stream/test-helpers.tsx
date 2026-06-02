@@ -39,10 +39,6 @@ export function dispatchComposingInputValue(input: HTMLInputElement, value: stri
   input.dispatchEvent(event);
 }
 
-export function testMessageStreamBlock(key: string, node: UiNode): ReturnType<typeof rawMessageStreamBlocks>[number] {
-  return { key, node };
-}
-
 export function renderMessageBlockElement(block: ReturnType<typeof rawMessageStreamBlocks>[number]): HTMLElement {
   const parent = document.createElement("div");
   renderMessageStreamBlocksInAct(parent, [block]);

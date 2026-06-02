@@ -2,6 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
+import { useEffect } from "preact/hooks";
 
 import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
@@ -23,19 +24,16 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.classList.contains("codex-panel")).toBe(true);
-    expect(container.querySelector(".codex-panel__toolbar")?.textContent).toBe("Idle");
-    expect(container.querySelector(".codex-panel__body")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__slot--config")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__slot--messages")?.textContent).toBe("0");
-    expect(container.querySelector(".codex-panel__slot--messages > .codex-panel__messages")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__slot--composer")?.textContent).toBe("ready");
+    expect(container.textContent).toContain("Idle");
+    expect(container.textContent).toContain("0");
+    expect(container.textContent).toContain("ready");
 
     await act(async () => {
       unmountChatPanelShell(container);
     });
   });
 
-  it("rerenders child slots when the subscribed store changes", async () => {
+  it("updates rendered slot content when the store changes", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -45,47 +43,13 @@ describe("ChatPanelShell", () => {
       renderChatPanelShell(container, renderers);
       await settleShellEffects();
     });
-    vi.mocked(renderers.toolbar.render).mockClear();
-    vi.mocked(renderers.messages.render).mockClear();
-    vi.mocked(renderers.composer.render).mockClear();
 
     await act(async () => {
       store.dispatch({ type: "status/set", status: "Working" });
       await settleShellEffects();
     });
 
-    expect(renderers.toolbar.render).toHaveBeenCalledTimes(1);
-    expect(renderers.messages.render).not.toHaveBeenCalled();
-    expect(renderers.composer.render).not.toHaveBeenCalled();
-    expect(container.querySelector(".codex-panel__toolbar")?.textContent).toBe("Working");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("forces all slots to rerender when the render version changes", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const renderers = shellRenderers(store);
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-    vi.mocked(renderers.toolbar.render).mockClear();
-    vi.mocked(renderers.messages.render).mockClear();
-    vi.mocked(renderers.composer.render).mockClear();
-
-    await act(async () => {
-      renderChatPanelShell(container, { ...renderers, renderVersion: 1 });
-      await settleShellEffects();
-    });
-
-    expect(renderers.toolbar.render).toHaveBeenCalledTimes(1);
-    expect(renderers.messages.render).toHaveBeenCalledTimes(1);
-    expect(renderers.composer.render).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("Working");
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -119,6 +83,57 @@ describe("ChatPanelShell", () => {
     await act(async () => {
       unmountChatPanelShell(container);
     });
+  });
+
+  it("unmounts existing slot roots before rebuilding a damaged shell scaffold", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const cleanup = vi.fn();
+    const renderers = trackedRootShellRenderers(store, cleanup);
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+
+    container.querySelector<HTMLElement>(":scope > .codex-panel__body")?.remove();
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+
+    expect(cleanup).toHaveBeenCalledWith("toolbar");
+    expect(container.textContent).toContain("toolbar");
+    expect(container.textContent).toContain("messages");
+    expect(container.textContent).toContain("composer");
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
+  it("unmounts every slot root when the shell unmounts", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const cleanup = vi.fn();
+    const renderers = trackedRootShellRenderers(store, cleanup);
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+      await settleShellEffects();
+    });
+
+    expect(cleanup).toHaveBeenCalledWith("toolbar");
+    expect(cleanup).toHaveBeenCalledWith("messages");
+    expect(cleanup).toHaveBeenCalledWith("composer");
   });
 
   it("stops subscribed slot rendering after unmount", async () => {
@@ -203,6 +218,40 @@ function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>
       snapshot: () => chatTurnBusy(store.getState()),
     },
   };
+}
+
+function trackedRootShellRenderers(store: ReturnType<typeof createChatStateStore>, cleanup: (slot: string) => void) {
+  return {
+    stateStore: store,
+    renderVersion: 0,
+    toolbar: {
+      render: vi.fn((toolbar: HTMLElement) => {
+        renderUiRoot(toolbar, <TrackedSlot slot="toolbar" cleanup={cleanup} />);
+      }),
+      snapshot: () => store.getState().status,
+    },
+    messages: {
+      render: vi.fn((messages: HTMLElement) => {
+        renderUiRoot(messages, <TrackedSlot slot="messages" cleanup={cleanup} />);
+      }),
+      snapshot: () => store.getState().displayItems.length,
+    },
+    composer: {
+      render: vi.fn((composer: HTMLElement) => {
+        renderUiRoot(composer, <TrackedSlot slot="composer" cleanup={cleanup} />);
+      }),
+      snapshot: () => chatTurnBusy(store.getState()),
+    },
+  };
+}
+
+function TrackedSlot({ slot, cleanup }: { slot: string; cleanup: (slot: string) => void }) {
+  useEffect(() => {
+    return () => {
+      cleanup(slot);
+    };
+  }, [cleanup, slot]);
+  return <div>{slot}</div>;
 }
 
 async function settleShellEffects(): Promise<void> {

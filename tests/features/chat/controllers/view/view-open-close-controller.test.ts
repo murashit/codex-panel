@@ -8,24 +8,13 @@ import {
   type ChatViewOpenCloseControllerHost,
 } from "../../../../../src/features/chat/controllers/view/view-open-close-controller";
 import { unmountChatPanelShell } from "../../../../../src/features/chat/ui/shell";
-import { unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 vi.mock("../../../../../src/features/chat/ui/shell", () => ({
   unmountChatPanelShell: vi.fn(),
 }));
 
-vi.mock("../../../../../src/shared/ui/ui-root", () => ({
-  unmountUiRoot: vi.fn(),
-}));
-
 function createHost(overrides: Partial<ChatViewOpenCloseControllerHost> = {}) {
   const root = document.createElement("div");
-  const toolbar = document.createElement("div");
-  toolbar.className = "codex-panel__toolbar";
-  root.appendChild(toolbar);
-  const composer = document.createElement("div");
-  composer.className = "codex-panel__slot--composer";
-  root.appendChild(composer);
   const host: ChatViewOpenCloseControllerHost = {
     setOpened: vi.fn(),
     setClosing: vi.fn(),
@@ -60,7 +49,6 @@ function createHost(overrides: Partial<ChatViewOpenCloseControllerHost> = {}) {
 describe("ChatViewOpenCloseController", () => {
   beforeEach(() => {
     vi.mocked(unmountChatPanelShell).mockClear();
-    vi.mocked(unmountUiRoot).mockClear();
   });
 
   it("registers open events and schedules startup work", () => {
@@ -87,7 +75,6 @@ describe("ChatViewOpenCloseController", () => {
     expect(host.setOpened).toHaveBeenCalledWith(false);
     expect(host.setClosing).toHaveBeenCalledWith(true);
     expect(host.clearDeferredTasks).toHaveBeenCalledOnce();
-    expect(unmountUiRoot).toHaveBeenCalledWith(root.querySelector(".codex-panel__toolbar"));
     expect(host.disposeMessages).toHaveBeenCalledOnce();
     expect(host.disposeComposer).toHaveBeenCalledOnce();
     expect(unmountChatPanelShell).toHaveBeenCalledWith(root);

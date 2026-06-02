@@ -4,6 +4,9 @@ const roots = new WeakSet<HTMLElement>();
 const guardedContainers = new WeakSet<HTMLElement>();
 const internalMutationContainers = new WeakSet<HTMLElement>();
 
+// Obsidian-owned containers can be emptied outside Preact during view rebuilds.
+// Keep each host element as an explicit root boundary and unmount before an
+// external replaceChildren call detaches Preact-managed nodes.
 export function renderUiRoot(container: HTMLElement, node: UiNode): void {
   prepareRootContainer(container);
   internalMutationContainers.add(container);

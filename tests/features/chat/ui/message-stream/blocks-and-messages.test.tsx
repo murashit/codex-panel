@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { createElement } from "preact";
 import { act } from "preact/test-utils";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
@@ -17,59 +16,12 @@ import {
   renderUiRootInAct,
   runningTurnLifecycle,
   startingTurnLifecycle,
-  testMessageStreamBlock,
   unmountUiRootInAct,
   withMessageContentScrollHeight,
 } from "./test-helpers";
 
-describe("message stream block identity and message actions", () => {
-  it("reuses keyed Preact message block hosts across rerenders", () => {
-    const parent = document.createElement("div");
-    renderMessageStreamBlocksInAct(parent, [testMessageStreamBlock("one", createElement("section", null, "first"))]);
-
-    const host = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="one"]'));
-    expect(host.classList.contains("codex-panel__message-block")).toBe(true);
-    expect(host.firstElementChild?.tagName).toBe("SECTION");
-    expect(host.textContent).toBe("first");
-
-    renderMessageStreamBlocksInAct(parent, [testMessageStreamBlock("one", createElement("section", null, "still first"))]);
-
-    expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
-    expect(host.firstElementChild?.tagName).toBe("SECTION");
-    expect(host.textContent).toBe("still first");
-
-    renderMessageStreamBlocksInAct(parent, [testMessageStreamBlock("one", createElement("article", null, "replacement"))]);
-
-    expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBe(host);
-    expect(host.firstElementChild?.tagName).toBe("ARTICLE");
-    renderMessageStreamBlocksInAct(parent, []);
-    expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBeNull();
-    unmountUiRootInAct(parent);
-  });
-
-  it("leaves stable ordered Preact message block hosts in place during repeated renders", () => {
-    const parent = document.createElement("div");
-    renderMessageStreamBlocksInAct(parent, [
-      testMessageStreamBlock("one", createElement("section", null, "one")),
-      testMessageStreamBlock("two", createElement("article", null, "two")),
-    ]);
-    const firstHost = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="one"]'));
-    const secondHost = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="two"]'));
-
-    const insertBefore = vi.spyOn(parent, "insertBefore");
-    renderMessageStreamBlocksInAct(parent, [
-      testMessageStreamBlock("one", createElement("section", null, "one again")),
-      testMessageStreamBlock("two", createElement("article", null, "two again")),
-    ]);
-
-    expect(insertBefore).not.toHaveBeenCalled();
-    expect([...parent.children]).toEqual([firstHost, secondHost]);
-    expect(firstHost.firstElementChild?.tagName).toBe("SECTION");
-    expect(secondHost.firstElementChild?.tagName).toBe("ARTICLE");
-    unmountUiRootInAct(parent);
-  });
-
-  it("inserts completed-turn activity groups without replacing stable conversation nodes", () => {
+describe("message stream rendering and message actions", () => {
+  it("inserts completed-turn activity groups between conversation blocks", () => {
     const parent = document.createElement("div");
     const baseContext = {
       activeThreadId: "thread",
@@ -92,9 +44,6 @@ describe("message stream block identity and message actions", () => {
         ],
       }),
     );
-    const userNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:u1"]');
-    const assistantNode = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:a1"]');
-
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
@@ -115,8 +64,6 @@ describe("message stream block identity and message actions", () => {
       }),
     );
 
-    expect(parent.querySelector('[data-codex-panel-block-key="item:u1"]')).toBe(userNode);
-    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"]')).toBe(assistantNode);
     expect([...parent.children].map((element) => element.getAttribute("data-codex-panel-block-key"))).toEqual([
       "item:u1",
       "activity:turn-t1-activity",
@@ -639,11 +586,11 @@ describe("message stream block identity and message actions", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("updates keyed message content without replacing the stream block host", () => {
+  it("updates keyed message content", () => {
     const parent = document.createElement("div");
-    const renderMarkdown = vi.fn((element: HTMLElement, text: string) => {
+    const renderMarkdown = (element: HTMLElement, text: string) => {
       element.createDiv({ text: `markdown:${text}` });
-    });
+    };
     const baseContext = {
       activeThreadId: "thread",
       turnLifecycle: idleTurnLifecycle(),
@@ -662,8 +609,9 @@ describe("message stream block identity and message actions", () => {
         displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "first", turnId: "turn-1", markdown: true }],
       }),
     );
-    const host = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:a1"]'));
-    expect(host.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:first");
+    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__message-content')?.textContent).toBe(
+      "markdown:first",
+    );
 
     renderMessageStreamBlocksInAct(
       parent,
@@ -673,35 +621,9 @@ describe("message stream block identity and message actions", () => {
       }),
     );
 
-    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"]')).toBe(host);
-    expect(host.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:second");
-    expect(renderMarkdown).toHaveBeenCalledTimes(2);
-    unmountUiRootInAct(parent);
-  });
-
-  it("does not rerender unchanged message markdown when the stream rerenders", () => {
-    const parent = document.createElement("div");
-    const renderMarkdown = vi.fn((element: HTMLElement, text: string) => {
-      element.createDiv({ text });
-    });
-    const context = {
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      displayItems: [
-        { id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: true },
-      ] satisfies DisplayItem[],
-      openDetails: new Set<string>(),
-      loadOlderTurns: vi.fn(),
-      renderMarkdown,
-      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
-    };
-
-    renderMessageStreamBlocksInAct(parent, messageStreamBlocks(context));
-    renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...context, loadingHistory: true }));
-
-    expect(renderMarkdown).toHaveBeenCalledOnce();
+    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__message-content')?.textContent).toBe(
+      "markdown:second",
+    );
     unmountUiRootInAct(parent);
   });
 

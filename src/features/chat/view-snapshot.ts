@@ -3,11 +3,12 @@ import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import { currentModel } from "../../runtime/state";
 import { readRuntimeConfig } from "../../runtime/config";
-import type { ChatPanelSlotSnapshot } from "./ui/shell";
 import { activeTurnId, chatTurnBusy, type ChatState } from "./chat-state";
 import type { DisplayItem } from "./display/types";
 import { runtimeSnapshotForChatState } from "./view-model";
 import type { RestoredThreadState } from "./view-lifecycle";
+
+export type ChatPanelSlotSnapshot = string | number | boolean | null;
 
 export function openPanelTurnLifecycle(state: ChatState["turnLifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
   if (state.kind === "running") return { kind: "running", turnId: state.turnId };

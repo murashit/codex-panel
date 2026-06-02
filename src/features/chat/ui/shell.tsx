@@ -1,7 +1,6 @@
 import { unmountUiRoot } from "../../../shared/ui/ui-root";
 import type { ChatState, ChatStateStore } from "../chat-state";
-
-export type ChatPanelSlotSnapshot = string | number | boolean | null;
+import type { ChatPanelSlotSnapshot } from "../view-snapshot";
 
 export interface ChatPanelShellProps {
   stateStore: ChatStateStore;
@@ -18,6 +17,40 @@ interface ChatPanelShellMount {
 }
 
 const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
+
+const shellSlots = {
+  toolbar: {
+    selector: ":scope > .codex-panel__toolbar",
+    create(container: HTMLElement): HTMLElement {
+      return container.createDiv({ cls: "codex-panel__toolbar" });
+    },
+    props(props: ChatPanelShellProps): ChatPanelSlotProps {
+      return props.toolbar;
+    },
+  },
+  messages: {
+    selector: ":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages",
+    create(container: HTMLElement): HTMLElement {
+      const body = ensureBody(container);
+      const messagesSlot = body.createDiv({ cls: "codex-panel__slot codex-panel__slot--messages" });
+      return messagesSlot.createDiv({ cls: "codex-panel__messages" });
+    },
+    props(props: ChatPanelShellProps): ChatPanelSlotProps {
+      return props.messages;
+    },
+  },
+  composer: {
+    selector: ":scope > .codex-panel__body > .codex-panel__slot--composer",
+    create(container: HTMLElement): HTMLElement {
+      return ensureBody(container).createDiv({ cls: "codex-panel__slot codex-panel__slot--composer" });
+    },
+    props(props: ChatPanelShellProps): ChatPanelSlotProps {
+      return props.composer;
+    },
+  },
+};
+
+const shellSlotDefinitions = Object.values(shellSlots);
 
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
   container.addClass("codex-panel");
@@ -54,21 +87,18 @@ interface ChatPanelSlotProps {
 }
 
 function ensureShellDom(container: HTMLElement): void {
-  if (
-    container.querySelector(":scope > .codex-panel__toolbar") &&
-    container.querySelector(":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages") &&
-    container.querySelector(":scope > .codex-panel__body > .codex-panel__slot--composer")
-  ) {
+  if (shellSlotDefinitions.every((slot) => container.querySelector(slot.selector))) {
     return;
   }
+  // The shell owns the fixed Obsidian DOM scaffold; toolbar, messages, and
+  // composer each own their own Preact root inside that scaffold.
   unmountSlotRoots(container);
   container.replaceChildren();
-  container.createDiv({ cls: "codex-panel__toolbar" });
-  const body = container.createDiv({ cls: "codex-panel__body" });
+  shellSlots.toolbar.create(container);
+  const body = ensureBody(container);
   body.createDiv({ cls: "codex-panel__slot codex-panel__slot--config" });
-  const messagesSlot = body.createDiv({ cls: "codex-panel__slot codex-panel__slot--messages" });
-  messagesSlot.createDiv({ cls: "codex-panel__messages" });
-  body.createDiv({ cls: "codex-panel__slot codex-panel__slot--composer" });
+  shellSlots.messages.create(container);
+  shellSlots.composer.create(container);
 }
 
 function renderSlotIfNeeded(element: HTMLElement, slot: ChatPanelSlotProps, renderKey: string): void {
@@ -79,24 +109,24 @@ function renderSlotIfNeeded(element: HTMLElement, slot: ChatPanelSlotProps, rend
 
 function renderMountedSlots(container: HTMLElement, props: ChatPanelShellProps): void {
   const state = props.stateStore.getState();
-  const toolbar = container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar");
-  const messages = container.querySelector<HTMLElement>(
-    ":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages",
-  );
-  const composer = container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--composer");
-  if (toolbar) renderSlotIfNeeded(toolbar, props.toolbar, renderKey(props.renderVersion, props.toolbar.snapshot(state)));
-  if (messages) renderSlotIfNeeded(messages, props.messages, renderKey(props.renderVersion, props.messages.snapshot(state)));
-  if (composer) renderSlotIfNeeded(composer, props.composer, renderKey(props.renderVersion, props.composer.snapshot(state)));
+  for (const slotDefinition of shellSlotDefinitions) {
+    const element = container.querySelector<HTMLElement>(slotDefinition.selector);
+    if (!element) continue;
+    const slot = slotDefinition.props(props);
+    renderSlotIfNeeded(element, slot, renderKey(props.renderVersion, slot.snapshot(state)));
+  }
 }
 
 function unmountSlotRoots(container: HTMLElement): void {
-  unmountUiRoot(container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar"));
-  unmountUiRoot(
-    container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages"),
-  );
-  unmountUiRoot(container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--composer"));
+  for (const slotDefinition of shellSlotDefinitions) {
+    unmountUiRoot(container.querySelector<HTMLElement>(slotDefinition.selector));
+  }
 }
 
 function renderKey(renderVersion: number, snapshot: ChatPanelSlotSnapshot): string {
   return `${String(renderVersion)}\u001f${String(snapshot)}`;
+}
+
+function ensureBody(container: HTMLElement): HTMLElement {
+  return container.querySelector<HTMLElement>(":scope > .codex-panel__body") ?? container.createDiv({ cls: "codex-panel__body" });
 }

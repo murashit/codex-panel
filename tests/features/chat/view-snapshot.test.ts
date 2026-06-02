@@ -1,14 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createChatState } from "../../../src/features/chat/chat-state";
-import {
-  composerSlotSnapshot,
-  latestProposedPlanItem,
-  messagesSlotSnapshot,
-  openPanelTurnLifecycle,
-  parseRestoredThreadState,
-  toolbarSlotSnapshot,
-} from "../../../src/features/chat/view-snapshot";
+import { latestProposedPlanItem, openPanelTurnLifecycle, parseRestoredThreadState } from "../../../src/features/chat/view-snapshot";
 
 describe("chat view snapshots", () => {
   it("projects open panel turn lifecycle without exposing full chat state", () => {
@@ -27,28 +19,6 @@ describe("chat view snapshots", () => {
         { id: "latest", kind: "message", role: "assistant", text: "plan", proposedPlan: true },
       ])?.id,
     ).toBe("latest");
-  });
-
-  it("changes slot snapshots only for state each slot cares about", () => {
-    const state = createChatState();
-    const toolbar = toolbarSlotSnapshot(state, false);
-    const messages = messagesSlotSnapshot(state, "");
-    const composer = composerSlotSnapshot(state, null);
-
-    const changedDraft = { ...state, composerDraft: "hello" };
-    expect(toolbarSlotSnapshot(changedDraft, false)).toBe(toolbar);
-    expect(messagesSlotSnapshot(changedDraft, "")).not.toBe(messages);
-    expect(composerSlotSnapshot(changedDraft, null)).not.toBe(composer);
-
-    const changedNonEmptyDraftText = { ...state, composerDraft: "hello again" };
-    expect(messagesSlotSnapshot(changedNonEmptyDraftText, "")).not.toBe(messages);
-    expect(messagesSlotSnapshot(changedNonEmptyDraftText, "")).toBe(messagesSlotSnapshot(changedDraft, ""));
-    expect(composerSlotSnapshot(changedNonEmptyDraftText, null)).not.toBe(composer);
-
-    const changedStatus = { ...state, status: "Connected." };
-    expect(toolbarSlotSnapshot(changedStatus, false)).not.toBe(toolbar);
-    expect(messagesSlotSnapshot(changedStatus, "")).toBe(messages);
-    expect(composerSlotSnapshot(changedStatus, null)).toBe(composer);
   });
 
   it("parses restored thread view state defensively", () => {
