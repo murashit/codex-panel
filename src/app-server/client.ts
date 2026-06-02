@@ -224,6 +224,7 @@ export class AppServerClient {
       threadId,
       cwd,
       excludeTurns: true,
+      initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
     });
   }
 

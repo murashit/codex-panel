@@ -504,7 +504,12 @@ describe("AppServerClient", () => {
     expect(transport.sent[2]).toMatchObject({
       id: 2,
       method: "thread/resume",
-      params: { threadId: "thread-1", cwd: "/vault", excludeTurns: true },
+      params: {
+        threadId: "thread-1",
+        cwd: "/vault",
+        excludeTurns: true,
+        initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
+      },
     });
     transport.emitLine({ id: 2, result: { thread: { id: "thread-1", title: null }, cwd: "/vault" } });
     await resuming;

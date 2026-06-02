@@ -45,6 +45,28 @@ describe("ThreadHistoryLoader", () => {
     expect(stateStore.getState().loadingHistory).toBe(false);
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
+
+  it("applies an already returned latest turns page without requesting history", () => {
+    const threadTurnsList = vi.fn();
+    const { loader, stateStore } = historyFixture({ threadTurnsList });
+
+    const applied = loader.applyLatestPage("thread", threadTurnsResponse([turnFixture([assistantMessage("assistant", "Ready")])], "older"));
+
+    expect(applied).toBe(true);
+    expect(threadTurnsList).not.toHaveBeenCalled();
+    expect(stateStore.getState().displayItems).toEqual([expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" })]);
+    expect(stateStore.getState().historyCursor).toBe("older");
+  });
+
+  it("ignores already returned latest turns pages for stale threads", () => {
+    const { loader, stateStore } = historyFixture({ threadTurnsList: vi.fn() });
+
+    const applied = loader.applyLatestPage("other", threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "older"));
+
+    expect(applied).toBe(false);
+    expect(stateStore.getState().displayItems).toEqual([]);
+    expect(stateStore.getState().historyCursor).toBeNull();
+  });
 });
 
 type ThreadTurnsListResponse = Awaited<ReturnType<AppServerClient["threadTurnsList"]>>;

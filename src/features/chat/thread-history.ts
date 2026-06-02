@@ -1,6 +1,7 @@
 import type { AppServerClient } from "../../app-server/client";
 import { displayItemsFromTurns } from "./display/thread-items";
 import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
+import type { TurnsPage } from "../../generated/app-server/v2/TurnsPage";
 
 export interface ThreadHistoryLoaderHost {
   stateStore: ChatStateStore;
@@ -44,15 +45,22 @@ export class ThreadHistoryLoader {
     try {
       const response = await client.threadTurnsList(threadId, null, 20);
       if (this.isStale(load)) return;
-      this.host.setThreadTurnPresence(response.data.length > 0);
-      this.dispatch({ type: "display/items-replaced", items: displayItemsFromTurns(response.data), historyCursor: response.nextCursor });
-      this.host.forceMessagesToBottom();
+      this.applyLatestPage(threadId, response);
     } catch (error) {
       if (this.isStale(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     } finally {
       this.finishLoading(load);
     }
+  }
+
+  applyLatestPage(threadId: string, response: TurnsPage): boolean {
+    if (this.state.activeThreadId !== threadId) return false;
+    this.host.setThreadTurnPresence(response.data.length > 0);
+    this.dispatch({ type: "display/items-replaced", items: displayItemsFromTurns(response.data), historyCursor: response.nextCursor });
+    this.host.forceMessagesToBottom();
+    this.host.render();
+    return true;
   }
 
   async loadOlder(): Promise<void> {

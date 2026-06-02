@@ -42,7 +42,11 @@ export class ThreadResumeController {
       const response = await client.resumeThread(threadId, this.host.vaultPath);
       if (this.isStale(resume)) return;
       this.applyResumedThread(response);
-      await this.host.history.loadLatest(response.thread.id);
+      if (response.initialTurnsPage) {
+        this.host.history.applyLatestPage(response.thread.id, response.initialTurnsPage);
+      } else {
+        await this.host.history.loadLatest(response.thread.id);
+      }
       if (this.isStale(resume)) return;
       if (this.host.state.displayItemsEmpty()) {
         this.host.addSystemMessage(`Resumed thread ${response.thread.id}`);

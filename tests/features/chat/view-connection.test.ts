@@ -706,6 +706,30 @@ describe("CodexChatView connection lifecycle", () => {
     await opening;
   });
 
+  it("hydrates resumed threads from the initial turns page without a second history request", async () => {
+    const client = connectedClient({
+      resumeThread: vi.fn().mockResolvedValue({
+        ...resumedThread("thread-1"),
+        initialTurnsPage: {
+          data: [completedTurn("turn-1")],
+          nextCursor: "older-cursor",
+          backwardsCursor: null,
+        },
+      }),
+      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("fallback prompt")], nextCursor: null }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.openThread("thread-1");
+
+    expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
+    expect(client.threadTurnsList).not.toHaveBeenCalled();
+    expect(view.containerEl.textContent).toContain("hello");
+    expect(view.containerEl.textContent).toContain("done");
+    expect((view as unknown as { state: ChatState }).state.historyCursor).toBe("older-cursor");
+  });
+
   it("ignores stale resume results when another thread is opened first", async () => {
     const firstResume = deferred<ReturnType<typeof resumedThread>>();
     const secondResume = deferred<ReturnType<typeof resumedThread>>();
