@@ -78,6 +78,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   const className = [
     "codex-panel-threads__row",
     row.live ? `codex-panel-threads__row--${row.live.status}` : "",
+    row.selected ? "codex-panel-threads__row--selected" : "",
     row.rename.active ? "codex-panel-threads__row--renaming" : "",
     archiveConfirm.active ? "codex-panel-threads__row--archive-confirming" : "",
   ]

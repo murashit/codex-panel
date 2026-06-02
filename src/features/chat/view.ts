@@ -351,6 +351,7 @@ export class CodexChatView extends ItemView {
     return {
       viewId: this.viewId,
       threadId: this.closing ? null : this.state.activeThreadId,
+      lastFocused: false,
       turnLifecycle: openPanelTurnLifecycle(this.state.turnLifecycle),
       pendingApprovals: this.state.approvals.length,
       pendingUserInputs: this.state.pendingUserInputs.length,

@@ -3,6 +3,7 @@ export type OpenCodexPanelTurnLifecycle = { kind: "idle" } | { kind: "starting" 
 export interface OpenCodexPanelSnapshot {
   viewId: string;
   threadId: string | null;
+  lastFocused: boolean;
   turnLifecycle: OpenCodexPanelTurnLifecycle;
   pendingApprovals: number;
   pendingUserInputs: number;

@@ -60,10 +60,12 @@ describe("chat message CSS", () => {
 
 describe("threads view CSS", () => {
   it("keeps long row titles clear of trailing actions", () => {
+    const list = /\.codex-panel-threads__list \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const titleLine = /\.codex-panel-threads__row-title-line \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const title = /(?:^|\n\n)\.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(styles).toContain("--codex-panel-threads-row-actions-width");
+    expect(list).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
     expect(titleLine).toContain("box-sizing: border-box");
     expect(titleLine).toContain("padding-right: calc(var(--codex-panel-threads-row-actions-width) + var(--codex-panel-item-gap));");
     expect(title).toContain("display: block");
@@ -93,5 +95,14 @@ describe("threads view CSS", () => {
     expect(toolbarMouseFocus).toContain("background: transparent");
     expect(toolbarMouseFocus).toContain("color: var(--icon-color)");
     expect(rowHover).toContain("color: var(--icon-color-active)");
+  });
+
+  it("keeps selected thread rows stable while hovered", () => {
+    const selectedRowHover =
+      /\.codex-panel-threads__row--selected:hover,\n\.codex-panel-threads__row--selected:focus-within \{(?<body>[^}]+)\}/.exec(styles)
+        ?.groups?.["body"] ?? "";
+
+    expect(selectedRowHover).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
+    expect(selectedRowHover).not.toContain("nav-item-background-active-hover");
   });
 });

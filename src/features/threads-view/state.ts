@@ -15,6 +15,7 @@ export interface ThreadsRowModel {
   thread: Thread;
   title: string;
   live: ThreadsLiveState | null;
+  selected: boolean;
   rename: { active: boolean; draft: string; generating: boolean };
   archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
 }
@@ -42,12 +43,15 @@ export function threadRows(
   return [...threads]
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map((thread) => {
-      const live = liveStateForSnapshots(snapshotsByThread.get(thread.id) ?? []);
+      const threadSnapshots = snapshotsByThread.get(thread.id) ?? [];
+      const live = liveStateForSnapshots(threadSnapshots);
+      const selected = selectedStateForSnapshots(threadSnapshots);
       const rename = renameStates.get(thread.id);
       return {
         thread,
         title: getThreadTitle(thread),
         live,
+        selected,
         rename: {
           active: rename !== undefined,
           draft: rename?.draft ?? thread.name ?? getThreadTitle(thread),
@@ -73,6 +77,10 @@ export function liveStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): Thre
     viewId: winner.viewId,
     openPanels: liveSnapshots.length,
   };
+}
+
+export function selectedStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): boolean {
+  return snapshots.some((snapshot) => snapshot.threadId !== null && snapshot.lastFocused);
 }
 
 export function editingThreadRenameState(draft: string): ThreadsRenameState {

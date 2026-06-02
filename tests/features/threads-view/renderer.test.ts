@@ -3,7 +3,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { renderThreadsView } from "../../../src/features/threads-view/renderer";
-import { liveStateForSnapshots, threadRows, type ThreadsRowModel } from "../../../src/features/threads-view/state";
+import {
+  liveStateForSnapshots,
+  selectedStateForSnapshots,
+  threadRows,
+  type ThreadsRowModel,
+} from "../../../src/features/threads-view/state";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { OpenCodexPanelSnapshot } from "../../../src/runtime/open-panel-snapshot";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -24,11 +29,13 @@ function openPanelSnapshot(
     pendingUserInputs: number;
     hasComposerDraft: boolean;
     connected: boolean;
+    lastFocused: boolean;
   }> = {},
 ): OpenCodexPanelSnapshot {
   return {
     viewId: "view",
     threadId: "thread",
+    lastFocused: false,
     turnLifecycle: { kind: "idle" },
     pendingApprovals: 0,
     pendingUserInputs: 0,
@@ -102,12 +109,29 @@ describe("threads view renderer decisions", () => {
     ).toBeNull();
   });
 
+  it("marks a row selected when one open panel for the thread was last focused", () => {
+    expect(selectedStateForSnapshots([openPanelSnapshot({ threadId: null, lastFocused: true })])).toBe(false);
+    expect(selectedStateForSnapshots([openPanelSnapshot({ threadId: "thread", lastFocused: true })])).toBe(true);
+
+    const rows = threadRows(
+      [
+        threadFixture({ id: "closed", preview: "Closed thread" }),
+        threadFixture({ id: "focused", preview: "Focused thread", updatedAt: 2 }),
+      ],
+      [openPanelSnapshot({ viewId: "view-focused", threadId: "focused", lastFocused: true })],
+      new Map(),
+    );
+
+    expect(rows.find((row) => row.thread.id === "focused")?.selected).toBe(true);
+    expect(rows.find((row) => row.thread.id === "closed")?.selected).toBe(false);
+  });
+
   it("renders thread rows with live state and routes open actions", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
     const rows = threadRows(
       [threadFixture({ id: "closed", preview: "Closed thread" }), threadFixture({ id: "open", preview: "Open thread", updatedAt: 2 })],
-      [openPanelSnapshot({ viewId: "view-open", threadId: "open", pendingApprovals: 1 })],
+      [openPanelSnapshot({ viewId: "view-open", threadId: "open", pendingApprovals: 1, lastFocused: true })],
       new Map(),
     );
 
@@ -115,6 +139,7 @@ describe("threads view renderer decisions", () => {
 
     expect(parent.querySelector(".codex-panel-threads__badge")).toBeNull();
     const row = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--approval"));
+    expect(row.classList.contains("codex-panel-threads__row--selected")).toBe(true);
     expect(row.getAttribute("title")).toBeNull();
     const toolbarButtons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel-threads__toolbar-button")];
     expect(toolbarButtons.map((button) => button.getAttribute("aria-label"))).toEqual(["Open new panel", "Refresh threads"]);
@@ -142,6 +167,7 @@ describe("threads view renderer decisions", () => {
       thread: threadFixture({ id: "thread", name: "Thread" }),
       title: "Thread",
       live: null,
+      selected: false,
       rename: { active: false, draft: "Thread", generating: false },
       archiveConfirm: { active: true, defaultSaveMarkdown: false },
     };
@@ -170,6 +196,7 @@ describe("threads view renderer decisions", () => {
       thread: threadFixture({ id: "thread", name: "Thread" }),
       title: "Thread",
       live: null,
+      selected: false,
       rename: { active: false, draft: "Thread", generating: false },
     };
 
@@ -187,6 +214,7 @@ describe("threads view renderer decisions", () => {
       thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
       live: null,
+      selected: false,
       rename: { active: true, draft: "Old name", generating: false },
     };
 
@@ -215,6 +243,7 @@ describe("threads view renderer decisions", () => {
       thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
       live: null,
+      selected: false,
       rename: { active: true, draft: "Old name", generating: false },
     };
 
@@ -236,6 +265,7 @@ describe("threads view renderer decisions", () => {
       thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
       live: null,
+      selected: false,
       rename: { active: true, draft: "Old name", generating: true },
     };
 

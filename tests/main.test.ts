@@ -70,6 +70,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(openView, "openPanelSnapshot").mockReturnValue({
       viewId: "open-view",
       threadId: "thread-1",
+      lastFocused: false,
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
@@ -97,6 +98,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(busyView, "openPanelSnapshot").mockReturnValue({
       viewId: "busy-view",
       threadId: "other-thread",
+      lastFocused: false,
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
@@ -109,6 +111,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(emptyView, "openPanelSnapshot").mockReturnValue({
       viewId: "empty-view",
       threadId: null,
+      lastFocused: false,
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
@@ -244,6 +247,79 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(connectFirst).not.toHaveBeenCalled();
     expect(focusFirst).not.toHaveBeenCalled();
     expect((plugin.app.workspace.ensureSideLeaf as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+  });
+
+  it("marks snapshots for the last focused Codex panel", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const firstLeaf = leaf();
+    firstLeaf.view = chatView(CodexChatView, firstLeaf);
+    vi.spyOn(firstLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "first", threadId: "thread-1" }),
+    );
+    const secondLeaf = leaf();
+    secondLeaf.view = chatView(CodexChatView, secondLeaf);
+    vi.spyOn(secondLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "second", threadId: "thread-2" }),
+    );
+    const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
+    const activeLeafHandlers: ((leaf: TestLeaf | null) => void)[] = [];
+    (plugin.app.workspace.on as ReturnType<typeof vi.fn>).mockImplementation((name: string, handler: (leaf: TestLeaf | null) => void) => {
+      if (name === "active-leaf-change") activeLeafHandlers.push(handler);
+      return {};
+    });
+    const refreshLiveState = vi.spyOn(plugin, "refreshThreadsViewLiveState").mockImplementation(() => undefined);
+
+    await plugin.onload();
+    const activeLeafHandler = activeLeafHandlers.at(0);
+    if (!activeLeafHandler) throw new Error("Expected active leaf handler to be registered.");
+    activeLeafHandler(secondLeaf);
+
+    expect(refreshLiveState).toHaveBeenCalledOnce();
+    expect(plugin.getOpenPanelSnapshots()).toMatchObject([
+      { viewId: "first", lastFocused: false },
+      { viewId: "second", lastFocused: true },
+    ]);
+  });
+
+  it("initially marks the active Codex panel before focus events arrive", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const firstLeaf = leaf();
+    firstLeaf.view = chatView(CodexChatView, firstLeaf);
+    vi.spyOn(firstLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "first", threadId: "thread-1" }),
+    );
+    const activeLeaf = leaf();
+    activeLeaf.view = chatView(CodexChatView, activeLeaf);
+    const activeView = activeLeaf.view as CodexChatView;
+    vi.spyOn(activeView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "active", threadId: "thread-2" }));
+    const plugin = await pluginWithLeaves([firstLeaf, activeLeaf]);
+    (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(activeView);
+
+    expect(plugin.getOpenPanelSnapshots()).toMatchObject([
+      { viewId: "first", lastFocused: false },
+      { viewId: "active", lastFocused: true },
+    ]);
+  });
+
+  it("initially falls back to the most recent right sidebar Codex panel", async () => {
+    const { CodexChatView } = await import("../src/features/chat/view");
+    const recentLeaf = leaf();
+    recentLeaf.view = chatView(CodexChatView, recentLeaf);
+    vi.spyOn(recentLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "recent", threadId: "thread-1" }),
+    );
+    const otherLeaf = leaf();
+    otherLeaf.view = chatView(CodexChatView, otherLeaf);
+    vi.spyOn(otherLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "other", threadId: "thread-2" }),
+    );
+    const plugin = await pluginWithLeaves([recentLeaf, otherLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(recentLeaf);
+
+    expect(plugin.getOpenPanelSnapshots()).toMatchObject([
+      { viewId: "recent", lastFocused: true },
+      { viewId: "other", lastFocused: false },
+    ]);
   });
 
   it("opens an empty new panel from the threads view action", async () => {
@@ -409,6 +485,7 @@ async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
         getMostRecentLeaf: vi.fn(() => null),
         getActiveViewOfType: vi.fn(() => null),
         ensureSideLeaf: vi.fn(() => Promise.reject(new Error("Unexpected ensureSideLeaf call."))),
+        on: vi.fn(() => ({})),
         activeLeaf: null,
         rightSplit: {},
       },
@@ -504,6 +581,7 @@ function panelSnapshot(
   return {
     viewId: "view",
     threadId: "thread",
+    lastFocused: false,
     turnLifecycle: { kind: "idle" },
     pendingApprovals: 0,
     pendingUserInputs: 0,

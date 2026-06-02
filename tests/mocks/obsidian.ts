@@ -199,6 +199,10 @@ export class Plugin {
     // Test mock placeholder.
   }
 
+  registerEvent(_eventRef: unknown): void {
+    // Test mock placeholder.
+  }
+
   addCommand(_command: unknown): void {
     // Test mock placeholder.
   }

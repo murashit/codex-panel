@@ -64,15 +64,22 @@ export default class CodexPanelPlugin extends Plugin {
   private bootRestoredPanelLoadLifecycle: BootRestoredPanelLoadLifecycleState = { kind: "idle" };
   private sharedAppServerState: SharedAppServerState = createSharedAppServerState();
   private threadListRefreshLifecycle: ThreadListRefreshLifecycleState = { kind: "idle" };
+  private lastFocusedPanelViewId: string | null = null;
 
   override async onload(): Promise<void> {
     this.bootRestoredPanelLoadLifecycle = { kind: "idle" };
+    this.lastFocusedPanelViewId = null;
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
 
     this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this));
     this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexChatTurnDiffView(leaf));
     this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this));
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", (leaf) => {
+        this.recordLastFocusedPanel(leaf);
+      }),
+    );
 
     this.addRibbonIcon("bot-message-square", "Open panel", () => {
       void this.activateView();
@@ -318,9 +325,11 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[] {
-    return this.app.workspace
-      .getLeavesOfType(VIEW_TYPE_CODEX_PANEL)
-      .flatMap((leaf) => (leaf.view instanceof CodexChatView ? [leaf.view.openPanelSnapshot()] : []));
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_PANEL);
+    this.ensureInitialFocusedPanel(leaves);
+    return leaves.flatMap((leaf) =>
+      leaf.view instanceof CodexChatView ? [this.openPanelSnapshotWithFocus(leaf.view.openPanelSnapshot())] : [],
+    );
   }
 
   async focusOpenPanel(viewId: string, threadId: string | null = null): Promise<boolean> {
@@ -489,6 +498,27 @@ export default class CodexPanelPlugin extends Plugin {
     }
   }
 
+  private recordLastFocusedPanel(leaf: WorkspaceLeaf | null): void {
+    const viewId = focusedPanelViewId(leaf);
+    if (!viewId) return;
+    if (this.lastFocusedPanelViewId === viewId) return;
+    this.lastFocusedPanelViewId = viewId;
+    this.refreshThreadsViewLiveState();
+  }
+
+  private ensureInitialFocusedPanel(leaves: readonly WorkspaceLeaf[]): void {
+    if (this.lastFocusedPanelViewId) return;
+    const activeView = this.app.workspace.getActiveViewOfType(CodexChatView);
+    const activeLeaf = activeView ? (leaves.find((leaf) => leaf.view === activeView) ?? null) : null;
+    const viewId =
+      focusedPanelViewId(activeLeaf) ?? focusedPanelViewId(this.app.workspace.getMostRecentLeaf(this.app.workspace.rightSplit));
+    if (viewId) this.lastFocusedPanelViewId = viewId;
+  }
+
+  private openPanelSnapshotWithFocus(snapshot: OpenCodexPanelSnapshot): OpenCodexPanelSnapshot {
+    return { ...snapshot, lastFocused: snapshot.viewId === this.lastFocusedPanelViewId };
+  }
+
   private refreshThreadSurfaces(): void {
     this.refreshSharedThreadListFromOpenSurface();
   }
@@ -554,6 +584,10 @@ function isIdleEmptyPanelSnapshot(snapshot: OpenCodexPanelSnapshot): boolean {
     snapshot.pendingUserInputs === 0 &&
     !snapshot.hasComposerDraft
   );
+}
+
+function focusedPanelViewId(leaf: WorkspaceLeaf | null): string | null {
+  return leaf?.view instanceof CodexChatView ? leaf.view.openPanelSnapshot().viewId : null;
 }
 
 function restoredPanelThreadId(leaf: WorkspaceLeaf): string | null {
