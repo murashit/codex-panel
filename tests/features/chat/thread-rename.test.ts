@@ -7,6 +7,7 @@ import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
+import { deferred } from "../../support/async";
 
 describe("ThreadRenameController", () => {
   it("rerenders after updating a controlled rename draft", () => {
@@ -162,16 +163,6 @@ function userMessage(id: string, text: string): ThreadItem {
 
 function assistantMessage(id: string, text: string): ThreadItem {
   return { type: "agentMessage", id, text, phase: null, memoryCitation: null };
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-  return { promise, resolve, reject };
 }
 
 async function flushPromises(): Promise<void> {

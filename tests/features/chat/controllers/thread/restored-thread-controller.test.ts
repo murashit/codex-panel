@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { RestoredThreadController } from "../../../../../src/features/chat/controllers/thread/restored-thread-controller";
 import { ChatViewDeferredTasks } from "../../../../../src/features/chat/view-lifecycle";
+import { deferred } from "../../../../support/async";
 
 describe("RestoredThreadController", () => {
   it("restores a placeholder and schedules deferred hydration", () => {
@@ -83,12 +84,4 @@ function restoredThreadState(overrides: Partial<ThreadLifecycleStatePort> = {}):
     applyResumedThread: vi.fn(),
     ...overrides,
   };
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((promiseResolve) => {
-    resolve = promiseResolve;
-  });
-  return { promise, resolve };
 }

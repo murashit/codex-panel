@@ -5,6 +5,7 @@ import { ThreadHistoryLoader } from "../../../src/features/chat/thread-history";
 import type { AppServerClient } from "../../../src/app-server/client";
 import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
+import { deferred } from "../../support/async";
 
 describe("ThreadHistoryLoader", () => {
   it("keeps the latest history load when an older request resolves later", async () => {
@@ -87,14 +88,4 @@ function turnFixture(items: ThreadItem[]): Turn {
 
 function assistantMessage(id: string, text: string): ThreadItem {
   return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-  return { promise, resolve, reject };
 }

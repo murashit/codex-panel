@@ -39,6 +39,7 @@ import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem
 import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../../src/generated/app-server/v2/TurnStartResponse";
+import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();
@@ -470,16 +471,6 @@ function expectPresent<T>(value: T | null | undefined): T {
 async function flushPromises(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-  return { promise, resolve, reject };
 }
 
 function runOptions(clientFactory: SelectionRewriteClientFactory): Parameters<typeof runSelectionRewrite>[0] {

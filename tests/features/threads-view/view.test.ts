@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import type * as ThreadNamingModule from "../../../src/app-server/thread-naming";
-import { waitForAsyncWork } from "../../support/async";
+import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
 const connectionMock = vi.hoisted(() => {
@@ -421,14 +421,4 @@ function turnFixture(items: Turn["items"], overrides: Partial<Turn> = {}): Turn 
     durationMs: 1,
     ...overrides,
   };
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (error: unknown) => void } {
-  let resolve!: (value: T) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-  return { promise, resolve, reject };
 }

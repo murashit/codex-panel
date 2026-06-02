@@ -9,7 +9,7 @@ import { createChatState, type ChatState } from "../../../src/features/chat/chat
 import { composerSlotSnapshot } from "../../../src/features/chat/view-snapshot";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import { notices } from "../../mocks/obsidian";
-import { waitForAsyncWork } from "../../support/async";
+import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
 const connectionMock = vi.hoisted(() => {
@@ -906,14 +906,6 @@ function turnCompletedNotification(threadId: string, turnId: string): Extract<Se
       },
     },
   };
-}
-
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((innerResolve) => {
-    resolve = innerResolve;
-  });
-  return { promise, resolve };
 }
 
 function composerElement(view: { containerEl: HTMLElement }): HTMLTextAreaElement {

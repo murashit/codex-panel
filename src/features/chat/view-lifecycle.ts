@@ -1,3 +1,11 @@
+import {
+  transitionConnectionWorkLifecycle,
+  type ActiveConnectionWork,
+  type ConnectionWorkLifecycleEvent,
+  type ConnectionWorkLifecycleState,
+} from "../../shared/lifecycle/connection-work";
+import { DeferredTask, type DeferredTaskWindow } from "../../shared/lifecycle/deferred-task";
+
 export interface ChatViewRenderScheduleOptions {
   forceSlots?: boolean;
 }
@@ -12,12 +20,9 @@ export type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; th
 export type ActiveChatResume = Extract<ChatResumeLifecycleState, { kind: "resuming" }>;
 export type ChatResumeLifecycleEvent = { type: "started"; resume: ActiveChatResume } | { type: "invalidated" };
 
-export type ChatConnectionLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
-export type ActiveChatConnection = Extract<ChatConnectionLifecycleState, { kind: "connecting" }>;
-export type ChatConnectionLifecycleEvent =
-  | { type: "started"; connection: ActiveChatConnection }
-  | { type: "finished"; connection: ActiveChatConnection; promise: Promise<void> }
-  | { type: "invalidated" };
+export type ChatConnectionLifecycleState = ConnectionWorkLifecycleState;
+export type ActiveChatConnection = ActiveConnectionWork;
+export type ChatConnectionLifecycleEvent = ConnectionWorkLifecycleEvent;
 
 export type RestoredThreadLifecycleState =
   | { kind: "idle" }
@@ -30,75 +35,56 @@ export type RestoredThreadLifecycleEvent =
   | { type: "loading-finished"; loading: Promise<void> }
   | { type: "cleared" };
 
-type TimerWindow = Pick<Window, "setTimeout" | "clearTimeout">;
-
 export class ChatViewDeferredTasks {
-  private restoredThreadHydrationTimer: number | null = null;
-  private renderTimer: number | null = null;
+  private readonly restoredThreadHydrationTask: DeferredTask;
+  private readonly renderTask: DeferredTask;
+  private readonly diagnosticsTask: DeferredTask;
+  private readonly appServerWarmupTask: DeferredTask;
   private renderForceSlots = false;
-  private diagnosticsTimer: number | null = null;
-  private appServerWarmupTimer: number | null = null;
 
-  constructor(private readonly getWindow: () => TimerWindow) {}
+  constructor(getWindow: () => DeferredTaskWindow) {
+    this.renderTask = new DeferredTask(getWindow, 50);
+    this.diagnosticsTask = new DeferredTask(getWindow, 1_000);
+    this.restoredThreadHydrationTask = new DeferredTask(getWindow, 1_500);
+    this.appServerWarmupTask = new DeferredTask(getWindow, 0);
+  }
 
   scheduleRender(callback: (options: ChatViewRenderScheduleOptions) => void, options: ChatViewRenderScheduleOptions = {}): void {
     this.renderForceSlots ||= options.forceSlots ?? false;
-    if (this.renderTimer !== null) return;
-    this.renderTimer = this.getWindow().setTimeout(() => {
+    this.renderTask.schedule(() => {
       const forceSlots = this.renderForceSlots;
-      this.renderTimer = null;
       this.renderForceSlots = false;
       callback({ forceSlots });
-    }, 50);
+    });
   }
 
   clearRender(): void {
-    if (this.renderTimer === null) return;
-    this.getWindow().clearTimeout(this.renderTimer);
-    this.renderTimer = null;
+    this.renderTask.clear();
     this.renderForceSlots = false;
   }
 
   scheduleDiagnostics(callback: () => void): void {
-    if (this.diagnosticsTimer !== null) return;
-    this.diagnosticsTimer = this.getWindow().setTimeout(() => {
-      this.diagnosticsTimer = null;
-      callback();
-    }, 1_000);
+    this.diagnosticsTask.schedule(callback);
   }
 
   clearDiagnostics(): void {
-    if (this.diagnosticsTimer === null) return;
-    this.getWindow().clearTimeout(this.diagnosticsTimer);
-    this.diagnosticsTimer = null;
+    this.diagnosticsTask.clear();
   }
 
   scheduleRestoredThreadHydration(callback: () => void): void {
-    if (this.restoredThreadHydrationTimer !== null) return;
-    this.restoredThreadHydrationTimer = this.getWindow().setTimeout(() => {
-      this.restoredThreadHydrationTimer = null;
-      callback();
-    }, 1_500);
+    this.restoredThreadHydrationTask.schedule(callback);
   }
 
   clearRestoredThreadHydration(): void {
-    if (this.restoredThreadHydrationTimer === null) return;
-    this.getWindow().clearTimeout(this.restoredThreadHydrationTimer);
-    this.restoredThreadHydrationTimer = null;
+    this.restoredThreadHydrationTask.clear();
   }
 
   scheduleAppServerWarmup(callback: () => void): void {
-    if (this.appServerWarmupTimer !== null) return;
-    this.appServerWarmupTimer = this.getWindow().setTimeout(() => {
-      this.appServerWarmupTimer = null;
-      callback();
-    }, 0);
+    this.appServerWarmupTask.schedule(callback);
   }
 
   clearAppServerWarmup(): void {
-    if (this.appServerWarmupTimer === null) return;
-    this.getWindow().clearTimeout(this.appServerWarmupTimer);
-    this.appServerWarmupTimer = null;
+    this.appServerWarmupTask.clear();
   }
 
   clearAll(): void {
@@ -161,14 +147,7 @@ export function transitionChatConnectionLifecycle(
   state: ChatConnectionLifecycleState,
   event: ChatConnectionLifecycleEvent,
 ): ChatConnectionLifecycleState {
-  switch (event.type) {
-    case "started":
-      return event.connection;
-    case "finished":
-      return state === event.connection && state.promise === event.promise ? { kind: "idle" } : state;
-    case "invalidated":
-      return state.kind === "idle" ? state : { kind: "idle" };
-  }
+  return transitionConnectionWorkLifecycle(state, event);
 }
 
 export function transitionChatResumeLifecycle(state: ChatResumeLifecycleState, event: ChatResumeLifecycleEvent): ChatResumeLifecycleState {

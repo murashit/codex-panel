@@ -1,4 +1,10 @@
-type TimerWindow = Pick<Window, "setTimeout" | "clearTimeout">;
+import {
+  transitionConnectionWorkLifecycle,
+  type ActiveConnectionWork,
+  type ConnectionWorkLifecycleEvent,
+  type ConnectionWorkLifecycleState,
+} from "../../shared/lifecycle/connection-work";
+import { DeferredTask, type DeferredTaskWindow } from "../../shared/lifecycle/deferred-task";
 
 export type ThreadsViewRefreshLifecycleState = { kind: "idle" } | { kind: "loading" };
 export type ActiveThreadsViewRefresh = Extract<ThreadsViewRefreshLifecycleState, { kind: "loading" }>;
@@ -7,33 +13,25 @@ export type ThreadsViewRefreshLifecycleEvent =
   | { type: "finished"; refresh: ActiveThreadsViewRefresh }
   | { type: "invalidated" };
 
-export type ThreadsViewConnectionLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
-export type ActiveThreadsViewConnection = Extract<ThreadsViewConnectionLifecycleState, { kind: "connecting" }>;
-export type ThreadsViewConnectionLifecycleEvent =
-  | { type: "started"; connection: ActiveThreadsViewConnection }
-  | { type: "finished"; connection: ActiveThreadsViewConnection; promise: Promise<void> }
-  | { type: "invalidated" };
+export type ThreadsViewConnectionLifecycleState = ConnectionWorkLifecycleState;
+export type ActiveThreadsViewConnection = ActiveConnectionWork;
+export type ThreadsViewConnectionLifecycleEvent = ConnectionWorkLifecycleEvent;
 
 export class ThreadsViewDeferredTasks {
-  private renderTimer: ReturnType<TimerWindow["setTimeout"]> | null = null;
-  private refreshTimer: ReturnType<TimerWindow["setTimeout"]> | null = null;
+  private readonly renderTask: DeferredTask;
+  private readonly refreshTask: DeferredTask;
 
-  constructor(private readonly getWindow: () => TimerWindow) {}
+  constructor(getWindow: () => DeferredTaskWindow) {
+    this.renderTask = new DeferredTask(getWindow, 0);
+    this.refreshTask = new DeferredTask(getWindow, 250);
+  }
 
   scheduleRender(callback: () => void): void {
-    if (this.renderTimer !== null) return;
-    this.renderTimer = this.getWindow().setTimeout(() => {
-      this.renderTimer = null;
-      callback();
-    }, 0);
+    this.renderTask.schedule(callback);
   }
 
   scheduleRefresh(callback: () => void): void {
-    if (this.refreshTimer !== null) return;
-    this.refreshTimer = this.getWindow().setTimeout(() => {
-      this.refreshTimer = null;
-      callback();
-    }, 250);
+    this.refreshTask.schedule(callback);
   }
 
   clearAll(): void {
@@ -42,15 +40,11 @@ export class ThreadsViewDeferredTasks {
   }
 
   private clearRender(): void {
-    if (this.renderTimer === null) return;
-    this.getWindow().clearTimeout(this.renderTimer);
-    this.renderTimer = null;
+    this.renderTask.clear();
   }
 
   private clearRefresh(): void {
-    if (this.refreshTimer === null) return;
-    this.getWindow().clearTimeout(this.refreshTimer);
-    this.refreshTimer = null;
+    this.refreshTask.clear();
   }
 }
 
@@ -72,12 +66,5 @@ export function transitionThreadsViewConnectionLifecycle(
   state: ThreadsViewConnectionLifecycleState,
   event: ThreadsViewConnectionLifecycleEvent,
 ): ThreadsViewConnectionLifecycleState {
-  switch (event.type) {
-    case "started":
-      return event.connection;
-    case "finished":
-      return state === event.connection && state.promise === event.promise ? { kind: "idle" } : state;
-    case "invalidated":
-      return state.kind === "idle" ? state : { kind: "idle" };
-  }
+  return transitionConnectionWorkLifecycle(state, event);
 }
