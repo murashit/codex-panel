@@ -5,7 +5,7 @@ import { act } from "preact/test-utils";
 
 import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
-import { renderReactRoot } from "../../../../src/shared/ui/react-root";
+import { renderUiRoot } from "../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -174,7 +174,7 @@ function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>
     renderVersion: 0,
     toolbar: {
       render: vi.fn((toolbar: HTMLElement) => {
-        renderReactRoot(
+        renderUiRoot(
           toolbar,
           <>
             <div className="test-toolbar">{store.getState().status}</div>
@@ -186,13 +186,13 @@ function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>
     },
     messages: {
       render: vi.fn((messages: HTMLElement) => {
-        renderReactRoot(messages, <div className="test-messages">{String(store.getState().displayItems.length)}</div>);
+        renderUiRoot(messages, <div className="test-messages">{String(store.getState().displayItems.length)}</div>);
       }),
       snapshot: () => store.getState().displayItems.length,
     },
     composer: {
       render: vi.fn((composer: HTMLElement) => {
-        renderReactRoot(
+        renderUiRoot(
           composer,
           <div className="test-composer">
             <textarea value={chatTurnBusy(store.getState()) ? "busy" : "ready"} readOnly />

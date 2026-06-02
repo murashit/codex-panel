@@ -13,7 +13,7 @@ import {
   renderMessageBlockElement,
   renderMessageStreamBlocksInAct,
   runningTurnLifecycle,
-  unmountReactRootInAct,
+  unmountUiRootInAct,
 } from "./test-helpers";
 
 describe("work log renderer decisions", () => {
@@ -177,7 +177,7 @@ describe("work log renderer decisions", () => {
 
     renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault/project" }));
     expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("assets/image.png");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("keeps path summary tools absolute outside the workspace root", () => {
@@ -401,7 +401,7 @@ describe("work log renderer decisions", () => {
     });
 
     expect(onDetailsToggle).toHaveBeenCalledWith("turn:turn:activity", false);
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders task progress items as a dedicated task list", () => {
@@ -476,7 +476,7 @@ describe("work log renderer decisions", () => {
     expect(block.querySelector(".codex-panel__task-progress .codex-panel__message-role")?.textContent).toBe("tasks");
     expect(block.textContent).toContain("[x]Inspect code");
     expect(block.textContent).toContain("[>]Patch UI");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders active task progress with the shared bottom live blocks", () => {
@@ -731,7 +731,7 @@ describe("work log renderer decisions", () => {
 
     expect(onDetailsToggle).toHaveBeenCalledWith("agent-1:agent-details", true);
     expect(expectPresent(block.querySelector(".codex-panel__agent-activity")).classList.contains("is-open")).toBe(true);
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("keeps agent activity prompt previews visually constrained to one line", () => {
@@ -898,7 +898,7 @@ describe("work log renderer decisions", () => {
     const summary = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="live-agents:turn"]'));
     expect(summary.querySelector(".codex-panel__agent-summary")?.textContent).toContain("Agents 1 running, 1 done");
     expect(summary.textContent).toContain("runningrunning: Inspecting renderer");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders active reasoning as a Preact message stream block", () => {
@@ -925,7 +925,7 @@ describe("work log renderer decisions", () => {
     expect(reasoning.classList.contains("is-active")).toBe(true);
     expect(reasoning.querySelector(".codex-panel__reasoning-role")?.textContent).toBe("reasoning");
     expect(reasoning.querySelector(".codex-panel__reasoning-content")?.textContent).toBe("Reasoning...");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("hides the live agent summary once all subagents are complete", () => {

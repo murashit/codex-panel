@@ -1,10 +1,10 @@
-import type { ComponentChild as ReactNode } from "preact";
+import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { renderDisplayDiffLines } from "../../../shared/diff/render";
 import { displayDiffLines } from "../../../shared/diff/unified";
-import { IconButton } from "../../../shared/ui/react-components";
-import { renderReactRoot } from "../../../shared/ui/react-root";
+import { IconButton } from "../../../shared/ui/components";
+import { renderUiRoot } from "../../../shared/ui/ui-root";
 import { shortThreadId } from "../../../utils";
 
 export interface ChatTurnDiffViewState {
@@ -49,7 +49,7 @@ export function renderChatTurnDiffView(
   metadata: PersistedChatTurnDiffViewState | null = null,
 ): void {
   parent.addClass("codex-panel-chat-turn-diff");
-  renderReactRoot(parent, <ChatTurnDiffView state={state} actions={actions} metadata={metadata} />);
+  renderUiRoot(parent, <ChatTurnDiffView state={state} actions={actions} metadata={metadata} />);
 }
 
 function ChatTurnDiffView({
@@ -60,7 +60,7 @@ function ChatTurnDiffView({
   state: ChatTurnDiffViewState | null;
   actions: ChatTurnDiffViewActions;
   metadata: PersistedChatTurnDiffViewState | null;
-}): ReactNode {
+}): UiNode {
   if (!state) {
     if (metadata) {
       return (
@@ -88,7 +88,7 @@ function TurnDiffHeader({
 }: {
   state: PersistedChatTurnDiffViewState;
   copyDiff: ChatTurnDiffViewActions["copyDiff"] | null;
-}): ReactNode {
+}): UiNode {
   return (
     <div className="codex-panel-chat-turn-diff__header">
       <div className="codex-panel-chat-turn-diff__title-block">
@@ -104,7 +104,7 @@ function TurnDiffHeader({
   );
 }
 
-function ChangedFiles({ files }: { files: string[] }): ReactNode {
+function ChangedFiles({ files }: { files: string[] }): UiNode {
   return (
     <details className="codex-panel-chat-turn-diff__files">
       <summary>Changed files</summary>
@@ -117,7 +117,7 @@ function ChangedFiles({ files }: { files: string[] }): ReactNode {
   );
 }
 
-function UnifiedDiff({ diff }: { diff: string }): ReactNode {
+function UnifiedDiff({ diff }: { diff: string }): UiNode {
   const ref = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     const element = ref.current;

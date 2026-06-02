@@ -14,11 +14,11 @@ import {
   messageStreamBlocks,
   renderMessageBlockElement,
   renderMessageStreamBlocksInAct,
-  renderReactRootInAct,
+  renderUiRootInAct,
   runningTurnLifecycle,
   startingTurnLifecycle,
   testMessageStreamBlock,
-  unmountReactRootInAct,
+  unmountUiRootInAct,
   withMessageContentScrollHeight,
 } from "./test-helpers";
 
@@ -44,7 +44,7 @@ describe("message stream block identity and message actions", () => {
     expect(host.firstElementChild?.tagName).toBe("ARTICLE");
     renderMessageStreamBlocksInAct(parent, []);
     expect(parent.querySelector('[data-codex-panel-block-key="one"]')).toBeNull();
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("leaves stable ordered Preact message block hosts in place during repeated renders", () => {
@@ -66,7 +66,7 @@ describe("message stream block identity and message actions", () => {
     expect([...parent.children]).toEqual([firstHost, secondHost]);
     expect(firstHost.firstElementChild?.tagName).toBe("SECTION");
     expect(secondHost.firstElementChild?.tagName).toBe("ARTICLE");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("inserts completed-turn activity groups without replacing stable conversation nodes", () => {
@@ -125,7 +125,7 @@ describe("message stream block identity and message actions", () => {
     expect(parent.querySelector('[data-codex-panel-block-key="activity:turn-t1-activity"] summary')?.textContent).toBe(
       "Work details: hook",
     );
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders the history bar as a Preact block", () => {
@@ -145,7 +145,7 @@ describe("message stream block identity and message actions", () => {
 
     expect(historyBlock.key).toBe("history-bar");
     expect(historyBlock.node).not.toBeUndefined();
-    renderReactRootInAct(parent, historyBlock.node);
+    renderUiRootInAct(parent, historyBlock.node);
 
     const button = expectPresent(parent.querySelector<HTMLButtonElement>("button"));
     expect(parent.querySelector(".codex-panel__history-bar")).not.toBeNull();
@@ -155,7 +155,7 @@ describe("message stream block identity and message actions", () => {
     button.click();
 
     expect(loadOlderTurns).toHaveBeenCalledOnce();
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders the empty message stream state as a Preact block", () => {
@@ -174,12 +174,12 @@ describe("message stream block identity and message actions", () => {
 
     expect(emptyBlock.key).toBe("empty");
     expect(emptyBlock.node).not.toBeUndefined();
-    renderReactRootInAct(parent, emptyBlock.node);
+    renderUiRootInAct(parent, emptyBlock.node);
 
     const empty = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message--system"));
     expect(empty.classList.contains("codex-panel__message")).toBe(true);
     expect(empty.textContent).toBe("Send a message to start a conversation.");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders review result items as compact auto-review tool rows", () => {
@@ -304,7 +304,7 @@ describe("message stream block identity and message actions", () => {
     });
 
     expect(onDetailsToggle).toHaveBeenCalledWith("cmd-1:command-details", true);
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders file change diffs through the Preact tool result adapter", () => {
@@ -338,7 +338,7 @@ describe("message stream block identity and message actions", () => {
     expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/app.ts");
     expect(parent.querySelector(".codex-panel-diff-file .codex-panel__output-title")?.textContent).toBe("modified src/app.ts");
     expect([...parent.querySelectorAll(".codex-panel-diff__line")].map((line) => line.textContent)).toEqual(["old", "new"]);
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders structured system result details as visible selectable meta rows", () => {
@@ -577,7 +577,7 @@ describe("message stream block identity and message actions", () => {
     expect(copyText).toHaveBeenCalledWith("Plan");
     expect(onImplementPlanItem).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }));
     expect(parent.querySelector('[data-codex-panel-block-key="item:p1"] .codex-panel__message--assistant')).not.toBeNull();
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("renders message markdown through the Preact content adapter", () => {
@@ -603,7 +603,7 @@ describe("message stream block identity and message actions", () => {
 
     expect(renderMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "**answer**");
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("rendered:**answer**");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("updates message content when the markdown mode changes", () => {
@@ -636,7 +636,7 @@ describe("message stream block identity and message actions", () => {
       }),
     );
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:**answer**");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("updates keyed message content without replacing the stream block host", () => {
@@ -676,7 +676,7 @@ describe("message stream block identity and message actions", () => {
     expect(parent.querySelector('[data-codex-panel-block-key="item:a1"]')).toBe(host);
     expect(host.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:second");
     expect(renderMarkdown).toHaveBeenCalledTimes(2);
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("does not rerender unchanged message markdown when the stream rerenders", () => {
@@ -702,7 +702,7 @@ describe("message stream block identity and message actions", () => {
     renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...context, loadingHistory: true }));
 
     expect(renderMarkdown).toHaveBeenCalledOnce();
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("hides copy action for the active assistant message while a turn is running", () => {

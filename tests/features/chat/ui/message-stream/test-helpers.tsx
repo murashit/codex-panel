@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { ComponentChild as ReactNode } from "preact";
+import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 
 import type { PendingApproval } from "../../../../../src/features/chat/approvals/model";
@@ -11,7 +11,7 @@ import {
   messageStreamBlocks as rawMessageStreamBlocks,
   renderMessageStreamBlocks,
 } from "../../../../../src/features/chat/ui/message-stream";
-import { renderReactRoot, unmountReactRoot } from "../../../../../src/shared/ui/react-root";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(
   ...args: Parameters<typeof rawMessageStreamBlocks>
@@ -39,7 +39,7 @@ export function dispatchComposingInputValue(input: HTMLInputElement, value: stri
   input.dispatchEvent(event);
 }
 
-export function testMessageStreamBlock(key: string, node: ReactNode): ReturnType<typeof rawMessageStreamBlocks>[number] {
+export function testMessageStreamBlock(key: string, node: UiNode): ReturnType<typeof rawMessageStreamBlocks>[number] {
   return { key, node };
 }
 
@@ -60,20 +60,20 @@ export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: Mess
   });
 }
 
-export function renderReactRootInAct(parent: HTMLElement, node: ReactNode): void {
+export function renderUiRootInAct(parent: HTMLElement, node: UiNode): void {
   void act(() => {
-    renderReactRoot(parent, node);
+    renderUiRoot(parent, node);
   });
 }
 
-export function unmountReactRootInAct(parent: HTMLElement): void {
+export function unmountUiRootInAct(parent: HTMLElement): void {
   void act(() => {
-    unmountReactRoot(parent);
+    unmountUiRoot(parent);
   });
 }
 
 export function renderPendingRequestNode(parent: HTMLElement, ...args: Parameters<typeof pendingRequestMessageNode>): void {
-  renderReactRootInAct(parent, pendingRequestMessageNode(...args));
+  renderUiRootInAct(parent, pendingRequestMessageNode(...args));
 }
 
 export function pendingRequestActions(overrides: Partial<PendingRequestMessageActions> = {}): PendingRequestMessageActions {

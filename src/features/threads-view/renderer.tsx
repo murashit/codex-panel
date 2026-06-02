@@ -1,9 +1,9 @@
 import type { ButtonHTMLAttributes, TargetedKeyboardEvent } from "preact";
-import type { ComponentChild as ReactNode } from "preact";
+import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { IconButton } from "../../shared/ui/react-components";
-import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";
+import { IconButton } from "../../shared/ui/components";
+import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root";
 import type { ThreadsRowModel } from "./state";
 
 type ButtonProps = ButtonHTMLAttributes & {
@@ -31,14 +31,14 @@ export interface ThreadsViewActions {
 
 export function renderThreadsView(parent: HTMLElement, model: ThreadsViewModel, actions: ThreadsViewActions): void {
   parent.addClass("codex-panel-threads");
-  renderReactRoot(parent, <ThreadsView model={model} actions={actions} />);
+  renderUiRoot(parent, <ThreadsView model={model} actions={actions} />);
 }
 
 export function unmountThreadsView(parent: HTMLElement | null): void {
-  unmountReactRoot(parent);
+  unmountUiRoot(parent);
 }
 
-function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: ThreadsViewActions }): ReactNode {
+function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: ThreadsViewActions }): UiNode {
   return (
     <>
       <div className="nav-header codex-panel-threads__toolbar">
@@ -73,7 +73,7 @@ function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: Thr
   );
 }
 
-function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): ReactNode {
+function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): UiNode {
   const archiveConfirm = archiveConfirmState(row);
   const className = [
     "codex-panel-threads__row",
@@ -128,7 +128,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   );
 }
 
-function ArchiveActions({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): ReactNode {
+function ArchiveActions({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): UiNode {
   const archiveConfirm = archiveConfirmState(row);
   if (!archiveConfirm.active) {
     return (
@@ -163,7 +163,7 @@ function ArchiveModeButton({
   saveMarkdown: boolean;
   primary: boolean;
   actions: ThreadsViewActions;
-}): ReactNode {
+}): UiNode {
   const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
   return (
     <ThreadsIconButton
@@ -178,7 +178,7 @@ function ArchiveModeButton({
   );
 }
 
-function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): ReactNode {
+function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   useLayoutEffect(() => {
     const input = inputRef.current;
@@ -204,7 +204,7 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
             type="text"
             aria-label="Thread name"
             value={row.rename.draft}
-            onChange={(event) => {
+            onInput={(event) => {
               actions.updateRename(row.thread.id, event.currentTarget.value);
             }}
             onKeyDown={(event) => {
@@ -253,7 +253,7 @@ function ThreadsIconButton({
   icon: string;
   label: string;
   className: string;
-} & Omit<ButtonProps, "className" | "type">): ReactNode {
+} & Omit<ButtonProps, "className" | "type">): UiNode {
   return (
     <IconButton
       {...props}

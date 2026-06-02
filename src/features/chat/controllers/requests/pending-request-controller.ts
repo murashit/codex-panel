@@ -1,4 +1,4 @@
-import type { ComponentChild as ReactNode } from "preact";
+import type { ComponentChild as UiNode } from "preact";
 
 import type { ApprovalAction, PendingApproval } from "../../approvals/model";
 import type { ChatController } from "../../chat-controller";
@@ -21,7 +21,7 @@ export class PendingRequestController {
 
   constructor(private readonly host: PendingRequestControllerHost) {}
 
-  renderNode(): ReactNode {
+  renderNode(): UiNode {
     const state = this.host.state.snapshot();
     return pendingRequestMessageNode(
       state.approvals,

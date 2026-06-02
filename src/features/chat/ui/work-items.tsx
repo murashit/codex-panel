@@ -1,4 +1,4 @@
-import type { ComponentChild as ReactNode } from "preact";
+import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useState } from "preact/hooks";
 
 import { activeAgentRunSummary } from "../display/agent";
@@ -37,17 +37,17 @@ export function activeAgentRunSummaryBlock(context: WorkItemContext): AgentRunSu
   return activeAgentRunSummary(context.displayItems, workItemsActiveTurnId(context));
 }
 
-export function agentRunSummaryNode(summary: AgentRunSummary): ReactNode {
+export function agentRunSummaryNode(summary: AgentRunSummary): UiNode {
   return <AgentRunSummaryItem summary={summary} />;
 }
 
-export function workItemNode(item: WorkItemDisplayItem, context: WorkItemContext): ReactNode {
+export function workItemNode(item: WorkItemDisplayItem, context: WorkItemContext): UiNode {
   if (item.kind === "taskProgress") return <TaskProgressItem item={item} />;
   if (item.kind === "agent") return <AgentItem item={item} context={context} />;
   return <ReasoningItem item={item} context={context} />;
 }
 
-function AgentRunSummaryItem({ summary }: { summary: AgentRunSummary }): ReactNode {
+function AgentRunSummaryItem({ summary }: { summary: AgentRunSummary }): UiNode {
   return (
     <WorkMessage label="agents" className="codex-panel__agent-summary" state={summary.failed > 0 ? "failed" : "running"}>
       <div className="codex-panel__tool-summary">{agentRunSummaryLabel(summary)}</div>
@@ -56,7 +56,7 @@ function AgentRunSummaryItem({ summary }: { summary: AgentRunSummary }): ReactNo
   );
 }
 
-function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): ReactNode {
+function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): UiNode {
   return (
     <WorkMessage label="tasks" className="codex-panel__task-progress" state={executionState(item)}>
       {item.explanation ? <div className="codex-panel__tool-summary">{item.explanation}</div> : null}
@@ -76,7 +76,7 @@ function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): ReactNod
   );
 }
 
-function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkItemContext }): ReactNode {
+function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkItemContext }): UiNode {
   const detailsKey = `${item.id}:agent-details`;
   const [detailsOpen, setDetailsOpen] = useState(context.openDetails.has(detailsKey));
   useLayoutEffect(() => {
@@ -132,7 +132,7 @@ function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkIte
   );
 }
 
-function ReasoningItem({ item, context }: { item: ReasoningDisplayItem; context: WorkItemContext }): ReactNode {
+function ReasoningItem({ item, context }: { item: ReasoningDisplayItem; context: WorkItemContext }): UiNode {
   const active = isReasoningActive(item, context);
   return (
     <div className={`codex-panel__reasoning${active ? " is-active" : ""}`}>
@@ -160,8 +160,8 @@ function WorkMessage({
   label: string;
   className: string;
   state: ReturnType<typeof executionState>;
-  children: ReactNode;
-}): ReactNode {
+  children: UiNode;
+}): UiNode {
   const classes = [createWorkMessageClassName(className), state ? `codex-panel__execution codex-panel__execution--${state}` : ""]
     .filter(Boolean)
     .join(" ");
@@ -173,7 +173,7 @@ function WorkMessage({
   );
 }
 
-function MetaPair({ name, value }: { name: string; value: string }): ReactNode {
+function MetaPair({ name, value }: { name: string; value: string }): UiNode {
   return (
     <>
       <dt>{name}</dt>
@@ -182,7 +182,7 @@ function MetaPair({ name, value }: { name: string; value: string }): ReactNode {
   );
 }
 
-function AgentSummaryRows({ summary }: { summary: AgentRunSummary }): ReactNode {
+function AgentSummaryRows({ summary }: { summary: AgentRunSummary }): UiNode {
   if (summary.agents.length === 0 && summary.additionalAgents === 0) return null;
   return (
     <ul className="codex-panel__agent-list codex-panel__agent-list--summary">

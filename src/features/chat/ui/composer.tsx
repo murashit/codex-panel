@@ -1,9 +1,9 @@
-import type { ButtonHTMLAttributes, ComponentChild as ReactNode, Ref } from "preact";
+import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../composer/suggestions";
-import { IconButton } from "../../../shared/ui/react-components";
-import { renderReactRoot } from "../../../shared/ui/react-root";
+import { IconButton } from "../../../shared/ui/components";
+import { renderUiRoot } from "../../../shared/ui/ui-root";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 
 export interface ComposerElements {
@@ -37,7 +37,7 @@ export function renderComposerShell(
   callbacks: ComposerCallbacks,
 ): ComposerElements {
   const elements: Partial<ComposerElements> = {};
-  renderReactRoot(
+  renderUiRoot(
     parent,
     <ComposerShell
       viewId={viewId}
@@ -77,7 +77,7 @@ function ComposerShell({
   selectedSuggestionIndex: number;
   callbacks: ComposerCallbacks;
   onComposer: (composer: HTMLTextAreaElement) => void;
-}): ReactNode {
+}): UiNode {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const selectedSuggestionRef = useRef<HTMLDivElement | null>(null);
@@ -110,7 +110,7 @@ function ComposerShell({
         aria-controls={`${viewId}-composer-suggestions`}
         aria-activedescendant={selectedSuggestionId}
         value={draft}
-        onChange={(event) => {
+        onInput={(event) => {
           if (syncComposerHeight(event.currentTarget)) callbacks.onComposerResize();
           callbacks.onInput(event.currentTarget.value);
         }}
@@ -175,7 +175,7 @@ function ComposerIconButton({
   icon: string;
   label: string;
   className: string;
-} & Omit<ButtonProps, "className" | "type">): ReactNode {
+} & Omit<ButtonProps, "className" | "type">): UiNode {
   return (
     <IconButton
       {...props}
@@ -210,7 +210,7 @@ function ComposerSuggestions({
   suggestions: readonly ComposerSuggestion[];
   selectedIndex: number;
   callbacks: Pick<ComposerCallbacks, "onSuggestionHover" | "onSuggestionInsert">;
-}): ReactNode {
+}): UiNode {
   return (
     <div
       ref={containerRef}

@@ -23,7 +23,7 @@ import {
   renderMessageStreamBlocksInAct,
   renderPendingRequestNode,
   setNativeInputValue,
-  unmountReactRootInAct,
+  unmountUiRootInAct,
 } from "./test-helpers";
 
 describe("pending request renderer decisions", () => {
@@ -238,7 +238,7 @@ describe("pending request renderer decisions", () => {
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-text"));
     } finally {
-      unmountReactRootInAct(parent);
+      unmountUiRootInAct(parent);
       parent.remove();
     }
   });
@@ -266,7 +266,7 @@ describe("pending request renderer decisions", () => {
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-radio:checked"));
       expect(document.activeElement).not.toBe(parent.querySelector(".codex-panel__user-input-other-text"));
     } finally {
-      unmountReactRootInAct(parent);
+      unmountUiRootInAct(parent);
       parent.remove();
     }
   });
@@ -292,7 +292,7 @@ describe("pending request renderer decisions", () => {
 
       expect(document.activeElement).toBe(parent.querySelector(".codex-panel__pending-request-button.mod-cta"));
     } finally {
-      unmountReactRootInAct(parent);
+      unmountUiRootInAct(parent);
       parent.remove();
     }
   });
@@ -511,7 +511,7 @@ describe("pending request renderer decisions", () => {
     });
 
     expect(resolveApproval).toHaveBeenCalledWith(approval, "accept");
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 
   it("removes pending request blocks when the signature clears", () => {
@@ -542,6 +542,6 @@ describe("pending request renderer decisions", () => {
 
     expect(parent.querySelector('[data-codex-panel-block-key="pending-requests"]')).toBeNull();
     expect(parent.querySelector('[data-codex-panel-block-key="item:a1"]')).not.toBeNull();
-    unmountReactRootInAct(parent);
+    unmountUiRootInAct(parent);
   });
 });

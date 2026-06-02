@@ -1,6 +1,6 @@
 import type { EventRef, WorkspaceLeaf } from "obsidian";
 
-import { unmountReactRoot } from "../../../../shared/ui/react-root";
+import { unmountUiRoot } from "../../../../shared/ui/ui-root";
 import { unmountChatPanelShell } from "../../ui/shell";
 
 export interface ChatViewOpenCloseControllerHost {
@@ -57,10 +57,10 @@ export class ChatViewOpenCloseController {
     this.host.invalidateResumeWork();
     this.host.clearDeferredTasks();
     const panelRoot = this.host.panelRoot();
-    unmountReactRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__toolbar") ?? null);
+    unmountUiRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__toolbar") ?? null);
     this.host.disposeMessages();
     this.host.disposeComposer();
-    unmountReactRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__slot--composer") ?? null);
+    unmountUiRoot(panelRoot?.querySelector<HTMLElement>(".codex-panel__slot--composer") ?? null);
     unmountChatPanelShell(panelRoot);
     this.host.disconnect();
     this.host.clearClient();

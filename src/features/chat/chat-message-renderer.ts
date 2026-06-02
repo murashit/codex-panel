@@ -1,5 +1,5 @@
 import type { App, Component } from "obsidian";
-import type { ComponentChild as ReactNode } from "preact";
+import type { ComponentChild as UiNode } from "preact";
 
 import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
@@ -12,7 +12,7 @@ import { forkCandidatesFromItems, isForkCandidateItem } from "./fork";
 import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import { implementPlanCandidateFromState } from "./plan-implementation";
-import { unmountReactRoot } from "../../shared/ui/react-root";
+import { unmountUiRoot } from "../../shared/ui/ui-root";
 
 export interface ChatMessageRendererOptions {
   app: App;
@@ -26,7 +26,7 @@ export interface ChatMessageRendererOptions {
   implementPlan: (item: DisplayItem) => void;
   openTurnDiff: (state: ChatTurnDiffViewState) => void;
   pendingRequestsSignature: () => string;
-  renderPendingRequests: () => ReactNode;
+  renderPendingRequests: () => UiNode;
 }
 
 export class ChatMessageRenderer {
@@ -117,7 +117,7 @@ export class ChatMessageRenderer {
   dispose(): void {
     this.cancelBottomPinFrame();
     if (this.messagesEl) {
-      unmountReactRoot(this.messagesEl);
+      unmountUiRoot(this.messagesEl);
     }
     this.scrollController.dispose();
     this.messagesEl = null;

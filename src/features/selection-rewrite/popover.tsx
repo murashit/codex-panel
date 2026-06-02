@@ -1,12 +1,12 @@
 import { Notice, type Editor } from "obsidian";
-import type { ComponentChild as ReactNode, TargetedKeyboardEvent } from "preact";
+import type { ComponentChild as UiNode, TargetedKeyboardEvent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { renderDisplayDiffLines } from "../../shared/diff/render";
 import { displayDiffLines } from "../../shared/diff/unified";
 import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
-import { IconButton } from "../../shared/ui/react-components";
-import { renderReactRoot, unmountReactRoot } from "../../shared/ui/react-root";
+import { IconButton } from "../../shared/ui/components";
+import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { isSelectionRewriteActionKey } from "./keys";
@@ -101,7 +101,7 @@ export class SelectionRewritePopover {
     }
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     if (this.elements) {
-      unmountReactRoot(this.elements.root);
+      unmountUiRoot(this.elements.root);
       this.elements.root.remove();
     }
     this.elements = null;
@@ -257,7 +257,7 @@ export class SelectionRewritePopover {
     if (!elements) return;
     const state = this.options.state;
     const replacement = state.replacementText;
-    renderReactRoot(
+    renderUiRoot(
       elements.root,
       <SelectionRewritePopoverView
         applyButtonRef={(element) => {
@@ -366,7 +366,7 @@ function SelectionRewritePopoverView({
   onInstructionKeyDown,
   status,
   streamPreview,
-}: SelectionRewritePopoverViewProps): ReactNode {
+}: SelectionRewritePopoverViewProps): UiNode {
   return (
     <>
       <div className="codex-panel-selection-rewrite__prompt-row">
@@ -374,7 +374,7 @@ function SelectionRewritePopoverView({
           ref={instructionRef}
           className="codex-panel-ui__text-input codex-panel-selection-rewrite__instruction"
           disabled={generating}
-          onChange={(event) => {
+          onInput={(event) => {
             onInstructionInput(event.currentTarget.value);
           }}
           onKeyDown={onInstructionKeyDown}
@@ -423,7 +423,7 @@ function SelectionRewritePopoverView({
   );
 }
 
-function SelectionRewriteStatus({ status }: { status: SelectionRewritePopoverStatusState }): ReactNode {
+function SelectionRewriteStatus({ status }: { status: SelectionRewritePopoverStatusState }): UiNode {
   const { text, active } = status;
   if (!text && !active) return <div className="codex-panel-selection-rewrite__status" />;
   return (
@@ -440,7 +440,7 @@ function SelectionRewriteStatus({ status }: { status: SelectionRewritePopoverSta
   );
 }
 
-function SelectionRewriteDiff({ diff }: { diff: string }): ReactNode {
+function SelectionRewriteDiff({ diff }: { diff: string }): UiNode {
   const ref = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     const element = ref.current;

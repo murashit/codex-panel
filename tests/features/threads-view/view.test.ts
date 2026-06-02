@@ -300,9 +300,7 @@ describe("CodexThreadsView", () => {
     expect(input).not.toBeNull();
     if (!input) return;
     changeInputValue(input, "Renamed thread");
-    view.containerEl
-      .querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")
-      ?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.dispatchEvent(new FocusEvent("blur"));
 
     await waitForAsyncWork(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");

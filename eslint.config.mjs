@@ -102,8 +102,8 @@ const nonChatImperativeDomBridgeFiles = [
   "src/settings/tab.ts",
   "src/shared/diff/render.ts",
   "src/shared/ui/dom.ts",
-  "src/shared/ui/react-components.tsx",
-  "src/shared/ui/react-root.tsx",
+  "src/shared/ui/components.tsx",
+  "src/shared/ui/ui-root.tsx",
 ];
 
 export default defineConfig([

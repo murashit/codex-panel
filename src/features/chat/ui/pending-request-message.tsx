@@ -1,4 +1,4 @@
-import type { ComponentChild as ReactNode } from "preact";
+import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import {
@@ -35,7 +35,7 @@ export function pendingRequestMessageNode(
   openDetails: ReadonlySet<string>,
   actions: PendingRequestMessageActions,
   autoFocus = false,
-): ReactNode {
+): UiNode {
   return (
     <PendingRequestMessage
       approvals={approvals}
@@ -62,7 +62,7 @@ function PendingRequestMessage({
   openDetails: ReadonlySet<string>;
   actions: PendingRequestMessageActions;
   autoFocus: boolean;
-}): ReactNode {
+}): UiNode {
   const requestRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     if (!autoFocus) return;
@@ -106,7 +106,7 @@ function ApprovalCard({
   approval: PendingApproval;
   openDetails: ReadonlySet<string>;
   actions: PendingRequestMessageActions;
-}): ReactNode {
+}): UiNode {
   return (
     <PendingRequestCard className="codex-panel__approval">
       <div className="codex-panel__pending-request-info">
@@ -138,7 +138,7 @@ function ApprovalDetails({
   approval: PendingApproval;
   openDetails: ReadonlySet<string>;
   actions: PendingRequestMessageActions;
-}): ReactNode {
+}): UiNode {
   const key = `approval:${String(approval.requestId)}:details`;
   return (
     <details
@@ -166,7 +166,7 @@ function UserInputCard({
   input: PendingUserInput;
   drafts: PendingRequestMessageDrafts;
   actions: PendingRequestMessageActions;
-}): ReactNode {
+}): UiNode {
   return (
     <PendingRequestCard className="codex-panel__user-input">
       <div className="codex-panel__pending-request-info">
@@ -196,7 +196,7 @@ function UserInputCard({
   );
 }
 
-function PendingRequestCard({ className, children }: { className: string; children: ReactNode }): ReactNode {
+function PendingRequestCard({ className, children }: { className: string; children: UiNode }): UiNode {
   return <div className={`codex-panel__pending-request-card ${className}`}>{children}</div>;
 }
 
@@ -208,7 +208,7 @@ function UserInputQuestions({
   input: PendingUserInput;
   drafts: PendingRequestMessageDrafts;
   actions: PendingRequestMessageActions;
-}): ReactNode {
+}): UiNode {
   return (
     <>
       {input.params.questions.map((question) => {
@@ -288,7 +288,7 @@ function OtherUserInputOption({
   optionLabels: ReadonlySet<string>;
   drafts: PendingRequestMessageDrafts;
   actions: PendingRequestMessageActions;
-}): ReactNode {
+}): UiNode {
   const draftKey = drafts.draftKey(input.requestId, questionId);
   const otherKey = drafts.otherDraftKey(input.requestId, questionId);
   const otherValue = drafts.values.get(otherKey) ?? "";
@@ -304,6 +304,19 @@ function OtherUserInputOption({
   const commitOtherValue = (value: string) => {
     actions.setUserInputDraft(otherKey, value);
     actions.setUserInputDraft(draftKey, value);
+  };
+  const compositionProps = {
+    oncompositionstart: () => {
+      composingRef.current = true;
+      selectOther();
+    },
+    oncompositionend: (event: Event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLInputElement)) return;
+      composingRef.current = false;
+      setInputValue(target.value);
+      commitOtherValue(target.value);
+    },
   };
   return (
     <label className="codex-panel__user-input-option">
@@ -328,20 +341,12 @@ function OtherUserInputOption({
         tabIndex={otherSelected ? 0 : -1}
         placeholder="Other answer"
         onFocus={selectOther}
-        onCompositionStart={() => {
-          composingRef.current = true;
-          selectOther();
-        }}
-        onCompositionEnd={(event) => {
-          composingRef.current = false;
-          setInputValue(event.currentTarget.value);
-          commitOtherValue(event.currentTarget.value);
-        }}
-        onChange={(event) => {
+        onInput={(event) => {
           setInputValue(event.currentTarget.value);
           const nativeEvent = event as Event & { isComposing?: boolean };
           if (nativeEvent.isComposing !== true && !composingRef.current) commitOtherValue(event.currentTarget.value);
         }}
+        {...compositionProps}
       />
     </label>
   );
@@ -361,21 +366,21 @@ function FreeformUserInput({
   current: string;
   drafts: PendingRequestMessageDrafts;
   actions: PendingRequestMessageActions;
-}): ReactNode {
+}): UiNode {
   const draftKey = drafts.draftKey(input.requestId, questionId);
   return (
     <input
       className="codex-panel__user-input-text"
       type={isSecret ? "password" : "text"}
       value={current}
-      onChange={(event) => {
+      onInput={(event) => {
         actions.setUserInputDraft(draftKey, event.currentTarget.value);
       }}
     />
   );
 }
 
-function MetaPair({ name, value }: { name: string; value: string }): ReactNode {
+function MetaPair({ name, value }: { name: string; value: string }): UiNode {
   return (
     <>
       <dt>{name}</dt>
@@ -384,7 +389,7 @@ function MetaPair({ name, value }: { name: string; value: string }): ReactNode {
   );
 }
 
-function ActionButton({ label, className, onClick }: { label: string; className: string; onClick: () => void }): ReactNode {
+function ActionButton({ label, className, onClick }: { label: string; className: string; onClick: () => void }): UiNode {
   return (
     <button className={`codex-panel__pending-request-button ${className}`.trim()} type="button" onClick={onClick}>
       {label}

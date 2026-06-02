@@ -1,22 +1,23 @@
-import { Fragment, forwardRef, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "preact/compat";
+import { Fragment, type ComponentChild as UiNode, type Ref } from "preact";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { displayBlocksForItems } from "../display/blocks";
 import { executionState } from "../display/state";
 import type { ToolResultDisplayItem } from "../display/tool-view";
 import type { DisplayBlock, DisplayDetailSection, DisplayItem } from "../display/types";
 import { activeTurnId, type ChatTurnLifecycleState } from "../chat-state";
-import { IconButton } from "../../../shared/ui/react-components";
+import { IconButton } from "../../../shared/ui/components";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./message-content-events";
 import { toolResultNode } from "./tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "./work-items";
 import type { ChatTurnDiffViewState } from "./turn-diff";
-import { renderReactRoot } from "../../../shared/ui/react-root";
+import { renderUiRoot } from "../../../shared/ui/ui-root";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 
 export interface MessageStreamBlock {
   key: string;
-  node: ReactNode;
+  node: UiNode;
 }
 
 export interface MessageStreamContext {
@@ -41,7 +42,7 @@ export interface MessageStreamContext {
   onForkItem?: (item: DisplayItem, archiveSource: boolean) => void;
   openTurnDiff?: (state: ChatTurnDiffViewState) => void;
   pendingRequestsSignature?: string;
-  renderPendingRequests?: () => ReactNode;
+  renderPendingRequests?: () => UiNode;
 }
 
 export function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLifecycle">): string | null {
@@ -69,7 +70,7 @@ function isRenderableWorkItem(item: DisplayItem): item is WorkItemDisplayItem {
   return item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning";
 }
 
-function displayItemNode(item: DisplayItem, context: MessageStreamContext): ReactNode {
+function displayItemNode(item: DisplayItem, context: MessageStreamContext): UiNode {
   if (isRenderableMessageItem(item)) return <MessageItem item={item} context={context} />;
   if (isRenderableToolResultItem(item)) return toolResultNode(item, context);
   if (isRenderableWorkItem(item)) return workItemNode(item, context);
@@ -164,10 +165,10 @@ function withoutActiveTaskProgress(items: readonly DisplayItem[], activeTurn: st
 }
 
 export function renderMessageStreamBlocks(parent: HTMLElement, blocks: MessageStreamBlock[]): void {
-  renderReactRoot(parent, <MessageStreamBlocks blocks={blocks} />);
+  renderUiRoot(parent, <MessageStreamBlocks blocks={blocks} />);
 }
 
-function MessageStreamBlocks({ blocks }: { blocks: MessageStreamBlock[] }): ReactNode {
+function MessageStreamBlocks({ blocks }: { blocks: MessageStreamBlock[] }): UiNode {
   return (
     <>
       {blocks.map((block) => (
@@ -177,7 +178,7 @@ function MessageStreamBlocks({ blocks }: { blocks: MessageStreamBlock[] }): Reac
   );
 }
 
-function MessageStreamBlockHost({ block }: { block: MessageStreamBlock }): ReactNode {
+function MessageStreamBlockHost({ block }: { block: MessageStreamBlock }): UiNode {
   return (
     <div className="codex-panel__message-block" data-codex-panel-block-key={block.key}>
       {block.node}
@@ -185,7 +186,7 @@ function MessageStreamBlockHost({ block }: { block: MessageStreamBlock }): React
   );
 }
 
-function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolean; loadOlderTurns: () => void }): ReactNode {
+function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolean; loadOlderTurns: () => void }): UiNode {
   return (
     <div className="codex-panel__history-bar">
       <button type="button" disabled={loadingHistory} onClick={loadOlderTurns}>
@@ -195,7 +196,7 @@ function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolea
   );
 }
 
-function EmptyMessage(): ReactNode {
+function EmptyMessage(): UiNode {
   return <div className="codex-panel__message codex-panel__message--system">Send a message to start a conversation.</div>;
 }
 
@@ -205,7 +206,7 @@ function ActivityGroup({
 }: {
   group: Extract<DisplayBlock, { type: "activityGroup" }>;
   context: MessageStreamContext;
-}): ReactNode {
+}): UiNode {
   const detailsKey = `turn:${group.turnId}:activity`;
   const [open, setOpen] = useState(context.openDetails.has(detailsKey));
 
@@ -231,7 +232,7 @@ function ActivityGroup({
   );
 }
 
-function MessageItem({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): ReactNode {
+function MessageItem({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): UiNode {
   const collapsible = isCollapsibleUserMessage(item);
   const details = "details" in item ? item.details : undefined;
   return (
@@ -259,7 +260,7 @@ function MessageItem({ item, context }: { item: RenderableMessageItem; context: 
   );
 }
 
-function MessageRole({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): ReactNode {
+function MessageRole({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): UiNode {
   const forkActionsKey = `message:fork-actions:${item.id}`;
   const forkActionsOpen = context.openDetails.has(forkActionsKey);
   const roleRef = useRef<HTMLDivElement | null>(null);
@@ -349,7 +350,7 @@ function MessageAction({
   label: string;
   className: string;
   onClick: () => void;
-}): ReactNode {
+}): UiNode {
   return (
     <IconButton
       icon={icon}
@@ -364,7 +365,7 @@ function MessageAction({
   );
 }
 
-function CollapsibleMessageContent({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): ReactNode {
+function CollapsibleMessageContent({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): UiNode {
   const key = `message:${item.id}:expanded`;
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [overflows, setOverflows] = useState(false);
@@ -398,7 +399,13 @@ function CollapsibleMessageContent({ item, context }: { item: RenderableMessageI
         .filter(Boolean)
         .join(" ")}
     >
-      <MarkdownContent key={messageContentKey(item)} item={item} context={context} ref={contentRef} collapsed={overflows && !expanded} />
+      <MarkdownContent
+        key={messageContentKey(item)}
+        item={item}
+        context={context}
+        contentRef={contentRef}
+        collapsed={overflows && !expanded}
+      />
       <details
         className="codex-panel__message-collapse-details"
         hidden={!overflows || expanded}
@@ -418,13 +425,11 @@ function CollapsibleMessageContent({ item, context }: { item: RenderableMessageI
 interface MarkdownContentProps {
   item: RenderableMessageItem;
   context: MessageStreamContext;
+  contentRef?: Ref<HTMLDivElement>;
   collapsed?: boolean;
 }
 
-const MarkdownContent = forwardRef<HTMLDivElement, MarkdownContentProps>(function MarkdownContent(
-  { item, context, collapsed = false },
-  ref,
-): ReactNode {
+function MarkdownContent({ item, context, contentRef, collapsed = false }: MarkdownContentProps): UiNode {
   const localRef = useRef<HTMLDivElement | null>(null);
   const contextRef = useRef(context);
   useLayoutEffect(() => {
@@ -445,10 +450,10 @@ const MarkdownContent = forwardRef<HTMLDivElement, MarkdownContentProps>(functio
     <div
       ref={(element) => {
         localRef.current = element;
-        if (typeof ref === "function") {
-          ref(element);
-        } else if (ref) {
-          ref.current = element;
+        if (typeof contentRef === "function") {
+          contentRef(element);
+        } else if (contentRef) {
+          contentRef.current = element;
         }
       }}
       className={[
@@ -460,9 +465,9 @@ const MarkdownContent = forwardRef<HTMLDivElement, MarkdownContentProps>(functio
         .join(" ")}
     />
   );
-});
+}
 
-function ReferencedThread({ item }: { item: Extract<DisplayItem, { kind: "message" }> }): ReactNode {
+function ReferencedThread({ item }: { item: Extract<DisplayItem, { kind: "message" }> }): UiNode {
   const reference = item.referencedThread;
   if (!reference) return null;
   return (
@@ -479,7 +484,7 @@ function ReferencedThread({ item }: { item: Extract<DisplayItem, { kind: "messag
   );
 }
 
-function EditedFiles({ item, context }: { item: Extract<DisplayItem, { kind: "message" }>; context: MessageStreamContext }): ReactNode {
+function EditedFiles({ item, context }: { item: Extract<DisplayItem, { kind: "message" }>; context: MessageStreamContext }): UiNode {
   const editedFiles = item.editedFiles ?? [];
   const label = editedFiles.length === 1 ? "Edited 1 file" : `Edited ${String(editedFiles.length)} files`;
   return (
@@ -523,7 +528,7 @@ function EditedFiles({ item, context }: { item: Extract<DisplayItem, { kind: "me
   );
 }
 
-function MentionedFiles({ item, context }: { item: Extract<DisplayItem, { kind: "message" }>; context: MessageStreamContext }): ReactNode {
+function MentionedFiles({ item, context }: { item: Extract<DisplayItem, { kind: "message" }>; context: MessageStreamContext }): UiNode {
   const mentionedFiles = item.mentionedFiles ?? [];
   const label = mentionedFiles.length === 1 ? "Mentioned 1 file" : `Mentioned ${String(mentionedFiles.length)} files`;
   return (
@@ -547,7 +552,7 @@ function MentionedFiles({ item, context }: { item: Extract<DisplayItem, { kind: 
   );
 }
 
-function AutoReviewSummaries({ summaries }: { summaries: string[] }): ReactNode {
+function AutoReviewSummaries({ summaries }: { summaries: string[] }): UiNode {
   const label = summaries.length === 1 ? "Auto-reviewed 1 request" : `Auto-reviewed ${String(summaries.length)} requests`;
   return (
     <details className="codex-panel__auto-reviews">
@@ -569,7 +574,7 @@ function MessageDetails({
   itemId: string;
   details: DisplayDetailSection[];
   context: MessageStreamContext;
-}): ReactNode {
+}): UiNode {
   return (
     <>
       {details.map((section, index) => (
@@ -587,7 +592,7 @@ function MessageDetails({
   );
 }
 
-function SystemDetails({ details }: { details: DisplayDetailSection[] }): ReactNode {
+function SystemDetails({ details }: { details: DisplayDetailSection[] }): UiNode {
   return (
     <>
       {details.map((section, index) => (
@@ -600,7 +605,7 @@ function SystemDetails({ details }: { details: DisplayDetailSection[] }): ReactN
   );
 }
 
-function DetailSectionBody({ section }: { section: DisplayDetailSection }): ReactNode {
+function DetailSectionBody({ section }: { section: DisplayDetailSection }): UiNode {
   return (
     <>
       {section.rows && section.rows.length > 0 ? (
@@ -631,8 +636,8 @@ function RememberedDetails({
   detailsKey: string;
   summary: string;
   context: MessageStreamContext;
-  children: ReactNode;
-}): ReactNode {
+  children: UiNode;
+}): UiNode {
   const details = (
     <details
       className={detailsClassName}

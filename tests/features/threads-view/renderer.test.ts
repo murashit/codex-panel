@@ -201,9 +201,7 @@ describe("threads view renderer decisions", () => {
       { status: "1 thread", loading: false, rows: [{ ...row, rename: { active: true, draft: "New name", generating: false } }] },
       actions,
     );
-    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).dispatchEvent(
-      new FocusEvent("focusout", { bubbles: true }),
-    );
+    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).dispatchEvent(new FocusEvent("blur"));
     expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
 
     expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row")).click();

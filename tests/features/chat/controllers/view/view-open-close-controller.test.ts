@@ -8,14 +8,14 @@ import {
   type ChatViewOpenCloseControllerHost,
 } from "../../../../../src/features/chat/controllers/view/view-open-close-controller";
 import { unmountChatPanelShell } from "../../../../../src/features/chat/ui/shell";
-import { unmountReactRoot } from "../../../../../src/shared/ui/react-root";
+import { unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 vi.mock("../../../../../src/features/chat/ui/shell", () => ({
   unmountChatPanelShell: vi.fn(),
 }));
 
-vi.mock("../../../../../src/shared/ui/react-root", () => ({
-  unmountReactRoot: vi.fn(),
+vi.mock("../../../../../src/shared/ui/ui-root", () => ({
+  unmountUiRoot: vi.fn(),
 }));
 
 function createHost(overrides: Partial<ChatViewOpenCloseControllerHost> = {}) {
@@ -60,7 +60,7 @@ function createHost(overrides: Partial<ChatViewOpenCloseControllerHost> = {}) {
 describe("ChatViewOpenCloseController", () => {
   beforeEach(() => {
     vi.mocked(unmountChatPanelShell).mockClear();
-    vi.mocked(unmountReactRoot).mockClear();
+    vi.mocked(unmountUiRoot).mockClear();
   });
 
   it("registers open events and schedules startup work", () => {
@@ -87,7 +87,7 @@ describe("ChatViewOpenCloseController", () => {
     expect(host.setOpened).toHaveBeenCalledWith(false);
     expect(host.setClosing).toHaveBeenCalledWith(true);
     expect(host.clearDeferredTasks).toHaveBeenCalledOnce();
-    expect(unmountReactRoot).toHaveBeenCalledWith(root.querySelector(".codex-panel__toolbar"));
+    expect(unmountUiRoot).toHaveBeenCalledWith(root.querySelector(".codex-panel__toolbar"));
     expect(host.disposeMessages).toHaveBeenCalledOnce();
     expect(host.disposeComposer).toHaveBeenCalledOnce();
     expect(unmountChatPanelShell).toHaveBeenCalledWith(root);

@@ -2,7 +2,7 @@ import { ItemView, type ViewStateResult } from "obsidian";
 
 import { VIEW_TYPE_CODEX_TURN_DIFF } from "../../constants";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
-import { unmountReactRoot } from "../../shared/ui/react-root";
+import { unmountUiRoot } from "../../shared/ui/ui-root";
 import {
   isPersistedChatTurnDiffViewState,
   persistedChatTurnDiffViewState,
@@ -50,7 +50,7 @@ export class CodexChatTurnDiffView extends ItemView {
   }
 
   override async onClose(): Promise<void> {
-    unmountReactRoot(this.contentEl);
+    unmountUiRoot(this.contentEl);
   }
 
   setDiffPayload(payload: ChatTurnDiffViewState): void {

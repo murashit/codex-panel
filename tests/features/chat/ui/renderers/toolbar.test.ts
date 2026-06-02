@@ -256,9 +256,7 @@ describe("toolbar renderer decisions", () => {
       }),
       actions,
     );
-    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")).dispatchEvent(
-      new FocusEvent("focusout", { bubbles: true }),
-    );
+    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")).dispatchEvent(new FocusEvent("blur"));
     expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
     expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")).dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),

@@ -1,9 +1,9 @@
-import type { ButtonHTMLAttributes, ComponentChild as ReactNode, TargetedKeyboardEvent } from "preact";
+import type { ButtonHTMLAttributes, ComponentChild as UiNode, TargetedKeyboardEvent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/view";
-import { IconButton, ObsidianIcon } from "../../../shared/ui/react-components";
-import { renderReactRoot } from "../../../shared/ui/react-root";
+import { IconButton, ObsidianIcon } from "../../../shared/ui/components";
+import { renderUiRoot } from "../../../shared/ui/ui-root";
 import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../toolbar-model";
 
 type ButtonProps = ButtonHTMLAttributes & {
@@ -30,10 +30,10 @@ export interface ToolbarActions {
 }
 
 export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
-  renderReactRoot(toolbar, <Toolbar model={model} actions={actions} />);
+  renderUiRoot(toolbar, <Toolbar model={model} actions={actions} />);
 }
 
-function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): ReactNode {
+function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <>
       <div className="codex-panel__toolbar-primary">
@@ -64,7 +64,7 @@ function ToolbarIconButton({
   icon: string;
   label: string;
   className?: string;
-} & Omit<ButtonProps, "className" | "type">): ReactNode {
+} & Omit<ButtonProps, "className" | "type">): UiNode {
   return (
     <IconButton
       {...props}
@@ -75,7 +75,7 @@ function ToolbarIconButton({
   );
 }
 
-function RuntimeStrip({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): ReactNode {
+function RuntimeStrip({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <div className="codex-panel__runtime-strip">
       <RuntimeIcon
@@ -127,7 +127,7 @@ function RuntimeIcon({
   className?: string;
   active: boolean;
   onClick: () => void;
-}): ReactNode {
+}): UiNode {
   return (
     <ToolbarIconButton
       icon={icon}
@@ -139,7 +139,7 @@ function RuntimeIcon({
   );
 }
 
-function ContextMeter({ context }: { context: ToolbarViewModel["context"] }): ReactNode {
+function ContextMeter({ context }: { context: ToolbarViewModel["context"] }): UiNode {
   if (!context) return null;
   return (
     <div className={`codex-panel__meter-compact codex-panel__context-compact codex-panel__meter-compact--${context.level}`}>
@@ -154,7 +154,7 @@ function ContextMeter({ context }: { context: ToolbarViewModel["context"] }): Re
   );
 }
 
-function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): ReactNode {
+function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <button
       className={[
@@ -172,7 +172,7 @@ function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: To
   );
 }
 
-function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): ReactNode {
+function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   if (!model.openPanel) return null;
   return (
     <div className={`codex-panel__toolbar-panel codex-panel__toolbar-panel--${model.openPanel}`}>
@@ -183,7 +183,7 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
   );
 }
 
-function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): ReactNode {
+function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <>
       <div className="codex-panel__status-panel-items" role="menu">
@@ -202,7 +202,7 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
   );
 }
 
-function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): ReactNode {
+function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): UiNode {
   if (!rateLimit) return null;
   return (
     <div className={`codex-panel__limit-panel codex-panel__limit-panel--${rateLimit.level}`}>
@@ -226,7 +226,7 @@ function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): 
   );
 }
 
-function ConnectionDiagnostics({ sections }: { sections: ToolbarDiagnosticSection[] }): ReactNode {
+function ConnectionDiagnostics({ sections }: { sections: ToolbarDiagnosticSection[] }): UiNode {
   return (
     <div className="codex-panel__connection-diagnostics">
       <div className="codex-panel__connection-diagnostics-title">Connection</div>
@@ -237,7 +237,7 @@ function ConnectionDiagnostics({ sections }: { sections: ToolbarDiagnosticSectio
   );
 }
 
-function DiagnosticSection({ section }: { section: ToolbarDiagnosticSection }): ReactNode {
+function DiagnosticSection({ section }: { section: ToolbarDiagnosticSection }): UiNode {
   return (
     <>
       <div className="codex-panel__connection-diagnostics-section">{section.title}</div>
@@ -256,7 +256,7 @@ function DiagnosticSection({ section }: { section: ToolbarDiagnosticSection }): 
   );
 }
 
-function EffectiveConfigPanel({ sections }: { sections: EffectiveConfigSection[] }): ReactNode {
+function EffectiveConfigPanel({ sections }: { sections: EffectiveConfigSection[] }): UiNode {
   return (
     <div className="codex-panel__config">
       <div className="codex-panel__config-title">Effective Codex config</div>
@@ -269,7 +269,7 @@ function EffectiveConfigPanel({ sections }: { sections: EffectiveConfigSection[]
   );
 }
 
-function FragmentedConfigSection({ section }: { section: EffectiveConfigSection }): ReactNode {
+function FragmentedConfigSection({ section }: { section: EffectiveConfigSection }): UiNode {
   return (
     <>
       <div className="codex-panel__config-section">{section.title}</div>
@@ -283,7 +283,7 @@ function FragmentedConfigSection({ section }: { section: EffectiveConfigSection 
   );
 }
 
-function RuntimePicker({ model }: { model: ToolbarViewModel }): ReactNode {
+function RuntimePicker({ model }: { model: ToolbarViewModel }): UiNode {
   return (
     <div className="codex-panel__runtime-picker" role="listbox">
       <div className="codex-panel__runtime-picker-label">Reasoning effort</div>
@@ -316,7 +316,7 @@ function RuntimePicker({ model }: { model: ToolbarViewModel }): ReactNode {
   );
 }
 
-function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions: ToolbarActions }): ReactNode {
+function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions: ToolbarActions }): UiNode {
   if (threads.length === 0) {
     return (
       <div className="codex-panel__threads">
@@ -338,7 +338,7 @@ function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions
   );
 }
 
-function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): ReactNode {
+function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): UiNode {
   const archiveConfirm = archiveConfirmState(thread);
   return (
     <div
@@ -383,7 +383,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
   );
 }
 
-function ArchiveActions({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): ReactNode {
+function ArchiveActions({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): UiNode {
   const archiveConfirm = archiveConfirmState(thread);
   if (!archiveConfirm.active) {
     return (
@@ -418,7 +418,7 @@ function ArchiveModeButton({
   saveMarkdown: boolean;
   primary: boolean;
   actions: ToolbarActions;
-}): ReactNode {
+}): UiNode {
   const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
   return (
     <ToolbarIconButton
@@ -434,7 +434,7 @@ function ArchiveModeButton({
   );
 }
 
-function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): ReactNode {
+function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const generating = thread.rename?.generating ?? false;
   const draft = thread.rename?.draft ?? thread.title;
@@ -461,7 +461,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
               type="text"
               value={draft}
               aria-label={`Rename ${thread.title}`}
-              onChange={(event) => {
+              onInput={(event) => {
                 actions.updateRenameDraft(thread.threadId, event.currentTarget.value);
               }}
               onKeyDown={(event) => {
@@ -518,9 +518,9 @@ function ToolbarPanelItem({
   className?: string | undefined;
   interactive?: boolean | undefined;
   role?: "button" | "menuitem" | "option";
-  renderContent?: () => ReactNode;
+  renderContent?: () => UiNode;
   onClick?: () => void;
-}): ReactNode {
+}): UiNode {
   const onKeyDown = (event: TargetedKeyboardEvent<HTMLElement>) => {
     if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
@@ -558,7 +558,7 @@ function ToolbarPanelItem({
   );
 }
 
-function ToolbarPanelCheck({ selected }: { selected: boolean }): ReactNode {
+function ToolbarPanelCheck({ selected }: { selected: boolean }): UiNode {
   return selected ? (
     <ObsidianIcon icon="check" className="codex-panel__toolbar-panel-check" />
   ) : (

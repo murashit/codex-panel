@@ -1,4 +1,4 @@
-import type { ComponentChild as ReactNode } from "preact";
+import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { toolResultView, type ToolResultDetailSection, type ToolResultDisplayItem, type ToolResultView } from "../display/tool-view";
@@ -11,11 +11,11 @@ export interface ToolResultRenderContext {
   renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
 }
 
-export function toolResultNode(item: ToolResultDisplayItem, context: ToolResultRenderContext): ReactNode {
+export function toolResultNode(item: ToolResultDisplayItem, context: ToolResultRenderContext): UiNode {
   return <ToolResult item={item} context={context} />;
 }
 
-function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: ToolResultRenderContext }): ReactNode {
+function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: ToolResultRenderContext }): UiNode {
   const view = toolResultView(item, context.workspaceRoot);
   const [open, setOpen] = useState(context.openDetails.has(view.detailsKey));
 
@@ -63,7 +63,7 @@ function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: T
   );
 }
 
-function ToolResultHeader({ view }: { view: ToolResultView }): ReactNode {
+function ToolResultHeader({ view }: { view: ToolResultView }): UiNode {
   const content = <span className="codex-panel__message-role codex-panel__tool-result-label">{view.label}</span>;
   return view.details.length > 0 ? (
     <summary className="codex-panel__tool-result-header">{content}</summary>
@@ -72,7 +72,7 @@ function ToolResultHeader({ view }: { view: ToolResultView }): ReactNode {
   );
 }
 
-function TextWithWikiLinks({ className, text, context }: { className: string; text: string; context: ToolResultRenderContext }): ReactNode {
+function TextWithWikiLinks({ className, text, context }: { className: string; text: string; context: ToolResultRenderContext }): UiNode {
   const ref = useRef<HTMLDivElement | null>(null);
   const contextRef = useRef(context);
   useLayoutEffect(() => {
@@ -87,7 +87,7 @@ function TextWithWikiLinks({ className, text, context }: { className: string; te
   return <div ref={ref} className={className} />;
 }
 
-function ToolResultDetailSection({ section }: { section: ToolResultDetailSection }): ReactNode {
+function ToolResultDetailSection({ section }: { section: ToolResultDetailSection }): UiNode {
   if (section.kind === "meta") {
     return <MetaBlock title={section.title} rows={section.rows} />;
   }
@@ -101,7 +101,7 @@ function ToolResultDetailSection({ section }: { section: ToolResultDetailSection
   return <OutputBlock title={section.title} body={section.body} />;
 }
 
-function MetaBlock({ title, rows }: { title: string | undefined; rows: { key: string; value: string }[] }): ReactNode {
+function MetaBlock({ title, rows }: { title: string | undefined; rows: { key: string; value: string }[] }): UiNode {
   const body = (
     <dl className="codex-panel__meta-grid">
       {rows.map((row) => (
@@ -118,7 +118,7 @@ function MetaBlock({ title, rows }: { title: string | undefined; rows: { key: st
   );
 }
 
-function FragmentPair({ row }: { row: { key: string; value: string } }): ReactNode {
+function FragmentPair({ row }: { row: { key: string; value: string } }): UiNode {
   return (
     <>
       <dt>{row.key}</dt>
@@ -127,7 +127,7 @@ function FragmentPair({ row }: { row: { key: string; value: string } }): ReactNo
   );
 }
 
-function OutputBlock({ title, body }: { title: string; body: string }): ReactNode {
+function OutputBlock({ title, body }: { title: string; body: string }): UiNode {
   return (
     <OutputSection title={title} className="codex-panel__output">
       <pre>{body}</pre>
@@ -135,7 +135,7 @@ function OutputBlock({ title, body }: { title: string; body: string }): ReactNod
   );
 }
 
-function OutputSection({ title, className, children }: { title: string; className: string; children: ReactNode }): ReactNode {
+function OutputSection({ title, className, children }: { title: string; className: string; children: UiNode }): UiNode {
   return (
     <div className={className}>
       <div className="codex-panel__output-title">{title}</div>
@@ -144,7 +144,7 @@ function OutputSection({ title, className, children }: { title: string; classNam
   );
 }
 
-function DiffLines({ diff }: { diff: string }): ReactNode {
+function DiffLines({ diff }: { diff: string }): UiNode {
   const ref = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     const element = ref.current;

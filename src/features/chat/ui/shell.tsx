@@ -1,4 +1,4 @@
-import { unmountReactRoot } from "../../../shared/ui/react-root";
+import { unmountUiRoot } from "../../../shared/ui/ui-root";
 import type { ChatState, ChatStateStore } from "../chat-state";
 
 export type ChatPanelSlotSnapshot = string | number | boolean | null;
@@ -90,11 +90,11 @@ function renderMountedSlots(container: HTMLElement, props: ChatPanelShellProps):
 }
 
 function unmountSlotRoots(container: HTMLElement): void {
-  unmountReactRoot(container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar"));
-  unmountReactRoot(
+  unmountUiRoot(container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar"));
+  unmountUiRoot(
     container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages"),
   );
-  unmountReactRoot(container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--composer"));
+  unmountUiRoot(container.querySelector<HTMLElement>(":scope > .codex-panel__body > .codex-panel__slot--composer"));
 }
 
 function renderKey(renderVersion: number, snapshot: ChatPanelSlotSnapshot): string {
