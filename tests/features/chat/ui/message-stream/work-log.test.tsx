@@ -119,6 +119,36 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("https://example.com");
   });
 
+  it("renders plain tools without a summary as a single compact row", () => {
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: runningTurnLifecycle("turn"),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        {
+          id: "tool-event",
+          kind: "tool",
+          role: "tool",
+          text: "",
+          toolLabel: "user steered",
+          turnId: "turn",
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+
+    expect(element.classList.contains("codex-panel__tool-result--plain")).toBe(true);
+    expect(element.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("user steered");
+    expect(element.querySelector(".codex-panel__tool-summary")).toBeNull();
+    expect(element.textContent).toBe("user steered");
+  });
+
   it("renders path summary tools relative to the workspace root", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",

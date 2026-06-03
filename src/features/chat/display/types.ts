@@ -110,6 +110,7 @@ export interface FileChangeDisplayItem extends DisplayBase {
 export interface ToolDisplayItem extends DisplayBase {
   kind: "tool" | "hook" | "reasoning";
   role: "tool";
+  activityKind?: "userSteered";
   toolLabel?: string;
   summaryPath?: boolean;
   status?: string;

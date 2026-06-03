@@ -3,6 +3,9 @@ import { isFinalAssistantMessage } from "./final-assistant";
 import { pathRelativeToRoot } from "./paths";
 import { executionState } from "./state";
 
+const STEERING_ACTIVITY_LABEL = "user steered";
+const STEERING_ACTIVITY_KIND = "userSteered";
+
 export function displayBlocksForItems(
   items: readonly DisplayItem[],
   activeTurnId: string | null,
@@ -17,11 +20,20 @@ export function displayBlocksForItems(
   const summaryAssistantIdByTurn = new Map([...finalAssistantIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
 
   const groupedActivities = new Map<string, DisplayItem[]>();
+  const seenUserMessagesByTurn = new Map<string, number>();
   for (const item of visibleItems) {
-    if (!item.turnId || !groupedTurnIds.has(item.turnId) || !isCompletedTurnDetailItem(item, finalAssistantIdByTurn)) continue;
-    const group = groupedActivities.get(item.turnId) ?? [];
+    const turnId = item.turnId;
+    if (!turnId || !groupedTurnIds.has(turnId)) continue;
+    if (isSteeringUserMessage(item, seenUserMessagesByTurn)) {
+      const group = groupedActivities.get(turnId) ?? [];
+      group.push(steeringActivityItem(item, turnId));
+      groupedActivities.set(turnId, group);
+      continue;
+    }
+    if (!isCompletedTurnDetailItem(item, finalAssistantIdByTurn)) continue;
+    const group = groupedActivities.get(turnId) ?? [];
     group.push(item);
-    groupedActivities.set(item.turnId, group);
+    groupedActivities.set(turnId, group);
   }
 
   const blocks: DisplayBlock[] = [];
@@ -51,6 +63,27 @@ export function displayBlocksForItems(
 
 function shouldShowDisplayItem(item: DisplayItem): boolean {
   return item.kind !== "reasoning" || executionState(item) !== "completed" || item.text.trim().length > 0;
+}
+
+function isSteeringUserMessage(item: DisplayItem, seenUserMessagesByTurn: Map<string, number>): boolean {
+  if (!item.turnId || item.kind !== "message" || item.role !== "user") return false;
+  const seenCount = seenUserMessagesByTurn.get(item.turnId) ?? 0;
+  seenUserMessagesByTurn.set(item.turnId, seenCount + 1);
+  // App-server represents steering as subsequent user messages in the same turn.
+  return seenCount > 0;
+}
+
+function steeringActivityItem(item: DisplayItem, turnId: string): DisplayItem {
+  return {
+    id: `steer-activity-${item.id}`,
+    kind: "tool",
+    role: "tool",
+    text: "",
+    turnId,
+    ...(item.itemId ? { itemId: item.itemId } : {}),
+    activityKind: STEERING_ACTIVITY_KIND,
+    toolLabel: STEERING_ACTIVITY_LABEL,
+  };
 }
 
 function isCompletedTurnDetailItem(item: DisplayItem, finalAssistantIdByTurn: Map<string, string>): boolean {
@@ -126,11 +159,12 @@ function autoReviewSummariesForTurns(items: readonly DisplayItem[]): Map<string,
 function turnActivitySummary(items: readonly DisplayItem[]): string {
   const parts = [
     countMatchingLabel(items, (item) => item.kind === "message" && item.role === "assistant", "response", "responses"),
+    countMatchingLabel(items, isSteeringActivityDisplayItem, "steer", "steers"),
     countLabel(items, "taskProgress", "task progress"),
     countLabel(items, "agent", "agent"),
     countLabel(items, "command", "command"),
     countLabel(items, "fileChange", "file change"),
-    countLabel(items, "tool", "tool"),
+    countMatchingLabel(items, (item) => item.kind === "tool" && !isSteeringActivityDisplayItem(item), "tool"),
     countLabel(items, "hook", "hook"),
     countLabel(items, "reasoning", "thought", "thought notes"),
     countLabel(items, "approvalResult", "approval"),
@@ -140,6 +174,10 @@ function turnActivitySummary(items: readonly DisplayItem[]): string {
 
   if (parts.length === 0) return "Work details";
   return `Work details: ${parts.join(", ")}`;
+}
+
+function isSteeringActivityDisplayItem(item: DisplayItem): boolean {
+  return item.kind === "tool" && item.activityKind === STEERING_ACTIVITY_KIND;
 }
 
 function countMatchingLabel(

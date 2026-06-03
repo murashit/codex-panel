@@ -1005,6 +1005,41 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["s1", "s2", "turn-t1-activity", "a1"]);
   });
 
+  it("adds steering markers to completed turn work details without hiding the steering message", () => {
+    const items: DisplayItem[] = [
+      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      commandItem("c1", "rg issue", "t1"),
+      { id: "u2", kind: "message", role: "user", text: "also check tests", turnId: "t1", clientId: "local-steer-1" },
+      commandItem("c2", "npm test", "t1"),
+      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+    ];
+
+    const blocks = displayBlocksForItems(items, null);
+
+    expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "u2", "turn-t1-activity", "a1"]);
+    expect(blocks[2]).toMatchObject({
+      summary: "Work details: steer, 2 commands",
+      items: [{ id: "c1" }, { id: "steer-activity-u2", text: "", activityKind: "userSteered", toolLabel: "user steered" }, { id: "c2" }],
+    });
+  });
+
+  it("pluralizes multiple steering markers as steers in completed turn work details", () => {
+    const items: DisplayItem[] = [
+      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      { id: "u2", kind: "message", role: "user", text: "also check tests", turnId: "t1" },
+      { id: "u3", kind: "message", role: "user", text: "and update docs", turnId: "t1" },
+      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+    ];
+
+    const blocks = displayBlocksForItems(items, null);
+    const activityGroup = blocks.find((block) => block.type === "activityGroup");
+
+    expect(activityGroup).toMatchObject({
+      summary: "Work details: 2 steers",
+      items: [{ id: "steer-activity-u2" }, { id: "steer-activity-u3" }],
+    });
+  });
+
   it("keeps active turn activities expanded", () => {
     const items: DisplayItem[] = [
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1" },

@@ -18,6 +18,7 @@ export function toolResultNode(item: ToolResultDisplayItem, context: ToolResultR
 function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: ToolResultRenderContext }): UiNode {
   const view = toolResultView(item, context.workspaceRoot);
   const [open, setOpen] = useState(context.openDetails.has(view.detailsKey));
+  const hasSummary = view.summary.trim().length > 0;
 
   useLayoutEffect(() => {
     setOpen(context.openDetails.has(view.detailsKey));
@@ -37,7 +38,7 @@ function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: T
     return (
       <div className={className}>
         <ToolResultHeader view={view} />
-        <TextWithWikiLinks className="codex-panel__tool-summary" text={view.summary} context={context} />
+        {hasSummary ? <TextWithWikiLinks className="codex-panel__tool-summary" text={view.summary} context={context} /> : null}
       </div>
     );
   }
@@ -58,7 +59,7 @@ function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: T
           <ToolResultDetailSection key={`${section.kind}:${section.title ?? ""}:${String(index)}`} section={section} />
         ))}
       </details>
-      <TextWithWikiLinks className="codex-panel__tool-summary" text={view.summary} context={context} />
+      {hasSummary ? <TextWithWikiLinks className="codex-panel__tool-summary" text={view.summary} context={context} /> : null}
     </div>
   );
 }
