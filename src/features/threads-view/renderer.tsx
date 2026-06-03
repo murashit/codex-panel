@@ -74,7 +74,7 @@ function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: Thr
 }
 
 function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): UiNode {
-  const archiveConfirm = archiveConfirmState(row);
+  const archiveConfirm = row.archiveConfirm;
   const className = [
     "codex-panel-threads__row",
     row.live ? `codex-panel-threads__row--${row.live.status}` : "",
@@ -121,7 +121,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
                 }}
               />
             ) : null}
-            <ArchiveActions row={row} actions={actions} />
+            <ArchiveActions row={row} archiveConfirm={archiveConfirm} actions={actions} />
           </div>
         </>
       )}
@@ -129,8 +129,15 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   );
 }
 
-function ArchiveActions({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): UiNode {
-  const archiveConfirm = archiveConfirmState(row);
+function ArchiveActions({
+  row,
+  archiveConfirm,
+  actions,
+}: {
+  row: ThreadsRowModel;
+  archiveConfirm: ThreadsRowModel["archiveConfirm"];
+  actions: ThreadsViewActions;
+}): UiNode {
   if (!archiveConfirm.active) {
     return (
       <ThreadsIconButton
@@ -263,8 +270,4 @@ function ThreadsIconButton({
       className={`clickable-icon nav-action-button codex-panel-threads__icon-button ${className}`}
     />
   );
-}
-
-function archiveConfirmState(row: ThreadsRowModel): { active: boolean; defaultSaveMarkdown: boolean } {
-  return row.archiveConfirm ?? { active: false, defaultSaveMarkdown: false };
 }

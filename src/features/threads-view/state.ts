@@ -17,7 +17,7 @@ export interface ThreadsRowModel {
   live: ThreadsLiveState | null;
   selected: boolean;
   rename: { active: boolean; draft: string; generating: boolean };
-  archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
+  archiveConfirm: { active: boolean; defaultSaveMarkdown: boolean };
 }
 
 export type ThreadsRenameState = { kind: "editing"; draft: string } | { kind: "generating"; draft: string; originalDraft: string };

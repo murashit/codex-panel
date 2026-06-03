@@ -70,6 +70,20 @@ function threadFixture(overrides: Partial<Thread> = {}): Thread {
   };
 }
 
+function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
+  const thread = overrides.thread ?? threadFixture({ id: "thread", name: "Thread" });
+  const title = overrides.title ?? thread.name ?? thread.preview;
+  return {
+    thread,
+    title,
+    live: null,
+    selected: false,
+    rename: { active: false, draft: title, generating: false },
+    archiveConfirm: { active: false, defaultSaveMarkdown: false },
+    ...overrides,
+  };
+}
+
 function threadsViewActions() {
   return {
     refresh: vi.fn(),
@@ -163,14 +177,9 @@ describe("threads view renderer decisions", () => {
   it("renders threads view archive confirmation with the default action on the right", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
-    const row: ThreadsRowModel = {
-      thread: threadFixture({ id: "thread", name: "Thread" }),
-      title: "Thread",
-      live: null,
-      selected: false,
-      rename: { active: false, draft: "Thread", generating: false },
+    const row = rowFixture({
       archiveConfirm: { active: true, defaultSaveMarkdown: false },
-    };
+    });
 
     renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
 
@@ -192,13 +201,7 @@ describe("threads view renderer decisions", () => {
   it("starts threads view archive confirmation before archiving", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
-    const row: ThreadsRowModel = {
-      thread: threadFixture({ id: "thread", name: "Thread" }),
-      title: "Thread",
-      live: null,
-      selected: false,
-      rename: { active: false, draft: "Thread", generating: false },
-    };
+    const row = rowFixture();
 
     renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
     parent.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
@@ -210,13 +213,11 @@ describe("threads view renderer decisions", () => {
   it("renders rename rows and saves entered values", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
-    const row: ThreadsRowModel = {
+    const row = rowFixture({
       thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
-      live: null,
-      selected: false,
       rename: { active: true, draft: "Old name", generating: false },
-    };
+    });
 
     renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
 
@@ -239,13 +240,11 @@ describe("threads view renderer decisions", () => {
   it("renders threads view rename actions inline with auto-name", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
-    const row: ThreadsRowModel = {
+    const row = rowFixture({
       thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
-      live: null,
-      selected: false,
       rename: { active: true, draft: "Old name", generating: false },
-    };
+    });
 
     renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
 
@@ -261,13 +260,11 @@ describe("threads view renderer decisions", () => {
 
   it("renders threads view rename auto-name loading state", () => {
     const parent = document.createElement("div");
-    const row: ThreadsRowModel = {
+    const row = rowFixture({
       thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
-      live: null,
-      selected: false,
       rename: { active: true, draft: "Old name", generating: true },
-    };
+    });
 
     renderThreadsView(parent, { status: "1 thread", loading: false, rows: [row] }, threadsViewActions());
 
