@@ -2,8 +2,8 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { composerCursorAtVisualTextareaBoundary } from "../../../../src/features/chat/ui/textarea-caret";
-import { installObsidianDomShims } from "../../../support/dom";
+import { textareaCursorAtVisualBoundary } from "../../../src/shared/ui/textarea-caret";
+import { installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();
 
@@ -35,7 +35,7 @@ describe("textarea caret visual boundary measurement", () => {
       return 0;
     });
 
-    expect(composerCursorAtVisualTextareaBoundary(-1, textarea)).toBe(true);
+    expect(textareaCursorAtVisualBoundary(-1, textarea)).toBe(true);
     expect(offsetTop).toHaveBeenCalled();
     expect(mirrorStyles.length).toBeGreaterThan(0);
     for (const style of mirrorStyles) {

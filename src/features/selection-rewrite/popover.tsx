@@ -6,6 +6,7 @@ import { renderDisplayDiffLines } from "../../shared/diff/render";
 import { displayDiffLines } from "../../shared/diff/unified";
 import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
 import { IconButton } from "../../shared/ui/components";
+import { textareaCursorAtVisualBoundary, type TextareaCaretBoundaryDirection } from "../../shared/ui/textarea-caret";
 import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
@@ -24,6 +25,9 @@ import { buildSelectionRewritePrompt } from "./prompt";
 import { runSelectionRewrite, type SelectionRewriteActivity } from "./runner";
 
 const POPOVER_MARGIN = 8;
+const MAX_SELECTION_REWRITE_INSTRUCTION_HISTORY = 20;
+
+const selectionRewriteInstructionHistory: string[] = [];
 
 export interface SelectionRewritePopoverOptions {
   codexPath: string;
@@ -56,6 +60,8 @@ export class SelectionRewritePopover {
   private generationRun: SelectionRewriteGenerationRunState = { kind: "idle" };
   private readonly cleanups: Cleanup[] = [];
   private instructionDraft: string;
+  private historyCursor: number | null = null;
+  private historyDraft = "";
   private status: SelectionRewritePopoverStatusState = { text: "", active: false };
 
   constructor(private readonly options: SelectionRewritePopoverOptions) {
@@ -179,6 +185,9 @@ export class SelectionRewritePopover {
   private startGeneration(instruction: string): ActiveSelectionRewriteGenerationRun {
     const generationRun: ActiveSelectionRewriteGenerationRun = { kind: "running", abortController: new AbortController() };
     this.generationRun = generationRun;
+    rememberSelectionRewriteInstruction(instruction);
+    this.historyCursor = null;
+    this.historyDraft = "";
     this.transitionState({ type: "generation-started", instruction });
     this.renderView();
     return generationRun;
@@ -281,11 +290,17 @@ export class SelectionRewritePopover {
         onGenerate={() => void this.generate()}
         onInstructionInput={(value) => {
           this.instructionDraft = value;
+          if (this.historyCursor === null) {
+            this.historyDraft = "";
+          } else {
+            this.historyDraft = value;
+          }
           this.syncInstructionHeight();
           this.syncControls();
           this.position();
         }}
         onInstructionKeyDown={(event) => {
+          if (this.handleInstructionHistoryKeyDown(event.currentTarget, event)) return;
           const hasReplacement = this.options.state.replacementText !== null;
           if (!(hasReplacement ? isSelectionRewriteActionKey(event) : isComposerSendKey(event, this.options.sendShortcut))) {
             return;
@@ -303,6 +318,58 @@ export class SelectionRewritePopover {
         streamPreview={state.streamText.trim()}
       />,
     );
+  }
+
+  private handleInstructionHistoryKeyDown(instruction: HTMLTextAreaElement, event: TargetedKeyboardEvent<HTMLTextAreaElement>): boolean {
+    const direction = selectionRewriteInstructionHistoryDirection(event, instruction);
+    if (direction === null || !this.navigateInstructionHistory(direction)) return false;
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.syncInstructionHeight();
+    this.syncControls();
+    this.position();
+    this.focusInstructionEnd();
+    return true;
+  }
+
+  private navigateInstructionHistory(direction: TextareaCaretBoundaryDirection): boolean {
+    if (selectionRewriteInstructionHistory.length === 0) return false;
+
+    if (this.historyCursor === null) {
+      if (direction === 1) return false;
+      this.historyCursor = selectionRewriteInstructionHistory.length;
+      this.historyDraft = this.instructionDraft;
+    }
+
+    if (direction === -1 && this.historyCursor > 0) {
+      this.historyCursor -= 1;
+      this.instructionDraft = selectionRewriteInstructionHistory[this.historyCursor] ?? "";
+      return true;
+    }
+
+    if (direction === 1) {
+      if (this.historyCursor < selectionRewriteInstructionHistory.length - 1) {
+        this.historyCursor += 1;
+        this.instructionDraft = selectionRewriteInstructionHistory[this.historyCursor] ?? "";
+        return true;
+      }
+
+      this.historyCursor = null;
+      this.instructionDraft = this.historyDraft;
+      this.historyDraft = "";
+      return true;
+    }
+
+    return false;
+  }
+
+  private focusInstructionEnd(): void {
+    const instruction = this.elements?.instruction;
+    if (!instruction) return;
+    const cursor = instruction.value.length;
+    instruction.focus({ preventScroll: true });
+    instruction.setSelectionRange(cursor, cursor);
   }
 
   private addDomListener<K extends keyof WindowEventMap>(
@@ -328,6 +395,53 @@ export class SelectionRewritePopover {
       target.removeEventListener(type, callback, options);
     });
   }
+}
+
+function rememberSelectionRewriteInstruction(instruction: string): void {
+  const existingIndex = selectionRewriteInstructionHistory.indexOf(instruction);
+  if (existingIndex !== -1) selectionRewriteInstructionHistory.splice(existingIndex, 1);
+
+  selectionRewriteInstructionHistory.push(instruction);
+  if (selectionRewriteInstructionHistory.length > MAX_SELECTION_REWRITE_INSTRUCTION_HISTORY) {
+    selectionRewriteInstructionHistory.splice(0, selectionRewriteInstructionHistory.length - MAX_SELECTION_REWRITE_INSTRUCTION_HISTORY);
+  }
+}
+
+function selectionRewriteInstructionHistoryDirection(
+  event: TargetedKeyboardEvent<HTMLTextAreaElement>,
+  instruction: HTMLTextAreaElement,
+): TextareaCaretBoundaryDirection | null {
+  if (event.isComposing || event.metaKey || event.altKey || event.shiftKey) return null;
+
+  const direction = selectionRewriteInstructionHistoryKeyDirection(event);
+  if (direction === null) return null;
+  if (!selectionRewriteInstructionCursorOnLogicalBoundary(direction, instruction)) return null;
+  return textareaCursorAtVisualBoundary(direction, instruction) ? direction : null;
+}
+
+function selectionRewriteInstructionHistoryKeyDirection(
+  event: TargetedKeyboardEvent<HTMLTextAreaElement>,
+): TextareaCaretBoundaryDirection | null {
+  if (!event.ctrlKey) {
+    if (event.key === "ArrowUp") return -1;
+    if (event.key === "ArrowDown") return 1;
+    return null;
+  }
+
+  const key = event.key.toLowerCase();
+  if (key === "p") return -1;
+  if (key === "n") return 1;
+  return null;
+}
+
+function selectionRewriteInstructionCursorOnLogicalBoundary(
+  direction: TextareaCaretBoundaryDirection,
+  instruction: HTMLTextAreaElement,
+): boolean {
+  if (instruction.selectionStart !== instruction.selectionEnd) return false;
+  return direction === -1
+    ? !instruction.value.slice(0, instruction.selectionStart).includes("\n")
+    : !instruction.value.slice(instruction.selectionEnd).includes("\n");
 }
 
 interface SelectionRewritePopoverViewProps {

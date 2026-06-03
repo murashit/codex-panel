@@ -90,7 +90,6 @@ const chatImperativeDomBridgeFiles = [
   "src/features/chat/ui/message-stream.tsx",
   "src/features/chat/ui/scroll.ts",
   "src/features/chat/ui/shell.tsx",
-  "src/features/chat/ui/textarea-caret.ts",
   "src/features/chat/ui/tool-result.tsx",
   "src/features/chat/ui/turn-diff.tsx",
 ];
@@ -103,6 +102,7 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/diff/render.ts",
   "src/shared/ui/dom.ts",
   "src/shared/ui/components.tsx",
+  "src/shared/ui/textarea-caret.ts",
   "src/shared/ui/ui-root.tsx",
 ];
 

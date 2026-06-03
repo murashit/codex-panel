@@ -354,6 +354,114 @@ describe("selection rewrite popover", () => {
 
     expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Rewritten once.");
   });
+
+  it("restores the current draft after accidental instruction history navigation", async () => {
+    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockResolvedValue({ replacementText: "Rewritten." });
+
+    await generateInstructionHistoryItem("History item one.");
+    await generateInstructionHistoryItem("History item two.");
+
+    const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "Current draft." }) }));
+    openPopover(popover);
+    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    instruction.setSelectionRange(0, 0);
+
+    void act(() => {
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
+    });
+
+    expect(instruction.value).toBe("History item two.");
+
+    void act(() => {
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }));
+    });
+
+    expect(instruction.value).toBe("Current draft.");
+
+    closePopover(popover);
+  });
+
+  it("preserves edited instruction history drafts while navigating history", async () => {
+    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockResolvedValue({ replacementText: "Rewritten." });
+
+    await generateInstructionHistoryItem("History item one.");
+    await generateInstructionHistoryItem("History item two.");
+
+    const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "Current draft." }) }));
+    openPopover(popover);
+    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    instruction.setSelectionRange(0, 0);
+
+    void act(() => {
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
+      setTextareaValue(instruction, "Edited history draft.");
+      instruction.dispatchEvent(new Event("input", { bubbles: true }));
+      instruction.setSelectionRange(0, 0);
+    });
+
+    expect(instruction.value).toBe("Edited history draft.");
+
+    void act(() => {
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ctrlKey: true, key: "p" }));
+    });
+
+    expect(instruction.value).toBe("History item one.");
+
+    void act(() => {
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }));
+    });
+
+    expect(instruction.value).toBe("History item two.");
+
+    void act(() => {
+      instruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ctrlKey: true, key: "n" }));
+    });
+
+    expect(instruction.value).toBe("Edited history draft.");
+
+    closePopover(popover);
+  });
+
+  it("records edited history items as new entries only when generated", async () => {
+    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockResolvedValue({ replacementText: "Rewritten." });
+
+    await generateInstructionHistoryItem("Rewrite as bullets.");
+
+    const editingPopover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
+    openPopover(editingPopover);
+    const editingInstruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+
+    void act(() => {
+      editingInstruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
+      setTextareaValue(editingInstruction, "Rewrite as numbered bullets.");
+      editingInstruction.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+      await flushPromises();
+    });
+
+    closePopover(editingPopover);
+
+    const historyPopover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
+    openPopover(historyPopover);
+    const historyInstruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+
+    void act(() => {
+      historyInstruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
+    });
+
+    expect(historyInstruction.value).toBe("Rewrite as numbered bullets.");
+
+    void act(() => {
+      historyInstruction.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
+    });
+
+    expect(historyInstruction.value).toBe("Rewrite as bullets.");
+
+    closePopover(historyPopover);
+  });
 });
 
 describe("selection rewrite runtime overrides", () => {
@@ -424,6 +532,24 @@ function closePopover(popover: SelectionRewritePopover): void {
   void act(() => {
     popover.close();
   });
+}
+
+async function generateInstructionHistoryItem(instructionText: string): Promise<void> {
+  const popover = new SelectionRewritePopover(popoverOptions({ state: rewriteState({ instruction: "" }) }));
+  openPopover(popover);
+  const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+
+  void act(() => {
+    setTextareaValue(instruction, instructionText);
+    instruction.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  await act(async () => {
+    expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+    await flushPromises();
+  });
+
+  closePopover(popover);
 }
 
 function popoverOptions(

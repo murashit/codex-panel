@@ -2,6 +2,7 @@ import type { App, EventRef } from "obsidian";
 
 import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "./composer/boundary-scroll";
 import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
+import { textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret";
 import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./composer/obsidian-context";
 import {
   activeComposerSuggestions,
@@ -15,7 +16,6 @@ import {
 import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-context";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { renderComposerShell, syncComposerHeight } from "./ui/composer";
-import { composerCursorAtVisualTextareaBoundary } from "./ui/textarea-caret";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 
 export interface ChatComposerControllerOptions {
@@ -205,7 +205,7 @@ export class ChatComposerController {
 
     const composer = this.composer;
     const action = composerBoundaryScrollDirection(event, composer, {
-      cursorAtVisualBoundary: (direction) => composerCursorAtVisualTextareaBoundary(direction, composer),
+      cursorAtVisualBoundary: (direction) => textareaCursorAtVisualBoundary(direction, composer),
     });
     if (!action) return false;
 

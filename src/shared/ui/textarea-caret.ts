@@ -1,17 +1,17 @@
-import type { ComposerBoundaryScrollDirection } from "../composer/boundary-scroll";
+export type TextareaCaretBoundaryDirection = -1 | 1;
 
-export function composerCursorAtVisualTextareaBoundary(direction: ComposerBoundaryScrollDirection, composer: HTMLTextAreaElement): boolean {
-  if (composer.selectionStart !== composer.selectionEnd) return false;
+export function textareaCursorAtVisualBoundary(direction: TextareaCaretBoundaryDirection, textarea: HTMLTextAreaElement): boolean {
+  if (textarea.selectionStart !== textarea.selectionEnd) return false;
 
-  const bounds = composer.getBoundingClientRect();
+  const bounds = textarea.getBoundingClientRect();
   if (bounds.width <= 0 || bounds.height <= 0) return true;
 
-  const lineStart = composer.value.lastIndexOf("\n", Math.max(0, composer.selectionStart - 1)) + 1;
-  const nextLineBreak = composer.value.indexOf("\n", composer.selectionEnd);
-  const lineEnd = nextLineBreak === -1 ? composer.value.length : nextLineBreak;
+  const lineStart = textarea.value.lastIndexOf("\n", Math.max(0, textarea.selectionStart - 1)) + 1;
+  const nextLineBreak = textarea.value.indexOf("\n", textarea.selectionEnd);
+  const lineEnd = nextLineBreak === -1 ? textarea.value.length : nextLineBreak;
 
-  const cursorTop = textareaCaretTop(composer, composer.selectionStart);
-  const boundaryTop = textareaCaretTop(composer, direction === -1 ? lineStart : lineEnd);
+  const cursorTop = textareaCaretTop(textarea, textarea.selectionStart);
+  const boundaryTop = textareaCaretTop(textarea, direction === -1 ? lineStart : lineEnd);
   if (cursorTop === null || boundaryTop === null) return true;
 
   const tolerance = 1;
