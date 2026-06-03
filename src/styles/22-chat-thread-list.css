@@ -15,6 +15,7 @@
   gap: var(--codex-panel-panel-gap);
   align-items: center;
   min-width: 0;
+  padding-inline-end: var(--size-4-2);
   border-radius: var(--radius-s);
 }
 

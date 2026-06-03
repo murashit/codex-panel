@@ -68,7 +68,7 @@
   font-size: var(--codex-panel-toolbar-text-size);
   line-height: var(--codex-panel-toolbar-line-height);
   text-align: left;
-  cursor: pointer;
+  cursor: default;
   user-select: none;
 }
 
@@ -115,7 +115,7 @@
   font-size: var(--codex-panel-toolbar-text-size);
   line-height: var(--codex-panel-toolbar-line-height);
   text-align: left;
-  cursor: pointer;
+  cursor: default;
   transform: none;
   user-select: none;
 }

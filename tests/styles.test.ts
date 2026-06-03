@@ -48,13 +48,21 @@ describe("chat toolbar CSS", () => {
     expect(selectedToolbarHover).not.toContain("nav-item-background-active-hover");
     expect(selectedThreadHover).not.toContain("nav-item-background-active-hover");
   });
+
+  it("keeps chat thread row actions inset from the row edge", () => {
+    const threadRow = /\.codex-panel__thread-row \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(threadRow).toContain("padding-inline-end: var(--size-4-2)");
+  });
 });
 
 describe("chat message CSS", () => {
-  it("uses a pointer cursor for the inline turn diff action", () => {
+  it("uses hover color instead of a pointer cursor for the inline turn diff action", () => {
     const openTurnDiff = /\.codex-panel__open-turn-diff \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const openTurnDiffHover = /\.codex-panel__open-turn-diff:hover \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
-    expect(openTurnDiff).toContain("cursor: pointer");
+    expect(openTurnDiff).toContain("cursor: default");
+    expect(openTurnDiffHover).toContain("color: var(--nav-item-color-hover, var(--text-normal))");
   });
 });
 
@@ -104,5 +112,19 @@ describe("threads view CSS", () => {
 
     expect(selectedRowHover).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
     expect(selectedRowHover).not.toContain("nav-item-background-active-hover");
+  });
+
+  it("does not hover-highlight row titles while thread actions are hovered or focused", () => {
+    const rowHover =
+      /\.codex-panel-threads__row:hover,\n\.codex-panel-threads__row:focus-within \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const actionHover =
+      /\.codex-panel-threads__row:has\(\.codex-panel-threads__actions:hover\),\n\.codex-panel-threads__row:has\(\.codex-panel-threads__actions :focus\) \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
+    const title = /(?:^|\n\n)\.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(rowHover).toContain("--codex-panel-threads-row-title-color: var(--nav-item-color-hover, var(--text-normal))");
+    expect(actionHover).toContain("--codex-panel-threads-row-title-color: currentcolor");
+    expect(title).toContain("color: var(--codex-panel-threads-row-title-color)");
   });
 });

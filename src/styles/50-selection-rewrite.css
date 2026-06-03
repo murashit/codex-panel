@@ -108,6 +108,14 @@
   font-size: var(--font-ui-small);
 }
 
+.codex-panel-selection-rewrite__debug > summary {
+  cursor: default;
+}
+
+.codex-panel-selection-rewrite__debug > summary:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
+}
+
 .codex-panel-selection-rewrite__debug.is-hidden {
   display: none;
 }

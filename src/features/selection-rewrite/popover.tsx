@@ -405,7 +405,7 @@ function SelectionRewritePopoverView({
           buttonRef={applyButtonRef}
           icon="check"
           label="Apply"
-          className={`clickable-icon codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button mod-cta${
+          className={`clickable-icon codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button${
             hasReplacement ? "" : " is-hidden"
           }`}
           disabled={generating || !hasReplacement}

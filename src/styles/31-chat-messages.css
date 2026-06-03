@@ -128,9 +128,13 @@
 }
 
 .codex-panel__activity-group > summary {
-  cursor: pointer;
+  cursor: default;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
+}
+
+.codex-panel__activity-group > summary:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel__activity-group[open] {
@@ -196,9 +200,13 @@
 }
 
 .codex-panel__message-collapse-details > summary {
-  cursor: pointer;
+  cursor: default;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
+}
+
+.codex-panel__message-collapse-details > summary:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel__edited-files,
@@ -237,7 +245,13 @@
 .codex-panel__edited-files-details > summary,
 .codex-panel__mentioned-files-details > summary,
 .codex-panel__auto-reviews > summary {
-  cursor: pointer;
+  cursor: default;
+}
+
+.codex-panel__edited-files-details > summary:hover,
+.codex-panel__mentioned-files-details > summary:hover,
+.codex-panel__auto-reviews > summary:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel__open-turn-diff {
@@ -253,11 +267,12 @@
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
-  cursor: pointer;
+  cursor: default;
 }
 
 .codex-panel__open-turn-diff:hover {
   background: transparent;
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel__open-turn-diff:focus-visible {
@@ -309,7 +324,7 @@
 }
 
 .codex-panel__wikilink {
-  cursor: pointer;
+  cursor: default;
 }
 
 .codex-panel__work-message {
@@ -434,11 +449,16 @@
   align-items: center;
   min-width: 0;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
 }
 
 .codex-panel__tool-result--plain .codex-panel__tool-result-header {
   cursor: text;
+}
+
+.codex-panel__tool-result-details > .codex-panel__tool-result-header:hover,
+.codex-panel__tool-result-details > .codex-panel__tool-result-header:hover .codex-panel__message-role {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel__tool-result-header .codex-panel__message-role {

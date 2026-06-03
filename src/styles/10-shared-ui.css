@@ -26,7 +26,7 @@
   color: var(--icon-color);
   font: inherit;
   line-height: var(--line-height-tight);
-  cursor: pointer;
+  cursor: default;
   user-select: none;
 }
 

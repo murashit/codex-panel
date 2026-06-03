@@ -56,7 +56,8 @@
   background: transparent;
   color: var(--nav-item-color, var(--text-muted));
   text-align: start;
-  cursor: pointer;
+  --codex-panel-threads-row-title-color: currentcolor;
+  cursor: default;
   user-select: none;
 }
 
@@ -71,6 +72,7 @@
 
 .codex-panel-threads__row:hover,
 .codex-panel-threads__row:focus-within {
+  --codex-panel-threads-row-title-color: var(--nav-item-color-hover, var(--text-normal));
   background: var(--background-modifier-hover);
 }
 
@@ -85,9 +87,9 @@
   background: var(--nav-item-background-active, var(--background-modifier-active));
 }
 
-.codex-panel-threads__row:hover .codex-panel-threads__row-title,
-.codex-panel-threads__row:focus-within .codex-panel-threads__row-title {
-  color: var(--nav-item-color-hover, var(--text-normal));
+.codex-panel-threads__row:has(.codex-panel-threads__actions:hover),
+.codex-panel-threads__row:has(.codex-panel-threads__actions :focus) {
+  --codex-panel-threads-row-title-color: currentcolor;
 }
 
 .codex-panel-threads__row--selected .codex-panel-threads__row-title {
@@ -151,6 +153,7 @@
 
 .codex-panel-threads__row-title {
   display: block;
+  color: var(--codex-panel-threads-row-title-color);
   font-size: var(--font-ui-small);
   font-weight: var(--nav-item-weight, var(--font-normal));
   line-height: var(--line-height-tight);

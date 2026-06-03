@@ -88,7 +88,13 @@
 .codex-panel__approval-details summary,
 .codex-panel__output summary,
 .codex-panel-diff-file summary {
-  cursor: pointer;
+  cursor: default;
+}
+
+.codex-panel__approval-details summary:hover,
+.codex-panel__output summary:hover,
+.codex-panel-diff-file summary:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel__config-list {

@@ -33,7 +33,12 @@
   color: var(--text-muted);
   font-size: var(--font-ui-small);
   line-height: var(--line-height-tight);
-  cursor: pointer;
+  cursor: default;
+}
+
+.codex-panel__user-input-option:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
+  background: var(--background-modifier-hover);
 }
 
 .codex-panel__user-input-radio {

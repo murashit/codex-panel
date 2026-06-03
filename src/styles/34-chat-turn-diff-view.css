@@ -41,7 +41,11 @@
 }
 
 .codex-panel-chat-turn-diff__files > summary {
-  cursor: pointer;
+  cursor: default;
+}
+
+.codex-panel-chat-turn-diff__files > summary:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel-chat-turn-diff__files ul {

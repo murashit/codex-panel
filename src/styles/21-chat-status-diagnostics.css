@@ -1,5 +1,5 @@
 .codex-panel__status-dot {
-  cursor: pointer;
+  cursor: default;
   flex: 0 0 auto;
   margin-left: auto;
 }
@@ -86,7 +86,6 @@
   overflow: auto;
   margin-top: var(--codex-panel-item-gap);
   padding: var(--codex-panel-item-gap) 0 0;
-  border-top: var(--codex-panel-divider);
   background: transparent;
 }
 
