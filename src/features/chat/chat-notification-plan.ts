@@ -378,16 +378,24 @@ function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: stri
 function reconciledCompletedTurnItems(state: ChatState, turn: Turn): readonly DisplayItem[] {
   const turnItems = displayItemsFromTurns([turn]);
   if (turnItems.length === 0) return state.displayItems;
-  const serverUserTexts = new Set(turnItems.filter(isUserMessage).map((item) => item.text));
-  let mergedTurnItems = state.displayItems
+  const serverUserMessages = turnItems.filter(isUserMessage);
+  const serverUserClientIds = new Set(serverUserMessages.map((item) => item.clientId).filter(isString));
+  const serverUserMessagesByClientId = new Map(
+    serverUserMessages.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
+  );
+  const serverUserFallbackTexts = serverUserClientIds.size > 0 ? new Set<string>() : new Set(serverUserMessages.map((item) => item.text));
+  const stateDisplayItems = state.displayItems.map(
+    (item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item,
+  );
+  let mergedTurnItems = stateDisplayItems
     .filter((item) => item.turnId === turn.id)
-    .filter((item) => !isOptimisticUserMessage(item, serverUserTexts));
+    .filter((item) => !isOptimisticUserMessage(item, serverUserClientIds, serverUserFallbackTexts));
   for (const item of turnItems) {
     mergedTurnItems = upsertDisplayItem(mergedTurnItems, item);
   }
-  const retainedItems = state.displayItems
+  const retainedItems = stateDisplayItems
     .filter((item) => item.turnId !== turn.id)
-    .filter((item) => !isOptimisticUserMessage(item, serverUserTexts));
+    .filter((item) => !isOptimisticUserMessage(item, serverUserClientIds, serverUserFallbackTexts));
   return [...retainedItems, ...mergedTurnItems];
 }
 
@@ -417,8 +425,25 @@ function isUserMessage(item: DisplayItem): item is MessageDisplayItem & { role: 
   return item.kind === "message" && item.role === "user";
 }
 
-function isOptimisticUserMessage(item: DisplayItem, serverUserTexts: Set<string>): boolean {
-  return isUserMessage(item) && (item.id.startsWith("local-user-") || item.id.startsWith("local-steer-")) && serverUserTexts.has(item.text);
+function serverUserMessageForOptimisticItem(
+  item: DisplayItem,
+  serverUserMessagesByClientId: ReadonlyMap<string, MessageDisplayItem & { role: "user" }>,
+): (MessageDisplayItem & { role: "user" }) | null {
+  if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return null;
+  return serverUserMessagesByClientId.get(item.id) ?? null;
+}
+
+function isOptimisticUserMessage(item: DisplayItem, serverUserClientIds: Set<string>, serverUserFallbackTexts: Set<string>): boolean {
+  if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return false;
+  return serverUserClientIds.has(item.id) || serverUserFallbackTexts.has(item.text);
+}
+
+function isLocalUserMessageId(id: string): boolean {
+  return id.startsWith("local-user-") || id.startsWith("local-steer-");
+}
+
+function isString(value: string | null | undefined): value is string {
+  return typeof value === "string";
 }
 
 function systemMessagePlan(message: { id: string; text: string }): ChatNotificationPlan {

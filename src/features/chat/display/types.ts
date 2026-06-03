@@ -40,6 +40,7 @@ export interface DisplayDetailSection {
 export interface MessageDisplayItem extends DisplayBase {
   kind: "message";
   role: "user" | "assistant";
+  clientId?: string;
   copyText?: string;
   referencedThread?: ReferencedThreadDisplay;
   mentionedFiles?: DisplayFileMention[];

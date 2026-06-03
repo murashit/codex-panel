@@ -536,14 +536,14 @@ describe("ChatController", () => {
             error: null,
             itemsView: "full",
             items: [
-              { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+              { type: "userMessage", id: "u1", clientId: "local-user-1", content: [{ type: "text", text: "hello", text_elements: [] }] },
               { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
             ],
           },
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(state.displayItems.map((item) => item.id)).toEqual(["hook-hook-1-1", "u1", "a1"]);
+      expect(state.displayItems.map((item) => item.id)).toEqual(["u1", "hook-hook-1-1", "a1"]);
       expect(state.displayItems).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", text: "hello", turnId: "turn-active" }),
@@ -1042,6 +1042,134 @@ describe("ChatController", () => {
       ]);
       expect(state.displayItems).toEqual(expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done", markdown: true })]));
       expect(state.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
+    });
+
+    it("reconciles optimistic user echoes by client id before falling back to text only when client ids are absent", () => {
+      const state = createChatState();
+      state.activeThreadId = "thread-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
+      state.displayItems = [
+        { id: "local-user-1", kind: "message", role: "user", text: "same text", turnId: "turn-active", markdown: true },
+        { id: "local-steer-2", kind: "message", role: "user", text: "same text", turnId: "turn-active", markdown: true },
+        { id: "local-user-2", kind: "message", role: "user", text: "same text", turnId: "turn-other", markdown: true },
+      ];
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "completed",
+            error: null,
+            startedAt: null,
+            completedAt: null,
+            durationMs: null,
+            itemsView: "full",
+            items: [
+              {
+                type: "userMessage",
+                id: "u1",
+                clientId: "local-user-1",
+                content: [{ type: "text", text: "same text", text_elements: [] }],
+              },
+              { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+            ],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+
+      expect(state.displayItems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "same text" }),
+          expect.objectContaining({ id: "local-steer-2", text: "same text" }),
+          expect.objectContaining({ id: "local-user-2", text: "same text" }),
+        ]),
+      );
+      expect(state.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
+
+      const legacyState = createChatState();
+      legacyState.activeThreadId = "thread-active";
+      legacyState.turnLifecycle = { kind: "running", turnId: "turn-active" };
+      legacyState.displayItems = [
+        { id: "local-user-legacy", kind: "message", role: "user", text: "legacy text", turnId: "turn-active", markdown: true },
+      ];
+      const legacyController = controllerForState(legacyState);
+
+      legacyController.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "completed",
+            error: null,
+            startedAt: null,
+            completedAt: null,
+            durationMs: null,
+            itemsView: "full",
+            items: [
+              { type: "userMessage", id: "legacy-u1", clientId: null, content: [{ type: "text", text: "legacy text", text_elements: [] }] },
+            ],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+
+      expect(legacyState.displayItems).toEqual([expect.objectContaining({ id: "legacy-u1", text: "legacy text" })]);
+      expect(legacyState.displayItems.some((item) => item.id === "local-user-legacy")).toBe(false);
+    });
+
+    it("keeps the observed steer message order when completed turns reconcile by client id", () => {
+      const state = createChatState();
+      state.activeThreadId = "thread-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
+      state.displayItems = [
+        { id: "local-user-1", kind: "message", role: "user", text: "start", turnId: "turn-active", markdown: true },
+        {
+          id: "a1",
+          itemId: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "first partial",
+          turnId: "turn-active",
+          markdown: true,
+        },
+        { id: "local-steer-1", kind: "message", role: "user", text: "steer", turnId: "turn-active", markdown: true },
+      ];
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "completed",
+            error: null,
+            startedAt: null,
+            completedAt: null,
+            durationMs: null,
+            itemsView: "full",
+            items: [
+              { type: "userMessage", id: "u1", clientId: "local-user-1", content: [{ type: "text", text: "start", text_elements: [] }] },
+              { type: "agentMessage", id: "a1", text: "first done", phase: "final_answer", memoryCitation: null },
+              { type: "userMessage", id: "u2", clientId: "local-steer-1", content: [{ type: "text", text: "steer", text_elements: [] }] },
+              { type: "agentMessage", id: "a2", text: "second done", phase: "final_answer", memoryCitation: null },
+            ],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+
+      expect(state.displayItems.map((item) => item.id)).toEqual(["u1", "a1", "u2", "a2"]);
+      expect(state.displayItems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "start" }),
+          expect.objectContaining({ id: "a1", text: "first done" }),
+          expect.objectContaining({ id: "u2", clientId: "local-steer-1", text: "steer" }),
+          expect.objectContaining({ id: "a2", text: "second done" }),
+        ]),
+      );
     });
 
     it("asks the view to auto-name completed turns", () => {
