@@ -112,13 +112,14 @@ export class TurnSubmissionController {
     }
 
     const codexInput = codexInputOverride ?? this.host.codexInput(text);
+    const localSteerId = `local-steer-${String(Date.now())}`;
     this.host.setDraft("", { clearSuggestions: true });
 
     try {
-      await client.steerTurn(threadId, expectedTurnId, codexInput);
+      await client.steerTurn(threadId, expectedTurnId, codexInput, localSteerId);
       this.host.state.addLocalUserMessage(
         localUserMessageItemFromInput({
-          id: `local-steer-${String(Date.now())}`,
+          id: localSteerId,
           text,
           turnId: expectedTurnId,
           referencedThread,

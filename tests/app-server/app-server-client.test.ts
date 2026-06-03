@@ -199,13 +199,14 @@ describe("AppServerClient", () => {
     getTransport().emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
     await connecting;
 
-    const steering = client.steerTurn("thread-1", "turn-1", "Please adjust course.");
+    const steering = client.steerTurn("thread-1", "turn-1", "Please adjust course.", "local-steer-1");
     expect(getTransport().sent[2]).toMatchObject({
       id: 2,
       method: "turn/steer",
       params: {
         threadId: "thread-1",
         expectedTurnId: "turn-1",
+        clientUserMessageId: "local-steer-1",
         input: [{ type: "text", text: "Please adjust course.", text_elements: [] }],
       },
     });

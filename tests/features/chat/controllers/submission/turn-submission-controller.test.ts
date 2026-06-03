@@ -113,9 +113,12 @@ describe("TurnSubmissionController", () => {
 
     await controller.sendTurnText("follow up");
 
-    expect(steerTurn).toHaveBeenCalledWith("thread", "turn", textInput("follow up"));
+    expect(steerTurn).toHaveBeenCalledWith("thread", "turn", textInput("follow up"), expect.stringMatching(/^local-steer-\d+$/));
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
-    expect(stateStore.getState().displayItems.some((item) => item.kind === "message" && item.text === "follow up")).toBe(true);
+    const localSteerId = steerTurn.mock.calls[0]?.[3];
+    expect(
+      stateStore.getState().displayItems.some((item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up"),
+    ).toBe(true);
   });
 });

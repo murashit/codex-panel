@@ -372,11 +372,17 @@ export class AppServerClient {
     return this.request("turn/start", params);
   }
 
-  steerTurn(threadId: string, expectedTurnId: string, input: string | UserInput[]): Promise<TurnSteerResponse> {
+  steerTurn(
+    threadId: string,
+    expectedTurnId: string,
+    input: string | UserInput[],
+    clientUserMessageId?: string | null,
+  ): Promise<TurnSteerResponse> {
     return this.request("turn/steer", {
       threadId,
       expectedTurnId,
       input: toUserInput(input),
+      ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
     });
   }
 
