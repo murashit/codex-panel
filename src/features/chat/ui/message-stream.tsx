@@ -48,9 +48,10 @@ export function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "t
   return activeTurnId(context);
 }
 
-type RenderableMessageItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
+type RenderableTextItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
+type TextRenderMode = "markdown" | "text";
 
-function isRenderableMessageItem(item: DisplayItem): item is RenderableMessageItem {
+function isRenderableTextItem(item: DisplayItem): item is RenderableTextItem {
   return item.kind === "message" || item.kind === "system" || item.kind === "userInputResult";
 }
 
@@ -70,7 +71,7 @@ function isRenderableWorkItem(item: DisplayItem): item is WorkItemDisplayItem {
 }
 
 function displayItemNode(item: DisplayItem, context: MessageStreamContext): UiNode {
-  if (isRenderableMessageItem(item)) return <MessageItem item={item} context={context} />;
+  if (isRenderableTextItem(item)) return <MessageItem item={item} context={context} />;
   if (isRenderableToolResultItem(item)) return toolResultNode(item, context);
   if (isRenderableWorkItem(item)) return workItemNode(item, context);
 }
@@ -231,7 +232,7 @@ function ActivityGroup({
   );
 }
 
-function MessageItem({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): UiNode {
+function MessageItem({ item, context }: { item: RenderableTextItem; context: MessageStreamContext }): UiNode {
   const collapsible = isCollapsibleUserMessage(item);
   const details = "details" in item ? item.details : undefined;
   return (
@@ -240,7 +241,7 @@ function MessageItem({ item, context }: { item: RenderableMessageItem; context: 
       {collapsible ? (
         <CollapsibleMessageContent item={item} context={context} />
       ) : (
-        <MarkdownContent key={messageContentKey(item)} item={item} context={context} />
+        <TextContent key={messageContentKey(item)} item={item} context={context} />
       )}
       {item.kind === "message" && item.editedFiles && item.editedFiles.length > 0 ? <EditedFiles item={item} context={context} /> : null}
       {item.kind === "message" && item.referencedThread ? <ReferencedThread item={item} /> : null}
@@ -259,7 +260,7 @@ function MessageItem({ item, context }: { item: RenderableMessageItem; context: 
   );
 }
 
-function MessageRole({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): UiNode {
+function MessageRole({ item, context }: { item: RenderableTextItem; context: MessageStreamContext }): UiNode {
   const forkActionsKey = `message:fork-actions:${item.id}`;
   const forkActionsOpen = context.openDetails.has(forkActionsKey);
   const roleRef = useRef<HTMLDivElement | null>(null);
@@ -364,8 +365,9 @@ function MessageAction({
   );
 }
 
-function CollapsibleMessageContent({ item, context }: { item: RenderableMessageItem; context: MessageStreamContext }): UiNode {
+function CollapsibleMessageContent({ item, context }: { item: RenderableTextItem; context: MessageStreamContext }): UiNode {
   const key = `message:${item.id}:expanded`;
+  const renderModeKey = contentRenderMode(item);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [overflows, setOverflows] = useState(false);
   const [expanded, setExpanded] = useState(context.openDetails.has(key));
@@ -386,7 +388,7 @@ function CollapsibleMessageContent({ item, context }: { item: RenderableMessageI
     return () => {
       content.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
     };
-  }, [item.id, item.text, item.markdown]);
+  }, [item.id, item.text, renderModeKey]);
 
   return (
     <div
@@ -398,13 +400,7 @@ function CollapsibleMessageContent({ item, context }: { item: RenderableMessageI
         .filter(Boolean)
         .join(" ")}
     >
-      <MarkdownContent
-        key={messageContentKey(item)}
-        item={item}
-        context={context}
-        contentRef={contentRef}
-        collapsed={overflows && !expanded}
-      />
+      <TextContent key={messageContentKey(item)} item={item} context={context} contentRef={contentRef} collapsed={overflows && !expanded} />
       <details
         className="codex-panel__message-collapse-details"
         hidden={!overflows || expanded}
@@ -421,14 +417,17 @@ function CollapsibleMessageContent({ item, context }: { item: RenderableMessageI
   );
 }
 
-interface MarkdownContentProps {
-  item: RenderableMessageItem;
+interface TextContentProps {
+  item: RenderableTextItem;
   context: MessageStreamContext;
   contentRef?: Ref<HTMLDivElement>;
   collapsed?: boolean;
 }
 
-function MarkdownContent({ item, context, contentRef, collapsed = false }: MarkdownContentProps): UiNode {
+function TextContent({ item, context, contentRef, collapsed = false }: TextContentProps): UiNode {
+  const renderModeKey = contentRenderMode(item);
+  const rendersMarkdown = renderModeKey === "markdown";
+  const text = item.text;
   const localRef = useRef<HTMLDivElement | null>(null);
   const contextRef = useRef(context);
   useLayoutEffect(() => {
@@ -439,12 +438,12 @@ function MarkdownContent({ item, context, contentRef, collapsed = false }: Markd
     if (!content) return;
     const currentContext = contextRef.current;
     content.replaceChildren();
-    if (item.markdown === false) {
-      content.textContent = item.text;
+    if (rendersMarkdown) {
+      currentContext.renderMarkdown(content, text);
     } else {
-      currentContext.renderMarkdown(content, item.text);
+      content.textContent = text;
     }
-  }, [item.markdown, item.text]);
+  }, [renderModeKey, rendersMarkdown, text]);
   return (
     <div
       ref={(element) => {
@@ -457,7 +456,7 @@ function MarkdownContent({ item, context, contentRef, collapsed = false }: Markd
       }}
       className={[
         "codex-panel__message-content",
-        item.markdown === false ? "" : "markdown-rendered",
+        rendersMarkdown ? "markdown-rendered" : "",
         collapsed ? "codex-panel__message-content--collapsed" : "",
       ]
         .filter(Boolean)
@@ -652,8 +651,13 @@ function RememberedDetails({
   return wrapperClassName ? <div className={wrapperClassName}>{details}</div> : details;
 }
 
-function messageContentKey(item: RenderableMessageItem): string {
-  return `${item.id}\u001f${item.markdown === false ? "text" : "markdown"}\u001f${item.text}`;
+function messageContentKey(item: RenderableTextItem): string {
+  return `${item.id}\u001f${contentRenderMode(item)}\u001f${item.text}`;
+}
+
+function contentRenderMode(item: RenderableTextItem): TextRenderMode {
+  if (item.kind !== "message") return "text";
+  return item.messageKind === "proposedPlan" && item.messageState === "streaming" ? "text" : "markdown";
 }
 
 function executionClassName(state: ReturnType<typeof executionState>): string {

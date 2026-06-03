@@ -312,7 +312,7 @@ describe("work log renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [
-        { id: "u1", kind: "message", role: "user", text: "do it", turnId: "turn", markdown: true },
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "turn" },
         {
           id: "hook-1",
           kind: "hook",
@@ -332,7 +332,15 @@ describe("work log renderer decisions", () => {
             { title: "Hook output", body: "feedback: ok" },
           ],
         },
-        { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "turn", markdown: true },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "done",
+          turnId: "turn",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
       ],
       openDetails: new Set(["turn:turn:activity", "hook-1"]),
       loadOlderTurns: vi.fn(),
@@ -362,7 +370,7 @@ describe("work log renderer decisions", () => {
         historyCursor: null,
         loadingHistory: false,
         displayItems: [
-          { id: "u1", kind: "message", role: "user", text: "do it", turnId: "turn", markdown: true },
+          { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "turn" },
           {
             id: "hook-1",
             kind: "hook",
@@ -396,7 +404,15 @@ describe("work log renderer decisions", () => {
             reasoningEffort: null,
             agents: [{ threadId: "child", status: "completed", message: "Done" }],
           },
-          { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "turn", markdown: true },
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "done",
+            turnId: "turn",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
         ],
         openDetails: new Set(["turn:turn:activity", "hook-1:details"]),
         onDetailsToggle,
@@ -503,7 +519,7 @@ describe("work log renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [
-        { id: "u1", kind: "message", role: "user", text: "Do it", turnId: "turn", markdown: true },
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
           id: "plan-progress-turn",
           kind: "taskProgress",
@@ -514,7 +530,15 @@ describe("work log renderer decisions", () => {
           steps: [{ step: "Patch UI", status: "inProgress" }],
           status: "inProgress",
         },
-        { id: "a1", kind: "message", role: "assistant", text: "Working", turnId: "turn", markdown: true },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "Working",
+          turnId: "turn",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
         {
           id: "agent-1",
           kind: "agent",
@@ -555,7 +579,7 @@ describe("work log renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [
-        { id: "u1", kind: "message", role: "user", text: "Do it", turnId: "turn", markdown: true },
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
           id: "agent-1",
           kind: "agent",
@@ -597,7 +621,7 @@ describe("work log renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [
-        { id: "u1", kind: "message", role: "user", text: "Do it", turnId: "turn", markdown: true },
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
           id: "agent-spawn",
           kind: "agent",

@@ -102,6 +102,7 @@ function userMessageDisplayItem(item: UserMessageItem, turnId?: string): Display
     return {
       id: item.id,
       kind: "message",
+      messageKind: "user",
       role: "user",
       text: userMessageDisplayText(referencedThread.text, item.content),
       copyText: referencedThread.text,
@@ -109,20 +110,19 @@ function userMessageDisplayItem(item: UserMessageItem, turnId?: string): Display
       ...definedProp("turnId", turnId),
       ...definedProp("clientId", item.clientId),
       itemId: item.id,
-      markdown: true,
       ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
     };
   }
   return {
     id: item.id,
     kind: "message",
+    messageKind: "user",
     role: "user",
     text: displayText,
     copyText: text,
     ...definedProp("turnId", turnId),
     ...definedProp("clientId", item.clientId),
     itemId: item.id,
-    markdown: true,
     ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
   };
 }
@@ -236,12 +236,13 @@ function agentMessageDisplayItem(item: AgentMessageItem, turnId?: string): Displ
   return {
     id: item.id,
     kind: "message",
+    messageKind: "assistantResponse",
     role: "assistant",
     text: item.text,
     copyText: item.text,
     ...definedProp("turnId", turnId),
     itemId: item.id,
-    markdown: true,
+    messageState: "completed",
   };
 }
 
@@ -250,13 +251,13 @@ function planDisplayItem(item: PlanItem, turnId?: string): DisplayItem {
   return {
     id: item.id,
     kind: "message",
+    messageKind: "proposedPlan",
     role: "assistant",
     text,
     copyText: text,
     ...definedProp("turnId", turnId),
     itemId: item.id,
-    markdown: true,
-    proposedPlan: true,
+    messageState: "completed",
   };
 }
 

@@ -15,6 +15,8 @@ export type DisplayKind =
   | "reviewResult";
 export type DisplayRole = "user" | "assistant" | "system" | "tool";
 export type ExecutionState = "running" | "completed" | "failed" | null;
+export type MessageKind = "user" | "assistantResponse" | "proposedPlan";
+export type MessageState = "streaming" | "completed";
 
 export interface DisplayBase {
   id: string;
@@ -37,19 +39,39 @@ export interface DisplayDetailSection {
   rows?: DisplayDetailMetaRow[];
 }
 
-export interface MessageDisplayItem extends DisplayBase {
+interface MessageDisplayBase extends DisplayBase {
   kind: "message";
   role: "user" | "assistant";
   clientId?: string;
   copyText?: string;
   referencedThread?: ReferencedThreadDisplay;
   mentionedFiles?: DisplayFileMention[];
-  proposedPlan?: boolean;
   editedFiles?: string[];
   turnDiff?: DisplayTurnDiff;
   autoReviewSummaries?: string[];
-  markdown?: boolean;
 }
+
+export interface UserMessageDisplayItem extends MessageDisplayBase {
+  messageKind: "user";
+  role: "user";
+  messageState?: never;
+}
+
+export interface AssistantResponseMessageDisplayItem extends MessageDisplayBase {
+  messageKind: "assistantResponse";
+  role: "assistant";
+  messageState: MessageState;
+}
+
+export interface ProposedPlanMessageDisplayItem extends MessageDisplayBase {
+  messageKind: "proposedPlan";
+  role: "assistant";
+  messageState: MessageState;
+}
+
+export type AssistantAuthoredMessageDisplayItem = AssistantResponseMessageDisplayItem | ProposedPlanMessageDisplayItem;
+
+export type MessageDisplayItem = UserMessageDisplayItem | AssistantAuthoredMessageDisplayItem;
 
 export interface DisplayFileMention {
   name: string;
@@ -63,21 +85,18 @@ export interface DisplayTurnDiff {
 export interface SystemDisplayItem extends DisplayBase {
   kind: "system" | "userInputResult";
   role: "system" | "tool";
-  markdown?: boolean;
   details?: DisplayDetailSection[];
 }
 
 export interface ApprovalResultDisplayItem extends DisplayBase {
   kind: "approvalResult";
   role: "tool";
-  markdown?: boolean;
   details?: DisplayDetailSection[];
 }
 
 export interface ReviewResultDisplayItem extends DisplayBase {
   kind: "reviewResult";
   role: "tool";
-  markdown?: boolean;
   details?: DisplayDetailSection[];
 }
 

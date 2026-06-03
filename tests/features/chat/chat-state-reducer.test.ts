@@ -153,7 +153,7 @@ describe("chatReducer", () => {
 
   it("keeps turn lifecycle fields synchronized through start and completion", () => {
     const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: [] };
-    const optimisticItem = { id: "local-user", kind: "message", role: "user", text: "hello" } satisfies DisplayItem;
+    const optimisticItem = { id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello" } satisfies DisplayItem;
     const acknowledgedItem = { ...optimisticItem, turnId: "turn" } satisfies DisplayItem;
 
     const optimistic = chatReducer(createChatState(), {
@@ -217,7 +217,7 @@ describe("chatReducer", () => {
     const next = chatReducer(state, {
       type: "turn/start-acknowledged",
       turnId: "completed-turn",
-      displayItems: [{ id: "local-user", kind: "message", role: "user", text: "hello", markdown: true, turnId: "completed-turn" }],
+      displayItems: [{ id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello", turnId: "completed-turn" }],
     });
 
     expect(next).toBe(state);
@@ -229,7 +229,7 @@ describe("chatReducer", () => {
     const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] };
     const state = createChatState();
     state.turnLifecycle = { kind: "starting", pendingTurnStart: pending };
-    state.displayItems = [{ id: "local-user", kind: "message", role: "user", text: "hello", markdown: true }];
+    state.displayItems = [{ id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello" }];
 
     const next = chatReducer(state, {
       type: "turn/completed",
@@ -396,7 +396,7 @@ describe("chatReducer", () => {
 });
 
 function message(id: string): DisplayItem {
-  return { id, kind: "message", role: "assistant", text: id };
+  return { id, kind: "message", role: "assistant", text: id, messageKind: "assistantResponse", messageState: "completed" };
 }
 
 function suggestion(display: string): ChatState["composerSuggestions"][number] {

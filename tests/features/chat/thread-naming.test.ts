@@ -64,8 +64,16 @@ describe("thread naming", () => {
   it("extracts naming context from streamed display items when completed turn items are not loaded", () => {
     expect(
       namingContextFromDisplayItems("turn", [
-        { id: "u1", kind: "message", role: "user", text: "自動命名を直したい", turnId: "turn", markdown: true },
-        { id: "a1", kind: "message", role: "assistant", text: "原因を直しました。", turnId: "turn", markdown: false },
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "自動命名を直したい", turnId: "turn" },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "原因を直しました。",
+          turnId: "turn",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
       ]),
     ).toEqual({
       userRequest: "自動命名を直したい",
@@ -76,11 +84,27 @@ describe("thread naming", () => {
   it("uses the first usable displayed turn as a resumed-history fallback", () => {
     expect(
       firstNamingContextFromDisplayItems([
-        { id: "u1", kind: "message", role: "user", text: "本文だけのturn", turnId: "turn-1", markdown: true },
-        { id: "u2", kind: "message", role: "user", text: "履歴から命名したい", turnId: "turn-2", markdown: true },
-        { id: "a2", kind: "message", role: "assistant", text: "表示済み履歴から候補を作ります。", turnId: "turn-2", markdown: false },
-        { id: "u3", kind: "message", role: "user", text: "後続turn", turnId: "turn-3", markdown: true },
-        { id: "a3", kind: "message", role: "assistant", text: "後続応答", turnId: "turn-3", markdown: false },
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "本文だけのturn", turnId: "turn-1" },
+        { id: "u2", kind: "message", messageKind: "user", role: "user", text: "履歴から命名したい", turnId: "turn-2" },
+        {
+          id: "a2",
+          kind: "message",
+          role: "assistant",
+          text: "表示済み履歴から候補を作ります。",
+          turnId: "turn-2",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
+        { id: "u3", kind: "message", messageKind: "user", role: "user", text: "後続turn", turnId: "turn-3" },
+        {
+          id: "a3",
+          kind: "message",
+          role: "assistant",
+          text: "後続応答",
+          turnId: "turn-3",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
       ]),
     ).toEqual({
       userRequest: "履歴から命名したい",
@@ -139,8 +163,16 @@ describe("thread naming", () => {
   it("finds the first visible display item naming context", () => {
     expect(
       firstNamingContextFromDisplayItems([
-        { id: "u1", kind: "message", role: "user", text: "表示済み履歴から命名したい", turnId: "visible", markdown: true },
-        { id: "a1", kind: "message", role: "assistant", text: "表示済み履歴を使います。", turnId: "visible", markdown: false },
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "表示済み履歴から命名したい", turnId: "visible" },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "表示済み履歴を使います。",
+          turnId: "visible",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
       ]),
     ).toEqual({
       userRequest: "表示済み履歴から命名したい",

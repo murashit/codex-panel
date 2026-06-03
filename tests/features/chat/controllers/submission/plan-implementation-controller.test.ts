@@ -15,7 +15,8 @@ const planItem = (id: string): DisplayItem => ({
   kind: "message",
   role: "assistant",
   text: "Plan",
-  proposedPlan: true,
+  messageKind: "proposedPlan",
+  messageState: "completed",
 });
 
 function resumeThread(stateStore: ChatStateStore, displayItems: readonly DisplayItem[]): void {

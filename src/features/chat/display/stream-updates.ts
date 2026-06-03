@@ -1,4 +1,5 @@
-import type { DisplayFileChange, DisplayItem, DisplayKind } from "./types";
+import type { AssistantAuthoredMessageDisplayItem, DisplayFileChange, DisplayItem, DisplayKind } from "./types";
+import { isAssistantAuthoredMessage } from "./turn-outcome-message";
 import { normalizeProposedPlanMarkdown } from "./plan";
 
 export function upsertDisplayItem(items: readonly DisplayItem[], next: DisplayItem): DisplayItem[] {
@@ -29,16 +30,16 @@ function mergeChanges(previous: DisplayItem, next: DisplayItem): DisplayFileChan
 }
 
 export function appendAssistantDelta(items: readonly DisplayItem[], itemId: string, turnId: string, delta: string): DisplayItem[] {
-  const index = items.findIndex((item) => item.itemId === itemId && item.kind === "message" && item.role === "assistant");
+  const index = items.findIndex((item) => item.itemId === itemId && item.kind === "message" && item.messageKind === "assistantResponse");
   if (index !== -1) {
     return items.map((item, itemIndex) =>
-      itemIndex === index && item.kind === "message"
+      itemIndex === index && item.kind === "message" && item.messageKind === "assistantResponse"
         ? {
             ...item,
             text: `${item.text}${delta}`,
             copyText: `${item.text}${delta}`,
             turnId: item.turnId ?? turnId,
-            markdown: true,
+            messageState: "streaming",
           }
         : item,
     );
@@ -48,12 +49,13 @@ export function appendAssistantDelta(items: readonly DisplayItem[], itemId: stri
     {
       id: itemId,
       kind: "message",
+      messageKind: "assistantResponse",
       role: "assistant",
       text: delta,
       copyText: delta,
       turnId,
       itemId,
-      markdown: true,
+      messageState: "streaming",
     },
   ];
 }
@@ -71,10 +73,10 @@ export function completeReasoningItems(items: readonly DisplayItem[], turnId: st
 }
 
 export function appendPlanDelta(items: readonly DisplayItem[], itemId: string, turnId: string, delta: string): DisplayItem[] {
-  const index = items.findIndex((item) => item.itemId === itemId && item.kind === "message" && item.role === "assistant");
+  const index = items.findIndex((item) => item.itemId === itemId && isAssistantAuthoredMessage(item));
   if (index !== -1) {
     return items.map((item, itemIndex) =>
-      itemIndex === index && item.kind === "message" ? appendPlanDeltaToMessage(item, turnId, delta) : item,
+      itemIndex === index && isAssistantAuthoredMessage(item) ? appendPlanDeltaToMessage(item, turnId, delta) : item,
     );
   }
   const text = normalizeProposedPlanMarkdown(delta);
@@ -83,26 +85,26 @@ export function appendPlanDelta(items: readonly DisplayItem[], itemId: string, t
     {
       id: itemId,
       kind: "message",
+      messageKind: "proposedPlan",
       role: "assistant",
       text,
       copyText: text,
       turnId,
       itemId,
-      markdown: false,
-      proposedPlan: true,
+      messageState: "streaming",
     },
   ];
 }
 
-function appendPlanDeltaToMessage(item: Extract<DisplayItem, { kind: "message" }>, turnId: string, delta: string): DisplayItem {
+function appendPlanDeltaToMessage(item: AssistantAuthoredMessageDisplayItem, turnId: string, delta: string): DisplayItem {
   const text = normalizeProposedPlanMarkdown(`${item.text}${delta}`);
   return {
     ...item,
+    messageKind: "proposedPlan",
     text,
     copyText: text,
     turnId: item.turnId ?? turnId,
-    markdown: false,
-    proposedPlan: true,
+    messageState: "streaming",
   };
 }
 

@@ -1,5 +1,6 @@
 import type { ThreadNamingContext } from "../../domain/threads/naming";
 import { truncate } from "../../utils";
+import { isCompletedTurnOutcomeMessage } from "./display/turn-outcome-message";
 import type { DisplayItem } from "./display/types";
 
 const MAX_CONTEXT_CHARS = 4_000;
@@ -7,11 +8,7 @@ const MAX_CONTEXT_CHARS = 4_000;
 export function namingContextFromDisplayItems(turnId: string, items: readonly DisplayItem[]): ThreadNamingContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
   const userRequest = turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ?? "";
-  const assistantResponse =
-    [...turnItems]
-      .reverse()
-      .find((item) => item.kind === "message" && item.role === "assistant")
-      ?.text.trim() ?? "";
+  const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeMessage)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
   return {
     userRequest: truncateForPrompt(userRequest),

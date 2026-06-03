@@ -20,7 +20,6 @@ export function createReviewResultItem(id: string, text: string): DisplayItem {
       kind: "reviewResult",
       role: "tool",
       text: parsed.summary,
-      markdown: false,
       executionState: autoReviewExecutionState(parsed.status),
       details: [{ title: "Review", rows: parsed.rows }],
     };
@@ -30,7 +29,6 @@ export function createReviewResultItem(id: string, text: string): DisplayItem {
     kind: "reviewResult",
     role: "tool",
     text,
-    markdown: false,
   };
 }
 
@@ -54,7 +52,6 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Disp
     role: "tool",
     text,
     turnId: params.turnId,
-    markdown: false,
     executionState: completed ? autoReviewExecutionState(status) : "running",
     details: [{ title: "Review", rows }],
   };

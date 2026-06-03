@@ -116,7 +116,17 @@ describe("ChatMessageRenderer scroll pinning", () => {
   it("pins to the scroll container bottom without aligning the last message element", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
-    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Streaming message", turnId: "turn" }];
+    state.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Streaming message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
@@ -138,7 +148,17 @@ describe("ChatMessageRenderer scroll pinning", () => {
   it("can repin the current scroll container after composer growth shrinks the viewport", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
-    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Streaming message", turnId: "turn" }];
+    state.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Streaming message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
@@ -161,7 +181,17 @@ describe("ChatMessageRenderer scroll pinning", () => {
   it("repins after composer growth has changed the scroll viewport height", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
-    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Streaming message", turnId: "turn" }];
+    state.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Streaming message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
@@ -200,7 +230,17 @@ describe("ChatMessageRenderer scroll pinning", () => {
   it("does not force the bottom into view when the user is reading older messages", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
-    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Initial message", turnId: "turn" }];
+    state.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Initial message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
@@ -216,7 +256,17 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
-    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Updated streaming message", turnId: "turn" }];
+    state.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Updated streaming message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
     renderer.render(messages);
     await settleMessageRender(messages);
 
@@ -227,7 +277,17 @@ describe("ChatMessageRenderer scroll pinning", () => {
   it("does not run a pending bottom pin after the user scrolls away", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
-    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Streaming message", turnId: "turn" }];
+    state.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Streaming message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
@@ -250,7 +310,17 @@ describe("ChatMessageRenderer scroll pinning", () => {
   it("unmounts the Preact message stream root on dispose", () => {
     const state = createChatState();
     state.activeThreadId = "thread";
-    state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "Rendered message", turnId: "turn" }];
+    state.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Rendered message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 

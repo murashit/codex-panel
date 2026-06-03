@@ -16,7 +16,6 @@ export function createStructuredSystemItem(id: string, text: string, details: Di
     kind: "system",
     role: "system",
     text,
-    markdown: false,
     details,
   };
 }

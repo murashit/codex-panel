@@ -17,7 +17,7 @@ export function openPanelTurnLifecycle(state: ChatState["turnLifecycle"]): OpenC
 }
 
 export function latestProposedPlanItem(items: readonly DisplayItem[]): DisplayItem | null {
-  return [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ?? null;
+  return [...items].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null;
 }
 
 export function toolbarSlotSnapshot(state: ChatState, connected: boolean): ChatPanelSlotSnapshot {

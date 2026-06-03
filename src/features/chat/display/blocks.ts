@@ -1,5 +1,5 @@
 import type { DisplayBlock, DisplayItem, DisplayKind } from "./types";
-import { isFinalAssistantMessage } from "./final-assistant";
+import { isCompletedTurnOutcomeMessage } from "./turn-outcome-message";
 import { pathRelativeToRoot } from "./paths";
 import { executionState } from "./state";
 
@@ -15,9 +15,9 @@ export function displayBlocksForItems(
   const visibleItems = items.filter(shouldShowDisplayItem);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
-  const finalAssistantIdByTurn = finalAssistantItemsByTurn(visibleItems);
-  const groupedTurnIds = new Set([...finalAssistantIdByTurn.keys()].filter((turnId) => turnId !== activeTurnId));
-  const summaryAssistantIdByTurn = new Map([...finalAssistantIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
+  const turnOutcomeIdByTurn = turnOutcomeItemsByTurn(visibleItems);
+  const groupedTurnIds = new Set([...turnOutcomeIdByTurn.keys()].filter((turnId) => turnId !== activeTurnId));
+  const summaryOutcomeIdByTurn = new Map([...turnOutcomeIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
 
   const groupedActivities = new Map<string, DisplayItem[]>();
   const seenUserMessagesByTurn = new Map<string, number>();
@@ -30,7 +30,7 @@ export function displayBlocksForItems(
       groupedActivities.set(turnId, group);
       continue;
     }
-    if (!isCompletedTurnDetailItem(item, finalAssistantIdByTurn)) continue;
+    if (!isCompletedTurnDetailItem(item, turnOutcomeIdByTurn)) continue;
     const group = groupedActivities.get(turnId) ?? [];
     group.push(item);
     groupedActivities.set(turnId, group);
@@ -39,10 +39,10 @@ export function displayBlocksForItems(
   const blocks: DisplayBlock[] = [];
   for (const item of visibleItems) {
     const turnId = item.turnId;
-    if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, finalAssistantIdByTurn)) {
+    if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, turnOutcomeIdByTurn)) {
       continue;
     }
-    if (turnId && finalAssistantIdByTurn.get(turnId) === item.id && groupedActivities.has(turnId)) {
+    if (turnId && turnOutcomeIdByTurn.get(turnId) === item.id && groupedActivities.has(turnId)) {
       const groupItems = groupedActivities.get(turnId) ?? [];
       blocks.push({
         type: "activityGroup",
@@ -54,7 +54,7 @@ export function displayBlocksForItems(
     }
     blocks.push({
       type: "item",
-      item: itemWithTurnSummaries(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryAssistantIdByTurn, turnDiffs),
+      item: itemWithTurnSummaries(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
     });
   }
 
@@ -86,28 +86,28 @@ function steeringActivityItem(item: DisplayItem, turnId: string): DisplayItem {
   };
 }
 
-function isCompletedTurnDetailItem(item: DisplayItem, finalAssistantIdByTurn: Map<string, string>): boolean {
+function isCompletedTurnDetailItem(item: DisplayItem, turnOutcomeIdByTurn: Map<string, string>): boolean {
   if (!item.turnId || item.role === "user") return false;
-  return finalAssistantIdByTurn.get(item.turnId) !== item.id;
+  return turnOutcomeIdByTurn.get(item.turnId) !== item.id;
 }
 
-function finalAssistantItemsByTurn(items: readonly DisplayItem[]): Map<string, string> {
-  const finalAssistantIdByTurn = new Map<string, string>();
+function turnOutcomeItemsByTurn(items: readonly DisplayItem[]): Map<string, string> {
+  const turnOutcomeIdByTurn = new Map<string, string>();
   for (const item of items) {
-    if (!item.turnId || !isFinalAssistantMessage(item)) continue;
-    finalAssistantIdByTurn.set(item.turnId, item.id);
+    if (!item.turnId || !isCompletedTurnOutcomeMessage(item)) continue;
+    turnOutcomeIdByTurn.set(item.turnId, item.id);
   }
-  return finalAssistantIdByTurn;
+  return turnOutcomeIdByTurn;
 }
 
 function itemWithTurnSummaries(
   item: DisplayItem,
   editedFilesByTurn: Map<string, string[]>,
   autoReviewSummariesByTurn: Map<string, string[]>,
-  finalAssistantIdByTurn: Map<string, string>,
+  turnOutcomeIdByTurn: Map<string, string>,
   turnDiffs?: ReadonlyMap<string, string>,
 ): DisplayItem {
-  if (!item.turnId || finalAssistantIdByTurn.get(item.turnId) !== item.id) return item;
+  if (!item.turnId || turnOutcomeIdByTurn.get(item.turnId) !== item.id) return item;
   if (item.kind !== "message") return item;
   const editedFiles = editedFilesByTurn.get(item.turnId);
   const autoReviewSummaries = autoReviewSummariesByTurn.get(item.turnId);

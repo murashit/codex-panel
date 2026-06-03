@@ -77,8 +77,8 @@ describe("thread item conversion preserves app-server semantics", () => {
     ];
 
     expect(displayItemsFromTurns(turns).map((item) => item.text)).toEqual(["hello", "world"]);
-    expect(displayItemFromThreadItem(userMessage)).toMatchObject({ role: "user", copyText: "hello", markdown: true });
-    expect(displayItemFromThreadItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world", markdown: true });
+    expect(displayItemFromThreadItem(userMessage)).toMatchObject({ role: "user", copyText: "hello" });
+    expect(displayItemFromThreadItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
   });
 
   it("keeps resolved file mentions visible as user message metadata", () => {
@@ -96,6 +96,7 @@ describe("thread item conversion preserves app-server semantics", () => {
 
     expect(displayItemFromThreadItem(userMessage)).toMatchObject({
       kind: "message",
+      messageKind: "user",
       role: "user",
       text: "Read [[Alpha]] and [[Beta]].",
       mentionedFiles: [
@@ -190,8 +191,8 @@ describe("thread item conversion preserves app-server semantics", () => {
       role: "assistant",
       text: "# Plan",
       copyText: "# Plan",
-      markdown: true,
-      proposedPlan: true,
+      messageKind: "proposedPlan",
+      messageState: "completed",
       turnId: "t1",
     });
   });
@@ -204,7 +205,15 @@ describe("thread item conversion preserves app-server semantics", () => {
     const items = appendAssistantDelta([], "a1", "t1", "**Hello**");
     const updated = appendAssistantDelta(items, "a1", "t1", "\n\n- world");
     expect(updated).toMatchObject([
-      { id: "a1", kind: "message", role: "assistant", text: "**Hello**\n\n- world", copyText: "**Hello**\n\n- world", markdown: true },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "**Hello**\n\n- world",
+        copyText: "**Hello**\n\n- world",
+        messageKind: "assistantResponse",
+        messageState: "streaming",
+      },
     ]);
   });
 
@@ -212,7 +221,15 @@ describe("thread item conversion preserves app-server semantics", () => {
     const items = appendPlanDelta([], "p1", "t1", "<proposed_plan>\n# Plan");
     const updated = appendPlanDelta(items, "p1", "t1", "\n</proposed_plan>");
     expect(updated).toMatchObject([
-      { id: "p1", kind: "message", role: "assistant", text: "# Plan", copyText: "# Plan", markdown: false, proposedPlan: true },
+      {
+        id: "p1",
+        kind: "message",
+        role: "assistant",
+        text: "# Plan",
+        copyText: "# Plan",
+        messageKind: "proposedPlan",
+        messageState: "streaming",
+      },
     ]);
   });
 
@@ -865,7 +882,15 @@ describe("thread item conversion preserves app-server semantics", () => {
 describe("streaming updates target item identity without mutating history", () => {
   it("upserts assistant deltas by item id, not by last position", () => {
     const items: DisplayItem[] = [
-      { id: "a1", itemId: "a1", kind: "message", role: "assistant", text: "hello" },
+      {
+        id: "a1",
+        itemId: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "hello",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
       { id: "tool1", itemId: "tool1", kind: "tool", role: "tool", text: "tool" },
     ];
 
@@ -906,10 +931,18 @@ describe("streaming updates target item identity without mutating history", () =
 describe("display block grouping keeps work logs subordinate to conversation messages", () => {
   it("groups completed turn activities before the final assistant message", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1" },
       commandItem("c1", "npm test", "t1"),
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, null);
@@ -919,7 +952,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
   it("groups completed hook and review logs before the final assistant message", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       {
         id: "hook-1",
         kind: "hook",
@@ -947,7 +980,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         turnId: "t1",
         executionState: "completed",
       },
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, null);
@@ -964,9 +1005,17 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
   it("hides empty completed reasoning items", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       { id: "r1", kind: "reasoning", role: "tool", text: "", turnId: "t1", status: "completed", executionState: "completed" },
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, null);
@@ -975,12 +1024,36 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
   it("collapses earlier assistant responses with their turn details", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
-      { id: "a1", kind: "message", role: "assistant", text: "I'll inspect it.", turnId: "t1" },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "I'll inspect it.",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
       commandItem("c1", "rg issue", "t1"),
-      { id: "a2", kind: "message", role: "assistant", text: "I found the cause.", turnId: "t1" },
+      {
+        id: "a2",
+        kind: "message",
+        role: "assistant",
+        text: "I found the cause.",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
       fileChangeItem("f1", "t1"),
-      { id: "a3", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a3",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, null);
@@ -997,7 +1070,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       { id: "s1", kind: "system", role: "system", text: "debug before hook" },
       commandItem("c1", "npm test", "t1"),
       { id: "s2", kind: "system", role: "system", text: "debug after hook" },
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, null);
@@ -1007,11 +1088,19 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
   it("adds steering markers to completed turn work details without hiding the steering message", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       commandItem("c1", "rg issue", "t1"),
-      { id: "u2", kind: "message", role: "user", text: "also check tests", turnId: "t1", clientId: "local-steer-1" },
+      { id: "u2", kind: "message", messageKind: "user", role: "user", text: "also check tests", turnId: "t1", clientId: "local-steer-1" },
       commandItem("c2", "npm test", "t1"),
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, null);
@@ -1025,10 +1114,18 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
   it("pluralizes multiple steering markers as steers in completed turn work details", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
-      { id: "u2", kind: "message", role: "user", text: "also check tests", turnId: "t1" },
-      { id: "u3", kind: "message", role: "user", text: "and update docs", turnId: "t1" },
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
+      { id: "u2", kind: "message", messageKind: "user", role: "user", text: "also check tests", turnId: "t1" },
+      { id: "u3", kind: "message", messageKind: "user", role: "user", text: "and update docs", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, null);
@@ -1043,7 +1140,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   it("keeps active turn activities expanded", () => {
     const items: DisplayItem[] = [
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1" },
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     expect(displayBlocksForItems(items, "t1").map((block) => block.type)).toEqual(["item", "item"]);
@@ -1051,7 +1156,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
   it("keeps active task progress chronological in the display model", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       {
         id: "plan-progress-t1",
         kind: "taskProgress",
@@ -1062,7 +1167,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         steps: [{ step: "Patch UI", status: "inProgress" }],
         status: "inProgress",
       },
-      { id: "a1", kind: "message", role: "assistant", text: "working", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "working",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, "t1");
@@ -1072,7 +1185,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
   it("summarizes task progress and agent activity separately from tools", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1" },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       {
         id: "plan-progress-t1",
         kind: "taskProgress",
@@ -1098,7 +1211,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         reasoningEffort: null,
         agents: [{ threadId: "child", status: "completed", message: null }],
       },
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const blocks = displayBlocksForItems(items, null);
@@ -1219,8 +1340,24 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     const items: DisplayItem[] = [
       fileChangeItem("f1", "t1", "src/main.ts"),
       fileChangeItem("f2", "t1", "styles.css"),
-      { id: "a1", kind: "message", role: "assistant", text: "intermediate", turnId: "t1" },
-      { id: "a2", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "intermediate",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+      {
+        id: "a2",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const assistantBlock = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
@@ -1230,7 +1367,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   it("adds turn diff metadata to the final assistant message only when aggregated diff exists", () => {
     const items: DisplayItem[] = [
       fileChangeItem("f1", "t1", "src/main.ts"),
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const withoutDiff = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
@@ -1261,7 +1406,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         turnId: "t1",
         executionState: "completed",
       },
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const assistantBlock = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
@@ -1281,7 +1434,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         turnId: "t1",
         executionState: "completed",
       },
-      { id: "a1", kind: "message", role: "assistant", text: "still working", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "still working",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const assistantBlock = displayBlocksForItems(items, "t1").find((block) => block.type === "item" && block.item.id === "a1");
@@ -1296,7 +1457,15 @@ describe("workspace path summaries stay readable without hiding audit paths", ()
       fileChangeItem("f1", "t1", "/vault/project/src/main.ts"),
       fileChangeItem("f2", "t1", "/vault/project/styles.css"),
       fileChangeItem("f3", "t1", "/tmp/outside.txt"),
-      { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "t1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const assistantBlock = displayBlocksForItems(items, null, "/vault/project").find(

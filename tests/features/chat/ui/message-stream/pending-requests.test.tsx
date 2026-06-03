@@ -349,6 +349,7 @@ describe("pending request renderer decisions", () => {
   });
 
   it("renders submitted user input separately from approvals", () => {
+    const renderMarkdown = vi.fn((parent: HTMLElement, text: string) => parent.createDiv({ text: `markdown:${text}` }));
     const block = messageStreamBlocks({
       activeThreadId: "thread",
       turnLifecycle: idleTurnLifecycle(),
@@ -361,19 +362,21 @@ describe("pending request renderer decisions", () => {
           role: "tool",
           text: "Input submitted for 1 question.",
           turnId: "turn",
-          markdown: false,
           executionState: "completed",
           details: [{ title: "Question: Scope", rows: [{ key: "Answer", value: "Narrow" }] }],
         },
       ],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderMarkdown,
     })[0];
 
     const element = renderMessageBlockElement(block);
 
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("Input");
+    expect(element.querySelector(".codex-panel__message-content")?.textContent).toBe("Input submitted for 1 question.");
+    expect(element.querySelector(".codex-panel__message-content")?.classList.contains("markdown-rendered")).toBe(false);
+    expect(renderMarkdown).not.toHaveBeenCalled();
     expect(element.textContent).not.toContain("Approval");
     expect(element.querySelector("details summary")?.textContent).toBe("Question: Scope");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("AnswerNarrow");
@@ -392,7 +395,6 @@ describe("pending request renderer decisions", () => {
           role: "tool",
           text: "Allowed for this session: Need access",
           turnId: "turn",
-          markdown: false,
           executionState: "completed",
           details: [
             {
@@ -434,9 +436,10 @@ describe("pending request renderer decisions", () => {
           id: "assistant-1",
           kind: "message",
           role: "assistant",
+          messageKind: "assistantResponse",
+          messageState: "completed",
           text: "Done",
           turnId: "turn",
-          markdown: true,
           autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"],
         },
       ],
@@ -457,7 +460,9 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "Done", markdown: true }],
+      displayItems: [
+        { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
+      ],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
@@ -481,7 +486,9 @@ describe("pending request renderer decisions", () => {
         turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "Waiting", markdown: true }],
+        displayItems: [
+          { id: "a1", kind: "message", role: "assistant", text: "Waiting", messageKind: "assistantResponse", messageState: "completed" },
+        ],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
@@ -516,7 +523,9 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "Done", markdown: true }] satisfies DisplayItem[],
+      displayItems: [
+        { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
+      ] satisfies DisplayItem[],
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),

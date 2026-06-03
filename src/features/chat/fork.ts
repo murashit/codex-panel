@@ -1,5 +1,5 @@
 import type { DisplayItem } from "./display/types";
-import { isFinalAssistantMessage } from "./display/final-assistant";
+import { isCompletedTurnOutcomeMessage } from "./display/turn-outcome-message";
 
 export interface ForkCandidate {
   itemId: string;
@@ -7,12 +7,12 @@ export interface ForkCandidate {
 }
 
 export function forkCandidatesFromItems(items: readonly DisplayItem[]): readonly ForkCandidate[] {
-  const finalAssistantItemsByTurn = new Map<string, ForkCandidate>();
+  const turnOutcomeItemsByTurn = new Map<string, ForkCandidate>();
   for (const item of items) {
-    if (!item.turnId || !isFinalAssistantMessage(item)) continue;
-    finalAssistantItemsByTurn.set(item.turnId, { itemId: item.id, turnId: item.turnId });
+    if (!item.turnId || !isCompletedTurnOutcomeMessage(item)) continue;
+    turnOutcomeItemsByTurn.set(item.turnId, { itemId: item.id, turnId: item.turnId });
   }
-  return [...finalAssistantItemsByTurn.values()];
+  return [...turnOutcomeItemsByTurn.values()];
 }
 
 export function isForkCandidateItem(item: DisplayItem, candidates: readonly ForkCandidate[]): boolean {

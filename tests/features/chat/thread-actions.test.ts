@@ -81,12 +81,36 @@ describe("ChatThreadActionController", () => {
 
 function turnItems(): DisplayItem[] {
   return [
-    { id: "u1", kind: "message", role: "user", text: "one", turnId: "turn-1", markdown: true },
-    { id: "a1", kind: "message", role: "assistant", text: "one answer", turnId: "turn-1", markdown: true },
-    { id: "u2", kind: "message", role: "user", text: "two", turnId: "turn-2", markdown: true },
-    { id: "a2", kind: "message", role: "assistant", text: "two answer", turnId: "turn-2", markdown: true },
-    { id: "u3", kind: "message", role: "user", text: "three", turnId: "turn-3", markdown: true },
-    { id: "a3", kind: "message", role: "assistant", text: "three answer", turnId: "turn-3", markdown: true },
+    { id: "u1", kind: "message", messageKind: "user", role: "user", text: "one", turnId: "turn-1" },
+    {
+      id: "a1",
+      kind: "message",
+      role: "assistant",
+      text: "one answer",
+      turnId: "turn-1",
+      messageKind: "assistantResponse",
+      messageState: "completed",
+    },
+    { id: "u2", kind: "message", messageKind: "user", role: "user", text: "two", turnId: "turn-2" },
+    {
+      id: "a2",
+      kind: "message",
+      role: "assistant",
+      text: "two answer",
+      turnId: "turn-2",
+      messageKind: "assistantResponse",
+      messageState: "completed",
+    },
+    { id: "u3", kind: "message", messageKind: "user", role: "user", text: "three", turnId: "turn-3" },
+    {
+      id: "a3",
+      kind: "message",
+      role: "assistant",
+      text: "three answer",
+      turnId: "turn-3",
+      messageKind: "assistantResponse",
+      messageState: "completed",
+    },
   ];
 }
 

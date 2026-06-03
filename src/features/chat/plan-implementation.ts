@@ -7,8 +7,5 @@ export function implementPlanCandidateFromState(
   if (!state.activeThreadId || chatTurnBusy(state) || state.composerDraft.trim().length > 0 || state.selectedCollaborationMode !== "plan") {
     return null;
   }
-  return (
-    [...state.displayItems].reverse().find((item) => item.kind === "message" && item.role === "assistant" && item.proposedPlan === true) ??
-    null
-  );
+  return [...state.displayItems].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null;
 }

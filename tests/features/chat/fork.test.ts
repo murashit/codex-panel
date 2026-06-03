@@ -6,13 +6,45 @@ import type { DisplayItem } from "../../../src/features/chat/display/types";
 describe("fork candidates", () => {
   it("selects final assistant messages and counts later turns", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "first", turnId: "turn-1", markdown: true },
-      { id: "a1", kind: "message", role: "assistant", text: "first answer", turnId: "turn-1", markdown: true },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "first", turnId: "turn-1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "first answer",
+        turnId: "turn-1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
       { id: "tool-1", kind: "tool", role: "tool", text: "work", turnId: "turn-2" },
-      { id: "a2-delta", kind: "message", role: "assistant", text: "draft", turnId: "turn-2", markdown: false },
-      { id: "a2", kind: "message", role: "assistant", text: "second answer", turnId: "turn-2", markdown: true },
-      { id: "u3", kind: "message", role: "user", text: "third", turnId: "turn-3", markdown: true },
-      { id: "a3", kind: "message", role: "assistant", text: "third answer", turnId: "turn-3", markdown: true },
+      {
+        id: "a2-delta",
+        kind: "message",
+        role: "assistant",
+        text: "draft",
+        turnId: "turn-2",
+        messageKind: "proposedPlan",
+        messageState: "streaming",
+      },
+      {
+        id: "a2",
+        kind: "message",
+        role: "assistant",
+        text: "second answer",
+        turnId: "turn-2",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+      { id: "u3", kind: "message", messageKind: "user", role: "user", text: "third", turnId: "turn-3" },
+      {
+        id: "a3",
+        kind: "message",
+        role: "assistant",
+        text: "third answer",
+        turnId: "turn-3",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const candidates = forkCandidatesFromItems(items);

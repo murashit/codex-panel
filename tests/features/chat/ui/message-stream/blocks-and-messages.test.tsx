@@ -38,8 +38,16 @@ describe("message stream rendering and message actions", () => {
       messageStreamBlocks({
         ...baseContext,
         displayItems: [
-          { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1", markdown: true },
-          { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1", markdown: true },
+          { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "done",
+            turnId: "t1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
         ],
       }),
     );
@@ -48,7 +56,7 @@ describe("message stream rendering and message actions", () => {
       messageStreamBlocks({
         ...baseContext,
         displayItems: [
-          { id: "u1", kind: "message", role: "user", text: "do it", turnId: "t1", markdown: true },
+          { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
           {
             id: "hook-1",
             kind: "hook",
@@ -58,7 +66,15 @@ describe("message stream rendering and message actions", () => {
             turnId: "t1",
             status: "completed",
           },
-          { id: "a1", kind: "message", role: "assistant", text: "done", turnId: "t1", markdown: true },
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "done",
+            turnId: "t1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
         ],
       }),
     );
@@ -132,7 +148,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command.", markdown: false }],
+      displayItems: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." }],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
@@ -160,7 +176,6 @@ describe("message stream rendering and message actions", () => {
           role: "tool",
           text: "Auto-review approved: npm test",
           turnId: "turn",
-          markdown: false,
           executionState: "completed",
           details: [
             {
@@ -278,6 +293,7 @@ describe("message stream rendering and message actions", () => {
   });
 
   it("renders structured system result details as visible selectable meta rows", () => {
+    const renderMarkdown = vi.fn((parent: HTMLElement, text: string) => parent.createDiv({ text: `markdown:${text}` }));
     const block = messageStreamBlocks({
       activeThreadId: "thread",
       turnLifecycle: idleTurnLifecycle(),
@@ -289,7 +305,6 @@ describe("message stream rendering and message actions", () => {
           kind: "system",
           role: "system",
           text: "Available slash commands",
-          markdown: false,
           details: [
             {
               rows: [
@@ -302,13 +317,15 @@ describe("message stream rendering and message actions", () => {
       ],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      renderMarkdown,
     })[0];
 
     const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__message--system")).toBe(true);
     expect(element.querySelector(".codex-panel__message-content")?.textContent).toBe("Available slash commands");
+    expect(element.querySelector(".codex-panel__message-content")?.classList.contains("markdown-rendered")).toBe(false);
+    expect(renderMarkdown).not.toHaveBeenCalled();
     expect(element.querySelector("details")).toBeNull();
     expect(element.querySelector(".codex-panel__output-title")).toBeNull();
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("/helpShow available Codex slash commands.");
@@ -318,9 +335,17 @@ describe("message stream rendering and message actions", () => {
   it("renders rollback action only for the eligible user message", () => {
     const onRollbackItem = vi.fn();
     const items = [
-      { id: "u1", kind: "message", role: "user", text: "older", turnId: "turn-1", markdown: true },
-      { id: "a1", kind: "message", role: "assistant", text: "older answer", turnId: "turn-1", markdown: true },
-      { id: "u2", kind: "message", role: "user", text: "latest", turnId: "turn-2", markdown: true },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "older", turnId: "turn-1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "older answer",
+        turnId: "turn-1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+      { id: "u2", kind: "message", messageKind: "user", role: "user", text: "latest", turnId: "turn-2" },
     ] as const;
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
@@ -353,8 +378,17 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [
-        { id: "u1", kind: "message", role: "user", text: "rendered user", copyText: "**user**", turnId: "turn-1", markdown: true },
-        { id: "a1", kind: "message", role: "assistant", text: "rendered answer", copyText: "# Answer", turnId: "turn-1", markdown: true },
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "rendered user", copyText: "**user**", turnId: "turn-1" },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "rendered answer",
+          copyText: "# Answer",
+          turnId: "turn-1",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
       ],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
@@ -381,10 +415,11 @@ describe("message stream rendering and message actions", () => {
       id: "a1",
       kind: "message",
       role: "assistant",
+      messageKind: "assistantResponse",
+      messageState: "completed",
       text: "answer",
       copyText: "answer",
       turnId: "turn-1",
-      markdown: true,
     };
 
     const closedBlock = messageStreamBlocks({
@@ -441,10 +476,11 @@ describe("message stream rendering and message actions", () => {
       id: "a1",
       kind: "message",
       role: "assistant",
+      messageKind: "assistantResponse",
+      messageState: "completed",
       text: "answer",
       copyText: "answer",
       turnId: "turn-1",
-      markdown: true,
     };
     const block = messageStreamBlocks({
       activeThreadId: "thread",
@@ -487,8 +523,8 @@ describe("message stream rendering and message actions", () => {
             text: "Plan",
             copyText: "Plan",
             turnId: "turn-1",
-            markdown: false,
-            proposedPlan: true,
+            messageKind: "proposedPlan",
+            messageState: "streaming",
           },
         ],
         openDetails: new Set(),
@@ -522,7 +558,17 @@ describe("message stream rendering and message actions", () => {
         turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: true }],
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "**answer**",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
+        ],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown,
@@ -534,7 +580,7 @@ describe("message stream rendering and message actions", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("updates message content when the markdown mode changes", () => {
+  it("updates message content when a streaming plan delta completes", () => {
     const parent = document.createElement("div");
     const baseContext = {
       activeThreadId: "thread",
@@ -550,7 +596,17 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer** [[Note]]", turnId: "turn-1", markdown: false }],
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "**answer** [[Note]]",
+            turnId: "turn-1",
+            messageKind: "proposedPlan",
+            messageState: "streaming",
+          },
+        ],
       }),
     );
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("**answer** [[Note]]");
@@ -560,7 +616,17 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: true }],
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "**answer**",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
+        ],
       }),
     );
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:**answer**");
@@ -586,7 +652,17 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "first", turnId: "turn-1", markdown: true }],
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "first",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
+        ],
       }),
     );
     expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__message-content')?.textContent).toBe(
@@ -597,7 +673,17 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "second", turnId: "turn-1", markdown: true }],
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "second",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
+        ],
       }),
     );
 
@@ -613,10 +699,11 @@ describe("message stream rendering and message actions", () => {
       itemId: "a-running",
       kind: "message",
       role: "assistant",
+      messageKind: "assistantResponse",
+      messageState: "completed",
       text: "partial",
       copyText: "partial",
       turnId: "turn-1",
-      markdown: false,
     } as const;
     const context = {
       activeThreadId: "thread",
@@ -652,8 +739,8 @@ describe("message stream rendering and message actions", () => {
           text: "# Plan",
           copyText: "# Plan",
           turnId: "turn-1",
-          markdown: true,
-          proposedPlan: true,
+          messageKind: "proposedPlan",
+          messageState: "completed",
         },
       ],
       openDetails: new Set(),
@@ -686,8 +773,8 @@ describe("message stream rendering and message actions", () => {
           text: "# Plan",
           copyText: "# Plan",
           turnId: "turn-1",
-          markdown: true,
-          proposedPlan: true,
+          messageKind: "proposedPlan",
+          messageState: "completed",
         },
       ],
       openDetails: new Set(),
@@ -713,7 +800,8 @@ describe("message stream rendering and message actions", () => {
       role: "assistant",
       text: "# First plan",
       turnId: "turn-1",
-      proposedPlan: true,
+      messageKind: "proposedPlan",
+      messageState: "completed",
     } as const;
     const secondPlan = {
       id: "p2",
@@ -721,14 +809,26 @@ describe("message stream rendering and message actions", () => {
       role: "assistant",
       text: "# Second plan",
       turnId: "turn-2",
-      proposedPlan: true,
+      messageKind: "proposedPlan",
+      messageState: "completed",
     } as const;
     const baseState = {
       activeThreadId: "thread",
       turnLifecycle: { kind: "idle" as const },
       composerDraft: "",
       selectedCollaborationMode: "plan" as const,
-      displayItems: [firstPlan, { id: "a1", kind: "message", role: "assistant", text: "answer" } as const, secondPlan],
+      displayItems: [
+        firstPlan,
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "answer",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        } as const,
+        secondPlan,
+      ],
     };
 
     expect(implementPlanCandidateFromState(baseState)).toBe(secondPlan);
@@ -770,7 +870,9 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [{ id: "u1", kind: "message", role: "user", text: "latest", copyText: "latest", turnId: "turn-1", markdown: true }],
+      displayItems: [
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-1" },
+      ],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
@@ -804,7 +906,15 @@ describe("message stream rendering and message actions", () => {
         historyCursor: null,
         loadingHistory: false,
         displayItems: [
-          { id: "u1", kind: "message", role: "user", text: "visible text", copyText: "full copied text", turnId: "turn-1", markdown: true },
+          {
+            id: "u1",
+            kind: "message",
+            messageKind: "user",
+            role: "user",
+            text: "visible text",
+            copyText: "full copied text",
+            turnId: "turn-1",
+          },
         ],
         openDetails,
         onDetailsToggle,
@@ -844,7 +954,7 @@ describe("message stream rendering and message actions", () => {
         turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        displayItems: [{ id: "u1", kind: "message", role: "user", text: "short", turnId: "turn-1", markdown: true }],
+        displayItems: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "short", turnId: "turn-1" }],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
@@ -860,7 +970,17 @@ describe("message stream rendering and message actions", () => {
         turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "long", turnId: "turn-1", markdown: true }],
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "long",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
+        ],
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
@@ -877,7 +997,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: startingTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [{ id: "u1", kind: "message", role: "user", text: "running", turnId: "turn-1", markdown: true }],
+      displayItems: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "running", turnId: "turn-1" }],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
@@ -1044,7 +1164,15 @@ describe("message stream rendering and message actions", () => {
           status: "completed",
           changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
         },
-        { id: "a1", kind: "message", role: "assistant", text: "Done", turnId: "turn", markdown: true },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "Done",
+          turnId: "turn",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
       ],
       turnDiffs: new Map([["turn", "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new"]]),
       openDetails: new Set(),
@@ -1079,10 +1207,10 @@ describe("message stream rendering and message actions", () => {
         {
           id: "u1",
           kind: "message",
+          messageKind: "user",
           role: "user",
           text: "この続きです",
           copyText: "この続きです",
-          markdown: true,
           referencedThread: {
             threadId: "thread-reference",
             title: "参照元",
@@ -1114,10 +1242,10 @@ describe("message stream rendering and message actions", () => {
         {
           id: "u1",
           kind: "message",
+          messageKind: "user",
           role: "user",
           text: "Read [[Alpha]].",
           copyText: "Read [[Alpha]].",
-          markdown: true,
           mentionedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
         },
       ],
@@ -1150,7 +1278,15 @@ describe("message stream rendering and message actions", () => {
           status: "completed",
           changes: [{ kind: "update", path: "src/main.ts", diff: "@@\n-old\n+new" }],
         },
-        { id: "a1", kind: "message", role: "assistant", text: "Done", turnId: "turn", markdown: true },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "Done",
+          turnId: "turn",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
       ],
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),

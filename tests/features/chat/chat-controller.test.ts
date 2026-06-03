@@ -66,7 +66,7 @@ describe("ChatController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
       } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
 
-      expect(state.displayItems).toMatchObject([{ id: "a1", text: "hello", markdown: true }]);
+      expect(state.displayItems).toMatchObject([{ id: "a1", text: "hello" }]);
     });
 
     it("marks active reasoning completed when assistant text starts", () => {
@@ -100,7 +100,49 @@ describe("ChatController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta: "<proposed_plan>\n# Plan" },
       } satisfies Extract<ServerNotification, { method: "item/plan/delta" }>);
 
-      expect(state.displayItems).toMatchObject([{ id: "p1", kind: "message", role: "assistant", text: "# Plan", markdown: false }]);
+      expect(state.displayItems).toMatchObject([
+        { id: "p1", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "# Plan", messageState: "streaming" },
+      ]);
+    });
+
+    it("marks streamed plan deltas completed when the completed turn reconciles", () => {
+      const state = createChatState();
+      state.activeThreadId = "thread-active";
+      state.turnLifecycle = { kind: "running", turnId: "turn-active" };
+      const controller = controllerForState(state);
+
+      controller.handleNotification({
+        method: "item/plan/delta",
+        params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta: "<proposed_plan>\n# Plan" },
+      } satisfies Extract<ServerNotification, { method: "item/plan/delta" }>);
+
+      controller.handleNotification({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-active",
+          turn: {
+            id: "turn-active",
+            status: "completed",
+            error: null,
+            startedAt: null,
+            completedAt: null,
+            durationMs: null,
+            itemsView: "full",
+            items: [{ type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" }],
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
+
+      expect(state.displayItems).toEqual([
+        expect.objectContaining({
+          id: "p1",
+          kind: "message",
+          role: "assistant",
+          text: "# Plan",
+          messageKind: "proposedPlan",
+          messageState: "completed",
+        }),
+      ]);
     });
 
     it("updates structured turn plan progress", () => {
@@ -385,7 +427,7 @@ describe("ChatController", () => {
         pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
       };
       state.displayItems = [
-        { id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true },
+        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
           kind: "hook",
@@ -438,7 +480,7 @@ describe("ChatController", () => {
             toolLabel: "hook",
             status: "completed",
           },
-          { id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true },
+          { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
         ],
         "turn-active",
         ["hook-hook-1-1"],
@@ -489,7 +531,7 @@ describe("ChatController", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
       state.turnLifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } };
-      state.displayItems = [{ id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true }];
+      state.displayItems = [{ id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" }];
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -562,7 +604,7 @@ describe("ChatController", () => {
         pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
       };
       state.displayItems = [
-        { id: "local-user-1", kind: "message", role: "user", text: "hello", markdown: true },
+        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
           kind: "hook",
@@ -920,7 +962,9 @@ describe("ChatController", () => {
       };
       state.historyCursor = "cursor";
       state.loadingHistory = true;
-      state.displayItems = [{ id: "message", kind: "message", role: "assistant", text: "stale" }];
+      state.displayItems = [
+        { id: "message", kind: "message", role: "assistant", text: "stale", messageKind: "assistantResponse", messageState: "completed" },
+      ];
       state.turnDiffs = new Map([["turn-active", "@@\n-stale\n+stale"]]);
       state.composerDraft = "thread draft";
       state.approvals = [
@@ -1004,15 +1048,16 @@ describe("ChatController", () => {
       state.activeThreadId = "thread-active";
       state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       state.displayItems = [
-        { id: "local-user-1", kind: "message", role: "user", text: "hello", turnId: "turn-active", markdown: true },
+        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello", turnId: "turn-active" },
         {
           id: "a1",
           itemId: "a1",
           kind: "message",
           role: "assistant",
+          messageKind: "assistantResponse",
+          messageState: "completed",
           text: "partial",
           turnId: "turn-active",
-          markdown: false,
         },
       ];
       const controller = controllerForState(state);
@@ -1040,7 +1085,7 @@ describe("ChatController", () => {
       expect(state.displayItems.filter((item) => item.kind === "message" && item.role === "user")).toEqual([
         expect.objectContaining({ id: "u1", text: "hello" }),
       ]);
-      expect(state.displayItems).toEqual(expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done", markdown: true })]));
+      expect(state.displayItems).toEqual(expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done" })]));
       expect(state.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
     });
 
@@ -1049,9 +1094,9 @@ describe("ChatController", () => {
       state.activeThreadId = "thread-active";
       state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       state.displayItems = [
-        { id: "local-user-1", kind: "message", role: "user", text: "same text", turnId: "turn-active", markdown: true },
-        { id: "local-steer-2", kind: "message", role: "user", text: "same text", turnId: "turn-active", markdown: true },
-        { id: "local-user-2", kind: "message", role: "user", text: "same text", turnId: "turn-other", markdown: true },
+        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
+        { id: "local-steer-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
+        { id: "local-user-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-other" },
       ];
       const controller = controllerForState(state);
 
@@ -1093,7 +1138,7 @@ describe("ChatController", () => {
       legacyState.activeThreadId = "thread-active";
       legacyState.turnLifecycle = { kind: "running", turnId: "turn-active" };
       legacyState.displayItems = [
-        { id: "local-user-legacy", kind: "message", role: "user", text: "legacy text", turnId: "turn-active", markdown: true },
+        { id: "local-user-legacy", kind: "message", messageKind: "user", role: "user", text: "legacy text", turnId: "turn-active" },
       ];
       const legacyController = controllerForState(legacyState);
 
@@ -1125,17 +1170,18 @@ describe("ChatController", () => {
       state.activeThreadId = "thread-active";
       state.turnLifecycle = { kind: "running", turnId: "turn-active" };
       state.displayItems = [
-        { id: "local-user-1", kind: "message", role: "user", text: "start", turnId: "turn-active", markdown: true },
+        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "start", turnId: "turn-active" },
         {
           id: "a1",
           itemId: "a1",
           kind: "message",
           role: "assistant",
+          messageKind: "assistantResponse",
+          messageState: "completed",
           text: "first partial",
           turnId: "turn-active",
-          markdown: true,
         },
-        { id: "local-steer-1", kind: "message", role: "user", text: "steer", turnId: "turn-active", markdown: true },
+        { id: "local-steer-1", kind: "message", messageKind: "user", role: "user", text: "steer", turnId: "turn-active" },
       ];
       const controller = controllerForState(state);
 
@@ -1389,7 +1435,6 @@ describe("ChatController", () => {
           kind: "reviewResult",
           role: "tool",
           text: "Auto-review denied this command.",
-          markdown: false,
         },
       ]);
     });

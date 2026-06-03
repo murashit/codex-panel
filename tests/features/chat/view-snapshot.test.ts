@@ -14,9 +14,9 @@ describe("chat view snapshots", () => {
   it("finds the latest proposed plan item", () => {
     expect(
       latestProposedPlanItem([
-        { id: "first", kind: "message", role: "assistant", text: "plan", proposedPlan: true },
-        { id: "user", kind: "message", role: "user", text: "ok" },
-        { id: "latest", kind: "message", role: "assistant", text: "plan", proposedPlan: true },
+        { id: "first", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "plan", messageState: "completed" },
+        { id: "user", kind: "message", messageKind: "user", role: "user", text: "ok" },
+        { id: "latest", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "plan", messageState: "completed" },
       ])?.id,
     ).toBe("latest");
   });

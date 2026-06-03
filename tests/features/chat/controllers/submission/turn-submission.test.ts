@@ -17,7 +17,7 @@ describe("chat turn submission helpers", () => {
 
     mentionedFiles.push({ name: "Other", path: "Other.md" });
 
-    expect(item).toMatchObject({ id: "local", kind: "message", role: "user", text: "hello", copyText: "hello", markdown: true });
+    expect(item).toMatchObject({ id: "local", kind: "message", messageKind: "user", role: "user", text: "hello", copyText: "hello" });
     expect(item.mentionedFiles).toEqual([{ name: "Note", path: "Note.md" }]);
   });
 
@@ -33,6 +33,7 @@ describe("chat turn submission helpers", () => {
     expect(start.item).toMatchObject({
       id: "local-user",
       kind: "message",
+      messageKind: "user",
       role: "user",
       text: "hello [[Note]]",
       mentionedFiles: [{ name: "Note", path: "Note.md" }],
@@ -93,7 +94,7 @@ describe("chat turn submission helpers", () => {
     const items: DisplayItem[] = [
       localUserMessageItem({ id: "local-user", text: "hello" }),
       hookItem("hook-1"),
-      { id: "assistant", kind: "message", role: "assistant", text: "working" },
+      { id: "assistant", kind: "message", role: "assistant", text: "working", messageKind: "assistantResponse", messageState: "completed" },
     ];
 
     const next = acknowledgeOptimisticTurnStart({

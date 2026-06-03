@@ -49,13 +49,13 @@ export function localUserMessageItem(params: LocalUserMessageParams): MessageDis
   return {
     id: params.id,
     kind: "message",
+    messageKind: "user",
     role: "user",
     text: params.text,
     copyText: params.copyText ?? params.text,
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     ...(mentionedFiles.length > 0 ? { mentionedFiles: [...mentionedFiles] } : {}),
-    markdown: true,
   };
 }
 

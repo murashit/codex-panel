@@ -11,10 +11,26 @@ function expectPresent<T>(value: T | null | undefined): T {
 describe("rollback candidate", () => {
   it("selects the first user message from the latest turn", () => {
     const items: DisplayItem[] = [
-      { id: "u1", kind: "message", role: "user", text: "older", turnId: "turn-1", markdown: true },
-      { id: "a1", kind: "message", role: "assistant", text: "older answer", turnId: "turn-1", markdown: true },
-      { id: "u2", kind: "message", role: "user", text: "latest", turnId: "turn-2", markdown: true },
-      { id: "a2", kind: "message", role: "assistant", text: "latest answer", turnId: "turn-2", markdown: true },
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "older", turnId: "turn-1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "older answer",
+        turnId: "turn-1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+      { id: "u2", kind: "message", messageKind: "user", role: "user", text: "latest", turnId: "turn-2" },
+      {
+        id: "a2",
+        kind: "message",
+        role: "assistant",
+        text: "latest answer",
+        turnId: "turn-2",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
     ];
 
     const candidate = rollbackCandidateFromItems(items);
@@ -29,7 +45,17 @@ describe("rollback candidate", () => {
     expect(rollbackCandidateFromItems([])).toBeNull();
     expect(rollbackCandidateFromItems([{ id: "system", kind: "system", role: "system", text: "Idle" }])).toBeNull();
     expect(
-      rollbackCandidateFromItems([{ id: "a1", kind: "message", role: "assistant", text: "answer", turnId: "turn-1", markdown: true }]),
+      rollbackCandidateFromItems([
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "answer",
+          turnId: "turn-1",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
+      ]),
     ).toBeNull();
   });
 });
