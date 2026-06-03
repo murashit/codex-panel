@@ -24,17 +24,27 @@ describe("Obsidian composer context", () => {
         ["Assets/Diagram.png", "Assets/Diagram.png"],
         ["Attachments/LICENSE", "Attachments/LICENSE"],
       ]),
+      headings: new Map([["Beta.md", [{ heading: "Overview", level: 1 }]]]),
     });
 
     expect(noteCandidates(app)).toEqual([
-      { basename: "Alpha", displayName: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "Alpha", recentIndex: null },
-      { basename: "Beta", displayName: "Beta", path: "Beta.md", mtime: 200, linktext: "Beta", recentIndex: 0 },
+      { basename: "Alpha", displayName: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "Alpha", headings: [], recentIndex: null },
+      {
+        basename: "Beta",
+        displayName: "Beta",
+        path: "Beta.md",
+        mtime: 200,
+        linktext: "Beta",
+        headings: [{ heading: "Overview", linkHeading: "Overview", level: 1 }],
+        recentIndex: 0,
+      },
       {
         basename: "Daily",
         displayName: "Daily",
         path: "Personal/Daily Notes/Daily.md",
         mtime: 300,
         linktext: "Personal/Daily Notes/Daily",
+        headings: [],
         recentIndex: null,
       },
       {
@@ -43,6 +53,7 @@ describe("Obsidian composer context", () => {
         path: "Bases/Projects.base",
         mtime: 400,
         linktext: "Bases/Projects.base",
+        headings: [],
         recentIndex: null,
       },
       {
@@ -51,6 +62,7 @@ describe("Obsidian composer context", () => {
         path: "References/Paper.pdf",
         mtime: 500,
         linktext: "References/Paper.pdf",
+        headings: [],
         recentIndex: null,
       },
       {
@@ -59,6 +71,7 @@ describe("Obsidian composer context", () => {
         path: "Assets/Diagram.png",
         mtime: 600,
         linktext: "Assets/Diagram.png",
+        headings: [],
         recentIndex: null,
       },
       {
@@ -67,6 +80,7 @@ describe("Obsidian composer context", () => {
         path: "Attachments/LICENSE",
         mtime: 700,
         linktext: "Attachments/LICENSE",
+        headings: [],
         recentIndex: null,
       },
     ]);
@@ -127,6 +141,7 @@ function appFixture(options: {
   files?: { basename: string; path: string; stat: { mtime: number } }[];
   abstractFiles?: Map<string, TFile>;
   linktexts?: Map<string, string>;
+  headings?: Map<string, { heading: string; level: number }[]>;
 }): App {
   return {
     workspace: {
@@ -137,6 +152,7 @@ function appFixture(options: {
       getFirstLinkpathDest: options.getFirstLinkpathDest ?? (() => options.linkDestination ?? null),
       fileToLinktext: (file: TFile, _sourcePath: string, omitMdExtension?: boolean) =>
         options.linktexts?.get(file.path) ?? (omitMdExtension === true ? file.path.replace(/\.md$/i, "") : file.path),
+      getFileCache: (file: TFile) => ({ headings: options.headings?.get(file.path) ?? [] }),
     },
     vault: {
       getFiles: () => vaultFiles(options.files ?? []),

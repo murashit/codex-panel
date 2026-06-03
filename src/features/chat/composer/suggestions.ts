@@ -19,6 +19,8 @@ export interface ComposerSuggestion {
   replacement: string;
   start: number;
   appendSpaceOnInsert?: boolean;
+  tabCursorOffset?: number;
+  suffixOnInsert?: string;
 }
 
 export interface NoteCandidate {
@@ -27,7 +29,14 @@ export interface NoteCandidate {
   path: string;
   mtime: number;
   linktext: string;
+  headings: NoteHeadingCandidate[];
   recentIndex: number | null;
+}
+
+export interface NoteHeadingCandidate {
+  heading: string;
+  linkHeading: string;
+  level: number;
 }
 
 interface NoteCandidateMatch {
@@ -69,12 +78,16 @@ export function applyComposerSuggestionInsertion(
   value: string,
   cursor: number,
   suggestion: ComposerSuggestion,
+  options: { activation?: "enter" | "tab" } = {},
 ): { value: string; cursor: number } {
   const suffix = value.slice(cursor);
   const appendSpace = suggestion.appendSpaceOnInsert === true && !suggestion.replacement.endsWith(" ") && !/^\s/.test(suffix);
   const replacement = `${suggestion.replacement}${appendSpace ? " " : ""}`;
-  const nextValue = `${value.slice(0, suggestion.start)}${replacement}${suffix}`;
-  return { value: nextValue, cursor: suggestion.start + replacement.length };
+  const suffixStart =
+    cursor + (suggestion.suffixOnInsert && suffix.startsWith(suggestion.suffixOnInsert) ? suggestion.suffixOnInsert.length : 0);
+  const nextValue = `${value.slice(0, suggestion.start)}${replacement}${value.slice(suffixStart)}`;
+  const cursorOffset = options.activation === "tab" ? (suggestion.tabCursorOffset ?? 0) : 0;
+  return { value: nextValue, cursor: suggestion.start + replacement.length + cursorOffset };
 }
 
 export function composerSuggestionNavigationDirection(event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey">): 1 | -1 | null {
@@ -105,6 +118,9 @@ export function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandi
 }
 
 export function findWikiLinkSuggestions(queryText: string, start: number, notes: NoteCandidate[]): ComposerSuggestion[] {
+  const headingCompletion = wikiLinkHeadingCompletion(queryText, start, notes);
+  if (headingCompletion) return headingCompletion;
+
   const query = queryText.toLowerCase().trim();
   const suggestions = query.length === 0 ? emptyWikiLinkSuggestions(notes) : fuzzyWikiLinkSuggestions(query, notes);
 
@@ -113,7 +129,62 @@ export function findWikiLinkSuggestions(queryText: string, start: number, notes:
     detail: file.path,
     replacement: `[[${file.linktext}]]`,
     start,
+    tabCursorOffset: -2,
   }));
+}
+
+function wikiLinkHeadingCompletion(queryText: string, start: number, notes: NoteCandidate[]): ComposerSuggestion[] | null {
+  const blockIndex = queryText.indexOf("^");
+  if (blockIndex !== -1) return [];
+
+  const headingSeparator = queryText.indexOf("#");
+  if (headingSeparator === -1) return null;
+
+  const target = queryText.slice(0, headingSeparator).trim();
+  if (!target) return [];
+
+  const note = noteForWikiLinkTarget(target, notes);
+  if (!note) return [];
+
+  const query = queryText
+    .slice(headingSeparator + 1)
+    .trim()
+    .toLowerCase();
+  const headingMatches = query.length === 0 ? note.headings : fuzzyHeadingSuggestions(query, note.headings).map((item) => item.heading);
+  return headingMatches.slice(0, 8).map((heading) => ({
+    display: heading.heading,
+    detail: `${"#".repeat(heading.level)} ${note.path}`,
+    replacement: `[[${note.linktext}#${heading.linkHeading}]]`,
+    start,
+    suffixOnInsert: "]]",
+  }));
+}
+
+function noteForWikiLinkTarget(target: string, notes: NoteCandidate[]): NoteCandidate | null {
+  const normalized = target.toLowerCase();
+  return notes.find((note) => wikiLinkTargetAliases(note).some((alias) => alias.toLowerCase() === normalized)) ?? null;
+}
+
+function wikiLinkTargetAliases(note: NoteCandidate): string[] {
+  const aliases = [note.linktext, note.path, note.basename, note.displayName];
+  if (note.path.toLowerCase().endsWith(".md")) aliases.push(note.path.slice(0, -3));
+  return aliases;
+}
+
+function fuzzyHeadingSuggestions(
+  query: string,
+  headings: readonly NoteHeadingCandidate[],
+): { heading: NoteHeadingCandidate; match: SearchResult }[] {
+  const search = prepareFuzzySearch(query);
+  const results = headings
+    .map((heading) => {
+      const match = search(heading.heading);
+      return match ? { heading, match } : null;
+    })
+    .filter((item): item is { heading: NoteHeadingCandidate; match: SearchResult } => item !== null);
+
+  sortSearchResults(results);
+  return results;
 }
 
 function emptyWikiLinkSuggestions(notes: NoteCandidate[]): NoteCandidateMatch[] {

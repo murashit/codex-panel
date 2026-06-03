@@ -1,5 +1,5 @@
 import type { App } from "obsidian";
-import { TFile } from "obsidian";
+import { stripHeadingForLink, TFile } from "obsidian";
 
 import type { NoteCandidate } from "./suggestions";
 
@@ -17,6 +17,7 @@ export function noteCandidates(app: App): NoteCandidate[] {
     path: file.path,
     mtime: file.stat.mtime,
     linktext: linktextForFile(app, file, sourcePath),
+    headings: noteHeadings(app, file),
     recentIndex: recentPaths.get(file.path) ?? null,
   }));
 }
@@ -42,4 +43,12 @@ function linktextForFile(app: App, file: TFile, sourcePath: string): string {
 
 function displayNameForFile(file: TFile): string {
   return file.extension === "md" ? file.basename : file.name;
+}
+
+function noteHeadings(app: App, file: TFile): NoteCandidate["headings"] {
+  return (app.metadataCache.getFileCache(file)?.headings ?? []).map((heading) => ({
+    heading: heading.heading,
+    linkHeading: stripHeadingForLink(heading.heading),
+    level: heading.level,
+  }));
 }

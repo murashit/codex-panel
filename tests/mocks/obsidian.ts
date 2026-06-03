@@ -89,6 +89,10 @@ export function sortSearchResults(results: { match: { score: number } }[]): void
   results.sort((a, b) => b.match.score - a.match.score);
 }
 
+export function stripHeadingForLink(heading: string): string {
+  return heading.trim();
+}
+
 export function parseLinktext(linktext: string): { path: string; subpath: string } {
   const headingIndex = linktext.indexOf("#");
   const blockIndex = linktext.indexOf("^");

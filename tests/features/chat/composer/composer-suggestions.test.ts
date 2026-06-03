@@ -68,15 +68,43 @@ function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Mode
 
 describe("composer suggestions", () => {
   const notes = [
-    { basename: "Alpha", displayName: "Alpha", path: "thoughts/Alpha.md", mtime: 10, linktext: "thoughts/Alpha", recentIndex: 1 },
-    { basename: "Alpha", displayName: "Alpha", path: "projects/Alpha.md", mtime: 20, linktext: "projects/Alpha", recentIndex: 0 },
-    { basename: "Beta Note", displayName: "Beta Note", path: "topics/Beta Note.md", mtime: 30, linktext: "Beta Note", recentIndex: null },
+    {
+      basename: "Alpha",
+      displayName: "Alpha",
+      path: "thoughts/Alpha.md",
+      mtime: 10,
+      linktext: "thoughts/Alpha",
+      headings: [],
+      recentIndex: 1,
+    },
+    {
+      basename: "Alpha",
+      displayName: "Alpha",
+      path: "projects/Alpha.md",
+      mtime: 20,
+      linktext: "projects/Alpha",
+      headings: [],
+      recentIndex: 0,
+    },
+    {
+      basename: "Beta Note",
+      displayName: "Beta Note",
+      path: "topics/Beta Note.md",
+      mtime: 30,
+      linktext: "Beta Note",
+      headings: [
+        { heading: "Overview", linkHeading: "Overview", level: 1 },
+        { heading: "Implementation Details", linkHeading: "Implementation Details", level: 2 },
+      ],
+      recentIndex: null,
+    },
     {
       basename: "Projects",
       displayName: "Projects.base",
       path: "Bases/Projects.base",
       mtime: 40,
       linktext: "Bases/Projects.base",
+      headings: [],
       recentIndex: null,
     },
     {
@@ -85,6 +113,7 @@ describe("composer suggestions", () => {
       path: "References/Paper.pdf",
       mtime: 50,
       linktext: "References/Paper.pdf",
+      headings: [],
       recentIndex: null,
     },
     {
@@ -93,6 +122,7 @@ describe("composer suggestions", () => {
       path: "Assets/Diagram.png",
       mtime: 60,
       linktext: "Assets/Diagram.png",
+      headings: [],
       recentIndex: 2,
     },
   ];
@@ -164,6 +194,29 @@ describe("composer suggestions", () => {
       { type: "text", text, text_elements: [] },
       { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
     ]);
+  });
+
+  it("suggests headings inside a completed wikilink without suggesting block references", () => {
+    const heading = expectPresent(activeComposerSuggestions("[[Beta Note#impl", notes, [])[0]);
+
+    expect(activeComposerSuggestions("[[Beta Note#", notes, []).map((suggestion) => suggestion.replacement)).toEqual([
+      "[[Beta Note#Overview]]",
+      "[[Beta Note#Implementation Details]]",
+    ]);
+    expect(heading).toMatchObject({
+      display: "Implementation Details",
+      detail: "## topics/Beta Note.md",
+      replacement: "[[Beta Note#Implementation Details]]",
+    });
+    expect(applyComposerSuggestionInsertion("[[Beta Note#impl]]", 16, heading)).toEqual({
+      value: "[[Beta Note#Implementation Details]]",
+      cursor: 36,
+    });
+    expect(applyComposerSuggestionInsertion("[[Beta Note#impl next", 16, heading)).toEqual({
+      value: "[[Beta Note#Implementation Details]] next",
+      cursor: 36,
+    });
+    expect(activeComposerSuggestions("[[Beta Note#^", notes, [])).toEqual([]);
   });
 
   it("uses one active suggestion family at a time", () => {
@@ -304,6 +357,10 @@ describe("composer suggestions", () => {
     expect(applyComposerSuggestionInsertion("/sta", 4, slash)).toEqual({ value: "/status ", cursor: 8 });
     expect(applyComposerSuggestionInsertion("/sta then", 4, slash)).toEqual({ value: "/status then", cursor: 7 });
     expect(applyComposerSuggestionInsertion("[[bet", 5, wikilink)).toEqual({ value: "[[Beta Note]]", cursor: 13 });
+    expect(applyComposerSuggestionInsertion("[[bet", 5, wikilink, { activation: "tab" })).toEqual({
+      value: "[[Beta Note]]",
+      cursor: 11,
+    });
     expect(
       activeComposerSuggestions("$obsidian-dataview-read", notes, [
         {

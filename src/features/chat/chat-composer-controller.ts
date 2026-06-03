@@ -187,7 +187,7 @@ export class ChatComposerController {
 
     if (event.key === "Enter" || event.key === "Tab") {
       event.preventDefault();
-      this.insertSuggestion(state.composerSuggestions[state.composerSuggestSelected]);
+      this.insertSuggestion(state.composerSuggestions[state.composerSuggestSelected], event.key === "Tab" ? "tab" : "enter");
       return true;
     }
 
@@ -252,12 +252,12 @@ export class ChatComposerController {
     this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: this.state.composerSuggestions, selected: index }, true);
   }
 
-  private insertSuggestion(suggestion: ComposerSuggestion | undefined): void {
+  private insertSuggestion(suggestion: ComposerSuggestion | undefined, activation: "enter" | "tab" = "enter"): void {
     if (!this.composer || !suggestion) return;
 
     const cursor = this.composer.selectionStart;
     const value = this.composer.value;
-    const insertion = applyComposerSuggestionInsertion(value, cursor, suggestion);
+    const insertion = applyComposerSuggestionInsertion(value, cursor, suggestion, { activation });
 
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
     this.options.onDraftChange();
