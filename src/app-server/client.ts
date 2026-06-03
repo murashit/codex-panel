@@ -326,6 +326,7 @@ export class AppServerClient {
     threadId: string,
     cwd: string,
     input: string | UserInput[],
+    clientUserMessageId?: string | null,
     serviceTier?: ServiceTierRequest,
     collaborationMode?: CollaborationMode | null,
     model?: string | null,
@@ -335,6 +336,7 @@ export class AppServerClient {
     const params: ClientRequestParams<"turn/start"> & { collaborationMode?: CollaborationMode | null } = {
       threadId,
       cwd,
+      ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
       ...(serviceTier !== undefined ? { serviceTier } : {}),
       input: toUserInput(input),
     };

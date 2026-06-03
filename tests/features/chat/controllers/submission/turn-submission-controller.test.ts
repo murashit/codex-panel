@@ -88,7 +88,7 @@ describe("TurnSubmissionController", () => {
     expect(host.startThread).toHaveBeenCalledWith("hello");
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
-    expect(startTurn).toHaveBeenCalledWith("thread", "/vault", textInput("hello"));
+    expect(startTurn).toHaveBeenCalledWith("thread", "/vault", textInput("hello"), expect.stringMatching(/^local-user-\d+$/));
     expect(stateStore.getState().turnLifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.setDraft).toHaveBeenCalledWith("");
     expect(host.setStatus).toHaveBeenCalledWith("Turn running...");

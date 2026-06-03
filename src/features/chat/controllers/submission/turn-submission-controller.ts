@@ -66,7 +66,7 @@ export class TurnSubmissionController {
       this.host.setDraft("");
       this.host.render();
 
-      const response = await client.startTurn(activeThreadId, this.host.vaultPath, codexInput);
+      const response = await client.startTurn(activeThreadId, this.host.vaultPath, codexInput, optimisticUserId);
       const pendingStart = this.state.pendingTurnStart;
       if (
         shouldAcknowledgeTurnStart({

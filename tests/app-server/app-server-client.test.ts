@@ -229,13 +229,14 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 2, result: { thread: { id: "thread-1", title: null }, serviceTier: "fast" } });
     await startingThread;
 
-    const startingTurn = client.startTurn("thread-1", "/vault", "hello", null);
+    const startingTurn = client.startTurn("thread-1", "/vault", "hello", "local-user-1", null);
     expect(transport.sent[3]).toMatchObject({
       id: 3,
       method: "turn/start",
       params: {
         threadId: "thread-1",
         cwd: "/vault",
+        clientUserMessageId: "local-user-1",
         serviceTier: null,
         input: [{ type: "text", text: "hello", text_elements: [] }],
       },
@@ -251,7 +252,7 @@ describe("AppServerClient", () => {
       { type: "mention" as const, name: "Alpha", path: "thoughts/Alpha.md" },
     ];
 
-    const startingTurn = client.startTurn("thread-1", "/vault", input, null);
+    const startingTurn = client.startTurn("thread-1", "/vault", input);
     expect(transport.sent[2]).toMatchObject({
       method: "turn/start",
       params: {
@@ -292,7 +293,7 @@ describe("AppServerClient", () => {
   it("sends collaboration mode only for Plan turns", async () => {
     const { client, transport } = await connectedClient();
 
-    const defaultTurn = client.startTurn("thread-1", "/vault", "default", null, null);
+    const defaultTurn = client.startTurn("thread-1", "/vault", "default", undefined, null, null);
     expect(transport.sent[2]).toMatchObject({
       method: "turn/start",
       params: {
@@ -305,7 +306,7 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 2, result: { turn: { id: "turn-default" } } });
     await defaultTurn;
 
-    const planTurn = client.startTurn("thread-1", "/vault", "plan", null, {
+    const planTurn = client.startTurn("thread-1", "/vault", "plan", undefined, null, {
       mode: "plan",
       settings: {
         model: "gpt-5.5",
@@ -336,7 +337,7 @@ describe("AppServerClient", () => {
   it("sends model and effort turn overrides when provided", async () => {
     const { client, transport } = await connectedClient();
 
-    const startingTurn = client.startTurn("thread-1", "/vault", "override", null, null, "gpt-5.5", "high");
+    const startingTurn = client.startTurn("thread-1", "/vault", "override", undefined, null, null, "gpt-5.5", "high");
     expect(transport.sent[2]).toMatchObject({
       method: "turn/start",
       params: {
@@ -350,7 +351,7 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 2, result: { turn: { id: "turn-override" } } });
     await startingTurn;
 
-    const resetTurn = client.startTurn("thread-1", "/vault", "reset", null, null, null, null);
+    const resetTurn = client.startTurn("thread-1", "/vault", "reset", undefined, null, null, null, null);
     expect(transport.sent[3]).toMatchObject({
       method: "turn/start",
       params: {
@@ -368,7 +369,17 @@ describe("AppServerClient", () => {
   it("sends approval reviewer turn overrides when provided", async () => {
     const { client, transport } = await connectedClient();
 
-    const autoReviewTurn = client.startTurn("thread-1", "/vault", "review this", null, null, undefined, undefined, "auto_review");
+    const autoReviewTurn = client.startTurn(
+      "thread-1",
+      "/vault",
+      "review this",
+      undefined,
+      null,
+      null,
+      undefined,
+      undefined,
+      "auto_review",
+    );
     expect(transport.sent[2]).toMatchObject({
       method: "turn/start",
       params: {
@@ -381,7 +392,7 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 2, result: { turn: { id: "turn-auto-review" } } });
     await autoReviewTurn;
 
-    const userReviewTurn = client.startTurn("thread-1", "/vault", "ask me", null, null, undefined, undefined, "user");
+    const userReviewTurn = client.startTurn("thread-1", "/vault", "ask me", undefined, null, null, undefined, undefined, "user");
     expect(transport.sent[3]).toMatchObject({
       method: "turn/start",
       params: {

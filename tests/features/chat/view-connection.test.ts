@@ -365,7 +365,12 @@ describe("CodexChatView connection lifecycle", () => {
     await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
 
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-    expect(client.startTurn).toHaveBeenCalledWith("thread-1", "/vault", [{ type: "text", text: "hello", text_elements: [] }]);
+    expect(client.startTurn).toHaveBeenCalledWith(
+      "thread-1",
+      "/vault",
+      [{ type: "text", text: "hello", text_elements: [] }],
+      expect.stringMatching(/^local-user-\d+$/),
+    );
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
   });
 
