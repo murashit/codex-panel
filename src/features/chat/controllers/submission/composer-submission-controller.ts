@@ -1,19 +1,41 @@
 import type { AppServerClient } from "../../../../app-server/client";
 import { parseSlashCommand } from "../../composer/suggestions";
-import type { ChatComposerController } from "../../chat-composer-controller";
-import type { SlashCommandController } from "./slash-command-controller";
-import type { TurnSubmissionController } from "./turn-submission-controller";
+import type { SlashCommandExecutionResult } from "../../slash-commands";
+import type { SlashCommandName } from "../../composer/slash-commands";
+import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
+import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
 import type { SubmissionStatePort } from "../state-ports";
+
+export interface ComposerDraftPort {
+  readonly trimmedDraft: string;
+  setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean }): void;
+}
+
+export interface ComposerSlashCommandPort {
+  execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined>;
+}
+
+export interface ComposerTurnSubmissionPort {
+  sendTurnText(text: string, codexInputOverride?: UserInput[], referencedThread?: ReferencedThreadDisplay): Promise<void>;
+}
+
+export interface ComposerConnectionPort {
+  ensureConnected: () => Promise<void>;
+  currentClient: () => AppServerClient | null;
+}
+
+export interface ComposerStatusPort {
+  setStatus: (status: string) => void;
+  addSystemMessage: (text: string) => void;
+}
 
 export interface ComposerSubmissionControllerHost {
   state: SubmissionStatePort;
-  composer: ChatComposerController;
-  slashCommands: SlashCommandController;
-  turnSubmission: TurnSubmissionController;
-  currentClient: () => AppServerClient | null;
-  ensureConnected: () => Promise<void>;
-  setStatus: (status: string) => void;
-  addSystemMessage: (text: string) => void;
+  composer: ComposerDraftPort;
+  slashCommands: ComposerSlashCommandPort;
+  turnSubmission: ComposerTurnSubmissionPort;
+  connection: ComposerConnectionPort;
+  status: ComposerStatusPort;
 }
 
 export class ComposerSubmissionController {
@@ -33,8 +55,8 @@ export class ComposerSubmissionController {
     const text = this.host.composer.trimmedDraft;
     if (!text) return;
 
-    await this.host.ensureConnected();
-    if (!this.host.currentClient()) return;
+    await this.host.connection.ensureConnected();
+    if (!this.host.connection.currentClient()) return;
 
     const slashCommand = parseSlashCommand(text);
     if (slashCommand) {
@@ -52,13 +74,13 @@ export class ComposerSubmissionController {
   private async interruptTurn(): Promise<void> {
     const state = this.host.state.snapshot();
     const turnId = state.activeTurnId;
-    const client = this.host.currentClient();
+    const client = this.host.connection.currentClient();
     if (!client || !state.activeThreadId || !turnId) return;
     try {
       await client.interruptTurn(state.activeThreadId, turnId);
-      this.host.setStatus("Interrupt requested.");
+      this.host.status.setStatus("Interrupt requested.");
     } catch (error) {
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      this.host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
   }
 }

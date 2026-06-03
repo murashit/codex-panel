@@ -4,11 +4,19 @@ import type { SubmissionStatePort } from "../state-ports";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 
+export interface PlanImplementationConnectionPort {
+  currentClient(): AppServerClient | null;
+  ensureConnected(): Promise<void>;
+}
+
+export interface PlanImplementationSubmissionPort {
+  sendTurnText(text: string): Promise<void>;
+}
+
 export interface PlanImplementationControllerHost {
   state: SubmissionStatePort;
-  currentClient: () => AppServerClient | null;
-  ensureConnected: () => Promise<void>;
-  sendTurnText: (text: string) => Promise<void>;
+  connection: PlanImplementationConnectionPort;
+  submission: PlanImplementationSubmissionPort;
 }
 
 export class PlanImplementationController {
@@ -20,10 +28,10 @@ export class PlanImplementationController {
 
   async implement(item: DisplayItem): Promise<void> {
     if (!this.canImplement(item)) return;
-    await this.host.ensureConnected();
-    if (!this.host.currentClient() || !this.host.state.snapshot().activeThreadId) return;
+    await this.host.connection.ensureConnected();
+    if (!this.host.connection.currentClient() || !this.host.state.snapshot().activeThreadId) return;
 
     this.host.state.prepareImplementationTurn();
-    await this.host.sendTurnText(IMPLEMENT_PLAN_PROMPT);
+    await this.host.submission.sendTurnText(IMPLEMENT_PLAN_PROMPT);
   }
 }

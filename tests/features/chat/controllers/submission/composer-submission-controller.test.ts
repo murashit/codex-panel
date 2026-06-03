@@ -4,9 +4,6 @@ import type { AppServerClient } from "../../../../../src/app-server/client";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
 import { ComposerSubmissionController } from "../../../../../src/features/chat/controllers/submission/composer-submission-controller";
 import { createSubmissionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
-import type { ChatComposerController } from "../../../../../src/features/chat/chat-composer-controller";
-import type { SlashCommandController } from "../../../../../src/features/chat/controllers/submission/slash-command-controller";
-import type { TurnSubmissionController } from "../../../../../src/features/chat/controllers/submission/turn-submission-controller";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
 
 function thread(id: string): Thread {
@@ -47,13 +44,17 @@ function createController(draft: string) {
         return draft;
       },
       setDraft,
-    } as unknown as ChatComposerController,
-    slashCommands: { execute } as unknown as SlashCommandController,
-    turnSubmission: { sendTurnText } as unknown as TurnSubmissionController,
-    currentClient: () => client,
-    ensureConnected: vi.fn().mockResolvedValue(undefined),
-    setStatus: vi.fn(),
-    addSystemMessage: vi.fn(),
+    },
+    slashCommands: { execute },
+    turnSubmission: { sendTurnText },
+    connection: {
+      currentClient: () => client,
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+    },
+    status: {
+      setStatus: vi.fn(),
+      addSystemMessage: vi.fn(),
+    },
   });
   return { controller, execute, interruptTurn, sendTurnText, setDraft, stateStore };
 }

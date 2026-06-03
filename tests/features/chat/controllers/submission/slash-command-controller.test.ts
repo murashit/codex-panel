@@ -5,6 +5,9 @@ import { createChatState, createChatStateStore } from "../../../../../src/featur
 import {
   SlashCommandController,
   type SlashCommandControllerHost,
+  type SlashCommandRuntimePort,
+  type SlashCommandStatusPort,
+  type SlashCommandThreadPort,
 } from "../../../../../src/features/chat/controllers/submission/slash-command-controller";
 import { createSubmissionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
@@ -36,34 +39,53 @@ function thread(id: string, name: string | null = null): Thread {
   };
 }
 
-function createHost(overrides: Partial<SlashCommandControllerHost> = {}) {
+interface SlashCommandHostOverrides extends Partial<Omit<SlashCommandControllerHost, "threads" | "runtime" | "status">> {
+  threads?: Partial<SlashCommandThreadPort>;
+  runtime?: Partial<SlashCommandRuntimePort>;
+  status?: Partial<SlashCommandStatusPort>;
+}
+
+function createHost(overrides: SlashCommandHostOverrides = {}) {
+  const { threads: threadOverrides, runtime: runtimeOverrides, status: statusOverrides, ...hostOverrides } = overrides;
   const stateStore = createChatStateStore(createChatState());
   const compactThread = vi.fn().mockResolvedValue({});
   const threadTurnsList = vi.fn().mockResolvedValue({ data: [] });
   const client = { compactThread, threadTurnsList } as unknown as AppServerClient;
-  const host: SlashCommandControllerHost = {
-    state: createSubmissionStatePort(stateStore),
-    currentClient: () => client,
-    codexInput: vi.fn((text: string) => textInput(text)),
+  const threads: SlashCommandThreadPort = {
     startNewThread: vi.fn().mockResolvedValue(undefined),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     forkThread: vi.fn().mockResolvedValue(undefined),
     rollbackThread: vi.fn().mockResolvedValue(undefined),
     archiveThread: vi.fn().mockResolvedValue(undefined),
+    ...threadOverrides,
+  };
+  const runtime: SlashCommandRuntimePort = {
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
     toggleAutoReview: vi.fn(),
+    setRequestedModel: vi.fn(),
+    setRequestedReasoningEffort: vi.fn(),
+    ...runtimeOverrides,
+  };
+  const status: SlashCommandStatusPort = {
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
     setStatus: vi.fn(),
-    setRequestedModel: vi.fn(),
-    setRequestedReasoningEffort: vi.fn(),
     statusSummaryLines: () => [],
     connectionDiagnosticDetails: () => [],
     mcpStatusLines: vi.fn().mockResolvedValue([]),
     modelStatusLines: () => [],
     effortStatusLines: () => [],
-    ...overrides,
+    ...statusOverrides,
+  };
+  const host: SlashCommandControllerHost = {
+    state: createSubmissionStatePort(stateStore),
+    currentClient: () => client,
+    codexInput: vi.fn((text: string) => textInput(text)),
+    threads,
+    runtime,
+    status,
+    ...hostOverrides,
   };
   return { compactThread, host, stateStore, threadTurnsList };
 }
@@ -75,7 +97,7 @@ describe("SlashCommandController", () => {
 
     const result = await controller.execute("clear", "");
 
-    expect(host.startNewThread).toHaveBeenCalledOnce();
+    expect(host.threads.startNewThread).toHaveBeenCalledOnce();
     expect(result).toBeUndefined();
   });
 
@@ -101,7 +123,7 @@ describe("SlashCommandController", () => {
     await controller.execute("compact", "");
 
     expect(compactThread).toHaveBeenCalledWith("thread");
-    expect(host.setStatus).toHaveBeenCalledWith("Compaction requested.");
+    expect(host.status.setStatus).toHaveBeenCalledWith("Compaction requested.");
   });
 
   it("reports unreadable referenced threads", async () => {
@@ -116,6 +138,6 @@ describe("SlashCommandController", () => {
 
     expect(threadTurnsList).toHaveBeenCalledWith("other", null, 20);
     expect(result).toBeUndefined();
-    expect(host.addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable conversation turns.");
+    expect(host.status.addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable conversation turns.");
   });
 });

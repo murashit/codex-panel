@@ -165,45 +165,65 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
   });
   turnSubmission = new TurnSubmissionController({
     state: submissionState,
-    vaultPath: host.plugin.vaultPath,
-    currentClient: host.getClient,
-    ensureRestoredThreadLoaded: host.ensureRestoredThreadLoaded,
-    startThread: (preview) => appServer.startThread(preview),
-    notifyActiveThreadIdentityChanged: host.effects.thread.notifyIdentityChanged,
-    resetThreadTurnPresence: host.effects.thread.resetTurnPresence,
-    applyPendingThreadSettings: () => runtimeSettings.applyPendingThreadSettings(),
-    codexInput: (text) => composerController.codexInput(text),
-    setDraft: (text, options) => {
-      composerController.setDraft(text, options);
+    connection: {
+      vaultPath: host.plugin.vaultPath,
+      currentClient: host.getClient,
     },
-    forceMessagesToBottom: host.effects.scroll.forceBottom,
-    render: host.effects.render.now,
-    scheduleRender: host.effects.render.schedule,
-    setStatus: host.effects.status.set,
-    addSystemMessage: host.effects.status.addSystemMessage,
+    restoredThread: {
+      ensureRestoredThreadLoaded: host.ensureRestoredThreadLoaded,
+    },
+    thread: {
+      startThread: (preview) => appServer.startThread(preview),
+      notifyActiveThreadIdentityChanged: host.effects.thread.notifyIdentityChanged,
+      resetThreadTurnPresence: host.effects.thread.resetTurnPresence,
+    },
+    runtime: {
+      applyPendingThreadSettings: () => runtimeSettings.applyPendingThreadSettings(),
+    },
+    composer: {
+      codexInput: (text) => composerController.codexInput(text),
+      setDraft: (text, options) => {
+        composerController.setDraft(text, options);
+      },
+    },
+    view: {
+      forceMessagesToBottom: host.effects.scroll.forceBottom,
+      render: host.effects.render.now,
+      scheduleRender: host.effects.render.schedule,
+    },
+    status: {
+      setStatus: host.effects.status.set,
+      addSystemMessage: host.effects.status.addSystemMessage,
+    },
   });
   slashCommands = new SlashCommandController({
     state: submissionState,
     currentClient: host.getClient,
     codexInput: (text) => composerController.codexInput(text),
-    startNewThread: host.startNewThread,
-    resumeThread: host.selectThread,
-    forkThread: (threadId) => threadActions.forkThread(threadId),
-    rollbackThread: (threadId) => threadActions.rollbackThread(threadId),
-    archiveThread: (threadId) => threadActions.archiveThread(threadId),
-    toggleFastMode: () => runtimeSettings.toggleFastMode(),
-    toggleCollaborationMode: () => runtimeSettings.toggleCollaborationMode(),
-    toggleAutoReview: () => void runtimeSettings.toggleAutoReview(),
-    addSystemMessage: host.effects.status.addSystemMessage,
-    addStructuredSystemMessage: host.effects.status.addStructuredSystemMessage,
-    setStatus: host.effects.status.set,
-    setRequestedModel: (model) => runtimeSettings.setRequestedModel(model),
-    setRequestedReasoningEffort: (effort) => runtimeSettings.setRequestedReasoningEffort(effort),
-    statusSummaryLines: host.statusSummaryLines,
-    connectionDiagnosticDetails: host.connectionDiagnosticDetails,
-    mcpStatusLines: host.mcpStatusLines,
-    modelStatusLines: host.modelStatusLines,
-    effortStatusLines: host.effortStatusLines,
+    threads: {
+      startNewThread: host.startNewThread,
+      resumeThread: host.selectThread,
+      forkThread: (threadId) => threadActions.forkThread(threadId),
+      rollbackThread: (threadId) => threadActions.rollbackThread(threadId),
+      archiveThread: (threadId) => threadActions.archiveThread(threadId),
+    },
+    runtime: {
+      toggleFastMode: () => runtimeSettings.toggleFastMode(),
+      toggleCollaborationMode: () => runtimeSettings.toggleCollaborationMode(),
+      toggleAutoReview: () => void runtimeSettings.toggleAutoReview(),
+      setRequestedModel: (model) => runtimeSettings.setRequestedModel(model),
+      setRequestedReasoningEffort: (effort) => runtimeSettings.setRequestedReasoningEffort(effort),
+    },
+    status: {
+      addSystemMessage: host.effects.status.addSystemMessage,
+      addStructuredSystemMessage: host.effects.status.addStructuredSystemMessage,
+      setStatus: host.effects.status.set,
+      statusSummaryLines: host.statusSummaryLines,
+      connectionDiagnosticDetails: host.connectionDiagnosticDetails,
+      mcpStatusLines: host.mcpStatusLines,
+      modelStatusLines: host.modelStatusLines,
+      effortStatusLines: host.effortStatusLines,
+    },
   });
   messageRenderer = new ChatMessageRenderer({
     app: host.app,
@@ -245,19 +265,27 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     composer: composerController,
     slashCommands,
     turnSubmission,
-    currentClient: host.getClient,
-    ensureConnected: host.effects.client.ensureConnected,
-    setStatus: host.effects.status.set,
-    addSystemMessage: host.effects.status.addSystemMessage,
+    connection: {
+      currentClient: host.getClient,
+      ensureConnected: host.effects.client.ensureConnected,
+    },
+    status: {
+      setStatus: host.effects.status.set,
+      addSystemMessage: host.effects.status.addSystemMessage,
+    },
   });
   serverRequestResponder = new ServerRequestResponder({
     currentClient: host.getClient,
   });
   planImplementation = new PlanImplementationController({
     state: submissionState,
-    currentClient: host.getClient,
-    ensureConnected: host.effects.client.ensureConnected,
-    sendTurnText: (text) => turnSubmission.sendTurnText(text),
+    connection: {
+      currentClient: host.getClient,
+      ensureConnected: host.effects.client.ensureConnected,
+    },
+    submission: {
+      sendTurnText: (text) => turnSubmission.sendTurnText(text),
+    },
   });
   const connection = new ConnectionManager(() => host.plugin.settings.codexPath, host.plugin.vaultPath, {
     onNotification: (notification) => {
