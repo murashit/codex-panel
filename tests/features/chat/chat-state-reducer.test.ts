@@ -115,6 +115,48 @@ describe("chatReducer", () => {
     expect(next.displayItems).toEqual([]);
   });
 
+  it("keeps composer state when restoring a thread placeholder", () => {
+    const state = createChatState();
+    state.activeThreadId = "previous-thread";
+    state.turnLifecycle = { kind: "running", turnId: "previous-turn" };
+    state.activeModel = "gpt-5.1";
+    state.historyCursor = "cursor";
+    state.loadingHistory = true;
+    state.composerDraft = "draft in this panel";
+    state.composerSuggestSelected = 1;
+    state.composerSuggestions = [suggestion("/resume")];
+    state.composerSuggestionsDismissedSignature = "dismissed";
+    state.displayItems = [message("previous-message")];
+    state.turnDiffs = new Map([["previous-turn", "@@"]]);
+    state.approvals = [approval(1)];
+    state.pendingUserInputs = [userInput(2)];
+    state.userInputDrafts = new Map([["2:note", "answer"]]);
+    state.messagesPinnedToBottom = false;
+    const placeholder = message("placeholder");
+
+    const next = chatReducer(state, {
+      type: "thread/restored-placeholder",
+      threadId: "restored-thread",
+      item: placeholder,
+    });
+
+    expect(next.activeThreadId).toBe("restored-thread");
+    expect(activeTurnId(next)).toBeNull();
+    expect(next.activeModel).toBeNull();
+    expect(next.historyCursor).toBeNull();
+    expect(next.loadingHistory).toBe(false);
+    expect(next.displayItems).toEqual([placeholder]);
+    expect(next.turnDiffs.size).toBe(0);
+    expect(next.approvals).toEqual([]);
+    expect(next.pendingUserInputs).toEqual([]);
+    expect(next.userInputDrafts.size).toBe(0);
+    expect(next.messagesPinnedToBottom).toBe(true);
+    expect(next.composerDraft).toBe("draft in this panel");
+    expect(next.composerSuggestSelected).toBe(1);
+    expect(next.composerSuggestions).toEqual([suggestion("/resume")]);
+    expect(next.composerSuggestionsDismissedSignature).toBe("dismissed");
+  });
+
   it("clones map and set backed state when updating turn diffs and open panels", () => {
     const state = createChatState();
     state.turnDiffs = new Map([["turn", "old"]]);

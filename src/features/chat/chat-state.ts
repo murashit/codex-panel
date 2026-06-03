@@ -210,41 +210,22 @@ export function createChatState(): ChatState {
     activeThreadId: null,
     activeThreadCwd: null,
     turnLifecycle: { kind: "idle" },
-    activeModel: null,
-    activeReasoningEffort: null,
-    activeCollaborationMode: "default",
-    activeServiceTier: null,
-    activeApprovalPolicy: null,
-    activeApprovalsReviewer: null,
-    activePermissionProfile: null,
+    ...initialActiveRuntimeState(),
     activeThreadCreationCliVersion: null,
     appServerDiagnostics: createAppServerDiagnostics(),
-    requestedModel: unchangedRuntimeSetting(),
-    requestedReasoningEffort: unchangedRuntimeSetting(),
-    requestedApprovalsReviewer: unchangedRuntimeSetting(),
-    selectedCollaborationMode: "default",
-    requestedServiceTier: unchangedRuntimeSetting(),
+    ...initialRequestedRuntimeState(),
     tokenUsage: null,
     rateLimit: null,
-    displayItems: [],
-    turnDiffs: new Map(),
-    approvals: [],
-    pendingUserInputs: [],
-    userInputDrafts: new Map(),
+    ...initialDisplayState(),
+    ...initialPendingRequestState(),
     listedThreads: [],
     threadsLoaded: false,
-    historyCursor: null,
-    loadingHistory: false,
-    composerDraft: "",
-    runtimePicker: null,
+    ...initialHistoryState(),
+    ...initialComposerState(),
+    ...initialPanelUiState(),
     availableModels: [],
     availableSkills: [],
     reportedLogs: new Set(),
-    composerSuggestSelected: 0,
-    composerSuggestions: [],
-    composerSuggestionsDismissedSignature: null,
-    messagesPinnedToBottom: true,
-    openDetails: new Set(),
   };
 }
 
@@ -340,16 +321,10 @@ function reduceThreadState(state: ChatState, action: ThreadAction): ChatState {
         activePermissionProfile: action.activePermissionProfile,
         activeThreadCreationCliVersion: action.thread.cliVersion,
         tokenUsage: null,
-        historyCursor: null,
-        loadingHistory: false,
+        ...initialHistoryState(),
+        ...initialPendingRequestState(),
+        ...initialComposerState(),
         turnDiffs: new Map(),
-        approvals: [],
-        pendingUserInputs: [],
-        userInputDrafts: new Map(),
-        composerDraft: "",
-        composerSuggestSelected: 0,
-        composerSuggestions: [],
-        composerSuggestionsDismissedSignature: null,
         displayItems: action.displayItems ?? [],
         listedThreads: action.listedThreads ?? state.listedThreads,
         messagesPinnedToBottom: action.forceMessagesToBottom ?? true,
@@ -386,17 +361,10 @@ function reduceThreadState(state: ChatState, action: ThreadAction): ChatState {
         patchChatState(state, {
           activeThreadId: action.threadId,
           activeThreadCwd: null,
-          activeModel: null,
-          activeReasoningEffort: null,
-          activeCollaborationMode: "default",
-          activeServiceTier: null,
-          activeApprovalPolicy: null,
-          activeApprovalsReviewer: null,
-          activePermissionProfile: null,
+          ...initialActiveRuntimeState(),
           activeThreadCreationCliVersion: null,
           tokenUsage: null,
-          historyCursor: null,
-          loadingHistory: false,
+          ...initialHistoryState(),
           displayItems: [action.item],
           turnDiffs: new Map(),
           messagesPinnedToBottom: true,
@@ -565,9 +533,7 @@ function reduceRuntimeState(state: ChatState, action: RuntimeAction): ChatState 
 export function clearActiveTurnState(state: ChatState): ChatState {
   return patchChatState(state, {
     turnLifecycle: transitionChatTurnLifecycleState(state.turnLifecycle, { type: "cleared" }),
-    approvals: [],
-    pendingUserInputs: [],
-    userInputDrafts: new Map(),
+    ...initialPendingRequestState(),
   });
 }
 
@@ -576,37 +542,19 @@ export function clearActiveThreadState(state: ChatState): ChatState {
     patchChatState(state, {
       activeThreadId: null,
       activeThreadCwd: null,
-      activeModel: null,
-      activeReasoningEffort: null,
-      activeCollaborationMode: "default",
-      activeServiceTier: null,
-      activeApprovalPolicy: null,
-      activeApprovalsReviewer: null,
-      activePermissionProfile: null,
+      ...initialActiveRuntimeState(),
       activeThreadCreationCliVersion: null,
       tokenUsage: null,
-      historyCursor: null,
-      loadingHistory: false,
-      displayItems: [],
-      turnDiffs: new Map(),
-      composerDraft: "",
-      composerSuggestSelected: 0,
-      composerSuggestions: [],
-      composerSuggestionsDismissedSignature: null,
-      messagesPinnedToBottom: true,
+      ...initialHistoryState(),
+      ...initialDisplayState(),
+      ...initialComposerState(),
     }),
   );
 }
 
 export function clearConnectionScopedState(state: ChatState): ChatState {
   return patchChatState(clearActiveTurnState(state), {
-    activeModel: null,
-    activeReasoningEffort: null,
-    activeCollaborationMode: "default",
-    activeServiceTier: null,
-    activeApprovalPolicy: null,
-    activeApprovalsReviewer: null,
-    activePermissionProfile: null,
+    ...initialActiveRuntimeState(),
     activeThreadCreationCliVersion: null,
     rateLimit: null,
     listedThreads: [],
@@ -616,6 +564,82 @@ export function clearConnectionScopedState(state: ChatState): ChatState {
     appServerDiagnostics: createAppServerDiagnostics(),
     runtimePicker: null,
   });
+}
+
+function initialActiveRuntimeState(): Pick<
+  ChatState,
+  | "activeModel"
+  | "activeReasoningEffort"
+  | "activeCollaborationMode"
+  | "activeServiceTier"
+  | "activeApprovalPolicy"
+  | "activeApprovalsReviewer"
+  | "activePermissionProfile"
+> {
+  return {
+    activeModel: null,
+    activeReasoningEffort: null,
+    activeCollaborationMode: "default",
+    activeServiceTier: null,
+    activeApprovalPolicy: null,
+    activeApprovalsReviewer: null,
+    activePermissionProfile: null,
+  };
+}
+
+function initialRequestedRuntimeState(): Pick<
+  ChatState,
+  "requestedModel" | "requestedReasoningEffort" | "requestedApprovalsReviewer" | "selectedCollaborationMode" | "requestedServiceTier"
+> {
+  return {
+    requestedModel: unchangedRuntimeSetting(),
+    requestedReasoningEffort: unchangedRuntimeSetting(),
+    requestedApprovalsReviewer: unchangedRuntimeSetting(),
+    selectedCollaborationMode: "default",
+    requestedServiceTier: unchangedRuntimeSetting(),
+  };
+}
+
+function initialDisplayState(): Pick<ChatState, "displayItems" | "turnDiffs" | "messagesPinnedToBottom"> {
+  return {
+    displayItems: [],
+    turnDiffs: new Map(),
+    messagesPinnedToBottom: true,
+  };
+}
+
+function initialPendingRequestState(): Pick<ChatState, "approvals" | "pendingUserInputs" | "userInputDrafts"> {
+  return {
+    approvals: [],
+    pendingUserInputs: [],
+    userInputDrafts: new Map(),
+  };
+}
+
+function initialHistoryState(): Pick<ChatState, "historyCursor" | "loadingHistory"> {
+  return {
+    historyCursor: null,
+    loadingHistory: false,
+  };
+}
+
+function initialComposerState(): Pick<
+  ChatState,
+  "composerDraft" | "composerSuggestSelected" | "composerSuggestions" | "composerSuggestionsDismissedSignature"
+> {
+  return {
+    composerDraft: "",
+    composerSuggestSelected: 0,
+    composerSuggestions: [],
+    composerSuggestionsDismissedSignature: null,
+  };
+}
+
+function initialPanelUiState(): Pick<ChatState, "runtimePicker" | "openDetails"> {
+  return {
+    runtimePicker: null,
+    openDetails: new Set(),
+  };
 }
 
 export function cloneChatState(state: ChatState): ChatState {
