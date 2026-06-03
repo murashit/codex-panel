@@ -72,8 +72,12 @@
 
 .codex-panel-threads__row:hover,
 .codex-panel-threads__row:focus-within {
-  --codex-panel-threads-row-title-color: var(--nav-item-color-hover, var(--text-normal));
   background: var(--background-modifier-hover);
+}
+
+.codex-panel-threads__row-title-line:hover .codex-panel-threads__row-title,
+.codex-panel-threads__row:focus .codex-panel-threads__row-title {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel-threads__row--selected {
@@ -85,11 +89,6 @@
 .codex-panel-threads__row--selected:hover,
 .codex-panel-threads__row--selected:focus-within {
   background: var(--nav-item-background-active, var(--background-modifier-active));
-}
-
-.codex-panel-threads__row:has(.codex-panel-threads__actions:hover),
-.codex-panel-threads__row:has(.codex-panel-threads__actions :focus) {
-  --codex-panel-threads-row-title-color: currentcolor;
 }
 
 .codex-panel-threads__row--selected .codex-panel-threads__row-title {

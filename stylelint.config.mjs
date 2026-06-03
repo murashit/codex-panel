@@ -103,6 +103,13 @@ export default {
         severity: "warning",
       },
     ],
+    "selector-disallowed-list": [
+      ["/:has\\(/"],
+      {
+        message: "Avoid :has() because it can cause broad selector invalidation.",
+        severity: "warning",
+      },
+    ],
     "selector-max-universal": [
       0,
       {

@@ -114,17 +114,18 @@ describe("threads view CSS", () => {
     expect(selectedRowHover).not.toContain("nav-item-background-active-hover");
   });
 
-  it("does not hover-highlight row titles while thread actions are hovered or focused", () => {
+  it("does not rely on :has() to avoid hover-highlighting action rows", () => {
     const rowHover =
       /\.codex-panel-threads__row:hover,\n\.codex-panel-threads__row:focus-within \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
-    const actionHover =
-      /\.codex-panel-threads__row:has\(\.codex-panel-threads__actions:hover\),\n\.codex-panel-threads__row:has\(\.codex-panel-threads__actions :focus\) \{(?<body>[^}]+)\}/.exec(
+    const titleHover =
+      /\.codex-panel-threads__row-title-line:hover \.codex-panel-threads__row-title,\n\.codex-panel-threads__row:focus \.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(
         styles,
       )?.groups?.["body"] ?? "";
     const title = /(?:^|\n\n)\.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
-    expect(rowHover).toContain("--codex-panel-threads-row-title-color: var(--nav-item-color-hover, var(--text-normal))");
-    expect(actionHover).toContain("--codex-panel-threads-row-title-color: currentcolor");
+    expect(styles).not.toContain(":has(");
+    expect(rowHover).not.toContain("--codex-panel-threads-row-title-color");
+    expect(titleHover).toContain("color: var(--nav-item-color-hover, var(--text-normal))");
     expect(title).toContain("color: var(--codex-panel-threads-row-title-color)");
   });
 });
