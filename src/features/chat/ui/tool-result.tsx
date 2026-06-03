@@ -8,7 +8,6 @@ export interface ToolResultRenderContext {
   workspaceRoot?: string | null;
   openDetails: ReadonlySet<string>;
   onDetailsToggle?: (key: string, open: boolean) => void;
-  renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
 }
 
 export function toolResultNode(item: ToolResultDisplayItem, context: ToolResultRenderContext): UiNode {
@@ -38,7 +37,7 @@ function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: T
     return (
       <div className={className}>
         <ToolResultHeader view={view} />
-        {hasSummary ? <TextWithWikiLinks className="codex-panel__tool-summary" text={view.summary} context={context} /> : null}
+        {hasSummary ? <ToolSummary text={view.summary} /> : null}
       </div>
     );
   }
@@ -59,7 +58,7 @@ function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: T
           <ToolResultDetailSection key={`${section.kind}:${section.title ?? ""}:${String(index)}`} section={section} />
         ))}
       </details>
-      {hasSummary ? <TextWithWikiLinks className="codex-panel__tool-summary" text={view.summary} context={context} /> : null}
+      {hasSummary ? <ToolSummary text={view.summary} /> : null}
     </div>
   );
 }
@@ -73,19 +72,8 @@ function ToolResultHeader({ view }: { view: ToolResultView }): UiNode {
   );
 }
 
-function TextWithWikiLinks({ className, text, context }: { className: string; text: string; context: ToolResultRenderContext }): UiNode {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const contextRef = useRef(context);
-  useLayoutEffect(() => {
-    contextRef.current = context;
-  });
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.replaceChildren();
-    contextRef.current.renderTextWithWikiLinks(element, text);
-  }, [text]);
-  return <div ref={ref} className={className} />;
+function ToolSummary({ text }: { text: string }): UiNode {
+  return <div className="codex-panel__tool-summary">{text}</div>;
 }
 
 function ToolResultDetailSection({ section }: { section: ToolResultDetailSection }): UiNode {

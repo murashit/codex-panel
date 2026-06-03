@@ -88,9 +88,6 @@ export class ChatMessageRenderer {
       renderMarkdown: (element, text) => {
         this.markdownRenderer.renderMarkdown(element, text);
       },
-      renderTextWithWikiLinks: (element, text) => {
-        this.markdownRenderer.renderTextWithWikiLinks(element, text);
-      },
       copyText: (text) => void this.copyMessageText(text),
       canImplementPlanItem: (item: DisplayItem) => item.id === implementPlanCandidate?.id,
       onImplementPlanItem: (item) => {

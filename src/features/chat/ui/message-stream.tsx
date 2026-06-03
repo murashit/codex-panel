@@ -32,7 +32,6 @@ export interface MessageStreamContext {
   onDetailsToggle?: (key: string, open: boolean) => void;
   loadOlderTurns: () => void;
   renderMarkdown: (parent: HTMLElement, text: string) => void;
-  renderTextWithWikiLinks: (parent: HTMLElement, text: string) => void;
   copyText?: (text: string) => void;
   canImplementPlanItem?: (item: DisplayItem) => boolean;
   onImplementPlanItem?: (item: DisplayItem) => void;
@@ -441,7 +440,7 @@ function MarkdownContent({ item, context, contentRef, collapsed = false }: Markd
     const currentContext = contextRef.current;
     content.replaceChildren();
     if (item.markdown === false) {
-      currentContext.renderTextWithWikiLinks(content, item.text);
+      content.textContent = item.text;
     } else {
       currentContext.renderMarkdown(content, item.text);
     }

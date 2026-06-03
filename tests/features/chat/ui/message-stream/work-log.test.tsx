@@ -41,7 +41,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -79,7 +78,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(["cmd-1:command-details"]),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -109,7 +107,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -138,7 +135,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -170,7 +166,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -199,7 +194,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
-      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
     renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault" }));
@@ -231,7 +225,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -259,7 +252,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -298,7 +290,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -346,7 +337,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(["turn:turn:activity", "hook-1"]),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
     const element = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")));
@@ -412,7 +402,6 @@ describe("work log renderer decisions", () => {
         onDetailsToggle,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
     );
 
@@ -458,7 +447,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -498,7 +486,6 @@ describe("work log renderer decisions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
     );
 
@@ -547,7 +534,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       pendingRequestsSignature: "request:1",
       renderPendingRequests: () => "Request",
     });
@@ -599,7 +585,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
     expect(blocks.map((block) => block.key)).toEqual(["item:u1", "item:agent-1", "live-agents:turn", "live-task:plan-progress-turn"]);
@@ -657,7 +642,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
     expect(blocks.map((block) => block.key)).toEqual([
@@ -695,7 +679,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -744,7 +727,6 @@ describe("work log renderer decisions", () => {
         onDetailsToggle,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
     );
 
@@ -790,7 +772,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -829,7 +810,6 @@ describe("work log renderer decisions", () => {
       onDetailsToggle,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -875,7 +855,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
     const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));
@@ -921,7 +900,6 @@ describe("work log renderer decisions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
     );
 
@@ -945,7 +923,6 @@ describe("work log renderer decisions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
     );
 
@@ -984,7 +961,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
     expect(blocks.some((block) => block.key.startsWith("live-agents:"))).toBe(false);
@@ -1019,7 +995,6 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
     const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));

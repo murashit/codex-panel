@@ -31,7 +31,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
-      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
     renderMessageStreamBlocksInAct(
@@ -86,7 +85,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns,
       renderMarkdown: (element, text) => element.createDiv({ text }),
-      renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
     });
     const parent = document.createElement("div");
 
@@ -115,7 +113,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element, text) => element.createDiv({ text }),
-      renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
     });
     const parent = document.createElement("div");
 
@@ -139,7 +136,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -181,7 +177,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -202,9 +197,6 @@ describe("message stream rendering and message actions", () => {
   it("keeps tool result Preact details mounted in the message stream host", () => {
     const parent = document.createElement("div");
     const onDetailsToggle = vi.fn();
-    const renderTextWithWikiLinks = vi.fn((element: HTMLElement, text: string) => {
-      element.createDiv({ text: `linked:${text}` });
-    });
 
     renderMessageStreamBlocksInAct(
       parent,
@@ -230,7 +222,6 @@ describe("message stream rendering and message actions", () => {
         onDetailsToggle,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks,
       }),
     );
 
@@ -238,11 +229,10 @@ describe("message stream rendering and message actions", () => {
     const result = expectPresent(block.querySelector<HTMLElement>(".codex-panel__tool-result"));
     expect(result.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(result.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("command");
-    expect(result.querySelector(":scope > .codex-panel__tool-summary")?.textContent).toBe("linked:npm test");
-    expect(result.querySelector(".codex-panel__tool-summary")?.textContent).toBe("linked:npm test");
+    expect(result.querySelector(":scope > .codex-panel__tool-summary")?.textContent).toBe("npm test");
+    expect(result.querySelector(".codex-panel__tool-summary")?.textContent).toBe("npm test");
     expect(result.querySelector(".codex-panel__meta-grid")?.textContent).toContain("commandnpm test");
     expect(result.querySelector(".codex-panel__output-title")?.textContent).toBe("Output");
-    expect(renderTextWithWikiLinks).toHaveBeenCalledWith(expect.any(HTMLElement), "npm test");
 
     const details = expectPresent(result.querySelector<HTMLDetailsElement>("details"));
     void act(() => {
@@ -278,7 +268,6 @@ describe("message stream rendering and message actions", () => {
         openDetails: new Set(["file-1:file-change-details"]),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
     );
 
@@ -314,7 +303,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -343,7 +331,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       canRollbackItem: (item) => item.id === "u2",
       onRollbackItem,
     });
@@ -372,7 +359,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       copyText,
     });
 
@@ -411,7 +397,6 @@ describe("message stream rendering and message actions", () => {
       onDetailsToggle,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       canForkItem: () => true,
       onForkItem,
@@ -434,7 +419,6 @@ describe("message stream rendering and message actions", () => {
       onDetailsToggle,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       canForkItem: () => true,
       onForkItem,
@@ -472,7 +456,6 @@ describe("message stream rendering and message actions", () => {
       onDetailsToggle: vi.fn(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       canForkItem: () => true,
       onForkItem,
@@ -511,7 +494,6 @@ describe("message stream rendering and message actions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
         copyText,
         canImplementPlanItem: () => true,
         onImplementPlanItem,
@@ -544,7 +526,6 @@ describe("message stream rendering and message actions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown,
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
       }),
     );
 
@@ -563,17 +544,17 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text: `markdown:${text}` }),
-      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text: `text:${text}` }),
     };
 
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer**", turnId: "turn-1", markdown: false }],
+        displayItems: [{ id: "a1", kind: "message", role: "assistant", text: "**answer** [[Note]]", turnId: "turn-1", markdown: false }],
       }),
     );
-    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("text:**answer**");
+    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("**answer** [[Note]]");
+    expect(parent.querySelector(".codex-panel__message-content a")).toBeNull();
 
     renderMessageStreamBlocksInAct(
       parent,
@@ -599,7 +580,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown,
-      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
     renderMessageStreamBlocksInAct(
@@ -647,7 +627,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent: HTMLElement, text: string) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent: HTMLElement, text: string) => parent.createDiv({ text }),
       copyText: vi.fn(),
     };
 
@@ -680,7 +659,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       canImplementPlanItem: () => true,
       onImplementPlanItem,
@@ -715,7 +693,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       canForkItem: () => true,
       onForkItem: vi.fn(),
@@ -779,7 +756,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
     })[0];
 
@@ -798,7 +774,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       copyText,
       canRollbackItem: () => true,
       onRollbackItem,
@@ -835,7 +810,6 @@ describe("message stream rendering and message actions", () => {
         onDetailsToggle,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
-        renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
         copyText,
       })[0];
 
@@ -874,7 +848,6 @@ describe("message stream rendering and message actions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
-        renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       })[0];
       const shortUser = renderMessageBlockElement(shortUserBlock);
 
@@ -891,7 +864,6 @@ describe("message stream rendering and message actions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
-        renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       })[0];
       const assistant = renderMessageBlockElement(assistantBlock);
 
@@ -909,7 +881,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       canRollbackItem: () => false,
       onRollbackItem: vi.fn(),
     })[0];
@@ -940,7 +911,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -977,7 +947,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1014,7 +983,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1044,7 +1012,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1083,7 +1050,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       openTurnDiff,
     });
 
@@ -1128,7 +1094,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
     const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
@@ -1159,7 +1124,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     });
 
     const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
@@ -1191,7 +1155,6 @@ describe("message stream rendering and message actions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       openTurnDiff: vi.fn(),
     });
 

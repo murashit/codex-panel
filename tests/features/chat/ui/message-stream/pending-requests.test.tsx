@@ -369,7 +369,6 @@ describe("pending request renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -409,7 +408,6 @@ describe("pending request renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -445,7 +443,6 @@ describe("pending request renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -464,7 +461,6 @@ describe("pending request renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      renderTextWithWikiLinks: (parent, text) => parent.createDiv({ text }),
       pendingRequestsSignature: "request:1",
       renderPendingRequests: () => "Request",
     });
@@ -489,7 +485,6 @@ describe("pending request renderer decisions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        renderTextWithWikiLinks: (element, text) => element.createDiv({ text }),
         pendingRequestsSignature: "approval:1",
         renderPendingRequests: () =>
           pendingRequestMessageNode(
@@ -525,7 +520,6 @@ describe("pending request renderer decisions", () => {
       openDetails: new Set<string>(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
-      renderTextWithWikiLinks: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
     renderMessageStreamBlocksInAct(

@@ -1,7 +1,6 @@
 import { MarkdownRenderer, Notice, type App, type Component } from "obsidian";
 
 import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "./markdown-file-links";
-import { renderTextWithWikiLinks as renderInlineWikiLinks } from "../../shared/ui/dom";
 import { notifyMessageContentRendered } from "./ui/message-content-events";
 
 export interface MarkdownMessageRendererOptions {
@@ -28,13 +27,6 @@ export class MarkdownMessageRenderer {
       bindRenderedMarkdownFileLinks(parent, sourcePath, this.options);
       notifyMessageContentRendered(parent);
       this.scrollMarkdownMessageIntoPinnedBottom(parent);
-    });
-  }
-
-  renderTextWithWikiLinks(parent: HTMLElement, text: string): void {
-    renderInlineWikiLinks(parent, text, (target) => {
-      const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
-      void this.options.app.workspace.openLinkText(target, sourcePath, false);
     });
   }
 
