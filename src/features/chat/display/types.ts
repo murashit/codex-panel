@@ -82,9 +82,15 @@ export interface DisplayTurnDiff {
   diff: string;
 }
 
-export interface SystemDisplayItem extends DisplayBase {
-  kind: "system" | "userInputResult";
-  role: "system" | "tool";
+export interface SystemMessageDisplayItem extends DisplayBase {
+  kind: "system";
+  role: "system";
+  details?: DisplayDetailSection[];
+}
+
+export interface UserInputResultDisplayItem extends DisplayBase {
+  kind: "userInputResult";
+  role: "tool";
   details?: DisplayDetailSection[];
 }
 
@@ -126,8 +132,7 @@ export interface FileChangeDisplayItem extends DisplayBase {
   output?: string;
 }
 
-export interface ToolDisplayItem extends DisplayBase {
-  kind: "tool" | "hook" | "reasoning";
+interface ToolDisplayBase extends DisplayBase {
   role: "tool";
   activityKind?: "userSteered";
   toolLabel?: string;
@@ -135,6 +140,18 @@ export interface ToolDisplayItem extends DisplayBase {
   status?: string;
   output?: string;
   details?: DisplayDetailSection[];
+}
+
+export interface ToolCallDisplayItem extends ToolDisplayBase {
+  kind: "tool";
+}
+
+export interface HookDisplayItem extends ToolDisplayBase {
+  kind: "hook";
+}
+
+export interface ReasoningDisplayItem extends ToolDisplayBase {
+  kind: "reasoning";
 }
 
 export interface TaskProgressStep {
@@ -185,10 +202,13 @@ export interface AgentRunSummary {
 
 export type DisplayItem =
   | MessageDisplayItem
-  | SystemDisplayItem
+  | SystemMessageDisplayItem
+  | UserInputResultDisplayItem
   | CommandDisplayItem
   | FileChangeDisplayItem
-  | ToolDisplayItem
+  | ToolCallDisplayItem
+  | HookDisplayItem
+  | ReasoningDisplayItem
   | TaskProgressDisplayItem
   | AgentDisplayItem
   | ApprovalResultDisplayItem

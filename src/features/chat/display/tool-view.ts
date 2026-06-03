@@ -9,14 +9,16 @@ import type {
   DisplayItem,
   ExecutionState,
   FileChangeDisplayItem,
+  HookDisplayItem,
   ReviewResultDisplayItem,
-  ToolDisplayItem,
+  ToolCallDisplayItem,
 } from "./types";
 
 export type ToolResultDisplayItem =
   | CommandDisplayItem
   | FileChangeDisplayItem
-  | ToolDisplayItem
+  | ToolCallDisplayItem
+  | HookDisplayItem
   | ApprovalResultDisplayItem
   | ReviewResultDisplayItem;
 
@@ -90,7 +92,7 @@ function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string 
   );
 }
 
-function genericToolView(item: ToolDisplayItem, workspaceRoot?: string | null): ToolResultView {
+function genericToolView(item: ToolCallDisplayItem | HookDisplayItem, workspaceRoot?: string | null): ToolResultView {
   return toolView(
     item,
     `codex-panel__tool-item codex-panel__tool-item--${item.kind}`,

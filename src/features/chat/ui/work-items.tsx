@@ -8,8 +8,8 @@ import type {
   AgentRunSummary,
   AgentRunSummaryAgent,
   DisplayItem,
+  ReasoningDisplayItem,
   TaskProgressDisplayItem,
-  ToolDisplayItem,
 } from "../display/types";
 import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel, taskStatusMarker } from "../display/labels";
 import { activeTurnId, type ChatTurnLifecycleState } from "../chat-state";
@@ -19,7 +19,6 @@ import { shortThreadId, truncate } from "../../../utils";
 const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
 const AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT = 96;
 
-type ReasoningDisplayItem = ToolDisplayItem & { kind: "reasoning" };
 export type WorkItemDisplayItem = TaskProgressDisplayItem | AgentDisplayItem | ReasoningDisplayItem;
 
 export interface WorkItemContext {
