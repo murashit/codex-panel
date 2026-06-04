@@ -117,6 +117,14 @@ describe("chat toolbar CSS", () => {
     expect(styles).not.toContain("conic-gradient");
   });
 
+  it("aligns composer status text with the input text inset", () => {
+    const composerMetaStatus = /\.codex-panel__composer-meta-status \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const composerMetaFatal = /\.codex-panel__composer-meta-fatal \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(composerMetaStatus).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
+    expect(composerMetaFatal).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
+  });
+
   it("keeps nav inline input reset in the shared primitive", () => {
     const navInlineInput =
       /\.codex-panel-ui__nav-inline-input\.codex-panel-ui__nav-inline-input \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
@@ -159,6 +167,14 @@ describe("chat message CSS", () => {
 
     expect(openTurnDiff).toContain("cursor: default");
     expect(openTurnDiffHover).toContain("color: var(--nav-item-color-hover, var(--text-normal))");
+  });
+});
+
+describe("selection rewrite CSS", () => {
+  it("aligns generation status text with the instruction input text inset", () => {
+    const status = /\.codex-panel-selection-rewrite__status \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(status).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
   });
 });
 
