@@ -129,6 +129,16 @@ describe("chat toolbar CSS", () => {
     expect(threadsRenameInput).toContain("flex: 1 1 auto");
     expect(threadsRenameInput).not.toContain("appearance: none");
   });
+
+  it("keeps usage limit meter columns aligned across percent widths", () => {
+    const limitRow = /\.codex-panel__limit-panel-row \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const limitValue = /\.codex-panel__limit-panel-value \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(limitRow).toContain("grid-template-columns: 2ch 4ch minmax(64px, 1fr) max-content");
+    expect(limitRow).toContain("gap: var(--codex-panel-control-gap) var(--codex-panel-item-gap)");
+    expect(limitValue).toContain("font-variant-numeric: tabular-nums");
+    expect(limitValue).not.toContain("text-align: right");
+  });
 });
 
 describe("chat message CSS", () => {

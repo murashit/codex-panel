@@ -125,8 +125,8 @@
 
 .codex-panel__limit-panel-row {
   display: grid;
-  grid-template-columns: 2.5em 4ch minmax(64px, 1fr) 9.5em;
-  gap: var(--codex-panel-control-gap);
+  grid-template-columns: 2ch 4ch minmax(64px, 1fr) max-content;
+  gap: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
   align-items: center;
   padding: var(--codex-panel-control-gap) var(--codex-panel-section-gap);
 }
@@ -143,7 +143,6 @@
 }
 
 .codex-panel__limit-panel-value {
-  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
