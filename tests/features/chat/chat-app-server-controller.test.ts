@@ -133,6 +133,59 @@ describe("ChatAppServerController", () => {
     });
   });
 
+  it("publishes refreshed rate limits from sparse update notifications", async () => {
+    const state = createChatState();
+    const stateStore = createChatStateStore(state);
+    const rateLimit = rateLimitFixture({ primary: { usedPercent: 64, windowDurationMins: 300, resetsAt: null } });
+    const publishAppServerMetadata = vi.fn();
+    const client = {
+      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
+    } as unknown as AppServerClient;
+    const controller = new ChatAppServerController({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      runtimeSnapshot: () => ({}) as never,
+      forceMessagesToBottom: () => undefined,
+      publishThreadList: () => undefined,
+      publishAppServerMetadata,
+    });
+
+    await controller.refreshPublishedRateLimits();
+
+    expect(stateStore.getState().rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
+    expect(publishAppServerMetadata).toHaveBeenCalledWith(expect.objectContaining({ rateLimit }));
+  });
+
+  it("keeps the previous rate limit snapshot when sparse update refresh fails", async () => {
+    const state = createChatState();
+    const previousRateLimit = rateLimitFixture({
+      limitName: "Codex",
+      primary: { usedPercent: 42, windowDurationMins: 300, resetsAt: null },
+    });
+    state.rateLimit = previousRateLimit;
+    const stateStore = createChatStateStore(state);
+    const publishAppServerMetadata = vi.fn();
+    const client = {
+      readAccountRateLimits: vi.fn().mockRejectedValue(new Error("offline")),
+    } as unknown as AppServerClient;
+    const controller = new ChatAppServerController({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      runtimeSnapshot: () => ({}) as never,
+      forceMessagesToBottom: () => undefined,
+      publishThreadList: () => undefined,
+      publishAppServerMetadata,
+    });
+
+    await controller.refreshPublishedRateLimits();
+
+    expect(stateStore.getState().rateLimit).toBe(previousRateLimit);
+    expect(stateStore.getState().appServerDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
+    expect(publishAppServerMetadata).not.toHaveBeenCalled();
+  });
+
   it("loads MCP status lines with cached startup diagnostics", async () => {
     const state = createChatState();
     state.activeThreadId = "thread-1";
@@ -184,6 +237,20 @@ function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
     gitInfo: null,
     name: null,
     turns: [],
+    ...overrides,
+  };
+}
+
+function rateLimitFixture(overrides: Partial<RateLimitSnapshot> = {}): RateLimitSnapshot {
+  return {
+    limitId: "codex",
+    limitName: "Codex",
+    primary: null,
+    secondary: null,
+    credits: null,
+    individualLimit: null,
+    planType: null,
+    rateLimitReachedType: null,
     ...overrides,
   };
 }

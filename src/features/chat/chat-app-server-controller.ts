@@ -171,6 +171,18 @@ export class ChatAppServerController {
     this.dispatch({ type: "thread/list-applied", rateLimit: rateLimit.data, appServerDiagnostics: diagnostics });
   }
 
+  async refreshPublishedRateLimits(): Promise<void> {
+    const rateLimit = await this.loadRateLimit();
+    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
+    if (rateLimit.probe.status === "ok") {
+      this.dispatch({ type: "thread/list-applied", rateLimit: rateLimit.data, appServerDiagnostics: diagnostics });
+      this.publishAppServerMetadataSnapshot();
+      return;
+    }
+    this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
+  }
+
   async loadRateLimit(): Promise<{ data: RateLimitSnapshot | null; probe: AppServerDiagnostics["probes"]["account/rateLimits/read"] }> {
     const client = this.host.currentClient();
     if (!client) {

@@ -355,7 +355,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
       void host.refreshThreads();
     },
     refreshRateLimits: () => {
-      void appServer.refreshRateLimits();
+      void appServer.refreshPublishedRateLimits();
     },
     refreshSkills: (forceReload) => void host.refreshSkills(forceReload),
     publishAppServerMetadata: host.publishAppServerMetadataSnapshot,
