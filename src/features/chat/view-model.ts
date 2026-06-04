@@ -172,8 +172,6 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
   const statusPanelOpen = state.openDetails.has("status-panel");
   const runtimeOpen = state.runtimePicker !== null;
   return {
-    connected: input.connected,
-    status: state.status,
     newChatDisabled: input.turnBusy,
     historyOpen,
     statusPanelOpen,

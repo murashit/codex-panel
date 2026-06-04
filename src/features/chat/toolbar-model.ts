@@ -35,8 +35,6 @@ export interface ToolbarDiagnosticSection {
 }
 
 export interface ToolbarViewModel {
-  connected: boolean;
-  status: string;
   newChatDisabled: boolean;
   historyOpen: boolean;
   statusPanelOpen: boolean;

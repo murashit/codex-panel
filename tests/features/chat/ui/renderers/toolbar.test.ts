@@ -76,7 +76,7 @@ describe("toolbar renderer decisions", () => {
     expect(toggleAutoReview).toHaveBeenCalled();
 
     parent.empty();
-    renderToolbar(parent, toolbarModel({ status: "Turn running...", autoReviewActive: true }), toolbarActions());
+    renderToolbar(parent, toolbarModel({ autoReviewActive: true }), toolbarActions());
     expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Show panel menu");
     expect(parent.querySelector(".codex-panel__auto-review-toggle")?.getAttribute("aria-pressed")).toBe("true");
 
@@ -378,8 +378,6 @@ describe("toolbar renderer decisions", () => {
 
 function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewModel {
   return {
-    connected: true,
-    status: "Connected.",
     newChatDisabled: false,
     historyOpen: false,
     statusPanelOpen: false,
