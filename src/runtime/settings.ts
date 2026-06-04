@@ -36,9 +36,3 @@ export function compactReasoningEffortLabel(effort: ReasoningEffort | null): str
   if (effort === "minimal") return "min";
   return effort;
 }
-
-export function compactContextLabel(percent: number | null, label: string): string {
-  if (percent !== null) return `${String(percent)}%`;
-  if (label === "Context unknown") return "?";
-  return label === "Context waiting" ? "wait" : label.replace(/^Context\s+/i, "");
-}

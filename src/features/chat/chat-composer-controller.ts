@@ -17,6 +17,7 @@ import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-cont
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { renderComposerShell, syncComposerHeight } from "./ui/composer";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
+import type { ComposerMetaViewModel } from "./view-model";
 
 export interface ChatComposerControllerOptions {
   app: App;
@@ -26,6 +27,7 @@ export interface ChatComposerControllerOptions {
   scrollThreadFromComposerEdges: () => boolean;
   canInterrupt: () => boolean;
   composerPlaceholder: () => string;
+  composerMeta: () => ComposerMetaViewModel;
   currentModelForSuggestions: () => string | null;
   renderIfDetached: () => void;
   onDraftChange: () => void;
@@ -117,6 +119,7 @@ export class ChatComposerController {
           this.insertSuggestion(suggestion);
         },
       },
+      this.options.composerMeta(),
     );
     this.composer = elements.composer;
     syncComposerHeight(this.composer);

@@ -14,7 +14,7 @@ function expectPresent<T>(value: T | null | undefined): T {
 }
 
 describe("toolbar renderer decisions", () => {
-  it("renders toolbar controls as buttons and updates live status state", () => {
+  it("renders toolbar controls as Obsidian-style action buttons", () => {
     const parent = document.createElement("div");
     const toggleHistory = vi.fn();
     const toggleAutoReview = vi.fn();
@@ -22,11 +22,25 @@ describe("toolbar renderer decisions", () => {
 
     renderToolbar(parent, baseModel, toolbarActions({ toggleHistory, toggleAutoReview }));
 
-    const statusButton = parent.querySelector(".codex-panel__status-dot");
+    const navHeader = parent.querySelector(".codex-panel__toolbar-primary");
+    expect(navHeader?.classList.contains("nav-header")).toBe(true);
+    const navButtons = parent.querySelector(".codex-panel__toolbar-buttons");
+    expect(navButtons?.classList.contains("nav-buttons-container")).toBe(true);
+    expect(parent.querySelector(".codex-panel__runtime-area")).toBeNull();
+    expect(parent.querySelector(".codex-panel__runtime-strip")).toBeNull();
+    expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Show thread list",
+      "Toggle plan mode",
+      "Toggle auto-review",
+      "Toggle fast mode",
+      "Change model and reasoning effort",
+      "Show panel menu",
+    ]);
+    const statusButton = parent.querySelector(".codex-panel__status-menu-toggle");
     expect(statusButton?.tagName).toBe("BUTTON");
     expect(statusButton?.getAttribute("role")).toBeNull();
-    expect(statusButton?.getAttribute("aria-label")).toBe("Show connection status");
-    expect(statusButton?.classList.contains("nav-action-button")).toBe(false);
+    expect(statusButton?.getAttribute("aria-label")).toBe("Show panel menu");
+    expect(statusButton?.classList.contains("nav-action-button")).toBe(true);
     expect(statusButton?.classList.contains("clickable-icon")).toBe(true);
     const historyButton = parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle");
     expect(historyButton?.getAttribute("aria-label")).toBe("Show thread list");
@@ -50,23 +64,21 @@ describe("toolbar renderer decisions", () => {
     expect(autoReviewButton?.classList.contains("clickable-icon")).toBe(true);
     autoReviewButton?.click();
     expect(toggleAutoReview).toHaveBeenCalled();
-    expect([...parent.querySelectorAll(".codex-panel__runtime-strip > button")].map((button) => button.getAttribute("aria-label"))).toEqual(
-      ["Toggle plan mode", "Toggle auto-review", "Toggle fast mode", "Change model and reasoning effort"],
-    );
 
     parent.empty();
-    renderToolbar(parent, toolbarModel({ status: "Turn running...", statusState: "running", autoReviewActive: true }), toolbarActions());
-    expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Show connection status");
+    renderToolbar(parent, toolbarModel({ status: "Turn running...", autoReviewActive: true }), toolbarActions());
+    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Show panel menu");
     expect(parent.querySelector(".codex-panel__auto-review-toggle")?.getAttribute("aria-pressed")).toBe("true");
 
     parent.empty();
     renderToolbar(parent, toolbarModel({ historyOpen: true, statusPanelOpen: true }), toolbarActions());
     expect(parent.querySelector(".codex-panel__history-toggle")?.getAttribute("aria-label")).toBe("Hide thread list");
     expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(true);
-    expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Hide connection status");
-    expect(parent.querySelector(".codex-panel__status-dot")?.classList.contains("is-active")).toBe(true);
+    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Hide panel menu");
+    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.classList.contains("is-active")).toBe(true);
     expect(parent.querySelector(".codex-panel__runtime-model")?.getAttribute("aria-label")).toBe("Change model and reasoning effort");
     expect(parent.querySelector(".codex-panel__runtime-model")?.classList.contains("is-active")).toBe(true);
+    expect(parent.querySelector(".codex-panel__runtime-model")?.classList.contains("nav-action-button")).toBe(true);
   });
 
   it("keeps frequently changed effort choices first inside the runtime menu", () => {
@@ -95,7 +107,7 @@ describe("toolbar renderer decisions", () => {
     }
   });
 
-  it("renders context as a compact meter and Codex limits only in the status menu", () => {
+  it("keeps context out of the toolbar and Codex limits inside the status menu", () => {
     const parent = document.createElement("div");
 
     renderToolbar(
@@ -103,7 +115,6 @@ describe("toolbar renderer decisions", () => {
       toolbarModel({
         statusPanelOpen: true,
         openPanel: "status",
-        context: { label: "12%", title: "Context: 12%.", percent: 12, level: "ok" },
         rateLimit: {
           title: "Codex: 5h 42%, 1w 21%",
           level: "ok",
@@ -132,7 +143,7 @@ describe("toolbar renderer decisions", () => {
       toolbarActions(),
     );
 
-    expect(parent.querySelector(".codex-panel__context-compact")?.textContent).toContain("12%");
+    expect(parent.querySelector(".codex-panel__context-compact")).toBeNull();
     expect(parent.querySelector(".codex-panel__limit-compact")).toBeNull();
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("5h");
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("42%");
@@ -177,17 +188,6 @@ describe("toolbar renderer decisions", () => {
     expect(statusItems.every((item) => item.getAttribute("aria-selected") === null)).toBe(true);
     statusItems.find((item) => item.textContent.includes("Refresh status"))?.click();
     expect(refreshStatus).toHaveBeenCalled();
-  });
-
-  it("renders status dot states without diagnostic overlay badges", () => {
-    for (const statusState of ["ready", "degraded", "blocked", "running", "offline"] as const) {
-      const parent = document.createElement("div");
-      renderToolbar(parent, toolbarModel({ statusState }), toolbarActions());
-      const status = parent.querySelector(".codex-panel__status-dot");
-      expect(status?.classList.contains(`codex-panel__status-dot--${statusState}`)).toBe(true);
-      expect(status?.childElementCount).toBe(0);
-      expect(status?.getAttribute("aria-label")).toBe("Show connection status");
-    }
   });
 
   it("renders effective config inside the status menu without a separate toggle", () => {
@@ -365,17 +365,12 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
   return {
     connected: true,
     status: "Connected.",
-    statusState: "ready",
     historyOpen: false,
     statusPanelOpen: false,
     runtimeOpen: true,
     planActive: false,
     autoReviewActive: false,
     fastActive: false,
-    runtimeSummary: "5.5 high",
-    runtimeTitle: "Model: gpt-5.5; Effort: high",
-    runtimeEmphasized: false,
-    context: null,
     rateLimit: null,
     configSections: [],
     openPanel: "runtime",

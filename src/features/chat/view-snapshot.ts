@@ -72,9 +72,16 @@ export function messagesSlotSnapshot(state: ChatState, pendingRequestsSignature:
 export function composerSlotSnapshot(state: ChatState, activeComposerThreadName: string | null): ChatPanelSlotSnapshot {
   return signatureParts(
     state.composerDraft,
+    state.status,
     chatTurnBusy(state),
     state.activeThreadId,
     activeTurnId(state),
+    state.activeModel,
+    state.activeReasoningEffort,
+    state.requestedModel,
+    state.requestedReasoningEffort,
+    state.tokenUsage,
+    state.effectiveConfig,
     currentModel(runtimeSnapshotForChatState({ state }), readRuntimeConfig(state.effectiveConfig)),
     state.availableSkills.length,
     skillsSignature(state.availableSkills),

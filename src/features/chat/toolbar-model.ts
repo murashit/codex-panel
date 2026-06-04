@@ -1,7 +1,6 @@
 import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/view";
 
 export type ToolbarPanelKind = "history" | "status" | "runtime";
-export type ToolbarStatusState = "offline" | "ready" | "degraded" | "blocked" | "running";
 
 export interface ToolbarChoice {
   label: string;
@@ -38,17 +37,12 @@ export interface ToolbarDiagnosticSection {
 export interface ToolbarViewModel {
   connected: boolean;
   status: string;
-  statusState: ToolbarStatusState;
   historyOpen: boolean;
   statusPanelOpen: boolean;
   runtimeOpen: boolean;
   planActive: boolean;
   autoReviewActive: boolean;
   fastActive: boolean;
-  runtimeSummary: string;
-  runtimeTitle: string;
-  runtimeEmphasized: boolean;
-  context: { level: "ok" | "warn" | "danger"; title: string; label: string; percent: number | null } | null;
   rateLimit: RateLimitSummary | null;
   configSections: EffectiveConfigSection[];
   openPanel: ToolbarPanelKind | null;

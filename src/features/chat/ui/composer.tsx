@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../composer/suggestions";
+import type { ComposerMetaViewModel } from "../view-model";
 import { IconButton } from "../../../shared/ui/components";
 import { renderUiRoot } from "../../../shared/ui/ui-root";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
@@ -25,6 +26,12 @@ type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;
 };
 
+const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
+  fatal: null,
+  contextIndicator: "⣀⣀⣀⣀⣀⣀⣀⣀",
+  runtime: "default",
+};
+
 export function renderComposerShell(
   parent: HTMLElement,
   viewId: string,
@@ -35,6 +42,7 @@ export function renderComposerShell(
   suggestions: readonly ComposerSuggestion[],
   selectedSuggestionIndex: number,
   callbacks: ComposerCallbacks,
+  meta: ComposerMetaViewModel = DEFAULT_COMPOSER_META,
 ): ComposerElements {
   const elements: Partial<ComposerElements> = {};
   renderUiRoot(
@@ -45,6 +53,7 @@ export function renderComposerShell(
       busy={busy}
       canInterrupt={canInterrupt}
       normalPlaceholder={normalPlaceholder}
+      meta={meta}
       suggestions={suggestions}
       selectedSuggestionIndex={selectedSuggestionIndex}
       callbacks={callbacks}
@@ -63,6 +72,7 @@ function ComposerShell({
   busy,
   canInterrupt,
   normalPlaceholder,
+  meta,
   suggestions,
   selectedSuggestionIndex,
   callbacks,
@@ -73,6 +83,7 @@ function ComposerShell({
   busy: boolean;
   canInterrupt: boolean;
   normalPlaceholder: string;
+  meta: ComposerMetaViewModel;
   suggestions: readonly ComposerSuggestion[];
   selectedSuggestionIndex: number;
   callbacks: ComposerCallbacks;
@@ -137,6 +148,7 @@ function ComposerShell({
           onClick={callbacks.onSendOrInterrupt}
         />
       </div>
+      <ComposerMeta meta={meta} />
       <ComposerSuggestions
         containerRef={suggestionsRef}
         selectedRef={selectedSuggestionRef}
@@ -145,6 +157,18 @@ function ComposerShell({
         selectedIndex={normalizedSelectedSuggestionIndex}
         callbacks={callbacks}
       />
+    </div>
+  );
+}
+
+function ComposerMeta({ meta }: { meta: ComposerMetaViewModel }): UiNode {
+  if (meta.fatal) {
+    return <div className="codex-panel__composer-meta codex-panel__composer-meta--fatal">{meta.fatal}</div>;
+  }
+  return (
+    <div className="codex-panel__composer-meta" aria-hidden="true">
+      <span className="codex-panel__composer-meta-context">{meta.contextIndicator}</span>
+      <span className="codex-panel__composer-meta-runtime">{meta.runtime}</span>
     </div>
   );
 }

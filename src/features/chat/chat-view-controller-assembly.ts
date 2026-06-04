@@ -7,6 +7,7 @@ import type { RuntimeSnapshot } from "../../runtime/state";
 import { currentModel } from "../../runtime/state";
 import type { ChatState, ChatStateStore } from "./chat-state";
 import type { DisplayDetailSection } from "./display/types";
+import type { ComposerMetaViewModel } from "./view-model";
 import { ChatAppServerController } from "./chat-app-server-controller";
 import { ChatComposerController } from "./chat-composer-controller";
 import { ChatController } from "./chat-controller";
@@ -95,6 +96,7 @@ export interface ChatViewControllerAssemblyHost {
   pendingRequestsSignature: () => string;
   activeComposerThreadName: () => string | null;
   composerPlaceholder: () => string;
+  composerMetaViewModel: () => ComposerMetaViewModel;
   runtimeSnapshot: () => RuntimeSnapshot;
   collaborationModeLabel: () => string;
   connectionDiagnosticDetails: () => DisplayDetailSection[];
@@ -248,6 +250,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     canInterrupt: () =>
       host.getState().turnLifecycle.kind !== "idle" && Boolean(host.getState().activeThreadId && activeTurnId(host.getState())),
     composerPlaceholder: host.composerPlaceholder,
+    composerMeta: host.composerMetaViewModel,
     currentModelForSuggestions: () => currentModel(host.runtimeSnapshot()),
     renderIfDetached: host.effects.render.now,
     onDraftChange: host.effects.liveState.refresh,

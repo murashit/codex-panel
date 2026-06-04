@@ -43,6 +43,35 @@ describe("composer renderer decisions", () => {
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
   });
 
+  it("renders composer meta as non-interactive context and runtime text", () => {
+    const parent = document.createElement("div");
+
+    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+      fatal: null,
+      contextIndicator: "⣿⣿⣿⣤⣀⣀⣀⣀",
+      runtime: "gpt-5.5 high",
+    });
+
+    const meta = parent.querySelector<HTMLElement>(".codex-panel__composer-meta");
+    expect(meta?.getAttribute("aria-hidden")).toBe("true");
+    expect(meta?.textContent).toBe("⣿⣿⣿⣤⣀⣀⣀⣀gpt-5.5 high");
+    expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("⣿⣿⣿⣤⣀⣀⣀⣀");
+    expect(parent.querySelector(".codex-panel__composer-meta-runtime")?.textContent).toBe("gpt-5.5 high");
+  });
+
+  it("replaces composer meta with fatal status text", () => {
+    const parent = document.createElement("div");
+
+    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+      fatal: "Codex app-server disconnected",
+      contextIndicator: "",
+      runtime: "",
+    });
+
+    expect(parent.querySelector(".codex-panel__composer-meta")?.textContent).toBe("Codex app-server disconnected");
+    expect(parent.querySelector(".codex-panel__composer-meta-context")).toBeNull();
+  });
+
   it("renders composer suggestions inside the composer root", () => {
     const parent = document.createElement("div");
     const onSuggestionInsert = vi.fn();

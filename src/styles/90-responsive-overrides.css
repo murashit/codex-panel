@@ -1,35 +1,4 @@
 @container (max-width: 280px) {
-  .codex-panel__toolbar-primary {
-    flex-wrap: wrap;
-  }
-
-  .codex-panel__runtime-strip {
-    gap: var(--codex-panel-panel-gap);
-  }
-
-  .codex-panel__runtime-model {
-    padding: 0 var(--codex-panel-item-gap);
-  }
-
-  .codex-panel__runtime-area {
-    order: 3;
-    flex: 1 1 100%;
-  }
-
-  .codex-panel__meter-compact {
-    min-width: 0;
-    height: var(--codex-panel-control-icon-size);
-    padding-left: 0;
-  }
-
-  .codex-panel__meter-compact-label {
-    max-width: calc(var(--codex-panel-icon-button-inline-size) * 2);
-  }
-
-  .codex-panel__meter-compact-bar {
-    flex-basis: calc(var(--codex-panel-icon-button-inline-size) + calc(var(--codex-panel-section-gap) * 2));
-  }
-
   .codex-panel__composer {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--codex-panel-control-gap);

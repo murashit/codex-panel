@@ -2,19 +2,8 @@
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  padding: var(--codex-panel-section-gap);
 }
 
-.codex-panel__toolbar-primary {
-  display: flex;
-  gap: var(--codex-panel-toolbar-button-gap);
-  align-items: center;
-  min-width: 0;
-}
-
-.codex-panel__meter-compact-label,
-.codex-panel__context-compact-label,
-.codex-panel__runtime-model-value,
 .codex-panel__limit-panel-label,
 .codex-panel__limit-panel-value,
 .codex-panel__limit-panel-reset,
@@ -27,70 +16,8 @@
   white-space: nowrap;
 }
 
-.codex-panel__runtime-area {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-.codex-panel__runtime-strip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--codex-panel-toolbar-button-gap);
-  max-width: 100%;
-  min-width: 0;
-  white-space: nowrap;
-}
-
 .codex-panel__runtime-icon {
   flex: 0 0 auto;
-}
-
-.codex-panel__runtime-model {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 auto;
-  width: fit-content;
-  max-width: 100%;
-  gap: var(--codex-panel-control-gap);
-  padding: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
-  border: 0;
-  appearance: none;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: var(--codex-panel-toolbar-text-size);
-  line-height: var(--codex-panel-toolbar-line-height);
-  text-align: left;
-  cursor: default;
-  user-select: none;
-}
-
-.codex-panel__runtime-model:hover,
-.codex-panel__runtime-model.is-active {
-  color: var(--text-normal);
-}
-
-.codex-panel__runtime-model:hover {
-  background: var(--background-modifier-hover);
-}
-
-.codex-panel__runtime-model.is-active,
-.codex-panel__runtime-model.is-active:hover,
-.codex-panel__runtime-model.is-active:focus-visible,
-.codex-panel__runtime-model.is-active:active {
-  background: var(--background-modifier-active-hover);
-  color: var(--icon-color-active);
-}
-
-.codex-panel__runtime-model-value {
-  flex: 0 1 auto;
-  min-width: 0;
-  color: var(--codex-panel-toolbar-text-color);
-}
-
-.codex-panel__runtime-model.is-active .codex-panel__runtime-model-value {
-  color: currentcolor;
 }
 
 .codex-panel__runtime-picker {

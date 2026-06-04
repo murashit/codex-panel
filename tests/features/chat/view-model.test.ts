@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { capabilityProbeError, createAppServerDiagnostics, upsertMcpServerDiagnostic } from "../../../src/app-server/compatibility";
+import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
 import { createChatState } from "../../../src/features/chat/chat-state";
 import {
   activeComposerThreadName,
   activeThreadTitle,
   chatViewDisplayTitle,
+  composerMetaViewModel,
   composerPlaceholder,
   effortStatusLines,
   runtimeToolbarChoices,
   modelStatusLines,
   runtimeSnapshotForChatState,
-  statusDotState,
   statusSummaryLines,
   toolbarViewModel,
 } from "../../../src/features/chat/view-model";
@@ -43,7 +43,6 @@ describe("chat view model", () => {
       renameState: (threadId) => (threadId === "thread-1" ? { draft: "Active", generating: false } : null),
     });
 
-    expect(model.statusState).toBe("running");
     expect(model.openPanel).toBe("history");
     expect(model.threads).toMatchObject([
       { threadId: "thread-1", title: "Active", selected: true, disabled: false, rename: { draft: "Active" } },
@@ -76,88 +75,54 @@ describe("chat view model", () => {
     expect(model.fastActive).toBe(true);
   });
 
-  it("derives status dot state with running and offline priority", () => {
-    const diagnostics = createAppServerDiagnostics();
-
-    expect(statusDotState({ connected: true, turnBusy: true, diagnostics })).toBe("running");
-    expect(statusDotState({ connected: false, turnBusy: false, diagnostics })).toBe("offline");
-    expect(statusDotState({ connected: false, turnBusy: false, diagnostics, connectionFailed: true })).toBe("blocked");
-    expect(statusDotState({ connected: true, turnBusy: false, diagnostics })).toBe("ready");
-    expect(statusDotState({ connected: true, turnBusy: false, diagnostics, turnStartBlocked: true })).toBe("blocked");
-  });
-
-  it("marks connected status dot as degraded for non-fatal diagnostic issues", () => {
-    const failedProbe = createAppServerDiagnostics();
-    failedProbe.probes["model/list"] = capabilityProbeError("model/list", new Error("network down"), 1);
-    expect(statusDotState({ connected: true, turnBusy: false, diagnostics: failedProbe })).toBe("degraded");
-    expect(statusDotState({ connected: true, turnBusy: true, diagnostics: failedProbe })).toBe("running");
-
-    const authIssue = upsertMcpServerDiagnostic(createAppServerDiagnostics(), {
-      name: "docs",
-      startupStatus: "ready",
-      authStatus: "notLoggedIn",
-      toolCount: 0,
-      message: null,
-    });
-    expect(statusDotState({ connected: true, turnBusy: false, diagnostics: authIssue })).toBe("degraded");
-  });
-
-  it("wires status dot state into the toolbar model", () => {
+  it("builds composer meta from context and runtime state", () => {
     const state = createChatState();
-    state.appServerDiagnostics.probes["model/list"] = capabilityProbeError("model/list", new Error("network down"), 1);
+    state.activeThreadId = "thread-1";
+    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.tokenUsage = {
+      last: { inputTokens: 42, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 44 },
+      total: { inputTokens: 40, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 42 },
+      modelContextWindow: 100,
+    };
 
-    const model = toolbarViewModel({
-      state,
-      snapshot: runtimeSnapshotForChatState({ state }),
-      connected: true,
-      turnBusy: false,
-      vaultPath: "/vault",
-      configuredCommand: "codex",
-      archiveConfirmThreadId: null,
-      archiveExportEnabled: true,
-      modelChoices: [],
-      effortChoices: [],
-      renameState: () => null,
+    expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
+      fatal: null,
+      contextIndicator: "⣿⣿⣿⣤⣀⣀⣀⣀",
+      runtime: "gpt-5.5 high",
     });
-
-    expect(model.statusState).toBe("degraded");
-
-    const runningModel = toolbarViewModel({
-      state,
-      snapshot: runtimeSnapshotForChatState({ state }),
-      connected: true,
-      turnBusy: true,
-      vaultPath: "/vault",
-      configuredCommand: "codex",
-      archiveConfirmThreadId: null,
-      archiveExportEnabled: true,
-      modelChoices: [],
-      effortChoices: [],
-      renameState: () => null,
-    });
-
-    expect(runningModel.statusState).toBe("running");
   });
 
-  it("marks connection failure status as blocked in the toolbar model", () => {
+  it("uses a neutral composer context indicator when usage is unavailable", () => {
+    const state = createChatState();
+    state.activeThreadId = "thread-1";
+    state.displayItems = [
+      {
+        id: "item",
+        kind: "message",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+        text: "Existing turn",
+        role: "assistant",
+      },
+    ];
+    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5" });
+
+    expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toMatchObject({
+      fatal: null,
+      contextIndicator: "⣀⣀⣀⣀⣀⣀⣀⣀",
+      runtime: "gpt-5.5",
+    });
+  });
+
+  it("replaces composer meta with fatal connection state", () => {
     const state = createChatState();
     state.status = "Connection failed.";
 
-    const model = toolbarViewModel({
-      state,
-      snapshot: runtimeSnapshotForChatState({ state }),
-      connected: false,
-      turnBusy: false,
-      vaultPath: "/vault",
-      configuredCommand: "codex",
-      archiveConfirmThreadId: null,
-      archiveExportEnabled: true,
-      modelChoices: [],
-      effortChoices: [],
-      renameState: () => null,
+    expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
+      fatal: "Codex app-server disconnected",
+      contextIndicator: "",
+      runtime: "",
     });
-
-    expect(model.statusState).toBe("blocked");
   });
 
   it("builds slash-command status lines from chat state", () => {

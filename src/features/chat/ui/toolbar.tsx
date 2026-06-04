@@ -36,19 +36,18 @@ export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, act
 function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <>
-      <div className="codex-panel__toolbar-primary">
-        <ToolbarIconButton
-          icon="history"
-          label={model.historyOpen ? "Hide thread list" : "Show thread list"}
-          className={["codex-panel__history-toggle", model.historyOpen ? "is-active" : ""].filter(Boolean).join(" ")}
-          aria-pressed={model.historyOpen ? "true" : "false"}
-          onClick={actions.toggleHistory}
-        />
-        <div className="codex-panel__runtime-area">
-          <RuntimeStrip model={model} actions={actions} />
+      <div className="nav-header codex-panel__toolbar-primary">
+        <div className="nav-buttons-container codex-panel__toolbar-buttons">
+          <ToolbarIconButton
+            icon="history"
+            label={model.historyOpen ? "Hide thread list" : "Show thread list"}
+            className={["codex-panel__history-toggle", model.historyOpen ? "is-active" : ""].filter(Boolean).join(" ")}
+            aria-pressed={model.historyOpen ? "true" : "false"}
+            onClick={actions.toggleHistory}
+          />
+          <RuntimeButtons model={model} actions={actions} />
+          <StatusButton model={model} actions={actions} />
         </div>
-        <ContextMeter context={model.context} />
-        <StatusButton model={model} actions={actions} />
       </div>
       <ToolbarPanel model={model} actions={actions} />
     </>
@@ -75,9 +74,9 @@ function ToolbarIconButton({
   );
 }
 
-function RuntimeStrip({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
+function RuntimeButtons({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
-    <div className="codex-panel__runtime-strip">
+    <>
       <RuntimeIcon
         icon="list-checks"
         label="Toggle plan mode"
@@ -93,25 +92,15 @@ function RuntimeStrip({ model, actions }: { model: ToolbarViewModel; actions: To
         onClick={actions.toggleAutoReview}
       />
       <RuntimeIcon icon="zap" label="Toggle fast mode" active={model.fastActive} onClick={actions.toggleFast} />
-      <button
-        className={[
-          "clickable-icon",
-          "codex-panel__runtime-model",
-          "codex-panel-ui__toolbar-control",
-          model.runtimeEmphasized ? "is-emphasized" : "",
-          model.runtimeOpen ? "is-active" : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        type="button"
+      <ToolbarIconButton
+        icon="brain"
+        label="Change model and reasoning effort"
+        className={["codex-panel__runtime-model", model.runtimeOpen ? "is-active" : ""].filter(Boolean).join(" ")}
         aria-label="Change model and reasoning effort"
         aria-expanded={model.runtimeOpen ? "true" : "false"}
-        title={model.runtimeTitle}
         onClick={actions.toggleRuntime}
-      >
-        <span className="codex-panel__runtime-model-value">{model.runtimeSummary}</span>
-      </button>
-    </div>
+      />
+    </>
   );
 }
 
@@ -139,33 +128,12 @@ function RuntimeIcon({
   );
 }
 
-function ContextMeter({ context }: { context: ToolbarViewModel["context"] }): UiNode {
-  if (!context) return null;
-  return (
-    <div className={`codex-panel__meter-compact codex-panel__context-compact codex-panel__meter-compact--${context.level}`}>
-      <span className="codex-panel__meter-compact-label codex-panel__context-compact-label">{context.label}</span>
-      <span className="codex-panel__meter-compact-bar codex-panel__context-compact-bar">
-        <span
-          className="codex-panel__meter-compact-fill codex-panel__context-compact-fill"
-          style={{ width: `${String(context.percent ?? 0)}%` }}
-        />
-      </span>
-    </div>
-  );
-}
-
 function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
-    <button
-      className={[
-        "clickable-icon codex-panel-ui__toolbar-control codex-panel__status-dot",
-        `codex-panel__status-dot--${model.statusState}`,
-        model.statusPanelOpen ? "is-active" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      type="button"
-      aria-label={model.statusPanelOpen ? "Hide connection status" : "Show connection status"}
+    <ToolbarIconButton
+      icon="ellipsis"
+      label={model.statusPanelOpen ? "Hide panel menu" : "Show panel menu"}
+      className={["codex-panel__status-menu-toggle", model.statusPanelOpen ? "is-active" : ""].filter(Boolean).join(" ")}
       aria-expanded={model.statusPanelOpen ? "true" : "false"}
       onClick={actions.toggleStatusPanel}
     />

@@ -22,6 +22,7 @@ describe("panel CSS token scope", () => {
 describe("chat toolbar CSS", () => {
   it("lets icon-only toolbar actions use Obsidian nav action geometry", () => {
     const toolbarAction = /\.codex-panel-ui__toolbar-action \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const toolbar = /\.codex-panel__toolbar \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(toolbarAction).toContain("--icon-size: var(--codex-panel-control-icon-size)");
     expect(toolbarAction).toContain("--icon-stroke: var(--icon-m-stroke-width, 1.75px)");
@@ -29,6 +30,9 @@ describe("chat toolbar CSS", () => {
     expect(toolbarAction).not.toContain("height:");
     expect(toolbarAction).not.toContain("padding:");
     expect(toolbarAction).not.toContain("border-radius:");
+    expect(toolbar).not.toContain("padding:");
+    expect(styles).not.toContain(".codex-panel__runtime-area");
+    expect(styles).not.toContain(".codex-panel__runtime-strip");
   });
 
   it("keeps mouse-focus reset less specific than active toolbar controls", () => {
@@ -47,7 +51,7 @@ describe("chat toolbar CSS", () => {
     expect(toolbarActionMouseFocus).toContain("color: var(--icon-color)");
   });
 
-  it("uses one active state for toolbar actions and text controls", () => {
+  it("uses the shared active state for toolbar actions", () => {
     const toolbarControlActive =
       /\.codex-panel-ui__toolbar-control\.is-active,\n\.codex-panel-ui__toolbar-control\.is-active:hover,\n\.codex-panel-ui__toolbar-control\.is-active:focus-visible,\n\.codex-panel-ui__toolbar-control\.is-active:active \{(?<body>[^}]+)\}/.exec(
         styles,
@@ -56,20 +60,13 @@ describe("chat toolbar CSS", () => {
       /\.codex-panel-ui__toolbar-action\.is-active,\n\.codex-panel-ui__toolbar-action\.is-active:hover,\n\.codex-panel-ui__toolbar-action\.is-active:focus-visible,\n\.codex-panel-ui__toolbar-action\.is-active:active \{(?<body>[^}]+)\}/.exec(
         styles,
       )?.groups?.["body"] ?? "";
-    const runtimeModelActive =
-      /\.codex-panel__runtime-model\.is-active,\n\.codex-panel__runtime-model\.is-active:hover,\n\.codex-panel__runtime-model\.is-active:focus-visible,\n\.codex-panel__runtime-model\.is-active:active \{(?<body>[^}]+)\}/.exec(
-        styles,
-      )?.groups?.["body"] ?? "";
-    const runtimeModelActiveValue =
-      /\.codex-panel__runtime-model\.is-active \.codex-panel__runtime-model-value \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(toolbarControlActive).toContain("background: var(--background-modifier-active-hover)");
     expect(toolbarControlActive).toContain("color: var(--icon-color-active)");
     expect(toolbarActionActive).toContain("background: var(--background-modifier-active-hover)");
     expect(toolbarActionActive).toContain("color: var(--icon-color-active)");
-    expect(runtimeModelActive).toContain("background: var(--background-modifier-active-hover)");
-    expect(runtimeModelActive).toContain("color: var(--icon-color-active)");
-    expect(runtimeModelActiveValue).toContain("color: currentcolor");
+    expect(styles).not.toContain(".codex-panel__runtime-model.is-active");
+    expect(styles).not.toContain(".codex-panel__runtime-model-value");
   });
 
   it("keeps class selectors out of zero-specificity :where selectors", () => {

@@ -1,81 +1,5 @@
-.codex-panel__status-dot {
-  cursor: default;
+.codex-panel__status-menu-toggle {
   flex: 0 0 auto;
-  margin-left: auto;
-}
-
-.codex-panel__status-dot::before {
-  content: "";
-  width: var(--codex-panel-status-dot-size);
-  height: var(--codex-panel-status-dot-size);
-  border-radius: var(--codex-panel-radius-pill);
-  background: var(--codex-panel-text-faint);
-  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-faint);
-}
-
-.codex-panel__status-dot--ready::before {
-  background: var(--codex-panel-color-success);
-  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-success);
-}
-
-.codex-panel__status-dot--degraded::before {
-  background: var(--codex-panel-color-warning);
-  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-warning);
-}
-
-.codex-panel__status-dot--blocked::before {
-  background: var(--codex-panel-color-danger);
-  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-danger);
-}
-
-.codex-panel__status-dot--running::before {
-  background: var(--codex-panel-color-accent);
-  box-shadow: 0 0 0 3px var(--codex-panel-status-ring-accent);
-}
-
-.codex-panel__meter-compact {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--codex-panel-item-gap);
-  height: var(--codex-panel-icon-button-block-size);
-  min-width: 0;
-  max-width: calc(var(--codex-panel-icon-button-inline-size) * 3);
-  padding: 0 var(--codex-panel-panel-gap);
-  color: var(--codex-panel-toolbar-text-color);
-  font-size: var(--codex-panel-toolbar-text-size);
-  line-height: var(--codex-panel-toolbar-line-height);
-}
-
-.codex-panel__context-compact {
-  margin-left: auto;
-}
-
-.codex-panel__context-compact + .codex-panel__status-dot {
-  margin-left: 0;
-}
-
-.codex-panel__meter-compact-bar {
-  flex: 0 0 calc(var(--codex-panel-icon-button-inline-size) + var(--size-4-1, 4px));
-  height: var(--codex-panel-meter-bar-height);
-  overflow: hidden;
-  border-radius: var(--codex-panel-radius-pill);
-  background: var(--codex-panel-border-color);
-}
-
-.codex-panel__meter-compact-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--codex-panel-color-success);
-}
-
-.codex-panel__meter-compact--warn .codex-panel__meter-compact-fill {
-  background: var(--codex-panel-color-warning);
-}
-
-.codex-panel__meter-compact--danger .codex-panel__meter-compact-fill {
-  background: var(--codex-panel-color-danger);
 }
 
 .codex-panel__toolbar-panel {
@@ -155,7 +79,7 @@
 .codex-panel__limit-panel-meter {
   align-self: center;
   position: relative;
-  height: var(--codex-panel-meter-bar-height);
+  height: var(--codex-panel-control-gap);
   margin: 0;
   overflow: hidden;
   border-radius: var(--codex-panel-radius-pill);

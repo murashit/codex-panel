@@ -21,6 +21,7 @@ import {
   activeComposerThreadName as buildActiveComposerThreadName,
   activeThreadTitle as buildActiveThreadTitle,
   chatViewDisplayTitle,
+  composerMetaViewModel as buildComposerMetaViewModel,
   connectionDiagnosticsModel,
   composerPlaceholder as buildComposerPlaceholder,
   effortStatusLines as buildEffortStatusLines,
@@ -131,6 +132,7 @@ export class CodexChatView extends ItemView {
       pendingRequestsSignature: () => this.pendingRequestsSignature(),
       activeComposerThreadName: () => this.activeComposerThreadName(),
       composerPlaceholder: () => this.composerPlaceholder(),
+      composerMetaViewModel: () => this.composerMetaViewModel(),
       runtimeSnapshot: () => this.runtimeSnapshot(),
       collaborationModeLabel: () => this.collaborationModeLabel(),
       connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
@@ -551,6 +553,10 @@ export class CodexChatView extends ItemView {
 
   private composerPlaceholder(): string {
     return buildComposerPlaceholder(this.activeComposerThreadName());
+  }
+
+  private composerMetaViewModel() {
+    return buildComposerMetaViewModel(this.state, this.runtimeSnapshot());
   }
 
   private activeComposerThreadName(): string | null {

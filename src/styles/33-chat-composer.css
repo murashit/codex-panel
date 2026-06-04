@@ -24,6 +24,38 @@
   color: var(--icon-color-active);
 }
 
+.codex-panel__composer-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  min-width: 0;
+  gap: var(--size-4-3);
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
+  user-select: none;
+}
+
+.codex-panel__composer-meta-context {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+
+.codex-panel__composer-meta-runtime {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-panel__composer-meta--fatal {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .codex-panel__composer-suggestions {
   position: absolute;
   right: var(--codex-panel-edge-padding-x);

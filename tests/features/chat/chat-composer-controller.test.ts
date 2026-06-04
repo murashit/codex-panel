@@ -24,6 +24,7 @@ describe("ChatComposerController", () => {
       scrollThreadFromComposerEdges: () => false,
       canInterrupt: () => false,
       composerPlaceholder: () => "Ask Codex to work on this task...",
+      composerMeta: () => ({ fatal: null, contextIndicator: "⣀⣀⣀⣀⣀⣀⣀⣀", runtime: "default" }),
       currentModelForSuggestions: () => null,
       renderIfDetached: vi.fn(),
       onDraftChange: vi.fn(),

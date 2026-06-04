@@ -5,7 +5,6 @@ import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import { createAppServerDiagnostics } from "../../src/app-server/compatibility";
 import {
-  compactContextLabel,
   compactModelLabel,
   compactReasoningEffortLabel,
   modelOverrideMessage,
@@ -100,13 +99,6 @@ describe("runtime settings", () => {
     expect(compactReasoningEffortLabel("minimal")).toBe("min");
     expect(compactReasoningEffortLabel("high")).toBe("high");
     expect(compactReasoningEffortLabel(null)).toBe("default");
-  });
-
-  it("formats compact context labels", () => {
-    expect(compactContextLabel(42, "Context 42%")).toBe("42%");
-    expect(compactContextLabel(null, "Context waiting")).toBe("wait");
-    expect(compactContextLabel(null, "Context unknown")).toBe("?");
-    expect(compactContextLabel(null, "1.2K tokens")).toBe("1.2K tokens");
   });
 
   it("keeps runtime defaults, resets, and collaboration mode semantics distinct", () => {

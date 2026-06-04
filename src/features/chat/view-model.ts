@@ -7,23 +7,27 @@ import {
   currentReasoningEffort,
   fastModeActive,
   pendingRuntimeSettingLabel,
-  runtimeSummaryLabel,
   serviceTierLabel,
   supportedReasoningEfforts,
 } from "../../runtime/state";
 import { readRuntimeConfig } from "../../runtime/config";
 import { sortedAvailableModels } from "../../runtime/model";
-import { compactContextLabel } from "../../runtime/settings";
+import { compactReasoningEffortLabel } from "../../runtime/settings";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../runtime/view";
 import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../../domain/threads/model";
-import type { AppServerDiagnostics } from "../../app-server/compatibility";
-import { connectionDiagnosticSections, hasDiagnosticIssue } from "./diagnostics";
+import { connectionDiagnosticSections } from "./diagnostics";
 import type { ChatState } from "./chat-state";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
-import type { ToolbarChoice, ToolbarStatusState, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
+import type { ToolbarChoice, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
 
 export interface RuntimeSnapshotInput {
   state: ChatState;
+}
+
+export interface ComposerMetaViewModel {
+  fatal: string | null;
+  contextIndicator: string;
+  runtime: string;
 }
 
 export interface ToolbarViewModelInput {
@@ -44,14 +48,6 @@ export interface ConnectionDiagnosticsModelInput {
   state: ChatState;
   connected: boolean;
   configuredCommand: string;
-}
-
-export interface StatusDotStateInput {
-  connected: boolean;
-  turnBusy: boolean;
-  diagnostics: AppServerDiagnostics;
-  connectionFailed?: boolean;
-  turnStartBlocked?: boolean;
 }
 
 export interface RuntimeToolbarChoicesInput {
@@ -145,36 +141,42 @@ export function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
 }
 
+export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapshot): ComposerMetaViewModel {
+  if (state.status === "Connection failed.") {
+    return {
+      fatal: "Codex app-server disconnected",
+      contextIndicator: "",
+      runtime: "",
+    };
+  }
+
+  const config = readRuntimeConfig(state.effectiveConfig);
+  const context = contextSummary(snapshot);
+  const model = currentModel(snapshot, config);
+  const effort = currentReasoningEffort(snapshot, config);
+  return {
+    fatal: null,
+    contextIndicator: brailleContextIndicator(context?.percent ?? null),
+    runtime: runtimeComposerLabel(model, effort),
+  };
+}
+
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
   const config = readRuntimeConfig(state.effectiveConfig);
-  const context = contextSummary(snapshot);
   const limit = rateLimitSummary(snapshot);
   const historyOpen = state.openDetails.has("history");
   const statusPanelOpen = state.openDetails.has("status-panel");
   const runtimeOpen = state.runtimePicker !== null;
-  const statusState = statusDotState({
-    connected: input.connected,
-    turnBusy: input.turnBusy,
-    diagnostics: state.appServerDiagnostics,
-    connectionFailed: state.status === "Connection failed.",
-  });
-  const model = currentModel(snapshot, config);
-  const effort = currentReasoningEffort(snapshot, config);
   return {
     connected: input.connected,
     status: state.status,
-    statusState,
     historyOpen,
     statusPanelOpen,
     runtimeOpen,
     planActive: state.selectedCollaborationMode === "plan",
     autoReviewActive: autoReviewActive(snapshot, config),
     fastActive: fastModeActive(snapshot, config),
-    runtimeSummary: runtimeSummaryLabel(model, effort),
-    runtimeTitle: `Model: ${model ?? "(Codex default)"}; Effort: ${effort ?? "(Codex default)"}`,
-    runtimeEmphasized: false,
-    context: context ? { ...context, label: compactContextLabel(context.percent, context.label) } : null,
     rateLimit: limit,
     configSections: effectiveConfigSections(snapshot, input.vaultPath),
     openPanel: historyOpen ? "history" : runtimeOpen ? "runtime" : statusPanelOpen ? "status" : null,
@@ -197,12 +199,23 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
   };
 }
 
-export function statusDotState(input: StatusDotStateInput): ToolbarStatusState {
-  if (input.turnBusy) return "running";
-  if (input.connectionFailed) return "blocked";
-  if (!input.connected) return "offline";
-  if (input.turnStartBlocked) return "blocked";
-  return hasDiagnosticIssue(input.diagnostics) ? "degraded" : "ready";
+const CONTEXT_INDICATOR_WIDTH = 8;
+const CONTEXT_BRAILLE_LEVELS = ["⣀", "⣄", "⣤", "⣦", "⣶", "⣷", "⣿"] as const;
+
+function brailleContextIndicator(percent: number | null): string {
+  if (percent === null) return CONTEXT_BRAILLE_LEVELS[0].repeat(CONTEXT_INDICATOR_WIDTH);
+  const clamped = Math.max(0, Math.min(100, percent));
+  const filled = (clamped / 100) * CONTEXT_INDICATOR_WIDTH;
+  return Array.from({ length: CONTEXT_INDICATOR_WIDTH }, (_, index) => {
+    const local = Math.max(0, Math.min(1, filled - index));
+    const levelIndex = Math.round(local * (CONTEXT_BRAILLE_LEVELS.length - 1));
+    return CONTEXT_BRAILLE_LEVELS[levelIndex];
+  }).join("");
+}
+
+function runtimeComposerLabel(model: string | null, effort: ReasoningEffort | null): string {
+  const modelLabel = model ?? "default";
+  return effort ? `${modelLabel} ${compactReasoningEffortLabel(effort)}` : modelLabel;
 }
 
 export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): ReturnType<typeof connectionDiagnosticSections> {
