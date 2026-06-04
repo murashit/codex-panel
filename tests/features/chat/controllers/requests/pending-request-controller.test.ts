@@ -20,6 +20,7 @@ describe("PendingRequestController", () => {
     const render = vi.fn();
     const controller = new ChatController(stateStore, {
       refreshThreads: vi.fn(),
+      refreshRateLimits: vi.fn(),
       refreshSkills: vi.fn(),
       publishAppServerMetadata: vi.fn(),
       maybeNameThread: vi.fn(),

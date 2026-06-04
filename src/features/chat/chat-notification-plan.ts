@@ -29,6 +29,7 @@ import { routeServerNotification } from "./inbound-routing";
 
 export type ChatNotificationEffect =
   | { type: "refresh-threads" }
+  | { type: "refresh-rate-limits" }
   | { type: "refresh-skills"; forceReload: boolean }
   | { type: "publish-app-server-metadata" }
   | { type: "maybe-name-thread"; threadId: string; turn: Turn }
@@ -255,8 +256,8 @@ function planDiagnosticStatus(notification: ServerNotification): ChatNotificatio
   }
   if (method === "account/rateLimits/updated") {
     return {
-      actions: [{ type: "thread/list-applied", rateLimit: params.rateLimits }],
-      effects: [{ type: "publish-app-server-metadata" }],
+      actions: [],
+      effects: [{ type: "refresh-rate-limits" }],
     };
   }
   if (method === "skills/changed") {

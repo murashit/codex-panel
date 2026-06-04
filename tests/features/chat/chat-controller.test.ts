@@ -23,6 +23,7 @@ function controllerForState(
 ): ChatController {
   return new ChatController(testStoreForState(state), {
     refreshThreads: vi.fn(),
+    refreshRateLimits: vi.fn(),
     refreshSkills: vi.fn(),
     publishAppServerMetadata: vi.fn(),
     maybeNameThread: vi.fn(),
@@ -641,10 +642,10 @@ describe("ChatController", () => {
       expect(refreshThreads).not.toHaveBeenCalled();
     });
 
-    it("stores account rate limit updates outside thread scope", () => {
+    it("refreshes account rate limits after sparse update notifications", () => {
       const state = createChatState();
-      const publishAppServerMetadata = vi.fn();
-      const controller = controllerForState(state, { publishAppServerMetadata });
+      const refreshRateLimits = vi.fn();
+      const controller = controllerForState(state, { refreshRateLimits });
 
       controller.handleNotification({
         method: "account/rateLimits/updated",
@@ -662,11 +663,8 @@ describe("ChatController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "account/rateLimits/updated" }>);
 
-      expect(state.rateLimit).toMatchObject({
-        limitId: "codex",
-        primary: { usedPercent: 64 },
-      });
-      expect(publishAppServerMetadata).toHaveBeenCalledOnce();
+      expect(state.rateLimit).toBeNull();
+      expect(refreshRateLimits).toHaveBeenCalledOnce();
     });
 
     it("records MCP startup status for diagnostics without a chat system message", () => {

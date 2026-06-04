@@ -14,6 +14,7 @@ import { planChatNotification, type ChatNotificationEffect } from "./chat-notifi
 
 export interface ChatControllerActions {
   refreshThreads: () => void;
+  refreshRateLimits: () => void;
   refreshSkills: (forceReload?: boolean) => void;
   publishAppServerMetadata: () => void;
   maybeNameThread: (threadId: string, turn: Turn) => void;
@@ -150,6 +151,9 @@ export class ChatController {
     switch (effect.type) {
       case "refresh-threads":
         this.actions.refreshThreads();
+        return;
+      case "refresh-rate-limits":
+        this.actions.refreshRateLimits();
         return;
       case "refresh-skills":
         this.actions.refreshSkills(effect.forceReload);
