@@ -33,7 +33,6 @@ export interface ChatComposerControllerOptions {
   onDraftChange: () => void;
   onComposerResize: () => void;
   onSubmit: () => void;
-  onNewThread: () => void;
   onThreadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
 }
 
@@ -105,9 +104,6 @@ export class ChatComposerController {
             event.preventDefault();
             this.options.onSubmit();
           }
-        },
-        onNewThread: () => {
-          this.options.onNewThread();
         },
         onSendOrInterrupt: () => {
           this.options.onSubmit();

@@ -575,6 +575,7 @@ export class CodexChatView extends ItemView {
     const model = this.toolbarViewModel();
 
     renderToolbar(toolbar, model, {
+      startNewThread: () => void this.startNewThread(),
       toggleHistory: () => {
         this.toolbarPanels.toggleHistory();
       },

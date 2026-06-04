@@ -11,6 +11,7 @@ type ButtonProps = ButtonHTMLAttributes & {
 };
 
 export interface ToolbarActions {
+  startNewThread: () => void;
   toggleHistory: () => void;
   toggleAutoReview: () => void;
   toggleStatusPanel: () => void;
@@ -38,6 +39,13 @@ function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: Toolbar
     <>
       <div className="nav-header codex-panel__toolbar-primary">
         <div className="nav-buttons-container codex-panel__toolbar-buttons">
+          <ToolbarIconButton
+            icon="message-square-plus"
+            label="Start new chat"
+            className="codex-panel__new-chat"
+            disabled={model.newChatDisabled}
+            onClick={actions.startNewThread}
+          />
           <ToolbarIconButton
             icon="history"
             label={model.historyOpen ? "Hide thread list" : "Show thread list"}

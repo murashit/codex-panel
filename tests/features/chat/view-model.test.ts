@@ -44,6 +44,7 @@ describe("chat view model", () => {
     });
 
     expect(model.openPanel).toBe("history");
+    expect(model.newChatDisabled).toBe(true);
     expect(model.threads).toMatchObject([
       { threadId: "thread-1", title: "Active", selected: true, disabled: false, rename: { draft: "Active" } },
       { threadId: "thread-2", title: "Other", selected: false, disabled: true, archiveConfirm: { active: true } },
@@ -73,6 +74,7 @@ describe("chat view model", () => {
     });
 
     expect(model.fastActive).toBe(true);
+    expect(model.newChatDisabled).toBe(false);
   });
 
   it("builds composer meta from context and runtime state", () => {
@@ -87,8 +89,9 @@ describe("chat view model", () => {
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
       fatal: null,
-      contextIndicator: "⣿⣿⣿⣤⣀⣀⣀⣀",
-      runtime: "gpt-5.5 high",
+      context: "ctx ⣿⣶   42%",
+      model: "gpt-5.5",
+      effort: "high",
     });
   });
 
@@ -98,6 +101,7 @@ describe("chat view model", () => {
     state.displayItems = [
       {
         id: "item",
+        turnId: "turn-1",
         kind: "message",
         messageKind: "assistantResponse",
         messageState: "completed",
@@ -109,8 +113,23 @@ describe("chat view model", () => {
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toMatchObject({
       fatal: null,
-      contextIndicator: "⣀⣀⣀⣀⣀⣀⣀⣀",
-      runtime: "gpt-5.5",
+      context: "ctx      --%",
+      model: "gpt-5.5",
+      effort: null,
+    });
+  });
+
+  it("keeps zero percent composer context fixed-width and visible", () => {
+    const state = createChatState();
+    state.activeThreadId = "thread-1";
+    state.tokenUsage = {
+      last: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
+      total: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
+      modelContextWindow: 100,
+    };
+
+    expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toMatchObject({
+      context: "ctx ⣀     0%",
     });
   });
 
@@ -120,8 +139,9 @@ describe("chat view model", () => {
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
       fatal: "Codex app-server disconnected",
-      contextIndicator: "",
-      runtime: "",
+      context: "",
+      model: "",
+      effort: null,
     });
   });
 

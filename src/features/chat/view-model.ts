@@ -26,8 +26,9 @@ export interface RuntimeSnapshotInput {
 
 export interface ComposerMetaViewModel {
   fatal: string | null;
-  contextIndicator: string;
-  runtime: string;
+  context: string;
+  model: string;
+  effort: string | null;
 }
 
 export interface ToolbarViewModelInput {
@@ -145,8 +146,9 @@ export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapsho
   if (state.status === "Connection failed.") {
     return {
       fatal: "Codex app-server disconnected",
-      contextIndicator: "",
-      runtime: "",
+      context: "",
+      model: "",
+      effort: null,
     };
   }
 
@@ -156,8 +158,9 @@ export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapsho
   const effort = currentReasoningEffort(snapshot, config);
   return {
     fatal: null,
-    contextIndicator: brailleContextIndicator(context?.percent ?? null),
-    runtime: runtimeComposerLabel(model, effort),
+    context: contextComposerLabel(context?.percent ?? null),
+    model: model ?? "default",
+    effort: effort ? compactReasoningEffortLabel(effort) : null,
   };
 }
 
@@ -171,6 +174,7 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
   return {
     connected: input.connected,
     status: state.status,
+    newChatDisabled: input.turnBusy,
     historyOpen,
     statusPanelOpen,
     runtimeOpen,
@@ -199,23 +203,31 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
   };
 }
 
-const CONTEXT_INDICATOR_WIDTH = 8;
-const CONTEXT_BRAILLE_LEVELS = ["⣀", "⣄", "⣤", "⣦", "⣶", "⣷", "⣿"] as const;
+const CONTEXT_DOT_WIDTH = 4;
+const CONTEXT_CELL_PERCENT = 100 / CONTEXT_DOT_WIDTH;
+const CONTEXT_PARTIAL_DOTS = ["", "⣀", "⣤", "⣶", "⣿"] as const;
+const CONTEXT_FULL_DOT = "⣿";
 
-function brailleContextIndicator(percent: number | null): string {
-  if (percent === null) return CONTEXT_BRAILLE_LEVELS[0].repeat(CONTEXT_INDICATOR_WIDTH);
-  const clamped = Math.max(0, Math.min(100, percent));
-  const filled = (clamped / 100) * CONTEXT_INDICATOR_WIDTH;
-  return Array.from({ length: CONTEXT_INDICATOR_WIDTH }, (_, index) => {
-    const local = Math.max(0, Math.min(1, filled - index));
-    const levelIndex = Math.round(local * (CONTEXT_BRAILLE_LEVELS.length - 1));
-    return CONTEXT_BRAILLE_LEVELS[levelIndex];
-  }).join("");
+function contextComposerLabel(percent: number | null): string {
+  const dots = contextBrailleDots(percent);
+  const percentLabel = percent === null ? "--%" : `${String(Math.round(Math.max(0, Math.min(100, percent)))).padStart(2, " ")}%`;
+  return `ctx ${dots} ${percentLabel}`;
 }
 
-function runtimeComposerLabel(model: string | null, effort: ReasoningEffort | null): string {
-  const modelLabel = model ?? "default";
-  return effort ? `${modelLabel} ${compactReasoningEffortLabel(effort)}` : modelLabel;
+function contextBrailleDots(percent: number | null): string {
+  if (percent === null) return " ".repeat(CONTEXT_DOT_WIDTH);
+  const clamped = Math.max(0, Math.min(100, percent));
+  const chars: string[] = [];
+  for (let index = 0; index < CONTEXT_DOT_WIDTH; index += 1) {
+    const remaining = clamped - index * CONTEXT_CELL_PERCENT;
+    if (remaining <= 0) {
+      chars.push(index === 0 ? CONTEXT_PARTIAL_DOTS[1] : " ");
+      continue;
+    }
+    const partialIndex = Math.min(CONTEXT_PARTIAL_DOTS.length - 1, Math.ceil((remaining / CONTEXT_CELL_PERCENT) * 4));
+    chars.push(CONTEXT_PARTIAL_DOTS[partialIndex] ?? CONTEXT_FULL_DOT);
+  }
+  return chars.join("");
 }
 
 export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): ReturnType<typeof connectionDiagnosticSections> {

@@ -1,8 +1,8 @@
 .codex-panel__composer {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--codex-panel-section-gap);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--codex-panel-control-gap);
   padding: var(--codex-panel-section-gap) var(--codex-panel-edge-padding-x)
     calc(var(--codex-panel-section-gap) + var(--codex-panel-bottom-safe-area));
 }
@@ -25,15 +25,24 @@
 }
 
 .codex-panel__composer-meta {
-  grid-column: 1 / -1;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
-  gap: var(--size-4-3);
+  gap: var(--codex-panel-section-gap);
   align-items: center;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
   user-select: none;
+}
+
+.codex-panel__composer-meta-status {
+  display: flex;
+  min-width: 0;
+  gap: var(--size-4-2);
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .codex-panel__composer-meta-context {
@@ -42,7 +51,13 @@
   white-space: pre;
 }
 
-.codex-panel__composer-meta-runtime {
+.codex-panel__composer-meta-separator {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+}
+
+.codex-panel__composer-meta-model,
+.codex-panel__composer-meta-effort {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -50,7 +65,11 @@
 }
 
 .codex-panel__composer-meta--fatal {
-  display: block;
+  color: var(--text-muted);
+}
+
+.codex-panel__composer-meta-fatal {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

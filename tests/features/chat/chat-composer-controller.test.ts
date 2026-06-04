@@ -24,13 +24,12 @@ describe("ChatComposerController", () => {
       scrollThreadFromComposerEdges: () => false,
       canInterrupt: () => false,
       composerPlaceholder: () => "Ask Codex to work on this task...",
-      composerMeta: () => ({ fatal: null, contextIndicator: "⣀⣀⣀⣀⣀⣀⣀⣀", runtime: "default" }),
+      composerMeta: () => ({ fatal: null, context: "ctx      --%", model: "default", effort: null }),
       currentModelForSuggestions: () => null,
       renderIfDetached: vi.fn(),
       onDraftChange: vi.fn(),
       onComposerResize: vi.fn(),
       onSubmit: vi.fn(),
-      onNewThread: vi.fn(),
       onThreadScrollFromComposer: vi.fn(),
     });
 

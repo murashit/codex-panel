@@ -16,7 +16,6 @@ export interface ComposerCallbacks {
   onComposerResize: () => void;
   onUpdateSuggestions: () => void;
   onKeydown: (event: KeyboardEvent) => void;
-  onNewThread: () => void;
   onSendOrInterrupt: () => void;
   onSuggestionHover: (index: number) => void;
   onSuggestionInsert: (suggestion: ComposerSuggestion) => void;
@@ -28,8 +27,9 @@ type ButtonProps = ButtonHTMLAttributes & {
 
 const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
   fatal: null,
-  contextIndicator: "⣀⣀⣀⣀⣀⣀⣀⣀",
-  runtime: "default",
+  context: "ctx      --%",
+  model: "default",
+  effort: null,
 };
 
 export function renderComposerShell(
@@ -132,23 +132,7 @@ function ComposerShell({
           callbacks.onKeydown(event);
         }}
       />
-      <div className="codex-panel-ui__action-stack codex-panel__composer-actions">
-        <ComposerIconButton
-          icon="message-square"
-          label="Start new chat"
-          className="codex-panel__new-chat"
-          disabled={busy}
-          onClick={callbacks.onNewThread}
-        />
-        <ComposerIconButton
-          icon={sendMode.icon}
-          label={sendMode.label}
-          className={`codex-panel__send ${sendMode.className}`}
-          disabled={sendMode.disabled}
-          onClick={callbacks.onSendOrInterrupt}
-        />
-      </div>
-      <ComposerMeta meta={meta} />
+      <ComposerMeta meta={meta} sendMode={sendMode} onSendOrInterrupt={callbacks.onSendOrInterrupt} />
       <ComposerSuggestions
         containerRef={suggestionsRef}
         selectedRef={selectedSuggestionRef}
@@ -161,23 +145,50 @@ function ComposerShell({
   );
 }
 
-function ComposerMeta({ meta }: { meta: ComposerMetaViewModel }): UiNode {
+function ComposerMeta({
+  meta,
+  sendMode,
+  onSendOrInterrupt,
+}: {
+  meta: ComposerMetaViewModel;
+  sendMode: ComposerSendMode;
+  onSendOrInterrupt: () => void;
+}): UiNode {
   if (meta.fatal) {
-    return <div className="codex-panel__composer-meta codex-panel__composer-meta--fatal">{meta.fatal}</div>;
+    return (
+      <div className="codex-panel__composer-meta codex-panel__composer-meta--fatal">
+        <span className="codex-panel__composer-meta-fatal">{meta.fatal}</span>
+        <ComposerSendButton sendMode={sendMode} onSendOrInterrupt={onSendOrInterrupt} />
+      </div>
+    );
   }
   return (
-    <div className="codex-panel__composer-meta" aria-hidden="true">
-      <span className="codex-panel__composer-meta-context">{meta.contextIndicator}</span>
-      <span className="codex-panel__composer-meta-runtime">{meta.runtime}</span>
+    <div className="codex-panel__composer-meta">
+      <span className="codex-panel__composer-meta-status" aria-hidden="true">
+        <span className="codex-panel__composer-meta-context">{meta.context}</span>
+        <span className="codex-panel__composer-meta-separator">|</span>
+        <span className="codex-panel__composer-meta-model">{meta.model}</span>
+        {meta.effort ? (
+          <>
+            <span className="codex-panel__composer-meta-separator">|</span>
+            <span className="codex-panel__composer-meta-effort">{meta.effort}</span>
+          </>
+        ) : null}
+      </span>
+      <ComposerSendButton sendMode={sendMode} onSendOrInterrupt={onSendOrInterrupt} />
     </div>
   );
 }
 
-function composerSendMode(
-  busy: boolean,
-  canInterrupt: boolean,
-  draft: string,
-): { icon: string; label: string; className: string; disabled: boolean; canInterrupt: boolean } {
+interface ComposerSendMode {
+  icon: string;
+  label: string;
+  className: string;
+  disabled: boolean;
+  canInterrupt: boolean;
+}
+
+function composerSendMode(busy: boolean, canInterrupt: boolean, draft: string): ComposerSendMode {
   const hasDraft = Boolean(draft.trim());
   const canSteer = canInterrupt && hasDraft;
   const interruptMode = canInterrupt && !hasDraft;
@@ -188,6 +199,18 @@ function composerSendMode(
     disabled: busy && !canInterrupt,
     canInterrupt,
   };
+}
+
+function ComposerSendButton({ sendMode, onSendOrInterrupt }: { sendMode: ComposerSendMode; onSendOrInterrupt: () => void }): UiNode {
+  return (
+    <ComposerIconButton
+      icon={sendMode.icon}
+      label={sendMode.label}
+      className={`codex-panel__send ${sendMode.className}`}
+      disabled={sendMode.disabled}
+      onClick={onSendOrInterrupt}
+    />
+  );
 }
 
 function ComposerIconButton({

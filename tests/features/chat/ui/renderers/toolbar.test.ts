@@ -16,11 +16,12 @@ function expectPresent<T>(value: T | null | undefined): T {
 describe("toolbar renderer decisions", () => {
   it("renders toolbar controls as Obsidian-style action buttons", () => {
     const parent = document.createElement("div");
+    const startNewThread = vi.fn();
     const toggleHistory = vi.fn();
     const toggleAutoReview = vi.fn();
     const baseModel = toolbarModel();
 
-    renderToolbar(parent, baseModel, toolbarActions({ toggleHistory, toggleAutoReview }));
+    renderToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleHistory, toggleAutoReview }));
 
     const navHeader = parent.querySelector(".codex-panel__toolbar-primary");
     expect(navHeader?.classList.contains("nav-header")).toBe(true);
@@ -29,6 +30,7 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__runtime-area")).toBeNull();
     expect(parent.querySelector(".codex-panel__runtime-strip")).toBeNull();
     expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Start new chat",
       "Show thread list",
       "Toggle plan mode",
       "Toggle auto-review",
@@ -36,6 +38,12 @@ describe("toolbar renderer decisions", () => {
       "Change model and reasoning effort",
       "Show panel menu",
     ]);
+    const newChatButton = parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat");
+    expect(newChatButton?.getAttribute("aria-label")).toBe("Start new chat");
+    expect(newChatButton?.classList.contains("nav-action-button")).toBe(true);
+    expect(newChatButton?.disabled).toBe(false);
+    newChatButton?.click();
+    expect(startNewThread).toHaveBeenCalled();
     const statusButton = parent.querySelector(".codex-panel__status-menu-toggle");
     expect(statusButton?.tagName).toBe("BUTTON");
     expect(statusButton?.getAttribute("role")).toBeNull();
@@ -69,6 +77,10 @@ describe("toolbar renderer decisions", () => {
     renderToolbar(parent, toolbarModel({ status: "Turn running...", autoReviewActive: true }), toolbarActions());
     expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Show panel menu");
     expect(parent.querySelector(".codex-panel__auto-review-toggle")?.getAttribute("aria-pressed")).toBe("true");
+
+    parent.empty();
+    renderToolbar(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
+    expect(parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat")?.disabled).toBe(true);
 
     parent.empty();
     renderToolbar(parent, toolbarModel({ historyOpen: true, statusPanelOpen: true }), toolbarActions());
@@ -365,6 +377,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
   return {
     connected: true,
     status: "Connected.",
+    newChatDisabled: false,
     historyOpen: false,
     statusPanelOpen: false,
     runtimeOpen: true,
@@ -386,6 +399,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
 function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> = {}): Parameters<typeof renderToolbar>[2] {
   return {
     toggleHistory: vi.fn(),
+    startNewThread: vi.fn(),
     toggleAutoReview: vi.fn(),
     toggleStatusPanel: vi.fn(),
     togglePlan: vi.fn(),

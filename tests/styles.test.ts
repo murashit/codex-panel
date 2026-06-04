@@ -108,6 +108,15 @@ describe("chat toolbar CSS", () => {
     expect(navRow).toContain("padding-inline-end: var(--size-4-2)");
   });
 
+  it("keeps the composer context status text fixed-width", () => {
+    const contextMeter = /\.codex-panel__composer-meta-context \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(contextMeter).toContain("font-variant-numeric: tabular-nums");
+    expect(contextMeter).toContain("white-space: pre");
+    expect(styles).not.toContain(".codex-panel__composer-meta-context::before");
+    expect(styles).not.toContain("conic-gradient");
+  });
+
   it("keeps nav inline input reset in the shared primitive", () => {
     const navInlineInput =
       /\.codex-panel-ui__nav-inline-input\.codex-panel-ui__nav-inline-input \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";

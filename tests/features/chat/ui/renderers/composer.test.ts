@@ -13,7 +13,6 @@ function composerCallbacks() {
     onComposerResize: vi.fn(),
     onUpdateSuggestions: vi.fn(),
     onKeydown: vi.fn(),
-    onNewThread: vi.fn(),
     onSendOrInterrupt: vi.fn(),
     onSuggestionHover: vi.fn(),
     onSuggestionInsert: vi.fn(),
@@ -48,15 +47,20 @@ describe("composer renderer decisions", () => {
 
     renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
       fatal: null,
-      contextIndicator: "⣿⣿⣿⣤⣀⣀⣀⣀",
-      runtime: "gpt-5.5 high",
+      context: "ctx ⣿⣶   42%",
+      model: "gpt-5.5",
+      effort: "high",
     });
 
     const meta = parent.querySelector<HTMLElement>(".codex-panel__composer-meta");
-    expect(meta?.getAttribute("aria-hidden")).toBe("true");
-    expect(meta?.textContent).toBe("⣿⣿⣿⣤⣀⣀⣀⣀gpt-5.5 high");
-    expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("⣿⣿⣿⣤⣀⣀⣀⣀");
-    expect(parent.querySelector(".codex-panel__composer-meta-runtime")?.textContent).toBe("gpt-5.5 high");
+    expect(meta?.getAttribute("aria-hidden")).toBeNull();
+    expect(meta?.textContent).toBe("ctx ⣿⣶   42%|gpt-5.5|high");
+    expect(parent.querySelector(".codex-panel__composer-meta-status")?.getAttribute("aria-hidden")).toBe("true");
+    expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("ctx ⣿⣶   42%");
+    expect(parent.querySelector(".codex-panel__composer-meta-model")?.textContent).toBe("gpt-5.5");
+    expect(parent.querySelector(".codex-panel__composer-meta-effort")?.textContent).toBe("high");
+    expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
+    expect(parent.querySelector(".codex-panel__new-chat")).toBeNull();
   });
 
   it("replaces composer meta with fatal status text", () => {
@@ -64,12 +68,14 @@ describe("composer renderer decisions", () => {
 
     renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
       fatal: "Codex app-server disconnected",
-      contextIndicator: "",
-      runtime: "",
+      context: "",
+      model: "",
+      effort: null,
     });
 
-    expect(parent.querySelector(".codex-panel__composer-meta")?.textContent).toBe("Codex app-server disconnected");
+    expect(parent.querySelector(".codex-panel__composer-meta-fatal")?.textContent).toBe("Codex app-server disconnected");
     expect(parent.querySelector(".codex-panel__composer-meta-context")).toBeNull();
+    expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
   });
 
   it("renders composer suggestions inside the composer root", () => {
@@ -89,7 +95,6 @@ describe("composer renderer decisions", () => {
         onComposerResize: vi.fn(),
         onUpdateSuggestions: vi.fn(),
         onKeydown: vi.fn(),
-        onNewThread: vi.fn(),
         onSendOrInterrupt: vi.fn(),
         onSuggestionHover: vi.fn(),
         onSuggestionInsert,

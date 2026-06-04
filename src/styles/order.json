@@ -13,6 +13,5 @@
   "34-chat-turn-diff-view.css",
   "40-threads-view.css",
   "50-selection-rewrite.css",
-  "60-settings.css",
-  "90-responsive-overrides.css"
+  "60-settings.css"
 ]

@@ -258,7 +258,6 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
       host.effects.scroll.correctAfterLayoutChange();
     },
     onSubmit: () => void composerSubmission.submit(),
-    onNewThread: () => void host.startNewThread(),
     onThreadScrollFromComposer: (action) => {
       messageRenderer.scrollFromComposer(action);
     },
