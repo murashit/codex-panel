@@ -69,10 +69,4 @@ excludeTurns?: boolean,
  * When present, include a `thread/turns/list` page in the resume response
  * so clients can bootstrap recent turns without a second request.
  */
-initialTurnsPage?: ThreadResumeInitialTurnsPageParams | null,
-/**
- * Deprecated and ignored by app-server. Kept only so older clients can
- * continue sending the field while rollout persistence always uses the
- * limited history policy.
- */
-persistExtendedHistory?: boolean, };
+initialTurnsPage?: ThreadResumeInitialTurnsPageParams | null, };

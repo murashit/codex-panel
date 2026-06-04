@@ -49,10 +49,4 @@ mockExperimentalField?: string | null,
  * If true, opt into emitting raw Responses API items on the event stream.
  * This is for internal use only (e.g. Codex Cloud).
  */
-experimentalRawEvents?: boolean,
-/**
- * Deprecated and ignored by app-server. Kept only so older clients can
- * continue sending the field while rollout persistence always uses the
- * limited history policy.
- */
-persistExtendedHistory?: boolean, };
+experimentalRawEvents?: boolean, };

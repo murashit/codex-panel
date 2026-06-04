@@ -176,6 +176,7 @@ export function pendingApproval(): PendingApproval {
       threadId: "thread",
       turnId: "turn",
       itemId: "permission",
+      environmentId: null,
       startedAtMs: 1,
       cwd: "/vault",
       reason: "Need network",

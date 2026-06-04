@@ -694,6 +694,7 @@ function thread(id: string): Thread {
     id,
     sessionId: "session",
     forkedFromId: null,
+    parentThreadId: null,
     preview: "",
     ephemeral: true,
     modelProvider: "openai",

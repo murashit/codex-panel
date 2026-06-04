@@ -177,6 +177,7 @@ export function approvalDetails(approval: PendingApproval): { key: string; value
       break;
     case "item/permissions/requestApproval":
       addOptional(rows, "cwd", approval.params.cwd);
+      addOptional(rows, "environment", approval.params.environmentId);
       rows.push(...permissionRows(approval.params.permissions));
       break;
   }

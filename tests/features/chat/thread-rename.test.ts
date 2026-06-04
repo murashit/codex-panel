@@ -125,6 +125,7 @@ function threadFixture(id: string): Thread {
     id,
     sessionId: "session",
     forkedFromId: null,
+    parentThreadId: null,
     preview: "Thread preview",
     ephemeral: false,
     modelProvider: "openai",

@@ -43,6 +43,7 @@ function thread(options: Partial<Thread> & { id: string }): Thread {
     id: options.id,
     sessionId: "session",
     forkedFromId: null,
+    parentThreadId: null,
     preview: options.preview ?? options.id,
     ephemeral: false,
     modelProvider: "openai",

@@ -1,4 +1,5 @@
 import type { RateLimitWindow } from "../generated/app-server/v2/RateLimitWindow";
+import type { SpendControlLimitSnapshot } from "../generated/app-server/v2/SpendControlLimitSnapshot";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
 import { jsonPreview } from "../utils";
 import { sortedAvailableModels } from "./model";
@@ -94,6 +95,7 @@ export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs = Date.now()):
   const rows = [
     rateLimitWindowSummary("primary", rateLimit.primary, name, reached, rateLimit.rateLimitReachedType, nowMs),
     rateLimitWindowSummary("secondary", rateLimit.secondary, name, reached, rateLimit.rateLimitReachedType, nowMs),
+    spendControlLimitSummary(rateLimit.individualLimit, name, nowMs),
   ].filter((row): row is RateLimitSummaryRow => row !== null);
   if (rows.length === 0) return null;
 
@@ -225,6 +227,25 @@ function rateLimitWindowSummary(
     value: `${String(percent)}%`,
     resetLabel,
     title: `${name} ${label}: ${String(percent)}% used.${resetText}${reachedText}`,
+    percent,
+    level,
+  };
+}
+
+function spendControlLimitSummary(limit: SpendControlLimitSnapshot | null, name: string, nowMs: number): RateLimitSummaryRow | null {
+  if (!limit) return null;
+
+  const remainingPercent = Math.max(0, Math.min(100, Math.round(limit.remainingPercent)));
+  const percent = 100 - remainingPercent;
+  const level = remainingPercent <= 10 ? "danger" : remainingPercent <= 30 ? "warn" : "ok";
+  const resetLabel = limit.resetsAt ? formatRateLimitRemaining(limit.resetsAt, nowMs) : null;
+  const resetText = limit.resetsAt && resetLabel ? ` ${capitalize(resetLabel)}. Reset at ${formatRateLimitReset(limit.resetsAt)}.` : "";
+  const value = `${limit.used} / ${limit.limit}`;
+  return {
+    label: "monthly",
+    value,
+    resetLabel,
+    title: `${name} monthly limit: ${value} used, ${String(remainingPercent)}% remaining.${resetText}`,
     percent,
     level,
   };

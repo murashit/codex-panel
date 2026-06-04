@@ -565,6 +565,7 @@ describe("runtime settings", () => {
             primary: { usedPercent: 72.4, windowDurationMins: 300, resetsAt: 1_800_000_000 },
             secondary: null,
             credits: null,
+            individualLimit: null,
             planType: null,
             rateLimitReachedType: null,
           },
@@ -585,6 +586,7 @@ describe("runtime settings", () => {
             primary: { usedPercent: 95, windowDurationMins: null, resetsAt: null },
             secondary: null,
             credits: null,
+            individualLimit: null,
             planType: null,
             rateLimitReachedType: "rate_limit_reached",
           },
@@ -604,6 +606,7 @@ describe("runtime settings", () => {
             primary: { usedPercent: 15, windowDurationMins: 300, resetsAt: null },
             secondary: { usedPercent: 38, windowDurationMins: 10_080, resetsAt: null },
             credits: null,
+            individualLimit: null,
             planType: null,
             rateLimitReachedType: null,
           },
@@ -626,6 +629,7 @@ describe("runtime settings", () => {
             primary: { usedPercent: 10, windowDurationMins: 300, resetsAt: 1_800_000_000 },
             secondary: null,
             credits: null,
+            individualLimit: null,
             planType: null,
             rateLimitReachedType: null,
           },
@@ -634,6 +638,27 @@ describe("runtime settings", () => {
       ),
     ).toMatchObject({
       rows: [{ resetLabel: "reset due" }],
+    });
+
+    expect(
+      rateLimitSummary(
+        runtimeSnapshot({
+          rateLimit: {
+            limitId: "codex",
+            limitName: "Codex",
+            primary: null,
+            secondary: null,
+            credits: null,
+            individualLimit: { limit: "$100", used: "$72", remainingPercent: 28, resetsAt: 1_800_000_000 },
+            planType: null,
+            rateLimitReachedType: null,
+          },
+        }),
+        1_799_991_600_000,
+      ),
+    ).toMatchObject({
+      rows: [{ label: "monthly", value: "$72 / $100", resetLabel: "reset in 2h 20m", percent: 72 }],
+      level: "warn",
     });
   });
 });
@@ -689,6 +714,7 @@ function threadFixture(id: string): Thread {
     id,
     sessionId: "session",
     forkedFromId: null,
+    parentThreadId: null,
     preview: "",
     ephemeral: false,
     modelProvider: "openai",

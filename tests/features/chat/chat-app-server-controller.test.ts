@@ -167,6 +167,7 @@ function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
     id,
     sessionId: id,
     forkedFromId: null,
+    parentThreadId: null,
     preview: "",
     ephemeral: false,
     modelProvider: "openai",

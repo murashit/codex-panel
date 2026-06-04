@@ -12,6 +12,7 @@ function thread(id: string, name: string | null = null): Thread {
     id,
     sessionId: id,
     forkedFromId: null,
+    parentThreadId: null,
     preview: "",
     ephemeral: false,
     modelProvider: "openai",

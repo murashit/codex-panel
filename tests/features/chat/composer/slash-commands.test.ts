@@ -41,6 +41,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     id: "thread-1",
     sessionId: "session-1",
     forkedFromId: null,
+    parentThreadId: null,
     preview: "Preview",
     ephemeral: false,
     modelProvider: "openai",

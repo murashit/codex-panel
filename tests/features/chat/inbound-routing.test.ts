@@ -280,6 +280,7 @@ function threadSnapshot(id: string): Extract<ServerNotification, { method: "thre
     id,
     sessionId: "session",
     forkedFromId: null,
+    parentThreadId: null,
     preview: "Preview",
     ephemeral: false,
     modelProvider: "openai",
