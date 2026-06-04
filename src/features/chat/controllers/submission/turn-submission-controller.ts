@@ -64,20 +64,21 @@ export class TurnSubmissionController {
     const client = this.host.connection.currentClient();
     if (!client) return;
 
-    if (this.state.busy) {
+    const initialState = this.host.state.snapshot();
+    if (initialState.busy) {
       await this.steerCurrentTurn(client, text, codexInputOverride, referencedThread);
       return;
     }
 
     let optimisticUserId: string | null = null;
     try {
-      if (!this.state.activeThreadId) {
+      if (!initialState.activeThreadId) {
         const threadResponse = await this.host.thread.startThread(text);
         if (!threadResponse) return;
         this.host.thread.notifyActiveThreadIdentityChanged();
         this.host.thread.resetThreadTurnPresence(false);
       }
-      const activeThreadId = this.state.activeThreadId;
+      const activeThreadId = this.host.state.snapshot().activeThreadId;
       if (!activeThreadId) return;
       if (!(await this.host.runtime.applyPendingThreadSettings())) return;
 
@@ -95,17 +96,18 @@ export class TurnSubmissionController {
       this.host.view.render();
 
       const response = await client.startTurn(activeThreadId, this.host.connection.vaultPath, codexInput, optimisticUserId);
-      const pendingStart = this.state.pendingTurnStart;
+      const acknowledgedState = this.host.state.snapshot();
+      const pendingStart = acknowledgedState.pendingTurnStart;
       if (
         shouldAcknowledgeTurnStart({
           pendingTurnStart: pendingStart,
-          activeTurnId: this.state.activeTurnId,
+          activeTurnId: acknowledgedState.activeTurnId,
           optimisticUserId,
           responseTurnId: response.turn.id,
         })
       ) {
         const displayItems = acknowledgeOptimisticTurnStart({
-          items: this.state.displayItems,
+          items: acknowledgedState.displayItems,
           optimisticUserId,
           turnId: response.turn.id,
           pendingTurnStart: pendingStart,
@@ -114,10 +116,11 @@ export class TurnSubmissionController {
         this.host.status.setStatus("Turn running...");
       }
     } catch (error) {
+      const failedState = this.host.state.snapshot();
       const displayItems = cleanupFailedTurnStart({
-        items: this.state.displayItems,
+        items: failedState.displayItems,
         optimisticUserId,
-        pendingTurnStart: this.state.pendingTurnStart,
+        pendingTurnStart: failedState.pendingTurnStart,
       });
       this.host.state.turnStartFailed(displayItems);
       this.host.composer.setDraft(text);
@@ -132,8 +135,9 @@ export class TurnSubmissionController {
     codexInputOverride?: UserInput[],
     referencedThread?: ReferencedThreadDisplay,
   ): Promise<void> {
-    const threadId = this.state.activeThreadId;
-    const expectedTurnId = this.state.activeTurnId;
+    const state = this.host.state.snapshot();
+    const threadId = state.activeThreadId;
+    const expectedTurnId = state.activeTurnId;
     if (!threadId || !expectedTurnId) {
       this.host.status.addSystemMessage("Current turn is not steerable yet.");
       return;
@@ -162,9 +166,5 @@ export class TurnSubmissionController {
     }
 
     this.host.view.scheduleRender();
-  }
-
-  private get state() {
-    return this.host.state.snapshot();
   }
 }
