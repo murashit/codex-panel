@@ -95,8 +95,6 @@ function ensureShellDom(container: HTMLElement): void {
   unmountSlotRoots(container);
   container.replaceChildren();
   shellSlots.toolbar.create(container);
-  const body = ensureBody(container);
-  body.createDiv({ cls: "codex-panel__slot codex-panel__slot--config" });
   shellSlots.messages.create(container);
   shellSlots.composer.create(container);
 }

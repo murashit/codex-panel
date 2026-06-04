@@ -1,7 +1,7 @@
 .codex-panel__body {
   flex: 1 1 auto;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 1fr auto;
   min-width: 0;
   min-height: 0;
 }
@@ -15,20 +15,12 @@
   overflow: hidden;
 }
 
-.codex-panel__config {
-  min-width: 0;
-  max-width: 100%;
-  padding: var(--codex-panel-section-gap);
-  border-bottom: var(--codex-panel-divider);
-  color: var(--codex-panel-text-muted);
-  font-size: var(--font-ui-small);
-}
-
 .codex-panel__toolbar-panel .codex-panel__config {
   margin-top: var(--codex-panel-panel-gap);
   padding: var(--codex-panel-item-gap) 0 0;
   border-top: var(--codex-panel-divider-muted);
-  border-bottom: 0;
+  color: var(--codex-panel-text-muted);
+  font-size: var(--font-ui-small);
 }
 
 .codex-panel__toolbar-panel .codex-panel__config-title {
@@ -98,11 +90,7 @@
 }
 
 .codex-panel__config-list {
-  margin: var(--codex-panel-section-gap) 0 0;
   overflow: hidden;
-  border: var(--codex-panel-border);
-  border-radius: var(--codex-panel-card-radius);
-  background: var(--codex-panel-surface);
 }
 
 .codex-panel__config-row {

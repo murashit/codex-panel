@@ -27,6 +27,7 @@ describe("ChatPanelShell", () => {
     expect(container.textContent).toContain("Idle");
     expect(container.textContent).toContain("0");
     expect(container.textContent).toContain("ready");
+    expect(container.querySelector(".codex-panel__slot--config")).toBeNull();
 
     await act(async () => {
       unmountChatPanelShell(container);
