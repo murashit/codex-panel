@@ -68,7 +68,7 @@ describe("chat inbound routing", () => {
     expect(routeServerNotification(otherTurn, activeScope).kind).toBe("inactive");
   });
 
-  it("routes global thread lifecycle notifications even when another thread is active", () => {
+  it("routes thread catalog notifications even when another thread is active", () => {
     expect(routeServerNotification({ method: "thread/archived", params: { threadId: "thread-other" } }, activeScope).kind).toBe(
       "threadLifecycle",
     );
@@ -127,6 +127,14 @@ describe("chat inbound routing", () => {
     );
 
     expect(route.kind).toBe("unhandled");
+  });
+
+  it("still scopes app-server notifications that Codex Panel does not handle", () => {
+    expect(routeServerNotification(rawResponseItemCompletedNotification("thread-active", "turn-active"), activeScope).kind).toBe(
+      "unhandled",
+    );
+    expect(routeServerNotification(rawResponseItemCompletedNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
+    expect(routeServerNotification(rawResponseItemCompletedNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
   });
 });
 
@@ -272,6 +280,24 @@ function warningNotification(): ServerNotification {
   return {
     method: "warning",
     params: { threadId: null, message: "careful" },
+  };
+}
+
+function rawResponseItemCompletedNotification(
+  threadId: string,
+  turnId: string,
+): Extract<ServerNotification, { method: "rawResponseItem/completed" }> {
+  return {
+    method: "rawResponseItem/completed",
+    params: {
+      threadId,
+      turnId,
+      item: {
+        type: "message",
+        role: "assistant",
+        content: [],
+      },
+    },
   };
 }
 

@@ -37,7 +37,7 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
 }
 
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {
-  if (isGlobalThreadLifecycleNotification(notification)) return { kind: "threadLifecycle", notification };
+  if (isThreadCatalogNotification(notification)) return { kind: "threadLifecycle", notification };
   if (!isMessageInActiveScope(notification, scope)) return { kind: "inactive", notification };
 
   if (isStreamUpdateNotification(notification)) return { kind: "streamUpdate", notification };
@@ -225,7 +225,7 @@ export function messageTurnId(message: ServerNotification | ServerRequest): stri
   }
 }
 
-function isGlobalThreadLifecycleNotification(notification: ServerNotification): boolean {
+function isThreadCatalogNotification(notification: ServerNotification): boolean {
   switch (notification.method) {
     case "thread/archived":
     case "thread/unarchived":
