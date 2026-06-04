@@ -97,11 +97,11 @@ export const SLASH_COMMANDS = [
     detail: "Show or set the model for subsequent turns.",
   },
   {
-    command: "/effort",
-    usage: "/effort [effort|default]",
+    command: "/reasoning",
+    usage: "/reasoning [level|default]",
     argsKind: "showOrSet",
     surface: "threadSetting",
-    detail: "Show or set reasoning effort for subsequent turns.",
+    detail: "Show or set reasoning level for subsequent turns.",
   },
   {
     command: "/help",

@@ -190,7 +190,7 @@ export async function executeSlashCommand(
     return;
   }
 
-  if (command === "effort") {
+  if (command === "reasoning") {
     const requested = parseReasoningEffortOverride(args);
     if (requested !== undefined) {
       const applied = await context.setRequestedReasoningEffort(requested);
@@ -199,7 +199,7 @@ export async function executeSlashCommand(
       return;
     }
     if (args) {
-      context.addSystemMessage(`Unsupported effort: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
+      context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
       return;
     }
     context.addStructuredSystemMessage("Reasoning effort", detailsFromLines(context.effortStatusLines()));

@@ -140,7 +140,7 @@ describe("composer suggestions", () => {
     expect(parseSlashCommand("/plan")).toEqual({ command: "plan", args: "" });
     expect(parseSlashCommand("/plan OK、実装してください")).toEqual({ command: "plan", args: "OK、実装してください" });
     expect(parseSlashCommand("/model gpt-5.5")).toEqual({ command: "model", args: "gpt-5.5" });
-    expect(parseSlashCommand("/effort high")).toEqual({ command: "effort", args: "high" });
+    expect(parseSlashCommand("/reasoning high")).toEqual({ command: "reasoning", args: "high" });
     expect(parseSlashCommand("/new")).toBeNull();
     expect(parseSlashCommand("/unknown")).toBeNull();
   });
@@ -223,7 +223,7 @@ describe("composer suggestions", () => {
   it("uses one active suggestion family at a time", () => {
     expect(activeComposerSuggestions("[[bet", notes, [])[0]?.replacement).toBe("[[Beta Note]]");
     expect(activeComposerSuggestions("/pla", notes, [])[0]?.replacement).toBe("/plan");
-    expect(activeComposerSuggestions("/eff", notes, [])[0]?.replacement).toBe("/effort");
+    expect(activeComposerSuggestions("/rea", notes, [])[0]?.replacement).toBe("/reasoning");
     expect(activeComposerSuggestions("/sta", notes, [])[0]?.replacement).toBe("/status");
     expect(activeComposerSuggestions("/doc", notes, [])[0]?.replacement).toBe("/doctor");
     expect(activeComposerSuggestions("/status", notes, [])).toEqual([]);
@@ -237,7 +237,7 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("please\n/sta", notes, [])).toEqual([]);
     expect(activeComposerSuggestions("please\n/resume codex", notes, [], threads)).toEqual([]);
     expect(activeComposerSuggestions("please\n/model gpt", notes, [], [], models)).toEqual([]);
-    expect(activeComposerSuggestions("please\n/effort h", notes, [], [], models, "gpt-5.5")).toEqual([]);
+    expect(activeComposerSuggestions("please\n/reasoning h", notes, [], [], models, "gpt-5.5")).toEqual([]);
   });
 
   it("suggests recent threads for /resume, /refer, and /archive arguments", () => {
@@ -314,21 +314,21 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/model gpt-5.5 ", notes, [], [], models)).toEqual([]);
   });
 
-  it("suggests reasoning effort arguments for /effort", () => {
+  it("suggests reasoning effort arguments for /reasoning", () => {
     const models = [model("gpt-5.5", ["low", "medium", "high"]), model("gpt-5.4-mini", ["minimal", "low", "medium"])];
 
-    expect(activeComposerSuggestions("/effort h", notes, [], [], models, "gpt-5.5")[0]).toMatchObject({
+    expect(activeComposerSuggestions("/reasoning h", notes, [], [], models, "gpt-5.5")[0]).toMatchObject({
       display: "high",
       detail: "Supported by gpt-5.5",
       replacement: "high",
       appendSpaceOnInsert: true,
     });
     expect(
-      activeComposerSuggestions("/effort ", notes, [], [], models, "gpt-5.4-mini").map((suggestion) => suggestion.replacement),
+      activeComposerSuggestions("/reasoning ", notes, [], [], models, "gpt-5.4-mini").map((suggestion) => suggestion.replacement),
     ).toEqual(["default", "minimal", "low", "medium"]);
-    expect(activeComposerSuggestions("/effort x", notes, [], [], models, "gpt-5.4-mini")).toEqual([]);
-    expect(activeComposerSuggestions("/effort high", notes, [], [], models, "gpt-5.5")).toEqual([]);
-    expect(activeComposerSuggestions("/effort high ", notes, [], [], models, "gpt-5.5")).toEqual([]);
+    expect(activeComposerSuggestions("/reasoning x", notes, [], [], models, "gpt-5.4-mini")).toEqual([]);
+    expect(activeComposerSuggestions("/reasoning high", notes, [], [], models, "gpt-5.5")).toEqual([]);
+    expect(activeComposerSuggestions("/reasoning high ", notes, [], [], models, "gpt-5.5")).toEqual([]);
   });
 
   it("adds a trailing space for slash command and skill insertions only", () => {

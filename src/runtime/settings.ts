@@ -22,7 +22,9 @@ export function modelOverrideMessage(model: string | null): string {
 }
 
 export function reasoningEffortOverrideMessage(effort: ReasoningEffort | null): string {
-  return effort === null ? "Effort reset to default for subsequent turns." : `Effort set to ${effort} for subsequent turns.`;
+  return effort === null
+    ? "Reasoning effort reset to default for subsequent turns."
+    : `Reasoning effort set to ${effort} for subsequent turns.`;
 }
 
 export function compactModelLabel(model: string | null): string {

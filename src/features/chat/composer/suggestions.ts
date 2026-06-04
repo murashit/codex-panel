@@ -318,7 +318,7 @@ export function activeReasoningEffortSuggestions(
   models: readonly Model[],
   currentModel: string | null,
 ): ComposerSuggestion[] | null {
-  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/effort\s+([^\n]{0,120})$/);
+  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/reasoning\s+([^\n]{0,120})$/);
   if (!completion) return null;
 
   const { query, start } = completion;

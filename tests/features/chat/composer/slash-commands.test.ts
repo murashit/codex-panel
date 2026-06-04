@@ -426,10 +426,10 @@ describe("slash commands", () => {
   it("rejects unsupported reasoning effort with usage", async () => {
     const ctx = context();
 
-    await executeSlashCommand("effort", "extreme", ctx);
+    await executeSlashCommand("reasoning", "extreme", ctx);
 
     expect(ctx.setRequestedReasoningEffort).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported effort: extreme. Usage: /effort [effort|default]");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported reasoning level: extreme. Usage: /reasoning [level|default]");
   });
 
   it("does not announce model or effort changes when applying them fails", async () => {
@@ -439,7 +439,7 @@ describe("slash commands", () => {
     });
 
     await executeSlashCommand("model", "gpt-5.5", ctx);
-    await executeSlashCommand("effort", "high", ctx);
+    await executeSlashCommand("reasoning", "high", ctx);
 
     expect(ctx.setRequestedModel).toHaveBeenCalledWith("gpt-5.5");
     expect(ctx.setRequestedReasoningEffort).toHaveBeenCalledWith("high");
