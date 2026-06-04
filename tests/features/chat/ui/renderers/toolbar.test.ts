@@ -30,8 +30,8 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__runtime-area")).toBeNull();
     expect(parent.querySelector(".codex-panel__runtime-strip")).toBeNull();
     expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
-      "Start new chat",
       "Show thread list",
+      "Start new chat",
       "Toggle plan mode",
       "Toggle auto-review",
       "Toggle fast mode",
@@ -40,6 +40,7 @@ describe("toolbar renderer decisions", () => {
     ]);
     const newChatButton = parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat");
     expect(newChatButton?.getAttribute("aria-label")).toBe("Start new chat");
+    expect(newChatButton?.dataset["icon"]).toBe("messages-square");
     expect(newChatButton?.classList.contains("nav-action-button")).toBe(true);
     expect(newChatButton?.disabled).toBe(false);
     newChatButton?.click();
@@ -60,6 +61,7 @@ describe("toolbar renderer decisions", () => {
     expect(toggleHistory).toHaveBeenCalled();
     const planButton = parent.querySelector<HTMLButtonElement>(".codex-panel__plan-toggle");
     expect(planButton?.getAttribute("aria-label")).toBe("Toggle plan mode");
+    expect(planButton?.dataset["icon"]).toBe("list-todo");
     expect(planButton?.getAttribute("aria-pressed")).toBe("false");
     expect(planButton?.classList.contains("codex-panel__runtime-icon")).toBe(true);
     const autoReviewButton = parent.querySelector<HTMLButtonElement>(".codex-panel__auto-review-toggle");
@@ -89,6 +91,7 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Hide panel menu");
     expect(parent.querySelector(".codex-panel__status-menu-toggle")?.classList.contains("is-active")).toBe(true);
     expect(parent.querySelector(".codex-panel__runtime-model")?.getAttribute("aria-label")).toBe("Change model and reasoning effort");
+    expect(parent.querySelector<HTMLElement>(".codex-panel__runtime-model")?.dataset["icon"]).toBe("bot");
     expect(parent.querySelector(".codex-panel__runtime-model")?.classList.contains("is-active")).toBe(true);
     expect(parent.querySelector(".codex-panel__runtime-model")?.classList.contains("nav-action-button")).toBe(true);
   });

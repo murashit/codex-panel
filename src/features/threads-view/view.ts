@@ -96,7 +96,7 @@ export class CodexThreadsView extends ItemView {
   }
 
   override getIcon(): string {
-    return "list-checks";
+    return "list-video";
   }
 
   override async onOpen(): Promise<void> {

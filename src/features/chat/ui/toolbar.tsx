@@ -40,18 +40,18 @@ function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: Toolbar
       <div className="nav-header codex-panel__toolbar-primary">
         <div className="nav-buttons-container codex-panel__toolbar-buttons">
           <ToolbarIconButton
-            icon="message-square-plus"
-            label="Start new chat"
-            className="codex-panel__new-chat"
-            disabled={model.newChatDisabled}
-            onClick={actions.startNewThread}
-          />
-          <ToolbarIconButton
             icon="history"
             label={model.historyOpen ? "Hide thread list" : "Show thread list"}
             className={["codex-panel__history-toggle", model.historyOpen ? "is-active" : ""].filter(Boolean).join(" ")}
             aria-pressed={model.historyOpen ? "true" : "false"}
             onClick={actions.toggleHistory}
+          />
+          <ToolbarIconButton
+            icon="messages-square"
+            label="Start new chat"
+            className="codex-panel__new-chat"
+            disabled={model.newChatDisabled}
+            onClick={actions.startNewThread}
           />
           <RuntimeButtons model={model} actions={actions} />
           <StatusButton model={model} actions={actions} />
@@ -86,7 +86,7 @@ function RuntimeButtons({ model, actions }: { model: ToolbarViewModel; actions: 
   return (
     <>
       <RuntimeIcon
-        icon="list-checks"
+        icon="list-todo"
         label="Toggle plan mode"
         className="codex-panel__plan-toggle"
         active={model.planActive}
@@ -101,7 +101,7 @@ function RuntimeButtons({ model, actions }: { model: ToolbarViewModel; actions: 
       />
       <RuntimeIcon icon="zap" label="Toggle fast mode" active={model.fastActive} onClick={actions.toggleFast} />
       <ToolbarIconButton
-        icon="brain"
+        icon="bot"
         label="Change model and reasoning effort"
         className={["codex-panel__runtime-model", model.runtimeOpen ? "is-active" : ""].filter(Boolean).join(" ")}
         aria-label="Change model and reasoning effort"

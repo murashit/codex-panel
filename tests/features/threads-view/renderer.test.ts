@@ -172,6 +172,7 @@ describe("threads view renderer decisions", () => {
     const openNewPanel = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Open new panel"]'));
     expect(openNewPanel.classList.contains("codex-panel-threads__toolbar-button")).toBe(true);
     expect(openNewPanel.classList.contains("codex-panel-threads__row-button")).toBe(false);
+    expect(openNewPanel.dataset["icon"]).toBe("message-square-plus");
     openNewPanel.click();
     expect(actions.openNewPanel).toHaveBeenCalledOnce();
     const rename = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]'));
