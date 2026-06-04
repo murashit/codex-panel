@@ -30,7 +30,9 @@ describe("toolbar renderer decisions", () => {
     expect(statusButton?.classList.contains("clickable-icon")).toBe(true);
     const historyButton = parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle");
     expect(historyButton?.getAttribute("aria-label")).toBe("Show thread list");
-    expect(historyButton?.classList.contains("nav-action-button")).toBe(false);
+    expect(historyButton?.classList.contains("nav-action-button")).toBe(true);
+    expect(historyButton?.classList.contains("codex-panel-ui__toolbar-action")).toBe(true);
+    expect(historyButton?.classList.contains("codex-panel-ui__toolbar-control")).toBe(false);
     expect(historyButton?.classList.contains("clickable-icon")).toBe(true);
     historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
@@ -42,7 +44,9 @@ describe("toolbar renderer decisions", () => {
     expect(autoReviewButton?.getAttribute("aria-label")).toBe("Toggle auto-review");
     expect(autoReviewButton?.getAttribute("aria-pressed")).toBe("false");
     expect(autoReviewButton?.classList.contains("codex-panel__runtime-icon")).toBe(true);
-    expect(autoReviewButton?.classList.contains("nav-action-button")).toBe(false);
+    expect(autoReviewButton?.classList.contains("nav-action-button")).toBe(true);
+    expect(autoReviewButton?.classList.contains("codex-panel-ui__toolbar-action")).toBe(true);
+    expect(autoReviewButton?.classList.contains("codex-panel-ui__toolbar-control")).toBe(false);
     expect(autoReviewButton?.classList.contains("clickable-icon")).toBe(true);
     autoReviewButton?.click();
     expect(toggleAutoReview).toHaveBeenCalled();
@@ -58,9 +62,11 @@ describe("toolbar renderer decisions", () => {
     parent.empty();
     renderToolbar(parent, toolbarModel({ historyOpen: true, statusPanelOpen: true }), toolbarActions());
     expect(parent.querySelector(".codex-panel__history-toggle")?.getAttribute("aria-label")).toBe("Hide thread list");
-    expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(false);
+    expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(true);
     expect(parent.querySelector(".codex-panel__status-dot")?.getAttribute("aria-label")).toBe("Hide connection status");
+    expect(parent.querySelector(".codex-panel__status-dot")?.classList.contains("is-active")).toBe(true);
     expect(parent.querySelector(".codex-panel__runtime-model")?.getAttribute("aria-label")).toBe("Change model and reasoning effort");
+    expect(parent.querySelector(".codex-panel__runtime-model")?.classList.contains("is-active")).toBe(true);
   });
 
   it("keeps frequently changed effort choices first inside the runtime menu", () => {
@@ -227,12 +233,20 @@ describe("toolbar renderer decisions", () => {
       actions,
     );
 
-    parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const renameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]'));
+    expect(renameButton.classList.contains("nav-action-button")).toBe(false);
+    expect(renameButton.classList.contains("codex-panel-ui__nav-row-action")).toBe(true);
+    renameButton.click();
     expect(startRenameThread).toHaveBeenCalledWith("thread");
-    expect(parent.querySelector(".codex-panel__thread-row")?.classList.contains("codex-panel__thread-row--selected")).toBe(true);
+    const threadRow = parent.querySelector(".codex-panel__thread-row");
+    expect(threadRow?.classList.contains("codex-panel-ui__nav-row")).toBe(true);
+    expect(threadRow?.classList.contains("codex-panel__thread-row--selected")).toBe(true);
+    expect(threadRow?.classList.contains("is-selected")).toBe(true);
+    expect(parent.querySelector(".codex-panel__thread")?.classList.contains("codex-panel-ui__nav-item")).toBe(true);
 
     const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
     if (!input) throw new Error("Missing thread rename input");
+    expect(input.classList.contains("codex-panel-ui__nav-inline-input")).toBe(true);
     expect(input.closest(".codex-panel__thread-rename")?.querySelector(".codex-panel__toolbar-panel-check")).toBeNull();
     expect(input.value).toBe("Draft title");
     changeInputValue(input, "New title");
@@ -266,6 +280,7 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.classList.contains("nav-action-button")).toBe(false);
     expect(autoNameThread).toHaveBeenCalledWith("editing");
   });
 
@@ -330,6 +345,7 @@ describe("toolbar renderer decisions", () => {
       "Archive thread without saving",
       "Save and archive thread",
     ]);
+    expect(archiveButtons.every((button) => !button.classList.contains("nav-action-button"))).toBe(true);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
     archiveButtons[0]?.click();
     expect(archiveThread).toHaveBeenCalledWith("thread", false);

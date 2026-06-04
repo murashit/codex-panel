@@ -43,18 +43,8 @@ function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: Thr
     <>
       <div className="nav-header codex-panel-threads__toolbar">
         <div className="nav-buttons-container codex-panel-threads__toolbar-actions">
-          <ThreadsIconButton
-            icon="message-square-plus"
-            label="Open new panel"
-            className="codex-panel-threads__toolbar-button"
-            onClick={actions.openNewPanel}
-          />
-          <ThreadsIconButton
-            icon="refresh-cw"
-            label="Refresh threads"
-            className="codex-panel-threads__toolbar-button"
-            onClick={actions.refresh}
-          />
+          <ThreadsToolbarButton icon="message-square-plus" label="Open new panel" onClick={actions.openNewPanel} />
+          <ThreadsToolbarButton icon="refresh-cw" label="Refresh threads" onClick={actions.refresh} />
         </div>
       </div>
       <div className="codex-panel-threads__list" role="list">
@@ -75,12 +65,21 @@ function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: Thr
 
 function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): UiNode {
   const archiveConfirm = row.archiveConfirm;
-  const className = [
+  const rowClassName = [
+    "codex-panel-ui__nav-row",
     "codex-panel-threads__row",
-    row.live ? `codex-panel-threads__row--${row.live.status}` : "",
     row.selected ? "codex-panel-threads__row--selected" : "",
+    row.selected ? "is-selected" : "",
     row.rename.active ? "codex-panel-threads__row--renaming" : "",
     archiveConfirm.active ? "codex-panel-threads__row--archive-confirming" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const mainClassName = [
+    "codex-panel-ui__nav-item",
+    "codex-panel-threads__row-main",
+    row.live ? `codex-panel-threads__row--${row.live.status}` : "",
+    row.selected ? "codex-panel-threads__row--selected" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -97,12 +96,12 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   };
 
   return (
-    <div className={className} role="button" tabIndex={0} onClick={open} onKeyDown={openFromKeyboard}>
+    <div className={rowClassName}>
       {row.rename.active ? (
-        <RenameRow row={row} actions={actions} />
+        <RenameRow row={row} actions={actions} className={mainClassName} />
       ) : (
         <>
-          <div className="codex-panel-threads__row-title-line">
+          <div className={mainClassName} role="button" tabIndex={0} onClick={open} onKeyDown={openFromKeyboard}>
             <span className="codex-panel-threads__row-title">{row.title}</span>
           </div>
           <div
@@ -111,7 +110,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
               .join(" ")}
           >
             {!archiveConfirm.active ? (
-              <ThreadsIconButton
+              <ThreadsRowButton
                 icon="pencil"
                 label="Rename thread"
                 className="codex-panel-threads__row-button"
@@ -140,7 +139,7 @@ function ArchiveActions({
 }): UiNode {
   if (!archiveConfirm.active) {
     return (
-      <ThreadsIconButton
+      <ThreadsRowButton
         icon="archive"
         label="Archive thread"
         className="codex-panel-threads__row-button"
@@ -174,7 +173,7 @@ function ArchiveModeButton({
 }): UiNode {
   const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
   return (
-    <ThreadsIconButton
+    <ThreadsRowButton
       icon={saveMarkdown ? "save" : "trash"}
       label={label}
       className={primary ? "codex-panel-threads__archive-default" : "codex-panel-threads__archive-alternate"}
@@ -186,7 +185,7 @@ function ArchiveModeButton({
   );
 }
 
-function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsViewActions }): UiNode {
+function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewActions; className: string }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   useLayoutEffect(() => {
     const input = inputRef.current;
@@ -200,7 +199,7 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   return (
     <>
       <div
-        className="codex-panel-threads__rename-form"
+        className={`${className} codex-panel-threads__rename-form`}
         onClick={(event) => {
           event.stopPropagation();
         }}
@@ -208,7 +207,7 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
         <div className="codex-panel-threads__rename-field">
           <input
             ref={inputRef}
-            className="codex-panel-threads__rename-input"
+            className="codex-panel-ui__nav-inline-input codex-panel-threads__rename-input"
             type="text"
             aria-label="Thread name"
             value={row.rename.draft}
@@ -233,7 +232,7 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
         </div>
       </div>
       <div className="codex-panel-threads__actions codex-panel-threads__rename-actions">
-        <ThreadsIconButton
+        <ThreadsRowButton
           icon={row.rename.generating ? "loader" : "sparkles"}
           label="Auto-name thread"
           className="codex-panel-threads__row-button"
@@ -252,7 +251,25 @@ function RenameRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   );
 }
 
-function ThreadsIconButton({
+function ThreadsToolbarButton({
+  icon,
+  label,
+  ...props
+}: {
+  icon: string;
+  label: string;
+} & Omit<ButtonProps, "className" | "type">): UiNode {
+  return (
+    <IconButton
+      {...props}
+      icon={icon}
+      label={label}
+      className="clickable-icon nav-action-button codex-panel-ui__toolbar-action codex-panel-threads__toolbar-button"
+    />
+  );
+}
+
+function ThreadsRowButton({
   icon,
   label,
   className,
@@ -262,12 +279,5 @@ function ThreadsIconButton({
   label: string;
   className: string;
 } & Omit<ButtonProps, "className" | "type">): UiNode {
-  return (
-    <IconButton
-      {...props}
-      icon={icon}
-      label={label}
-      className={`clickable-icon nav-action-button codex-panel-threads__icon-button ${className}`}
-    />
-  );
+  return <IconButton {...props} icon={icon} label={label} className={`clickable-icon codex-panel-ui__nav-row-action ${className}`} />;
 }

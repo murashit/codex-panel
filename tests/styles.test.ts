@@ -20,14 +20,56 @@ describe("panel CSS token scope", () => {
 });
 
 describe("chat toolbar CSS", () => {
+  it("lets icon-only toolbar actions use Obsidian nav action geometry", () => {
+    const toolbarAction = /\.codex-panel-ui__toolbar-action \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(toolbarAction).toContain("--icon-size: var(--codex-panel-control-icon-size)");
+    expect(toolbarAction).toContain("--icon-stroke: var(--icon-m-stroke-width, 1.75px)");
+    expect(toolbarAction).not.toContain("width:");
+    expect(toolbarAction).not.toContain("height:");
+    expect(toolbarAction).not.toContain("padding:");
+    expect(toolbarAction).not.toContain("border-radius:");
+  });
+
   it("keeps mouse-focus reset less specific than active toolbar controls", () => {
     const toolbarMouseFocus =
       /\.codex-panel-ui__toolbar-control:where\(:focus:not\(:hover\):not\(:focus-visible\)\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
         "body"
       ] ?? "";
+    const toolbarActionMouseFocus =
+      /\.codex-panel-ui__toolbar-action:where\(:focus:not\(:hover\):not\(:focus-visible\)\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
+        "body"
+      ] ?? "";
 
     expect(toolbarMouseFocus).toContain("background: transparent");
     expect(toolbarMouseFocus).toContain("color: var(--icon-color)");
+    expect(toolbarActionMouseFocus).toContain("background: transparent");
+    expect(toolbarActionMouseFocus).toContain("color: var(--icon-color)");
+  });
+
+  it("uses one active state for toolbar actions and text controls", () => {
+    const toolbarControlActive =
+      /\.codex-panel-ui__toolbar-control\.is-active,\n\.codex-panel-ui__toolbar-control\.is-active:hover,\n\.codex-panel-ui__toolbar-control\.is-active:focus-visible,\n\.codex-panel-ui__toolbar-control\.is-active:active \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
+    const toolbarActionActive =
+      /\.codex-panel-ui__toolbar-action\.is-active,\n\.codex-panel-ui__toolbar-action\.is-active:hover,\n\.codex-panel-ui__toolbar-action\.is-active:focus-visible,\n\.codex-panel-ui__toolbar-action\.is-active:active \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
+    const runtimeModelActive =
+      /\.codex-panel__runtime-model\.is-active,\n\.codex-panel__runtime-model\.is-active:hover,\n\.codex-panel__runtime-model\.is-active:focus-visible,\n\.codex-panel__runtime-model\.is-active:active \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
+    const runtimeModelActiveValue =
+      /\.codex-panel__runtime-model\.is-active \.codex-panel__runtime-model-value \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(toolbarControlActive).toContain("background: var(--background-modifier-active-hover)");
+    expect(toolbarControlActive).toContain("color: var(--icon-color-active)");
+    expect(toolbarActionActive).toContain("background: var(--background-modifier-active-hover)");
+    expect(toolbarActionActive).toContain("color: var(--icon-color-active)");
+    expect(runtimeModelActive).toContain("background: var(--background-modifier-active-hover)");
+    expect(runtimeModelActive).toContain("color: var(--icon-color-active)");
+    expect(runtimeModelActiveValue).toContain("color: currentcolor");
   });
 
   it("keeps class selectors out of zero-specificity :where selectors", () => {
@@ -35,24 +77,57 @@ describe("chat toolbar CSS", () => {
   });
 
   it("keeps selected toolbar rows stable while hovered", () => {
-    const selectedToolbarHover =
-      /\.codex-panel__toolbar-panel-item\.is-selected:where\(:hover, :focus, :focus-visible, :active\):not\(:disabled\):not\(\.is-disabled\) \{(?<body>[^}]+)\}/.exec(
+    const navItem = /\.codex-panel-ui__nav-item \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const selectedNavItem =
+      /\.codex-panel-ui__nav-item\.is-selected:where\(:hover, :focus, :focus-visible, :active, :focus-within\) \{(?<body>[^}]+)\}/.exec(
         styles,
       )?.groups?.["body"] ?? "";
-    const selectedThreadHover =
-      /\.codex-panel__thread-row--selected:hover,\n\.codex-panel__thread-row--selected:focus-within \{(?<body>[^}]+)\}/.exec(styles)
-        ?.groups?.["body"] ?? "";
+    const selectedNavRow =
+      /\.codex-panel-ui__nav-row\.is-selected,\n\.codex-panel-ui__nav-row\.is-selected:hover,\n\.codex-panel-ui__nav-row\.is-selected:focus-within \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
 
-    expect(selectedToolbarHover).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
-    expect(selectedThreadHover).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
-    expect(selectedToolbarHover).not.toContain("nav-item-background-active-hover");
-    expect(selectedThreadHover).not.toContain("nav-item-background-active-hover");
+    expect(navItem).toContain("min-height: var(--nav-item-size, var(--codex-panel-size-nav-item))");
+    expect(navItem).toContain("padding: var(--nav-item-padding, var(--size-4-1) var(--size-4-2))");
+    expect(navItem).toContain("border-radius: var(--nav-item-radius, var(--radius-s))");
+    expect(navItem).toContain("color: var(--nav-item-color, var(--text-muted))");
+    expect(styles).toContain("background: var(--codex-panel-nav-item-background-hover, var(--background-modifier-hover))");
+    expect(selectedNavItem).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
+    expect(selectedNavRow).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
+    expect(selectedNavItem).not.toContain("nav-item-background-active-hover");
+    expect(selectedNavRow).not.toContain("nav-item-background-active-hover");
   });
 
   it("keeps chat thread row actions inset from the row edge", () => {
-    const threadRow = /\.codex-panel__thread-row \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const threadList = /\.codex-panel__threads \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const navRow = /\.codex-panel-ui__nav-row \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const runtimePicker = /\.codex-panel__runtime-picker \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const statusPanelItems = /\.codex-panel__status-panel-items \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
-    expect(threadRow).toContain("padding-inline-end: var(--size-4-2)");
+    expect(threadList).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
+    expect(runtimePicker).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
+    expect(statusPanelItems).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
+    expect(navRow).toContain("--codex-panel-nav-item-background-hover: transparent");
+    expect(navRow).toContain("padding-inline-end: var(--size-4-2)");
+  });
+
+  it("keeps nav inline input reset in the shared primitive", () => {
+    const navInlineInput =
+      /\.codex-panel-ui__nav-inline-input\.codex-panel-ui__nav-inline-input \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const navInlineInputFocus =
+      /\.codex-panel-ui__nav-inline-input\.codex-panel-ui__nav-inline-input:focus,\n\.codex-panel-ui__nav-inline-input\.codex-panel-ui__nav-inline-input:focus-visible,\n\.codex-panel-ui__nav-inline-input\.codex-panel-ui__nav-inline-input:hover,\n\.codex-panel-ui__nav-inline-input\.codex-panel-ui__nav-inline-input:active \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
+    const chatRenameInput = /\.codex-panel__thread-rename-input \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const threadsRenameInput = /\.codex-panel-threads__rename-input \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(navInlineInput).toContain("appearance: none");
+    expect(navInlineInput).toContain("color: var(--nav-item-color-active, var(--text-normal))");
+    expect(navInlineInputFocus).toContain("background: transparent");
+    expect(chatRenameInput).toContain("width: 100%");
+    expect(chatRenameInput).not.toContain("appearance: none");
+    expect(threadsRenameInput).toContain("flex: 1 1 auto");
+    expect(threadsRenameInput).not.toContain("appearance: none");
   });
 });
 
@@ -69,34 +144,38 @@ describe("chat message CSS", () => {
 describe("threads view CSS", () => {
   it("keeps long row titles clear of trailing actions", () => {
     const list = /\.codex-panel-threads__list \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
-    const titleLine = /\.codex-panel-threads__row-title-line \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const rowMain = /\.codex-panel-threads__row-main \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const title = /(?:^|\n\n)\.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
-    expect(styles).toContain("--codex-panel-threads-row-actions-width");
     expect(list).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
-    expect(titleLine).toContain("box-sizing: border-box");
-    expect(titleLine).toContain("padding-right: calc(var(--codex-panel-threads-row-actions-width) + var(--codex-panel-item-gap));");
+    expect(list).toContain("padding: var(--size-4-1) var(--size-4-3)");
+    expect(rowMain).toContain("box-sizing: border-box");
+    expect(rowMain).not.toContain("padding-right:");
     expect(title).toContain("display: block");
   });
 
-  it("keeps toolbar hover color separate from row action hover color", () => {
-    const toolbarButton = /\.codex-panel-threads__toolbar-button \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+  it("keeps toolbar action hover color separate from row action hover color", () => {
+    const toolbarAction = /\.codex-panel-ui__toolbar-action \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const toolbarHover =
-      /\.codex-panel-threads__toolbar-button:hover,\n\.codex-panel-threads__toolbar-button:focus-visible \{(?<body>[^}]+)\}/.exec(styles)
-        ?.groups?.["body"] ?? "";
+      /\.codex-panel-ui__toolbar-action:hover,\n\.codex-panel-ui__toolbar-action:focus-visible \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
+        "body"
+      ] ?? "";
     const toolbarMouseFocus =
-      /\.codex-panel-threads__toolbar-button:focus:not\(:hover\):not\(:focus-visible\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ??
-      "";
+      /\.codex-panel-ui__toolbar-action:where\(:focus:not\(:hover\):not\(:focus-visible\)\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
+        "body"
+      ] ?? "";
     const rowHover =
-      /\.codex-panel-threads__row-button:hover,\n\.codex-panel-threads__row-button:focus,\n\.codex-panel-threads__row-button:focus-visible,\n\.codex-panel-threads__row-button:active \{(?<body>[^}]+)\}/.exec(
+      /\.codex-panel-ui__nav-row-action:hover,\n\.codex-panel-ui__nav-row-action:focus,\n\.codex-panel-ui__nav-row-action:focus-visible,\n\.codex-panel-ui__nav-row-action:active \{(?<body>[^}]+)\}/.exec(
         styles,
       )?.groups?.["body"] ?? "";
 
     expect(styles).not.toContain(".codex-panel-threads__toolbar-actions {");
-    expect(styles).toContain("--codex-panel-size-clickable-icon");
-    expect(toolbarButton).toContain("width: var(--codex-panel-size-clickable-icon)");
-    expect(toolbarButton).toContain("height: var(--codex-panel-size-clickable-icon)");
-    expect(toolbarButton).toContain("padding: var(--clickable-icon-padding, var(--codex-panel-control-gap))");
+    expect(toolbarAction).toContain("--icon-size: var(--codex-panel-control-icon-size)");
+    expect(toolbarAction).toContain("--icon-stroke: var(--icon-m-stroke-width, 1.75px)");
+    expect(toolbarAction).not.toContain("width:");
+    expect(toolbarAction).not.toContain("height:");
+    expect(toolbarAction).not.toContain("padding:");
+    expect(toolbarAction).not.toContain("border-radius:");
     expect(toolbarHover).toContain("background: var(--background-modifier-hover)");
     expect(toolbarHover).toContain("color: var(--icon-color)");
     expect(toolbarHover).not.toContain("var(--icon-color-active)");
@@ -107,8 +186,9 @@ describe("threads view CSS", () => {
 
   it("keeps selected thread rows stable while hovered", () => {
     const selectedRowHover =
-      /\.codex-panel-threads__row--selected:hover,\n\.codex-panel-threads__row--selected:focus-within \{(?<body>[^}]+)\}/.exec(styles)
-        ?.groups?.["body"] ?? "";
+      /\.codex-panel-ui__nav-item\.is-selected:where\(:hover, :focus, :focus-visible, :active, :focus-within\) \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
 
     expect(selectedRowHover).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
     expect(selectedRowHover).not.toContain("nav-item-background-active-hover");
@@ -116,9 +196,9 @@ describe("threads view CSS", () => {
 
   it("does not rely on :has() to avoid hover-highlighting action rows", () => {
     const rowHover =
-      /\.codex-panel-threads__row:hover,\n\.codex-panel-threads__row:focus-within \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+      /\.codex-panel-ui__nav-row:hover,\n\.codex-panel-ui__nav-row:focus-within \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const titleHover =
-      /\.codex-panel-threads__row-title-line:hover \.codex-panel-threads__row-title,\n\.codex-panel-threads__row:focus \.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(
+      /\.codex-panel-threads__row-main:hover \.codex-panel-threads__row-title,\n\.codex-panel-threads__row-main:focus \.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(
         styles,
       )?.groups?.["body"] ?? "";
     const title = /(?:^|\n\n)\.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";

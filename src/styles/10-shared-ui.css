@@ -12,8 +12,7 @@
 }
 
 .codex-panel-ui__toolbar-control,
-.codex-panel-ui__icon-button,
-.codex-panel-threads__icon-button {
+.codex-panel-ui__icon-button {
   box-sizing: border-box;
   display: inline-flex;
   flex: 0 0 auto;
@@ -31,8 +30,7 @@
 }
 
 .codex-panel-ui__toolbar-control:disabled,
-.codex-panel-ui__icon-button:disabled,
-.codex-panel-threads__icon-button:disabled {
+.codex-panel-ui__icon-button:disabled {
   cursor: default;
   opacity: 0.45;
 }
@@ -60,6 +58,20 @@
   stroke: currentcolor;
 }
 
+.codex-panel-ui__toolbar-control.is-active,
+.codex-panel-ui__toolbar-control.is-active:hover,
+.codex-panel-ui__toolbar-control.is-active:focus-visible,
+.codex-panel-ui__toolbar-control.is-active:active {
+  background: var(--background-modifier-active-hover);
+  box-shadow: none;
+  color: var(--icon-color-active);
+}
+
+.codex-panel-ui__toolbar-control.is-active svg {
+  color: var(--icon-color-active);
+  stroke: currentcolor;
+}
+
 .codex-panel-ui__toolbar-control:where(:focus:not(:hover):not(:focus-visible)) {
   background: transparent;
   box-shadow: none;
@@ -76,51 +88,184 @@
   border-radius: var(--codex-panel-control-radius);
 }
 
-.codex-panel-threads__icon-button {
+.codex-panel-ui__toolbar-action {
   --icon-size: var(--codex-panel-control-icon-size);
   --icon-stroke: var(--icon-m-stroke-width, 1.75px);
-  padding: var(--codex-panel-control-gap);
 }
 
-.codex-panel-threads__toolbar-button {
-  --icon-size: var(--codex-panel-control-icon-size);
-  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
-  width: var(--codex-panel-size-clickable-icon);
-  height: var(--codex-panel-size-clickable-icon);
-  padding: var(--clickable-icon-padding, var(--codex-panel-control-gap));
-  border-radius: var(--clickable-icon-radius, var(--codex-panel-control-radius));
-}
-
-.codex-panel-threads__row-button {
-  --icon-size: var(--codex-panel-size-icon-s);
-  --icon-stroke: var(--icon-s-stroke-width, 1.75px);
-}
-
-.codex-panel-threads__toolbar-button:hover,
-.codex-panel-threads__toolbar-button:focus-visible {
+.codex-panel-ui__toolbar-action:hover,
+.codex-panel-ui__toolbar-action:focus-visible {
   background: var(--background-modifier-hover);
   box-shadow: none;
   color: var(--icon-color);
 }
 
-.codex-panel-threads__toolbar-button:focus:not(:hover):not(:focus-visible) {
+.codex-panel-ui__toolbar-action.is-active,
+.codex-panel-ui__toolbar-action.is-active:hover,
+.codex-panel-ui__toolbar-action.is-active:focus-visible,
+.codex-panel-ui__toolbar-action.is-active:active {
+  background: var(--background-modifier-active-hover);
+  box-shadow: none;
+  color: var(--icon-color-active);
+}
+
+.codex-panel-ui__toolbar-action.is-active svg {
+  color: var(--icon-color-active);
+  stroke: currentcolor;
+}
+
+.codex-panel-ui__toolbar-action:where(:focus:not(:hover):not(:focus-visible)) {
   background: transparent;
   box-shadow: none;
   color: var(--icon-color);
 }
 
-.codex-panel-threads__row-button:hover,
-.codex-panel-threads__row-button:focus,
-.codex-panel-threads__row-button:focus-visible,
-.codex-panel-threads__row-button:active {
+.codex-panel-ui__nav-row-action {
+  --icon-size: var(--codex-panel-size-icon-s);
+  --icon-stroke: var(--icon-s-stroke-width, 1.75px);
+
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  min-width: calc(var(--icon-size) + var(--codex-panel-control-gap) * 2);
+  padding: var(--codex-panel-control-gap);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--icon-color);
+  font: inherit;
+  line-height: var(--line-height-tight);
+  cursor: default;
+  user-select: none;
+}
+
+.codex-panel-ui__nav-row-action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.codex-panel-ui__nav-row-action:hover,
+.codex-panel-ui__nav-row-action:focus,
+.codex-panel-ui__nav-row-action:focus-visible,
+.codex-panel-ui__nav-row-action:active {
   background: transparent;
   box-shadow: none;
   color: var(--icon-color-active);
 }
 
+.codex-panel-ui__nav-item {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--nav-item-size, var(--codex-panel-size-nav-item));
+  padding: var(--nav-item-padding, var(--size-4-1) var(--size-4-2));
+  border: 0;
+  border-radius: var(--nav-item-radius, var(--radius-s));
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--nav-item-color, var(--text-muted));
+  cursor: default;
+  transform: none;
+  user-select: none;
+}
+
+.codex-panel-ui__nav-item:hover:not(:disabled):not(.is-disabled) {
+  color: var(--nav-item-color-hover, var(--text-normal));
+  background: var(--codex-panel-nav-item-background-hover, var(--background-modifier-hover));
+  box-shadow: none;
+  transform: none;
+}
+
+.codex-panel-ui__nav-item.is-selected {
+  color: var(--nav-item-color-active, var(--text-normal));
+  background: var(--nav-item-background-active, var(--background-modifier-active));
+  font-weight: var(--nav-item-weight-active, var(--font-medium));
+}
+
+.codex-panel-ui__nav-item.is-selected:where(:hover, :focus, :focus-visible, :active, :focus-within) {
+  background: var(--nav-item-background-active, var(--background-modifier-active));
+}
+
+.codex-panel-ui__nav-item.is-disabled,
+.codex-panel-ui__nav-item:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.codex-panel-ui__nav-row {
+  --codex-panel-nav-item-background-hover: transparent;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--codex-panel-panel-gap);
+  align-items: center;
+  min-width: 0;
+  padding-inline-end: var(--size-4-2);
+  border-radius: var(--radius-s);
+}
+
+.codex-panel-ui__nav-row:hover,
+.codex-panel-ui__nav-row:focus-within {
+  background: var(--background-modifier-hover);
+}
+
+.codex-panel-ui__nav-row.is-selected,
+.codex-panel-ui__nav-row.is-selected:hover,
+.codex-panel-ui__nav-row.is-selected:focus-within {
+  background: var(--nav-item-background-active, var(--background-modifier-active));
+}
+
+.codex-panel-ui__nav-row:hover .codex-panel-ui__nav-item,
+.codex-panel-ui__nav-row:focus-within .codex-panel-ui__nav-item {
+  color: var(--nav-item-color-hover, var(--text-normal));
+}
+
+.codex-panel-ui__nav-row.is-selected .codex-panel-ui__nav-item,
+.codex-panel-ui__nav-row.is-selected:hover .codex-panel-ui__nav-item,
+.codex-panel-ui__nav-row.is-selected:focus-within .codex-panel-ui__nav-item {
+  color: var(--nav-item-color-active, var(--text-normal));
+}
+
+.codex-panel-ui__nav-inline-input.codex-panel-ui__nav-inline-input {
+  position: relative;
+  appearance: none;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  overflow: hidden;
+  color: var(--nav-item-color-active, var(--text-normal));
+  background: transparent;
+  font: inherit;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  white-space: nowrap;
+  outline: none;
+  cursor: text;
+  user-select: text;
+}
+
+.codex-panel-ui__nav-inline-input.codex-panel-ui__nav-inline-input:focus,
+.codex-panel-ui__nav-inline-input.codex-panel-ui__nav-inline-input:focus-visible,
+.codex-panel-ui__nav-inline-input.codex-panel-ui__nav-inline-input:hover,
+.codex-panel-ui__nav-inline-input.codex-panel-ui__nav-inline-input:active {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  outline: none;
+}
+
 .codex-panel-ui__toolbar-control svg,
 .codex-panel-ui__icon-button svg,
-.codex-panel-threads__icon-button svg {
+.codex-panel-ui__toolbar-action svg,
+.codex-panel-ui__nav-row-action svg {
   width: var(--icon-size);
   height: var(--icon-size);
   stroke-width: var(--icon-stroke);

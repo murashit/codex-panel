@@ -40,7 +40,7 @@ function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: Toolbar
         <ToolbarIconButton
           icon="history"
           label={model.historyOpen ? "Hide thread list" : "Show thread list"}
-          className="codex-panel__history-toggle"
+          className={["codex-panel__history-toggle", model.historyOpen ? "is-active" : ""].filter(Boolean).join(" ")}
           aria-pressed={model.historyOpen ? "true" : "false"}
           onClick={actions.toggleHistory}
         />
@@ -70,7 +70,7 @@ function ToolbarIconButton({
       {...props}
       icon={icon}
       label={label}
-      className={["clickable-icon codex-panel-ui__toolbar-control", className ?? ""].filter(Boolean).join(" ")}
+      className={["clickable-icon nav-action-button codex-panel-ui__toolbar-action", className ?? ""].filter(Boolean).join(" ")}
     />
   );
 }
@@ -343,8 +343,10 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
   return (
     <div
       className={[
+        "codex-panel-ui__nav-row",
         "codex-panel__thread-row",
         thread.selected ? "codex-panel__thread-row--selected" : "",
+        thread.selected ? "is-selected" : "",
         thread.rename ? "codex-panel__thread-row--renaming" : "",
         archiveConfirm.active ? "codex-panel__thread-row--archive-confirming" : "",
         archiveConfirm.active ? "codex-panel__archive-confirm" : "",
@@ -367,7 +369,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
             }}
           />
           {!archiveConfirm.active ? (
-            <ToolbarIconButton
+            <ToolbarRowActionButton
               icon="pencil"
               label="Rename thread"
               className="codex-panel__thread-action"
@@ -389,7 +391,7 @@ function ArchiveActions({ thread, actions }: { thread: ToolbarThreadRow; actions
   const archiveConfirm = archiveConfirmState(thread);
   if (!archiveConfirm.active) {
     return (
-      <ToolbarIconButton
+      <ToolbarRowActionButton
         icon="archive"
         label="Archive thread"
         className="codex-panel__thread-action"
@@ -423,7 +425,7 @@ function ArchiveModeButton({
 }): UiNode {
   const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
   return (
-    <ToolbarIconButton
+    <ToolbarRowActionButton
       icon={saveMarkdown ? "save" : "trash"}
       label={label}
       className={`codex-panel__thread-action ${primary ? "codex-panel__archive-default" : "codex-panel__archive-alternate"}`}
@@ -459,7 +461,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
           <div className="codex-panel__thread-rename-field">
             <input
               ref={inputRef}
-              className="codex-panel__thread-rename-input"
+              className="codex-panel-ui__nav-inline-input codex-panel__thread-rename-input"
               type="text"
               value={draft}
               aria-label={`Rename ${thread.title}`}
@@ -484,7 +486,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
           </div>
         )}
       />
-      <ToolbarIconButton
+      <ToolbarRowActionButton
         icon={generating ? "loader" : "sparkles"}
         label="Auto-name thread"
         className="codex-panel__thread-action"
@@ -533,6 +535,7 @@ function ToolbarPanelItem({
   return (
     <div
       className={[
+        "codex-panel-ui__nav-item",
         "codex-panel__toolbar-panel-item",
         className,
         selected && selectionStyle === "item" ? "is-selected" : "",
@@ -564,6 +567,19 @@ function ToolbarPanelItem({
       )}
     </div>
   );
+}
+
+function ToolbarRowActionButton({
+  icon,
+  label,
+  className,
+  ...props
+}: {
+  icon: string;
+  label: string;
+  className: string;
+} & Omit<ButtonProps, "className" | "type">): UiNode {
+  return <IconButton {...props} icon={icon} label={label} className={`clickable-icon codex-panel-ui__nav-row-action ${className}`} />;
 }
 
 function archiveConfirmState(thread: ToolbarThreadRow): { active: boolean; defaultSaveMarkdown: boolean } {

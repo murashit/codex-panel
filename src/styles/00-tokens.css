@@ -30,9 +30,6 @@
   --codex-panel-size-composer-suggestions-max-height: 168px;
   --codex-panel-icon-button-inline-size: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-item-gap) * 2);
   --codex-panel-icon-button-block-size: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-control-gap) * 2);
-  --codex-panel-threads-row-actions-width: calc(
-    (var(--codex-panel-size-icon-s) + var(--codex-panel-control-gap) * 2) * 2 + var(--codex-panel-item-gap)
-  );
   --codex-panel-status-dot-size: var(--codex-panel-section-gap);
   --codex-panel-meter-bar-height: var(--codex-panel-control-gap);
   --codex-panel-composer-control-size: var(--codex-panel-icon-button-block-size);

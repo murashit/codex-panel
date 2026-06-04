@@ -98,7 +98,7 @@
 .codex-panel__status-panel-items {
   display: flex;
   flex-direction: column;
-  gap: var(--codex-panel-toolbar-panel-row-gap);
+  gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap));
 }
 
 .codex-panel__limit-panel {

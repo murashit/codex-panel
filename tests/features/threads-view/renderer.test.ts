@@ -152,13 +152,20 @@ describe("threads view renderer decisions", () => {
     renderThreadsView(parent, { status: "2 threads", loading: false, rows }, actions);
 
     expect(parent.querySelector(".codex-panel-threads__badge")).toBeNull();
-    const row = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--approval"));
+    const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--approval"));
+    const row = expectPresent(main.closest<HTMLElement>(".codex-panel-threads__row"));
+    expect(row.classList.contains("codex-panel-ui__nav-row")).toBe(true);
+    expect(main.classList.contains("codex-panel-ui__nav-item")).toBe(true);
     expect(row.classList.contains("codex-panel-threads__row--selected")).toBe(true);
+    expect(row.classList.contains("is-selected")).toBe(true);
     expect(row.getAttribute("title")).toBeNull();
     const toolbarButtons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel-threads__toolbar-button")];
     expect(toolbarButtons.map((button) => button.getAttribute("aria-label"))).toEqual(["Open new panel", "Refresh threads"]);
     const refresh = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Refresh threads"]'));
     expect(refresh.classList.contains("codex-panel-threads__toolbar-button")).toBe(true);
+    expect(refresh.classList.contains("nav-action-button")).toBe(true);
+    expect(refresh.classList.contains("codex-panel-ui__toolbar-action")).toBe(true);
+    expect(refresh.classList.contains("codex-panel-ui__nav-row-action")).toBe(false);
     refresh.click();
     expect(actions.refresh).toHaveBeenCalledOnce();
     const openNewPanel = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Open new panel"]'));
@@ -166,9 +173,12 @@ describe("threads view renderer decisions", () => {
     expect(openNewPanel.classList.contains("codex-panel-threads__row-button")).toBe(false);
     openNewPanel.click();
     expect(actions.openNewPanel).toHaveBeenCalledOnce();
-    row.click();
+    const rename = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]'));
+    expect(rename.classList.contains("nav-action-button")).toBe(false);
+    expect(rename.classList.contains("codex-panel-ui__nav-row-action")).toBe(true);
+    main.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");
-    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    main.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(actions.openThread).toHaveBeenCalledTimes(2);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Focus open panel"]')).toBeNull();
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Open in new panel"]')).toBeNull();
@@ -233,7 +243,7 @@ describe("threads view renderer decisions", () => {
     expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).dispatchEvent(new FocusEvent("blur"));
     expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
 
-    expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row")).click();
+    expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main")).click();
     expect(actions.openThread).not.toHaveBeenCalled();
   });
 
