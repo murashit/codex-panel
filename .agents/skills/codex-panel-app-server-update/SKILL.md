@@ -23,9 +23,14 @@ Use this skill when Codex Panel needs to follow Codex CLI or experimental `codex
 5. Review generated diffs for protocol changes that affect runtime behavior. If mechanical normalization is needed, update `scripts/normalize-generated-types.mjs` and regenerate instead of patching generated files by hand.
 6. Implement only the compatibility changes needed for the target Codex CLI version.
 7. Update the README Compatibility table's `codex.testedCliVersion` only after validating against that version.
+8. Identify optional follow-ups separately from required compatibility work:
+   - API changes that allow removing compatibility shims, fallback code, or local workarounds.
+   - New routes, notifications, fields, or lifecycle signals that could simplify existing implementation.
+   - New app-server capabilities that could enable Codex Panel product improvements.
+9. Report optional follow-ups as proposals only, grouped separately from implemented required fixes unless the user explicitly asks to implement them.
 
 ## Verification
 
 - Run `npm run check` after regenerated bindings or compatibility changes.
 - If the change must be reflected in Obsidian, run `npm run build` and verify the plugin reload path separately.
-- Report the tested Codex CLI version, the generation command used, and any app-server compatibility behavior that changed.
+- Report the tested Codex CLI version, the generation command used, any app-server compatibility behavior that changed, and any optional simplification or feature proposals found.
