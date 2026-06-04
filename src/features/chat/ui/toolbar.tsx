@@ -215,7 +215,15 @@ function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): 
           >
             <div className="codex-panel__limit-panel-label">{row.label}</div>
             <div className="codex-panel__limit-panel-value">{row.value}</div>
-            <div className="codex-panel__limit-panel-meter">
+            <div
+              className={[
+                "codex-panel__limit-panel-meter",
+                row.meterDivisions ? "codex-panel__limit-panel-meter--divided" : "",
+                row.meterDivisions ? `codex-panel__limit-panel-meter--${String(row.meterDivisions)}` : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
               <div className="codex-panel__limit-panel-fill" style={{ width: `${String(row.percent)}%` }} />
             </div>
             <div className="codex-panel__limit-panel-reset">{row.resetLabel ?? ""}</div>

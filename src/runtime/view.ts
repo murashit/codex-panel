@@ -35,6 +35,7 @@ export interface RateLimitSummaryRow {
   resetLabel: string | null;
   title: string;
   percent: number;
+  meterDivisions: number | null;
   level: "ok" | "warn" | "danger";
 }
 
@@ -228,6 +229,7 @@ function rateLimitWindowSummary(
     resetLabel,
     title: `${name} ${label}: ${String(percent)}% used.${resetText}${reachedText}`,
     percent,
+    meterDivisions: rateLimitMeterDivisions(window.windowDurationMins),
     level,
   };
 }
@@ -247,8 +249,15 @@ function spendControlLimitSummary(limit: SpendControlLimitSnapshot | null, name:
     resetLabel,
     title: `${name} monthly limit: ${value} used, ${String(remainingPercent)}% remaining.${resetText}`,
     percent,
+    meterDivisions: null,
     level,
   };
+}
+
+function rateLimitMeterDivisions(minutes: number | null): number | null {
+  if (minutes === 300) return 5;
+  if (minutes === 10_080) return 7;
+  return null;
 }
 
 function formatRateLimitDuration(minutes: number): string {

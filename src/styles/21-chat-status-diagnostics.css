@@ -116,19 +116,15 @@
 }
 
 .codex-panel__limit-panel-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--codex-panel-panel-gap);
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr) max-content;
+  gap: var(--codex-panel-panel-gap) var(--codex-panel-section-gap);
   cursor: text;
   user-select: text;
 }
 
 .codex-panel__limit-panel-row {
-  display: grid;
-  grid-template-columns: 2ch 4ch minmax(64px, 1fr) max-content;
-  gap: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
-  align-items: center;
-  padding: var(--codex-panel-control-gap) var(--codex-panel-section-gap);
+  display: contents;
 }
 
 .codex-panel__limit-panel-label,
@@ -142,20 +138,51 @@
   user-select: text;
 }
 
+.codex-panel__limit-panel-label {
+  padding: var(--codex-panel-control-gap) 0 var(--codex-panel-control-gap) var(--codex-panel-section-gap);
+}
+
 .codex-panel__limit-panel-value {
+  padding: var(--codex-panel-control-gap) 0;
   font-variant-numeric: tabular-nums;
 }
 
 .codex-panel__limit-panel-reset {
+  padding: var(--codex-panel-control-gap) var(--codex-panel-section-gap) var(--codex-panel-control-gap) 0;
   color: var(--codex-panel-text-faint);
 }
 
 .codex-panel__limit-panel-meter {
+  align-self: center;
+  position: relative;
   height: var(--codex-panel-meter-bar-height);
-  margin: 0 var(--codex-panel-panel-gap);
+  margin: 0;
   overflow: hidden;
   border-radius: var(--codex-panel-radius-pill);
   background: var(--codex-panel-border-color);
+}
+
+.codex-panel__limit-panel-meter--divided::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc((100% / var(--codex-panel-limit-panel-divisions)) - 1px),
+    color-mix(in srgb, var(--codex-panel-surface) 58%, transparent) calc((100% / var(--codex-panel-limit-panel-divisions)) - 1px),
+    color-mix(in srgb, var(--codex-panel-surface) 58%, transparent) calc(100% / var(--codex-panel-limit-panel-divisions))
+  );
+}
+
+.codex-panel__limit-panel-meter--5 {
+  --codex-panel-limit-panel-divisions: 5;
+}
+
+.codex-panel__limit-panel-meter--7 {
+  --codex-panel-limit-panel-divisions: 7;
 }
 
 .codex-panel__limit-panel-fill {

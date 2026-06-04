@@ -130,12 +130,17 @@ describe("chat toolbar CSS", () => {
     expect(threadsRenameInput).not.toContain("appearance: none");
   });
 
-  it("keeps usage limit meter columns aligned across percent widths", () => {
+  it("lets the usage limit meter absorb panel width changes", () => {
+    const limitList = /\.codex-panel__limit-panel-list \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const limitRow = /\.codex-panel__limit-panel-row \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const limitMeter = /\.codex-panel__limit-panel-meter \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const limitValue = /\.codex-panel__limit-panel-value \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
-    expect(limitRow).toContain("grid-template-columns: 2ch 4ch minmax(64px, 1fr) max-content");
-    expect(limitRow).toContain("gap: var(--codex-panel-control-gap) var(--codex-panel-item-gap)");
+    expect(limitList).toContain("display: grid");
+    expect(limitList).toContain("grid-template-columns: max-content max-content minmax(0, 1fr) max-content");
+    expect(limitList).toContain("gap: var(--codex-panel-panel-gap) var(--codex-panel-section-gap)");
+    expect(limitRow).toContain("display: contents");
+    expect(limitMeter).toContain("margin: 0");
     expect(limitValue).toContain("font-variant-numeric: tabular-nums");
     expect(limitValue).not.toContain("text-align: right");
   });

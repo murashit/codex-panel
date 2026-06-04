@@ -573,7 +573,7 @@ describe("runtime settings", () => {
         1_799_991_600_000,
       ),
     ).toMatchObject({
-      rows: [{ label: "5h", value: "72%", resetLabel: "reset in 2h 20m", percent: 72 }],
+      rows: [{ label: "5h", value: "72%", resetLabel: "reset in 2h 20m", percent: 72, meterDivisions: 5 }],
       level: "warn",
     });
 
@@ -614,8 +614,8 @@ describe("runtime settings", () => {
       ),
     ).toMatchObject({
       rows: [
-        { label: "5h", value: "15%" },
-        { label: "1w", value: "38%" },
+        { label: "5h", value: "15%", meterDivisions: 5 },
+        { label: "1w", value: "38%", meterDivisions: 7 },
       ],
       level: "ok",
     });
@@ -657,7 +657,7 @@ describe("runtime settings", () => {
         1_799_991_600_000,
       ),
     ).toMatchObject({
-      rows: [{ label: "monthly", value: "$72 / $100", resetLabel: "reset in 2h 20m", percent: 72 }],
+      rows: [{ label: "monthly", value: "$72 / $100", resetLabel: "reset in 2h 20m", percent: 72, meterDivisions: null }],
       level: "warn",
     });
   });

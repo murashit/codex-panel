@@ -114,6 +114,7 @@ describe("toolbar renderer decisions", () => {
               resetLabel: "reset in 2h",
               title: "Codex 5h: 42% used.",
               percent: 42,
+              meterDivisions: 5,
               level: "ok",
             },
             {
@@ -122,6 +123,7 @@ describe("toolbar renderer decisions", () => {
               resetLabel: "reset in 3d 4h",
               title: "Codex 1w: 21% used.",
               percent: 21,
+              meterDivisions: 7,
               level: "ok",
             },
           ],
@@ -138,6 +140,10 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("1w");
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("21%");
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("reset in 3d 4h");
+    const meters = [...parent.querySelectorAll<HTMLElement>(".codex-panel__limit-panel-meter")];
+    expect(meters.map((meter) => meter.classList.contains("codex-panel__limit-panel-meter--divided"))).toEqual([true, true]);
+    expect(meters[0]?.classList.contains("codex-panel__limit-panel-meter--5")).toBe(true);
+    expect(meters[1]?.classList.contains("codex-panel__limit-panel-meter--7")).toBe(true);
   });
 
   it("renders connection diagnostics in the status menu", () => {

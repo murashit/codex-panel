@@ -17,8 +17,16 @@ describe("status line helpers", () => {
       title: "Codex usage limits",
       level: "warn",
       rows: [
-        { label: "5h", value: "72%", percent: 72, level: "warn", title: "5h usage", resetLabel: "reset in 2h" },
-        { label: "1w", value: "15%", percent: 15, level: "ok", title: "1w usage", resetLabel: null },
+        {
+          label: "5h",
+          value: "72%",
+          percent: 72,
+          meterDivisions: 5,
+          level: "warn",
+          title: "5h usage",
+          resetLabel: "reset in 2h",
+        },
+        { label: "1w", value: "15%", percent: 15, meterDivisions: 7, level: "ok", title: "1w usage", resetLabel: null },
       ],
     };
 
