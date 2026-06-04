@@ -19,6 +19,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     rollbackThread: vi.fn().mockResolvedValue(undefined),
     compactThread: vi.fn().mockResolvedValue(undefined),
     archiveThread: vi.fn().mockResolvedValue(undefined),
+    renameThread: vi.fn().mockResolvedValue(undefined),
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
     toggleAutoReview: vi.fn(),
@@ -292,6 +293,55 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
   });
 
+  it("renames a selected thread by id argument", async () => {
+    const ctx = context({
+      listedThreads: [thread({ id: "thread-alpha", name: "Alpha" }), thread({ id: "thread-beta", name: "Beta" })],
+    });
+
+    await executeSlashCommand("rename", "thread-beta New Beta Name", ctx);
+
+    expect(ctx.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
+  });
+
+  it("trims /rename names before saving", async () => {
+    const ctx = context({
+      listedThreads: [thread({ id: "thread-beta", name: "Beta" })],
+    });
+
+    await executeSlashCommand("rename", "thread-beta   New Beta Name   ", ctx);
+
+    expect(ctx.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
+  });
+
+  it("rejects /rename without a thread and name", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("rename", "thread-1", ctx);
+
+    expect(ctx.renameThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rename requires a thread and a name. Usage: /rename <thread> <name>");
+  });
+
+  it("rejects blank /rename names after trimming", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("rename", "thread-1     ", ctx);
+
+    expect(ctx.renameThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rename requires a thread and a name. Usage: /rename <thread> <name>");
+  });
+
+  it("reports ambiguous rename matches", async () => {
+    const ctx = context({
+      listedThreads: [thread({ id: "thread-alpha", name: "Draft" }), thread({ id: "thread-beta", name: "Draft notes" })],
+    });
+
+    await executeSlashCommand("rename", "Draft New name", ctx);
+
+    expect(ctx.renameThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
+  });
+
   it("documents archive", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/archive"))).toBe(
       "/archive <thread> - Archive the selected Codex thread.",
@@ -314,6 +364,7 @@ describe("slash commands", () => {
         rows: expect.arrayContaining([
           { key: "/clear", value: "Clear the current panel and start a fresh Codex thread." },
           { key: "/archive <thread>", value: "Archive the selected Codex thread." },
+          { key: "/rename <thread> <name>", value: "Rename the selected Codex thread." },
         ]),
       },
       {
@@ -405,6 +456,12 @@ describe("slash commands", () => {
   it("documents rollback", () => {
     expect(slashCommandHelpLines().find((line) => line.startsWith("/rollback"))).toBe(
       "/rollback - Roll back the latest turn and restore its prompt.",
+    );
+  });
+
+  it("documents rename", () => {
+    expect(slashCommandHelpLines().find((line) => line.startsWith("/rename"))).toBe(
+      "/rename <thread> <name> - Rename the selected Codex thread.",
     );
   });
 

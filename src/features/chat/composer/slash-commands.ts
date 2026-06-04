@@ -1,4 +1,11 @@
-export type SlashCommandArgsKind = "none" | "optionalThread" | "requiredThread" | "optionalMessage" | "threadAndMessage" | "showOrSet";
+export type SlashCommandArgsKind =
+  | "none"
+  | "optionalThread"
+  | "requiredThread"
+  | "optionalMessage"
+  | "threadAndMessage"
+  | "threadAndName"
+  | "showOrSet";
 
 export type SlashCommandSurface = "panelAction" | "threadSetting" | "diagnostic" | "composition";
 
@@ -46,6 +53,13 @@ export const SLASH_COMMANDS = [
     argsKind: "requiredThread",
     surface: "panelAction",
     detail: "Archive the selected Codex thread.",
+  },
+  {
+    command: "/rename",
+    usage: "/rename <thread> <name>",
+    argsKind: "threadAndName",
+    surface: "panelAction",
+    detail: "Rename the selected Codex thread.",
   },
   {
     command: "/auto-review",

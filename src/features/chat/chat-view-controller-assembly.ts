@@ -208,6 +208,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
       forkThread: (threadId) => threadActions.forkThread(threadId),
       rollbackThread: (threadId) => threadActions.rollbackThread(threadId),
       archiveThread: (threadId) => threadActions.archiveThread(threadId),
+      renameThread: (threadId, name) => threadRename.rename(threadId, name),
     },
     runtime: {
       toggleFastMode: () => runtimeSettings.toggleFastMode(),

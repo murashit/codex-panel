@@ -127,6 +127,28 @@ export class ThreadRenameController {
     }
   }
 
+  async rename(threadId: string, value: string): Promise<void> {
+    const title = value.trim();
+    if (!title) return;
+
+    await this.host.ensureConnected();
+    const client = this.host.currentClient();
+    if (!client) return;
+
+    try {
+      await client.setThreadName(threadId, title);
+      this.dispatch({
+        type: "thread/list-applied",
+        threads: this.state.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
+      });
+      this.host.notifyThreadRenamed(threadId, title);
+    } catch (error) {
+      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      this.host.render();
+    }
+  }
+
   async autoNameDraft(threadId: string): Promise<void> {
     if (this.renameState.kind !== "editing" || this.renameState.threadId !== threadId) return;
 

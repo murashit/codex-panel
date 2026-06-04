@@ -249,7 +249,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
 }
 
 export function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
-  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/(?:resume|refer|archive)\s+([^\s\n]{0,120})$/);
+  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/(?:resume|refer|archive|rename)\s+([^\s\n]{0,120})$/);
   if (!completion) return null;
 
   const { query, start } = completion;

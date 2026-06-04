@@ -23,6 +23,7 @@ export interface SlashCommandExecutionContext {
   rollbackThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string, saveMarkdown?: boolean) => Promise<void>;
+  renameThread: (threadId: string, name: string) => Promise<void>;
   toggleFastMode: () => void | Promise<void>;
   toggleCollaborationMode: () => void | Promise<void>;
   toggleAutoReview: () => void | Promise<void>;
@@ -147,6 +148,21 @@ export async function executeSlashCommand(
     return;
   }
 
+  if (command === "rename") {
+    const parsed = parseThreadAndNameArgs(args);
+    if (!parsed) {
+      context.addSystemMessage(usageError(command, "requires a thread and a name"));
+      return;
+    }
+    const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
+    if (!thread.ok) {
+      context.addSystemMessage(thread.message);
+      return;
+    }
+    await context.renameThread(thread.thread.id, parsed.text);
+    return;
+  }
+
   if (command === "fast") {
     await context.toggleFastMode();
     return;
@@ -214,6 +230,7 @@ function validateSlashCommandArguments(command: SlashCommandName, args: string):
   if (definition.argsKind === "none" && args) return usageError(command, "does not take arguments");
   if (definition.argsKind === "requiredThread" && !args) return usageError(command, "requires a thread");
   if (definition.argsKind === "threadAndMessage" && !parseReferArgs(args)) return usageError(command, "requires a thread and a message");
+  if (definition.argsKind === "threadAndName" && !parseThreadAndNameArgs(args)) return usageError(command, "requires a thread and a name");
   return null;
 }
 
@@ -242,11 +259,23 @@ function lineToRow(line: string): DisplayDetailMetaRow {
 type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: string };
 
 function parseReferArgs(args: string): { threadQuery: string; message: string } | null {
+  const parsed = parseThreadAndTextArgs(args);
+  return parsed ? { threadQuery: parsed.threadQuery, message: parsed.text } : null;
+}
+
+function parseThreadAndTextArgs(args: string): { threadQuery: string; text: string } | null {
   const match = /^(\S+)\s+([\s\S]*\S)\s*$/.exec(args);
   if (!match) return null;
   const threadQuery = match[1];
-  const message = match[2];
-  return threadQuery !== undefined && message !== undefined ? { threadQuery, message } : null;
+  const text = match[2];
+  return threadQuery !== undefined && text !== undefined ? { threadQuery, text } : null;
+}
+
+function parseThreadAndNameArgs(args: string): { threadQuery: string; text: string } | null {
+  const parsed = parseThreadAndTextArgs(args);
+  if (!parsed) return null;
+  const text = parsed.text.trim();
+  return text ? { threadQuery: parsed.threadQuery, text } : null;
 }
 
 export function resolveThreadArgument(args: string, threads: readonly Thread[]): ThreadResolution {

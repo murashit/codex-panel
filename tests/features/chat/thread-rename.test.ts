@@ -69,6 +69,33 @@ describe("ThreadRenameController", () => {
     expect(controller.editState("thread")).toBeNull();
   });
 
+  it("renames a thread without entering inline edit state", async () => {
+    const setThreadName = vi.fn().mockResolvedValue({});
+    const client = fakeClient({ setThreadName });
+    const { controller, notifyThreadRenamed, stateStore } = controllerFixture({
+      currentClient: () => client,
+    });
+
+    await controller.rename("thread", " Slash command title ");
+
+    expect(setThreadName).toHaveBeenCalledWith("thread", "Slash command title");
+    expect(stateStore.getState().listedThreads[0]?.name).toBe("Slash command title");
+    expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Slash command title");
+    expect(controller.editState("thread")).toBeNull();
+  });
+
+  it("ignores empty slash command rename titles", async () => {
+    const setThreadName = vi.fn().mockResolvedValue({});
+    const client = fakeClient({ setThreadName });
+    const { controller } = controllerFixture({
+      currentClient: () => client,
+    });
+
+    await controller.rename("thread", "   ");
+
+    expect(setThreadName).not.toHaveBeenCalled();
+  });
+
   it("keeps an edited draft when auto-name generation finishes later", async () => {
     const generatedTitle = deferred<string | null>();
     const { controller } = controllerFixture({

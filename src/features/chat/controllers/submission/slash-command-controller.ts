@@ -18,6 +18,7 @@ export interface SlashCommandThreadPort {
   forkThread: (threadId: string) => Promise<void>;
   rollbackThread: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
+  renameThread: (threadId: string, name: string) => Promise<void>;
 }
 
 export interface SlashCommandRuntimePort {
@@ -67,6 +68,7 @@ export class SlashCommandController {
         await client.compactThread(threadId);
       },
       archiveThread: (threadId) => this.host.threads.archiveThread(threadId),
+      renameThread: (threadId, name) => this.host.threads.renameThread(threadId, name),
       busy: state.busy,
       toggleFastMode: () => this.host.runtime.toggleFastMode(),
       toggleCollaborationMode: () => this.host.runtime.toggleCollaborationMode(),

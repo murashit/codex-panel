@@ -58,6 +58,7 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     forkThread: vi.fn().mockResolvedValue(undefined),
     rollbackThread: vi.fn().mockResolvedValue(undefined),
     archiveThread: vi.fn().mockResolvedValue(undefined),
+    renameThread: vi.fn().mockResolvedValue(undefined),
     ...threadOverrides,
   };
   const runtime: SlashCommandRuntimePort = {
