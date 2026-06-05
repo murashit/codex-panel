@@ -133,6 +133,16 @@ describe("chat toolbar CSS", () => {
     expect(composerMetaFatal).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
   });
 
+  it("lets the shell provide Obsidian status bar composer clearance", () => {
+    const tokenScope = /^(?<selectors>(?:\.[^{]+,\n)*\.[^{]+) \{(?<body>[^}]+)\}/m.exec(styles)?.groups?.["body"] ?? "";
+    const clearanceLine = tokenScope
+      .split("\n")
+      .find((line) => line.trim().startsWith("--codex-panel-status-bar-clearance:"))
+      ?.trim();
+
+    expect(clearanceLine).toBe("--codex-panel-status-bar-clearance: 0px;");
+  });
+
   it("keeps composer status accessible summary visually hidden", () => {
     const summary = /\.codex-panel__composer-meta-summary \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const visual = /\.codex-panel__composer-meta-status-visual \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";

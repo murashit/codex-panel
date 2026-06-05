@@ -32,7 +32,7 @@
   --codex-panel-icon-button-block-size: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-control-gap) * 2);
   --codex-panel-composer-control-size: var(--codex-panel-icon-button-block-size);
   --codex-panel-composer-min-height: calc((var(--codex-panel-composer-control-size) * 2) + var(--codex-panel-control-gap));
-  --codex-panel-status-bar-clearance: var(--status-bar-height, calc(var(--codex-panel-section-gap) * 3));
+  --codex-panel-status-bar-clearance: 0px;
   --codex-panel-bottom-safe-area: max(env(safe-area-inset-bottom, 0px), var(--codex-panel-status-bar-clearance));
   --codex-panel-toolbar-text-color: var(--text-muted);
   --codex-panel-toolbar-text-size: var(--font-ui-small);

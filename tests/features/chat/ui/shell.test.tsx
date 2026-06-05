@@ -114,6 +114,46 @@ describe("ChatPanelShell", () => {
     });
   });
 
+  it("sets composer bottom clearance only for fixed visible Obsidian status bars", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    const statusBar = document.createElement("div");
+    statusBar.className = "status-bar";
+    document.body.appendChild(statusBar);
+    document.body.appendChild(container);
+    Object.defineProperty(statusBar, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ height: 26, width: 100, top: 0, right: 100, bottom: 26, left: 0, x: 0, y: 0, toJSON: () => ({}) }),
+    });
+
+    await act(async () => {
+      statusBar.style.display = "flex";
+      statusBar.style.position = "fixed";
+      renderChatPanelShell(container, shellRenderers(store));
+      await settleShellEffects();
+    });
+    expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("26px");
+
+    await act(async () => {
+      statusBar.style.position = "static";
+      renderChatPanelShell(container, shellRenderers(store));
+      await settleShellEffects();
+    });
+    expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("0px");
+
+    await act(async () => {
+      statusBar.style.display = "none";
+      renderChatPanelShell(container, shellRenderers(store));
+      await settleShellEffects();
+    });
+    expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("0px");
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+    statusBar.remove();
+  });
+
   it("unmounts existing slot roots before rebuilding a damaged shell scaffold", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
