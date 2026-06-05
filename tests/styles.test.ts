@@ -257,12 +257,18 @@ describe("threads view CSS", () => {
   it("keeps long row titles clear of trailing actions", () => {
     const list = /\.codex-panel-threads__list \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const rowMain = /\.codex-panel-threads__row-main \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const renameForm = /\.codex-panel-threads__rename-form \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const renameField = /\.codex-panel-threads__rename-field \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const renameInput = /\.codex-panel-threads__rename-input \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const title = /(?:^|\n\n)\.codex-panel-threads__row-title \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(list).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
     expect(list).toContain("padding: var(--size-4-1) var(--size-4-3)");
     expect(rowMain).toContain("box-sizing: border-box");
     expect(rowMain).not.toContain("padding-right:");
+    expect(renameForm).toContain("min-height: var(--nav-item-size, var(--codex-panel-size-nav-item))");
+    expect(renameField).toContain("min-height: var(--nav-item-size, var(--codex-panel-size-nav-item))");
+    expect(renameInput).toContain("line-height: var(--line-height-tight)");
     expect(title).toContain("display: block");
   });
 

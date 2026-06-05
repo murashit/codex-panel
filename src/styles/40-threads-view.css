@@ -143,7 +143,7 @@
   box-sizing: border-box;
   min-width: 0;
   width: 100%;
-  min-height: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2);
+  min-height: var(--nav-item-size, var(--codex-panel-size-nav-item));
   padding-right: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2 + var(--codex-panel-item-gap));
 }
 
@@ -152,7 +152,7 @@
   flex: 1 1 auto;
   align-items: center;
   min-width: 0;
-  min-height: calc(var(--codex-panel-size-icon-s) + var(--codex-panel-panel-gap) * 2);
+  min-height: var(--nav-item-size, var(--codex-panel-size-nav-item));
   overflow: visible;
   font-size: var(--font-ui-small);
   font-weight: var(--nav-item-weight, var(--font-normal));
@@ -169,4 +169,5 @@
 
 .codex-panel-threads__rename-input {
   flex: 1 1 auto;
+  line-height: var(--line-height-tight);
 }
