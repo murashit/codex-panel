@@ -110,9 +110,16 @@ describe("chat toolbar CSS", () => {
 
   it("keeps the composer context status text fixed-width", () => {
     const contextMeter = /\.codex-panel__composer-meta-context \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const contextDots = /\.codex-panel__composer-meta-context-dots \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const placeholderDot =
+      /\.codex-panel__composer-meta-context-dot\.is-placeholder \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const contextPercent = /\.codex-panel__composer-meta-context-percent \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(contextMeter).toContain("font-variant-numeric: tabular-nums");
-    expect(contextMeter).toContain("white-space: pre");
+    expect(contextMeter).toContain("white-space: nowrap");
+    expect(contextDots).toContain("display: inline-flex");
+    expect(placeholderDot).toContain("color: var(--text-faint)");
+    expect(contextPercent).toContain("white-space: pre");
     expect(styles).not.toContain(".codex-panel__composer-meta-context::before");
     expect(styles).not.toContain("conic-gradient");
   });
@@ -123,6 +130,34 @@ describe("chat toolbar CSS", () => {
 
     expect(composerMetaStatus).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
     expect(composerMetaFatal).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
+  });
+
+  it("keeps composer runtime mode icons compact and state-colored", () => {
+    const modes = /\.codex-panel__composer-meta-modes \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const field = /\.codex-panel__composer-meta-field \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const labels =
+      /\.codex-panel__composer-meta-model,\n\.codex-panel__composer-meta-effort \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const icon = /\.codex-panel__composer-meta-icon \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const activeIcon = /\.codex-panel__composer-meta-icon\.is-active \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const iconSvg = /\.codex-panel__composer-meta-icon svg \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(modes).toContain("gap: var(--codex-panel-control-gap)");
+    expect(field).toContain("display: inline-flex");
+    expect(field).toContain("flex: 0 0 auto");
+    expect(field).toContain("gap: var(--size-4-2)");
+    expect(labels).toContain("white-space: nowrap");
+    expect(labels).not.toContain("text-overflow");
+    expect(icon).toContain("width: var(--codex-panel-size-icon-xs)");
+    expect(icon).toContain("height: var(--codex-panel-size-icon-xs)");
+    expect(activeIcon).toContain("color: var(--icon-color-active)");
+    expect(iconSvg).toContain("width: calc(var(--codex-panel-size-icon-xs) - var(--codex-panel-rail-width) / 2)");
+    expect(iconSvg).toContain("height: calc(var(--codex-panel-size-icon-xs) - var(--codex-panel-rail-width) / 2)");
+    expect(styles).toContain(
+      ".codex-panel__composer-meta-status.is-effort-hidden .codex-panel__composer-meta-field--effort {\n  display: none;",
+    );
+    expect(styles).toContain(
+      ".codex-panel__composer-meta-status.is-model-hidden .codex-panel__composer-meta-field--model {\n  display: none;",
+    );
   });
 
   it("keeps nav inline input reset in the shared primitive", () => {

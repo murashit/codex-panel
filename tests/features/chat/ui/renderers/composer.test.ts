@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { renderComposerShell, scrollComposerSuggestionIntoView, syncComposerHeight } from "../../../../../src/features/chat/ui/composer";
+import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
@@ -47,20 +48,89 @@ describe("composer renderer decisions", () => {
 
     renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
       fatal: null,
-      context: "ctx ⣿⣶   42%",
+      context: {
+        cells: [
+          { text: "⣿", placeholder: false },
+          { text: "⣶", placeholder: false },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "42%",
+      },
       model: "gpt-5.5",
       effort: "high",
+      planActive: true,
+      autoReviewActive: false,
+      fastActive: true,
     });
 
     const meta = parent.querySelector<HTMLElement>(".codex-panel__composer-meta");
+    const statusItems = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-status > span"));
+    const fields = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-field"));
+    const contextDots = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-context-dot"));
+    const modeIcons = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-icon"));
     expect(meta?.getAttribute("aria-hidden")).toBeNull();
-    expect(meta?.textContent).toBe("ctx ⣿⣶   42%|gpt-5.5|high");
+    expect(meta?.textContent).toBe("|⣿⣶⣀⣀42%|gpt-5.5|high");
+    expect(statusItems.map((item) => item.className)).toEqual([
+      "codex-panel__composer-meta-modes",
+      "codex-panel__composer-meta-separator",
+      "codex-panel__composer-meta-context",
+      "codex-panel__composer-meta-field codex-panel__composer-meta-field--model",
+      "codex-panel__composer-meta-field codex-panel__composer-meta-field--effort",
+    ]);
+    expect(fields.map((field) => field.textContent)).toEqual(["|gpt-5.5", "|high"]);
     expect(parent.querySelector(".codex-panel__composer-meta-status")?.getAttribute("aria-hidden")).toBe("true");
-    expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("ctx ⣿⣶   42%");
+    expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("⣿⣶⣀⣀42%");
+    expect(contextDots.map((dot) => dot.textContent)).toEqual(["⣿", "⣶", "⣀", "⣀"]);
+    expect(contextDots.map((dot) => dot.classList.contains("is-placeholder"))).toEqual([false, false, true, true]);
     expect(parent.querySelector(".codex-panel__composer-meta-model")?.textContent).toBe("gpt-5.5");
     expect(parent.querySelector(".codex-panel__composer-meta-effort")?.textContent).toBe("high");
+    expect(modeIcons.map((icon) => icon.dataset["icon"])).toEqual(["list-todo", "shield", "zap"]);
+    expect(modeIcons.map((icon) => icon.classList.contains("is-active"))).toEqual([true, false, true]);
     expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
     expect(parent.querySelector(".codex-panel__new-chat")).toBeNull();
+  });
+
+  it("hides composer meta fields only after measured overflow", async () => {
+    const parent = document.createElement("div");
+
+    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+      fatal: null,
+      context: {
+        cells: [
+          { text: "⣿", placeholder: false },
+          { text: "⣶", placeholder: false },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "42%",
+      },
+      model: "gpt-5.5",
+      effort: "high",
+      planActive: true,
+      autoReviewActive: false,
+      fastActive: true,
+    });
+
+    const status = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-status");
+    if (!status) throw new Error("Expected composer meta status to render.");
+    Object.defineProperty(status, "clientWidth", { configurable: true, value: 100 });
+    Object.defineProperty(status, "scrollWidth", {
+      configurable: true,
+      get: () => (status.classList.contains("is-model-hidden") ? 80 : status.classList.contains("is-effort-hidden") ? 120 : 140),
+    });
+
+    window.dispatchEvent(new Event("resize"));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        resolve();
+      });
+    });
+
+    await waitForAsyncWork(() => {
+      expect(status.classList.contains("is-effort-hidden")).toBe(true);
+      expect(status.classList.contains("is-model-hidden")).toBe(true);
+    });
   });
 
   it("replaces composer meta with fatal status text", () => {
@@ -68,9 +138,20 @@ describe("composer renderer decisions", () => {
 
     renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
       fatal: "Codex app-server disconnected",
-      context: "",
+      context: {
+        cells: [
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "--%",
+      },
       model: "",
       effort: null,
+      planActive: false,
+      autoReviewActive: false,
+      fastActive: false,
     });
 
     expect(parent.querySelector(".codex-panel__composer-meta-fatal")?.textContent).toBe("Codex app-server disconnected");

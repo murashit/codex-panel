@@ -48,8 +48,29 @@
 }
 
 .codex-panel__composer-meta-context {
+  display: inline-flex;
   flex: 0 0 auto;
+  gap: var(--codex-panel-control-gap);
+  align-items: center;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.codex-panel__composer-meta-context-dots {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.codex-panel__composer-meta-context-dot {
+  color: currentcolor;
+}
+
+.codex-panel__composer-meta-context-dot.is-placeholder {
+  color: var(--text-faint);
+}
+
+.codex-panel__composer-meta-context-percent {
+  flex: 0 0 auto;
   white-space: pre;
 }
 
@@ -58,11 +79,46 @@
   color: var(--text-faint);
 }
 
+.codex-panel__composer-meta-field {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--size-4-2);
+  align-items: center;
+}
+
+.codex-panel__composer-meta-field--model {
+  flex: 0 0 auto;
+}
+
+.codex-panel__composer-meta-modes {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--codex-panel-control-gap);
+  align-items: center;
+  color: var(--text-faint);
+}
+
+.codex-panel__composer-meta-icon {
+  display: inline-flex;
+  width: var(--codex-panel-size-icon-xs);
+  height: var(--codex-panel-size-icon-xs);
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
+.codex-panel__composer-meta-icon.is-active {
+  color: var(--icon-color-active);
+}
+
+.codex-panel__composer-meta-icon svg {
+  width: calc(var(--codex-panel-size-icon-xs) - var(--codex-panel-rail-width) / 2);
+  height: calc(var(--codex-panel-size-icon-xs) - var(--codex-panel-rail-width) / 2);
+  stroke-width: 2;
+}
+
 .codex-panel__composer-meta-model,
 .codex-panel__composer-meta-effort {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -76,6 +132,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.codex-panel__composer-meta-status.is-effort-hidden .codex-panel__composer-meta-field--effort {
+  display: none;
+}
+
+.codex-panel__composer-meta-status.is-model-hidden .codex-panel__composer-meta-field--model {
+  display: none;
 }
 
 .codex-panel__composer-suggestions {

@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../composer/suggestions";
 import type { ComposerMetaViewModel } from "../view-model";
-import { IconButton } from "../../../shared/ui/components";
+import { IconButton, ObsidianIcon } from "../../../shared/ui/components";
 import { renderUiRoot } from "../../../shared/ui/ui-root";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 
@@ -27,9 +27,20 @@ type ButtonProps = ButtonHTMLAttributes & {
 
 const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
   fatal: null,
-  context: "ctx      --%",
+  context: {
+    cells: [
+      { text: "⣀", placeholder: true },
+      { text: "⣀", placeholder: true },
+      { text: "⣀", placeholder: true },
+      { text: "⣀", placeholder: true },
+    ],
+    percent: "--%",
+  },
   model: "default",
   effort: null,
+  planActive: false,
+  autoReviewActive: false,
+  fastActive: false,
 };
 
 export function renderComposerShell(
@@ -154,6 +165,31 @@ function ComposerMeta({
   sendMode: ComposerSendMode;
   onSendOrInterrupt: () => void;
 }): UiNode {
+  const statusRef = useRef<HTMLSpanElement | null>(null);
+  useLayoutEffect(() => {
+    const status = statusRef.current;
+    if (!status) return;
+    const win = status.win;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      updateComposerMetaStatusOverflow(status);
+    };
+    const scheduleUpdate = () => {
+      if (frame) win.cancelAnimationFrame(frame);
+      frame = win.requestAnimationFrame(update);
+    };
+    update();
+    const ResizeObserverCtor = (win as Window & { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+    const observer = ResizeObserverCtor ? new ResizeObserverCtor(scheduleUpdate) : null;
+    observer?.observe(status);
+    win.addEventListener("resize", scheduleUpdate);
+    return () => {
+      if (frame) win.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      win.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [meta]);
   if (meta.fatal) {
     return (
       <div className="codex-panel__composer-meta codex-panel__composer-meta--fatal">
@@ -164,20 +200,69 @@ function ComposerMeta({
   }
   return (
     <div className="codex-panel__composer-meta">
-      <span className="codex-panel__composer-meta-status" aria-hidden="true">
-        <span className="codex-panel__composer-meta-context">{meta.context}</span>
+      <span ref={statusRef} className="codex-panel__composer-meta-status" aria-hidden="true">
+        <span className="codex-panel__composer-meta-modes">
+          <ComposerMetaIcon icon="list-todo" active={meta.planActive} />
+          <ComposerMetaIcon icon="shield" active={meta.autoReviewActive} />
+          <ComposerMetaIcon icon="zap" active={meta.fastActive} />
+        </span>
         <span className="codex-panel__composer-meta-separator">|</span>
-        <span className="codex-panel__composer-meta-model">{meta.model}</span>
+        <ComposerContextMeter context={meta.context} />
+        <span className="codex-panel__composer-meta-field codex-panel__composer-meta-field--model">
+          <span className="codex-panel__composer-meta-separator">|</span>
+          <span className="codex-panel__composer-meta-model">{meta.model}</span>
+        </span>
         {meta.effort ? (
-          <>
+          <span className="codex-panel__composer-meta-field codex-panel__composer-meta-field--effort">
             <span className="codex-panel__composer-meta-separator">|</span>
             <span className="codex-panel__composer-meta-effort">{meta.effort}</span>
-          </>
+          </span>
         ) : null}
       </span>
       <ComposerSendButton sendMode={sendMode} onSendOrInterrupt={onSendOrInterrupt} />
     </div>
   );
+}
+
+const COMPOSER_META_EFFORT_HIDDEN_CLASS = "is-effort-hidden";
+const COMPOSER_META_MODEL_HIDDEN_CLASS = "is-model-hidden";
+
+function updateComposerMetaStatusOverflow(status: HTMLElement): void {
+  status.classList.remove(COMPOSER_META_EFFORT_HIDDEN_CLASS, COMPOSER_META_MODEL_HIDDEN_CLASS);
+  if (!composerMetaStatusOverflowing(status)) return;
+  if (status.querySelector(".codex-panel__composer-meta-field--effort")) {
+    status.classList.add(COMPOSER_META_EFFORT_HIDDEN_CLASS);
+  }
+  if (!composerMetaStatusOverflowing(status)) return;
+  if (status.querySelector(".codex-panel__composer-meta-field--model")) {
+    status.classList.add(COMPOSER_META_MODEL_HIDDEN_CLASS);
+  }
+}
+
+function composerMetaStatusOverflowing(status: HTMLElement): boolean {
+  return status.scrollWidth > status.clientWidth;
+}
+
+function ComposerContextMeter({ context }: { context: ComposerMetaViewModel["context"] }): UiNode {
+  return (
+    <span className="codex-panel__composer-meta-context">
+      <span className="codex-panel__composer-meta-context-dots">
+        {context.cells.map((cell, index) => (
+          <span
+            key={index}
+            className={["codex-panel__composer-meta-context-dot", cell.placeholder ? "is-placeholder" : ""].filter(Boolean).join(" ")}
+          >
+            {cell.text}
+          </span>
+        ))}
+      </span>
+      <span className="codex-panel__composer-meta-context-percent">{context.percent}</span>
+    </span>
+  );
+}
+
+function ComposerMetaIcon({ icon, active }: { icon: string; active: boolean }): UiNode {
+  return <ObsidianIcon icon={icon} className={["codex-panel__composer-meta-icon", active ? "is-active" : ""].filter(Boolean).join(" ")} />;
 }
 
 interface ComposerSendMode {

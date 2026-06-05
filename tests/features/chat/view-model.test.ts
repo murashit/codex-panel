@@ -80,7 +80,13 @@ describe("chat view model", () => {
   it("builds composer meta from context and runtime state", () => {
     const state = createChatState();
     state.activeThreadId = "thread-1";
-    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.selectedCollaborationMode = "plan";
+    state.effectiveConfig = effectiveConfigFixture({
+      model: "gpt-5.5",
+      model_reasoning_effort: "high",
+      approvals_reviewer: "auto_review",
+      service_tier: "fast",
+    });
     state.tokenUsage = {
       last: { inputTokens: 42, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 44 },
       total: { inputTokens: 40, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 42 },
@@ -89,9 +95,20 @@ describe("chat view model", () => {
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
       fatal: null,
-      context: "ctx ⣿⣶   42%",
+      context: {
+        cells: [
+          { text: "⣿", placeholder: false },
+          { text: "⣶", placeholder: false },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "42%",
+      },
       model: "gpt-5.5",
       effort: "high",
+      planActive: true,
+      autoReviewActive: true,
+      fastActive: true,
     });
   });
 
@@ -113,7 +130,15 @@ describe("chat view model", () => {
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toMatchObject({
       fatal: null,
-      context: "ctx      --%",
+      context: {
+        cells: [
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "--%",
+      },
       model: "gpt-5.5",
       effort: null,
     });
@@ -129,7 +154,15 @@ describe("chat view model", () => {
     };
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toMatchObject({
-      context: "ctx ⣀     0%",
+      context: {
+        cells: [
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: " 0%",
+      },
     });
   });
 
@@ -139,9 +172,20 @@ describe("chat view model", () => {
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
       fatal: "Codex app-server disconnected",
-      context: "",
+      context: {
+        cells: [
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "--%",
+      },
       model: "",
       effort: null,
+      planActive: false,
+      autoReviewActive: false,
+      fastActive: false,
     });
   });
 

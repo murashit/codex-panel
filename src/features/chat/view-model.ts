@@ -26,9 +26,22 @@ export interface RuntimeSnapshotInput {
 
 export interface ComposerMetaViewModel {
   fatal: string | null;
-  context: string;
+  context: ComposerContextMeterViewModel;
   model: string;
   effort: string | null;
+  planActive: boolean;
+  autoReviewActive: boolean;
+  fastActive: boolean;
+}
+
+export interface ComposerContextMeterCellViewModel {
+  text: string;
+  placeholder: boolean;
+}
+
+export interface ComposerContextMeterViewModel {
+  cells: ComposerContextMeterCellViewModel[];
+  percent: string;
 }
 
 export interface ToolbarViewModelInput {
@@ -146,9 +159,12 @@ export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapsho
   if (state.status === "Connection failed.") {
     return {
       fatal: "Codex app-server disconnected",
-      context: "",
+      context: contextComposerMeter(null),
       model: "",
       effort: null,
+      planActive: false,
+      autoReviewActive: false,
+      fastActive: false,
     };
   }
 
@@ -158,9 +174,12 @@ export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapsho
   const effort = currentReasoningEffort(snapshot, config);
   return {
     fatal: null,
-    context: contextComposerLabel(context?.percent ?? null),
+    context: contextComposerMeter(context?.percent ?? null),
     model: model ?? "default",
     effort: effort ? compactReasoningEffortLabel(effort) : null,
+    planActive: state.selectedCollaborationMode === "plan",
+    autoReviewActive: autoReviewActive(snapshot, config),
+    fastActive: fastModeActive(snapshot, config),
   };
 }
 
@@ -205,27 +224,30 @@ const CONTEXT_DOT_WIDTH = 4;
 const CONTEXT_CELL_PERCENT = 100 / CONTEXT_DOT_WIDTH;
 const CONTEXT_PARTIAL_DOTS = ["", "⣀", "⣤", "⣶", "⣿"] as const;
 const CONTEXT_FULL_DOT = "⣿";
+const CONTEXT_EMPTY_DOT = "⣀";
 
-function contextComposerLabel(percent: number | null): string {
-  const dots = contextBrailleDots(percent);
+function contextComposerMeter(percent: number | null): ComposerContextMeterViewModel {
   const percentLabel = percent === null ? "--%" : `${String(Math.round(Math.max(0, Math.min(100, percent)))).padStart(2, " ")}%`;
-  return `ctx ${dots} ${percentLabel}`;
+  return {
+    cells: contextBrailleCells(percent),
+    percent: percentLabel,
+  };
 }
 
-function contextBrailleDots(percent: number | null): string {
-  if (percent === null) return " ".repeat(CONTEXT_DOT_WIDTH);
+function contextBrailleCells(percent: number | null): ComposerContextMeterCellViewModel[] {
+  if (percent === null) return Array.from({ length: CONTEXT_DOT_WIDTH }, () => ({ text: CONTEXT_EMPTY_DOT, placeholder: true }));
   const clamped = Math.max(0, Math.min(100, percent));
-  const chars: string[] = [];
+  const cells: ComposerContextMeterCellViewModel[] = [];
   for (let index = 0; index < CONTEXT_DOT_WIDTH; index += 1) {
     const remaining = clamped - index * CONTEXT_CELL_PERCENT;
     if (remaining <= 0) {
-      chars.push(index === 0 ? CONTEXT_PARTIAL_DOTS[1] : " ");
+      cells.push({ text: CONTEXT_EMPTY_DOT, placeholder: true });
       continue;
     }
     const partialIndex = Math.min(CONTEXT_PARTIAL_DOTS.length - 1, Math.ceil((remaining / CONTEXT_CELL_PERCENT) * 4));
-    chars.push(CONTEXT_PARTIAL_DOTS[partialIndex] ?? CONTEXT_FULL_DOT);
+    cells.push({ text: CONTEXT_PARTIAL_DOTS[partialIndex] ?? CONTEXT_FULL_DOT, placeholder: false });
   }
-  return chars.join("");
+  return cells;
 }
 
 export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): ReturnType<typeof connectionDiagnosticSections> {
