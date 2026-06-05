@@ -104,6 +104,7 @@ describe("chat view model", () => {
         ],
         percent: "42%",
       },
+      statusSummary: "Context 42%, plan on, auto-review on, fast on, model gpt-5.5, reasoning effort high",
       model: "gpt-5.5",
       effort: "high",
       planActive: true,
@@ -139,6 +140,7 @@ describe("chat view model", () => {
         ],
         percent: "--%",
       },
+      statusSummary: "Context unavailable, plan off, auto-review off, fast off, model gpt-5.5, reasoning effort default",
       model: "gpt-5.5",
       effort: null,
     });
@@ -163,6 +165,7 @@ describe("chat view model", () => {
         ],
         percent: " 0%",
       },
+      statusSummary: "Context 0%, plan off, auto-review off, fast off, model default, reasoning effort default",
     });
   });
 
@@ -181,6 +184,7 @@ describe("chat view model", () => {
         ],
         percent: "--%",
       },
+      statusSummary: "Codex app-server disconnected",
       model: "",
       effort: null,
       planActive: false,

@@ -25,6 +25,7 @@
 }
 
 .codex-panel__composer-meta {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
@@ -37,6 +38,7 @@
 }
 
 .codex-panel__composer-meta-status {
+  position: relative;
   box-sizing: border-box;
   display: flex;
   min-width: 0;
@@ -45,6 +47,24 @@
   align-items: center;
   overflow: hidden;
   white-space: nowrap;
+}
+
+.codex-panel__composer-meta-summary {
+  position: absolute;
+  width: var(--codex-panel-rail-width);
+  height: var(--codex-panel-rail-width);
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.codex-panel__composer-meta-status-visual {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  gap: var(--size-4-2);
+  align-items: center;
 }
 
 .codex-panel__composer-meta-context {
@@ -117,9 +137,52 @@
   stroke-width: 2;
 }
 
-.codex-panel__composer-meta-model,
-.codex-panel__composer-meta-effort {
+.codex-panel__composer-meta-value.codex-panel__composer-meta-value {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  text-align: left;
   white-space: nowrap;
+}
+
+.codex-panel__composer-meta-popover {
+  position: absolute;
+  bottom: calc(100% + var(--codex-panel-panel-gap));
+  left: var(--codex-panel-composer-meta-popover-left);
+  z-index: var(--layer-popover, 30);
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  max-width: calc(100% - var(--codex-panel-composer-meta-popover-left));
+  max-height: min(var(--codex-panel-size-toolbar-panel-max-height), 36vh);
+  overflow-y: auto;
+  border: var(--codex-panel-border);
+  border-radius: var(--codex-panel-card-radius);
+  background: var(--codex-panel-surface);
+  box-shadow: var(--shadow-s);
+  padding: var(--codex-panel-panel-gap);
+}
+
+.codex-panel__composer-meta-option {
+  overflow: hidden;
+  min-width: 0;
+  padding: var(--size-4-1) var(--size-4-2);
+  color: var(--text-muted);
+  font: inherit;
+  line-height: var(--line-height-tight);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-panel__composer-meta-option:where(:hover, :focus, :focus-visible, :active):not(.is-disabled) {
+  color: var(--nav-item-color-hover, var(--text-normal));
+  background: var(--background-modifier-hover);
+  outline: none;
+}
+
+.codex-panel__composer-meta-option.is-disabled {
+  opacity: 0.45;
 }
 
 .codex-panel__composer-meta--fatal {

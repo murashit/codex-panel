@@ -253,6 +253,9 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     composerPlaceholder: host.composerPlaceholder,
     composerMeta: host.composerMetaViewModel,
     currentModelForSuggestions: () => currentModel(host.runtimeSnapshot()),
+    togglePlan: () => void runtimeSettings.toggleCollaborationMode(),
+    toggleAutoReview: () => void runtimeSettings.toggleAutoReview(),
+    toggleFast: () => void runtimeSettings.toggleFastMode(),
     renderIfDetached: host.effects.render.now,
     onDraftChange: host.effects.liveState.refresh,
     onComposerResize: () => {

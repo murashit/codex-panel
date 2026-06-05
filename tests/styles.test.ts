@@ -128,15 +128,30 @@ describe("chat toolbar CSS", () => {
     const composerMetaStatus = /\.codex-panel__composer-meta-status \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const composerMetaFatal = /\.codex-panel__composer-meta-fatal \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
+    expect(composerMetaStatus).toContain("position: relative");
     expect(composerMetaStatus).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
     expect(composerMetaFatal).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
+  });
+
+  it("keeps composer status accessible summary visually hidden", () => {
+    const summary = /\.codex-panel__composer-meta-summary \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const visual = /\.codex-panel__composer-meta-status-visual \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(summary).toContain("position: absolute");
+    expect(summary).toContain("width: var(--codex-panel-rail-width)");
+    expect(summary).toContain("height: var(--codex-panel-rail-width)");
+    expect(summary).toContain("clip-path: inset(50%)");
+    expect(summary).not.toContain("clip:");
+    expect(visual).toContain("display: flex");
+    expect(visual).toContain("flex: 0 0 auto");
+    expect(visual).toContain("gap: var(--size-4-2)");
   });
 
   it("keeps composer runtime mode icons compact and state-colored", () => {
     const modes = /\.codex-panel__composer-meta-modes \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const field = /\.codex-panel__composer-meta-field \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const labels =
-      /\.codex-panel__composer-meta-model,\n\.codex-panel__composer-meta-effort \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+      /\.codex-panel__composer-meta-value\.codex-panel__composer-meta-value \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const icon = /\.codex-panel__composer-meta-icon \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const activeIcon = /\.codex-panel__composer-meta-icon\.is-active \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const iconSvg = /\.codex-panel__composer-meta-icon svg \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
@@ -146,6 +161,7 @@ describe("chat toolbar CSS", () => {
     expect(field).toContain("flex: 0 0 auto");
     expect(field).toContain("gap: var(--size-4-2)");
     expect(labels).toContain("white-space: nowrap");
+    expect(labels).toContain("display: inline-flex");
     expect(labels).not.toContain("text-overflow");
     expect(icon).toContain("width: var(--codex-panel-size-icon-xs)");
     expect(icon).toContain("height: var(--codex-panel-size-icon-xs)");
@@ -158,6 +174,22 @@ describe("chat toolbar CSS", () => {
     expect(styles).toContain(
       ".codex-panel__composer-meta-status.is-model-hidden .codex-panel__composer-meta-field--model {\n  display: none;",
     );
+  });
+
+  it("keeps composer status triggers visually unstyled", () => {
+    const popover = /\.codex-panel__composer-meta-popover \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const option = /\.codex-panel__composer-meta-option \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(styles).not.toContain(".codex-panel__composer-meta-trigger {");
+    expect(styles).not.toContain(".codex-panel__composer-meta-trigger:hover");
+    expect(styles).not.toContain("button.codex-panel__composer-meta-trigger");
+    expect(popover).toContain("position: absolute");
+    expect(popover).toContain("bottom: calc(100% + var(--codex-panel-panel-gap))");
+    expect(popover).toContain("width: max-content");
+    expect(popover).toContain("max-width: calc(100% - var(--codex-panel-composer-meta-popover-left))");
+    expect(styles).not.toContain(".codex-panel__composer-meta-option.is-selected");
+    expect(option).not.toContain("padding-left");
+    expect(option).not.toContain("grid-template-columns");
   });
 
   it("keeps nav inline input reset in the shared primitive", () => {

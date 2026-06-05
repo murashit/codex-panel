@@ -35,6 +35,7 @@ describe("ChatComposerController", () => {
           ],
           percent: "--%",
         },
+        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
         model: "default",
         effort: null,
         planActive: false,
@@ -42,6 +43,9 @@ describe("ChatComposerController", () => {
         fastActive: false,
       }),
       currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
       renderIfDetached: vi.fn(),
       onDraftChange: vi.fn(),
       onComposerResize: vi.fn(),
@@ -63,6 +67,56 @@ describe("ChatComposerController", () => {
     expect(stateStore.getState().composerSuggestions).toEqual([]);
     expect(composer(parent).getAttribute("aria-expanded")).toBe("false");
     expect(composer(parent).hasAttribute("aria-activedescendant")).toBe(false);
+  });
+
+  it("delegates composer runtime toggles without forcing a local rerender", () => {
+    const stateStore = createChatStateStore();
+    const parent = document.createElement("div");
+    const togglePlan = vi.fn();
+    const controller = new ChatComposerController({
+      app: app(),
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      canInterrupt: () => false,
+      composerPlaceholder: () => "Ask Codex to work on this task...",
+      composerMeta: () => ({
+        fatal: null,
+        context: {
+          cells: [
+            { text: "⣀", placeholder: true },
+            { text: "⣀", placeholder: true },
+            { text: "⣀", placeholder: true },
+            { text: "⣀", placeholder: true },
+          ],
+          percent: "--%",
+        },
+        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+        model: "default",
+        effort: null,
+        planActive: false,
+        autoReviewActive: false,
+        fastActive: false,
+      }),
+      currentModelForSuggestions: () => null,
+      togglePlan,
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      renderIfDetached: vi.fn(),
+      onDraftChange: vi.fn(),
+      onComposerResize: vi.fn(),
+      onSubmit: vi.fn(),
+      onThreadScrollFromComposer: vi.fn(),
+    });
+
+    controller.render(parent);
+    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.classList.contains("is-active")).toBe(false);
+
+    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+    expect(togglePlan).toHaveBeenCalledOnce();
+    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.classList.contains("is-active")).toBe(false);
   });
 });
 

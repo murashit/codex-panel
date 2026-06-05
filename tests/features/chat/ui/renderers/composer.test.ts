@@ -15,6 +15,9 @@ function composerCallbacks() {
     onUpdateSuggestions: vi.fn(),
     onKeydown: vi.fn(),
     onSendOrInterrupt: vi.fn(),
+    onTogglePlan: vi.fn(),
+    onToggleAutoReview: vi.fn(),
+    onToggleFast: vi.fn(),
     onSuggestionHover: vi.fn(),
     onSuggestionInsert: vi.fn(),
   };
@@ -43,7 +46,7 @@ describe("composer renderer decisions", () => {
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
   });
 
-  it("renders composer meta as non-interactive context and runtime text", () => {
+  it("renders composer meta as interactive context and runtime text without changing normal text", () => {
     const parent = document.createElement("div");
 
     renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
@@ -57,20 +60,33 @@ describe("composer renderer decisions", () => {
         ],
         percent: "42%",
       },
+      statusSummary: "Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high",
       model: "gpt-5.5",
       effort: "high",
       planActive: true,
       autoReviewActive: false,
       fastActive: true,
+      modelChoices: [
+        { label: "gpt-5.5", selected: true, onClick: vi.fn() },
+        { label: "gpt-5.4", onClick: vi.fn() },
+      ],
+      effortChoices: [
+        { label: "medium", onClick: vi.fn() },
+        { label: "high", selected: true, onClick: vi.fn() },
+      ],
     });
 
     const meta = parent.querySelector<HTMLElement>(".codex-panel__composer-meta");
-    const statusItems = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-status > span"));
+    const statusItems = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-status-visual > span"));
     const fields = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-field"));
     const contextDots = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-context-dot"));
     const modeIcons = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-icon"));
+    const statusSummary = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-summary");
+    const statusVisual = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-status-visual");
     expect(meta?.getAttribute("aria-hidden")).toBeNull();
-    expect(meta?.textContent).toBe("|⣿⣶⣀⣀42%|gpt-5.5|high");
+    expect(statusSummary?.textContent).toBe("Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high");
+    expect(statusVisual?.getAttribute("aria-hidden")).toBe("true");
+    expect(statusVisual?.textContent).toBe("|⣿⣶⣀⣀42%|gpt-5.5|high");
     expect(statusItems.map((item) => item.className)).toEqual([
       "codex-panel__composer-meta-modes",
       "codex-panel__composer-meta-separator",
@@ -79,7 +95,7 @@ describe("composer renderer decisions", () => {
       "codex-panel__composer-meta-field codex-panel__composer-meta-field--effort",
     ]);
     expect(fields.map((field) => field.textContent)).toEqual(["|gpt-5.5", "|high"]);
-    expect(parent.querySelector(".codex-panel__composer-meta-status")?.getAttribute("aria-hidden")).toBe("true");
+    expect(parent.querySelector(".codex-panel__composer-meta-status")?.getAttribute("aria-hidden")).toBeNull();
     expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("⣿⣶⣀⣀42%");
     expect(contextDots.map((dot) => dot.textContent)).toEqual(["⣿", "⣶", "⣀", "⣀"]);
     expect(contextDots.map((dot) => dot.classList.contains("is-placeholder"))).toEqual([false, false, true, true]);
@@ -87,8 +103,105 @@ describe("composer renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__composer-meta-effort")?.textContent).toBe("high");
     expect(modeIcons.map((icon) => icon.dataset["icon"])).toEqual(["list-todo", "shield", "zap"]);
     expect(modeIcons.map((icon) => icon.classList.contains("is-active"))).toEqual([true, false, true]);
+    expect(modeIcons.map((icon) => icon.tagName)).toEqual(["SPAN", "SPAN", "SPAN"]);
+    expect(modeIcons.map((icon) => icon.getAttribute("role"))).toEqual([null, null, null]);
+    expect(modeIcons.map((icon) => icon.getAttribute("tabindex"))).toEqual([null, null, null]);
+    expect(modeIcons.map((icon) => icon.getAttribute("aria-label"))).toEqual([null, null, null]);
+    expect(modeIcons.every((icon) => icon.classList.contains("codex-panel__composer-meta-trigger"))).toBe(true);
+    expect(modeIcons.every((icon) => !icon.className.includes("clickable-icon"))).toBe(true);
+    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.tagName).toBe("SPAN");
+    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-effort")?.tagName).toBe("SPAN");
+    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.getAttribute("role")).toBeNull();
+    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-effort")?.getAttribute("tabindex")).toBeNull();
     expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
     expect(parent.querySelector(".codex-panel__new-chat")).toBeNull();
+  });
+
+  it("toggles composer runtime controls and opens separate lightweight pickers", async () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const selectModel = vi.fn();
+    const selectEffort = vi.fn();
+
+    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks, {
+      fatal: null,
+      context: {
+        cells: [
+          { text: "⣿", placeholder: false },
+          { text: "⣶", placeholder: false },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "42%",
+      },
+      statusSummary: "Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high",
+      model: "gpt-5.5",
+      effort: "high",
+      planActive: true,
+      autoReviewActive: false,
+      fastActive: true,
+      modelChoices: [
+        { label: "gpt-5.5", selected: true, onClick: vi.fn() },
+        { label: "gpt-5.4", onClick: selectModel },
+      ],
+      effortChoices: [
+        { label: "medium", onClick: selectEffort },
+        { label: "high", selected: true, onClick: vi.fn() },
+      ],
+    });
+
+    const [planButton, reviewButton, fastButton] = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-icon"));
+    planButton?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    reviewButton?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    fastButton?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(callbacks.onTogglePlan).toHaveBeenCalledOnce();
+    expect(callbacks.onToggleAutoReview).toHaveBeenCalledOnce();
+    expect(callbacks.onToggleFast).toHaveBeenCalledOnce();
+
+    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await waitForAsyncWork(() => {
+      expect(parent.querySelector(".codex-panel__composer-meta-popover--model")?.textContent).toBe("gpt-5.5gpt-5.4");
+    });
+    const modelOptions = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-option"));
+    expect(modelOptions.map((option) => option.getAttribute("role"))).toEqual([null, null]);
+    expect(modelOptions.map((option) => option.getAttribute("tabindex"))).toEqual([null, null]);
+    expect(modelOptions.map((option) => option.getAttribute("aria-selected"))).toEqual([null, null]);
+    expect(modelOptions.every((option) => !option.classList.contains("is-selected"))).toBe(true);
+    expect(modelOptions.every((option) => !option.classList.contains("codex-panel-ui__nav-item"))).toBe(true);
+    expect(modelOptions.every((option) => !option.classList.contains("codex-panel__toolbar-panel-item"))).toBe(true);
+
+    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-effort")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await waitForAsyncWork(() => {
+      expect(parent.querySelector(".codex-panel__composer-meta-popover--model")).toBeNull();
+      expect(parent.querySelector(".codex-panel__composer-meta-popover--effort")?.textContent).toBe("mediumhigh");
+    });
+
+    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-option")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(selectEffort).toHaveBeenCalledOnce();
+    await waitForAsyncWork(() => {
+      expect(parent.querySelector(".codex-panel__composer-meta-popover")).toBeNull();
+    });
+
+    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await waitForAsyncWork(() => {
+      expect(parent.querySelector(".codex-panel__composer-meta-popover--model")).not.toBeNull();
+    });
+    parent
+      .querySelectorAll<HTMLElement>(".codex-panel__composer-meta-option")[1]
+      ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(selectModel).toHaveBeenCalledOnce();
+    await waitForAsyncWork(() => {
+      expect(parent.querySelector(".codex-panel__composer-meta-popover")).toBeNull();
+    });
+
+    parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    await waitForAsyncWork(() => {
+      expect(parent.querySelector(".codex-panel__composer-meta-popover--model")).not.toBeNull();
+    });
+    document.dispatchEvent(new Event("mousedown", { bubbles: true }));
+    await waitForAsyncWork(() => {
+      expect(parent.querySelector(".codex-panel__composer-meta-popover")).toBeNull();
+    });
   });
 
   it("hides composer meta fields only after measured overflow", async () => {
@@ -105,6 +218,7 @@ describe("composer renderer decisions", () => {
         ],
         percent: "42%",
       },
+      statusSummary: "Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high",
       model: "gpt-5.5",
       effort: "high",
       planActive: true,
@@ -147,6 +261,7 @@ describe("composer renderer decisions", () => {
         ],
         percent: "--%",
       },
+      statusSummary: "Codex app-server disconnected",
       model: "",
       effort: null,
       planActive: false,

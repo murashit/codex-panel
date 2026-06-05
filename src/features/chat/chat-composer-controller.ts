@@ -29,6 +29,9 @@ export interface ChatComposerControllerOptions {
   composerPlaceholder: () => string;
   composerMeta: () => ComposerMetaViewModel;
   currentModelForSuggestions: () => string | null;
+  togglePlan: () => void;
+  toggleAutoReview: () => void;
+  toggleFast: () => void;
   renderIfDetached: () => void;
   onDraftChange: () => void;
   onComposerResize: () => void;
@@ -107,6 +110,15 @@ export class ChatComposerController {
         },
         onSendOrInterrupt: () => {
           this.options.onSubmit();
+        },
+        onTogglePlan: () => {
+          this.options.togglePlan();
+        },
+        onToggleAutoReview: () => {
+          this.options.toggleAutoReview();
+        },
+        onToggleFast: () => {
+          this.options.toggleFast();
         },
         onSuggestionHover: (index) => {
           this.selectSuggestion(index);

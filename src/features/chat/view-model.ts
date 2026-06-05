@@ -27,11 +27,14 @@ export interface RuntimeSnapshotInput {
 export interface ComposerMetaViewModel {
   fatal: string | null;
   context: ComposerContextMeterViewModel;
+  statusSummary: string;
   model: string;
   effort: string | null;
   planActive: boolean;
   autoReviewActive: boolean;
   fastActive: boolean;
+  modelChoices?: ToolbarChoice[];
+  effortChoices?: ToolbarChoice[];
 }
 
 export interface ComposerContextMeterCellViewModel {
@@ -160,6 +163,7 @@ export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapsho
     return {
       fatal: "Codex app-server disconnected",
       context: contextComposerMeter(null),
+      statusSummary: "Codex app-server disconnected",
       model: "",
       effort: null,
       planActive: false,
@@ -172,15 +176,51 @@ export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapsho
   const context = contextSummary(snapshot);
   const model = currentModel(snapshot, config);
   const effort = currentReasoningEffort(snapshot, config);
+  const composerContext = contextComposerMeter(context?.percent ?? null);
+  const compactEffort = effort ? compactReasoningEffortLabel(effort) : null;
+  const planActive = state.selectedCollaborationMode === "plan";
+  const reviewActive = autoReviewActive(snapshot, config);
+  const fastActive = fastModeActive(snapshot, config);
   return {
     fatal: null,
-    context: contextComposerMeter(context?.percent ?? null),
+    context: composerContext,
+    statusSummary: composerStatusSummary({
+      context: composerContext,
+      model: model ?? "default",
+      effort: compactEffort,
+      planActive,
+      autoReviewActive: reviewActive,
+      fastActive,
+    }),
     model: model ?? "default",
-    effort: effort ? compactReasoningEffortLabel(effort) : null,
-    planActive: state.selectedCollaborationMode === "plan",
-    autoReviewActive: autoReviewActive(snapshot, config),
-    fastActive: fastModeActive(snapshot, config),
+    effort: compactEffort,
+    planActive,
+    autoReviewActive: reviewActive,
+    fastActive,
   };
+}
+
+function composerStatusSummary(input: {
+  context: ComposerContextMeterViewModel;
+  model: string;
+  effort: string | null;
+  planActive: boolean;
+  autoReviewActive: boolean;
+  fastActive: boolean;
+}): string {
+  const context = input.context.percent === "--%" ? "Context unavailable" : `Context ${input.context.percent.trim()}`;
+  return [
+    context,
+    `plan ${onOffLabel(input.planActive)}`,
+    `auto-review ${onOffLabel(input.autoReviewActive)}`,
+    `fast ${onOffLabel(input.fastActive)}`,
+    `model ${input.model}`,
+    `reasoning effort ${input.effort ?? "default"}`,
+  ].join(", ");
+}
+
+function onOffLabel(active: boolean): string {
+  return active ? "on" : "off";
 }
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {

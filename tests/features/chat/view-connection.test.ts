@@ -336,6 +336,9 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(composerSlotSnapshot({ ...state, effectiveConfig: effectiveConfig("gpt-updated") }, null)).not.toBe(base);
     expect(composerSlotSnapshot({ ...state, requestedModel: { kind: "set", value: "gpt-requested" } }, null)).not.toBe(base);
+    expect(composerSlotSnapshot({ ...state, selectedCollaborationMode: "plan" }, null)).not.toBe(base);
+    expect(composerSlotSnapshot({ ...state, requestedApprovalsReviewer: { kind: "set", value: "auto_review" } }, null)).not.toBe(base);
+    expect(composerSlotSnapshot({ ...state, requestedServiceTier: { kind: "set", value: "fast" } }, null)).not.toBe(base);
     expect(composerSlotSnapshot({ ...state, availableSkills: [skillFixture("reader")] }, null)).not.toBe(base);
   });
 

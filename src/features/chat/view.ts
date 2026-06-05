@@ -556,7 +556,15 @@ export class CodexChatView extends ItemView {
   }
 
   private composerMetaViewModel() {
-    return buildComposerMetaViewModel(this.state, this.runtimeSnapshot());
+    return {
+      ...buildComposerMetaViewModel(this.state, this.runtimeSnapshot()),
+      ...runtimeToolbarChoices({
+        state: this.state,
+        snapshot: this.runtimeSnapshot(),
+        setRequestedModel: (model) => void this.setRequestedModelFromUi(model),
+        setRequestedReasoningEffort: (effort) => void this.setRequestedReasoningEffortFromUi(effort),
+      }),
+    };
   }
 
   private activeComposerThreadName(): string | null {
