@@ -150,9 +150,11 @@ describe("chat toolbar CSS", () => {
     const visual = /\.codex-panel__composer-meta-status-visual \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(summary).toContain("position: absolute");
-    expect(summary).toContain("width: var(--codex-panel-rail-width)");
-    expect(summary).toContain("height: var(--codex-panel-rail-width)");
-    expect(summary).toContain("clip-path: inset(50%)");
+    expect(summary).toContain("width: var(--border-width)");
+    expect(summary).toContain("height: var(--border-width)");
+    expect(summary).toContain("pointer-events: none");
+    expect(summary).toContain("opacity: 0");
+    expect(summary).not.toContain("clip-path:");
     expect(summary).not.toContain("clip:");
     expect(visual).toContain("display: flex");
     expect(visual).toContain("flex: 0 0 auto");

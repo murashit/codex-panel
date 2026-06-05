@@ -77,11 +77,12 @@
 
 .codex-panel__composer-meta-summary {
   position: absolute;
-  width: var(--codex-panel-rail-width);
-  height: var(--codex-panel-rail-width);
+  width: var(--border-width);
+  height: var(--border-width);
   padding: 0;
   overflow: hidden;
-  clip-path: inset(50%);
+  pointer-events: none;
+  opacity: 0;
   white-space: nowrap;
 }
 
