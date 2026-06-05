@@ -21,6 +21,7 @@ describe("settings", () => {
       threadNamingEffort: "low",
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
+      showToolbar: false,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
       archiveExportEnabled: true,
@@ -39,6 +40,7 @@ describe("settings", () => {
       threadNamingEffort: "low",
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
+      showToolbar: false,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
       archiveExportEnabled: true,
@@ -62,6 +64,7 @@ describe("settings", () => {
       threadNamingEffort: "low",
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",
+      showToolbar: true,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
       archiveExportEnabled: true,
@@ -99,6 +102,12 @@ describe("settings", () => {
   it("normalizes the send shortcut", () => {
     expect(normalizeSettings({ sendShortcut: "mod-enter" }).sendShortcut).toBe("mod-enter");
     expect(normalizeSettings({ sendShortcut: "invalid" }).sendShortcut).toBe(DEFAULT_SETTINGS.sendShortcut);
+  });
+
+  it("shows the chat toolbar by default", () => {
+    expect(normalizeSettings({}).showToolbar).toBe(true);
+    expect(normalizeSettings({ showToolbar: false }).showToolbar).toBe(false);
+    expect(normalizeSettings({ showToolbar: "no" }).showToolbar).toBe(DEFAULT_SETTINGS.showToolbar);
   });
 
   it("normalizes composer edge scrolling", () => {

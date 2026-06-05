@@ -86,6 +86,34 @@ describe("ChatPanelShell", () => {
     });
   });
 
+  it("removes and restores the toolbar slot from shell props", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const renderers = shellRenderers(store);
+
+    await act(async () => {
+      renderChatPanelShell(container, { ...renderers, showToolbar: false });
+      await settleShellEffects();
+    });
+
+    expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
+    expect(container.querySelector(".codex-panel__slot--messages")).not.toBeNull();
+    expect(container.querySelector(".codex-panel__slot--composer")).not.toBeNull();
+
+    await act(async () => {
+      renderChatPanelShell(container, { ...renderers, showToolbar: true });
+      await settleShellEffects();
+    });
+
+    expect(container.querySelector(".codex-panel__toolbar")).not.toBeNull();
+    expect(container.firstElementChild?.classList.contains("codex-panel__toolbar")).toBe(true);
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
   it("unmounts existing slot roots before rebuilding a damaged shell scaffold", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
@@ -163,6 +191,7 @@ function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
   return {
     stateStore: store,
     renderVersion: 0,
+    showToolbar: true,
     toolbar: {
       render: vi.fn((toolbar: HTMLElement) => {
         toolbar.textContent = store.getState().status;
@@ -188,6 +217,7 @@ function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>
   return {
     stateStore: store,
     renderVersion: 0,
+    showToolbar: true,
     toolbar: {
       render: vi.fn((toolbar: HTMLElement) => {
         renderUiRoot(
@@ -225,6 +255,7 @@ function trackedRootShellRenderers(store: ReturnType<typeof createChatStateStore
   return {
     stateStore: store,
     renderVersion: 0,
+    showToolbar: true,
     toolbar: {
       render: vi.fn((toolbar: HTMLElement) => {
         renderUiRoot(toolbar, <TrackedSlot slot="toolbar" cleanup={cleanup} />);

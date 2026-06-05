@@ -85,6 +85,7 @@ describe("settings tab", () => {
     expect(tab.containerEl.querySelector("h2")).toBeNull();
     expect(settingNames(tab)).toEqual([
       "Codex executable",
+      "Show chat toolbar",
       "Composer",
       "Send shortcut",
       "Scroll thread from composer edges",
@@ -111,6 +112,24 @@ describe("settings tab", () => {
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(settingDesc(tab, "Send shortcut")).toContain("Obsidian hotkeys");
     expect(tab.containerEl.querySelector(".codex-panel-settings__section-status")?.textContent ?? "").not.toContain("Obsidian hotkeys");
+  });
+
+  it("saves the toolbar visibility setting and refreshes open panels", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const refreshOpenViews = vi.fn();
+    const tab = newSettingsTab({ saveSettings, refreshOpenViews });
+
+    tab.display();
+    const toggle = inputForSetting(tab, "Show chat toolbar");
+    if (!toggle) throw new Error("Missing toolbar visibility toggle");
+
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(refreshOpenViews).toHaveBeenCalledOnce();
+    expect(settingDesc(tab, "Show chat toolbar")).toContain("Slash commands");
   });
 
   it("saves the composer edge scroll setting", async () => {
@@ -345,6 +364,7 @@ function newSettingsTab(
     sendShortcut?: "enter" | "mod-enter";
     cachedModels?: Model[];
     publishModels?: (models: Model[]) => void;
+    refreshOpenViews?: () => void;
   } = {},
 ): CodexPanelSettingTab {
   return new CodexPanelSettingTab(
@@ -356,6 +376,7 @@ function newSettingsTab(
         threadNamingEffort: null,
         rewriteSelectionModel: null,
         rewriteSelectionEffort: null,
+        showToolbar: true,
         sendShortcut: options.sendShortcut ?? "enter",
         scrollThreadFromComposerEdges: false,
         archiveExportEnabled: false,
@@ -365,6 +386,7 @@ function newSettingsTab(
       },
       vaultPath: "/vault",
       saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
+      refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
       refreshSharedThreadListFromOpenSurface: vi.fn(),
       cachedModels: vi.fn(() => options.cachedModels ?? []),
       publishModels: options.publishModels ?? vi.fn(),

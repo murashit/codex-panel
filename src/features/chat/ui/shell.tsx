@@ -5,6 +5,7 @@ import type { ChatPanelSlotSnapshot } from "../view-snapshot";
 export interface ChatPanelShellProps {
   stateStore: ChatStateStore;
   renderVersion: number;
+  showToolbar: boolean;
   toolbar: ChatPanelSlotProps;
   messages: ChatPanelSlotProps;
   composer: ChatPanelSlotProps;
@@ -22,7 +23,10 @@ const shellSlots = {
   toolbar: {
     selector: ":scope > .codex-panel__toolbar",
     create(container: HTMLElement): HTMLElement {
-      return container.createDiv({ cls: "codex-panel__toolbar" });
+      const toolbar = container.createDiv({ cls: "codex-panel__toolbar" });
+      const body = container.querySelector<HTMLElement>(":scope > .codex-panel__body");
+      if (body) container.insertBefore(toolbar, body);
+      return toolbar;
     },
     props(props: ChatPanelShellProps): ChatPanelSlotProps {
       return props.toolbar;
@@ -54,7 +58,7 @@ const shellSlotDefinitions = Object.values(shellSlots);
 
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
   container.addClass("codex-panel");
-  ensureShellDom(container);
+  ensureShellDom(container, props.showToolbar);
   const existing = shellMounts.get(container);
   if (existing?.stateStore === props.stateStore) {
     existing.props = props;
@@ -86,17 +90,23 @@ interface ChatPanelSlotProps {
   snapshot: (state: ChatState) => ChatPanelSlotSnapshot;
 }
 
-function ensureShellDom(container: HTMLElement): void {
-  if (shellSlotDefinitions.every((slot) => container.querySelector(slot.selector))) {
+function ensureShellDom(container: HTMLElement, showToolbar: boolean): void {
+  if (!showToolbar) {
+    const toolbar = container.querySelector<HTMLElement>(shellSlots.toolbar.selector);
+    unmountUiRoot(toolbar);
+    toolbar?.remove();
+  }
+  const requiredSlots = activeShellSlotDefinitions(showToolbar);
+  if (requiredSlots.every((slot) => container.querySelector(slot.selector))) {
     return;
   }
   // The shell owns the fixed Obsidian DOM scaffold; toolbar, messages, and
   // composer each own their own Preact root inside that scaffold.
   unmountSlotRoots(container);
   container.replaceChildren();
-  shellSlots.toolbar.create(container);
-  shellSlots.messages.create(container);
-  shellSlots.composer.create(container);
+  for (const slot of requiredSlots) {
+    slot.create(container);
+  }
 }
 
 function renderSlotIfNeeded(element: HTMLElement, slot: ChatPanelSlotProps, renderKey: string): void {
@@ -107,12 +117,16 @@ function renderSlotIfNeeded(element: HTMLElement, slot: ChatPanelSlotProps, rend
 
 function renderMountedSlots(container: HTMLElement, props: ChatPanelShellProps): void {
   const state = props.stateStore.getState();
-  for (const slotDefinition of shellSlotDefinitions) {
+  for (const slotDefinition of activeShellSlotDefinitions(props.showToolbar)) {
     const element = container.querySelector<HTMLElement>(slotDefinition.selector);
     if (!element) continue;
     const slot = slotDefinition.props(props);
     renderSlotIfNeeded(element, slot, renderKey(props.renderVersion, slot.snapshot(state)));
   }
+}
+
+function activeShellSlotDefinitions(showToolbar: boolean): typeof shellSlotDefinitions {
+  return showToolbar ? shellSlotDefinitions : shellSlotDefinitions.filter((slot) => slot !== shellSlots.toolbar);
 }
 
 function unmountSlotRoots(container: HTMLElement): void {

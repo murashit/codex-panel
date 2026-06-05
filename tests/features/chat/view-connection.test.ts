@@ -1050,6 +1050,7 @@ function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
     openTurnDiff: vi.fn(),
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),
+    refreshOpenViews: vi.fn(),
     refreshSharedThreadListFromOpenSurface: vi.fn(),
     refreshThreadsViewLiveState: vi.fn(),
     applyThreadListSnapshot: vi.fn(),

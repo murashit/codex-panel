@@ -189,6 +189,7 @@ export function createChatShellRenderPort(
   stateStore: ChatStateStore,
   options: {
     connected: () => boolean;
+    showToolbar: () => boolean;
     pendingRequestsSignature: () => string;
     activeComposerThreadName: () => string | null;
   },
@@ -198,6 +199,7 @@ export function createChatShellRenderPort(
       renderChatPanelShell(root, {
         stateStore,
         renderVersion,
+        showToolbar: options.showToolbar(),
         toolbar: { render: slots.renderToolbar, snapshot: (state) => toolbarSlotSnapshot(state, options.connected()) },
         messages: {
           render: slots.renderMessages,

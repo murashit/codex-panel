@@ -13,6 +13,7 @@ export interface CodexChatHost {
   notifyThreadArchived(threadId: string): void;
   notifyThreadRenamed(threadId: string, name: string | null): void;
   refreshThreadsViewLiveState(): void;
+  refreshOpenViews(): void;
   refreshSharedThreadListFromOpenSurface(): void;
   applyThreadListSnapshot(threads: readonly Thread[]): void;
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;

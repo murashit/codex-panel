@@ -11,6 +11,7 @@ export interface CodexPanelSettings {
   threadNamingEffort: ReasoningEffort | null;
   rewriteSelectionModel: string | null;
   rewriteSelectionEffort: ReasoningEffort | null;
+  showToolbar: boolean;
   sendShortcut: SendShortcut;
   scrollThreadFromComposerEdges: boolean;
   archiveExportEnabled: boolean;
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   threadNamingEffort: null,
   rewriteSelectionModel: null,
   rewriteSelectionEffort: null,
+  showToolbar: true,
   sendShortcut: "enter",
   scrollThreadFromComposerEdges: false,
   archiveExportEnabled: false,
@@ -41,6 +43,7 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
     threadNamingEffort: reasoningEffortOrDefault(record["threadNamingEffort"]),
     rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"]),
     rewriteSelectionEffort: reasoningEffortOrDefault(record["rewriteSelectionEffort"]),
+    showToolbar: booleanOrDefault(record["showToolbar"], DEFAULT_SETTINGS.showToolbar),
     sendShortcut: sendShortcutOrDefault(record["sendShortcut"]),
     scrollThreadFromComposerEdges: booleanOrDefault(
       record["scrollThreadFromComposerEdges"],
@@ -61,12 +64,13 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
 export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelSettings): boolean {
   const record = asRecord(data);
   return (
-    Object.keys(record).length === 11 &&
+    Object.keys(record).length === 12 &&
     record["codexPath"] === settings.codexPath &&
     record["threadNamingModel"] === settings.threadNamingModel &&
     record["threadNamingEffort"] === settings.threadNamingEffort &&
     record["rewriteSelectionModel"] === settings.rewriteSelectionModel &&
     record["rewriteSelectionEffort"] === settings.rewriteSelectionEffort &&
+    record["showToolbar"] === settings.showToolbar &&
     record["sendShortcut"] === settings.sendShortcut &&
     record["scrollThreadFromComposerEdges"] === settings.scrollThreadFromComposerEdges &&
     record["archiveExportEnabled"] === settings.archiveExportEnabled &&

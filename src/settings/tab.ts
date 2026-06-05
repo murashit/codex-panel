@@ -81,6 +81,16 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
       });
+    new Setting(configSection)
+      .setName("Show chat toolbar")
+      .setDesc("Show the chat panel toolbar. Slash commands, composer status controls, and the threads view remain available when hidden.")
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.showToolbar).onChange(async (value) => {
+          this.plugin.settings.showToolbar = value;
+          await this.plugin.saveSettings();
+          this.plugin.refreshOpenViews();
+        });
+      });
 
     const composerSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__composer-section" });
     renderSettingsHeading(composerSection, "Composer");
@@ -522,6 +532,7 @@ export interface CodexPanelSettingTabHost extends Plugin {
   settings: CodexPanelSettings;
   vaultPath: string;
   saveSettings(): Promise<void>;
+  refreshOpenViews(): void;
   refreshSharedThreadListFromOpenSurface(): void;
   cachedModels(): Model[];
   publishModels(models: Model[]): void;

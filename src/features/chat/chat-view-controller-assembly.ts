@@ -154,6 +154,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
   renderController = new ChatViewRenderController({
     shell: createChatShellRenderPort(host.stateStore, {
       connected: () => connection.isConnected(),
+      showToolbar: () => host.plugin.settings.showToolbar,
       pendingRequestsSignature: host.pendingRequestsSignature,
       activeComposerThreadName: host.activeComposerThreadName,
     }),
