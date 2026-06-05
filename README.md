@@ -41,10 +41,10 @@ Codex Panel supports Codex App Server workflows that fit a persistent panel in O
 - Manage thread history from the panel or slash commands: clear (`/clear`), resume (`/resume`), rename (`/rename`), auto-name, fork (`/fork`), roll back (`/rollback`), compact (`/compact`), and archive (`/archive`) Codex threads.
 - Compose with Codex-aware completions for slash commands, enabled skills (`$skill-name`), recent threads, models, and supported reasoning efforts; use `/help` to show available slash commands.
 - Reference another non-archived thread without switching away from the current one (`/refer`).
-- Control subsequent turns from the toolbar or slash commands: Plan mode (`/plan`), fast mode (`/fast`), approval auto-review (`/auto-review`), model (`/model`), and reasoning effort (`/reasoning`).
+- Control subsequent turns from slash commands, with the same state visible and lightly adjustable in the composer status row: Plan mode (`/plan`), fast mode (`/fast`), approval auto-review (`/auto-review`), model (`/model`), and reasoning effort (`/reasoning`).
 - Follow a running turn as Codex streams assistant messages, reasoning, commands, tool calls, hooks, file changes, plan updates, and agent activity.
 - Respond to Codex questions, command approvals, file approvals, MCP requests, and permission requests; send steering messages; or interrupt when the composer is empty.
-- Inspect context usage, usage limits, connection diagnostics, MCP servers, enabled skills, effective Codex config, and discovered hooks from the toolbar, settings, or `/status`, `/doctor`, and `/mcp`.
+- Inspect context usage from the composer status row, and inspect usage limits, connection diagnostics, MCP servers, enabled skills, effective Codex config, and discovered hooks from the toolbar, settings, or `/status`, `/doctor`, and `/mcp`.
 
 Codex goal management is not supported. Incoming goal notifications are shown only as brief system notices.
 
