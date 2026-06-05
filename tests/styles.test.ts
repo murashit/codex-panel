@@ -212,13 +212,18 @@ describe("chat toolbar CSS", () => {
   it("lets the usage limit meter absorb panel width changes", () => {
     const limitList = /\.codex-panel__limit-panel-list \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const limitRow = /\.codex-panel__limit-panel-row \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const limitMeterCell = /\.codex-panel__limit-panel-meter-cell \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const limitMeter = /\.codex-panel__limit-panel-meter \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const limitValue = /\.codex-panel__limit-panel-value \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
-    expect(limitList).toContain("display: grid");
-    expect(limitList).toContain("grid-template-columns: max-content max-content minmax(0, 1fr) max-content");
-    expect(limitList).toContain("gap: var(--codex-panel-panel-gap) var(--codex-panel-section-gap)");
-    expect(limitRow).toContain("display: contents");
+    expect(limitList).toContain("display: table");
+    expect(limitList).toContain("width: 100%");
+    expect(limitList).toContain("border-spacing: 0 var(--codex-panel-panel-gap)");
+    expect(limitRow).toContain("display: table-row");
+    expect(limitRow).not.toContain("display: contents");
+    expect(limitMeterCell).toContain("display: table-cell");
+    expect(limitMeterCell).toContain("width: 100%");
+    expect(limitMeterCell).toContain("vertical-align: middle");
     expect(limitMeter).toContain("margin: 0");
     expect(limitValue).toContain("font-variant-numeric: tabular-nums");
     expect(limitValue).not.toContain("text-align: right");
