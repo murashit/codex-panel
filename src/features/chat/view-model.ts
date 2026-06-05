@@ -18,7 +18,7 @@ import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../.
 import { connectionDiagnosticSections } from "./diagnostics";
 import type { ChatState } from "./chat-state";
 import { statusValue, usageLimitStatusLines } from "./status-lines";
-import type { ToolbarChoice, ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
+import type { ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
 
 export interface RuntimeSnapshotInput {
   state: ChatState;
@@ -33,8 +33,16 @@ export interface ComposerMetaViewModel {
   planActive: boolean;
   autoReviewActive: boolean;
   fastActive: boolean;
-  modelChoices?: ToolbarChoice[];
-  effortChoices?: ToolbarChoice[];
+  modelChoices?: RuntimeChoice[];
+  effortChoices?: RuntimeChoice[];
+}
+
+export interface RuntimeChoice {
+  label: string;
+  selected?: boolean;
+  disabled?: boolean;
+  meta?: string;
+  onClick: () => void;
 }
 
 export interface ComposerContextMeterCellViewModel {
@@ -56,8 +64,6 @@ export interface ToolbarViewModelInput {
   configuredCommand: string;
   archiveConfirmThreadId: string | null;
   archiveExportEnabled: boolean;
-  modelChoices: ToolbarChoice[];
-  effortChoices: ToolbarChoice[];
   renameState: (threadId: string) => ToolbarThreadRow["rename"];
 }
 
@@ -67,7 +73,7 @@ export interface ConnectionDiagnosticsModelInput {
   configuredCommand: string;
 }
 
-export interface RuntimeToolbarChoicesInput {
+export interface RuntimeComposerChoicesInput {
   state: ChatState;
   snapshot: RuntimeSnapshot;
   setRequestedModel: (model: string | null) => void;
@@ -103,11 +109,14 @@ export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput): Ru
   };
 }
 
-export function runtimeToolbarChoices(input: RuntimeToolbarChoicesInput): Pick<ToolbarViewModel, "modelChoices" | "effortChoices"> {
+export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
+  modelChoices: RuntimeChoice[];
+  effortChoices: RuntimeChoice[];
+} {
   const config = readRuntimeConfig(input.state.effectiveConfig);
   const activeModel = currentModel(input.snapshot, config);
   const models = sortedAvailableModels(input.state.availableModels);
-  const modelChoices: ToolbarChoice[] = models.slice(0, 12).map((model) => ({
+  const modelChoices: RuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
     selected: activeModel === model.model,
     onClick: () => {
@@ -123,7 +132,7 @@ export function runtimeToolbarChoices(input: RuntimeToolbarChoicesInput): Pick<T
   }
 
   const activeEffort = currentReasoningEffort(input.snapshot, config);
-  const effortChoices: ToolbarChoice[] = supportedReasoningEfforts(input.snapshot).map((effort) => ({
+  const effortChoices: RuntimeChoice[] = supportedReasoningEfforts(input.snapshot).map((effort) => ({
     label: effort,
     selected: activeEffort === effort,
     onClick: () => {
@@ -225,22 +234,16 @@ function onOffLabel(active: boolean): string {
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
-  const config = readRuntimeConfig(state.effectiveConfig);
   const limit = rateLimitSummary(snapshot);
   const historyOpen = state.openDetails.has("history");
   const statusPanelOpen = state.openDetails.has("status-panel");
-  const runtimeOpen = state.runtimePicker !== null;
   return {
     newChatDisabled: input.turnBusy,
     historyOpen,
     statusPanelOpen,
-    runtimeOpen,
-    planActive: state.selectedCollaborationMode === "plan",
-    autoReviewActive: autoReviewActive(snapshot, config),
-    fastActive: fastModeActive(snapshot, config),
     rateLimit: limit,
     configSections: effectiveConfigSections(snapshot, input.vaultPath),
-    openPanel: historyOpen ? "history" : runtimeOpen ? "runtime" : statusPanelOpen ? "status" : null,
+    openPanel: historyOpen ? "history" : statusPanelOpen ? "status" : null,
     threads: toolbarThreadRows({
       threads: state.listedThreads,
       activeThreadId: state.activeThreadId,
@@ -249,8 +252,6 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
       archiveExportEnabled: input.archiveExportEnabled,
       renameState: input.renameState,
     }),
-    modelChoices: input.modelChoices,
-    effortChoices: input.effortChoices,
     connectLabel: input.connected ? "Reconnect" : "Connect",
     diagnostics: connectionDiagnosticsModel({
       state,

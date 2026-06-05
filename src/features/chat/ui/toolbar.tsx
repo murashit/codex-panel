@@ -13,11 +13,7 @@ type ButtonProps = ButtonHTMLAttributes & {
 export interface ToolbarActions {
   startNewThread: () => void;
   toggleHistory: () => void;
-  toggleAutoReview: () => void;
   toggleStatusPanel: () => void;
-  togglePlan: () => void;
-  toggleFast: () => void;
-  toggleRuntime: () => void;
   connect: () => void;
   refreshStatus: () => void;
   resumeThread: (threadId: string) => void;
@@ -53,7 +49,6 @@ function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: Toolbar
             disabled={model.newChatDisabled}
             onClick={actions.startNewThread}
           />
-          <RuntimeButtons model={model} actions={actions} />
           <StatusButton model={model} actions={actions} />
         </div>
       </div>
@@ -82,60 +77,6 @@ function ToolbarIconButton({
   );
 }
 
-function RuntimeButtons({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
-  return (
-    <>
-      <RuntimeIcon
-        icon="list-todo"
-        label="Toggle plan mode"
-        className="codex-panel__plan-toggle"
-        active={model.planActive}
-        onClick={actions.togglePlan}
-      />
-      <RuntimeIcon
-        icon="shield"
-        label="Toggle auto-review"
-        className="codex-panel__auto-review-toggle"
-        active={model.autoReviewActive}
-        onClick={actions.toggleAutoReview}
-      />
-      <RuntimeIcon icon="zap" label="Toggle fast mode" active={model.fastActive} onClick={actions.toggleFast} />
-      <ToolbarIconButton
-        icon="bot"
-        label="Change model and reasoning effort"
-        className={["codex-panel__runtime-model", model.runtimeOpen ? "is-active" : ""].filter(Boolean).join(" ")}
-        aria-label="Change model and reasoning effort"
-        aria-expanded={model.runtimeOpen ? "true" : "false"}
-        onClick={actions.toggleRuntime}
-      />
-    </>
-  );
-}
-
-function RuntimeIcon({
-  icon,
-  label,
-  className,
-  active,
-  onClick,
-}: {
-  icon: string;
-  label: string;
-  className?: string;
-  active: boolean;
-  onClick: () => void;
-}): UiNode {
-  return (
-    <ToolbarIconButton
-      icon={icon}
-      label={label}
-      className={`codex-panel__runtime-icon ${className ?? ""} ${active ? "is-active" : ""}`}
-      aria-pressed={active ? "true" : "false"}
-      onClick={onClick}
-    />
-  );
-}
-
 function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <ToolbarIconButton
@@ -153,7 +94,6 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
   return (
     <div className={`codex-panel__toolbar-panel codex-panel__toolbar-panel--${model.openPanel}`}>
       {model.openPanel === "history" ? <ThreadList threads={model.threads} actions={actions} /> : null}
-      {model.openPanel === "runtime" ? <RuntimePicker model={model} /> : null}
       {model.openPanel === "status" ? <StatusPanel model={model} actions={actions} /> : null}
     </div>
   );
@@ -264,39 +204,6 @@ function FragmentedConfigSection({ section }: { section: EffectiveConfigSection 
         </div>
       ))}
     </>
-  );
-}
-
-function RuntimePicker({ model }: { model: ToolbarViewModel }): UiNode {
-  return (
-    <div className="codex-panel__runtime-picker" role="listbox">
-      <div className="codex-panel__runtime-picker-label">Reasoning effort</div>
-      {model.effortChoices.map((choice) => (
-        <ToolbarPanelItem
-          key={`effort:${choice.label}`}
-          label={choice.label}
-          selected={choice.selected}
-          disabled={choice.disabled}
-          meta={choice.meta}
-          onClick={choice.onClick}
-          className="codex-panel__runtime-choice"
-          role="option"
-        />
-      ))}
-      <div className="codex-panel__runtime-picker-label">Model</div>
-      {model.modelChoices.map((choice) => (
-        <ToolbarPanelItem
-          key={`model:${choice.label}`}
-          label={choice.label}
-          selected={choice.selected}
-          disabled={choice.disabled}
-          meta={choice.meta}
-          onClick={choice.onClick}
-          className="codex-panel__runtime-choice"
-          role="option"
-        />
-      ))}
-    </div>
   );
 }
 

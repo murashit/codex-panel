@@ -9,7 +9,7 @@ import {
   composerMetaViewModel,
   composerPlaceholder,
   effortStatusLines,
-  runtimeToolbarChoices,
+  runtimeComposerChoices,
   modelStatusLines,
   runtimeSnapshotForChatState,
   statusSummaryLines,
@@ -38,8 +38,6 @@ describe("chat view model", () => {
       configuredCommand: "codex",
       archiveConfirmThreadId: "thread-2",
       archiveExportEnabled: true,
-      modelChoices: [{ label: "gpt-5.5", selected: true, onClick: () => undefined }],
-      effortChoices: [{ label: "high", selected: true, onClick: () => undefined }],
       renameState: (threadId) => (threadId === "thread-1" ? { draft: "Active", generating: false } : null),
     });
 
@@ -49,32 +47,6 @@ describe("chat view model", () => {
       { threadId: "thread-1", title: "Active", selected: true, disabled: false, rename: { draft: "Active" } },
       { threadId: "thread-2", title: "Other", selected: false, disabled: true, archiveConfirm: { active: true } },
     ]);
-    expect(model.modelChoices).toHaveLength(1);
-  });
-
-  it("marks fast active for the catalog Fast service tier id", () => {
-    const state = createChatState();
-    state.activeModel = "gpt-5.5";
-    state.activeServiceTier = "priority";
-    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
-    state.availableModels = [modelFixture("gpt-5.5", "priority")];
-
-    const model = toolbarViewModel({
-      state,
-      snapshot: runtimeSnapshotForChatState({ state }),
-      connected: true,
-      turnBusy: false,
-      vaultPath: "/vault",
-      configuredCommand: "codex",
-      archiveConfirmThreadId: null,
-      archiveExportEnabled: true,
-      modelChoices: [],
-      effortChoices: [],
-      renameState: () => null,
-    });
-
-    expect(model.fastActive).toBe(true);
-    expect(model.newChatDisabled).toBe(false);
   });
 
   it("builds composer meta from context and runtime state", () => {
@@ -211,14 +183,14 @@ describe("chat view model", () => {
     expect(effortStatusLines(state, snapshot)).toContain("Supported: high");
   });
 
-  it("builds runtime toolbar choices from immutable chat state snapshots", () => {
+  it("builds runtime composer choices from immutable chat state snapshots", () => {
     const state = createChatState();
     state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
     const selectedModels: (string | null)[] = [];
     const selectedEfforts: string[] = [];
 
-    const choices = runtimeToolbarChoices({
+    const choices = runtimeComposerChoices({
       state,
       snapshot: runtimeSnapshotForChatState({ state }),
       setRequestedModel: (model) => {

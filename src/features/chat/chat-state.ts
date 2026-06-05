@@ -78,7 +78,6 @@ export interface ChatState {
   historyCursor: string | null;
   loadingHistory: boolean;
   composerDraft: string;
-  runtimePicker: "model" | "effort" | null;
   availableModels: readonly Model[];
   availableSkills: readonly SkillMetadata[];
   reportedLogs: ReadonlySet<string>;
@@ -159,7 +158,7 @@ export type ChatAction =
     }
   | {
       type: "ui/panel-set";
-      panel: "history" | "status-panel" | "model" | "effort" | null;
+      panel: "history" | "status-panel" | null;
       toggle?: boolean;
     }
   | { type: "ui/messages-pinned-set"; pinned: boolean }
@@ -562,7 +561,6 @@ export function clearConnectionScopedState(state: ChatState): ChatState {
     availableModels: [],
     availableSkills: [],
     appServerDiagnostics: createAppServerDiagnostics(),
-    runtimePicker: null,
   });
 }
 
@@ -635,9 +633,8 @@ function initialComposerState(): Pick<
   };
 }
 
-function initialPanelUiState(): Pick<ChatState, "runtimePicker" | "openDetails"> {
+function initialPanelUiState(): Pick<ChatState, "openDetails"> {
   return {
-    runtimePicker: null,
     openDetails: new Set(),
   };
 }
@@ -723,19 +720,14 @@ function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string
   return next;
 }
 
-function setPanelState(state: ChatState, panel: "history" | "status-panel" | "model" | "effort" | null, toggle: boolean): ChatState {
-  const currentPanel = state.openDetails.has("history")
-    ? "history"
-    : state.openDetails.has("status-panel")
-      ? "status-panel"
-      : state.runtimePicker;
+function setPanelState(state: ChatState, panel: "history" | "status-panel" | null, toggle: boolean): ChatState {
+  const currentPanel = state.openDetails.has("history") ? "history" : state.openDetails.has("status-panel") ? "status-panel" : null;
   const nextPanel = toggle && currentPanel === panel ? null : panel;
   return patchChatState(state, {
     openDetails:
       nextPanel === "history" || nextPanel === "status-panel"
         ? new Set([nextPanel])
         : new Set([...state.openDetails].filter((key) => key !== "history" && key !== "status-panel")),
-    runtimePicker: nextPanel === "model" || nextPanel === "effort" ? nextPanel : null,
   });
 }
 

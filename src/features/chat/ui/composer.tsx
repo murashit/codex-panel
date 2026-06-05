@@ -3,8 +3,7 @@ import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../composer/suggestions";
-import type { ComposerMetaViewModel } from "../view-model";
-import type { ToolbarChoice } from "../toolbar-model";
+import type { ComposerMetaViewModel, RuntimeChoice } from "../view-model";
 import { IconButton } from "../../../shared/ui/components";
 import { renderUiRoot } from "../../../shared/ui/ui-root";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
@@ -421,7 +420,7 @@ function ComposerMetaChoicePopover({
   onClose,
 }: {
   kind: ComposerMetaPickerKind;
-  choices: ToolbarChoice[];
+  choices: RuntimeChoice[];
   left: number;
   onClose: () => void;
 }): UiNode {
@@ -437,7 +436,7 @@ function ComposerMetaChoicePopover({
   );
 }
 
-function ComposerMetaChoice({ choice, onClose }: { choice: ToolbarChoice; onClose: () => void }): UiNode {
+function ComposerMetaChoice({ choice, onClose }: { choice: RuntimeChoice; onClose: () => void }): UiNode {
   const onSelect = () => {
     if (choice.disabled) return;
     choice.onClick();

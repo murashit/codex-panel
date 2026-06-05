@@ -290,13 +290,11 @@ describe("chatReducer", () => {
     let state = createChatState();
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "history" });
-    state = chatReducer(state, { type: "ui/panel-set", panel: "model" });
-    expect(state.openDetails.size).toBe(0);
-    expect(state.runtimePicker).toBe("model");
+    expect(state.openDetails.has("history")).toBe(true);
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "status-panel" });
+    expect(state.openDetails.has("history")).toBe(false);
     expect(state.openDetails.has("status-panel")).toBe(true);
-    expect(state.runtimePicker).toBeNull();
   });
 
   it("updates remembered details and user input drafts through typed UI actions", () => {

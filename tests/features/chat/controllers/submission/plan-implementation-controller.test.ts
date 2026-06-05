@@ -70,13 +70,13 @@ describe("PlanImplementationController", () => {
     const { controller, ensureConnected, sendTurnText, stateStore } = createController();
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);
-    stateStore.dispatch({ type: "ui/panel-set", panel: "model" });
+    stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
 
     await controller.implement(plan);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(stateStore.getState().selectedCollaborationMode).toBe("default");
-    expect(stateStore.getState().runtimePicker).toBeNull();
+    expect(stateStore.getState().openDetails.has("status-panel")).toBe(false);
     expect(sendTurnText).toHaveBeenCalledWith("Please implement this plan.");
   });
 

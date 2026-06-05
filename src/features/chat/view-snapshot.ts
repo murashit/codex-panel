@@ -38,7 +38,6 @@ export function toolbarSlotSnapshot(state: ChatState, connected: boolean): ChatP
     state.requestedApprovalsReviewer,
     state.requestedModel,
     state.requestedReasoningEffort,
-    state.runtimePicker,
     openDetailsSignature(state.openDetails),
     state.threadsLoaded,
     threadListSignature(state.listedThreads),

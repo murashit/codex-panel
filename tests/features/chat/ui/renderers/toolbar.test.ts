@@ -18,10 +18,9 @@ describe("toolbar renderer decisions", () => {
     const parent = document.createElement("div");
     const startNewThread = vi.fn();
     const toggleHistory = vi.fn();
-    const toggleAutoReview = vi.fn();
     const baseModel = toolbarModel();
 
-    renderToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleHistory, toggleAutoReview }));
+    renderToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleHistory }));
 
     const navHeader = parent.querySelector(".codex-panel__toolbar-primary");
     expect(navHeader?.classList.contains("nav-header")).toBe(true);
@@ -32,12 +31,11 @@ describe("toolbar renderer decisions", () => {
     expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
       "Show thread list",
       "Start new chat",
-      "Toggle plan mode",
-      "Toggle auto-review",
-      "Toggle fast mode",
-      "Change model and reasoning effort",
       "Show panel menu",
     ]);
+    expect(parent.querySelector(".codex-panel__plan-toggle")).toBeNull();
+    expect(parent.querySelector(".codex-panel__auto-review-toggle")).toBeNull();
+    expect(parent.querySelector(".codex-panel__runtime-model")).toBeNull();
     const newChatButton = parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat");
     expect(newChatButton?.getAttribute("aria-label")).toBe("Start new chat");
     expect(newChatButton?.dataset["icon"]).toBe("messages-square");
@@ -59,27 +57,6 @@ describe("toolbar renderer decisions", () => {
     expect(historyButton?.classList.contains("clickable-icon")).toBe(true);
     historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
-    const planButton = parent.querySelector<HTMLButtonElement>(".codex-panel__plan-toggle");
-    expect(planButton?.getAttribute("aria-label")).toBe("Toggle plan mode");
-    expect(planButton?.dataset["icon"]).toBe("list-todo");
-    expect(planButton?.getAttribute("aria-pressed")).toBe("false");
-    expect(planButton?.classList.contains("codex-panel__runtime-icon")).toBe(true);
-    const autoReviewButton = parent.querySelector<HTMLButtonElement>(".codex-panel__auto-review-toggle");
-    expect(autoReviewButton?.getAttribute("aria-label")).toBe("Toggle auto-review");
-    expect(autoReviewButton?.getAttribute("aria-pressed")).toBe("false");
-    expect(autoReviewButton?.classList.contains("codex-panel__runtime-icon")).toBe(true);
-    expect(autoReviewButton?.classList.contains("nav-action-button")).toBe(true);
-    expect(autoReviewButton?.classList.contains("codex-panel-ui__toolbar-action")).toBe(true);
-    expect(autoReviewButton?.classList.contains("codex-panel-ui__toolbar-control")).toBe(false);
-    expect(autoReviewButton?.classList.contains("clickable-icon")).toBe(true);
-    autoReviewButton?.click();
-    expect(toggleAutoReview).toHaveBeenCalled();
-
-    parent.empty();
-    renderToolbar(parent, toolbarModel({ autoReviewActive: true }), toolbarActions());
-    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Show panel menu");
-    expect(parent.querySelector(".codex-panel__auto-review-toggle")?.getAttribute("aria-pressed")).toBe("true");
-
     parent.empty();
     renderToolbar(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat")?.disabled).toBe(true);
@@ -90,36 +67,6 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(true);
     expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Hide panel menu");
     expect(parent.querySelector(".codex-panel__status-menu-toggle")?.classList.contains("is-active")).toBe(true);
-    expect(parent.querySelector(".codex-panel__runtime-model")?.getAttribute("aria-label")).toBe("Change model and reasoning effort");
-    expect(parent.querySelector<HTMLElement>(".codex-panel__runtime-model")?.dataset["icon"]).toBe("bot");
-    expect(parent.querySelector(".codex-panel__runtime-model")?.classList.contains("is-active")).toBe(true);
-    expect(parent.querySelector(".codex-panel__runtime-model")?.classList.contains("nav-action-button")).toBe(true);
-  });
-
-  it("keeps frequently changed effort choices first inside the runtime menu", () => {
-    const parent = document.createElement("div");
-
-    renderToolbar(
-      parent,
-      toolbarModel({
-        modelChoices: [{ label: "gpt-5.5", selected: true, onClick: vi.fn() }],
-        effortChoices: [{ label: "high", selected: true, onClick: vi.fn() }],
-      }),
-      toolbarActions(),
-    );
-
-    expect([...parent.querySelectorAll(".codex-panel__runtime-picker-label")].map((label) => label.textContent)).toEqual([
-      "Reasoning effort",
-      "Model",
-    ]);
-    expect([...parent.querySelectorAll(".codex-panel__runtime-choice")].map((choice) => choice.textContent)).toEqual(["high", "gpt-5.5"]);
-    for (const choice of parent.querySelectorAll(".codex-panel__runtime-choice")) {
-      expect(choice.getAttribute("role")).toBe("option");
-      expect(choice.getAttribute("aria-selected")).toBe("true");
-      expect(choice.querySelector<HTMLElement>(".codex-panel__toolbar-panel-check")).toBeNull();
-      expect(choice.classList.contains("selected")).toBe(false);
-      expect(choice.classList.contains("is-selected")).toBe(true);
-    }
   });
 
   it("keeps context out of the toolbar and Codex limits inside the status menu", () => {
@@ -381,16 +328,10 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     newChatDisabled: false,
     historyOpen: false,
     statusPanelOpen: false,
-    runtimeOpen: true,
-    planActive: false,
-    autoReviewActive: false,
-    fastActive: false,
     rateLimit: null,
     configSections: [],
-    openPanel: "runtime",
+    openPanel: null,
     threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
-    modelChoices: [{ label: "Default", selected: true, onClick: vi.fn() }],
-    effortChoices: [{ label: "Default", selected: true, onClick: vi.fn() }],
     connectLabel: "Reconnect",
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
     ...overrides,
@@ -401,11 +342,7 @@ function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> 
   return {
     toggleHistory: vi.fn(),
     startNewThread: vi.fn(),
-    toggleAutoReview: vi.fn(),
     toggleStatusPanel: vi.fn(),
-    togglePlan: vi.fn(),
-    toggleFast: vi.fn(),
-    toggleRuntime: vi.fn(),
     connect: vi.fn(),
     refreshStatus: vi.fn(),
     resumeThread: vi.fn(),

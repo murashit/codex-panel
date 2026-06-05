@@ -1,14 +1,6 @@
 import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/view";
 
-export type ToolbarPanelKind = "history" | "status" | "runtime";
-
-export interface ToolbarChoice {
-  label: string;
-  selected?: boolean;
-  disabled?: boolean;
-  meta?: string;
-  onClick: () => void;
-}
+export type ToolbarPanelKind = "history" | "status";
 
 export interface ToolbarThreadRow {
   title: string;
@@ -38,16 +30,10 @@ export interface ToolbarViewModel {
   newChatDisabled: boolean;
   historyOpen: boolean;
   statusPanelOpen: boolean;
-  runtimeOpen: boolean;
-  planActive: boolean;
-  autoReviewActive: boolean;
-  fastActive: boolean;
   rateLimit: RateLimitSummary | null;
   configSections: EffectiveConfigSection[];
   openPanel: ToolbarPanelKind | null;
   threads: ToolbarThreadRow[];
-  modelChoices: ToolbarChoice[];
-  effortChoices: ToolbarChoice[];
   connectLabel: string;
   diagnostics: ToolbarDiagnosticSection[];
 }

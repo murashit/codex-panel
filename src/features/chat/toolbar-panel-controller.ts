@@ -44,11 +44,6 @@ export class ToolbarPanelController {
     this.host.scheduleRender();
   }
 
-  toggleRuntime(picker: NonNullable<ChatState["runtimePicker"]>): void {
-    this.dispatch({ type: "ui/panel-set", panel: picker, toggle: true });
-    this.host.scheduleRender();
-  }
-
   closeForThreadSelection(): void {
     this.archiveConfirmThreadId = null;
   }
@@ -90,7 +85,7 @@ export class ToolbarPanelController {
   }
 
   private hasOpenPanel(): boolean {
-    return this.state.openDetails.has("history") || this.state.openDetails.has("status-panel") || this.state.runtimePicker !== null;
+    return this.state.openDetails.has("history") || this.state.openDetails.has("status-panel");
   }
 
   private close(): void {

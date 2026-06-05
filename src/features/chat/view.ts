@@ -26,7 +26,7 @@ import {
   composerPlaceholder as buildComposerPlaceholder,
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
-  runtimeToolbarChoices,
+  runtimeComposerChoices,
   runtimeSnapshotForChatState,
   statusSummaryLines as buildStatusSummaryLines,
   toolbarViewModel as buildToolbarViewModel,
@@ -558,7 +558,7 @@ export class CodexChatView extends ItemView {
   private composerMetaViewModel() {
     return {
       ...buildComposerMetaViewModel(this.state, this.runtimeSnapshot()),
-      ...runtimeToolbarChoices({
+      ...runtimeComposerChoices({
         state: this.state,
         snapshot: this.runtimeSnapshot(),
         setRequestedModel: (model) => void this.setRequestedModelFromUi(model),
@@ -587,14 +587,8 @@ export class CodexChatView extends ItemView {
       toggleHistory: () => {
         this.toolbarPanels.toggleHistory();
       },
-      toggleAutoReview: () => void this.runtimeSettings.toggleAutoReview(),
       toggleStatusPanel: () => {
         this.toolbarPanels.toggleStatus();
-      },
-      togglePlan: () => void this.runtimeSettings.toggleCollaborationMode(),
-      toggleFast: () => void this.runtimeSettings.toggleFastMode(),
-      toggleRuntime: () => {
-        this.toolbarPanels.toggleRuntime("model");
       },
       connect: () => void this.reconnectActions.reconnectFromToolbar(),
       refreshStatus: () => void this.refreshStatusPanel(),
@@ -627,12 +621,6 @@ export class CodexChatView extends ItemView {
       configuredCommand: this.plugin.settings.codexPath,
       archiveConfirmThreadId: this.toolbarPanels.archiveConfirmId(),
       archiveExportEnabled: this.plugin.settings.archiveExportEnabled,
-      ...runtimeToolbarChoices({
-        state: this.state,
-        snapshot: this.runtimeSnapshot(),
-        setRequestedModel: (model) => void this.setRequestedModelFromUi(model),
-        setRequestedReasoningEffort: (effort) => void this.setRequestedReasoningEffortFromUi(effort),
-      }),
       renameState: (threadId) => this.threadRename.editState(threadId),
     });
   }

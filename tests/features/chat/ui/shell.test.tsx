@@ -70,7 +70,7 @@ describe("ChatPanelShell", () => {
 
     await act(async () => {
       store.dispatch({ type: "status/set", status: "Working" });
-      store.dispatch({ type: "ui/panel-set", panel: "model" });
+      store.dispatch({ type: "ui/panel-set", panel: "status-panel" });
       store.dispatch({ type: "system/message-added", item: { id: "system-1", kind: "system", role: "system", text: "Model set." } });
       await settleShellEffects();
     });

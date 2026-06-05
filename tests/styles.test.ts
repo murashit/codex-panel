@@ -98,11 +98,9 @@ describe("chat toolbar CSS", () => {
   it("keeps chat thread row actions inset from the row edge", () => {
     const threadList = /\.codex-panel__threads \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const navRow = /\.codex-panel-ui__nav-row \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
-    const runtimePicker = /\.codex-panel__runtime-picker \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const statusPanelItems = /\.codex-panel__status-panel-items \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(threadList).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
-    expect(runtimePicker).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
     expect(statusPanelItems).toContain("gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap))");
     expect(navRow).toContain("--codex-panel-nav-item-background-hover: transparent");
     expect(navRow).toContain("padding-inline-end: var(--size-4-2)");

@@ -116,7 +116,6 @@ describe("ChatConnectionController", () => {
       threadsLoaded: false,
       availableModels: [],
       availableSkills: [],
-      runtimePicker: null,
     });
   });
 

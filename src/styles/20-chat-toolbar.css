@@ -16,16 +16,6 @@
   white-space: nowrap;
 }
 
-.codex-panel__runtime-icon {
-  flex: 0 0 auto;
-}
-
-.codex-panel__runtime-picker {
-  display: flex;
-  flex-direction: column;
-  gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap));
-}
-
 .codex-panel__toolbar-panel-item {
   display: flex;
   align-items: center;
@@ -75,11 +65,4 @@
   background: transparent;
   box-shadow: none;
   outline: none;
-}
-
-.codex-panel__runtime-picker-label {
-  padding: var(--size-4-1) var(--size-4-2) var(--size-2-1);
-  color: var(--text-faint);
-  font-size: var(--codex-panel-toolbar-meta-size);
-  font-weight: var(--font-medium);
 }
