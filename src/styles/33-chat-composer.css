@@ -69,7 +69,6 @@
   box-sizing: border-box;
   display: flex;
   min-width: 0;
-  padding-inline-start: calc(var(--size-4-1) / 2);
   gap: var(--size-4-2);
   align-items: center;
   overflow: hidden;
@@ -218,7 +217,6 @@
 
 .codex-panel__composer-meta-fatal {
   min-width: 0;
-  padding-inline-start: calc(var(--size-4-1) / 2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
