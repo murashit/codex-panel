@@ -50,11 +50,14 @@ export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandH
         debugText: null,
       };
 
-      const popover = new SelectionRewritePopover({
+      let popover: SelectionRewritePopover | null = null;
+      popover = new SelectionRewritePopover({
         codexPath: plugin.settings.codexPath,
         cwd: plugin.vaultPath,
         editor,
-        onClose: () => activePopovers.delete(popover),
+        onClose: () => {
+          if (popover) activePopovers.delete(popover);
+        },
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,
         state: rewriteState,
