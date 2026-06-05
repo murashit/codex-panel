@@ -19,6 +19,7 @@ export interface SlashCommandThreadPort {
   rollbackThread: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   renameThread: (threadId: string, name: string) => Promise<void>;
+  reconnect: () => Promise<void>;
 }
 
 export interface SlashCommandRuntimePort {
@@ -53,18 +54,23 @@ export class SlashCommandController {
   constructor(private readonly host: SlashCommandControllerHost) {}
 
   async execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined> {
-    const client = this.host.currentClient();
-    if (!client) return;
     const state = this.host.state.snapshot();
+    const client = this.host.currentClient();
+    if (!client && command !== "reconnect") return;
     return runSlashCommand(command, args, {
       activeThreadId: state.activeThreadId,
       listedThreads: state.listedThreads,
       startNewThread: () => this.host.threads.startNewThread(),
       resumeThread: (threadId) => this.host.threads.resumeThread(threadId),
-      referThread: (thread, message) => this.referencedThreadInput(client, thread, message),
+      reconnect: () => this.host.threads.reconnect(),
+      referThread: (thread, message) => {
+        if (!client) return Promise.resolve(null);
+        return this.referencedThreadInput(client, thread, message);
+      },
       forkThread: (threadId) => this.host.threads.forkThread(threadId),
       rollbackThread: (threadId) => this.host.threads.rollbackThread(threadId),
       compactThread: async (threadId) => {
+        if (!client) return;
         await client.compactThread(threadId);
       },
       archiveThread: (threadId) => this.host.threads.archiveThread(threadId),

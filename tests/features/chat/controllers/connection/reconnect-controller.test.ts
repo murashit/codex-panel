@@ -49,7 +49,7 @@ describe("ChatReconnectController", () => {
     const { host, stateStore } = createHost();
     const controller = new ChatReconnectController(host);
 
-    await controller.reconnectFromToolbar();
+    await controller.reconnectPanel();
 
     expect(stateStore.getState().openDetails.size).toBe(0);
     expect(host.invalidateConnectionWork).toHaveBeenCalledOnce();
@@ -69,7 +69,7 @@ describe("ChatReconnectController", () => {
     });
     const controller = new ChatReconnectController(host);
 
-    await controller.reconnectFromToolbar();
+    await controller.reconnectPanel();
 
     expect(host.addSystemMessage).toHaveBeenCalledWith("resume failed");
   });

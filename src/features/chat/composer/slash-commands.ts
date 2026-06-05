@@ -32,6 +32,13 @@ export const SLASH_COMMANDS = [
     detail: "Resume a recent Codex thread.",
   },
   {
+    command: "/reconnect",
+    usage: "/reconnect",
+    argsKind: "none",
+    surface: "panelAction",
+    detail: "Reconnect to Codex app-server and resume the active thread.",
+  },
+  {
     command: "/refer",
     usage: "/refer <thread> <message>",
     argsKind: "threadAndMessage",

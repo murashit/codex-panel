@@ -590,7 +590,7 @@ export class CodexChatView extends ItemView {
       toggleStatusPanel: () => {
         this.toolbarPanels.toggleStatus();
       },
-      connect: () => void this.reconnectActions.reconnectFromToolbar(),
+      connect: () => void this.reconnectActions.reconnectPanel(),
       refreshStatus: () => void this.refreshStatusPanel(),
       resumeThread: (threadId) => void this.threadSelection.selectThreadFromToolbar(threadId),
       startArchiveThread: (threadId) => {

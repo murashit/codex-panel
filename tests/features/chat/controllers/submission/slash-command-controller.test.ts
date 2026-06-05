@@ -59,6 +59,7 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     rollbackThread: vi.fn().mockResolvedValue(undefined),
     archiveThread: vi.fn().mockResolvedValue(undefined),
     renameThread: vi.fn().mockResolvedValue(undefined),
+    reconnect: vi.fn().mockResolvedValue(undefined),
     ...threadOverrides,
   };
   const runtime: SlashCommandRuntimePort = {
@@ -126,6 +127,15 @@ describe("SlashCommandController", () => {
 
     expect(compactThread).toHaveBeenCalledWith("thread");
     expect(host.status.setStatus).toHaveBeenCalledWith("Compaction requested.");
+  });
+
+  it("runs reconnect even when there is no current app-server client", async () => {
+    const { host } = createHost({ currentClient: () => null });
+    const controller = new SlashCommandController(host);
+
+    await controller.execute("reconnect", "");
+
+    expect(host.threads.reconnect).toHaveBeenCalledOnce();
   });
 
   it("reports unreadable referenced threads", async () => {

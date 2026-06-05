@@ -24,6 +24,7 @@ export interface SlashCommandExecutionContext {
   compactThread: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string, saveMarkdown?: boolean) => Promise<void>;
   renameThread: (threadId: string, name: string) => Promise<void>;
+  reconnect: () => Promise<void>;
   toggleFastMode: () => void | Promise<void>;
   toggleCollaborationMode: () => void | Promise<void>;
   toggleAutoReview: () => void | Promise<void>;
@@ -73,6 +74,11 @@ export async function executeSlashCommand(
       return;
     }
     await context.resumeThread(thread.thread.id);
+    return;
+  }
+
+  if (command === "reconnect") {
+    await context.reconnect();
     return;
   }
 

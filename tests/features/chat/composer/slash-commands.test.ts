@@ -20,6 +20,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     compactThread: vi.fn().mockResolvedValue(undefined),
     archiveThread: vi.fn().mockResolvedValue(undefined),
     renameThread: vi.fn().mockResolvedValue(undefined),
+    reconnect: vi.fn().mockResolvedValue(undefined),
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
     toggleAutoReview: vi.fn(),
@@ -89,6 +90,14 @@ describe("slash commands", () => {
     await executeSlashCommand("resume", "", ctx);
 
     expect(ctx.resumeThread).toHaveBeenCalledWith("latest");
+  });
+
+  it("reconnects the panel for /reconnect", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("reconnect", "", ctx);
+
+    expect(ctx.reconnect).toHaveBeenCalledOnce();
   });
 
   it("resumes a thread by id argument", async () => {
@@ -363,6 +372,7 @@ describe("slash commands", () => {
         title: "Panel actions",
         rows: expect.arrayContaining([
           { key: "/clear", value: "Clear the current panel and start a fresh Codex thread." },
+          { key: "/reconnect", value: "Reconnect to Codex app-server and resume the active thread." },
           { key: "/archive <thread>", value: "Archive the selected Codex thread." },
           { key: "/rename <thread> <name>", value: "Rename the selected Codex thread." },
         ]),

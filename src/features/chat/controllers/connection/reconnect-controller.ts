@@ -19,7 +19,7 @@ export interface ChatReconnectControllerHost {
 export class ChatReconnectController {
   constructor(private readonly host: ChatReconnectControllerHost) {}
 
-  async reconnectFromToolbar(): Promise<void> {
+  async reconnectPanel(): Promise<void> {
     const threadId = this.host.threadState.activeThreadId();
     this.host.panelState.closePanels();
     this.host.invalidateConnectionWork();
