@@ -256,6 +256,37 @@ describe("chat message CSS", () => {
 });
 
 describe("selection rewrite CSS", () => {
+  it("uses a composer-style instruction frame without the old action stack", () => {
+    const frame = /\.codex-panel-selection-rewrite__composer-frame \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const instruction = /\.codex-panel-selection-rewrite__instruction \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const iconButton = /\.codex-panel-selection-rewrite__icon-button \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(frame).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(frame).toContain("background: var(--background-modifier-form-field)");
+    expect(frame).toContain("border: var(--input-border-width, var(--border-width, 1px)) solid var(--background-modifier-border)");
+    expect(instruction).toContain("min-height: var(--codex-panel-size-user-input-text-min-height)");
+    expect(instruction).toContain("background: transparent");
+    expect(instruction).toContain("border: 0");
+    expect(iconButton).toContain("min-width: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-panel-gap) * 2)");
+    expect(iconButton).toContain("margin: var(--codex-panel-panel-gap)");
+    expect(iconButton).toContain("padding: var(--codex-panel-panel-gap)");
+    expect(styles).not.toContain(".codex-panel-selection-rewrite__controls");
+  });
+
+  it("keeps the apply action inside the selection rewrite result frame", () => {
+    const result = /\.codex-panel-selection-rewrite__result \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const actions = /\.codex-panel-selection-rewrite__result-actions \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const diffBody = /\.codex-panel-selection-rewrite__diff-body \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(result).toContain("grid-template-columns: minmax(0, 1fr) auto");
+    expect(result).toContain("border: var(--codex-panel-border)");
+    expect(result).toContain("background: var(--background-modifier-form-field)");
+    expect(actions).toContain("padding: 0");
+    expect(diffBody).toContain("margin: 0");
+    expect(diffBody).toContain("border-radius: 0");
+    expect(diffBody).toContain("background: transparent");
+  });
+
   it("aligns generation status text with the instruction input text inset", () => {
     const status = /\.codex-panel-selection-rewrite__status \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 

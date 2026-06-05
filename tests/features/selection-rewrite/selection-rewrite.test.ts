@@ -298,8 +298,30 @@ describe("selection rewrite popover", () => {
 
     openPopover(popover);
     expect(document.querySelector(".codex-panel-selection-rewrite__instruction")).not.toBeNull();
+    expect(document.querySelector<HTMLButtonElement>('button[aria-label="Cancel"]')).toBeNull();
 
     closePopover(popover);
+
+    expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("closes from outside pointerdown without closing internal controls", () => {
+    const onClose = vi.fn();
+    const popover = new SelectionRewritePopover(popoverOptions({ onClose }));
+
+    openPopover(popover);
+    const generate = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]'));
+    void act(() => {
+      generate.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    });
+
+    expect(document.querySelector(".codex-panel-selection-rewrite")).not.toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+
+    void act(() => {
+      document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    });
 
     expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
     expect(onClose).toHaveBeenCalledOnce();

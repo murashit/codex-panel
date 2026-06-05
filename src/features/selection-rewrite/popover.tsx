@@ -91,6 +91,9 @@ export class SelectionRewritePopover {
         this.cancel();
       }
     });
+    this.addDomListener(activeDocument, "pointerdown", (event) => {
+      if (!this.elements?.root.contains(event.target as Node | null)) this.cancel();
+    });
 
     this.setStatus("");
     this.syncInstructionHeight();
@@ -252,7 +255,7 @@ export class SelectionRewritePopover {
   private syncInstructionHeight(): void {
     const instruction = this.elements?.instruction ?? null;
     syncTextareaHeight(instruction, {
-      minHeightFallback: 56,
+      minHeightFallback: 26,
       maxHeightFallback: instruction ? Math.min(180, instruction.win.innerHeight * 0.3) : 180,
     });
   }
@@ -283,9 +286,6 @@ export class SelectionRewritePopover {
         }}
         onApply={() => {
           this.apply();
-        }}
-        onCancel={() => {
-          this.cancel();
         }}
         onGenerate={() => void this.generate()}
         onInstructionInput={(value) => {
@@ -455,7 +455,6 @@ interface SelectionRewritePopoverViewProps {
   instructionRef: (element: HTMLTextAreaElement | null) => void;
   onApply: () => void;
   onApplyKeyDown: (event: TargetedKeyboardEvent<HTMLButtonElement>) => void;
-  onCancel: () => void;
   onGenerate: () => void;
   onInstructionInput: (value: string) => void;
   onInstructionKeyDown: (event: TargetedKeyboardEvent<HTMLTextAreaElement>) => void;
@@ -474,7 +473,6 @@ function SelectionRewritePopoverView({
   instructionRef,
   onApply,
   onApplyKeyDown,
-  onCancel,
   onGenerate,
   onInstructionInput,
   onInstructionKeyDown,
@@ -484,18 +482,18 @@ function SelectionRewritePopoverView({
   return (
     <>
       <div className="codex-panel-selection-rewrite__prompt-row">
-        <textarea
-          ref={instructionRef}
-          className="codex-panel-ui__text-input codex-panel-selection-rewrite__instruction"
-          disabled={generating}
-          onInput={(event) => {
-            onInstructionInput(event.currentTarget.value);
-          }}
-          onKeyDown={onInstructionKeyDown}
-          placeholder="How should Codex rewrite this selection?"
-          value={instruction}
-        />
-        <div className="codex-panel-ui__action-stack codex-panel-selection-rewrite__controls">
+        <div className="codex-panel-selection-rewrite__composer-frame">
+          <textarea
+            ref={instructionRef}
+            className="codex-panel-ui__text-input codex-panel-selection-rewrite__instruction"
+            disabled={generating}
+            onInput={(event) => {
+              onInstructionInput(event.currentTarget.value);
+            }}
+            onKeyDown={onInstructionKeyDown}
+            placeholder="How should Codex rewrite this selection?"
+            value={instruction}
+          />
           <IconButton
             icon="sparkles"
             label={hasReplacement ? "Regenerate" : "Generate"}
@@ -503,29 +501,25 @@ function SelectionRewritePopoverView({
             disabled={generating || !hasInstruction}
             onClick={onGenerate}
           />
-          <IconButton
-            icon="x"
-            label="Cancel"
-            className="clickable-icon codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button"
-            onClick={onCancel}
-          />
         </div>
       </div>
       <SelectionRewriteStatus status={status} />
       <pre className={`codex-panel-selection-rewrite__stream-preview${streamPreview ? "" : " is-hidden"}`}>{streamPreview}</pre>
-      <div className={`codex-panel-selection-rewrite__result-row${hasReplacement ? "" : " is-hidden"}`}>
+      <div className={`codex-panel-selection-rewrite__result${hasReplacement ? "" : " is-hidden"}`}>
         <div className="codex-panel-selection-rewrite__diff">{diff ? <SelectionRewriteDiff diff={diff} /> : null}</div>
-        <IconButton
-          buttonRef={applyButtonRef}
-          icon="check"
-          label="Apply"
-          className={`clickable-icon codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button${
-            hasReplacement ? "" : " is-hidden"
-          }`}
-          disabled={generating || !hasReplacement}
-          onClick={onApply}
-          onKeyDown={onApplyKeyDown}
-        />
+        <div className="codex-panel-selection-rewrite__result-actions">
+          <IconButton
+            buttonRef={applyButtonRef}
+            icon="check"
+            label="Apply"
+            className={`clickable-icon codex-panel-ui__icon-button codex-panel-selection-rewrite__icon-button${
+              hasReplacement ? "" : " is-hidden"
+            }`}
+            disabled={generating || !hasReplacement}
+            onClick={onApply}
+            onKeyDown={onApplyKeyDown}
+          />
+        </div>
       </div>
       {debugText ? (
         <details className="codex-panel-selection-rewrite__debug">
