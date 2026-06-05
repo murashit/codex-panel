@@ -93,7 +93,7 @@ function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkIte
           context.onDetailsToggle?.(detailsKey, nextOpen);
         }}
       >
-        <summary>Details</summary>
+        <summary tabIndex={-1}>Details</summary>
         <dl className="codex-panel__meta-grid">
           <MetaPair name="tool" value={agentActivityMetaLabel(item.tool)} />
           <MetaPair name="status" value={item.status} />

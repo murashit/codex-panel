@@ -48,6 +48,7 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("123");
     expect(topLevelDetailsSummaries(element)).toEqual(["github.pull_request_read"]);
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["github.pull_request_read"]);
+    expect(element.querySelector<HTMLElement>("details summary")?.tabIndex).toBe(-1);
     expect(element.textContent).not.toContain("Details");
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([
       "Arguments JSON",
@@ -842,6 +843,7 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__agent-status")?.textContent).toBe("completed: Done");
     expect(element.querySelector(".codex-panel__agent-status")?.textContent).not.toContain("a".repeat(180));
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details"]);
+    expect(element.querySelector<HTMLElement>("details summary")?.tabIndex).toBe(-1);
     expect(element.textContent).toContain("Agent output 019e061e");
     expect(element.textContent).toContain(longMessage);
     const details = element.querySelector("details");

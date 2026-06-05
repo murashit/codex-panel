@@ -107,7 +107,7 @@ function TurnDiffHeader({
 function ChangedFiles({ files }: { files: string[] }): UiNode {
   return (
     <details className="codex-panel-chat-turn-diff__files">
-      <summary>Changed files</summary>
+      <summary tabIndex={-1}>Changed files</summary>
       <ul>
         {files.map((file) => (
           <li key={file}>{file}</li>

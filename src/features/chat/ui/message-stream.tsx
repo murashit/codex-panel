@@ -224,7 +224,7 @@ function ActivityGroup({
         context.onDetailsToggle?.(detailsKey, nextOpen);
       }}
     >
-      <summary>{group.summary}</summary>
+      <summary tabIndex={-1}>{group.summary}</summary>
       {group.items.map((item) => (
         <Fragment key={item.id}>{displayItemNode(item, context)}</Fragment>
       ))}
@@ -411,7 +411,7 @@ function CollapsibleMessageContent({ item, context }: { item: RenderableTextItem
           context.onDetailsToggle?.(key, true);
         }}
       >
-        <summary>Show more</summary>
+        <summary tabIndex={-1}>Show more</summary>
       </details>
     </div>
   );
@@ -488,7 +488,7 @@ function EditedFiles({ item, context }: { item: Extract<DisplayItem, { kind: "me
   return (
     <div className="codex-panel__edited-files">
       <details className="codex-panel__edited-files-details">
-        <summary>
+        <summary tabIndex={-1}>
           <span className="codex-panel__edited-files-summary">
             <span>{label}</span>
             {item.turnDiff && item.turnId && context.activeThreadId && context.openTurnDiff ? (
@@ -554,7 +554,7 @@ function AutoReviewSummaries({ summaries }: { summaries: string[] }): UiNode {
   const label = summaries.length === 1 ? "Auto-reviewed 1 request" : `Auto-reviewed ${String(summaries.length)} requests`;
   return (
     <details className="codex-panel__auto-reviews">
-      <summary>{label}</summary>
+      <summary tabIndex={-1}>{label}</summary>
       <ul>
         {summaries.map((summary, index) => (
           <li key={`${String(index)}:${summary}`}>{summary}</li>
@@ -644,7 +644,7 @@ function RememberedDetails({
         context.onDetailsToggle?.(detailsKey, event.currentTarget.open);
       }}
     >
-      <summary>{summary}</summary>
+      <summary tabIndex={-1}>{summary}</summary>
       {children}
     </details>
   );

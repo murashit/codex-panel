@@ -84,9 +84,9 @@ describe("message stream rendering and message actions", () => {
       "activity:turn-t1-activity",
       "item:a1",
     ]);
-    expect(parent.querySelector('[data-codex-panel-block-key="activity:turn-t1-activity"] summary')?.textContent).toBe(
-      "Work details: hook",
-    );
+    const activitySummary = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="activity:turn-t1-activity"] summary');
+    expect(activitySummary?.textContent).toBe("Work details: hook");
+    expect(activitySummary?.tabIndex).toBe(-1);
     unmountUiRootInAct(parent);
   });
 
@@ -1183,9 +1183,12 @@ describe("message stream rendering and message actions", () => {
 
     const assistant = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
     const button = assistant.querySelector<HTMLButtonElement>(".codex-panel__open-turn-diff");
+    const summary = assistant.querySelector<HTMLElement>(".codex-panel__edited-files summary");
 
     expect(assistant.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
+    expect(summary?.tabIndex).toBe(-1);
     expect(button?.getAttribute("aria-label")).toBe("View diff");
+    expect(button?.tabIndex).toBe(0);
     expect(button?.textContent).toContain("View diff");
     button?.click();
     expect(openTurnDiff).toHaveBeenCalledWith({
@@ -1255,9 +1258,11 @@ describe("message stream rendering and message actions", () => {
     });
 
     const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
+    const summary = user.querySelector<HTMLElement>(".codex-panel__mentioned-files summary");
 
     expect(user.querySelector(".codex-panel__message-content")?.textContent).toBe("Read [[Alpha]].");
-    expect(user.querySelector(".codex-panel__mentioned-files summary")?.textContent).toBe("Mentioned 1 file");
+    expect(summary?.textContent).toBe("Mentioned 1 file");
+    expect(summary?.tabIndex).toBe(-1);
     expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("Alpha");
     expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("thoughts/Alpha.md");
   });

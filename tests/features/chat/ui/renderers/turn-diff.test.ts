@@ -28,7 +28,9 @@ describe("chat turn diff view decisions", () => {
 
     expect(parent.querySelector(".codex-panel-chat-turn-diff__title")?.textContent).toBe("Turn diff");
     expect(parent.querySelector(".codex-panel-chat-turn-diff__meta")?.textContent).toContain("019e061e");
-    expect(parent.querySelector(".codex-panel-chat-turn-diff__files summary")?.textContent).toBe("Changed files");
+    const changedFilesSummary = parent.querySelector<HTMLElement>(".codex-panel-chat-turn-diff__files summary");
+    expect(changedFilesSummary?.textContent).toBe("Changed files");
+    expect(changedFilesSummary?.tabIndex).toBe(-1);
     expect(parent.querySelector(".codex-panel-chat-turn-diff__files")?.textContent).toContain("src/main.ts");
     expect(parent.querySelector(".codex-panel-diff__line--file")?.textContent).toBe("src/main.ts");
     expect(parent.textContent).not.toContain("diff --git");

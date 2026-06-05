@@ -148,7 +148,7 @@ function ApprovalDetails({
         actions.setOpenDetail?.(key, event.currentTarget.open);
       }}
     >
-      <summary>Request details</summary>
+      <summary tabIndex={-1}>Request details</summary>
       <dl className="codex-panel__meta-grid">
         {approvalDetails(approval).map((row) => (
           <MetaPair key={`${row.key}:${row.value}`} name={row.key} value={row.value} />

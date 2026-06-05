@@ -66,7 +66,9 @@ function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: T
 function ToolResultHeader({ view }: { view: ToolResultView }): UiNode {
   const content = <span className="codex-panel__message-role codex-panel__tool-result-label">{view.label}</span>;
   return view.details.length > 0 ? (
-    <summary className="codex-panel__tool-result-header">{content}</summary>
+    <summary className="codex-panel__tool-result-header" tabIndex={-1}>
+      {content}
+    </summary>
   ) : (
     <div className="codex-panel__tool-result-header">{content}</div>
   );
