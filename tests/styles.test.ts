@@ -123,9 +123,11 @@ describe("chat toolbar CSS", () => {
   });
 
   it("aligns composer status text with the input text inset", () => {
+    const composerFrame = /\.codex-panel__composer-frame \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const composerMetaStatus = /\.codex-panel__composer-meta-status \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const composerMetaFatal = /\.codex-panel__composer-meta-fatal \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
+    expect(composerFrame).toContain("background: var(--background-modifier-form-field)");
     expect(composerMetaStatus).toContain("position: relative");
     expect(composerMetaStatus).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");
     expect(composerMetaFatal).toContain("padding-inline-start: calc(var(--size-4-1) / 2)");

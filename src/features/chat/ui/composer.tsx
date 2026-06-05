@@ -129,28 +129,30 @@ function ComposerShell({
 
   return (
     <div className="codex-panel__composer">
-      <textarea
-        ref={composerRef}
-        className="codex-panel-ui__text-input codex-panel__composer-input"
-        placeholder={sendMode.canInterrupt ? "Add steering message..." : normalPlaceholder}
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={suggestions.length > 0 ? "true" : "false"}
-        aria-controls={`${viewId}-composer-suggestions`}
-        aria-activedescendant={selectedSuggestionId}
-        value={draft}
-        onInput={(event) => {
-          if (syncComposerHeight(event.currentTarget)) callbacks.onComposerResize();
-          callbacks.onInput(event.currentTarget.value);
-        }}
-        onKeyUp={callbacks.onUpdateSuggestions}
-        onClick={callbacks.onUpdateSuggestions}
-        onSelect={callbacks.onUpdateSuggestions}
-        onKeyDown={(event) => {
-          callbacks.onKeydown(event);
-        }}
-      />
-      <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} />
+      <div className="codex-panel__composer-frame">
+        <textarea
+          ref={composerRef}
+          className="codex-panel-ui__text-input codex-panel__composer-input"
+          placeholder={sendMode.canInterrupt ? "Add steering message..." : normalPlaceholder}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={suggestions.length > 0 ? "true" : "false"}
+          aria-controls={`${viewId}-composer-suggestions`}
+          aria-activedescendant={selectedSuggestionId}
+          value={draft}
+          onInput={(event) => {
+            if (syncComposerHeight(event.currentTarget)) callbacks.onComposerResize();
+            callbacks.onInput(event.currentTarget.value);
+          }}
+          onKeyUp={callbacks.onUpdateSuggestions}
+          onClick={callbacks.onUpdateSuggestions}
+          onSelect={callbacks.onUpdateSuggestions}
+          onKeyDown={(event) => {
+            callbacks.onKeydown(event);
+          }}
+        />
+        <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} />
+      </div>
       <ComposerSuggestions
         containerRef={suggestionsRef}
         selectedRef={selectedSuggestionRef}

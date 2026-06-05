@@ -1,15 +1,41 @@
 .codex-panel__composer {
   position: relative;
+  padding: var(--codex-panel-section-gap) var(--codex-panel-edge-padding-x)
+    calc(var(--codex-panel-section-gap) + var(--codex-panel-bottom-safe-area));
+}
+
+.codex-panel__composer-frame {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--codex-panel-control-gap);
-  padding: var(--codex-panel-section-gap) var(--codex-panel-edge-padding-x)
-    calc(var(--codex-panel-section-gap) + var(--codex-panel-bottom-safe-area));
+  min-width: 0;
+  border: var(--input-border-width, var(--border-width, 1px)) solid var(--background-modifier-border);
+  border-radius: var(--input-radius, var(--radius-s));
+  background: var(--background-modifier-form-field);
+}
+
+.codex-panel__composer-frame:focus-within {
+  border-color: var(--background-modifier-border-focus);
+  box-shadow: 0 0 0 var(--input-border-width, var(--border-width, 1px)) var(--background-modifier-border-focus);
 }
 
 .codex-panel__composer-input {
   min-height: var(--codex-panel-composer-min-height);
   max-height: min(var(--codex-panel-size-composer-input-max-height), 40vh);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.codex-panel__composer-input.codex-panel__composer-input:hover,
+.codex-panel__composer-input.codex-panel__composer-input:focus,
+.codex-panel__composer-input.codex-panel__composer-input:focus-visible,
+.codex-panel__composer-input.codex-panel__composer-input:active {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
 }
 
 .codex-panel__composer-action {
@@ -35,6 +61,7 @@
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
   user-select: none;
+  padding: 0 var(--size-4-2) var(--size-4-1);
 }
 
 .codex-panel__composer-meta-status {
