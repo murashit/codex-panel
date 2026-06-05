@@ -270,6 +270,11 @@
   cursor: default;
 }
 
+.codex-panel__open-turn-diff svg {
+  width: calc(var(--codex-panel-size-icon-xs) - var(--codex-panel-rail-width) / 2);
+  height: calc(var(--codex-panel-size-icon-xs) - var(--codex-panel-rail-width) / 2);
+}
+
 .codex-panel__open-turn-diff:hover {
   background: transparent;
   color: var(--nav-item-color-hover, var(--text-normal));

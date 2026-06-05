@@ -228,9 +228,12 @@ describe("chat toolbar CSS", () => {
 describe("chat message CSS", () => {
   it("uses hover color instead of a pointer cursor for the inline turn diff action", () => {
     const openTurnDiff = /\.codex-panel__open-turn-diff \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const openTurnDiffSvg = /\.codex-panel__open-turn-diff svg \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const openTurnDiffHover = /\.codex-panel__open-turn-diff:hover \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(openTurnDiff).toContain("cursor: default");
+    expect(openTurnDiffSvg).toContain("width: calc(var(--codex-panel-size-icon-xs) - var(--codex-panel-rail-width) / 2)");
+    expect(openTurnDiffSvg).toContain("height: calc(var(--codex-panel-size-icon-xs) - var(--codex-panel-rail-width) / 2)");
     expect(openTurnDiffHover).toContain("color: var(--nav-item-color-hover, var(--text-normal))");
   });
 });
