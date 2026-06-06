@@ -1375,7 +1375,7 @@ describe("ChatController", () => {
       expect(state.activeServiceTier).toBeNull();
     });
 
-    it("applies goal notifications to thread state without adding system messages", () => {
+    it("adds system messages for goal state changes from notifications", () => {
       const state = createChatState();
       state.activeThreadId = "thread-active";
       const controller = controllerForState(state);
@@ -1396,7 +1396,48 @@ describe("ChatController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
       expect(state.activeGoal).toEqual(goal);
-      expect(state.displayItems).toEqual([]);
+      expect(state.displayItems.at(-1)).toMatchObject({ kind: "system", text: "Goal set." });
+
+      const afterSetMessageCount = state.displayItems.length;
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-active", turnId: null, goal },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+      expect(state.displayItems).toHaveLength(afterSetMessageCount);
+
+      const updatedGoal = { ...goal, objective: "Finish well", updatedAt: 2 };
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-active", turnId: null, goal: updatedGoal },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+      expect(state.displayItems.at(-1)).toMatchObject({ kind: "system", text: "Goal updated." });
+
+      const pausedGoal = { ...updatedGoal, status: "paused", updatedAt: 3 } satisfies Extract<
+        ServerNotification,
+        { method: "thread/goal/updated" }
+      >["params"]["goal"];
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-active", turnId: null, goal: pausedGoal },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+      expect(state.displayItems.at(-1)).toMatchObject({ kind: "system", text: "Goal paused." });
+
+      const resumedGoal = { ...pausedGoal, status: "active", updatedAt: 4 } satisfies Extract<
+        ServerNotification,
+        { method: "thread/goal/updated" }
+      >["params"]["goal"];
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-active", turnId: null, goal: resumedGoal },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+      expect(state.displayItems.at(-1)).toMatchObject({ kind: "system", text: "Goal resumed." });
+
+      const messageCount = state.displayItems.length;
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-active", turnId: null, goal: { ...resumedGoal, tokensUsed: 10, timeUsedSeconds: 20 } },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+      expect(state.displayItems).toHaveLength(messageCount);
 
       controller.handleNotification({
         method: "thread/goal/cleared",
@@ -1404,7 +1445,46 @@ describe("ChatController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
 
       expect(state.activeGoal).toBeNull();
-      expect(state.displayItems).toEqual([]);
+      expect(state.displayItems.at(-1)).toMatchObject({ kind: "system", text: "Goal cleared." });
+    });
+
+    it("adds a system message when a goal completes", () => {
+      const state = createChatState();
+      state.activeThreadId = "thread-active";
+      state.activeGoal = {
+        threadId: "thread-active",
+        objective: "Finish",
+        status: "active",
+        tokenBudget: null,
+        tokensUsed: 12,
+        timeUsedSeconds: 60,
+        createdAt: 1,
+        updatedAt: 1,
+      };
+      const controller = controllerForState(state);
+      const completedGoal = {
+        ...state.activeGoal,
+        status: "complete",
+        tokensUsed: 42,
+        timeUsedSeconds: 120,
+        updatedAt: 2,
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
+
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-active", turnId: "turn-1", goal: completedGoal },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+
+      expect(state.activeGoal).toEqual(completedGoal);
+      expect(state.displayItems).toHaveLength(1);
+      expect(state.displayItems[0]).toMatchObject({ kind: "system", text: "Goal completed." });
+
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-active", turnId: "turn-1", goal: { ...completedGoal, tokensUsed: 43 } },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+
+      expect(state.displayItems).toHaveLength(1);
     });
 
     it("ignores goal notifications that do not match the active thread", () => {

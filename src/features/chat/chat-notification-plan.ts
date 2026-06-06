@@ -24,6 +24,7 @@ import {
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "./display/types";
 import { planProgressDisplayItem } from "./display/plan";
 import { createSystemItem } from "./display/system";
+import { goalChangeMessage } from "./goal-messages";
 import { attachHookRunsToTurn, hookRunDisplayItem } from "./hook-display";
 import { routeServerNotification } from "./inbound-routing";
 
@@ -69,7 +70,7 @@ export function planChatNotification(
     case "turnLifecycle":
       return planTurnLifecycle(state, route.notification);
     case "threadLifecycle":
-      return planThreadLifecycle(state, route.notification);
+      return planThreadLifecycle(state, route.notification, localItemId);
     case "requestResolved":
       return {
         actions: [{ type: "request/resolved", requestId: route.notification.params.requestId }],
@@ -191,7 +192,7 @@ function planTurnLifecycle(state: ChatState, notification: ServerNotification): 
   return EMPTY_PLAN;
 }
 
-function planThreadLifecycle(state: ChatState, notification: ServerNotification): ChatNotificationPlan {
+function planThreadLifecycle(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
   const { method, params } = notification;
   if (method === "thread/started") {
     if (!state.activeThreadId || state.activeThreadId === params.thread.id) {
@@ -239,11 +240,21 @@ function planThreadLifecycle(state: ChatState, notification: ServerNotification)
   }
   if (method === "thread/goal/updated") {
     if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
-    return actionPlan({ type: "thread/goal-set", goal: params.goal });
+    const actions: ChatAction[] = [{ type: "thread/goal-set", goal: params.goal }];
+    const message = goalChangeMessage(state.activeGoal, params.goal);
+    if (message) {
+      actions.push({ type: "system/message-added", item: createSystemItem(localItemId("system"), message) });
+    }
+    return { actions, effects: [] };
   }
   if (method === "thread/goal/cleared") {
     if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
-    return actionPlan({ type: "thread/goal-set", goal: null });
+    const actions: ChatAction[] = [{ type: "thread/goal-set", goal: null }];
+    const message = goalChangeMessage(state.activeGoal, null);
+    if (message) {
+      actions.push({ type: "system/message-added", item: createSystemItem(localItemId("system"), message) });
+    }
+    return { actions, effects: [] };
   }
   return EMPTY_PLAN;
 }

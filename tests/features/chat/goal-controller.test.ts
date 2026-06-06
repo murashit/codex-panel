@@ -58,7 +58,8 @@ describe("ChatGoalController", () => {
     state.activeGoal = goal({ tokenBudget: 500 });
     const stateStore = createChatStateStore(state);
     const updated = goal({ objective: "Updated", tokenBudget: 250 });
-    const setThreadGoal = vi.fn().mockResolvedValue({ goal: updated });
+    const paused = goal({ objective: "Updated", status: "paused", tokenBudget: 250 });
+    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: updated }).mockResolvedValueOnce({ goal: paused });
     const clearThreadGoal = vi.fn().mockResolvedValue({ cleared: true });
     const client = {
       setThreadGoal,
@@ -87,11 +88,11 @@ describe("ChatGoalController", () => {
     expect(stateStore.getState().activeGoal).toBeNull();
   });
 
-  it("reports goal creation and resume as user-visible system messages", async () => {
+  it("reports goal creation as a user-visible state change", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
     const stateStore = createChatStateStore(state);
-    const setThreadGoal = vi.fn().mockResolvedValue({ goal: goal() });
+    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
     const client = { setThreadGoal } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
     const controller = new ChatGoalController({
@@ -104,10 +105,52 @@ describe("ChatGoalController", () => {
     });
 
     await controller.setObjective("thread", "Finish", null);
-    await controller.setStatus("thread", "active");
 
     expect(addSystemMessage).toHaveBeenCalledWith("Goal set.");
+  });
+
+  it("reports goal resume as a user-visible state change", async () => {
+    const state = createChatState();
+    state.activeThreadId = "thread";
+    state.activeGoal = goal({ status: "paused" });
+    const stateStore = createChatStateStore(state);
+    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
+    const client = { setThreadGoal } as unknown as AppServerClient;
+    const addSystemMessage = vi.fn();
+    const controller = new ChatGoalController({
+      stateStore,
+      currentClient: () => client,
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      addSystemMessage,
+      render: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await controller.setStatus("thread", "active");
+
     expect(addSystemMessage).toHaveBeenCalledWith("Goal resumed.");
+  });
+
+  it("does not report initial goal sync as a user-visible state change", async () => {
+    const state = createChatState();
+    state.activeThreadId = "thread";
+    const stateStore = createChatStateStore(state);
+    const currentGoal = goal();
+    const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
+    const addSystemMessage = vi.fn();
+    const controller = new ChatGoalController({
+      stateStore,
+      currentClient: () => client,
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      addSystemMessage,
+      render: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await controller.syncThreadGoal("thread");
+
+    expect(stateStore.getState().activeGoal).toEqual(currentGoal);
+    expect(addSystemMessage).not.toHaveBeenCalled();
   });
 });
 
