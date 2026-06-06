@@ -233,6 +233,37 @@ describe("AppServerClient", () => {
     await expect(reading).resolves.toEqual({ dataBase64: btoa("hello") });
   });
 
+  it("sends thread goal management requests", async () => {
+    const { client, transport } = await connectedClient();
+
+    const reading = client.getThreadGoal("thread");
+    await expectRequest(transport, reading, { method: "thread/goal/get", params: { threadId: "thread" } }, { goal: null });
+    await expect(reading).resolves.toEqual({ goal: null });
+
+    const setting = client.setThreadGoal("thread", { objective: "Finish", status: "active", tokenBudget: 1000 });
+    const goal = {
+      threadId: "thread",
+      objective: "Finish",
+      status: "active",
+      tokenBudget: 1000,
+      tokensUsed: 0,
+      timeUsedSeconds: 0,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    await expectRequest(
+      transport,
+      setting,
+      { method: "thread/goal/set", params: { threadId: "thread", objective: "Finish", status: "active", tokenBudget: 1000 } },
+      { goal },
+    );
+    await expect(setting).resolves.toEqual({ goal });
+
+    const clearing = client.clearThreadGoal("thread");
+    await expectRequest(transport, clearing, { method: "thread/goal/clear", params: { threadId: "thread" } }, { cleared: true });
+    await expect(clearing).resolves.toEqual({ cleared: true });
+  });
+
   it("suppresses late responses after per-request timeouts", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", {

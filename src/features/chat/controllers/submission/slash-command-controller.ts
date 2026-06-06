@@ -9,6 +9,8 @@ import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResul
 import type { SlashCommandName } from "../../composer/slash-commands";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ReasoningEffort } from "../../../../generated/app-server/ReasoningEffort";
+import type { ThreadGoal } from "../../../../generated/app-server/v2/ThreadGoal";
+import type { ThreadGoalStatus } from "../../../../generated/app-server/v2/ThreadGoalStatus";
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
 import type { SubmissionStatePort } from "../state-ports";
 
@@ -41,12 +43,20 @@ export interface SlashCommandStatusPort {
   effortStatusLines: () => string[];
 }
 
+export interface SlashCommandGoalPort {
+  activeGoal: () => ThreadGoal | null;
+  setObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<boolean>;
+  setStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
+  clear: (threadId: string) => Promise<boolean>;
+}
+
 export interface SlashCommandControllerHost {
   state: SubmissionStatePort;
   currentClient: () => AppServerClient | null;
   codexInput: (text: string) => UserInput[];
   threads: SlashCommandThreadPort;
   runtime: SlashCommandRuntimePort;
+  goals: SlashCommandGoalPort;
   status: SlashCommandStatusPort;
 }
 
@@ -90,6 +100,10 @@ export class SlashCommandController {
       },
       setRequestedModel: (model) => this.host.runtime.setRequestedModel(model),
       setRequestedReasoningEffort: (effort) => this.host.runtime.setRequestedReasoningEffort(effort),
+      activeGoal: () => this.host.goals.activeGoal(),
+      setGoalObjective: (threadId, objective, tokenBudget) => this.host.goals.setObjective(threadId, objective, tokenBudget),
+      setGoalStatus: (threadId, status) => this.host.goals.setStatus(threadId, status),
+      clearGoal: (threadId) => this.host.goals.clear(threadId),
       statusSummaryLines: () => this.host.status.statusSummaryLines(),
       connectionDiagnosticDetails: () => this.host.status.connectionDiagnosticDetails(),
       mcpStatusLines: () => this.host.status.mcpStatusLines(),

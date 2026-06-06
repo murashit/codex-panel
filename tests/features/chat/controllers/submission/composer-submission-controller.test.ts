@@ -80,6 +80,17 @@ describe("ComposerSubmissionController", () => {
     expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
   });
 
+  it("restores slash command composer drafts from command results", async () => {
+    const { controller, execute, sendTurnText, setDraft } = createController("/goal edit");
+    execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });
+
+    await controller.submit();
+
+    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(setDraft).toHaveBeenCalledWith("/goal set Current objective", { focus: true, clearSuggestions: true });
+    expect(sendTurnText).not.toHaveBeenCalled();
+  });
+
   it("interrupts a running turn when submitting an empty draft", async () => {
     const { controller, interruptTurn, stateStore } = createController("");
     stateStore.dispatch({

@@ -5,6 +5,7 @@ export interface ChatViewRenderControllerHost {
   shell: ChatShellRenderPort;
   panelRoot: () => HTMLElement | null;
   renderToolbar: (toolbar: HTMLElement) => void;
+  renderGoal: (goal: HTMLElement) => void;
   renderMessages: (parent: HTMLElement) => void;
   renderComposer: (parent: HTMLElement) => void;
   clearScheduledRender: () => void;
@@ -22,6 +23,7 @@ export class ChatViewRenderController {
     if (options.forceSlots) this.shellRenderVersion += 1;
     this.host.shell.render(root, this.shellRenderVersion, {
       renderToolbar: this.renderToolbarSlot,
+      renderGoal: this.renderGoalSlot,
       renderMessages: this.renderMessagesSlot,
       renderComposer: this.renderComposerSlot,
     });
@@ -33,6 +35,10 @@ export class ChatViewRenderController {
 
   private readonly renderToolbarSlot = (toolbar: HTMLElement): void => {
     this.host.renderToolbar(toolbar);
+  };
+
+  private readonly renderGoalSlot = (goal: HTMLElement): void => {
+    this.host.renderGoal(goal);
   };
 
   private readonly renderMessagesSlot = (parent: HTMLElement): void => {

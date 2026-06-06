@@ -12,6 +12,7 @@ import {
 } from "../../../src/features/chat/chat-state";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { ThreadGoal } from "../../../src/generated/app-server/v2/ThreadGoal";
 
 describe("chatReducer", () => {
   it("clears active turn and thread-scoped state", () => {
@@ -19,6 +20,7 @@ describe("chatReducer", () => {
     state.activeThreadId = "thread";
     state.turnLifecycle = { kind: "running", turnId: "turn" };
     state.activeModel = "gpt-5.1";
+    state.activeGoal = goal("thread");
     state.historyCursor = "cursor";
     state.loadingHistory = true;
     state.composerDraft = "keep me";
@@ -35,6 +37,7 @@ describe("chatReducer", () => {
 
     expect(next).not.toBe(state);
     expect(next.activeThreadId).toBeNull();
+    expect(next.activeGoal).toBeNull();
     expect(activeTurnId(next)).toBeNull();
     expect(next.displayItems).toEqual([]);
     expect(next.turnDiffs.size).toBe(0);
@@ -54,6 +57,7 @@ describe("chatReducer", () => {
     state.activeThreadId = "previous-thread";
     state.turnLifecycle = { kind: "running", turnId: "previous-turn" };
     state.historyCursor = "cursor";
+    state.activeGoal = goal("previous-thread");
     state.loadingHistory = true;
     state.composerDraft = "previous draft";
     state.displayItems = [message("previous-message")];
@@ -81,6 +85,7 @@ describe("chatReducer", () => {
     });
 
     expect(next.activeThreadId).toBe("resumed-thread");
+    expect(next.activeGoal).toBeNull();
     expect(activeTurnId(next)).toBeNull();
     expect(next.historyCursor).toBeNull();
     expect(next.loadingHistory).toBe(false);
@@ -120,6 +125,7 @@ describe("chatReducer", () => {
     state.activeThreadId = "previous-thread";
     state.turnLifecycle = { kind: "running", turnId: "previous-turn" };
     state.activeModel = "gpt-5.1";
+    state.activeGoal = goal("previous-thread");
     state.historyCursor = "cursor";
     state.loadingHistory = true;
     state.composerDraft = "draft in this panel";
@@ -143,6 +149,7 @@ describe("chatReducer", () => {
     expect(next.activeThreadId).toBe("restored-thread");
     expect(activeTurnId(next)).toBeNull();
     expect(next.activeModel).toBeNull();
+    expect(next.activeGoal).toBeNull();
     expect(next.historyCursor).toBeNull();
     expect(next.loadingHistory).toBe(false);
     expect(next.displayItems).toEqual([placeholder]);
@@ -461,6 +468,19 @@ function userInput(requestId: number): ChatState["pendingUserInputs"][number] {
       itemId: "input",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
     },
+  };
+}
+
+function goal(threadId: string): ThreadGoal {
+  return {
+    threadId,
+    objective: "Finish",
+    status: "active",
+    tokenBudget: null,
+    tokensUsed: 0,
+    timeUsedSeconds: 0,
+    createdAt: 1,
+    updatedAt: 1,
   };
 }
 

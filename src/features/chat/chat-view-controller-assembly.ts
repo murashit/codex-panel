@@ -20,6 +20,7 @@ import { ChatThreadActionController } from "./thread-actions";
 import { ThreadHistoryLoader } from "./thread-history";
 import { ThreadRenameController } from "./thread-rename";
 import { ChatRuntimeSettingsController } from "./runtime-settings-controller";
+import { ChatGoalController } from "./goal-controller";
 import { ToolbarPanelController } from "./toolbar-panel-controller";
 import { AppServerWarmupController } from "./controllers/connection/app-server-warmup-controller";
 import { ChatConnectionController } from "./controllers/connection/connection-controller";
@@ -56,6 +57,7 @@ export interface ChatViewControllerAssembly {
   threadResume: ThreadResumeController;
   threadActions: ChatThreadActionController;
   runtimeSettings: ChatRuntimeSettingsController;
+  goals: ChatGoalController;
   restoredThread: RestoredThreadController;
   threadIdentity: ThreadIdentityController;
   threadRename: ThreadRenameController;
@@ -92,6 +94,7 @@ export interface ChatViewControllerAssemblyHost {
   setClosing: (closing: boolean) => void;
   panelRoot: () => HTMLElement | null;
   renderToolbar: (toolbar: HTMLElement) => void;
+  renderGoal: (goal: HTMLElement) => void;
   renderMessages: (parent: HTMLElement) => void;
   renderComposer: (parent: HTMLElement) => void;
   pendingRequestsSignature: () => string;
@@ -129,6 +132,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
   let threadResume!: ThreadResumeController;
   let threadActions!: ChatThreadActionController;
   let runtimeSettings!: ChatRuntimeSettingsController;
+  let goals!: ChatGoalController;
   let restoredThread!: RestoredThreadController;
   let threadIdentity!: ThreadIdentityController;
   let threadRename!: ThreadRenameController;
@@ -161,6 +165,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     }),
     panelRoot: host.panelRoot,
     renderToolbar: host.renderToolbar,
+    renderGoal: host.renderGoal,
     renderMessages: host.renderMessages,
     renderComposer: host.renderComposer,
     clearScheduledRender: () => {
@@ -219,6 +224,12 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
       toggleAutoReview: () => void runtimeSettings.toggleAutoReview(),
       setRequestedModel: (model) => runtimeSettings.setRequestedModel(model),
       setRequestedReasoningEffort: (effort) => runtimeSettings.setRequestedReasoningEffort(effort),
+    },
+    goals: {
+      activeGoal: () => goals.activeGoal(),
+      setObjective: (threadId, objective, tokenBudget) => goals.setObjective(threadId, objective, tokenBudget),
+      setStatus: (threadId, status) => goals.setStatus(threadId, status),
+      clear: (threadId) => goals.clear(threadId),
     },
     status: {
       addSystemMessage: host.effects.status.addSystemMessage,
@@ -399,6 +410,9 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     publishAppServerMetadata: (metadata) => {
       host.plugin.publishAppServerMetadata(metadata);
     },
+    syncThreadGoal: (threadId) => {
+      void goals.syncThreadGoal(threadId);
+    },
   });
   connectionController = new ChatConnectionController({
     state: connectionState,
@@ -493,6 +507,14 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     collaborationModeLabel: host.collaborationModeLabel,
     addSystemMessage: host.effects.status.addSystemMessage,
   });
+  goals = new ChatGoalController({
+    stateStore: host.stateStore,
+    currentClient: host.getClient,
+    ensureConnected: host.effects.client.ensureConnected,
+    addSystemMessage: host.effects.status.addSystemMessage,
+    render: host.effects.render.now,
+    refreshLiveState: host.effects.liveState.refresh,
+  });
   restoredThread = new RestoredThreadController({
     deferredTasks: host.deferredTasks,
     opened: host.getOpened,
@@ -527,6 +549,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     forceMessagesToBottom: host.effects.scroll.forceBottom,
     render: host.effects.render.now,
     refreshLiveState: host.effects.liveState.refresh,
+    syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),
     recoverTokenUsageFromRollout: (path) =>
       recoverRolloutTokenUsage(path, async (filePath, options) => {
         const response = await host.getClient()?.readFile(filePath, options);
@@ -565,6 +588,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     threadResume,
     threadActions,
     runtimeSettings,
+    goals,
     restoredThread,
     threadIdentity,
     threadRename,

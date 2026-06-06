@@ -18,6 +18,7 @@ describe("ChatAppServerController", () => {
     const started = threadFixture("started");
     const optimistic = { ...started, preview: "first prompt" };
     const publishThreadList = vi.fn();
+    const syncThreadGoal = vi.fn();
     const client = {
       startThread: vi.fn().mockResolvedValue({
         thread: started,
@@ -39,12 +40,14 @@ describe("ChatAppServerController", () => {
       forceMessagesToBottom: () => undefined,
       publishThreadList,
       publishAppServerMetadata: () => undefined,
+      syncThreadGoal,
     });
 
     await controller.startThread("first prompt");
 
     expect(stateStore.getState().listedThreads.map((thread) => thread.id)).toEqual(["started", "existing"]);
     expect(publishThreadList).toHaveBeenCalledWith([optimistic, existing]);
+    expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
 
   it("keeps app-server preview when newly started threads already have one", async () => {
@@ -72,6 +75,7 @@ describe("ChatAppServerController", () => {
       forceMessagesToBottom: () => undefined,
       publishThreadList,
       publishAppServerMetadata: () => undefined,
+      syncThreadGoal: () => undefined,
     });
 
     await controller.startThread("local preview");
@@ -106,6 +110,7 @@ describe("ChatAppServerController", () => {
       forceMessagesToBottom: () => undefined,
       publishThreadList: () => undefined,
       publishAppServerMetadata: () => undefined,
+      syncThreadGoal: () => undefined,
     });
 
     await controller.refreshAppServerMetadata();
@@ -149,6 +154,7 @@ describe("ChatAppServerController", () => {
       forceMessagesToBottom: () => undefined,
       publishThreadList: () => undefined,
       publishAppServerMetadata,
+      syncThreadGoal: () => undefined,
     });
 
     await controller.refreshPublishedRateLimits();
@@ -177,6 +183,7 @@ describe("ChatAppServerController", () => {
       forceMessagesToBottom: () => undefined,
       publishThreadList: () => undefined,
       publishAppServerMetadata,
+      syncThreadGoal: () => undefined,
     });
 
     await controller.refreshPublishedRateLimits();
@@ -202,6 +209,7 @@ describe("ChatAppServerController", () => {
       forceMessagesToBottom: () => undefined,
       publishThreadList: () => undefined,
       publishAppServerMetadata: () => undefined,
+      syncThreadGoal: () => undefined,
     });
 
     controller.recordMcpStartupStatus("github", "ready", null);

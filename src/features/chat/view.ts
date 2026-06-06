@@ -12,6 +12,7 @@ import type { RuntimeSnapshot } from "../../runtime/state";
 import { pendingRequestsSignature as requestStateSignature } from "./request-state";
 import { activeTurnId, chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
 import { renderToolbar } from "./ui/toolbar";
+import { renderGoalBanner } from "./ui/goal-banner";
 import type { ToolbarViewModel } from "./toolbar-model";
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
@@ -55,6 +56,7 @@ export class CodexChatView extends ItemView {
   private readonly threadResume: ChatViewControllerAssembly["threadResume"];
   private readonly threadActions: ChatViewControllerAssembly["threadActions"];
   private readonly runtimeSettings: ChatViewControllerAssembly["runtimeSettings"];
+  private readonly goals: ChatViewControllerAssembly["goals"];
   private readonly restoredThread: ChatViewControllerAssembly["restoredThread"];
   private readonly threadIdentity: ChatViewControllerAssembly["threadIdentity"];
   private readonly threadRename: ChatViewControllerAssembly["threadRename"];
@@ -123,6 +125,9 @@ export class CodexChatView extends ItemView {
       renderToolbar: (toolbar) => {
         this.renderToolbar(toolbar);
       },
+      renderGoal: (goal) => {
+        this.renderGoal(goal);
+      },
       renderMessages: (parent) => {
         this.renderMessages(parent);
       },
@@ -173,6 +178,7 @@ export class CodexChatView extends ItemView {
     this.threadResume = controllers.threadResume;
     this.threadActions = controllers.threadActions;
     this.runtimeSettings = controllers.runtimeSettings;
+    this.goals = controllers.goals;
     this.restoredThread = controllers.restoredThread;
     this.threadIdentity = controllers.threadIdentity;
     this.threadRename = controllers.threadRename;
@@ -609,6 +615,38 @@ export class CodexChatView extends ItemView {
       },
       autoNameThread: (threadId) => void this.threadRename.autoNameDraft(threadId),
     });
+  }
+
+  private renderGoal(goal: HTMLElement): void {
+    renderGoalBanner(
+      goal,
+      this.state.activeGoal,
+      {
+        onSave: (objective, tokenBudget) => {
+          const threadId = this.state.activeThreadId;
+          if (!threadId) return;
+          void this.goals.setObjective(threadId, objective, tokenBudget);
+        },
+        onPause: () => {
+          const threadId = this.state.activeThreadId;
+          if (!threadId) return;
+          void this.goals.setStatus(threadId, "paused");
+        },
+        onResume: () => {
+          const threadId = this.state.activeThreadId;
+          if (!threadId) return;
+          void this.goals.setStatus(threadId, "active");
+        },
+        onClear: () => {
+          const threadId = this.state.activeThreadId;
+          if (!threadId) return;
+          void this.goals.clear(threadId);
+        },
+      },
+      {
+        sendShortcut: this.plugin.settings.sendShortcut,
+      },
+    );
   }
 
   private toolbarViewModel(): ToolbarViewModel {

@@ -5,6 +5,7 @@ import { createChatState, createChatStateStore } from "../../../../../src/featur
 import {
   SlashCommandController,
   type SlashCommandControllerHost,
+  type SlashCommandGoalPort,
   type SlashCommandRuntimePort,
   type SlashCommandStatusPort,
   type SlashCommandThreadPort,
@@ -40,14 +41,21 @@ function thread(id: string, name: string | null = null): Thread {
   };
 }
 
-interface SlashCommandHostOverrides extends Partial<Omit<SlashCommandControllerHost, "threads" | "runtime" | "status">> {
+interface SlashCommandHostOverrides extends Partial<Omit<SlashCommandControllerHost, "threads" | "runtime" | "goals" | "status">> {
   threads?: Partial<SlashCommandThreadPort>;
   runtime?: Partial<SlashCommandRuntimePort>;
+  goals?: Partial<SlashCommandGoalPort>;
   status?: Partial<SlashCommandStatusPort>;
 }
 
 function createHost(overrides: SlashCommandHostOverrides = {}) {
-  const { threads: threadOverrides, runtime: runtimeOverrides, status: statusOverrides, ...hostOverrides } = overrides;
+  const {
+    threads: threadOverrides,
+    runtime: runtimeOverrides,
+    goals: goalOverrides,
+    status: statusOverrides,
+    ...hostOverrides
+  } = overrides;
   const stateStore = createChatStateStore(createChatState());
   const compactThread = vi.fn().mockResolvedValue({});
   const threadTurnsList = vi.fn().mockResolvedValue({ data: [] });
@@ -81,12 +89,20 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     effortStatusLines: () => [],
     ...statusOverrides,
   };
+  const goals: SlashCommandGoalPort = {
+    activeGoal: vi.fn(() => stateStore.getState().activeGoal),
+    setObjective: vi.fn().mockResolvedValue(true),
+    setStatus: vi.fn().mockResolvedValue(true),
+    clear: vi.fn().mockResolvedValue(true),
+    ...goalOverrides,
+  };
   const host: SlashCommandControllerHost = {
     state: createSubmissionStatePort(stateStore),
     currentClient: () => client,
     codexInput: vi.fn((text: string) => textInput(text)),
     threads,
     runtime,
+    goals,
     status,
     ...hostOverrides,
   };

@@ -25,6 +25,7 @@ describe("ChatPanelShell", () => {
 
     expect(container.classList.contains("codex-panel")).toBe(true);
     expect(container.textContent).toContain("Idle");
+    expect(container.textContent).toContain("no goal");
     expect(container.textContent).toContain("0");
     expect(container.textContent).toContain("ready");
     expect(container.querySelector(".codex-panel__slot--config")).toBeNull();
@@ -76,6 +77,7 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar .test-toolbar")?.textContent).toBe("Working");
+    expect(container.querySelector(".codex-panel__slot--goal .test-goal")?.textContent).toBe("no goal");
     expect(container.querySelector(".codex-panel__slot--messages .test-messages")?.textContent).toBe("1");
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__slot--composer .test-composer textarea")?.value).toBe("ready");
     expect(container.querySelector(".codex-panel__slot--composer .test-toolbar")).toBeNull();
@@ -175,6 +177,7 @@ describe("ChatPanelShell", () => {
 
     expect(cleanup).toHaveBeenCalledWith("toolbar");
     expect(container.textContent).toContain("toolbar");
+    expect(container.textContent).toContain("goal");
     expect(container.textContent).toContain("messages");
     expect(container.textContent).toContain("composer");
 
@@ -201,6 +204,7 @@ describe("ChatPanelShell", () => {
     });
 
     expect(cleanup).toHaveBeenCalledWith("toolbar");
+    expect(cleanup).toHaveBeenCalledWith("goal");
     expect(cleanup).toHaveBeenCalledWith("messages");
     expect(cleanup).toHaveBeenCalledWith("composer");
   });
@@ -238,6 +242,12 @@ function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
       }),
       snapshot: () => store.getState().status,
     },
+    goal: {
+      render: vi.fn((goal: HTMLElement) => {
+        goal.textContent = store.getState().activeGoal?.objective ?? "no goal";
+      }),
+      snapshot: () => store.getState().activeGoal?.objective ?? "",
+    },
     messages: {
       render: vi.fn((messages: HTMLElement) => {
         messages.textContent = String(store.getState().displayItems.length);
@@ -270,6 +280,12 @@ function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>
       }),
       snapshot: () => store.getState().status,
     },
+    goal: {
+      render: vi.fn((goal: HTMLElement) => {
+        renderUiRoot(goal, <div className="test-goal">{store.getState().activeGoal?.objective ?? "no goal"}</div>);
+      }),
+      snapshot: () => store.getState().activeGoal?.objective ?? "",
+    },
     messages: {
       render: vi.fn((messages: HTMLElement) => {
         renderUiRoot(messages, <div className="test-messages">{String(store.getState().displayItems.length)}</div>);
@@ -301,6 +317,12 @@ function trackedRootShellRenderers(store: ReturnType<typeof createChatStateStore
         renderUiRoot(toolbar, <TrackedSlot slot="toolbar" cleanup={cleanup} />);
       }),
       snapshot: () => store.getState().status,
+    },
+    goal: {
+      render: vi.fn((goal: HTMLElement) => {
+        renderUiRoot(goal, <TrackedSlot slot="goal" cleanup={cleanup} />);
+      }),
+      snapshot: () => store.getState().activeGoal?.objective ?? "",
     },
     messages: {
       render: vi.fn((messages: HTMLElement) => {

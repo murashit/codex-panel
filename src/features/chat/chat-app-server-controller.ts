@@ -26,6 +26,7 @@ export interface ChatAppServerControllerHost {
   forceMessagesToBottom: () => void;
   publishThreadList: (threads: readonly Thread[]) => void;
   publishAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
+  syncThreadGoal: (threadId: string) => void;
 }
 
 export interface RefreshCapabilityDiagnosticsOptions {
@@ -118,6 +119,7 @@ export class ChatAppServerController {
     this.dispatch(resumedThreadAction({ response, listedThreads, forceMessagesToBottom: true }));
     this.host.publishThreadList(listedThreads);
     this.host.forceMessagesToBottom();
+    this.host.syncThreadGoal(response.thread.id);
     return response;
   }
 

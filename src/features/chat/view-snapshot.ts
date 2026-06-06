@@ -68,6 +68,10 @@ export function messagesSlotSnapshot(state: ChatState, pendingRequestsSignature:
   );
 }
 
+export function goalSlotSnapshot(state: ChatState): ChatPanelSlotSnapshot {
+  return signatureParts(state.activeThreadId, state.activeGoal);
+}
+
 export function composerSlotSnapshot(state: ChatState, activeComposerThreadName: string | null): ChatPanelSlotSnapshot {
   return signatureParts(
     state.composerDraft,

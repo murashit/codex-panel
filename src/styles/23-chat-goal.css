@@ -1,0 +1,158 @@
+.codex-panel__slot--goal:not(:empty) {
+  padding-bottom: var(--codex-panel-edge-padding-x);
+}
+
+.codex-panel__goal {
+  margin: var(--codex-panel-edge-padding-x) var(--codex-panel-edge-padding-x) 0;
+  padding-left: var(--codex-panel-message-indent);
+  border-left: var(--codex-panel-rail);
+  color: var(--codex-panel-text-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.codex-panel__goal--active {
+  border-left-color: var(--codex-panel-color-accent);
+}
+
+.codex-panel__goal--paused {
+  border-left-color: var(--codex-panel-color-warning);
+}
+
+.codex-panel__goal--complete {
+  border-left-color: var(--codex-panel-color-success);
+}
+
+.codex-panel__goal--blocked,
+.codex-panel__goal--usageLimited,
+.codex-panel__goal--budgetLimited {
+  border-left-color: var(--codex-panel-color-danger);
+}
+
+.codex-panel__goal-main {
+  min-width: 0;
+}
+
+.codex-panel__goal-role {
+  display: flex;
+  align-items: center;
+  gap: var(--codex-panel-item-gap);
+  margin-bottom: var(--codex-panel-control-gap);
+  color: var(--codex-panel-role-label-color);
+  font-size: var(--codex-panel-role-label-size);
+  font-weight: var(--codex-panel-role-label-weight);
+}
+
+.codex-panel__goal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--codex-panel-control-gap);
+}
+
+.codex-panel__goal:hover .codex-panel__goal-action,
+.codex-panel__goal-role--confirm-open .codex-panel__goal-action,
+.codex-panel__goal-action:focus-visible {
+  opacity: 1;
+}
+
+.codex-panel__goal-objective-collapse {
+  position: relative;
+}
+
+.codex-panel__goal-objective {
+  position: relative;
+  overflow: hidden;
+  font-family: var(--codex-panel-content-font);
+  font-size: var(--codex-panel-content-font-size);
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.codex-panel__goal-objective--collapsed {
+  max-height: var(--codex-panel-size-goal-objective-collapse-max-height);
+}
+
+.codex-panel__goal-objective--collapsed::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--codex-panel-size-message-collapse-fade-height);
+  background: linear-gradient(to bottom, transparent, var(--codex-panel-surface));
+  pointer-events: none;
+}
+
+.codex-panel__goal-objective-collapse-details {
+  position: relative;
+  z-index: 1;
+  margin-top: var(--codex-panel-item-gap);
+}
+
+.codex-panel__goal-objective-collapse-details > summary {
+  cursor: default;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.codex-panel__goal-objective-collapse-details > summary:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
+}
+
+.codex-panel__goal-usage {
+  margin-top: var(--codex-panel-control-gap);
+  color: var(--codex-panel-text-faint);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel__goal-editor {
+  display: grid;
+  gap: var(--codex-panel-section-gap);
+}
+
+.codex-panel__goal-editor-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--codex-panel-control-gap);
+  min-width: 0;
+  align-items: end;
+  border: var(--input-border-width, var(--border-width, 1px)) solid var(--background-modifier-border);
+  border-radius: var(--input-radius, var(--radius-s));
+  background: var(--background-modifier-form-field);
+}
+
+.codex-panel__goal-editor-frame:focus-within {
+  border-color: var(--background-modifier-border-focus);
+  box-shadow: 0 0 0 var(--input-border-width, var(--border-width, 1px)) var(--background-modifier-border-focus);
+}
+
+.codex-panel__goal-objective-input {
+  min-height: var(--codex-panel-composer-min-height);
+  max-height: min(var(--codex-panel-size-selection-rewrite-preview-max-height), 30vh);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow-y: hidden;
+  resize: none;
+}
+
+.codex-panel__goal-objective-input.codex-panel__goal-objective-input:hover,
+.codex-panel__goal-objective-input.codex-panel__goal-objective-input:focus,
+.codex-panel__goal-objective-input.codex-panel__goal-objective-input:focus-visible,
+.codex-panel__goal-objective-input.codex-panel__goal-objective-input:active {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.codex-panel__goal-save {
+  min-width: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-panel-gap) * 2);
+  margin: var(--codex-panel-panel-gap);
+  padding: var(--codex-panel-panel-gap);
+}

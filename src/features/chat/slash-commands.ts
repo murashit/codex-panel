@@ -1,9 +1,18 @@
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
+import type { ThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { ReferencedThreadDisplay } from "../../domain/threads/reference";
-import { slashCommandDefinition, slashCommandHelpSections, type SlashCommandName } from "./composer/slash-commands";
+import {
+  slashCommandDefinition,
+  slashCommandHelpSections,
+  slashCommandSubcommandDefinition,
+  slashCommandSubcommands,
+  type SlashCommandName,
+  type SlashCommandSubcommandDefinition,
+} from "./composer/slash-commands";
 import type { DisplayDetailSection, DisplayDetailMetaRow } from "./display/types";
 import {
   modelOverrideMessage,
@@ -33,6 +42,10 @@ export interface SlashCommandExecutionContext {
   setStatus: (status: string) => void;
   setRequestedModel: (model: string | null) => boolean | undefined | Promise<boolean | undefined>;
   setRequestedReasoningEffort: (effort: ReasoningEffort | null) => boolean | undefined | Promise<boolean | undefined>;
+  activeGoal: () => ThreadGoal | null;
+  setGoalObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<boolean>;
+  setGoalStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
+  clearGoal: (threadId: string) => Promise<boolean>;
   statusSummaryLines: () => string[];
   connectionDiagnosticDetails: () => DisplayDetailSection[];
   mcpStatusLines: () => Promise<string[]>;
@@ -44,6 +57,7 @@ export interface SlashCommandExecutionResult {
   sendText?: string;
   sendInput?: UserInput[];
   referencedThread?: ReferencedThreadDisplay;
+  composerDraft?: string;
 }
 
 export interface ThreadReferenceInput {
@@ -185,6 +199,10 @@ export async function executeSlashCommand(
     return;
   }
 
+  if (command === "goal") {
+    return await executeGoalCommand(args, context);
+  }
+
   if (command === "status") {
     context.addStructuredSystemMessage("Thread status", detailsFromLines(context.statusSummaryLines()));
     return;
@@ -238,6 +256,119 @@ function validateSlashCommandArguments(command: SlashCommandName, args: string):
   if (definition.argsKind === "threadAndMessage" && !parseReferArgs(args)) return usageError(command, "requires a thread and a message");
   if (definition.argsKind === "threadAndName" && !parseThreadAndNameArgs(args)) return usageError(command, "requires a thread and a name");
   return null;
+}
+
+async function executeGoalCommand(args: string, context: SlashCommandExecutionContext): Promise<SlashCommandExecutionResult | undefined> {
+  const parsed = parseGoalArgs(args);
+  if (parsed.kind === "invalid") {
+    context.addSystemMessage(parsed.message);
+    return;
+  }
+  if (parsed.kind === "show") {
+    const goal = context.activeGoal();
+    if (!goal) {
+      context.addSystemMessage("No goal set.");
+      return;
+    }
+    context.addStructuredSystemMessage("Thread goal", goalDetails(goal));
+    return;
+  }
+  const threadId = context.activeThreadId;
+  if (!threadId) {
+    context.addSystemMessage("No active thread for goal management.");
+    return;
+  }
+  const goal = context.activeGoal();
+  if (parsed.kind === "set") {
+    await context.setGoalObjective(threadId, parsed.objective, goal?.tokenBudget ?? null);
+    return;
+  }
+  if (!goal) {
+    context.addSystemMessage("No goal set.");
+    return;
+  }
+  if (parsed.kind === "edit") {
+    return { composerDraft: `/goal set ${goal.objective}` };
+  }
+  if (parsed.kind === "pause") {
+    await context.setGoalStatus(threadId, "paused");
+    return;
+  }
+  if (parsed.kind === "resume") {
+    await context.setGoalStatus(threadId, "active");
+    return;
+  }
+  await context.clearGoal(threadId);
+}
+
+type GoalArgs =
+  | { kind: "show" }
+  | { kind: "set"; objective: string }
+  | { kind: "edit" }
+  | { kind: "pause" }
+  | { kind: "resume" }
+  | { kind: "clear" }
+  | { kind: "invalid"; message: string };
+
+function parseGoalArgs(args: string): GoalArgs {
+  const trimmed = args.trim();
+  if (!trimmed) return { kind: "show" };
+  const subcommandMatch = /^([^\s]+)(?:\s+([\s\S]*))?$/.exec(trimmed);
+  const subcommandName = subcommandMatch?.[1] ?? "";
+  const subcommand = slashCommandSubcommandDefinition("goal", subcommandName);
+  if (!subcommand) return { kind: "invalid", message: goalUsageError("requires set <objective>, edit, pause, resume, or clear") };
+
+  const rawArgs = subcommandMatch?.[2] ?? "";
+  const subcommandArgs = rawArgs.trim();
+  const argumentError = validateSubcommandArguments(subcommand, subcommandArgs);
+  if (argumentError) return { kind: "invalid", message: argumentError };
+  if (subcommand.subcommand === "set") return { kind: "set", objective: subcommandArgs };
+  if (subcommand.subcommand === "edit") return { kind: "edit" };
+  if (subcommand.subcommand === "pause") return { kind: "pause" };
+  if (subcommand.subcommand === "resume") return { kind: "resume" };
+  return { kind: "clear" };
+}
+
+function validateSubcommandArguments(subcommand: SlashCommandSubcommandDefinition, args: string): string | null {
+  if (subcommand.argsKind === "none" && args) {
+    return `${subcommand.usage} does not take arguments. Usage: ${subcommand.usage}`;
+  }
+  if (subcommand.argsKind === "requiredMessage" && !args) {
+    return `${subcommand.usage} requires an objective. Usage: ${subcommand.usage}`;
+  }
+  return null;
+}
+
+function goalUsageError(message: string): string {
+  return usageError(
+    "goal",
+    `${message}. Subcommands: ${slashCommandSubcommands("goal")
+      .map((item) => item.usage)
+      .join(", ")}`,
+  );
+}
+
+function goalDetails(goal: ThreadGoal): DisplayDetailSection[] {
+  const rows: DisplayDetailMetaRow[] = [
+    { key: "status", value: goal.status },
+    { key: "objective", value: goal.objective },
+    {
+      key: "tokens",
+      value: goal.tokenBudget === null ? String(goal.tokensUsed) : `${String(goal.tokensUsed)} / ${String(goal.tokenBudget)}`,
+    },
+    { key: "elapsed", value: formatGoalElapsed(goal.timeUsedSeconds) },
+  ];
+  return [{ rows }];
+}
+
+function formatGoalElapsed(seconds: number): string {
+  if (seconds < 60) return `${String(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return remainingSeconds === 0 ? `${String(minutes)}m` : `${String(minutes)}m ${String(remainingSeconds)}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes === 0 ? `${String(hours)}h` : `${String(hours)}h ${String(remainingMinutes)}m`;
 }
 
 function usageError(command: SlashCommandName, message: string): string {

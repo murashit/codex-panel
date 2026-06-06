@@ -69,7 +69,7 @@ export function planChatNotification(
     case "turnLifecycle":
       return planTurnLifecycle(state, route.notification);
     case "threadLifecycle":
-      return planThreadLifecycle(state, route.notification, localItemId);
+      return planThreadLifecycle(state, route.notification);
     case "requestResolved":
       return {
         actions: [{ type: "request/resolved", requestId: route.notification.params.requestId }],
@@ -191,7 +191,7 @@ function planTurnLifecycle(state: ChatState, notification: ServerNotification): 
   return EMPTY_PLAN;
 }
 
-function planThreadLifecycle(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
+function planThreadLifecycle(state: ChatState, notification: ServerNotification): ChatNotificationPlan {
   const { method, params } = notification;
   if (method === "thread/started") {
     if (!state.activeThreadId || state.activeThreadId === params.thread.id) {
@@ -238,13 +238,12 @@ function planThreadLifecycle(state: ChatState, notification: ServerNotification,
     });
   }
   if (method === "thread/goal/updated") {
-    return systemMessagePlan({
-      id: localItemId("system"),
-      text: `Thread goal updated: status ${params.goal.status}. Codex Panel does not support goals.`,
-    });
+    if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
+    return actionPlan({ type: "thread/goal-set", goal: params.goal });
   }
   if (method === "thread/goal/cleared") {
-    return systemMessagePlan({ id: localItemId("system"), text: "Thread goal cleared. Codex Panel does not support goals." });
+    if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
+    return actionPlan({ type: "thread/goal-set", goal: null });
   }
   return EMPTY_PLAN;
 }

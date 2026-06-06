@@ -1375,46 +1375,67 @@ describe("ChatController", () => {
       expect(state.activeServiceTier).toBeNull();
     });
 
-    it("shows unsupported goal notifications as brief system messages", () => {
-      const cases: { notification: ServerNotification; text: string }[] = [
-        {
-          notification: {
-            method: "thread/goal/updated",
-            params: {
-              threadId: "thread-active",
-              turnId: null,
-              goal: {
-                threadId: "thread-active",
-                objective: "Finish",
-                status: "active",
-                tokenBudget: null,
-                tokensUsed: 0,
-                timeUsedSeconds: 0,
-                createdAt: 1,
-                updatedAt: 1,
-              },
-            },
-          } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>,
-          text: "Thread goal updated: status active. Codex Panel does not support goals.",
-        },
-        {
-          notification: {
-            method: "thread/goal/cleared",
-            params: { threadId: "thread-active" },
-          } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>,
-          text: "Thread goal cleared. Codex Panel does not support goals.",
-        },
-      ];
+    it("applies goal notifications to thread state without adding system messages", () => {
+      const state = createChatState();
+      state.activeThreadId = "thread-active";
+      const controller = controllerForState(state);
+      const goal = {
+        threadId: "thread-active",
+        objective: "Finish",
+        status: "active",
+        tokenBudget: null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
 
-      for (const { notification, text } of cases) {
-        const state = createChatState();
-        state.activeThreadId = "thread-active";
-        const controller = controllerForState(state);
+      controller.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "thread-active", turnId: null, goal },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
-        controller.handleNotification(notification);
+      expect(state.activeGoal).toEqual(goal);
+      expect(state.displayItems).toEqual([]);
 
-        expect(state.displayItems).toMatchObject([{ kind: "system", text }]);
-      }
+      controller.handleNotification({
+        method: "thread/goal/cleared",
+        params: { threadId: "thread-active" },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
+
+      expect(state.activeGoal).toBeNull();
+      expect(state.displayItems).toEqual([]);
+    });
+
+    it("ignores goal notifications that do not match the active thread", () => {
+      const goal = {
+        threadId: "previous-thread",
+        objective: "Stale",
+        status: "active",
+        tokenBudget: null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
+
+      const noActiveState = createChatState();
+      const noActiveController = controllerForState(noActiveState);
+      noActiveController.handleNotification({
+        method: "thread/goal/updated",
+        params: { threadId: "previous-thread", turnId: null, goal },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
+      expect(noActiveState.activeGoal).toBeNull();
+
+      const otherThreadState = createChatState();
+      otherThreadState.activeThreadId = "thread-active";
+      otherThreadState.activeGoal = { ...goal, threadId: "thread-active", objective: "Current" };
+      const otherThreadController = controllerForState(otherThreadState);
+      otherThreadController.handleNotification({
+        method: "thread/goal/cleared",
+        params: { threadId: "previous-thread" },
+      } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
+      expect(otherThreadState.activeGoal.objective).toBe("Current");
     });
   });
 

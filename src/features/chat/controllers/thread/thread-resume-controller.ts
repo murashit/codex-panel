@@ -24,6 +24,7 @@ export interface ThreadResumeControllerHost {
   forceMessagesToBottom: () => void;
   render: () => void;
   refreshLiveState: () => void;
+  syncThreadGoal: (threadId: string) => Promise<void>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
 }
 
@@ -50,6 +51,8 @@ export class ThreadResumeController {
       } else {
         await this.host.history.loadLatest(response.thread.id);
       }
+      if (this.isStale(resume)) return;
+      await this.host.syncThreadGoal(response.thread.id);
       if (this.isStale(resume)) return;
       if (this.host.state.displayItemsEmpty()) {
         this.host.addSystemMessage(`Resumed thread ${response.thread.id}`);

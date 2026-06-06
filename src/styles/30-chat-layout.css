@@ -1,7 +1,7 @@
 .codex-panel__body {
   flex: 1 1 auto;
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
 }
@@ -10,9 +10,22 @@
   min-width: 0;
 }
 
+.codex-panel__slot--goal {
+  grid-row: 1;
+}
+
 .codex-panel__slot--messages {
+  grid-row: 2;
   min-height: 0;
   overflow: hidden;
+}
+
+.codex-panel__slot--composer {
+  grid-row: 3;
+}
+
+.codex-panel__slot--goal:empty {
+  display: none;
 }
 
 .codex-panel__toolbar-panel .codex-panel__config {

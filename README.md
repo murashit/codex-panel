@@ -44,9 +44,8 @@ Codex Panel supports Codex App Server workflows that fit a persistent panel in O
 - Control subsequent turns from slash commands, with the same state visible and lightly adjustable in the composer status row: Plan mode (`/plan`), fast mode (`/fast`), approval auto-review (`/auto-review`), model (`/model`), and reasoning effort (`/reasoning`).
 - Follow a running turn as Codex streams assistant messages, reasoning, commands, tool calls, hooks, file changes, plan updates, and agent activity.
 - Respond to Codex questions, command approvals, file approvals, MCP requests, and permission requests; send steering messages; or interrupt when the composer is empty.
+- Show the active Codex goal above the message stream, create one with `/goal set <objective>`, and edit, pause, resume, or clear it from the panel.
 - Inspect context usage from the composer status row, and inspect usage limits, connection diagnostics, MCP servers, enabled skills, effective Codex config, and discovered hooks from the toolbar, settings, or `/status`, `/doctor`, and `/mcp`.
-
-Codex goal management is not supported. Incoming goal notifications are shown only as brief system notices.
 
 ## Obsidian integration
 

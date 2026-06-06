@@ -7,7 +7,7 @@ import type { PendingUserInput } from "../user-input/model";
 import type { DisplayItem } from "../display/types";
 import { implementPlanCandidateFromState } from "../plan-implementation";
 import { resumedThreadAction, type ThreadActivationResponse } from "../thread-resume";
-import { composerSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "../view-snapshot";
+import { composerSlotSnapshot, goalSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "../view-snapshot";
 import { renderChatPanelShell } from "../ui/shell";
 
 export interface ConnectionStatePort {
@@ -72,6 +72,7 @@ export interface ChatShellRenderPort {
     renderVersion: number,
     slots: {
       renderToolbar: (toolbar: HTMLElement) => void;
+      renderGoal: (goal: HTMLElement) => void;
       renderMessages: (parent: HTMLElement) => void;
       renderComposer: (parent: HTMLElement) => void;
     },
@@ -215,6 +216,7 @@ export function createChatShellRenderPort(
         renderVersion,
         showToolbar: options.showToolbar(),
         toolbar: { render: slots.renderToolbar, snapshot: (state) => toolbarSlotSnapshot(state, options.connected()) },
+        goal: { render: slots.renderGoal, snapshot: goalSlotSnapshot },
         messages: {
           render: slots.renderMessages,
           snapshot: (state) => messagesSlotSnapshot(state, options.pendingRequestsSignature()),

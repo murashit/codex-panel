@@ -307,6 +307,29 @@ describe("composer suggestions", () => {
     expect(suggestions).toEqual([]);
   });
 
+  it("suggests slash subcommands from command definitions", () => {
+    expect(activeComposerSuggestions("/goal ", notes, []).map((suggestion) => suggestion.replacement)).toEqual([
+      "set",
+      "edit",
+      "pause",
+      "resume",
+      "clear",
+    ]);
+    expect(activeComposerSuggestions("/goal p", notes, [])[0]).toMatchObject({
+      display: "pause",
+      detail: "/goal pause - Pause the current thread goal.",
+      replacement: "pause",
+      appendSpaceOnInsert: true,
+    });
+    expect(applyComposerSuggestionInsertion("/goal p", 7, expectPresent(activeComposerSuggestions("/goal p", notes, [])[0]))).toEqual({
+      value: "/goal pause ",
+      cursor: 12,
+    });
+    expect(activeComposerSuggestions("/goal pause", notes, [])).toEqual([]);
+    expect(activeComposerSuggestions("/goal set Ship it", notes, [])).toEqual([]);
+    expect(activeComposerSuggestions("/plan p", notes, [])).toEqual([]);
+  });
+
   it("suggests model override arguments for /model", () => {
     const models = [
       model("gpt-5.5", ["low", "medium", "high"]),

@@ -9,7 +9,7 @@ import {
   sortedAvailableModels,
   supportedEffortsForModel,
 } from "../../../runtime/model";
-import { SLASH_COMMANDS, type SlashCommandName } from "./slash-commands";
+import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
 import { getThreadTitle } from "../../../domain/threads/model";
 import { shortThreadId } from "../../../utils";
 
@@ -65,6 +65,7 @@ export function activeComposerSuggestions(
 ): ComposerSuggestion[] {
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
+    activeSlashSubcommandSuggestions(beforeCursor) ??
     activeThreadCommandSuggestions(beforeCursor, threads) ??
     activeModelOverrideSuggestions(beforeCursor, models) ??
     activeReasoningEffortSuggestions(beforeCursor, models, currentModel) ??
@@ -243,6 +244,32 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
       display: item.command,
       detail: `${item.usage} - ${item.detail}`,
       replacement: item.command,
+      start,
+      appendSpaceOnInsert: true,
+    }));
+}
+
+export function activeSlashSubcommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
+  const match = /^\/([A-Za-z-]+)\s+([A-Za-z-]{0,120})$/.exec(beforeCursor);
+  if (!match) return null;
+
+  const command = match[1] as SlashCommandName | undefined;
+  const rawQuery = match[2];
+  if (!command || rawQuery === undefined) return null;
+  if (!SLASH_COMMANDS.some((item) => item.command === `/${command}`)) return null;
+
+  const query = rawQuery.toLowerCase();
+  const subcommands = slashCommandSubcommands(command);
+  if (subcommands.length === 0) return null;
+  if (subcommands.some((item) => item.subcommand.toLowerCase() === query)) return null;
+  const start = beforeCursor.length - rawQuery.length;
+  return subcommands
+    .filter((item) => item.subcommand.toLowerCase().startsWith(query))
+    .slice(0, 8)
+    .map((item) => ({
+      display: item.subcommand,
+      detail: `${item.usage} - ${item.detail}`,
+      replacement: item.subcommand,
       start,
       appendSpaceOnInsert: true,
     }));

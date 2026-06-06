@@ -11,6 +11,7 @@ describe("ChatViewRenderController", () => {
       shell: { render },
       panelRoot: () => root,
       renderToolbar: vi.fn(),
+      renderGoal: vi.fn(),
       renderMessages: vi.fn(),
       renderComposer: vi.fn(),
       clearScheduledRender: vi.fn(),
@@ -23,6 +24,7 @@ describe("ChatViewRenderController", () => {
       0,
       expect.objectContaining({
         renderToolbar: expect.any(Function),
+        renderGoal: expect.any(Function),
         renderMessages: expect.any(Function),
         renderComposer: expect.any(Function),
       }),
@@ -39,6 +41,7 @@ describe("ChatViewRenderController", () => {
       shell: { render },
       panelRoot: () => root,
       renderToolbar: vi.fn(),
+      renderGoal: vi.fn(),
       renderMessages: vi.fn(),
       renderComposer: vi.fn(),
       clearScheduledRender: vi.fn(),

@@ -62,6 +62,9 @@ export class ComposerSubmissionController {
     if (slashCommand) {
       this.host.composer.setDraft("", { clearSuggestions: true });
       const result = await this.host.slashCommands.execute(slashCommand.command, slashCommand.args);
+      if (result?.composerDraft !== undefined) {
+        this.host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
+      }
       if (result?.sendText) {
         await this.host.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
       }

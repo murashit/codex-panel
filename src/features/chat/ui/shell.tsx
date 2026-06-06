@@ -7,6 +7,7 @@ export interface ChatPanelShellProps {
   renderVersion: number;
   showToolbar: boolean;
   toolbar: ChatPanelSlotProps;
+  goal: ChatPanelSlotProps;
   messages: ChatPanelSlotProps;
   composer: ChatPanelSlotProps;
 }
@@ -31,6 +32,15 @@ const shellSlots = {
     },
     props(props: ChatPanelShellProps): ChatPanelSlotProps {
       return props.toolbar;
+    },
+  },
+  goal: {
+    selector: ":scope > .codex-panel__body > .codex-panel__slot--goal",
+    create(container: HTMLElement): HTMLElement {
+      return ensureBody(container).createDiv({ cls: "codex-panel__slot codex-panel__slot--goal" });
+    },
+    props(props: ChatPanelShellProps): ChatPanelSlotProps {
+      return props.goal;
     },
   },
   messages: {

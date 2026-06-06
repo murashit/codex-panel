@@ -87,6 +87,7 @@ const chatImperativeDomBridgeFiles = [
   "src/features/chat/chat-message-renderer.ts",
   "src/features/chat/markdown-message-renderer.ts",
   "src/features/chat/ui/composer.tsx",
+  "src/features/chat/ui/goal-banner.tsx",
   "src/features/chat/ui/message-stream.tsx",
   "src/features/chat/ui/scroll.ts",
   "src/features/chat/ui/shell.tsx",

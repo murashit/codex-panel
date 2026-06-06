@@ -9,6 +9,7 @@ import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { AppServerDiagnostics } from "../../app-server/compatibility";
@@ -60,6 +61,7 @@ export interface ChatState {
   activeApprovalsReviewer: ApprovalsReviewer | null;
   activePermissionProfile: ActivePermissionProfile | null;
   activeThreadCreationCliVersion: string | null;
+  activeGoal: ThreadGoal | null;
   appServerDiagnostics: AppServerDiagnostics;
   requestedModel: PendingRuntimeSetting<string>;
   requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
@@ -172,6 +174,7 @@ export type ChatAction =
   | { type: "runtime/pending-thread-settings-committed"; update: Omit<ThreadSettingsUpdateParams, "threadId"> }
   | { type: "connection/initialized"; initializeResponse: InitializeResponse }
   | { type: "thread/cwd-set"; cwd: string | null }
+  | { type: "thread/goal-set"; goal: ThreadGoal | null }
   | { type: "thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null }
   | {
       type: "thread/settings-applied";
@@ -211,6 +214,7 @@ export function createChatState(): ChatState {
     turnLifecycle: { kind: "idle" },
     ...initialActiveRuntimeState(),
     activeThreadCreationCliVersion: null,
+    activeGoal: null,
     appServerDiagnostics: createAppServerDiagnostics(),
     ...initialRequestedRuntimeState(),
     tokenUsage: null,
@@ -319,6 +323,7 @@ function reduceThreadState(state: ChatState, action: ThreadAction): ChatState {
         activeApprovalsReviewer: action.approvalsReviewer,
         activePermissionProfile: action.activePermissionProfile,
         activeThreadCreationCliVersion: action.thread.cliVersion,
+        activeGoal: null,
         tokenUsage: null,
         ...initialHistoryState(),
         ...initialPendingRequestState(),
@@ -341,6 +346,8 @@ function reduceThreadState(state: ChatState, action: ThreadAction): ChatState {
       });
     case "thread/cwd-set":
       return patchChatState(state, { activeThreadCwd: action.cwd });
+    case "thread/goal-set":
+      return patchChatState(state, { activeGoal: action.goal });
     case "thread/token-usage-set":
       return patchChatState(state, { tokenUsage: action.tokenUsage });
     case "thread/settings-applied":
@@ -362,6 +369,7 @@ function reduceThreadState(state: ChatState, action: ThreadAction): ChatState {
           activeThreadCwd: null,
           ...initialActiveRuntimeState(),
           activeThreadCreationCliVersion: null,
+          activeGoal: null,
           tokenUsage: null,
           ...initialHistoryState(),
           displayItems: [action.item],
@@ -543,6 +551,7 @@ export function clearActiveThreadState(state: ChatState): ChatState {
       activeThreadCwd: null,
       ...initialActiveRuntimeState(),
       activeThreadCreationCliVersion: null,
+      activeGoal: null,
       tokenUsage: null,
       ...initialHistoryState(),
       ...initialDisplayState(),
@@ -555,6 +564,7 @@ export function clearConnectionScopedState(state: ChatState): ChatState {
   return patchChatState(clearActiveTurnState(state), {
     ...initialActiveRuntimeState(),
     activeThreadCreationCliVersion: null,
+    activeGoal: null,
     rateLimit: null,
     listedThreads: [],
     threadsLoaded: false,

@@ -78,6 +78,7 @@ function createController(
     forceMessagesToBottom: vi.fn(),
     render: vi.fn(),
     refreshLiveState: vi.fn(),
+    syncThreadGoal: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
   return { controller: new ThreadResumeController(host), host, applyLatestPage, loadLatest, restoredClear, resumeThread, stateStore };
@@ -90,6 +91,7 @@ describe("ThreadResumeController", () => {
     await controller.resumeThread("thread");
 
     expect(resumeThread).toHaveBeenCalledWith("thread", "/vault");
+    expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
     expect(stateStore.getState().activeThreadId).toBe("thread");
     expect(loadLatest).toHaveBeenCalledWith("thread");
     expect(restoredClear).toHaveBeenCalledOnce();

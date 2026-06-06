@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../src/features/chat/composer/slash-commands";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { ThreadGoal } from "../../../../src/generated/app-server/v2/ThreadGoal";
 import { executeSlashCommand, type SlashCommandExecutionContext } from "../../../../src/features/chat/slash-commands";
 
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
@@ -29,6 +30,10 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     setStatus: vi.fn(),
     setRequestedModel: vi.fn(),
     setRequestedReasoningEffort: vi.fn(),
+    activeGoal: vi.fn(() => null),
+    setGoalObjective: vi.fn().mockResolvedValue(true),
+    setGoalStatus: vi.fn().mockResolvedValue(true),
+    clearGoal: vi.fn().mockResolvedValue(true),
     statusSummaryLines: () => ["status"],
     connectionDiagnosticDetails: () => [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }],
     mcpStatusLines: vi.fn().mockResolvedValue(["mcp"]),
@@ -62,6 +67,20 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     turns: [],
     ...overrides,
   } as Thread;
+}
+
+function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
+  return {
+    threadId: "thread-1",
+    objective: "Finish",
+    status: "active",
+    tokenBudget: null,
+    tokensUsed: 0,
+    timeUsedSeconds: 0,
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  };
 }
 
 describe("slash commands", () => {
@@ -216,6 +235,104 @@ describe("slash commands", () => {
 
     expect(ctx.toggleCollaborationMode).toHaveBeenCalledOnce();
     expect(result).toBeUndefined();
+  });
+
+  it("shows the current goal for /goal", async () => {
+    const currentGoal = goal();
+    const ctx = context({ activeGoal: vi.fn(() => currentGoal) });
+
+    await executeSlashCommand("goal", "", ctx);
+
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith(
+      "Thread goal",
+      expect.arrayContaining([
+        expect.objectContaining({ rows: expect.arrayContaining([expect.objectContaining({ key: "objective", value: "Finish" })]) }),
+      ]),
+    );
+  });
+
+  it("reports no goal for bare /goal when unset", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("goal", "", ctx);
+
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("No goal set.");
+  });
+
+  it("sets, pauses, resumes, and clears goals", async () => {
+    const currentGoal = goal();
+    const ctx = context({ activeGoal: vi.fn(() => currentGoal) });
+
+    await executeSlashCommand("goal", "set Ship this", ctx);
+    await executeSlashCommand("goal", "pause", ctx);
+    await executeSlashCommand("goal", "resume", ctx);
+    await executeSlashCommand("goal", "clear", ctx);
+
+    expect(ctx.setGoalObjective).toHaveBeenCalledWith("thread-1", "Ship this", null);
+    expect(ctx.setGoalStatus).toHaveBeenCalledWith("thread-1", "paused");
+    expect(ctx.setGoalStatus).toHaveBeenCalledWith("thread-1", "active");
+    expect(ctx.clearGoal).toHaveBeenCalledWith("thread-1");
+  });
+
+  it("loads the current goal into the composer for /goal edit", async () => {
+    const ctx = context({ activeGoal: vi.fn(() => goal({ objective: "Ship goal support" })) });
+
+    const result = await executeSlashCommand("goal", "edit", ctx);
+
+    expect(result).toEqual({ composerDraft: "/goal set Ship goal support" });
+  });
+
+  it("reports no goal for /goal edit when unset", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("goal", "edit", ctx);
+
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("No goal set.");
+  });
+
+  it("requires objective text for /goal set", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("goal", "set", ctx);
+
+    expect(ctx.setGoalObjective).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal set <objective> requires an objective. Usage: /goal set <objective>");
+  });
+
+  it("rejects extra arguments for goal subcommands without free text", async () => {
+    const currentGoal = goal();
+    const ctx = context({ activeGoal: vi.fn(() => currentGoal) });
+
+    await executeSlashCommand("goal", "edit later", ctx);
+    await executeSlashCommand("goal", "pause later", ctx);
+    await executeSlashCommand("goal", "resume now", ctx);
+    await executeSlashCommand("goal", "clear please", ctx);
+
+    expect(ctx.setGoalStatus).not.toHaveBeenCalled();
+    expect(ctx.clearGoal).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal edit does not take arguments. Usage: /goal edit");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal pause does not take arguments. Usage: /goal pause");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal resume does not take arguments. Usage: /goal resume");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal clear does not take arguments. Usage: /goal clear");
+  });
+
+  it("rejects unknown goal subcommands", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("goal", "stop", ctx);
+
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith(
+      "/goal requires set <objective>, edit, pause, resume, or clear. Subcommands: /goal set <objective>, /goal edit, /goal pause, /goal resume, /goal clear. Usage: /goal [set <objective>|edit|pause|resume|clear]",
+    );
+  });
+
+  it("rejects goal mutation without an active thread", async () => {
+    const ctx = context({ activeThreadId: null });
+
+    await executeSlashCommand("goal", "set Ship this", ctx);
+
+    expect(ctx.setGoalObjective).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread for goal management.");
   });
 
   it("returns message text after toggling Plan mode for /plan arguments", async () => {

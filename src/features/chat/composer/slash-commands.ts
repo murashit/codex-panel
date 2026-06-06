@@ -5,7 +5,10 @@ export type SlashCommandArgsKind =
   | "optionalMessage"
   | "threadAndMessage"
   | "threadAndName"
+  | "goal"
   | "showOrSet";
+
+export type SlashCommandSubcommandArgsKind = "none" | "requiredMessage";
 
 export type SlashCommandSurface = "panelAction" | "threadSetting" | "diagnostic" | "composition";
 
@@ -15,6 +18,22 @@ export const SLASH_COMMAND_SURFACE_LABELS: Record<SlashCommandSurface, string> =
   diagnostic: "Diagnostics",
   composition: "Composition",
 };
+
+export interface SlashCommandSubcommandDefinition {
+  subcommand: string;
+  usage: string;
+  argsKind: SlashCommandSubcommandArgsKind;
+  detail: string;
+}
+
+export interface SlashCommandDefinitionShape {
+  command: string;
+  usage: string;
+  argsKind: SlashCommandArgsKind;
+  surface: SlashCommandSurface;
+  detail: string;
+  subcommands?: readonly SlashCommandSubcommandDefinition[];
+}
 
 export const SLASH_COMMANDS = [
   {
@@ -90,6 +109,20 @@ export const SLASH_COMMANDS = [
     detail: "Toggle Plan mode, optionally with a message.",
   },
   {
+    command: "/goal",
+    usage: "/goal [set <objective>|edit|pause|resume|clear]",
+    argsKind: "goal",
+    surface: "threadSetting",
+    detail: "Show or manage the current thread goal.",
+    subcommands: [
+      { subcommand: "set", usage: "/goal set <objective>", argsKind: "requiredMessage", detail: "Create or update the thread goal." },
+      { subcommand: "edit", usage: "/goal edit", argsKind: "none", detail: "Load the current thread goal into the composer." },
+      { subcommand: "pause", usage: "/goal pause", argsKind: "none", detail: "Pause the current thread goal." },
+      { subcommand: "resume", usage: "/goal resume", argsKind: "none", detail: "Resume the current thread goal." },
+      { subcommand: "clear", usage: "/goal clear", argsKind: "none", detail: "Clear the current thread goal." },
+    ],
+  },
+  {
     command: "/status",
     usage: "/status",
     argsKind: "none",
@@ -131,7 +164,7 @@ export const SLASH_COMMANDS = [
     surface: "diagnostic",
     detail: "Show available Codex slash commands.",
   },
-] as const;
+] as const satisfies readonly SlashCommandDefinitionShape[];
 
 type SlashCommand = (typeof SLASH_COMMANDS)[number]["command"];
 
@@ -143,6 +176,15 @@ export function slashCommandDefinition(command: SlashCommandName): SlashCommandD
   const definition = SLASH_COMMANDS.find((item) => item.command === `/${command}`);
   if (!definition) throw new Error(`Unknown slash command: ${command}`);
   return definition;
+}
+
+export function slashCommandSubcommands(command: SlashCommandName): readonly SlashCommandSubcommandDefinition[] {
+  const definition = slashCommandDefinition(command);
+  return "subcommands" in definition ? definition.subcommands : [];
+}
+
+export function slashCommandSubcommandDefinition(command: SlashCommandName, subcommand: string): SlashCommandSubcommandDefinition | null {
+  return slashCommandSubcommands(command).find((item) => item.subcommand === subcommand) ?? null;
 }
 
 export function slashCommandHelpLines(): string[] {

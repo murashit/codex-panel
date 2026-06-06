@@ -17,6 +17,10 @@ import type { ModelProviderCapabilitiesReadResponse } from "../generated/app-ser
 import type { SkillsListResponse } from "../generated/app-server/v2/SkillsListResponse";
 import type { ThreadArchiveResponse } from "../generated/app-server/v2/ThreadArchiveResponse";
 import type { ThreadForkResponse } from "../generated/app-server/v2/ThreadForkResponse";
+import type { ThreadGoalClearResponse } from "../generated/app-server/v2/ThreadGoalClearResponse";
+import type { ThreadGoalGetResponse } from "../generated/app-server/v2/ThreadGoalGetResponse";
+import type { ThreadGoalSetResponse } from "../generated/app-server/v2/ThreadGoalSetResponse";
+import type { ThreadGoalStatus } from "../generated/app-server/v2/ThreadGoalStatus";
 import type { ThreadListResponse } from "../generated/app-server/v2/ThreadListResponse";
 import type { ThreadReadResponse } from "../generated/app-server/v2/ThreadReadResponse";
 import type { ThreadResumeResponse } from "../generated/app-server/v2/ThreadResumeResponse";
@@ -80,6 +84,9 @@ interface ClientResponseByMethod {
   "thread/start": ThreadStartResponse;
   "thread/resume": ThreadResumeResponse;
   "thread/fork": ThreadForkResponse;
+  "thread/goal/get": ThreadGoalGetResponse;
+  "thread/goal/set": ThreadGoalSetResponse;
+  "thread/goal/clear": ThreadGoalClearResponse;
   "thread/list": ThreadListResponse;
   "thread/read": ThreadReadResponse;
   "thread/archive": ThreadArchiveResponse;
@@ -272,6 +279,21 @@ export class AppServerClient {
 
   setThreadName(threadId: string, name: string): Promise<ThreadSetNameResponse> {
     return this.request("thread/name/set", { threadId, name });
+  }
+
+  getThreadGoal(threadId: string): Promise<ThreadGoalGetResponse> {
+    return this.request("thread/goal/get", { threadId });
+  }
+
+  setThreadGoal(
+    threadId: string,
+    params: { objective?: string | null; status?: ThreadGoalStatus | null; tokenBudget?: number | null },
+  ): Promise<ThreadGoalSetResponse> {
+    return this.request("thread/goal/set", { threadId, ...params });
+  }
+
+  clearThreadGoal(threadId: string): Promise<ThreadGoalClearResponse> {
+    return this.request("thread/goal/clear", { threadId });
   }
 
   updateThreadSettings(threadId: string, settings: Omit<ThreadSettingsUpdateParams, "threadId">): Promise<ThreadSettingsUpdateResponse> {
