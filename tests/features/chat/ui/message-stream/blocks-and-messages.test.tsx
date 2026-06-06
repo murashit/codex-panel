@@ -924,6 +924,7 @@ describe("message stream rendering and message actions", () => {
       })[0];
 
       const element = renderMessageBlockElement(block);
+      document.body.appendChild(element);
       const content = element.querySelector<HTMLElement>(".codex-panel__message-content");
       const details = element.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details");
 
@@ -942,8 +943,17 @@ describe("message stream rendering and message actions", () => {
       expect(details?.hidden).toBe(true);
       expect(onDetailsToggle).toHaveBeenCalled();
 
+      void act(() => {
+        document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      });
+      expect(openDetails.has("message:u1:expanded")).toBe(false);
+      expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
+      expect(details?.hidden).toBe(false);
+      expect(onDetailsToggle).toHaveBeenCalledWith("message:u1:expanded", false);
+
       element.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
       expect(copyText).toHaveBeenCalledWith("full copied text");
+      element.remove();
     });
   });
 

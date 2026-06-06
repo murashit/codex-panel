@@ -368,6 +368,7 @@ function MessageAction({
 function CollapsibleMessageContent({ item, context }: { item: RenderableTextItem; context: MessageStreamContext }): UiNode {
   const key = `message:${item.id}:expanded`;
   const renderModeKey = contentRenderMode(item);
+  const collapseRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [overflows, setOverflows] = useState(false);
   const [expanded, setExpanded] = useState(context.openDetails.has(key));
@@ -390,8 +391,24 @@ function CollapsibleMessageContent({ item, context }: { item: RenderableTextItem
     };
   }, [item.id, item.text, renderModeKey]);
 
+  useEffect(() => {
+    if (!overflows || !expanded) return;
+    const doc = collapseRef.current?.ownerDocument;
+    if (!doc) return;
+    const collapseOnOutsidePointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && collapseRef.current?.contains(event.target)) return;
+      setExpanded(false);
+      context.onDetailsToggle?.(key, false);
+    };
+    doc.addEventListener("pointerdown", collapseOnOutsidePointer, true);
+    return () => {
+      doc.removeEventListener("pointerdown", collapseOnOutsidePointer, true);
+    };
+  }, [context, expanded, key, overflows]);
+
   return (
     <div
+      ref={collapseRef}
       className={[
         "codex-panel__message-collapse",
         overflows ? "codex-panel__message-collapse--overflow" : "",
