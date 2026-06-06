@@ -146,6 +146,43 @@ describe("work log renderer decisions", () => {
     expect(element.textContent).toBe("user steered");
   });
 
+  it("renders steering activity as a compact two-line tool summary", () => {
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "turn" },
+        {
+          id: "u2",
+          kind: "message",
+          messageKind: "user",
+          role: "user",
+          text: "also check tests and keep the summary compact",
+          turnId: "turn",
+        },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "done",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+          turnId: "turn",
+        },
+      ],
+      openDetails: new Set(["turn:turn:activity"]),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+    }).find((item) => item.key === "activity:turn-turn-activity");
+
+    const element = renderMessageBlockElement(expectPresent(block));
+
+    expect(element.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("steer");
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("also check tests and keep the summary compact");
+  });
+
   it("renders path summary tools relative to the workspace root", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",

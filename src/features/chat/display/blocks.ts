@@ -3,7 +3,7 @@ import { isCompletedTurnOutcomeMessage } from "./turn-outcome-message";
 import { pathRelativeToRoot } from "./paths";
 import { executionState } from "./state";
 
-const STEERING_ACTIVITY_LABEL = "user steered";
+const STEERING_ACTIVITY_LABEL = "steer";
 const STEERING_ACTIVITY_KIND = "userSteered";
 
 export function displayBlocksForItems(
@@ -78,7 +78,7 @@ function steeringActivityItem(item: DisplayItem, turnId: string): DisplayItem {
     id: `steer-activity-${item.id}`,
     kind: "tool",
     role: "tool",
-    text: "",
+    text: item.text,
     turnId,
     ...(item.itemId ? { itemId: item.itemId } : {}),
     activityKind: STEERING_ACTIVITY_KIND,

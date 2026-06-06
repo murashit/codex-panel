@@ -1107,7 +1107,11 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "u2", "turn-t1-activity", "a1"]);
     expect(blocks[2]).toMatchObject({
       summary: "Work details: steer, 2 commands",
-      items: [{ id: "c1" }, { id: "steer-activity-u2", text: "", activityKind: "userSteered", toolLabel: "user steered" }, { id: "c2" }],
+      items: [
+        { id: "c1" },
+        { id: "steer-activity-u2", text: "also check tests", activityKind: "userSteered", toolLabel: "steer" },
+        { id: "c2" },
+      ],
     });
   });
 
