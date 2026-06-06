@@ -158,6 +158,37 @@ describe("AppServerClient", () => {
     expect(serverRequests[0]?.method).toBe("item/commandExecution/requestApproval");
   });
 
+  it("injects raw items into a thread", async () => {
+    const { client, transport } = await connectedClient();
+
+    const request = client.injectThreadItems("thread-1", [
+      {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: "Ship this" }],
+      },
+    ]);
+
+    await expectRequest(
+      transport,
+      request,
+      {
+        method: "thread/inject_items",
+        params: {
+          threadId: "thread-1",
+          items: [
+            {
+              type: "message",
+              role: "user",
+              content: [{ type: "input_text", text: "Ship this" }],
+            },
+          ],
+        },
+      },
+      {},
+    );
+  });
+
   it("exposes initialized state through a single connection lifecycle", async () => {
     const { client, transport } = await connectedClient();
 

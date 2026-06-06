@@ -7,7 +7,10 @@ const MAX_CONTEXT_CHARS = 4_000;
 
 export function namingContextFromDisplayItems(turnId: string, items: readonly DisplayItem[]): ThreadNamingContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
-  const userRequest = turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ?? "";
+  const userRequest =
+    turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ??
+    precedingUnscopedUserMessage(turnId, items)?.text.trim() ??
+    "";
   const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeMessage)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
   return {
@@ -23,6 +26,17 @@ export function firstNamingContextFromDisplayItems(items: readonly DisplayItem[]
     turnIds.add(item.turnId);
     const context = namingContextFromDisplayItems(item.turnId, items);
     if (context) return context;
+  }
+  return null;
+}
+
+function precedingUnscopedUserMessage(turnId: string, items: readonly DisplayItem[]): DisplayItem | null {
+  const firstTurnItemIndex = items.findIndex((item) => item.turnId === turnId);
+  if (firstTurnItemIndex < 1) return null;
+  for (let index = firstTurnItemIndex - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (!item || item.turnId) return null;
+    if (item.kind === "message" && item.role === "user") return item;
   }
   return null;
 }

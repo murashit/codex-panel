@@ -21,6 +21,7 @@ import type { ThreadGoalClearResponse } from "../generated/app-server/v2/ThreadG
 import type { ThreadGoalGetResponse } from "../generated/app-server/v2/ThreadGoalGetResponse";
 import type { ThreadGoalSetResponse } from "../generated/app-server/v2/ThreadGoalSetResponse";
 import type { ThreadGoalStatus } from "../generated/app-server/v2/ThreadGoalStatus";
+import type { ThreadInjectItemsResponse } from "../generated/app-server/v2/ThreadInjectItemsResponse";
 import type { ThreadListResponse } from "../generated/app-server/v2/ThreadListResponse";
 import type { ThreadReadResponse } from "../generated/app-server/v2/ThreadReadResponse";
 import type { ThreadResumeResponse } from "../generated/app-server/v2/ThreadResumeResponse";
@@ -87,6 +88,7 @@ interface ClientResponseByMethod {
   "thread/goal/get": ThreadGoalGetResponse;
   "thread/goal/set": ThreadGoalSetResponse;
   "thread/goal/clear": ThreadGoalClearResponse;
+  "thread/inject_items": ThreadInjectItemsResponse;
   "thread/list": ThreadListResponse;
   "thread/read": ThreadReadResponse;
   "thread/archive": ThreadArchiveResponse;
@@ -294,6 +296,10 @@ export class AppServerClient {
 
   clearThreadGoal(threadId: string): Promise<ThreadGoalClearResponse> {
     return this.request("thread/goal/clear", { threadId });
+  }
+
+  injectThreadItems(threadId: string, items: ClientRequestParams<"thread/inject_items">["items"]): Promise<ThreadInjectItemsResponse> {
+    return this.request("thread/inject_items", { threadId, items });
   }
 
   updateThreadSettings(threadId: string, settings: Omit<ThreadSettingsUpdateParams, "threadId">): Promise<ThreadSettingsUpdateResponse> {

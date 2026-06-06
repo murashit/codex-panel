@@ -225,9 +225,20 @@ describe("CodexChatView connection lifecycle", () => {
         status: "active",
         tokenBudget: null,
       });
+      expect(client.injectThreadItems).toHaveBeenCalledWith("thread-new", [
+        {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "Ship the feature" }],
+        },
+      ]);
     });
     expect((view as unknown as { state: ChatState }).state.activeThreadId).toBe("thread-new");
     expect((view as unknown as { state: ChatState }).state.activeGoal?.objective).toBe("Ship the feature");
+    expect((view as unknown as { state: ChatState }).state.displayItems).toContainEqual(
+      expect.objectContaining({ kind: "message", messageKind: "user", text: "Ship the feature" }),
+    );
+    expect(view.containerEl.textContent).toContain("Ship the feature");
   });
 
   it("ignores stale connection work after the view closes", async () => {
@@ -894,6 +905,7 @@ function baseClient() {
     setThreadName: vi.fn().mockResolvedValue({}),
     getThreadGoal: vi.fn().mockResolvedValue({ goal: null }),
     setThreadGoal: vi.fn().mockResolvedValue({ goal: goalFixture("thread-1") }),
+    injectThreadItems: vi.fn().mockResolvedValue({}),
     readThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-1") }),
     archiveThread: vi.fn().mockResolvedValue({}),
   };

@@ -1,7 +1,9 @@
 import type { AppServerClient } from "../../app-server/client";
+import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
 import type { ChatStateStore } from "./chat-state";
+import type { MessageDisplayItem } from "./display/types";
 import { goalChangeMessage } from "./goal-messages";
 
 export interface ChatGoalControllerHost {
@@ -9,6 +11,7 @@ export interface ChatGoalControllerHost {
   currentClient: () => AppServerClient | null;
   ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
+  addUserMessage: (item: MessageDisplayItem) => void;
   render: () => void;
   refreshLiveState: () => void;
 }
@@ -39,11 +42,25 @@ export class ChatGoalController {
       return false;
     }
     const current = this.host.stateStore.getState().activeGoal;
-    const applied = await this.setGoal(threadId, {
-      objective: trimmed,
-      status: current?.status ?? "active",
-      tokenBudget,
-    });
+    const isNewGoal = current === null;
+    const applied = await this.setGoal(
+      threadId,
+      {
+        objective: trimmed,
+        status: current?.status ?? "active",
+        tokenBudget,
+      },
+      isNewGoal
+        ? {
+            beforeReportChange: () => {
+              this.host.addUserMessage(goalUserMessageItem(trimmed));
+            },
+          }
+        : undefined,
+    );
+    if (applied && isNewGoal) {
+      await this.recordGoalUserMessage(threadId, trimmed);
+    }
     return applied;
   }
 
@@ -68,31 +85,69 @@ export class ChatGoalController {
   private async setGoal(
     threadId: string,
     params: { objective?: string | null; status?: ThreadGoalStatus | null; tokenBudget?: number | null },
+    options: { beforeReportChange?: () => void } = {},
   ): Promise<boolean> {
     await this.host.ensureConnected();
     const client = this.host.currentClient();
     if (!client) return false;
     try {
       const response = await client.setThreadGoal(threadId, params);
-      this.applyGoalIfActive(threadId, response.goal, { reportChange: true });
-      return true;
+      return this.applyGoalIfActive(threadId, response.goal, {
+        reportChange: true,
+        ...(options.beforeReportChange ? { beforeReportChange: options.beforeReportChange } : {}),
+      });
     } catch (error) {
       this.host.addSystemMessage(errorMessage(error));
       return false;
     }
   }
 
-  private applyGoalIfActive(threadId: string, goal: ThreadGoal | null, options: { reportChange: boolean }): void {
+  private applyGoalIfActive(
+    threadId: string,
+    goal: ThreadGoal | null,
+    options: { reportChange: boolean; beforeReportChange?: () => void },
+  ): boolean {
     const state = this.host.stateStore.getState();
-    if (state.activeThreadId !== threadId) return;
+    if (state.activeThreadId !== threadId) return false;
     const message = options.reportChange ? goalChangeMessage(state.activeGoal, goal) : null;
     this.host.stateStore.dispatch({ type: "thread/goal-set", goal });
+    options.beforeReportChange?.();
     if (message) this.host.addSystemMessage(message);
     this.host.refreshLiveState();
     this.host.render();
+    return true;
+  }
+
+  private async recordGoalUserMessage(threadId: string, objective: string): Promise<void> {
+    const client = this.host.currentClient();
+    if (!client) return;
+    try {
+      await client.injectThreadItems(threadId, [goalUserHistoryItem(objective)]);
+    } catch (error) {
+      this.host.addSystemMessage(`Could not record goal message: ${errorMessage(error)}`);
+    }
   }
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function goalUserMessageItem(text: string): MessageDisplayItem {
+  return {
+    id: `goal-user-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
+    kind: "message",
+    messageKind: "user",
+    role: "user",
+    text,
+    copyText: text,
+  };
+}
+
+function goalUserHistoryItem(text: string): JsonValue {
+  return {
+    type: "message",
+    role: "user",
+    content: [{ type: "input_text", text }],
+  };
 }

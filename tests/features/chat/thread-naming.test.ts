@@ -112,6 +112,26 @@ describe("thread naming", () => {
     });
   });
 
+  it("uses a preceding goal user message when the first completed turn has no user item", () => {
+    expect(
+      namingContextFromDisplayItems("turn", [
+        { id: "goal-user", kind: "message", messageKind: "user", role: "user", text: "ゴールから始めたスレッドを命名したい" },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "ゴール内容に基づいて実装しました。",
+          turnId: "turn",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
+      ]),
+    ).toEqual({
+      userRequest: "ゴールから始めたスレッドを命名したい",
+      assistantResponse: "ゴール内容に基づいて実装しました。",
+    });
+  });
+
   it("scans older thread pages until it finds a usable naming context", async () => {
     const calls: { cursor: string | null; limit: number; sortDirection: string }[] = [];
     const context = await findThreadNamingContext({
