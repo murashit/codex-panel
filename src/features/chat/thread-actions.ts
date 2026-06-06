@@ -41,6 +41,19 @@ export class ChatThreadActionController {
     this.host.stateStore.dispatch(action);
   }
 
+  async compactThread(threadId: string): Promise<void> {
+    await this.host.ensureConnected();
+    const client = this.host.currentClient();
+    if (!client) return;
+    try {
+      await client.compactThread(threadId);
+      this.host.addSystemMessage("Compaction requested.");
+      this.host.setStatus("Compaction requested.");
+    } catch (error) {
+      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   async archiveThread(threadId: string, saveMarkdown = this.host.settings().archiveExportEnabled): Promise<void> {
     if (await this.archiveThreadOnServer(threadId, saveMarkdown)) {
       this.host.notifyThreadArchived(threadId);

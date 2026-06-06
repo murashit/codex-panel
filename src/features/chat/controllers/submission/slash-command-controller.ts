@@ -20,6 +20,7 @@ export interface SlashCommandThreadPort {
   resumeThread: (threadId: string) => Promise<void>;
   forkThread: (threadId: string) => Promise<void>;
   rollbackThread: (threadId: string) => Promise<void>;
+  compactThread: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   renameThread: (threadId: string, name: string) => Promise<void>;
   reconnect: () => Promise<void>;
@@ -67,7 +68,7 @@ export class SlashCommandController {
   async execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined> {
     const state = this.host.state.snapshot();
     const client = this.host.currentClient();
-    if (!client && command !== "reconnect") return;
+    if (!client && command !== "reconnect" && command !== "compact") return;
     return runSlashCommand(command, args, {
       activeThreadId: state.activeThreadId,
       listedThreads: state.listedThreads,
@@ -81,10 +82,7 @@ export class SlashCommandController {
       },
       forkThread: (threadId) => this.host.threads.forkThread(threadId),
       rollbackThread: (threadId) => this.host.threads.rollbackThread(threadId),
-      compactThread: async (threadId) => {
-        if (!client) return;
-        await client.compactThread(threadId);
-      },
+      compactThread: (threadId) => this.host.threads.compactThread(threadId),
       archiveThread: (threadId) => this.host.threads.archiveThread(threadId),
       renameThread: (threadId, name) => this.host.threads.renameThread(threadId, name),
       busy: state.busy,
@@ -96,9 +94,6 @@ export class SlashCommandController {
       },
       addStructuredSystemMessage: (text, details) => {
         this.host.status.addStructuredSystemMessage(text, details);
-      },
-      setStatus: (status) => {
-        this.host.status.setStatus(status);
       },
       setRequestedModel: (model) => this.host.runtime.setRequestedModel(model),
       setRequestedReasoningEffort: (effort) => this.host.runtime.setRequestedReasoningEffort(effort),

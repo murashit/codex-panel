@@ -7,6 +7,19 @@ import type { DisplayItem } from "../../../src/features/chat/display/types";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 
 describe("ChatThreadActionController", () => {
+  it("requests thread compaction and reports the shared status", async () => {
+    const client = clientMock();
+    const host = hostMock({ client, displayItems: [] });
+    const controller = new ChatThreadActionController(host);
+
+    await controller.compactThread("source");
+
+    expect(host.ensureConnected).toHaveBeenCalledOnce();
+    expect(client.compactThread).toHaveBeenCalledWith("source");
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Compaction requested.");
+    expect(host.setStatus).toHaveBeenCalledWith("Compaction requested.");
+  });
+
   it("forks from a selected turn by dropping later turns on the fork", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
@@ -118,6 +131,7 @@ function clientMock() {
   return {
     forkThread: vi.fn().mockResolvedValue({ thread: { id: "forked" } }),
     rollbackThread: vi.fn().mockResolvedValue({ thread: { id: "forked" } }),
+    compactThread: vi.fn().mockResolvedValue({}),
     archiveThread: vi.fn().mockResolvedValue({}),
     readThread: vi.fn(),
     setThreadName: vi.fn(),

@@ -434,16 +434,7 @@ export class CodexChatView extends ItemView {
       this.addSystemMessage("No active thread to compact.");
       return;
     }
-    try {
-      await this.connectionController.ensureConnected();
-      const client = this.client;
-      if (!client) return;
-      await client.compactThread(threadId);
-      this.addSystemMessage("Compaction requested.");
-      this.setStatus("Compaction requested.");
-    } catch (error) {
-      this.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
+    await this.threadActions.compactThread(threadId);
   }
 
   private showGoalEditor(): void {

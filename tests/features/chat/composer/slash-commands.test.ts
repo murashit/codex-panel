@@ -28,7 +28,6 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     toggleAutoReview: vi.fn(),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
-    setStatus: vi.fn(),
     setRequestedModel: vi.fn(),
     setRequestedReasoningEffort: vi.fn(),
     activeGoal: vi.fn(() => null),

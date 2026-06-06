@@ -40,7 +40,6 @@ export interface SlashCommandExecutionContext {
   toggleAutoReview: () => void | Promise<void>;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
-  setStatus: (status: string) => void;
   setRequestedModel: (model: string | null) => boolean | undefined | Promise<boolean | undefined>;
   setRequestedReasoningEffort: (effort: ReasoningEffort | null) => boolean | undefined | Promise<boolean | undefined>;
   activeGoal: () => ThreadGoal | null;
@@ -144,13 +143,7 @@ export async function executeSlashCommand(
       context.addSystemMessage("No active thread to compact.");
       return;
     }
-    try {
-      await context.compactThread(context.activeThreadId);
-      context.addSystemMessage("Compaction requested.");
-      context.setStatus("Compaction requested.");
-    } catch (error) {
-      context.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
+    await context.compactThread(context.activeThreadId);
     return;
   }
 

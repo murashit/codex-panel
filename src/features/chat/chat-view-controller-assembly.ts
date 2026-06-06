@@ -218,6 +218,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
       resumeThread: host.selectThread,
       forkThread: (threadId) => threadActions.forkThread(threadId),
       rollbackThread: (threadId) => threadActions.rollbackThread(threadId),
+      compactThread: (threadId) => threadActions.compactThread(threadId),
       archiveThread: (threadId) => threadActions.archiveThread(threadId),
       renameThread: (threadId, name) => threadRename.rename(threadId, name),
       reconnect: () => reconnectActions.reconnectPanel(),

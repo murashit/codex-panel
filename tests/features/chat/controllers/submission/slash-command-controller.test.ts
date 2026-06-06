@@ -57,15 +57,16 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     ...hostOverrides
   } = overrides;
   const stateStore = createChatStateStore(createChatState());
-  const compactThread = vi.fn().mockResolvedValue({});
   const threadTurnsList = vi.fn().mockResolvedValue({ data: [] });
-  const client = { compactThread, threadTurnsList } as unknown as AppServerClient;
+  const client = { threadTurnsList } as unknown as AppServerClient;
+  const compactThread = vi.fn().mockResolvedValue(undefined);
   const threads: SlashCommandThreadPort = {
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     forkThread: vi.fn().mockResolvedValue(undefined),
     rollbackThread: vi.fn().mockResolvedValue(undefined),
+    compactThread,
     archiveThread: vi.fn().mockResolvedValue(undefined),
     renameThread: vi.fn().mockResolvedValue(undefined),
     reconnect: vi.fn().mockResolvedValue(undefined),
@@ -121,7 +122,7 @@ describe("SlashCommandController", () => {
     expect(result).toBeUndefined();
   });
 
-  it("uses the current client for app-server commands", async () => {
+  it("routes compact through the shared thread action port", async () => {
     const { compactThread, host, stateStore } = createHost();
     stateStore.dispatch({
       type: "thread/list-applied",
@@ -143,7 +144,26 @@ describe("SlashCommandController", () => {
     await controller.execute("compact", "");
 
     expect(compactThread).toHaveBeenCalledWith("thread");
-    expect(host.status.setStatus).toHaveBeenCalledWith("Compaction requested.");
+  });
+
+  it("routes compact through the shared thread action port before a client is connected", async () => {
+    const { compactThread, host, stateStore } = createHost({ currentClient: () => null });
+    stateStore.dispatch({
+      type: "thread/resumed",
+      thread: thread("thread", "Thread"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    const controller = new SlashCommandController(host);
+
+    await controller.execute("compact", "");
+
+    expect(compactThread).toHaveBeenCalledWith("thread");
   });
 
   it("starts an empty panel before setting a slash command goal", async () => {
