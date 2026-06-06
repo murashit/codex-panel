@@ -10,6 +10,7 @@ export type DisplayKind =
   | "hook"
   | "reasoning"
   | "system"
+  | "goal"
   | "approvalResult"
   | "userInputResult"
   | "reviewResult";
@@ -85,6 +86,13 @@ export interface DisplayTurnDiff {
 export interface SystemMessageDisplayItem extends DisplayBase {
   kind: "system";
   role: "system";
+  details?: DisplayDetailSection[];
+}
+
+export interface GoalDisplayItem extends DisplayBase {
+  kind: "goal";
+  role: "tool";
+  objective?: string;
   details?: DisplayDetailSection[];
 }
 
@@ -203,6 +211,7 @@ export interface AgentRunSummary {
 export type DisplayItem =
   | MessageDisplayItem
   | SystemMessageDisplayItem
+  | GoalDisplayItem
   | UserInputResultDisplayItem
   | CommandDisplayItem
   | FileChangeDisplayItem

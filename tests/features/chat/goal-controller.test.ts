@@ -19,7 +19,7 @@ describe("ChatGoalController", () => {
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage: vi.fn(),
-      addUserMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
       render,
       refreshLiveState,
     });
@@ -42,7 +42,7 @@ describe("ChatGoalController", () => {
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
-      addUserMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
       render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
@@ -68,12 +68,13 @@ describe("ChatGoalController", () => {
       clearThreadGoal,
     } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
+    const addGoalEvent = vi.fn();
     const controller = new ChatGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
-      addUserMessage: vi.fn(),
+      addGoalEvent,
       render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
@@ -85,13 +86,14 @@ describe("ChatGoalController", () => {
     expect(setThreadGoal).toHaveBeenCalledWith("thread", { objective: "Updated", status: "active", tokenBudget: 250 });
     expect(setThreadGoal).toHaveBeenCalledWith("thread", { status: "paused" });
     expect(clearThreadGoal).toHaveBeenCalledWith("thread");
-    expect(addSystemMessage).toHaveBeenCalledWith("Goal updated.");
-    expect(addSystemMessage).toHaveBeenCalledWith("Goal paused.");
-    expect(addSystemMessage).toHaveBeenCalledWith("Goal cleared.");
+    expect(addSystemMessage).not.toHaveBeenCalledWith("Goal updated.");
+    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
+    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "paused: Updated", objective: "Updated" }));
+    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "cleared: Updated", objective: "Updated" }));
     expect(stateStore.getState().activeGoal).toBeNull();
   });
 
-  it("reports goal creation as a user-visible state change", async () => {
+  it("reports goal creation as a structured goal event", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
     const stateStore = createChatStateStore(state);
@@ -99,22 +101,29 @@ describe("ChatGoalController", () => {
     const injectThreadItems = vi.fn().mockResolvedValue({});
     const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
-    const addUserMessage = vi.fn();
+    const addGoalEvent = vi.fn();
     const controller = new ChatGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
-      addUserMessage,
+      addGoalEvent,
       render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
     await controller.setObjective("thread", "Finish", null);
 
-    expect(addSystemMessage).toHaveBeenCalledWith("Goal set.");
-    expect(addUserMessage).toHaveBeenCalledWith(expect.objectContaining({ kind: "message", messageKind: "user", text: "Finish" }));
-    expect(addUserMessage.mock.invocationCallOrder[0]).toBeLessThan(addSystemMessage.mock.invocationCallOrder[0] ?? 0);
+    expect(addSystemMessage).not.toHaveBeenCalledWith("Goal set.");
+    expect(addGoalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "goal",
+        role: "tool",
+        text: "set: Finish",
+        objective: "Finish",
+        details: [{ rows: [{ key: "action", value: "set" }] }, { title: "Objective", body: "Finish" }],
+      }),
+    );
     expect(injectThreadItems).toHaveBeenCalledWith("thread", [
       {
         type: "message",
@@ -124,7 +133,7 @@ describe("ChatGoalController", () => {
     ]);
   });
 
-  it("does not add a goal user message when editing an existing goal", async () => {
+  it("does not inject a goal user history message when editing an existing goal", async () => {
     const state = createChatState();
     state.activeThreadId = "thread";
     state.activeGoal = goal();
@@ -132,20 +141,20 @@ describe("ChatGoalController", () => {
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal({ objective: "Updated" }) });
     const injectThreadItems = vi.fn().mockResolvedValue({});
     const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
-    const addUserMessage = vi.fn();
+    const addGoalEvent = vi.fn();
     const controller = new ChatGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage: vi.fn(),
-      addUserMessage,
+      addGoalEvent,
       render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
     await controller.setObjective("thread", "Updated", null);
 
-    expect(addUserMessage).not.toHaveBeenCalled();
+    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
     expect(injectThreadItems).not.toHaveBeenCalled();
   });
 
@@ -157,19 +166,21 @@ describe("ChatGoalController", () => {
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
     const client = { setThreadGoal } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
+    const addGoalEvent = vi.fn();
     const controller = new ChatGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
-      addUserMessage: vi.fn(),
+      addGoalEvent,
       render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
     await controller.setStatus("thread", "active");
 
-    expect(addSystemMessage).toHaveBeenCalledWith("Goal resumed.");
+    expect(addSystemMessage).not.toHaveBeenCalledWith("Goal resumed.");
+    expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "resumed: Finish", objective: "Finish" }));
   });
 
   it("does not report initial goal sync as a user-visible state change", async () => {
@@ -184,7 +195,7 @@ describe("ChatGoalController", () => {
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
-      addUserMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
       render: vi.fn(),
       refreshLiveState: vi.fn(),
     });

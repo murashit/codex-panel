@@ -9,6 +9,7 @@ import type {
   DisplayItem,
   ExecutionState,
   FileChangeDisplayItem,
+  GoalDisplayItem,
   HookDisplayItem,
   ReviewResultDisplayItem,
   ToolCallDisplayItem,
@@ -17,6 +18,7 @@ import type {
 export type ToolResultDisplayItem =
   | CommandDisplayItem
   | FileChangeDisplayItem
+  | GoalDisplayItem
   | ToolCallDisplayItem
   | HookDisplayItem
   | ApprovalResultDisplayItem
@@ -39,6 +41,7 @@ export interface ToolResultView {
 export function toolResultView(item: ToolResultDisplayItem, workspaceRoot?: string | null): ToolResultView {
   if (item.kind === "command") return commandToolView(item);
   if (item.kind === "fileChange") return fileChangeToolView(item, workspaceRoot);
+  if (item.kind === "goal") return goalToolView(item);
   if (item.kind === "approvalResult") return approvalToolView(item);
   if (item.kind === "reviewResult") return reviewToolView(item);
   return genericToolView(item, workspaceRoot);
@@ -89,6 +92,16 @@ function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string 
     `${item.id}:file-change-details`,
     details,
     fileChangeSummary(item, displayChanges),
+  );
+}
+
+function goalToolView(item: GoalDisplayItem): ToolResultView {
+  return toolView(
+    item,
+    "codex-panel__tool-item codex-panel__tool-item--goal",
+    "goal",
+    `${item.id}:goal-details`,
+    (item.details ?? []).flatMap(detailSection),
   );
 }
 

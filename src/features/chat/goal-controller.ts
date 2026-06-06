@@ -3,15 +3,15 @@ import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue"
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
 import type { ChatStateStore } from "./chat-state";
-import type { MessageDisplayItem } from "./display/types";
-import { goalChangeMessage } from "./goal-messages";
+import type { GoalDisplayItem } from "./display/types";
+import { goalChangeItem } from "./goal-messages";
 
 export interface ChatGoalControllerHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
-  addUserMessage: (item: MessageDisplayItem) => void;
+  addGoalEvent: (item: GoalDisplayItem) => void;
   render: () => void;
   refreshLiveState: () => void;
 }
@@ -43,21 +43,11 @@ export class ChatGoalController {
     }
     const current = this.host.stateStore.getState().activeGoal;
     const isNewGoal = current === null;
-    const applied = await this.setGoal(
-      threadId,
-      {
-        objective: trimmed,
-        status: current?.status ?? "active",
-        tokenBudget,
-      },
-      isNewGoal
-        ? {
-            beforeReportChange: () => {
-              this.host.addUserMessage(goalUserMessageItem(trimmed));
-            },
-          }
-        : undefined,
-    );
+    const applied = await this.setGoal(threadId, {
+      objective: trimmed,
+      status: current?.status ?? "active",
+      tokenBudget,
+    });
     if (applied && isNewGoal) {
       await this.recordGoalUserMessage(threadId, trimmed);
     }
@@ -85,34 +75,25 @@ export class ChatGoalController {
   private async setGoal(
     threadId: string,
     params: { objective?: string | null; status?: ThreadGoalStatus | null; tokenBudget?: number | null },
-    options: { beforeReportChange?: () => void } = {},
   ): Promise<boolean> {
     await this.host.ensureConnected();
     const client = this.host.currentClient();
     if (!client) return false;
     try {
       const response = await client.setThreadGoal(threadId, params);
-      return this.applyGoalIfActive(threadId, response.goal, {
-        reportChange: true,
-        ...(options.beforeReportChange ? { beforeReportChange: options.beforeReportChange } : {}),
-      });
+      return this.applyGoalIfActive(threadId, response.goal, { reportChange: true });
     } catch (error) {
       this.host.addSystemMessage(errorMessage(error));
       return false;
     }
   }
 
-  private applyGoalIfActive(
-    threadId: string,
-    goal: ThreadGoal | null,
-    options: { reportChange: boolean; beforeReportChange?: () => void },
-  ): boolean {
+  private applyGoalIfActive(threadId: string, goal: ThreadGoal | null, options: { reportChange: boolean }): boolean {
     const state = this.host.stateStore.getState();
     if (state.activeThreadId !== threadId) return false;
-    const message = options.reportChange ? goalChangeMessage(state.activeGoal, goal) : null;
+    const item = options.reportChange ? goalChangeItem(goalEventId(), state.activeGoal, goal) : null;
     this.host.stateStore.dispatch({ type: "thread/goal-set", goal });
-    options.beforeReportChange?.();
-    if (message) this.host.addSystemMessage(message);
+    if (item) this.host.addGoalEvent(item);
     this.host.refreshLiveState();
     this.host.render();
     return true;
@@ -133,15 +114,8 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function goalUserMessageItem(text: string): MessageDisplayItem {
-  return {
-    id: `goal-user-${String(Date.now())}-${Math.random().toString(36).slice(2)}`,
-    kind: "message",
-    messageKind: "user",
-    role: "user",
-    text,
-    copyText: text,
-  };
+function goalEventId(): string {
+  return `goal-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
 }
 
 function goalUserHistoryItem(text: string): JsonValue {

@@ -332,6 +332,38 @@ describe("message stream rendering and message actions", () => {
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("/resume [thread]Resume a recent Codex thread.");
   });
 
+  it("renders goal events as collapsed tool-like transcript items", () => {
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        {
+          id: "goal-1",
+          kind: "goal",
+          role: "tool",
+          text: "set: Ship the feature",
+          objective: "Ship the feature",
+          details: [{ rows: [{ key: "action", value: "set" }] }, { title: "Objective", body: "Ship the feature" }],
+        },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element, text) => element.createDiv({ text }),
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+
+    expect(element.classList.contains("codex-panel__message--tool")).toBe(true);
+    expect(element.querySelector(".codex-panel__tool-result-label")?.textContent).toBe("goal");
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("set: Ship the feature");
+    expect(element.querySelector("details")?.open).toBe(false);
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("actionset");
+    expect(element.querySelector(".codex-panel__output-title")?.textContent).toBe("Objective");
+    expect(element.querySelector("pre")?.textContent).toBe("Ship the feature");
+  });
+
   it("renders rollback action only for the eligible user message", () => {
     const onRollbackItem = vi.fn();
     const items = [

@@ -112,10 +112,16 @@ describe("thread naming", () => {
     });
   });
 
-  it("uses a preceding goal user message when the first completed turn has no user item", () => {
+  it("uses a preceding goal event objective when the first completed turn has no user item", () => {
     expect(
       namingContextFromDisplayItems("turn", [
-        { id: "goal-user", kind: "message", messageKind: "user", role: "user", text: "ゴールから始めたスレッドを命名したい" },
+        {
+          id: "goal",
+          kind: "goal",
+          role: "tool",
+          text: "Goal set.",
+          objective: "ゴールから始めたスレッドを命名したい",
+        },
         {
           id: "a1",
           kind: "message",

@@ -59,6 +59,7 @@ function isRenderableToolResultItem(item: DisplayItem): item is ToolResultDispla
   return (
     item.kind === "command" ||
     item.kind === "fileChange" ||
+    item.kind === "goal" ||
     item.kind === "tool" ||
     item.kind === "hook" ||
     item.kind === "reviewResult" ||

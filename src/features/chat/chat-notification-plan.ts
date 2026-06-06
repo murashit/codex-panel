@@ -24,7 +24,7 @@ import {
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "./display/types";
 import { planProgressDisplayItem } from "./display/plan";
 import { createSystemItem } from "./display/system";
-import { goalChangeMessage } from "./goal-messages";
+import { goalChangeItem } from "./goal-messages";
 import { attachHookRunsToTurn, hookRunDisplayItem } from "./hook-display";
 import { routeServerNotification } from "./inbound-routing";
 
@@ -241,18 +241,18 @@ function planThreadLifecycle(state: ChatState, notification: ServerNotification,
   if (method === "thread/goal/updated") {
     if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
     const actions: ChatAction[] = [{ type: "thread/goal-set", goal: params.goal }];
-    const message = goalChangeMessage(state.activeGoal, params.goal);
-    if (message) {
-      actions.push({ type: "system/message-added", item: createSystemItem(localItemId("system"), message) });
+    const item = goalChangeItem(localItemId("goal"), state.activeGoal, params.goal);
+    if (item) {
+      actions.push({ type: "display/item-upserted", item });
     }
     return { actions, effects: [] };
   }
   if (method === "thread/goal/cleared") {
     if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
     const actions: ChatAction[] = [{ type: "thread/goal-set", goal: null }];
-    const message = goalChangeMessage(state.activeGoal, null);
-    if (message) {
-      actions.push({ type: "system/message-added", item: createSystemItem(localItemId("system"), message) });
+    const item = goalChangeItem(localItemId("goal"), state.activeGoal, null);
+    if (item) {
+      actions.push({ type: "display/item-upserted", item });
     }
     return { actions, effects: [] };
   }

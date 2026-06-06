@@ -9,7 +9,7 @@ export function namingContextFromDisplayItems(turnId: string, items: readonly Di
   const turnItems = items.filter((item) => item.turnId === turnId);
   const userRequest =
     turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ??
-    precedingUnscopedUserMessage(turnId, items)?.text.trim() ??
+    precedingUnscopedNamingSeed(turnId, items) ??
     "";
   const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeMessage)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
@@ -30,13 +30,14 @@ export function firstNamingContextFromDisplayItems(items: readonly DisplayItem[]
   return null;
 }
 
-function precedingUnscopedUserMessage(turnId: string, items: readonly DisplayItem[]): DisplayItem | null {
+function precedingUnscopedNamingSeed(turnId: string, items: readonly DisplayItem[]): string | null {
   const firstTurnItemIndex = items.findIndex((item) => item.turnId === turnId);
   if (firstTurnItemIndex < 1) return null;
   for (let index = firstTurnItemIndex - 1; index >= 0; index -= 1) {
     const item = items[index];
     if (!item || item.turnId) return null;
-    if (item.kind === "message" && item.role === "user") return item;
+    if (item.kind === "message" && item.role === "user") return item.text.trim();
+    if (item.kind === "goal" && item.objective) return item.objective.trim();
   }
   return null;
 }

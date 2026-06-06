@@ -516,7 +516,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     currentClient: host.getClient,
     ensureConnected: host.effects.client.ensureConnected,
     addSystemMessage: host.effects.status.addSystemMessage,
-    addUserMessage: (item) => {
+    addGoalEvent: (item) => {
       host.stateStore.dispatch({ type: "display/item-upserted", item });
     },
     render: host.effects.render.now,

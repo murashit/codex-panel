@@ -236,7 +236,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect((view as unknown as { state: ChatState }).state.activeThreadId).toBe("thread-new");
     expect((view as unknown as { state: ChatState }).state.activeGoal?.objective).toBe("Ship the feature");
     expect((view as unknown as { state: ChatState }).state.displayItems).toContainEqual(
-      expect.objectContaining({ kind: "message", messageKind: "user", text: "Ship the feature" }),
+      expect.objectContaining({ kind: "goal", text: "set: Ship the feature", objective: "Ship the feature" }),
     );
     expect(view.containerEl.textContent).toContain("Ship the feature");
   });
