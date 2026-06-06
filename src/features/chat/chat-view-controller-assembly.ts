@@ -5,6 +5,7 @@ import { ConnectionManager } from "../../app-server/connection-manager";
 import type { ArchiveExportAdapter } from "../../domain/threads/export";
 import type { RuntimeSnapshot } from "../../runtime/state";
 import { currentModel } from "../../runtime/state";
+import { recoverRolloutTokenUsage } from "../../app-server/rollout-token-usage";
 import type { ChatState, ChatStateStore } from "./chat-state";
 import type { DisplayDetailSection } from "./display/types";
 import type { ComposerMetaViewModel } from "./view-model";
@@ -526,6 +527,11 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     forceMessagesToBottom: host.effects.scroll.forceBottom,
     render: host.effects.render.now,
     refreshLiveState: host.effects.liveState.refresh,
+    recoverTokenUsageFromRollout: (path) =>
+      recoverRolloutTokenUsage(path, async (filePath, options) => {
+        const response = await host.getClient()?.readFile(filePath, options);
+        return response?.dataBase64 ?? "";
+      }),
   });
   threadIdentity = new ThreadIdentityController({
     state: threadState,

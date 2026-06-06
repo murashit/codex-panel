@@ -10,6 +10,7 @@ import type { ThreadHistoryLoader } from "../../../../../src/features/chat/threa
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/view-lifecycle";
 import type { ThreadItem } from "../../../../../src/generated/app-server/v2/ThreadItem";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { ThreadTokenUsage } from "../../../../../src/generated/app-server/v2/ThreadTokenUsage";
 import type { Turn } from "../../../../../src/generated/app-server/v2/Turn";
 
 function thread(id: string): Thread {
@@ -50,7 +51,10 @@ function activation(threadId: string): ThreadActivationResponse {
   };
 }
 
-function createController(response: ThreadActivationResponse = activation("thread")) {
+function createController(
+  response: ThreadActivationResponse = activation("thread"),
+  overrides: Partial<ConstructorParameters<typeof ThreadResumeController>[0]> = {},
+) {
   const stateStore = createChatStateStore(createChatState());
   const resumeThread = vi.fn().mockResolvedValue(response);
   const client = { resumeThread } as unknown as AppServerClient;
@@ -74,6 +78,7 @@ function createController(response: ThreadActivationResponse = activation("threa
     forceMessagesToBottom: vi.fn(),
     render: vi.fn(),
     refreshLiveState: vi.fn(),
+    ...overrides,
   };
   return { controller: new ThreadResumeController(host), host, applyLatestPage, loadLatest, restoredClear, resumeThread, stateStore };
 }
@@ -129,6 +134,79 @@ describe("ThreadResumeController", () => {
     expect(resumeThread).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the current turn before switching threads.");
   });
+
+  it("recovers rollout token usage without blocking latest history loading", async () => {
+    const response = activation("thread");
+    response.thread.path = "/tmp/rollout.jsonl";
+    const recovery = deferred<ThreadTokenUsage | null>();
+    const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
+    const { controller, loadLatest, stateStore } = createController(response, { recoverTokenUsageFromRollout });
+
+    await controller.resumeThread("thread");
+
+    expect(recoverTokenUsageFromRollout).toHaveBeenCalledWith("/tmp/rollout.jsonl");
+    expect(loadLatest).toHaveBeenCalledWith("thread");
+    expect(stateStore.getState().tokenUsage).toBeNull();
+
+    await recovery.resolveAndFlush(tokenUsageFixture(42));
+
+    expect(stateStore.getState().tokenUsage).toMatchObject({ last: { inputTokens: 42 } });
+  });
+
+  it("ignores stale rollout token usage recovery", async () => {
+    const first = activation("thread");
+    first.thread.path = "/tmp/thread.jsonl";
+    const second = activation("other");
+    const recovery = deferred<ThreadTokenUsage | null>();
+    const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
+    const { controller, stateStore } = createController(first, { recoverTokenUsageFromRollout });
+
+    await controller.resumeThread("thread");
+    stateStore.dispatch({
+      type: "thread/resumed",
+      thread: second.thread,
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+
+    await recovery.resolveAndFlush(tokenUsageFixture(42));
+
+    expect(stateStore.getState().activeThreadId).toBe("other");
+    expect(stateStore.getState().tokenUsage).toBeNull();
+  });
+
+  it("does not let late rollout token usage recovery overwrite live token usage", async () => {
+    const response = activation("thread");
+    response.thread.path = "/tmp/rollout.jsonl";
+    const recovery = deferred<ThreadTokenUsage | null>();
+    const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
+    const { controller, stateStore } = createController(response, { recoverTokenUsageFromRollout });
+
+    await controller.resumeThread("thread");
+    stateStore.dispatch({ type: "thread/token-usage-set", tokenUsage: tokenUsageFixture(99) });
+
+    await recovery.resolveAndFlush(tokenUsageFixture(42));
+
+    expect(stateStore.getState().tokenUsage).toMatchObject({ last: { inputTokens: 99 } });
+  });
+
+  it("ignores rollout token usage recovery failures", async () => {
+    const response = activation("thread");
+    response.thread.path = "/tmp/rollout.jsonl";
+    const recoverTokenUsageFromRollout = vi.fn().mockRejectedValue(new Error("read failed"));
+    const { controller, host, stateStore } = createController(response, { recoverTokenUsageFromRollout });
+
+    await controller.resumeThread("thread");
+    await Promise.resolve();
+
+    expect(stateStore.getState().tokenUsage).toBeNull();
+    expect(host.addSystemMessage).not.toHaveBeenCalledWith("read failed");
+  });
 });
 
 function turnFixture(items: ThreadItem[]): Turn {
@@ -146,4 +224,26 @@ function turnFixture(items: ThreadItem[]): Turn {
 
 function userMessage(id: string, text: string): ThreadItem {
   return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
+}
+
+function tokenUsageFixture(inputTokens: number): ThreadTokenUsage {
+  return {
+    last: { inputTokens, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: inputTokens + 2 },
+    total: { inputTokens, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: inputTokens + 2 },
+    modelContextWindow: 1000,
+  };
+}
+
+function deferred<T>(): { promise: Promise<T>; resolveAndFlush: (value: T) => Promise<void> } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve;
+  });
+  return {
+    promise,
+    async resolveAndFlush(value) {
+      resolve(value);
+      await Promise.resolve();
+    },
+  };
 }

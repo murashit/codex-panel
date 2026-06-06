@@ -82,6 +82,8 @@ function restoredThreadState(overrides: Partial<ThreadLifecycleStatePort> = {}):
     restorePlaceholder: vi.fn(),
     displayItemsEmpty: () => true,
     applyResumedThread: vi.fn(),
+    applyTokenUsage: vi.fn(),
+    applyRecoveredTokenUsage: vi.fn(),
     ...overrides,
   };
 }

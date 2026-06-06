@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../../src/app-server/client";
 import type { AppServerRpcError } from "../../src/app-server/client";
@@ -88,6 +88,11 @@ describe("AppServerClient", () => {
       clearTimeout,
       setTimeout,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("routes responses, notifications, and server requests", async () => {
@@ -212,6 +217,110 @@ describe("AppServerClient", () => {
     });
     getTransport().emitLine({ id: 2, result: { turnId: "turn-1" } });
     await expect(steering).resolves.toEqual({ turnId: "turn-1" });
+  });
+
+  it("reads files through app-server fs requests", async () => {
+    const { client, transport } = await connectedClient();
+
+    const reading = client.readFile("/tmp/rollout.jsonl");
+
+    await expectRequest(
+      transport,
+      reading,
+      { method: "fs/readFile", params: { path: "/tmp/rollout.jsonl" } },
+      { dataBase64: btoa("hello") },
+    );
+    await expect(reading).resolves.toEqual({ dataBase64: btoa("hello") });
+  });
+
+  it("suppresses late responses after per-request timeouts", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      setTimeout,
+    });
+    const logs: string[] = [];
+    let transport!: FakeTransport;
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: (message) => logs.push(message),
+        onExit: () => undefined,
+      },
+      500,
+      (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    );
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    const reading = client.readFile("/tmp/slow.jsonl", { timeoutMs: 10 });
+    const rejection = expect(reading).rejects.toThrow("Codex app-server request timed out: fs/readFile");
+    const sent = latestSent(transport);
+    if (!("id" in sent) || typeof sent.id !== "number") throw new Error("Expected an app-server request id.");
+
+    await vi.advanceTimersByTimeAsync(10);
+    await rejection;
+
+    transport.emitLine({ id: sent.id, result: { dataBase64: btoa("late") } });
+    expect(logs).toEqual([]);
+  });
+
+  it("bounds timed-out response suppression when responses never arrive", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      setTimeout,
+    });
+    const logs: string[] = [];
+    let transport!: FakeTransport;
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: (message) => logs.push(message),
+        onExit: () => undefined,
+      },
+      500,
+      (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    );
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    const timedOutRequests: { id: number; rejection: Promise<void> }[] = [];
+    for (let index = 0; index < 257; index += 1) {
+      const promise = client.readFile(`/tmp/slow-${String(index)}.jsonl`, { timeoutMs: 10 });
+      const rejection = expect(promise).rejects.toThrow("Codex app-server request timed out");
+      const sent = latestSent(transport);
+      if (!("id" in sent) || typeof sent.id !== "number") throw new Error("Expected an app-server request id.");
+      timedOutRequests.push({ id: sent.id, rejection });
+    }
+
+    await vi.advanceTimersByTimeAsync(10);
+    await Promise.all(timedOutRequests.map(({ rejection }) => rejection));
+
+    const firstTimedOutRequest = timedOutRequests[0];
+    const lastTimedOutRequest = timedOutRequests.at(-1);
+    if (!firstTimedOutRequest || !lastTimedOutRequest) throw new Error("Expected timed-out requests.");
+
+    transport.emitLine({ id: firstTimedOutRequest.id, result: { dataBase64: btoa("evicted") } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toContain("Orphan app-server response");
+
+    transport.emitLine({ id: lastTimedOutRequest.id, result: { dataBase64: btoa("suppressed") } });
+    expect(logs).toHaveLength(1);
   });
 
   it("sends golden thread and turn request payloads", async () => {

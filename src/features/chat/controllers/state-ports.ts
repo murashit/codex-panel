@@ -1,5 +1,6 @@
 import type { InitializeResponse } from "../../../generated/app-server/InitializeResponse";
 import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
 import { activeTurnId, chatTurnBusy, pendingTurnStart, type ChatStateStore, type PendingTurnStart } from "../chat-state";
 import type { PendingApproval } from "../approvals/model";
 import type { PendingUserInput } from "../user-input/model";
@@ -42,6 +43,8 @@ export interface ThreadLifecycleStatePort {
   restorePlaceholder(threadId: string, item: DisplayItem): void;
   displayItemsEmpty(): boolean;
   applyResumedThread(response: ThreadActivationResponse, displayItems: readonly DisplayItem[]): void;
+  applyTokenUsage(threadId: string, tokenUsage: ThreadTokenUsage): boolean;
+  applyRecoveredTokenUsage(threadId: string, tokenUsage: ThreadTokenUsage): boolean;
 }
 
 export interface SubmissionStateSnapshot {
@@ -148,6 +151,17 @@ export function createThreadLifecycleStatePort(stateStore: ChatStateStore): Thre
           displayItems,
         }),
       );
+    },
+    applyTokenUsage(threadId, tokenUsage) {
+      if (stateStore.getState().activeThreadId !== threadId) return false;
+      stateStore.dispatch({ type: "thread/token-usage-set", tokenUsage });
+      return true;
+    },
+    applyRecoveredTokenUsage(threadId, tokenUsage) {
+      const state = stateStore.getState();
+      if (state.activeThreadId !== threadId || state.tokenUsage !== null) return false;
+      stateStore.dispatch({ type: "thread/token-usage-set", tokenUsage });
+      return true;
     },
   };
 }

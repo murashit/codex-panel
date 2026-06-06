@@ -5,6 +5,7 @@ import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { ConfigWriteResponse } from "../generated/app-server/v2/ConfigWriteResponse";
+import type { FsReadFileResponse } from "../generated/app-server/v2/FsReadFileResponse";
 import type { GetAccountRateLimitsResponse } from "../generated/app-server/v2/GetAccountRateLimitsResponse";
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
 import type { HooksListResponse } from "../generated/app-server/v2/HooksListResponse";
@@ -42,6 +43,7 @@ import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
 import type { ServiceTierRequest } from "./service-tier";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
+const MAX_SUPPRESSED_ORPHAN_RESPONSES = 256;
 
 export interface AppServerClientHandlers {
   onNotification: (notification: ServerNotification) => void;
@@ -96,6 +98,7 @@ interface ClientResponseByMethod {
   "turn/start": TurnStartResponse;
   "turn/steer": TurnSteerResponse;
   "turn/interrupt": TurnInterruptResponse;
+  "fs/readFile": FsReadFileResponse;
 }
 
 type TypedClientRequestMethod = Extract<ClientRequestMethod, keyof ClientResponseByMethod>;
@@ -114,6 +117,7 @@ export class AppServerClient {
   private lifecycle: AppServerClientLifecycleState = { kind: "disconnected" };
   private nextId = 1;
   private pending = new Map<RequestId, PendingRequest>();
+  private suppressedOrphanResponses = new Set<RequestId>();
 
   constructor(
     private readonly codexPath: string,
@@ -252,6 +256,10 @@ export class AppServerClient {
 
   readThread(threadId: string, includeTurns = true): Promise<ThreadReadResponse> {
     return this.request("thread/read", { threadId, includeTurns });
+  }
+
+  readFile(path: string, options: { timeoutMs?: number } = {}): Promise<FsReadFileResponse> {
+    return this.request("fs/readFile", { path }, options);
   }
 
   unarchiveThread(threadId: string): Promise<ThreadUnarchiveResponse> {
@@ -413,13 +421,18 @@ export class AppServerClient {
     this.send({ id: requestId, error: { code, message } });
   }
 
-  private request<M extends TypedClientRequestMethod>(method: M, params: ClientRequestParams<M>): Promise<ClientResponseByMethod[M]> {
+  private request<M extends TypedClientRequestMethod>(
+    method: M,
+    params: ClientRequestParams<M>,
+    options: { timeoutMs?: number } = {},
+  ): Promise<ClientResponseByMethod[M]> {
     const id = this.nextId++;
     const promise = new Promise<ClientResponseByMethod[M]>((resolve, reject) => {
       const timeout = window.setTimeout(() => {
         this.pending.delete(id);
+        this.suppressOrphanResponse(id);
         reject(new Error(`Codex app-server request timed out: ${method}`));
-      }, this.requestTimeoutMs);
+      }, options.timeoutMs ?? this.requestTimeoutMs);
       this.pending.set(id, {
         method,
         resolve: resolve as (value: unknown) => void,
@@ -473,6 +486,7 @@ export class AppServerClient {
     if ("id" in message) {
       const pending = this.pending.get(message.id);
       if (!pending) {
+        if (this.suppressedOrphanResponses.delete(message.id)) return;
         this.handlers.onLog(`Orphan app-server response: ${JSON.stringify(message)}`);
         return;
       }
@@ -501,6 +515,16 @@ export class AppServerClient {
       pending.reject(error);
     }
     this.pending.clear();
+    this.suppressedOrphanResponses.clear();
+  }
+
+  private suppressOrphanResponse(id: RequestId): void {
+    this.suppressedOrphanResponses.add(id);
+    while (this.suppressedOrphanResponses.size > MAX_SUPPRESSED_ORPHAN_RESPONSES) {
+      const oldest = this.suppressedOrphanResponses.values().next().value;
+      if (oldest === undefined) break;
+      this.suppressedOrphanResponses.delete(oldest);
+    }
   }
 
   private activeTransport(): AppServerTransport | null {

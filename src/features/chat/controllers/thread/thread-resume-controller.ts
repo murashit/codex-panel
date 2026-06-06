@@ -1,4 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/client";
+import type { ThreadTokenUsage } from "../../../../generated/app-server/v2/ThreadTokenUsage";
 import type { DisplayItem } from "../../display/types";
 import type { RestoredThreadController } from "./restored-thread-controller";
 import type { ThreadActivationResponse } from "../../thread-resume";
@@ -23,6 +24,7 @@ export interface ThreadResumeControllerHost {
   forceMessagesToBottom: () => void;
   render: () => void;
   refreshLiveState: () => void;
+  recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
 }
 
 export class ThreadResumeController {
@@ -42,6 +44,7 @@ export class ThreadResumeController {
       const response = await client.resumeThread(threadId, this.host.vaultPath);
       if (this.isStale(resume)) return;
       this.applyResumedThread(response);
+      this.recoverResumedThreadTokenUsage(response.thread.id, response.thread.path, resume);
       if (response.initialTurnsPage) {
         this.host.history.applyLatestPage(response.thread.id, response.initialTurnsPage);
       } else {
@@ -69,6 +72,19 @@ export class ThreadResumeController {
     this.host.forceMessagesToBottom();
     this.host.render();
     this.host.refreshLiveState();
+  }
+
+  private recoverResumedThreadTokenUsage(threadId: string, path: string | null, resume: ActiveChatResume): void {
+    if (!path || !this.host.recoverTokenUsageFromRollout) return;
+    void this.host
+      .recoverTokenUsageFromRollout(path)
+      .then((tokenUsage) => {
+        if (!tokenUsage || this.isStale(resume)) return;
+        if (!this.host.state.applyRecoveredTokenUsage(threadId, tokenUsage)) return;
+        this.host.refreshLiveState();
+        this.host.render();
+      })
+      .catch(() => undefined);
   }
 
   private isStale(resume: ActiveChatResume): boolean {
