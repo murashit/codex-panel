@@ -37,6 +37,12 @@ const removedChatStateEscapeHatchRestrictions = [
     message: "Use a named ChatAction instead of reintroducing the generic state patch escape hatch.",
   },
 ];
+const unsafeIteratorRestrictions = [
+  {
+    selector: "MemberExpression[property.name='value'][object.type='CallExpression'][object.callee.property.name='next']",
+    message: "Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.",
+  },
+];
 const chatStateRestrictions = [
   {
     selector: "AssignmentExpression[left.type='MemberExpression'][left.object.name='state']",
@@ -106,6 +112,83 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/textarea-caret.ts",
   "src/shared/ui/ui-root.tsx",
 ];
+const codexPanelEslintPlugin = {
+  rules: {
+    "no-self-referential-initializer-callback": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Disallow callbacks in variable initializers from referencing the variable being initialized.",
+        },
+        messages: {
+          selfReference:
+            "Avoid referencing '{{name}}' from a callback inside its own initializer; declare it first with an explicit type.",
+        },
+        schema: [],
+      },
+      create(context) {
+        return {
+          VariableDeclarator(node) {
+            if (node.id.type !== "Identifier" || !node.init) return;
+            if (node.init.type !== "NewExpression") return;
+            const reference = findInitializerCallbackReference(node.init, node.id.name);
+            if (reference) context.report({ node: reference, messageId: "selfReference", data: { name: node.id.name } });
+          },
+        };
+      },
+    },
+  },
+};
+
+function findInitializerCallbackReference(root, name) {
+  let reference = null;
+
+  const visit = (node, inCallback) => {
+    if (!node || reference) return;
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item, inCallback);
+      return;
+    }
+    if (typeof node !== "object" || typeof node.type !== "string") return;
+
+    if (isFunctionNode(node)) {
+      if (functionShadowsName(node, name)) return;
+      visit(node.body, true);
+      return;
+    }
+
+    if (inCallback && node.type === "Identifier" && node.name === name) {
+      reference = node;
+      return;
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "parent") continue;
+      if (node.type === "MemberExpression" && key === "property" && !node.computed) continue;
+      if (node.type === "Property" && key === "key" && !node.computed) continue;
+      visit(value, inCallback);
+    }
+  };
+
+  visit(root, false);
+  return reference;
+}
+
+function isFunctionNode(node) {
+  return node.type === "ArrowFunctionExpression" || node.type === "FunctionExpression";
+}
+
+function functionShadowsName(node, name) {
+  return node.params.some((param) => patternContainsName(param, name)) || patternContainsName(node.id, name);
+}
+
+function patternContainsName(node, name) {
+  if (!node) return false;
+  if (Array.isArray(node)) return node.some((item) => patternContainsName(item, name));
+  if (typeof node !== "object" || typeof node.type !== "string") return false;
+  if (node.type === "Identifier") return node.name === name;
+  return Object.entries(node).some(([key, value]) => key !== "parent" && patternContainsName(value, name));
+}
 
 export default defineConfig([
   {
@@ -181,9 +264,11 @@ export default defineConfig([
   {
     files: ["src/**/*.ts", "src/**/*.tsx"],
     plugins: {
+      "codex-panel": codexPanelEslintPlugin,
       obsidianmd,
     },
     rules: {
+      "codex-panel/no-self-referential-initializer-callback": "error",
       "obsidianmd/ui/sentence-case": [
         "error",
         {
@@ -200,6 +285,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...unsafeIteratorRestrictions,
         ...imperativeDomRestrictions,
         ...preactFormRestrictions,
       ],
@@ -212,6 +298,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...unsafeIteratorRestrictions,
         ...imperativeDomRestrictions,
         ...preactFormRestrictions,
         ...chatStateRestrictions,
@@ -221,13 +308,19 @@ export default defineConfig([
   {
     files: chatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...preactFormRestrictions, ...chatStateRestrictions],
+      "no-restricted-syntax": [
+        "error",
+        ...removedChatStateEscapeHatchRestrictions,
+        ...unsafeIteratorRestrictions,
+        ...preactFormRestrictions,
+        ...chatStateRestrictions,
+      ],
     },
   },
   {
     files: nonChatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...preactFormRestrictions],
+      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...unsafeIteratorRestrictions, ...preactFormRestrictions],
     },
   },
   {
@@ -236,6 +329,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...unsafeIteratorRestrictions,
         ...imperativeDomRestrictions,
         ...preactFormRestrictions,
         ...chatStateRestrictions,
