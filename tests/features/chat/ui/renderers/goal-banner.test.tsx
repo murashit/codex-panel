@@ -22,6 +22,26 @@ describe("renderGoalBanner", () => {
     expect(parent.textContent).toBe("");
   });
 
+  it("opens an empty goal editor when editing is requested without a saved goal", async () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+    const callbacks = actions();
+    const onEditingChange = vi.fn();
+
+    await act(async () => {
+      renderGoalBanner(parent, null, callbacks, { sendShortcut: "enter", editingRequested: true, onEditingChange });
+    });
+
+    expect(parent.textContent).toContain("Goal");
+    expect(document.activeElement).toBe(parent.querySelector("textarea"));
+    await input(parent, "textarea", "New objective");
+    await click(parent, '[aria-label="Save goal"]');
+
+    expect(callbacks.onSave).toHaveBeenCalledWith("New objective", null);
+    expect(onEditingChange).toHaveBeenCalledWith(false);
+    parent.remove();
+  });
+
   it("renders active goal details and actions", async () => {
     const parent = document.createElement("div");
 

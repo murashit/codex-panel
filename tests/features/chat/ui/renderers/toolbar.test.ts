@@ -17,10 +17,11 @@ describe("toolbar renderer decisions", () => {
   it("renders toolbar controls as Obsidian-style action buttons", () => {
     const parent = document.createElement("div");
     const startNewThread = vi.fn();
+    const toggleChatActions = vi.fn();
     const toggleHistory = vi.fn();
     const baseModel = toolbarModel();
 
-    renderToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleHistory }));
+    renderToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleChatActions, toggleHistory }));
 
     const navHeader = parent.querySelector(".codex-panel__toolbar-primary");
     expect(navHeader?.classList.contains("nav-header")).toBe(true);
@@ -30,23 +31,25 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__runtime-strip")).toBeNull();
     expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
       "Show thread list",
-      "Start new chat",
-      "Show panel menu",
+      "Show chat actions",
+      "Show Codex status and settings",
     ]);
     expect(parent.querySelector(".codex-panel__plan-toggle")).toBeNull();
     expect(parent.querySelector(".codex-panel__auto-review-toggle")).toBeNull();
     expect(parent.querySelector(".codex-panel__runtime-model")).toBeNull();
     const newChatButton = parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat");
-    expect(newChatButton?.getAttribute("aria-label")).toBe("Start new chat");
+    expect(newChatButton?.getAttribute("aria-label")).toBe("Show chat actions");
     expect(newChatButton?.dataset["icon"]).toBe("messages-square");
     expect(newChatButton?.classList.contains("nav-action-button")).toBe(true);
     expect(newChatButton?.disabled).toBe(false);
     newChatButton?.click();
-    expect(startNewThread).toHaveBeenCalled();
+    expect(toggleChatActions).toHaveBeenCalled();
+    expect(startNewThread).not.toHaveBeenCalled();
     const statusButton = parent.querySelector(".codex-panel__status-menu-toggle");
     expect(statusButton?.tagName).toBe("BUTTON");
     expect(statusButton?.getAttribute("role")).toBeNull();
-    expect(statusButton?.getAttribute("aria-label")).toBe("Show panel menu");
+    expect(statusButton?.getAttribute("aria-label")).toBe("Show Codex status and settings");
+    expect((statusButton as HTMLElement | null)?.dataset["icon"]).toBe("waypoints");
     expect(statusButton?.classList.contains("nav-action-button")).toBe(true);
     expect(statusButton?.classList.contains("clickable-icon")).toBe(true);
     const historyButton = parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle");
@@ -62,11 +65,36 @@ describe("toolbar renderer decisions", () => {
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat")?.disabled).toBe(true);
 
     parent.empty();
-    renderToolbar(parent, toolbarModel({ historyOpen: true, statusPanelOpen: true }), toolbarActions());
+    renderToolbar(parent, toolbarModel({ chatActionsOpen: true, historyOpen: true, statusPanelOpen: true }), toolbarActions());
     expect(parent.querySelector(".codex-panel__history-toggle")?.getAttribute("aria-label")).toBe("Hide thread list");
     expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(true);
-    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Hide panel menu");
+    expect(parent.querySelector(".codex-panel__new-chat")?.getAttribute("aria-label")).toBe("Hide chat actions");
+    expect(parent.querySelector(".codex-panel__new-chat")?.classList.contains("is-active")).toBe(true);
+    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Hide Codex status and settings");
     expect(parent.querySelector(".codex-panel__status-menu-toggle")?.classList.contains("is-active")).toBe(true);
+  });
+
+  it("renders chat actions in the new chat toolbar menu", () => {
+    const parent = document.createElement("div");
+    const startNewThread = vi.fn();
+    const compactConversation = vi.fn();
+    const setGoal = vi.fn();
+
+    renderToolbar(
+      parent,
+      toolbarModel({ chatActionsOpen: true, openPanel: "chat-actions" }),
+      toolbarActions({ startNewThread, compactConversation, setGoal }),
+    );
+
+    const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
+    expect(items.map((item) => item.textContent)).toEqual(["Start new chat", "Compact conversation", "Set goal..."]);
+    expect(items.map((item) => item.getAttribute("role"))).toEqual(["menuitem", "menuitem", "menuitem"]);
+    items[0]?.click();
+    items[1]?.click();
+    items[2]?.click();
+    expect(startNewThread).toHaveBeenCalledOnce();
+    expect(compactConversation).toHaveBeenCalledOnce();
+    expect(setGoal).toHaveBeenCalledOnce();
   });
 
   it("keeps context out of the toolbar and Codex limits inside the status menu", () => {
@@ -326,6 +354,7 @@ describe("toolbar renderer decisions", () => {
 function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewModel {
   return {
     newChatDisabled: false,
+    chatActionsOpen: false,
     historyOpen: false,
     statusPanelOpen: false,
     rateLimit: null,
@@ -342,6 +371,9 @@ function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> 
   return {
     toggleHistory: vi.fn(),
     startNewThread: vi.fn(),
+    toggleChatActions: vi.fn(),
+    compactConversation: vi.fn(),
+    setGoal: vi.fn(),
     toggleStatusPanel: vi.fn(),
     connect: vi.fn(),
     refreshStatus: vi.fn(),

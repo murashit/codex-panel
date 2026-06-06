@@ -121,8 +121,7 @@ const codexPanelEslintPlugin = {
           description: "Disallow callbacks in variable initializers from referencing the variable being initialized.",
         },
         messages: {
-          selfReference:
-            "Avoid referencing '{{name}}' from a callback inside its own initializer; declare it first with an explicit type.",
+          selfReference: "Avoid referencing '{{name}}' from a callback inside its own initializer; declare it first with an explicit type.",
         },
         schema: [],
       },
@@ -320,7 +319,12 @@ export default defineConfig([
   {
     files: nonChatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": ["error", ...removedChatStateEscapeHatchRestrictions, ...unsafeIteratorRestrictions, ...preactFormRestrictions],
+      "no-restricted-syntax": [
+        "error",
+        ...removedChatStateEscapeHatchRestrictions,
+        ...unsafeIteratorRestrictions,
+        ...preactFormRestrictions,
+      ],
     },
   },
   {

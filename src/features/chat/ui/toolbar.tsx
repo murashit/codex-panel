@@ -12,6 +12,9 @@ type ButtonProps = ButtonHTMLAttributes & {
 
 export interface ToolbarActions {
   startNewThread: () => void;
+  toggleChatActions: () => void;
+  compactConversation: () => void;
+  setGoal: () => void;
   toggleHistory: () => void;
   toggleStatusPanel: () => void;
   connect: () => void;
@@ -44,10 +47,11 @@ function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: Toolbar
           />
           <ToolbarIconButton
             icon="messages-square"
-            label="Start new chat"
-            className="codex-panel__new-chat"
+            label={model.chatActionsOpen ? "Hide chat actions" : "Show chat actions"}
+            className={["codex-panel__new-chat", model.chatActionsOpen ? "is-active" : ""].filter(Boolean).join(" ")}
             disabled={model.newChatDisabled}
-            onClick={actions.startNewThread}
+            aria-expanded={model.chatActionsOpen ? "true" : "false"}
+            onClick={actions.toggleChatActions}
           />
           <StatusButton model={model} actions={actions} />
         </div>
@@ -80,8 +84,8 @@ function ToolbarIconButton({
 function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <ToolbarIconButton
-      icon="ellipsis"
-      label={model.statusPanelOpen ? "Hide panel menu" : "Show panel menu"}
+      icon="waypoints"
+      label={model.statusPanelOpen ? "Hide Codex status and settings" : "Show Codex status and settings"}
       className={["codex-panel__status-menu-toggle", model.statusPanelOpen ? "is-active" : ""].filter(Boolean).join(" ")}
       aria-expanded={model.statusPanelOpen ? "true" : "false"}
       onClick={actions.toggleStatusPanel}
@@ -94,7 +98,29 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
   return (
     <div className={`codex-panel__toolbar-panel codex-panel__toolbar-panel--${model.openPanel}`}>
       {model.openPanel === "history" ? <ThreadList threads={model.threads} actions={actions} /> : null}
+      {model.openPanel === "chat-actions" ? <ChatActionsPanel model={model} actions={actions} /> : null}
       {model.openPanel === "status" ? <StatusPanel model={model} actions={actions} /> : null}
+    </div>
+  );
+}
+
+function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
+  return (
+    <div className="codex-panel__chat-actions-panel-items" role="menu">
+      <ToolbarPanelItem
+        label="Start new chat"
+        onClick={actions.startNewThread}
+        className="codex-panel__chat-actions-panel-item"
+        disabled={model.newChatDisabled}
+        role="menuitem"
+      />
+      <ToolbarPanelItem
+        label="Compact conversation"
+        onClick={actions.compactConversation}
+        className="codex-panel__chat-actions-panel-item"
+        role="menuitem"
+      />
+      <ToolbarPanelItem label="Set goal..." onClick={actions.setGoal} className="codex-panel__chat-actions-panel-item" role="menuitem" />
     </div>
   );
 }

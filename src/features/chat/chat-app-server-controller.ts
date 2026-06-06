@@ -110,7 +110,10 @@ export class ChatAppServerController {
     this.host.publishAppServerMetadata(this.appServerMetadataSnapshot());
   }
 
-  async startThread(preview?: string): Promise<Awaited<ReturnType<AppServerClient["startThread"]>> | null> {
+  async startThread(
+    preview?: string,
+    options: { syncGoal?: boolean } = {},
+  ): Promise<Awaited<ReturnType<AppServerClient["startThread"]>> | null> {
     const client = this.host.currentClient();
     if (!client) return null;
     const serviceTier = requestedOrConfiguredServiceTier(this.host.runtimeSnapshot());
@@ -119,7 +122,7 @@ export class ChatAppServerController {
     this.dispatch(resumedThreadAction({ response, listedThreads, forceMessagesToBottom: true }));
     this.host.publishThreadList(listedThreads);
     this.host.forceMessagesToBottom();
-    this.host.syncThreadGoal(response.thread.id);
+    if (options.syncGoal ?? true) this.host.syncThreadGoal(response.thread.id);
     return response;
   }
 

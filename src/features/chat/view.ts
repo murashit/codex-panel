@@ -428,6 +428,46 @@ export class CodexChatView extends ItemView {
     this.focusComposer();
   }
 
+  private async compactConversation(): Promise<void> {
+    const threadId = this.state.activeThreadId;
+    if (!threadId) {
+      this.addSystemMessage("No active thread to compact.");
+      return;
+    }
+    try {
+      await this.connectionController.ensureConnected();
+      const client = this.client;
+      if (!client) return;
+      await client.compactThread(threadId);
+      this.addSystemMessage("Compaction requested.");
+      this.setStatus("Compaction requested.");
+    } catch (error) {
+      this.addSystemMessage(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private showGoalEditor(): void {
+    this.chatState.dispatch({ type: "ui/panel-set", panel: null });
+    this.chatState.dispatch({ type: "ui/detail-open-set", key: "goal:editor", open: true });
+    this.render({ forceSlots: true });
+  }
+
+  private async saveGoalObjective(objective: string, tokenBudget: number | null): Promise<void> {
+    let threadId = this.state.activeThreadId;
+    if (!threadId) {
+      try {
+        await this.connectionController.ensureConnected();
+        const response = await this.appServer.startThread(objective, { syncGoal: false });
+        threadId = response?.thread.id ?? null;
+      } catch (error) {
+        this.addSystemMessage(error instanceof Error ? error.message : String(error));
+        return;
+      }
+    }
+    if (!threadId) return;
+    void this.goals.setObjective(threadId, objective, tokenBudget);
+  }
+
   private async refreshThreads(): Promise<void> {
     await this.connectionController.refreshThreads();
   }
@@ -590,6 +630,16 @@ export class CodexChatView extends ItemView {
 
     renderToolbar(toolbar, model, {
       startNewThread: () => void this.startNewThread(),
+      toggleChatActions: () => {
+        this.toolbarPanels.toggleChatActions();
+      },
+      compactConversation: () => {
+        this.toolbarPanels.closeToolbarPanels();
+        void this.compactConversation();
+      },
+      setGoal: () => {
+        this.showGoalEditor();
+      },
       toggleHistory: () => {
         this.toolbarPanels.toggleHistory();
       },
@@ -623,9 +673,7 @@ export class CodexChatView extends ItemView {
       this.state.activeGoal,
       {
         onSave: (objective, tokenBudget) => {
-          const threadId = this.state.activeThreadId;
-          if (!threadId) return;
-          void this.goals.setObjective(threadId, objective, tokenBudget);
+          void this.saveGoalObjective(objective, tokenBudget);
         },
         onPause: () => {
           const threadId = this.state.activeThreadId;
@@ -645,6 +693,11 @@ export class CodexChatView extends ItemView {
       },
       {
         sendShortcut: this.plugin.settings.sendShortcut,
+        editingRequested: this.state.openDetails.has("goal:editor"),
+        onEditingChange: (editing) => {
+          this.chatState.dispatch({ type: "ui/detail-open-set", key: "goal:editor", open: editing });
+          this.render({ forceSlots: true });
+        },
       },
     );
   }

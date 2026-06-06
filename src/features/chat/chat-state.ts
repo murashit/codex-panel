@@ -160,7 +160,7 @@ export type ChatAction =
     }
   | {
       type: "ui/panel-set";
-      panel: "history" | "status-panel" | null;
+      panel: "history" | "chat-actions" | "status-panel" | null;
       toggle?: boolean;
     }
   | { type: "ui/messages-pinned-set"; pinned: boolean }
@@ -730,14 +730,18 @@ function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string
   return next;
 }
 
-function setPanelState(state: ChatState, panel: "history" | "status-panel" | null, toggle: boolean): ChatState {
-  const currentPanel = state.openDetails.has("history") ? "history" : state.openDetails.has("status-panel") ? "status-panel" : null;
+function setPanelState(state: ChatState, panel: "history" | "chat-actions" | "status-panel" | null, toggle: boolean): ChatState {
+  const currentPanel = state.openDetails.has("history")
+    ? "history"
+    : state.openDetails.has("chat-actions")
+      ? "chat-actions"
+      : state.openDetails.has("status-panel")
+        ? "status-panel"
+        : null;
   const nextPanel = toggle && currentPanel === panel ? null : panel;
+  const toolbarPanelKeys = new Set(["history", "chat-actions", "status-panel"]);
   return patchChatState(state, {
-    openDetails:
-      nextPanel === "history" || nextPanel === "status-panel"
-        ? new Set([nextPanel])
-        : new Set([...state.openDetails].filter((key) => key !== "history" && key !== "status-panel")),
+    openDetails: nextPanel ? new Set([nextPanel]) : new Set([...state.openDetails].filter((key) => !toolbarPanelKeys.has(key))),
   });
 }
 

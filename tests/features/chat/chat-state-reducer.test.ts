@@ -299,8 +299,12 @@ describe("chatReducer", () => {
     state = chatReducer(state, { type: "ui/panel-set", panel: "history" });
     expect(state.openDetails.has("history")).toBe(true);
 
-    state = chatReducer(state, { type: "ui/panel-set", panel: "status-panel" });
+    state = chatReducer(state, { type: "ui/panel-set", panel: "chat-actions" });
     expect(state.openDetails.has("history")).toBe(false);
+    expect(state.openDetails.has("chat-actions")).toBe(true);
+
+    state = chatReducer(state, { type: "ui/panel-set", panel: "status-panel" });
+    expect(state.openDetails.has("chat-actions")).toBe(false);
     expect(state.openDetails.has("status-panel")).toBe(true);
   });
 

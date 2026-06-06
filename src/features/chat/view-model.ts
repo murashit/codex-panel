@@ -236,14 +236,16 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
   const { state, snapshot } = input;
   const limit = rateLimitSummary(snapshot);
   const historyOpen = state.openDetails.has("history");
+  const chatActionsOpen = state.openDetails.has("chat-actions");
   const statusPanelOpen = state.openDetails.has("status-panel");
   return {
     newChatDisabled: input.turnBusy,
+    chatActionsOpen,
     historyOpen,
     statusPanelOpen,
     rateLimit: limit,
     configSections: effectiveConfigSections(snapshot, input.vaultPath),
-    openPanel: historyOpen ? "history" : statusPanelOpen ? "status" : null,
+    openPanel: historyOpen ? "history" : chatActionsOpen ? "chat-actions" : statusPanelOpen ? "status" : null,
     threads: toolbarThreadRows({
       threads: state.listedThreads,
       activeThreadId: state.activeThreadId,

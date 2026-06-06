@@ -50,6 +50,39 @@ describe("ChatAppServerController", () => {
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
 
+  it("can skip newly started thread goal sync when the caller sets the first goal", async () => {
+    const stateStore = createChatStateStore(createChatState());
+    const started = threadFixture("started");
+    const syncThreadGoal = vi.fn();
+    const client = {
+      startThread: vi.fn().mockResolvedValue({
+        thread: started,
+        cwd: "/vault",
+        model: "gpt-5",
+        serviceTier: null,
+        approvalPolicy: null,
+        approvalsReviewer: null,
+        activePermissionProfile: null,
+        reasoningEffort: null,
+      }),
+    } as unknown as AppServerClient;
+
+    const controller = new ChatAppServerController({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
+      forceMessagesToBottom: () => undefined,
+      publishThreadList: vi.fn(),
+      publishAppServerMetadata: () => undefined,
+      syncThreadGoal,
+    });
+
+    await controller.startThread("first goal", { syncGoal: false });
+
+    expect(syncThreadGoal).not.toHaveBeenCalled();
+  });
+
   it("keeps app-server preview when newly started threads already have one", async () => {
     const stateStore = createChatStateStore(createChatState());
     const started = threadFixture("started", { preview: "server preview" });

@@ -179,6 +179,57 @@ describe("CodexChatView connection lifecycle", () => {
     expect(root.querySelector(":scope > .codex-panel__body .codex-panel__slot--composer")).not.toBeNull();
   });
 
+  it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
+    const client = connectedClient({
+      setThreadGoal: vi.fn().mockResolvedValue({
+        goal: {
+          threadId: "thread-new",
+          objective: "Ship the feature",
+          status: "active",
+          tokenBudget: null,
+          tokensUsed: 0,
+          timeUsedSeconds: 0,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+    await view.onOpen();
+
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Show chat actions"]')?.click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("Set goal...");
+    });
+    [...view.containerEl.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")]
+      .find((item) => item.textContent === "Set goal...")
+      ?.click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector(".codex-panel__goal-objective-input")).not.toBeNull();
+    });
+    const input = requiredTextArea(view.containerEl, ".codex-panel__goal-objective-input");
+    input.value = "Ship the feature";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    await waitForAsyncWork(() => {
+      const save = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Save goal"]');
+      expect(save?.disabled).toBe(false);
+    });
+    const save = requiredButton(view.containerEl, '[aria-label="Save goal"]');
+    save.click();
+
+    await waitForAsyncWork(() => {
+      expect(client.startThread).toHaveBeenCalledWith("/vault", undefined);
+      expect(client.setThreadGoal).toHaveBeenCalledWith("thread-new", {
+        objective: "Ship the feature",
+        status: "active",
+        tokenBudget: null,
+      });
+    });
+    expect((view as unknown as { state: ChatState }).state.activeThreadId).toBe("thread-new");
+    expect((view as unknown as { state: ChatState }).state.activeGoal?.objective).toBe("Ship the feature");
+  });
+
   it("ignores stale connection work after the view closes", async () => {
     let resolveConfig!: (value: unknown) => void;
     const client = connectedClient({
@@ -841,8 +892,23 @@ function baseClient() {
     forkThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
     rollbackThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
     setThreadName: vi.fn().mockResolvedValue({}),
+    getThreadGoal: vi.fn().mockResolvedValue({ goal: null }),
+    setThreadGoal: vi.fn().mockResolvedValue({ goal: goalFixture("thread-1") }),
     readThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-1") }),
     archiveThread: vi.fn().mockResolvedValue({}),
+  };
+}
+
+function goalFixture(threadId: string) {
+  return {
+    threadId,
+    objective: "Finish",
+    status: "active",
+    tokenBudget: null,
+    tokensUsed: 0,
+    timeUsedSeconds: 0,
+    createdAt: 1,
+    updatedAt: 1,
   };
 }
 
@@ -1034,6 +1100,18 @@ function restorePrototypeProperty<T extends object>(target: T, property: keyof T
   } else {
     Reflect.deleteProperty(target, property);
   }
+}
+
+function requiredTextArea(parent: ParentNode, selector: string): HTMLTextAreaElement {
+  const element = parent.querySelector<HTMLTextAreaElement>(selector);
+  if (!element) throw new Error(`Missing ${selector}`);
+  return element;
+}
+
+function requiredButton(parent: ParentNode, selector: string): HTMLButtonElement {
+  const element = parent.querySelector<HTMLButtonElement>(selector);
+  if (!element) throw new Error(`Missing ${selector}`);
+  return element;
 }
 
 function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {

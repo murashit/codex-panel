@@ -39,6 +39,15 @@ export class ToolbarPanelController {
     this.host.scheduleRender();
   }
 
+  toggleChatActions(): void {
+    this.dispatch({ type: "ui/panel-set", panel: "chat-actions", toggle: true });
+    this.host.scheduleRender();
+  }
+
+  closeToolbarPanels(): void {
+    this.close();
+  }
+
   toggleStatus(): void {
     this.dispatch({ type: "ui/panel-set", panel: "status-panel", toggle: true });
     this.host.scheduleRender();
@@ -85,7 +94,9 @@ export class ToolbarPanelController {
   }
 
   private hasOpenPanel(): boolean {
-    return this.state.openDetails.has("history") || this.state.openDetails.has("status-panel");
+    return (
+      this.state.openDetails.has("history") || this.state.openDetails.has("chat-actions") || this.state.openDetails.has("status-panel")
+    );
   }
 
   private close(): void {

@@ -1,5 +1,5 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
@@ -17,6 +17,8 @@ export interface GoalBannerActions {
 
 export interface GoalBannerOptions {
   sendShortcut: SendShortcut;
+  editingRequested?: boolean | undefined;
+  onEditingChange?: (editing: boolean) => void;
 }
 
 export function renderGoalBanner(
@@ -49,13 +51,24 @@ function GoalBanner({
   const resetObjective = goal?.objective ?? "";
   const resetStatus = goal?.status ?? null;
   const resetTokenBudget = goal?.tokenBudget ?? null;
+  const editingRequested = options.editingRequested ?? false;
+  const onEditingChange = options.onEditingChange;
+  const tokenBudget = goal?.tokenBudget ?? null;
+
+  const setGoalEditing = useCallback(
+    (nextEditing: boolean) => {
+      setEditing(nextEditing);
+      onEditingChange?.(nextEditing);
+    },
+    [onEditingChange],
+  );
 
   useLayoutEffect(() => {
-    setEditing(false);
+    setEditing(editingRequested);
     setObjective(resetObjective);
     setObjectiveOverflows(false);
     setObjectiveExpanded(false);
-  }, [resetThreadId, resetObjective, resetStatus, resetTokenBudget]);
+  }, [editingRequested, resetThreadId, resetObjective, resetStatus, resetTokenBudget]);
 
   useLayoutEffect(() => {
     if (editing) syncGoalObjectiveHeight(objectiveRef.current);
@@ -82,7 +95,7 @@ function GoalBanner({
     const doc = goalRef.current?.ownerDocument;
     if (!doc) return;
     const cancelEditing = () => {
-      setEditing(false);
+      setGoalEditing(false);
       setObjective(resetObjective);
     };
     const closeOnOutsidePointer = (event: PointerEvent) => {
@@ -100,7 +113,7 @@ function GoalBanner({
       doc.removeEventListener("pointerdown", closeOnOutsidePointer, true);
       doc.removeEventListener("keydown", closeOnEscape);
     };
-  }, [editing, resetObjective]);
+  }, [editing, resetObjective, setGoalEditing]);
 
   useEffect(() => {
     if (!objectiveExpanded) return;
@@ -116,33 +129,33 @@ function GoalBanner({
     };
   }, [objectiveExpanded]);
 
-  if (!goal) return null;
+  if (!goal && !editing) return null;
 
-  const terminal = terminalGoalStatus(goal.status);
+  const terminal = goal ? terminalGoalStatus(goal.status) : false;
   const saveDisabled = objective.trim().length === 0;
   const saveObjective = () => {
     if (saveDisabled) return;
-    actions.onSave(objective, goal.tokenBudget);
-    setEditing(false);
+    actions.onSave(objective, tokenBudget);
+    setGoalEditing(false);
   };
 
   return (
-    <div ref={goalRef} className={`codex-panel__goal codex-panel__goal--${goal.status}${terminal ? " is-terminal" : ""}`}>
+    <div ref={goalRef} className={`codex-panel__goal codex-panel__goal--${goal?.status ?? "draft"}${terminal ? " is-terminal" : ""}`}>
       <div className="codex-panel__goal-main">
         <div className="codex-panel__goal-role">
           <span>Goal</span>
           <div className="codex-panel__goal-actions">
-            {!editing ? (
+            {goal && !editing ? (
               <IconButton
                 icon="pencil"
                 label="Edit goal"
                 className="clickable-icon codex-panel__message-action codex-panel__goal-action"
                 onClick={() => {
-                  setEditing(true);
+                  setGoalEditing(true);
                 }}
               />
             ) : null}
-            {!terminal && !editing && goal.status === "active" ? (
+            {goal && !terminal && !editing && goal.status === "active" ? (
               <IconButton
                 icon="pause"
                 label="Pause goal"
@@ -150,7 +163,7 @@ function GoalBanner({
                 onClick={actions.onPause}
               />
             ) : null}
-            {!terminal && !editing && goal.status === "paused" ? (
+            {goal && !terminal && !editing && goal.status === "paused" ? (
               <IconButton
                 icon="play"
                 label="Resume goal"
@@ -158,7 +171,7 @@ function GoalBanner({
                 onClick={actions.onResume}
               />
             ) : null}
-            {!editing ? (
+            {goal && !editing ? (
               <IconButton
                 icon="x"
                 label="Clear goal"
@@ -218,7 +231,7 @@ function GoalBanner({
                   .filter(Boolean)
                   .join(" ")}
               >
-                {goal.objective}
+                {goal?.objective}
               </div>
               <details
                 className="codex-panel__goal-objective-collapse-details"
@@ -232,7 +245,7 @@ function GoalBanner({
                 <summary tabIndex={-1}>Show more</summary>
               </details>
             </div>
-            <div className="codex-panel__goal-usage">{goalUsage(goal)}</div>
+            {goal ? <div className="codex-panel__goal-usage">{goalUsage(goal)}</div> : null}
           </>
         )}
       </div>

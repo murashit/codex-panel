@@ -1,6 +1,6 @@
 import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/view";
 
-export type ToolbarPanelKind = "history" | "status";
+export type ToolbarPanelKind = "history" | "chat-actions" | "status";
 
 export interface ToolbarThreadRow {
   title: string;
@@ -28,6 +28,7 @@ export interface ToolbarDiagnosticSection {
 
 export interface ToolbarViewModel {
   newChatDisabled: boolean;
+  chatActionsOpen: boolean;
   historyOpen: boolean;
   statusPanelOpen: boolean;
   rateLimit: RateLimitSummary | null;
