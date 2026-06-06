@@ -211,6 +211,10 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     codexInput: (text) => composerController.codexInput(text),
     threads: {
       startNewThread: host.startNewThread,
+      startThreadForGoal: async (objective) => {
+        const response = await appServer.startThread(objective, { syncGoal: false });
+        return response?.thread.id ?? null;
+      },
       resumeThread: host.selectThread,
       forkThread: (threadId) => threadActions.forkThread(threadId),
       rollbackThread: (threadId) => threadActions.rollbackThread(threadId),

@@ -11,6 +11,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     busy: false,
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
     startNewThread: vi.fn().mockResolvedValue(undefined),
+    startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     referThread: vi.fn().mockResolvedValue({
       input: [{ type: "text", text: "referenced", text_elements: [] }],
@@ -326,12 +327,23 @@ describe("slash commands", () => {
     );
   });
 
-  it("rejects goal mutation without an active thread", async () => {
+  it("starts a thread before setting a goal without an active thread", async () => {
     const ctx = context({ activeThreadId: null });
 
     await executeSlashCommand("goal", "set Ship this", ctx);
 
-    expect(ctx.setGoalObjective).not.toHaveBeenCalled();
+    expect(ctx.startThreadForGoal).toHaveBeenCalledWith("Ship this");
+    expect(ctx.setGoalObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
+    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("No active thread for goal management.");
+  });
+
+  it("rejects non-set goal mutation without an active thread", async () => {
+    const ctx = context({ activeThreadId: null });
+
+    await executeSlashCommand("goal", "pause", ctx);
+
+    expect(ctx.startThreadForGoal).not.toHaveBeenCalled();
+    expect(ctx.setGoalStatus).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread for goal management.");
   });
 

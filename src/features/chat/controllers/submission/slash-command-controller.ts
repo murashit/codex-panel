@@ -16,6 +16,7 @@ import type { SubmissionStatePort } from "../state-ports";
 
 export interface SlashCommandThreadPort {
   startNewThread: () => Promise<void>;
+  startThreadForGoal: (objective: string) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
   forkThread: (threadId: string) => Promise<void>;
   rollbackThread: (threadId: string) => Promise<void>;
@@ -71,6 +72,7 @@ export class SlashCommandController {
       activeThreadId: state.activeThreadId,
       listedThreads: state.listedThreads,
       startNewThread: () => this.host.threads.startNewThread(),
+      startThreadForGoal: (objective) => this.host.threads.startThreadForGoal(objective),
       resumeThread: (threadId) => this.host.threads.resumeThread(threadId),
       reconnect: () => this.host.threads.reconnect(),
       referThread: (thread, message) => {

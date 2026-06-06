@@ -62,6 +62,7 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
   const client = { compactThread, threadTurnsList } as unknown as AppServerClient;
   const threads: SlashCommandThreadPort = {
     startNewThread: vi.fn().mockResolvedValue(undefined),
+    startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     forkThread: vi.fn().mockResolvedValue(undefined),
     rollbackThread: vi.fn().mockResolvedValue(undefined),
@@ -143,6 +144,16 @@ describe("SlashCommandController", () => {
 
     expect(compactThread).toHaveBeenCalledWith("thread");
     expect(host.status.setStatus).toHaveBeenCalledWith("Compaction requested.");
+  });
+
+  it("starts an empty panel before setting a slash command goal", async () => {
+    const { host } = createHost();
+    const controller = new SlashCommandController(host);
+
+    await controller.execute("goal", "set Ship this");
+
+    expect(host.threads.startThreadForGoal).toHaveBeenCalledWith("Ship this");
+    expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
   });
 
   it("runs reconnect even when there is no current app-server client", async () => {

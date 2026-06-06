@@ -26,6 +26,7 @@ export interface SlashCommandExecutionContext {
   busy: boolean;
   listedThreads: readonly Thread[];
   startNewThread: () => Promise<void>;
+  startThreadForGoal: (objective: string) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
   referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
   forkThread: (threadId: string) => Promise<void>;
@@ -273,14 +274,19 @@ async function executeGoalCommand(args: string, context: SlashCommandExecutionCo
     context.addStructuredSystemMessage("Thread goal", goalDetails(goal));
     return;
   }
+  const goal = context.activeGoal();
+  if (parsed.kind === "set") {
+    const threadId = context.activeThreadId ?? (await context.startThreadForGoal(parsed.objective));
+    if (!threadId) {
+      context.addSystemMessage("No active thread for goal management.");
+      return;
+    }
+    await context.setGoalObjective(threadId, parsed.objective, goal?.tokenBudget ?? null);
+    return;
+  }
   const threadId = context.activeThreadId;
   if (!threadId) {
     context.addSystemMessage("No active thread for goal management.");
-    return;
-  }
-  const goal = context.activeGoal();
-  if (parsed.kind === "set") {
-    await context.setGoalObjective(threadId, parsed.objective, goal?.tokenBudget ?? null);
     return;
   }
   if (!goal) {
