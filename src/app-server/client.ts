@@ -543,9 +543,10 @@ export class AppServerClient {
   private suppressOrphanResponse(id: RequestId): void {
     this.suppressedOrphanResponses.add(id);
     while (this.suppressedOrphanResponses.size > MAX_SUPPRESSED_ORPHAN_RESPONSES) {
-      const oldest = this.suppressedOrphanResponses.values().next().value;
-      if (oldest === undefined) break;
-      this.suppressedOrphanResponses.delete(oldest);
+      for (const oldest of this.suppressedOrphanResponses) {
+        this.suppressedOrphanResponses.delete(oldest);
+        break;
+      }
     }
   }
 
