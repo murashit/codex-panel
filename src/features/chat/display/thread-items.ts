@@ -393,10 +393,9 @@ function reviewModeDisplayItem(item: ReviewModeItem, turnId?: string): DisplayIt
 function contextCompactionDisplayItem(item: ContextCompactionItem, turnId?: string): DisplayItem {
   return {
     id: item.id,
-    kind: "tool",
+    kind: "contextCompaction",
     role: "tool",
     text: "Context compaction",
-    toolLabel: "contextCompaction",
     ...definedProp("turnId", turnId),
     itemId: item.id,
   };

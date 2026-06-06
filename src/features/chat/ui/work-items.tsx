@@ -7,6 +7,7 @@ import type {
   AgentDisplayItem,
   AgentRunSummary,
   AgentRunSummaryAgent,
+  ContextCompactionDisplayItem,
   DisplayItem,
   ReasoningDisplayItem,
   TaskProgressDisplayItem,
@@ -19,7 +20,7 @@ import { shortThreadId, truncate } from "../../../utils";
 const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
 const AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT = 96;
 
-export type WorkItemDisplayItem = TaskProgressDisplayItem | AgentDisplayItem | ReasoningDisplayItem;
+export type WorkItemDisplayItem = TaskProgressDisplayItem | AgentDisplayItem | ReasoningDisplayItem | ContextCompactionDisplayItem;
 
 export interface WorkItemContext {
   turnLifecycle: ChatTurnLifecycleState;
@@ -43,6 +44,7 @@ export function agentRunSummaryNode(summary: AgentRunSummary): UiNode {
 export function workItemNode(item: WorkItemDisplayItem, context: WorkItemContext): UiNode {
   if (item.kind === "taskProgress") return <TaskProgressItem item={item} />;
   if (item.kind === "agent") return <AgentItem item={item} context={context} />;
+  if (item.kind === "contextCompaction") return <ContextCompactionItem item={item} context={context} />;
   return <ReasoningItem item={item} context={context} />;
 }
 
@@ -71,6 +73,15 @@ function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): UiNode {
           ))}
         </ul>
       )}
+    </WorkMessage>
+  );
+}
+
+function ContextCompactionItem({ item, context }: { item: ContextCompactionDisplayItem; context: WorkItemContext }): UiNode {
+  const active = workItemsActiveTurnId(context) === item.turnId;
+  return (
+    <WorkMessage label="context" className="codex-panel__context-compaction" state={active ? "running" : "completed"}>
+      <div className="codex-panel__tool-summary">{active ? "Compacting context..." : "Context compacted"}</div>
     </WorkMessage>
   );
 }

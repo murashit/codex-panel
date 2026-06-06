@@ -813,13 +813,12 @@ describe("thread item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("preserves context compaction items as short tool items", () => {
+  it("preserves context compaction items as short work items", () => {
     const item: ThreadItem = { type: "contextCompaction", id: "compact-1" };
 
     expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
-      kind: "tool",
+      kind: "contextCompaction",
       text: "Context compaction",
-      toolLabel: "contextCompaction",
       turnId: "t1",
       itemId: "compact-1",
     });

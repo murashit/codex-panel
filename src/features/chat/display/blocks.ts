@@ -167,6 +167,7 @@ function turnActivitySummary(items: readonly DisplayItem[]): string {
     countMatchingLabel(items, (item) => item.kind === "tool" && !isSteeringActivityDisplayItem(item), "tool"),
     countLabel(items, "hook", "hook"),
     countLabel(items, "reasoning", "thought", "thought notes"),
+    countLabel(items, "contextCompaction", "context compaction"),
     countLabel(items, "approvalResult", "approval"),
     countLabel(items, "userInputResult", "input"),
     countLabel(items, "reviewResult", "review"),

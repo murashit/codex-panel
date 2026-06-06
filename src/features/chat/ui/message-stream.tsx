@@ -68,7 +68,7 @@ function isRenderableToolResultItem(item: DisplayItem): item is ToolResultDispla
 }
 
 function isRenderableWorkItem(item: DisplayItem): item is WorkItemDisplayItem {
-  return item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning";
+  return item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning" || item.kind === "contextCompaction";
 }
 
 function displayItemNode(item: DisplayItem, context: MessageStreamContext): UiNode {

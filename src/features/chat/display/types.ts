@@ -9,6 +9,7 @@ export type DisplayKind =
   | "agent"
   | "hook"
   | "reasoning"
+  | "contextCompaction"
   | "system"
   | "goal"
   | "approvalResult"
@@ -162,6 +163,11 @@ export interface ReasoningDisplayItem extends ToolDisplayBase {
   kind: "reasoning";
 }
 
+export interface ContextCompactionDisplayItem extends DisplayBase {
+  kind: "contextCompaction";
+  role: "tool";
+}
+
 export interface TaskProgressStep {
   step: string;
   status: "pending" | "inProgress" | "completed";
@@ -218,6 +224,7 @@ export type DisplayItem =
   | ToolCallDisplayItem
   | HookDisplayItem
   | ReasoningDisplayItem
+  | ContextCompactionDisplayItem
   | TaskProgressDisplayItem
   | AgentDisplayItem
   | ApprovalResultDisplayItem

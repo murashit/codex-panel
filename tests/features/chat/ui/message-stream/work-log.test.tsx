@@ -961,6 +961,55 @@ describe("work log renderer decisions", () => {
     unmountUiRootInAct(parent);
   });
 
+  it("renders context compaction as a one-line work item while running and after completion", () => {
+    const runningParent = document.createElement("div");
+    const item: DisplayItem = { id: "compact-1", kind: "contextCompaction", role: "tool", text: "Context compaction", turnId: "turn" };
+
+    renderMessageStreamBlocksInAct(
+      runningParent,
+      messageStreamBlocks({
+        activeThreadId: "thread",
+        turnLifecycle: runningTurnLifecycle("turn"),
+        historyCursor: null,
+        loadingHistory: false,
+        displayItems: [item],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+      }),
+    );
+
+    const running = expectPresent(
+      runningParent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:compact-1"] .codex-panel__context-compaction'),
+    );
+    expect(running.querySelector(".codex-panel__message-role")?.textContent).toBe("context");
+    expect(running.querySelector(".codex-panel__tool-summary")?.textContent).toBe("Compacting context...");
+    expect(running.classList.contains("codex-panel__execution--running")).toBe(true);
+    unmountUiRootInAct(runningParent);
+
+    const completedParent = document.createElement("div");
+    renderMessageStreamBlocksInAct(
+      completedParent,
+      messageStreamBlocks({
+        activeThreadId: "thread",
+        turnLifecycle: idleTurnLifecycle(),
+        historyCursor: null,
+        loadingHistory: false,
+        displayItems: [item],
+        openDetails: new Set(),
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+      }),
+    );
+
+    const completed = expectPresent(
+      completedParent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:compact-1"] .codex-panel__context-compaction'),
+    );
+    expect(completed.querySelector(".codex-panel__tool-summary")?.textContent).toBe("Context compacted");
+    expect(completed.classList.contains("codex-panel__execution--completed")).toBe(true);
+    unmountUiRootInAct(completedParent);
+  });
+
   it("hides the live agent summary once all subagents are complete", () => {
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
