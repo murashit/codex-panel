@@ -10,7 +10,7 @@ import type { RestoredThreadState } from "./view-lifecycle";
 
 export type ChatPanelSlotSnapshot = string | number | boolean | null;
 
-export function openPanelTurnLifecycle(state: ChatState["turnLifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
+export function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
   if (state.kind === "running") return { kind: "running", turnId: state.turnId };
   if (state.kind === "starting") return { kind: "starting" };
   return { kind: "idle" };
@@ -22,80 +22,80 @@ export function latestProposedPlanItem(items: readonly DisplayItem[]): DisplayIt
 
 export function toolbarSlotSnapshot(state: ChatState, connected: boolean): ChatPanelSlotSnapshot {
   return signatureParts(
-    state.status,
+    state.connection.status,
     chatTurnBusy(state),
-    state.activeThreadId,
+    state.activeThread.id,
     activeTurnId(state),
-    state.activeModel,
-    state.activeReasoningEffort,
-    state.activeCollaborationMode,
-    state.activeServiceTier,
-    state.activeApprovalPolicy,
-    state.activeApprovalsReviewer,
-    state.activePermissionProfile,
-    state.selectedCollaborationMode,
-    state.requestedServiceTier,
-    state.requestedApprovalsReviewer,
-    state.requestedModel,
-    state.requestedReasoningEffort,
-    openDetailsSignature(state.openDetails),
-    state.threadsLoaded,
-    threadListSignature(state.listedThreads),
-    modelsSignature(state.availableModels),
-    state.effectiveConfig,
-    state.rateLimit,
-    state.tokenUsage,
-    state.appServerDiagnostics,
+    state.runtime.activeModel,
+    state.runtime.activeReasoningEffort,
+    state.runtime.activeCollaborationMode,
+    state.runtime.activeServiceTier,
+    state.runtime.activeApprovalPolicy,
+    state.runtime.activeApprovalsReviewer,
+    state.runtime.activePermissionProfile,
+    state.runtime.selectedCollaborationMode,
+    state.runtime.requestedServiceTier,
+    state.runtime.requestedApprovalsReviewer,
+    state.runtime.requestedModel,
+    state.runtime.requestedReasoningEffort,
+    openDetailsSignature(state.ui.openDetails),
+    state.threadList.threadsLoaded,
+    threadListSignature(state.threadList.listedThreads),
+    modelsSignature(state.connection.availableModels),
+    state.connection.effectiveConfig,
+    state.connection.rateLimit,
+    state.activeThread.tokenUsage,
+    state.connection.appServerDiagnostics,
     connected,
   );
 }
 
 export function messagesSlotSnapshot(state: ChatState, pendingRequestsSignature: string): ChatPanelSlotSnapshot {
   return signatureParts(
-    state.activeThreadId,
+    state.activeThread.id,
     activeTurnId(state),
-    state.activeThreadCwd,
-    state.historyCursor,
-    state.loadingHistory,
+    state.activeThread.cwd,
+    state.transcript.historyCursor,
+    state.transcript.loadingHistory,
     chatTurnBusy(state),
-    state.messagesPinnedToBottom,
-    state.composerDraft.trim().length > 0,
-    state.selectedCollaborationMode,
-    displayItemsSignature(state.displayItems),
-    turnDiffsSignature(state.turnDiffs),
-    openDetailsSignature(state.openDetails),
+    state.ui.messagesPinnedToBottom,
+    state.composer.draft.trim().length > 0,
+    state.runtime.selectedCollaborationMode,
+    displayItemsSignature(state.transcript.displayItems),
+    turnDiffsSignature(state.transcript.turnDiffs),
+    openDetailsSignature(state.ui.openDetails),
     pendingRequestsSignature,
   );
 }
 
 export function goalSlotSnapshot(state: ChatState): ChatPanelSlotSnapshot {
-  return signatureParts(state.activeThreadId, state.activeGoal);
+  return signatureParts(state.activeThread.id, state.activeThread.goal);
 }
 
 export function composerSlotSnapshot(state: ChatState, activeComposerThreadName: string | null): ChatPanelSlotSnapshot {
   return signatureParts(
-    state.composerDraft,
-    state.status,
+    state.composer.draft,
+    state.connection.status,
     chatTurnBusy(state),
-    state.activeThreadId,
+    state.activeThread.id,
     activeTurnId(state),
-    state.activeModel,
-    state.activeReasoningEffort,
-    state.activeCollaborationMode,
-    state.activeServiceTier,
-    state.activeApprovalsReviewer,
-    state.selectedCollaborationMode,
-    state.requestedServiceTier,
-    state.requestedApprovalsReviewer,
-    state.requestedModel,
-    state.requestedReasoningEffort,
-    state.tokenUsage,
-    state.effectiveConfig,
-    currentModel(runtimeSnapshotForChatState({ state }), readRuntimeConfig(state.effectiveConfig)),
-    state.availableSkills.length,
-    skillsSignature(state.availableSkills),
-    modelsSignature(state.availableModels),
-    threadListSignature(state.listedThreads),
+    state.runtime.activeModel,
+    state.runtime.activeReasoningEffort,
+    state.runtime.activeCollaborationMode,
+    state.runtime.activeServiceTier,
+    state.runtime.activeApprovalsReviewer,
+    state.runtime.selectedCollaborationMode,
+    state.runtime.requestedServiceTier,
+    state.runtime.requestedApprovalsReviewer,
+    state.runtime.requestedModel,
+    state.runtime.requestedReasoningEffort,
+    state.activeThread.tokenUsage,
+    state.connection.effectiveConfig,
+    currentModel(runtimeSnapshotForChatState({ state }), readRuntimeConfig(state.connection.effectiveConfig)),
+    state.connection.availableSkills.length,
+    skillsSignature(state.connection.availableSkills),
+    modelsSignature(state.connection.availableModels),
+    threadListSignature(state.threadList.listedThreads),
     activeComposerThreadName,
   );
 }
@@ -151,6 +151,6 @@ function modelsSignature(models: readonly Model[]): string {
   return models.map((model) => stableSignature(model)).join("\n");
 }
 
-function skillsSignature(skills: ChatState["availableSkills"]): string {
+function skillsSignature(skills: ChatState["connection"]["availableSkills"]): string {
   return skills.map((skill) => stableSignature(skill)).join("\n");
 }

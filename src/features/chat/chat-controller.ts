@@ -74,7 +74,7 @@ export class ChatController {
   }
 
   resolveApproval(approval: PendingApproval, action: ApprovalAction): void {
-    if (!this.state.approvals.some((item) => item.requestId === approval.requestId)) return;
+    if (!this.state.requests.approvals.some((item) => item.requestId === approval.requestId)) return;
     if (!this.actions.respondToServerRequest(approval.requestId, approvalResponse(approval, action))) {
       this.addSystemMessage("Could not send approval response because Codex app-server is not connected.");
       return;
@@ -83,7 +83,7 @@ export class ChatController {
   }
 
   resolveUserInput(input: PendingUserInput, answers: Record<string, string>): void {
-    if (!this.state.pendingUserInputs.some((item) => item.requestId === input.requestId)) return;
+    if (!this.state.requests.pendingUserInputs.some((item) => item.requestId === input.requestId)) return;
     if (!this.actions.respondToServerRequest(input.requestId, userInputResponse(input, answers))) {
       this.addSystemMessage("Could not send user input because Codex app-server is not connected.");
       return;
@@ -96,7 +96,7 @@ export class ChatController {
   }
 
   cancelUserInput(input: PendingUserInput): void {
-    if (!this.state.pendingUserInputs.some((item) => item.requestId === input.requestId)) return;
+    if (!this.state.requests.pendingUserInputs.some((item) => item.requestId === input.requestId)) return;
     if (!this.actions.rejectServerRequest(input.requestId, -32000, "User cancelled input request.")) {
       this.addSystemMessage("Could not cancel user input because Codex app-server is not connected.");
       return;
@@ -105,15 +105,15 @@ export class ChatController {
   }
 
   addSystemMessage(text: string): void {
-    this.dispatch({ type: "system/message-added", item: createSystemItem(this.localItemId("system"), text) });
+    this.dispatch({ type: "transcript/system-message-added", item: createSystemItem(this.localItemId("system"), text) });
   }
 
   addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
-    this.dispatch({ type: "system/message-added", item: createStructuredSystemItem(this.localItemId("system"), text, details) });
+    this.dispatch({ type: "transcript/system-message-added", item: createStructuredSystemItem(this.localItemId("system"), text, details) });
   }
 
   addDedupedSystemMessage(text: string): void {
-    this.dispatch({ type: "system/deduped-log-added", text, item: createSystemItem(this.localItemId("system"), text) });
+    this.dispatch({ type: "transcript/deduped-log-added", text, item: createSystemItem(this.localItemId("system"), text) });
   }
 
   private queueApprovalRequest(approval: PendingApproval): void {
@@ -126,7 +126,7 @@ export class ChatController {
 
   private activeRouteScope(): { activeThreadId: string | null; activeTurnId: string | null } {
     return {
-      activeThreadId: this.state.activeThreadId,
+      activeThreadId: this.state.activeThread.id,
       activeTurnId: activeTurnId(this.state),
     };
   }

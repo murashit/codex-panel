@@ -40,7 +40,7 @@ export class ChatRuntimeSettingsController {
 
   async applyPendingThreadSettings(): Promise<boolean> {
     const client = this.host.currentClient();
-    const threadId = this.state.activeThreadId;
+    const threadId = this.state.activeThread.id;
     if (!client || !threadId) return true;
 
     const update = this.pendingThreadSettingsUpdate();
@@ -80,7 +80,7 @@ export class ChatRuntimeSettingsController {
 
   async toggleFastMode(): Promise<void> {
     const snapshot = this.host.runtimeSnapshot();
-    const config = readRuntimeConfig(this.state.effectiveConfig);
+    const config = readRuntimeConfig(this.state.connection.effectiveConfig);
     const next: RequestedServiceTier = fastModeActive(snapshot, config) ? "off" : "fast";
     this.dispatch({ type: "runtime/requested-service-tier-set", serviceTier: next });
     this.dispatch({ type: "ui/panel-set", panel: null });
@@ -89,7 +89,7 @@ export class ChatRuntimeSettingsController {
   }
 
   async toggleCollaborationMode(): Promise<void> {
-    const next = nextCollaborationMode(this.state.selectedCollaborationMode);
+    const next = nextCollaborationMode(this.state.runtime.selectedCollaborationMode);
     await this.setCollaborationMode(next);
   }
 
@@ -102,7 +102,7 @@ export class ChatRuntimeSettingsController {
   }
 
   async toggleAutoReview(): Promise<void> {
-    const next: ApprovalsReviewer = autoReviewActive(this.host.runtimeSnapshot(), readRuntimeConfig(this.state.effectiveConfig))
+    const next: ApprovalsReviewer = autoReviewActive(this.host.runtimeSnapshot(), readRuntimeConfig(this.state.connection.effectiveConfig))
       ? "user"
       : "auto_review";
     this.dispatch({ type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: next });
@@ -117,28 +117,28 @@ export class ChatRuntimeSettingsController {
     const snapshot = this.host.runtimeSnapshot();
     const turnSettings = requestedTurnRuntimeSettings(snapshot);
 
-    if (state.requestedModel.kind !== "unchanged") {
-      const model = pendingRuntimeSettingPayload(state.requestedModel);
+    if (state.runtime.requestedModel.kind !== "unchanged") {
+      const model = pendingRuntimeSettingPayload(state.runtime.requestedModel);
       if (model !== undefined) update.model = model;
     }
-    if (state.requestedReasoningEffort.kind !== "unchanged") {
-      const effort = pendingRuntimeSettingPayload(state.requestedReasoningEffort);
+    if (state.runtime.requestedReasoningEffort.kind !== "unchanged") {
+      const effort = pendingRuntimeSettingPayload(state.runtime.requestedReasoningEffort);
       if (effort !== undefined) update.effort = effort;
     }
-    if (state.requestedServiceTier.kind === "set") {
+    if (state.runtime.requestedServiceTier.kind === "set") {
       const serviceTier = requestedServiceTierRequestValue(
-        state.requestedServiceTier.value,
-        fastServiceTierRequestValue(snapshot, readRuntimeConfig(state.effectiveConfig)),
+        state.runtime.requestedServiceTier.value,
+        fastServiceTierRequestValue(snapshot, readRuntimeConfig(state.connection.effectiveConfig)),
       );
       if (serviceTier !== undefined) update.serviceTier = serviceTier;
-    } else if (state.requestedServiceTier.kind === "resetToConfig") {
+    } else if (state.runtime.requestedServiceTier.kind === "resetToConfig") {
       update.serviceTier = null;
     }
-    if (state.requestedApprovalsReviewer.kind !== "unchanged") {
-      const approvalsReviewer = pendingRuntimeSettingPayload(state.requestedApprovalsReviewer);
+    if (state.runtime.requestedApprovalsReviewer.kind !== "unchanged") {
+      const approvalsReviewer = pendingRuntimeSettingPayload(state.runtime.requestedApprovalsReviewer);
       if (approvalsReviewer !== undefined) update.approvalsReviewer = approvalsReviewer;
     }
-    if (state.selectedCollaborationMode !== state.activeCollaborationMode) {
+    if (state.runtime.selectedCollaborationMode !== state.runtime.activeCollaborationMode) {
       if (turnSettings.warning) {
         this.host.addSystemMessage(`${this.host.collaborationModeLabel()} mode is selected, but ${turnSettings.warning}`);
       } else if (turnSettings.collaborationMode) {

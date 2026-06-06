@@ -99,14 +99,14 @@ export class ChatThreadActionController {
     const client = this.host.currentClient();
     if (!client) return;
 
-    const turnsToDrop = turnId ? turnsAfterTurnId(this.state.displayItems, turnId) : 0;
+    const turnsToDrop = turnId ? turnsAfterTurnId(this.state.transcript.displayItems, turnId) : 0;
     if (turnsToDrop === null) {
       this.host.addSystemMessage("Could not find the selected turn to fork.");
       return;
     }
 
     try {
-      const sourceName = inheritedForkThreadName(threadId, this.state.listedThreads);
+      const sourceName = inheritedForkThreadName(threadId, this.state.threadList.listedThreads);
       const response = await client.forkThread(threadId, this.host.vaultPath);
       const forkedThreadId = response.thread.id;
       if (turnsToDrop > 0) {
@@ -152,7 +152,7 @@ export class ChatThreadActionController {
     const client = this.host.currentClient();
     if (!client) return;
 
-    const candidate = rollbackCandidateFromItems(this.state.displayItems);
+    const candidate = rollbackCandidateFromItems(this.state.transcript.displayItems);
     if (!candidate) {
       this.host.addSystemMessage("No completed turn to roll back.");
       return;
@@ -162,16 +162,16 @@ export class ChatThreadActionController {
       this.host.setStatus("Rolling back latest turn...");
       const response = await client.rollbackThread(threadId);
       this.dispatch({
-        type: "thread/resumed",
+        type: "active-thread/resumed",
         thread: response.thread,
         cwd: response.thread.cwd,
-        model: this.state.activeModel,
-        reasoningEffort: this.state.activeReasoningEffort,
-        serviceTier: this.state.activeServiceTier,
-        approvalPolicy: this.state.activeApprovalPolicy,
-        approvalsReviewer: this.state.activeApprovalsReviewer,
-        activePermissionProfile: this.state.activePermissionProfile,
-        listedThreads: upsertThread(this.state.listedThreads, response.thread),
+        model: this.state.runtime.activeModel,
+        reasoningEffort: this.state.runtime.activeReasoningEffort,
+        serviceTier: this.state.runtime.activeServiceTier,
+        approvalPolicy: this.state.runtime.activeApprovalPolicy,
+        approvalsReviewer: this.state.runtime.activeApprovalsReviewer,
+        activePermissionProfile: this.state.runtime.activePermissionProfile,
+        listedThreads: upsertThread(this.state.threadList.listedThreads, response.thread),
       });
       await this.host.history.loadLatest(response.thread.id);
       this.host.setComposerText(candidate.text);

@@ -21,7 +21,7 @@ const planItem = (id: string): DisplayItem => ({
 
 function resumeThread(stateStore: ChatStateStore, displayItems: readonly DisplayItem[]): void {
   stateStore.dispatch({
-    type: "thread/resumed",
+    type: "active-thread/resumed",
     thread: { id: "thread", cliVersion: "test" } as never,
     cwd: "/vault",
     model: null,
@@ -75,8 +75,8 @@ describe("PlanImplementationController", () => {
     await controller.implement(plan);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(stateStore.getState().selectedCollaborationMode).toBe("default");
-    expect(stateStore.getState().openDetails.has("status-panel")).toBe(false);
+    expect(stateStore.getState().runtime.selectedCollaborationMode).toBe("default");
+    expect(stateStore.getState().ui.openDetails.has("status-panel")).toBe(false);
     expect(sendTurnText).toHaveBeenCalledWith("Please implement this plan.");
   });
 

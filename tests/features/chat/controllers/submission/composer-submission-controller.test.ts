@@ -94,7 +94,7 @@ describe("ComposerSubmissionController", () => {
   it("interrupts a running turn when submitting an empty draft", async () => {
     const { controller, interruptTurn, stateStore } = createController("");
     stateStore.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("thread"),
       cwd: "/vault",
       model: null,

@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ChatRuntimeSettingsController } from "../../../src/features/chat/runtime-settings-controller";
-import { createChatState, createChatStateStore, type ChatAction } from "../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore, type ActiveThreadSettingsAppliedAction } from "../../../src/features/chat/chat-state";
 import type { AppServerClient } from "../../../src/app-server/client";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 
 describe("ChatRuntimeSettingsController", () => {
   it("applies pending runtime overrides through thread settings and commits them", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
+    state.activeThread.id = "thread";
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -16,24 +16,24 @@ describe("ChatRuntimeSettingsController", () => {
       stateStore: store,
       currentClient: () => client as AppServerClient,
       runtimeSnapshot: () => ({
-        effectiveConfig: store.getState().effectiveConfig,
-        activeThreadId: store.getState().activeThreadId,
-        activeModel: store.getState().activeModel,
-        activeReasoningEffort: store.getState().activeReasoningEffort,
-        activeCollaborationMode: store.getState().activeCollaborationMode,
-        activeServiceTier: store.getState().activeServiceTier,
-        activeApprovalPolicy: store.getState().activeApprovalPolicy,
-        activeApprovalsReviewer: store.getState().activeApprovalsReviewer,
-        activePermissionProfile: store.getState().activePermissionProfile,
-        requestedModel: store.getState().requestedModel,
-        requestedReasoningEffort: store.getState().requestedReasoningEffort,
-        requestedApprovalsReviewer: store.getState().requestedApprovalsReviewer,
-        selectedCollaborationMode: store.getState().selectedCollaborationMode,
-        requestedServiceTier: store.getState().requestedServiceTier,
-        tokenUsage: store.getState().tokenUsage,
-        rateLimit: store.getState().rateLimit,
+        effectiveConfig: store.getState().connection.effectiveConfig,
+        activeThreadId: store.getState().activeThread.id,
+        activeModel: store.getState().runtime.activeModel,
+        activeReasoningEffort: store.getState().runtime.activeReasoningEffort,
+        activeCollaborationMode: store.getState().runtime.activeCollaborationMode,
+        activeServiceTier: store.getState().runtime.activeServiceTier,
+        activeApprovalPolicy: store.getState().runtime.activeApprovalPolicy,
+        activeApprovalsReviewer: store.getState().runtime.activeApprovalsReviewer,
+        activePermissionProfile: store.getState().runtime.activePermissionProfile,
+        requestedModel: store.getState().runtime.requestedModel,
+        requestedReasoningEffort: store.getState().runtime.requestedReasoningEffort,
+        requestedApprovalsReviewer: store.getState().runtime.requestedApprovalsReviewer,
+        selectedCollaborationMode: store.getState().runtime.selectedCollaborationMode,
+        requestedServiceTier: store.getState().runtime.requestedServiceTier,
+        tokenUsage: store.getState().activeThread.tokenUsage,
+        rateLimit: store.getState().connection.rateLimit,
         hasThreadTurns: false,
-        availableModels: store.getState().availableModels,
+        availableModels: store.getState().connection.availableModels,
       }),
       collaborationModeLabel: () => "Plan",
       addSystemMessage: (text) => messages.push(text),
@@ -42,14 +42,14 @@ describe("ChatRuntimeSettingsController", () => {
     await expect(controller.setRequestedModel("gpt-5.5")).resolves.toBe(true);
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
-    expect(store.getState().requestedModel).toEqual({ kind: "unchanged" });
-    expect(store.getState().activeModel).toBe("gpt-5.5");
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.activeModel).toBe("gpt-5.5");
     expect(messages).toEqual([]);
   });
 
   it("toggles fast mode and reports the user-visible result", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
+    state.activeThread.id = "thread";
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -58,17 +58,17 @@ describe("ChatRuntimeSettingsController", () => {
     await controller.toggleFastMode();
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { serviceTier: "fast" });
-    expect(store.getState().requestedServiceTier).toEqual({ kind: "unchanged" });
-    expect(store.getState().activeServiceTier).toBe("fast");
+    expect(store.getState().runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.activeServiceTier).toBe("fast");
     expect(messages).toEqual(["Fast mode on for subsequent turns."]);
   });
 
   it("requests the catalog Fast tier id and toggles it off from the reported effective id", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.activeModel = "gpt-5.5";
+    state.activeThread.id = "thread";
+    state.runtime.activeModel = "gpt-5.5";
     // Codex app-server 0.134.0 advertises Fast as id "priority" and reports that id as the effective service tier.
-    state.availableModels = [modelFixture("gpt-5.5", "priority")];
+    state.connection.availableModels = [modelFixture("gpt-5.5", "priority")];
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -77,19 +77,19 @@ describe("ChatRuntimeSettingsController", () => {
     await controller.toggleFastMode();
 
     expect(client.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "priority" });
-    expect(store.getState().activeServiceTier).toBe("priority");
+    expect(store.getState().runtime.activeServiceTier).toBe("priority");
 
-    store.dispatch({ type: "thread/settings-applied", ...threadSettings("priority") });
+    store.dispatch({ type: "active-thread/settings-applied", ...threadSettings("priority") });
     await controller.toggleFastMode();
 
     expect(client.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: null });
-    expect(store.getState().activeServiceTier).toBeNull();
+    expect(store.getState().runtime.activeServiceTier).toBeNull();
     expect(messages).toEqual(["Fast mode on for subsequent turns.", "Fast mode off for subsequent turns."]);
   });
 
   it("leaves pending override in place when the app-server update fails", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
+    state.activeThread.id = "thread";
     const store = createChatStateStore(state);
     const client = clientFixture({ updateThreadSettings: vi.fn().mockRejectedValue(new Error("nope")) });
     const messages: string[] = [];
@@ -97,8 +97,8 @@ describe("ChatRuntimeSettingsController", () => {
 
     await expect(controller.setRequestedModel("gpt-5.5")).resolves.toBe(false);
 
-    expect(store.getState().requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
-    expect(store.getState().activeModel).toBeNull();
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(store.getState().runtime.activeModel).toBeNull();
     expect(messages).toEqual(["nope"]);
   });
 });
@@ -114,24 +114,24 @@ function runtimeControllerFixture(
     runtimeSnapshot: () => {
       const state = store.getState();
       return {
-        effectiveConfig: state.effectiveConfig,
-        activeThreadId: state.activeThreadId,
-        activeModel: state.activeModel,
-        activeReasoningEffort: state.activeReasoningEffort,
-        activeCollaborationMode: state.activeCollaborationMode,
-        activeServiceTier: state.activeServiceTier,
-        activeApprovalPolicy: state.activeApprovalPolicy,
-        activeApprovalsReviewer: state.activeApprovalsReviewer,
-        activePermissionProfile: state.activePermissionProfile,
-        requestedModel: state.requestedModel,
-        requestedReasoningEffort: state.requestedReasoningEffort,
-        requestedApprovalsReviewer: state.requestedApprovalsReviewer,
-        selectedCollaborationMode: state.selectedCollaborationMode,
-        requestedServiceTier: state.requestedServiceTier,
-        tokenUsage: state.tokenUsage,
-        rateLimit: state.rateLimit,
+        effectiveConfig: state.connection.effectiveConfig,
+        activeThreadId: state.activeThread.id,
+        activeModel: state.runtime.activeModel,
+        activeReasoningEffort: state.runtime.activeReasoningEffort,
+        activeCollaborationMode: state.runtime.activeCollaborationMode,
+        activeServiceTier: state.runtime.activeServiceTier,
+        activeApprovalPolicy: state.runtime.activeApprovalPolicy,
+        activeApprovalsReviewer: state.runtime.activeApprovalsReviewer,
+        activePermissionProfile: state.runtime.activePermissionProfile,
+        requestedModel: state.runtime.requestedModel,
+        requestedReasoningEffort: state.runtime.requestedReasoningEffort,
+        requestedApprovalsReviewer: state.runtime.requestedApprovalsReviewer,
+        selectedCollaborationMode: state.runtime.selectedCollaborationMode,
+        requestedServiceTier: state.runtime.requestedServiceTier,
+        tokenUsage: state.activeThread.tokenUsage,
+        rateLimit: state.connection.rateLimit,
         hasThreadTurns: false,
-        availableModels: state.availableModels,
+        availableModels: state.connection.availableModels,
       };
     },
     collaborationModeLabel: () => "Plan",
@@ -169,7 +169,7 @@ function modelFixture(model: string, fastTierId: string): Model {
   };
 }
 
-function threadSettings(serviceTier: string | null): Omit<Extract<ChatAction, { type: "thread/settings-applied" }>, "type"> {
+function threadSettings(serviceTier: string | null): Omit<ActiveThreadSettingsAppliedAction, "type"> {
   return {
     cwd: "/vault",
     model: "gpt-5.5",

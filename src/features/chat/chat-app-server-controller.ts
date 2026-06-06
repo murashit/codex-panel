@@ -44,11 +44,11 @@ export class ChatAppServerController {
     this.host.stateStore.dispatch(action);
   }
 
-  applyThreadList(threads: ChatState["listedThreads"]): void {
-    this.dispatch({ type: "thread/list-applied", threads, threadsLoaded: true });
+  applyThreadList(threads: ChatState["threadList"]["listedThreads"]): void {
+    this.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
   }
 
-  async loadThreadList(): Promise<ChatState["listedThreads"]> {
+  async loadThreadList(): Promise<ChatState["threadList"]["listedThreads"]> {
     const client = this.host.currentClient();
     if (!client) throw new Error("Codex app-server is not connected.");
     const response = await client.listThreads(this.host.vaultPath);
@@ -57,17 +57,17 @@ export class ChatAppServerController {
 
   appServerMetadataSnapshot(): SharedAppServerMetadata {
     return {
-      effectiveConfig: this.state.effectiveConfig,
-      availableModels: this.state.availableModels,
-      availableSkills: this.state.availableSkills,
-      rateLimit: this.state.rateLimit,
-      appServerDiagnostics: this.state.appServerDiagnostics,
+      effectiveConfig: this.state.connection.effectiveConfig,
+      availableModels: this.state.connection.availableModels,
+      availableSkills: this.state.connection.availableSkills,
+      rateLimit: this.state.connection.rateLimit,
+      appServerDiagnostics: this.state.connection.appServerDiagnostics,
     };
   }
 
   applyAppServerMetadata(metadata: SharedAppServerMetadata): void {
     this.dispatch({
-      type: "thread/list-applied",
+      type: "connection/metadata-applied",
       effectiveConfig: metadata.effectiveConfig,
       availableModels: metadata.availableModels,
       availableSkills: metadata.availableSkills,
@@ -81,7 +81,7 @@ export class ChatAppServerController {
     if (!client) return null;
     const effectiveConfig = await client.readEffectiveConfig(this.host.vaultPath);
     const [models, skills, rateLimit] = await Promise.all([this.loadModels(), this.loadSkills(), this.loadRateLimit()]);
-    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.state.connection.appServerDiagnostics);
     diagnostics.probes["model/list"] = models.probe;
     diagnostics.probes["skills/list"] = skills.probe;
     diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
@@ -118,7 +118,7 @@ export class ChatAppServerController {
     if (!client) return null;
     const serviceTier = requestedOrConfiguredServiceTier(this.host.runtimeSnapshot());
     const response = await client.startThread(this.host.vaultPath, serviceTier);
-    const listedThreads = upsertThread(this.state.listedThreads, threadWithPreviewFallback(response.thread, preview));
+    const listedThreads = upsertThread(this.state.threadList.listedThreads, threadWithPreviewFallback(response.thread, preview));
     this.dispatch(resumedThreadAction({ response, listedThreads, forceMessagesToBottom: true }));
     this.host.publishThreadList(listedThreads);
     this.host.forceMessagesToBottom();
@@ -128,9 +128,9 @@ export class ChatAppServerController {
 
   async refreshModels(): Promise<void> {
     const models = await this.loadModels();
-    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.state.connection.appServerDiagnostics);
     diagnostics.probes["model/list"] = models.probe;
-    this.dispatch({ type: "thread/list-applied", availableModels: models.data, appServerDiagnostics: diagnostics });
+    this.dispatch({ type: "connection/metadata-applied", availableModels: models.data, appServerDiagnostics: diagnostics });
   }
 
   async loadModels(): Promise<{ data: Model[]; probe: AppServerDiagnostics["probes"]["model/list"] }> {
@@ -146,9 +146,9 @@ export class ChatAppServerController {
 
   async refreshSkills(forceReload = false): Promise<void> {
     const skills = await this.loadSkills(forceReload);
-    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.state.connection.appServerDiagnostics);
     diagnostics.probes["skills/list"] = skills.probe;
-    this.dispatch({ type: "thread/list-applied", availableSkills: skills.data, appServerDiagnostics: diagnostics });
+    this.dispatch({ type: "connection/metadata-applied", availableSkills: skills.data, appServerDiagnostics: diagnostics });
   }
 
   async refreshPublishedSkills(forceReload = false): Promise<void> {
@@ -171,21 +171,21 @@ export class ChatAppServerController {
 
   async refreshRateLimits(): Promise<void> {
     const rateLimit = await this.loadRateLimit();
-    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.state.connection.appServerDiagnostics);
     diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
-    this.dispatch({ type: "thread/list-applied", rateLimit: rateLimit.data, appServerDiagnostics: diagnostics });
+    this.dispatch({ type: "connection/metadata-applied", rateLimit: rateLimit.data, appServerDiagnostics: diagnostics });
   }
 
   async refreshPublishedRateLimits(): Promise<void> {
     const rateLimit = await this.loadRateLimit();
-    const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.state.connection.appServerDiagnostics);
     diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
     if (rateLimit.probe.status === "ok") {
-      this.dispatch({ type: "thread/list-applied", rateLimit: rateLimit.data, appServerDiagnostics: diagnostics });
+      this.dispatch({ type: "connection/metadata-applied", rateLimit: rateLimit.data, appServerDiagnostics: diagnostics });
       this.publishAppServerMetadataSnapshot();
       return;
     }
-    this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
+    this.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
   }
 
   async loadRateLimit(): Promise<{ data: RateLimitSnapshot | null; probe: AppServerDiagnostics["probes"]["account/rateLimits/read"] }> {
@@ -251,7 +251,7 @@ export class ChatAppServerController {
       ),
       this.probeCapability(
         "mcpServerStatus/list",
-        () => client.listMcpServerStatus(mcpServerStatusParams(this.state.activeThreadId)),
+        () => client.listMcpServerStatus(mcpServerStatusParams(this.state.activeThread.id)),
         (response) => {
           this.recordMcpServerStatus(response.data);
           const issueCount = response.data.filter((server) => server.authStatus === "notLoggedIn").length;
@@ -292,8 +292,8 @@ export class ChatAppServerController {
     if (!client) return ["MCP servers", "Codex app-server is not connected."];
 
     try {
-      const response = await client.listMcpServerStatus(mcpServerStatusParams(this.state.activeThreadId));
-      return buildMcpStatusLines(response.data, this.state.appServerDiagnostics.mcpServers);
+      const response = await client.listMcpServerStatus(mcpServerStatusParams(this.state.activeThread.id));
+      return buildMcpStatusLines(response.data, this.state.connection.appServerDiagnostics.mcpServers);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return ["MCP servers", `Could not load MCP servers: ${message}`];
@@ -302,8 +302,8 @@ export class ChatAppServerController {
 
   recordMcpStartupStatus(name: string, startupStatus: "starting" | "ready" | "failed" | "cancelled", message: string | null): void {
     this.dispatch({
-      type: "thread/list-applied",
-      appServerDiagnostics: upsertMcpServerDiagnostic(this.state.appServerDiagnostics, {
+      type: "connection/metadata-applied",
+      appServerDiagnostics: upsertMcpServerDiagnostic(this.state.connection.appServerDiagnostics, {
         name,
         startupStatus,
         authStatus: null,
@@ -320,18 +320,18 @@ export class ChatAppServerController {
   ): Promise<void> {
     try {
       const response = await request();
-      const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+      const diagnostics = cloneAppServerDiagnostics(this.state.connection.appServerDiagnostics);
       diagnostics.probes[method] = capabilityProbeOk(method, summarize(response));
-      this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
+      this.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
     } catch (error) {
-      const diagnostics = cloneAppServerDiagnostics(this.state.appServerDiagnostics);
+      const diagnostics = cloneAppServerDiagnostics(this.state.connection.appServerDiagnostics);
       diagnostics.probes[method] = capabilityProbeError(method, error);
-      this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
+      this.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
     }
   }
 
   private recordMcpServerStatus(servers: McpServerStatus[]): void {
-    let diagnostics = this.state.appServerDiagnostics;
+    let diagnostics = this.state.connection.appServerDiagnostics;
     for (const server of servers) {
       diagnostics = upsertMcpServerDiagnostic(diagnostics, {
         name: server.name,
@@ -341,7 +341,7 @@ export class ChatAppServerController {
         message: null,
       });
     }
-    this.dispatch({ type: "thread/list-applied", appServerDiagnostics: diagnostics });
+    this.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
   }
 }
 

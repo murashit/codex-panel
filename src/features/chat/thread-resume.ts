@@ -5,7 +5,7 @@ import type { ActivePermissionProfile } from "../../generated/app-server/v2/Acti
 import type { ApprovalsReviewer } from "../../generated/app-server/v2/ApprovalsReviewer";
 import type { AskForApproval } from "../../generated/app-server/v2/AskForApproval";
 import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { ChatAction } from "./chat-state";
+import type { ActiveThreadResumedAction } from "./chat-state";
 import type { DisplayItem } from "./display/types";
 
 export interface ThreadActivationResponse {
@@ -26,10 +26,10 @@ export interface ResumedThreadActionParams {
   forceMessagesToBottom?: boolean;
 }
 
-export function resumedThreadAction(params: ResumedThreadActionParams): Extract<ChatAction, { type: "thread/resumed" }> {
+export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
   const { response } = params;
   return {
-    type: "thread/resumed",
+    type: "active-thread/resumed",
     thread: response.thread,
     cwd: response.cwd,
     model: response.model,

@@ -140,7 +140,7 @@ function clientMock() {
 
 function hostMock({ client, displayItems }: { client: ReturnType<typeof clientMock>; displayItems: DisplayItem[] }) {
   const state = createChatState();
-  const stateStore = createChatStateStore({ ...state, displayItems });
+  const stateStore = createChatStateStore({ ...state, transcript: { ...state.transcript, displayItems } });
   return {
     stateStore,
     vaultPath: "/vault",

@@ -8,7 +8,7 @@ import type { ThreadGoal } from "../../../src/generated/app-server/v2/ThreadGoal
 describe("ChatGoalController", () => {
   it("syncs the active thread goal into chat state", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
+    state.activeThread.id = "thread";
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
     const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
@@ -26,14 +26,14 @@ describe("ChatGoalController", () => {
 
     await controller.syncThreadGoal("thread");
 
-    expect(stateStore.getState().activeGoal).toEqual(currentGoal);
+    expect(stateStore.getState().activeThread.goal).toEqual(currentGoal);
     expect(refreshLiveState).toHaveBeenCalledOnce();
     expect(render).toHaveBeenCalledOnce();
   });
 
   it("reports goal sync failures without clearing the active thread", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
+    state.activeThread.id = "thread";
     const stateStore = createChatStateStore(state);
     const addSystemMessage = vi.fn();
     const client = { getThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) } as unknown as AppServerClient;
@@ -49,15 +49,15 @@ describe("ChatGoalController", () => {
 
     await controller.syncThreadGoal("thread");
 
-    expect(stateStore.getState().activeThreadId).toBe("thread");
-    expect(stateStore.getState().activeGoal).toBeNull();
+    expect(stateStore.getState().activeThread.id).toBe("thread");
+    expect(stateStore.getState().activeThread.goal).toBeNull();
     expect(addSystemMessage).toHaveBeenCalledWith("Could not load thread goal: offline");
   });
 
   it("sets objective, status, and clears goals through app-server", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.activeGoal = goal({ tokenBudget: 500 });
+    state.activeThread.id = "thread";
+    state.activeThread.goal = goal({ tokenBudget: 500 });
     const stateStore = createChatStateStore(state);
     const updated = goal({ objective: "Updated", tokenBudget: 250 });
     const paused = goal({ objective: "Updated", status: "paused", tokenBudget: 250 });
@@ -90,12 +90,12 @@ describe("ChatGoalController", () => {
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "paused: Updated", objective: "Updated" }));
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "cleared: Updated", objective: "Updated" }));
-    expect(stateStore.getState().activeGoal).toBeNull();
+    expect(stateStore.getState().activeThread.goal).toBeNull();
   });
 
   it("reports goal creation as a structured goal event", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
+    state.activeThread.id = "thread";
     const stateStore = createChatStateStore(state);
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
     const injectThreadItems = vi.fn().mockResolvedValue({});
@@ -135,8 +135,8 @@ describe("ChatGoalController", () => {
 
   it("does not inject a goal user history message when editing an existing goal", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.activeGoal = goal();
+    state.activeThread.id = "thread";
+    state.activeThread.goal = goal();
     const stateStore = createChatStateStore(state);
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal({ objective: "Updated" }) });
     const injectThreadItems = vi.fn().mockResolvedValue({});
@@ -160,8 +160,8 @@ describe("ChatGoalController", () => {
 
   it("reports goal resume as a user-visible state change", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.activeGoal = goal({ status: "paused" });
+    state.activeThread.id = "thread";
+    state.activeThread.goal = goal({ status: "paused" });
     const stateStore = createChatStateStore(state);
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
     const client = { setThreadGoal } as unknown as AppServerClient;
@@ -185,7 +185,7 @@ describe("ChatGoalController", () => {
 
   it("does not report initial goal sync as a user-visible state change", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
+    state.activeThread.id = "thread";
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
     const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
@@ -202,7 +202,7 @@ describe("ChatGoalController", () => {
 
     await controller.syncThreadGoal("thread");
 
-    expect(stateStore.getState().activeGoal).toEqual(currentGoal);
+    expect(stateStore.getState().activeThread.goal).toEqual(currentGoal);
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 });

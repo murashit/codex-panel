@@ -13,7 +13,7 @@ installObsidianDomShims();
 describe("ChatComposerController", () => {
   it("keeps suggestions closed after inserting at a cursor before later trigger text", () => {
     const stateStore = createChatStateStore();
-    stateStore.dispatch({ type: "thread/list-applied", availableSkills: [skill("obsidian-search")] });
+    stateStore.dispatch({ type: "connection/metadata-applied", availableSkills: [skill("obsidian-search")] });
     stateStore.dispatch({ type: "composer/draft-set", draft: "/pla then $ob" });
     const parent = document.createElement("div");
     const controller = new ChatComposerController({
@@ -64,7 +64,7 @@ describe("ChatComposerController", () => {
 
     expect(composer(parent).value).toBe("/plan then $ob");
     expect(composer(parent).selectionStart).toBe("/plan".length);
-    expect(stateStore.getState().composerSuggestions).toEqual([]);
+    expect(stateStore.getState().composer.suggestions).toEqual([]);
     expect(composer(parent).getAttribute("aria-expanded")).toBe("false");
     expect(composer(parent).hasAttribute("aria-activedescendant")).toBe(false);
   });

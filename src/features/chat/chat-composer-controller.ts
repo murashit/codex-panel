@@ -56,7 +56,7 @@ export class ChatComposerController {
   }
 
   get trimmedDraft(): string {
-    return this.composer?.value.trim() ?? this.state.composerDraft.trim();
+    return this.composer?.value.trim() ?? this.state.composer.draft.trim();
   }
 
   registerNoteIndexInvalidation(registerEvent: (eventRef: EventRef) => void): void {
@@ -77,12 +77,12 @@ export class ChatComposerController {
     const elements = renderComposerShell(
       parent,
       this.options.viewId,
-      state.composerDraft,
+      state.composer.draft,
       chatTurnBusy(state),
       this.options.canInterrupt(),
       this.options.composerPlaceholder(),
-      state.composerSuggestions,
-      state.composerSuggestSelected,
+      state.composer.suggestions,
+      state.composer.suggestSelected,
       {
         onInput: (value) => {
           this.dispatch({ type: "composer/draft-set", draft: value, resetDismissedSignature: true });
@@ -172,14 +172,14 @@ export class ChatComposerController {
     return userInputWithWikiLinkMentionsAndSkills(
       text,
       (target) => resolveAppWikiLinkMention(this.options.app, target),
-      this.state.availableSkills,
+      this.state.connection.availableSkills,
     );
   }
 
   private handleSuggestionKeydown(event: KeyboardEvent): boolean {
     if (event.isComposing) return false;
     const state = this.state;
-    if (state.composerSuggestions.length === 0) return false;
+    if (state.composer.suggestions.length === 0) return false;
 
     const direction = composerSuggestionNavigationDirection(event);
     if (direction) {
@@ -187,8 +187,8 @@ export class ChatComposerController {
       this.dispatchSuggestions(
         {
           type: "composer/suggestions-set",
-          suggestions: state.composerSuggestions,
-          selected: nextComposerSuggestionIndex(state.composerSuggestSelected, state.composerSuggestions.length, direction),
+          suggestions: state.composer.suggestions,
+          selected: nextComposerSuggestionIndex(state.composer.suggestSelected, state.composer.suggestions.length, direction),
         },
         true,
       );
@@ -198,7 +198,7 @@ export class ChatComposerController {
 
     if (event.key === "Enter" || event.key === "Tab") {
       event.preventDefault();
-      this.insertSuggestion(state.composerSuggestions[state.composerSuggestSelected], event.key === "Tab" ? "tab" : "enter");
+      this.insertSuggestion(state.composer.suggestions[state.composer.suggestSelected], event.key === "Tab" ? "tab" : "enter");
       return true;
     }
 
@@ -234,7 +234,7 @@ export class ChatComposerController {
     const cursor = this.composer.selectionStart;
     const signature = this.suggestionSignature();
     const state = this.state;
-    if (state.composerSuggestionsDismissedSignature === signature) {
+    if (state.composer.suggestionsDismissedSignature === signature) {
       this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [] }, renderOnChange);
       return;
     }
@@ -242,9 +242,9 @@ export class ChatComposerController {
     const suggestions = activeComposerSuggestions(
       beforeCursor,
       this.noteCandidates(),
-      state.availableSkills,
-      state.listedThreads,
-      state.availableModels,
+      state.connection.availableSkills,
+      state.threadList.listedThreads,
+      state.connection.availableModels,
       this.options.currentModelForSuggestions(),
     );
 
@@ -252,15 +252,15 @@ export class ChatComposerController {
       {
         type: "composer/suggestions-set",
         suggestions,
-        selected: state.composerSuggestSelected >= suggestions.length ? 0 : state.composerSuggestSelected,
+        selected: state.composer.suggestSelected >= suggestions.length ? 0 : state.composer.suggestSelected,
       },
       renderOnChange,
     );
   }
 
   private selectSuggestion(index: number): void {
-    if (this.state.composerSuggestSelected === index) return;
-    this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: this.state.composerSuggestions, selected: index }, true);
+    if (this.state.composer.suggestSelected === index) return;
+    this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: this.state.composer.suggestions, selected: index }, true);
   }
 
   private insertSuggestion(suggestion: ComposerSuggestion | undefined, activation: "enter" | "tab" = "enter"): void {

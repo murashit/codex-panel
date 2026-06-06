@@ -60,7 +60,7 @@ describe("ThreadIdentityController", () => {
   it("clears the active thread when it is archived", () => {
     const { controller, host, stateStore } = createController();
     stateStore.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("thread"),
       cwd: "/vault",
       model: null,
@@ -73,7 +73,7 @@ describe("ThreadIdentityController", () => {
 
     controller.notifyThreadArchived("thread");
 
-    expect(stateStore.getState().activeThreadId).toBeNull();
+    expect(stateStore.getState().activeThread.id).toBeNull();
     expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
@@ -82,7 +82,7 @@ describe("ThreadIdentityController", () => {
 
   it("updates listed and restored thread titles on rename notifications", () => {
     const { controller, host, restoredPlaceholder, restoredRename, stateStore } = createController();
-    stateStore.dispatch({ type: "thread/list-applied", threads: [thread("thread", "Old")] });
+    stateStore.dispatch({ type: "thread-list/applied", threads: [thread("thread", "Old")] });
     restoredPlaceholder.mockReturnValue({
       kind: "placeholder",
       threadId: "thread",
@@ -93,7 +93,7 @@ describe("ThreadIdentityController", () => {
 
     controller.notifyThreadRenamed("thread", "New");
 
-    expect(stateStore.getState().listedThreads[0]?.name).toBe("New");
+    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("New");
     expect(restoredRename).toHaveBeenCalledWith("thread", "New");
     expect(host.render).toHaveBeenCalledOnce();
   });

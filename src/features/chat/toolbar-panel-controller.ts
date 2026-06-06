@@ -95,7 +95,9 @@ export class ToolbarPanelController {
 
   private hasOpenPanel(): boolean {
     return (
-      this.state.openDetails.has("history") || this.state.openDetails.has("chat-actions") || this.state.openDetails.has("status-panel")
+      this.state.ui.openDetails.has("history") ||
+      this.state.ui.openDetails.has("chat-actions") ||
+      this.state.ui.openDetails.has("status-panel")
     );
   }
 

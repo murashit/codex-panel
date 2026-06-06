@@ -70,7 +70,7 @@ describe("ChatConnectionController", () => {
     await controller.ensureConnected();
 
     expect(connect).toHaveBeenCalledOnce();
-    expect(stateStore.getState().initializeResponse).toEqual({
+    expect(stateStore.getState().connection.initializeResponse).toEqual({
       codexHome: "/codex",
       platformFamily: "unix",
       platformOs: "macos",
@@ -96,9 +96,12 @@ describe("ChatConnectionController", () => {
   it("clears connection-scoped state on server exit", () => {
     const { controller, host, stateStore } = createController({ connected: true });
     stateStore.dispatch({
-      type: "thread/list-applied",
+      type: "thread-list/applied",
       threads: [{ id: "thread-1", title: "Thread 1" } as never],
       threadsLoaded: true,
+    });
+    stateStore.dispatch({
+      type: "connection/metadata-applied",
       availableModels: [{ id: "model-1" } as never],
       availableSkills: [{ name: "skill-1" } as never],
     });
@@ -112,10 +115,14 @@ describe("ChatConnectionController", () => {
     expect(host.refreshLiveState).toHaveBeenCalledOnce();
     expect(host.render).toHaveBeenCalledOnce();
     expect(stateStore.getState()).toMatchObject({
-      listedThreads: [],
-      threadsLoaded: false,
-      availableModels: [],
-      availableSkills: [],
+      threadList: {
+        listedThreads: [],
+        threadsLoaded: false,
+      },
+      connection: {
+        availableModels: [],
+        availableSkills: [],
+      },
     });
   });
 

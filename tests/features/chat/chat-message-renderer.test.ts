@@ -115,8 +115,8 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
   it("pins to the scroll container bottom without aligning the last message element", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.displayItems = [
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
       {
         id: "message",
         kind: "message",
@@ -142,13 +142,13 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     expect(messages.scrollTop).toBe(1000);
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.messagesPinnedToBottom).toBe(true);
+    expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("can repin the current scroll container after composer growth shrinks the viewport", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.displayItems = [
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
       {
         id: "message",
         kind: "message",
@@ -175,13 +175,13 @@ describe("ChatMessageRenderer scroll pinning", () => {
     renderer.forceMessagesToBottom();
 
     expect(messages.scrollTop).toBe(1000);
-    expect(state.messagesPinnedToBottom).toBe(true);
+    expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("repins after composer growth has changed the scroll viewport height", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.displayItems = [
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
       {
         id: "message",
         kind: "message",
@@ -224,13 +224,13 @@ describe("ChatMessageRenderer scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(900);
-    expect(state.messagesPinnedToBottom).toBe(true);
+    expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("does not force the bottom into view when the user is reading older messages", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.displayItems = [
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
       {
         id: "message",
         kind: "message",
@@ -252,11 +252,11 @@ describe("ChatMessageRenderer scroll pinning", () => {
     Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
     messages.scrollTop = 100;
     messages.dispatchEvent(new Event("scroll"));
-    expect(state.messagesPinnedToBottom).toBe(false);
+    expect(state.ui.messagesPinnedToBottom).toBe(false);
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
-    state.displayItems = [
+    state.transcript.displayItems = [
       {
         id: "message",
         kind: "message",
@@ -271,13 +271,13 @@ describe("ChatMessageRenderer scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.messagesPinnedToBottom).toBe(false);
+    expect(state.ui.messagesPinnedToBottom).toBe(false);
   });
 
   it("does not run a pending bottom pin after the user scrolls away", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.displayItems = [
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
       {
         id: "message",
         kind: "message",
@@ -304,13 +304,13 @@ describe("ChatMessageRenderer scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.messagesPinnedToBottom).toBe(false);
+    expect(state.ui.messagesPinnedToBottom).toBe(false);
   });
 
   it("unmounts the Preact message stream root on dispose", () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.displayItems = [
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
       {
         id: "message",
         kind: "message",

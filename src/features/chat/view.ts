@@ -315,7 +315,7 @@ export class CodexChatView extends ItemView {
   }
 
   override getState(): Record<string, unknown> {
-    const threadId = this.state.activeThreadId;
+    const threadId = this.state.activeThread.id;
     if (!threadId) return { version: 1 };
 
     const threadTitle = this.restoredThreadTitle() ?? this.activeThreadTitle();
@@ -351,19 +351,19 @@ export class CodexChatView extends ItemView {
   }
 
   applyAvailableModelsSnapshot(models: readonly Model[]): void {
-    this.dispatch({ type: "thread/list-applied", availableModels: models });
+    this.dispatch({ type: "connection/metadata-applied", availableModels: models });
     this.render();
   }
 
   openPanelSnapshot(): OpenCodexPanelSnapshot {
     return {
       viewId: this.viewId,
-      threadId: this.closing ? null : this.state.activeThreadId,
+      threadId: this.closing ? null : this.state.activeThread.id,
       lastFocused: false,
-      turnLifecycle: openPanelTurnLifecycle(this.state.turnLifecycle),
-      pendingApprovals: this.state.approvals.length,
-      pendingUserInputs: this.state.pendingUserInputs.length,
-      hasComposerDraft: this.state.composerDraft.trim().length > 0,
+      turnLifecycle: openPanelTurnLifecycle(this.state.turn.lifecycle),
+      pendingApprovals: this.state.requests.approvals.length,
+      pendingUserInputs: this.state.requests.pendingUserInputs.length,
+      hasComposerDraft: this.state.composer.draft.trim().length > 0,
       connected: this.connection.isConnected(),
     };
   }
@@ -429,7 +429,7 @@ export class CodexChatView extends ItemView {
   }
 
   private async compactConversation(): Promise<void> {
-    const threadId = this.state.activeThreadId;
+    const threadId = this.state.activeThread.id;
     if (!threadId) {
       this.addSystemMessage("No active thread to compact.");
       return;
@@ -444,7 +444,7 @@ export class CodexChatView extends ItemView {
   }
 
   private async saveGoalObjective(objective: string, tokenBudget: number | null): Promise<void> {
-    let threadId = this.state.activeThreadId;
+    let threadId = this.state.activeThread.id;
     if (!threadId) {
       try {
         await this.connectionController.ensureConnected();
@@ -541,7 +541,7 @@ export class CodexChatView extends ItemView {
   }
 
   private setStatus(status: string): void {
-    this.dispatch({ type: "status/set", status });
+    this.dispatch({ type: "connection/status-set", status });
   }
 
   private restoreThreadPlaceholder(restoredThread: Parameters<RestoredThreadController["restore"]>[0]): void {
@@ -661,30 +661,30 @@ export class CodexChatView extends ItemView {
   private renderGoal(goal: HTMLElement): void {
     renderGoalBanner(
       goal,
-      this.state.activeGoal,
+      this.state.activeThread.goal,
       {
         onSave: (objective, tokenBudget) => {
           void this.saveGoalObjective(objective, tokenBudget);
         },
         onPause: () => {
-          const threadId = this.state.activeThreadId;
+          const threadId = this.state.activeThread.id;
           if (!threadId) return;
           void this.goals.setStatus(threadId, "paused");
         },
         onResume: () => {
-          const threadId = this.state.activeThreadId;
+          const threadId = this.state.activeThread.id;
           if (!threadId) return;
           void this.goals.setStatus(threadId, "active");
         },
         onClear: () => {
-          const threadId = this.state.activeThreadId;
+          const threadId = this.state.activeThread.id;
           if (!threadId) return;
           void this.goals.clear(threadId);
         },
       },
       {
         sendShortcut: this.plugin.settings.sendShortcut,
-        editingRequested: this.state.openDetails.has("goal:editor"),
+        editingRequested: this.state.ui.openDetails.has("goal:editor"),
         onEditingChange: (editing) => {
           this.chatState.dispatch({ type: "ui/detail-open-set", key: "goal:editor", open: editing });
           this.render({ forceSlots: true });
@@ -778,7 +778,7 @@ export class CodexChatView extends ItemView {
   }
 
   private collaborationModeLabel(): string {
-    return formatCollaborationModeLabel(this.state.selectedCollaborationMode);
+    return formatCollaborationModeLabel(this.state.runtime.selectedCollaborationMode);
   }
 
   private runtimeSnapshot(): RuntimeSnapshot {
@@ -794,7 +794,7 @@ export class CodexChatView extends ItemView {
   }
 
   private pendingRequestsSignature(): string {
-    return requestStateSignature(this.state.approvals, this.state.pendingUserInputs, this.state.userInputDrafts);
+    return requestStateSignature(this.state.requests.approvals, this.state.requests.pendingUserInputs, this.state.requests.userInputDrafts);
   }
 
   private renderComposer(parent: HTMLElement): void {

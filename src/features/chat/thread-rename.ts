@@ -115,8 +115,8 @@ export class ThreadRenameController {
     try {
       await client.setThreadName(threadId, title);
       this.dispatch({
-        type: "thread/list-applied",
-        threads: this.state.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
+        type: "thread-list/applied",
+        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
       });
       this.clear();
       this.host.notifyThreadRenamed(threadId, title);
@@ -138,8 +138,8 @@ export class ThreadRenameController {
     try {
       await client.setThreadName(threadId, title);
       this.dispatch({
-        type: "thread/list-applied",
-        threads: this.state.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
+        type: "thread-list/applied",
+        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
       });
       this.host.notifyThreadRenamed(threadId, title);
     } catch (error) {
@@ -192,7 +192,7 @@ export class ThreadRenameController {
     if (hadTurnsBeforeThisCompletion || turn.status !== "completed") return;
     if (this.threadHasName(threadId)) return;
     if (this.autoNameAttemptedThreadIds.has(threadId) || this.autoNameInFlightThreadIds.has(threadId)) return;
-    const context = namingContextFromTurn(turn) ?? namingContextFromDisplayItems(turn.id, this.state.displayItems);
+    const context = namingContextFromTurn(turn) ?? namingContextFromDisplayItems(turn.id, this.state.transcript.displayItems);
     if (!context) return;
 
     this.autoNameAttemptedThreadIds.add(threadId);
@@ -209,8 +209,8 @@ export class ThreadRenameController {
       if (!client) return;
       await client.setThreadName(threadId, title);
       this.dispatch({
-        type: "thread/list-applied",
-        threads: this.state.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
+        type: "thread-list/applied",
+        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
       });
       this.host.notifyThreadRenamed(threadId, title);
     } catch {
@@ -228,7 +228,9 @@ export class ThreadRenameController {
       threadId,
       readTurns: (id, cursor, limit, sortDirection) => client.threadTurnsList(id, cursor, limit, sortDirection),
     });
-    return context ?? (this.state.activeThreadId === threadId ? firstNamingContextFromDisplayItems(this.state.displayItems) : null);
+    return (
+      context ?? (this.state.activeThread.id === threadId ? firstNamingContextFromDisplayItems(this.state.transcript.displayItems) : null)
+    );
   }
 
   private async generateTitle(context: ThreadNamingContext): Promise<string | null> {
@@ -256,7 +258,7 @@ export class ThreadRenameController {
   }
 
   private thread(threadId: string): Thread | undefined {
-    return this.state.listedThreads.find((item) => item.id === threadId);
+    return this.state.threadList.listedThreads.find((item) => item.id === threadId);
   }
 }
 

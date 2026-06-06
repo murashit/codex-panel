@@ -88,7 +88,7 @@ export function createConnectionStatePort(stateStore: ChatStateStore): Connectio
       stateStore.dispatch({ type: "connection/scoped-cleared" });
     },
     clearLocalTurn() {
-      stateStore.dispatch({ type: "turn/local-cleared" });
+      stateStore.dispatch({ type: "turn/scoped-cleared" });
     },
   };
 }
@@ -109,10 +109,10 @@ export function createPendingRequestStatePort(stateStore: ChatStateStore): Pendi
     snapshot() {
       const state = stateStore.getState();
       return {
-        approvals: state.approvals,
-        pendingUserInputs: state.pendingUserInputs,
-        userInputDrafts: state.userInputDrafts,
-        openDetails: state.openDetails,
+        approvals: state.requests.approvals,
+        pendingUserInputs: state.requests.pendingUserInputs,
+        userInputDrafts: state.requests.userInputDrafts,
+        openDetails: state.ui.openDetails,
       };
     },
     setDetailOpen(key, open) {
@@ -126,42 +126,42 @@ export function createPendingRequestStatePort(stateStore: ChatStateStore): Pendi
 
 export function createThreadLifecycleStatePort(stateStore: ChatStateStore): ThreadLifecycleStatePort {
   return {
-    activeThreadId: () => stateStore.getState().activeThreadId,
+    activeThreadId: () => stateStore.getState().activeThread.id,
     canSwitchToThread(threadId) {
       const state = stateStore.getState();
-      return !chatTurnBusy(state) || threadId === state.activeThreadId;
+      return !chatTurnBusy(state) || threadId === state.activeThread.id;
     },
     get listedThreads() {
-      return stateStore.getState().listedThreads;
+      return stateStore.getState().threadList.listedThreads;
     },
     clearActiveThread() {
-      stateStore.dispatch({ type: "thread/active-cleared" });
+      stateStore.dispatch({ type: "active-thread/cleared" });
     },
     applyThreadList(threads) {
-      stateStore.dispatch({ type: "thread/list-applied", threads });
+      stateStore.dispatch({ type: "thread-list/applied", threads });
     },
     restorePlaceholder(threadId, item) {
-      stateStore.dispatch({ type: "thread/restored-placeholder", threadId, item });
+      stateStore.dispatch({ type: "active-thread/restored-placeholder", threadId, item });
     },
-    displayItemsEmpty: () => stateStore.getState().displayItems.length === 0,
+    displayItemsEmpty: () => stateStore.getState().transcript.displayItems.length === 0,
     applyResumedThread(response, displayItems) {
       stateStore.dispatch(
         resumedThreadAction({
           response,
-          listedThreads: stateStore.getState().listedThreads,
+          listedThreads: stateStore.getState().threadList.listedThreads,
           displayItems,
         }),
       );
     },
     applyTokenUsage(threadId, tokenUsage) {
-      if (stateStore.getState().activeThreadId !== threadId) return false;
-      stateStore.dispatch({ type: "thread/token-usage-set", tokenUsage });
+      if (stateStore.getState().activeThread.id !== threadId) return false;
+      stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
       return true;
     },
     applyRecoveredTokenUsage(threadId, tokenUsage) {
       const state = stateStore.getState();
-      if (state.activeThreadId !== threadId || state.tokenUsage !== null) return false;
-      stateStore.dispatch({ type: "thread/token-usage-set", tokenUsage });
+      if (state.activeThread.id !== threadId || state.activeThread.tokenUsage !== null) return false;
+      stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
       return true;
     },
   };
@@ -172,11 +172,11 @@ export function createSubmissionStatePort(stateStore: ChatStateStore): Submissio
     snapshot() {
       const state = stateStore.getState();
       return {
-        activeThreadId: state.activeThreadId,
+        activeThreadId: state.activeThread.id,
         activeTurnId: activeTurnId(state),
         busy: chatTurnBusy(state),
-        listedThreads: state.listedThreads,
-        displayItems: state.displayItems,
+        listedThreads: state.threadList.listedThreads,
+        displayItems: state.transcript.displayItems,
         pendingTurnStart: pendingTurnStart(state),
       };
     },
@@ -195,7 +195,7 @@ export function createSubmissionStatePort(stateStore: ChatStateStore): Submissio
       stateStore.dispatch({ type: "turn/start-failed", displayItems });
     },
     addLocalUserMessage(item) {
-      stateStore.dispatch({ type: "system/message-added", item });
+      stateStore.dispatch({ type: "transcript/system-message-added", item });
     },
   };
 }

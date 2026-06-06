@@ -45,7 +45,7 @@ export interface MessageStreamContext {
 }
 
 export function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLifecycle">): string | null {
-  return activeTurnId(context);
+  return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 
 type RenderableTextItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;

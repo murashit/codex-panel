@@ -15,7 +15,7 @@ function createHost(overrides: Partial<ChatReconnectControllerHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
   stateStore.dispatch({
-    type: "thread/resumed",
+    type: "active-thread/resumed",
     thread: { id: "thread" } as never,
     cwd: "/vault",
     model: null,
@@ -51,7 +51,7 @@ describe("ChatReconnectController", () => {
 
     await controller.reconnectPanel();
 
-    expect(stateStore.getState().openDetails.size).toBe(0);
+    expect(stateStore.getState().ui.openDetails.size).toBe(0);
     expect(host.invalidateConnectionWork).toHaveBeenCalledOnce();
     expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledOnce();

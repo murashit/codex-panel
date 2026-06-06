@@ -35,10 +35,10 @@ export class ThreadHistoryLoader {
 
   invalidate(): void {
     this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "invalidated" });
-    this.dispatch({ type: "history/loading-set", loading: false });
+    this.dispatch({ type: "transcript/history-loading-set", loading: false });
   }
 
-  async loadLatest(threadId = this.state.activeThreadId): Promise<void> {
+  async loadLatest(threadId = this.state.activeThread.id): Promise<void> {
     const client = this.host.currentClient();
     if (!client || !threadId) return;
     const load = this.startLoading(threadId, "latest");
@@ -55,9 +55,9 @@ export class ThreadHistoryLoader {
   }
 
   applyLatestPage(threadId: string, response: TurnsPage): boolean {
-    if (this.state.activeThreadId !== threadId) return false;
+    if (this.state.activeThread.id !== threadId) return false;
     this.host.setThreadTurnPresence(response.data.length > 0);
-    this.dispatch({ type: "display/items-replaced", items: displayItemsFromTurns(response.data), historyCursor: response.nextCursor });
+    this.dispatch({ type: "transcript/items-replaced", items: displayItemsFromTurns(response.data), historyCursor: response.nextCursor });
     this.host.forceMessagesToBottom();
     this.host.render();
     return true;
@@ -66,23 +66,23 @@ export class ThreadHistoryLoader {
   async loadOlder(): Promise<void> {
     const client = this.host.currentClient();
     const state = this.state;
-    if (!client || !state.activeThreadId || !state.historyCursor || state.loadingHistory) return;
-    const threadId = state.activeThreadId;
-    const cursor = state.historyCursor;
+    if (!client || !state.activeThread.id || !state.transcript.historyCursor || state.transcript.loadingHistory) return;
+    const threadId = state.activeThread.id;
+    const cursor = state.transcript.historyCursor;
     const load = this.startLoading(threadId, "older");
     try {
       const response = await client.threadTurnsList(threadId, cursor, 20);
       if (this.isStale(load)) return;
       const current = this.state;
       const olderItems = displayItemsFromTurns(response.data);
-      const existingIds = new Set(current.displayItems.map((item) => item.id));
+      const existingIds = new Set(current.transcript.displayItems.map((item) => item.id));
       this.host.keepCurrentScrollPosition();
       this.dispatch({
-        type: "display/items-replaced",
-        items: [...olderItems.filter((item) => !existingIds.has(item.id)), ...current.displayItems],
+        type: "transcript/items-replaced",
+        items: [...olderItems.filter((item) => !existingIds.has(item.id)), ...current.transcript.displayItems],
         historyCursor: response.nextCursor,
-        messagesPinnedToBottom: false,
       });
+      this.dispatch({ type: "ui/messages-pinned-set", pinned: false });
     } catch (error) {
       if (this.isStale(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -94,7 +94,7 @@ export class ThreadHistoryLoader {
   private startLoading(threadId: string, mode: ActiveThreadHistoryLoad["mode"]): ActiveThreadHistoryLoad {
     const load: ActiveThreadHistoryLoad = { kind: "loading", threadId, mode };
     this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "started", load });
-    this.dispatch({ type: "history/loading-set", loading: true });
+    this.dispatch({ type: "transcript/history-loading-set", loading: true });
     this.host.render();
     return load;
   }
@@ -102,12 +102,12 @@ export class ThreadHistoryLoader {
   private finishLoading(load: ActiveThreadHistoryLoad): void {
     if (this.isStale(load)) return;
     this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "finished", load });
-    this.dispatch({ type: "history/loading-set", loading: false });
+    this.dispatch({ type: "transcript/history-loading-set", loading: false });
     this.host.render();
   }
 
   private isStale(load: ActiveThreadHistoryLoad): boolean {
-    return this.lifecycle !== load || this.state.activeThreadId !== load.threadId;
+    return this.lifecycle !== load || this.state.activeThread.id !== load.threadId;
   }
 }
 

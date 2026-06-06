@@ -22,12 +22,12 @@ import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/Co
 describe("chat view model", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {
     const state = createChatState();
-    state.activeThreadId = "thread-1";
-    state.listedThreads = [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")];
-    state.turnLifecycle = { kind: "running", turnId: "turn" };
-    state.openDetails = new Set(["history"]);
-    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
-    state.appServerDiagnostics = createAppServerDiagnostics();
+    state.activeThread.id = "thread-1";
+    state.threadList.listedThreads = [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")];
+    state.turn.lifecycle = { kind: "running", turnId: "turn" };
+    state.ui.openDetails = new Set(["history"]);
+    state.connection.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.connection.appServerDiagnostics = createAppServerDiagnostics();
 
     const model = toolbarViewModel({
       state,
@@ -51,15 +51,15 @@ describe("chat view model", () => {
 
   it("builds composer meta from context and runtime state", () => {
     const state = createChatState();
-    state.activeThreadId = "thread-1";
-    state.selectedCollaborationMode = "plan";
-    state.effectiveConfig = effectiveConfigFixture({
+    state.activeThread.id = "thread-1";
+    state.runtime.selectedCollaborationMode = "plan";
+    state.connection.effectiveConfig = effectiveConfigFixture({
       model: "gpt-5.5",
       model_reasoning_effort: "high",
       approvals_reviewer: "auto_review",
       service_tier: "fast",
     });
-    state.tokenUsage = {
+    state.activeThread.tokenUsage = {
       last: { inputTokens: 42, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 44 },
       total: { inputTokens: 40, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 42 },
       modelContextWindow: 100,
@@ -87,8 +87,8 @@ describe("chat view model", () => {
 
   it("uses a neutral composer context indicator when usage is unavailable", () => {
     const state = createChatState();
-    state.activeThreadId = "thread-1";
-    state.displayItems = [
+    state.activeThread.id = "thread-1";
+    state.transcript.displayItems = [
       {
         id: "item",
         turnId: "turn-1",
@@ -99,7 +99,7 @@ describe("chat view model", () => {
         role: "assistant",
       },
     ];
-    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5" });
+    state.connection.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5" });
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toMatchObject({
       fatal: null,
@@ -120,8 +120,8 @@ describe("chat view model", () => {
 
   it("keeps zero percent composer context fixed-width and visible", () => {
     const state = createChatState();
-    state.activeThreadId = "thread-1";
-    state.tokenUsage = {
+    state.activeThread.id = "thread-1";
+    state.activeThread.tokenUsage = {
       last: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
       total: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
       modelContextWindow: 100,
@@ -143,7 +143,7 @@ describe("chat view model", () => {
 
   it("replaces composer meta with fatal connection state", () => {
     const state = createChatState();
-    state.status = "Connection failed.";
+    state.connection.status = "Connection failed.";
 
     expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
       fatal: "Codex app-server disconnected",
@@ -167,14 +167,14 @@ describe("chat view model", () => {
 
   it("builds slash-command status lines from chat state", () => {
     const state = createChatState();
-    state.activeThreadId = "thread-1";
-    state.effectiveConfig = effectiveConfigFixture({
+    state.activeThread.id = "thread-1";
+    state.connection.effectiveConfig = effectiveConfigFixture({
       model: "gpt-5.5",
       model_provider: "openai",
       model_reasoning_effort: "high",
       service_tier: "fast",
     });
-    state.availableModels = [modelFixture("gpt-5.5")];
+    state.connection.availableModels = [modelFixture("gpt-5.5")];
     const snapshot = runtimeSnapshotForChatState({ state });
 
     expect(statusSummaryLines(state, snapshot)[1]).toBe("Thread: thread-1");
@@ -185,8 +185,8 @@ describe("chat view model", () => {
 
   it("builds runtime composer choices from immutable chat state snapshots", () => {
     const state = createChatState();
-    state.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
-    state.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
+    state.connection.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.connection.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
     const selectedModels: (string | null)[] = [];
     const selectedEfforts: string[] = [];
 
@@ -215,8 +215,8 @@ describe("chat view model", () => {
 
   it("derives active thread titles and composer placeholders", () => {
     const state = createChatState();
-    state.activeThreadId = "thread-1";
-    state.listedThreads = [threadFixture("thread-1", "Active")];
+    state.activeThread.id = "thread-1";
+    state.threadList.listedThreads = [threadFixture("thread-1", "Active")];
 
     expect(chatViewDisplayTitle(state, null)).toBe("Codex: Active");
     expect(activeThreadTitle(state)).toBe("Active");
@@ -224,7 +224,7 @@ describe("chat view model", () => {
     expect(composerPlaceholder("Active")).toBe("Ask Codex to work on “Active”...");
     expect(composerPlaceholder(null)).toBe("Ask Codex to work on this task...");
 
-    state.listedThreads = [threadFixture("thread-1", null)];
+    state.threadList.listedThreads = [threadFixture("thread-1", null)];
     expect(activeComposerThreadName(state, { threadId: "thread-1", title: "Restored", explicitName: "Restored" })).toBe("Restored");
   });
 });

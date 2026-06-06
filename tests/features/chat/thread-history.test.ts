@@ -23,8 +23,8 @@ describe("ThreadHistoryLoader", () => {
     first.resolve(threadTurnsResponse([], "first-cursor"));
     await firstLoad;
 
-    expect(stateStore.getState().historyCursor).toBe("second-cursor");
-    expect(stateStore.getState().loadingHistory).toBe(false);
+    expect(stateStore.getState().transcript.historyCursor).toBe("second-cursor");
+    expect(stateStore.getState().transcript.loadingHistory).toBe(false);
   });
 
   it("ignores a history load that is invalidated while pending", async () => {
@@ -34,15 +34,15 @@ describe("ThreadHistoryLoader", () => {
     });
 
     const loading = loader.loadLatest();
-    expect(stateStore.getState().loadingHistory).toBe(true);
+    expect(stateStore.getState().transcript.loadingHistory).toBe(true);
 
     loader.invalidate();
     pending.resolve(threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "stale-cursor"));
     await loading;
 
-    expect(stateStore.getState().displayItems).toEqual([]);
-    expect(stateStore.getState().historyCursor).toBeNull();
-    expect(stateStore.getState().loadingHistory).toBe(false);
+    expect(stateStore.getState().transcript.displayItems).toEqual([]);
+    expect(stateStore.getState().transcript.historyCursor).toBeNull();
+    expect(stateStore.getState().transcript.loadingHistory).toBe(false);
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -54,8 +54,10 @@ describe("ThreadHistoryLoader", () => {
 
     expect(applied).toBe(true);
     expect(threadTurnsList).not.toHaveBeenCalled();
-    expect(stateStore.getState().displayItems).toEqual([expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" })]);
-    expect(stateStore.getState().historyCursor).toBe("older");
+    expect(stateStore.getState().transcript.displayItems).toEqual([
+      expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" }),
+    ]);
+    expect(stateStore.getState().transcript.historyCursor).toBe("older");
   });
 
   it("ignores already returned latest turns pages for stale threads", () => {
@@ -64,8 +66,27 @@ describe("ThreadHistoryLoader", () => {
     const applied = loader.applyLatestPage("other", threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "older"));
 
     expect(applied).toBe(false);
-    expect(stateStore.getState().displayItems).toEqual([]);
-    expect(stateStore.getState().historyCursor).toBeNull();
+    expect(stateStore.getState().transcript.displayItems).toEqual([]);
+    expect(stateStore.getState().transcript.historyCursor).toBeNull();
+  });
+
+  it("loads older history without coupling transcript replacement to bottom pin state", async () => {
+    const threadTurnsList = vi.fn().mockResolvedValue(threadTurnsResponse([turnFixture([assistantMessage("older", "Older")])], "next"));
+    const { loader, stateStore, dispatch } = historyFixture({ threadTurnsList });
+    stateStore.dispatch({ type: "transcript/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
+
+    await loader.loadOlder();
+
+    expect(threadTurnsList).toHaveBeenCalledWith("thread", "cursor", 20);
+    expect(stateStore.getState().transcript.displayItems.map((item) => item.id)).toEqual(["older", "current"]);
+    expect(stateStore.getState().transcript.historyCursor).toBe("next");
+    expect(stateStore.getState().ui.messagesPinnedToBottom).toBe(false);
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "transcript/items-replaced" }));
+    expect(dispatch).toHaveBeenCalledWith({ type: "ui/messages-pinned-set", pinned: false });
+    const transcriptReplaceActions = dispatch.mock.calls
+      .map(([action]) => action)
+      .filter((action) => action.type === "transcript/items-replaced");
+    expect(transcriptReplaceActions[transcriptReplaceActions.length - 1]).not.toHaveProperty("messagesPinnedToBottom");
   });
 });
 
@@ -73,8 +94,9 @@ type ThreadTurnsListResponse = Awaited<ReturnType<AppServerClient["threadTurnsLi
 
 function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) {
   const state = createChatState();
-  state.activeThreadId = "thread";
+  state.activeThread.id = "thread";
   const stateStore = createChatStateStore(state);
+  const dispatch = vi.spyOn(stateStore, "dispatch");
   const addSystemMessage = vi.fn();
   const loader = new ThreadHistoryLoader({
     stateStore,
@@ -88,7 +110,7 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
     keepCurrentScrollPosition: vi.fn(),
     setThreadTurnPresence: vi.fn(),
   });
-  return { loader, stateStore, addSystemMessage };
+  return { loader, stateStore, addSystemMessage, dispatch };
 }
 
 function threadTurnsResponse(data: Turn[], nextCursor: string | null): ThreadTurnsListResponse {
@@ -110,4 +132,15 @@ function turnFixture(items: ThreadItem[]): Turn {
 
 function assistantMessage(id: string, text: string): ThreadItem {
   return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
+}
+
+function message(id: string, text: string) {
+  return {
+    id,
+    kind: "message" as const,
+    role: "assistant" as const,
+    text,
+    messageKind: "assistantResponse" as const,
+    messageState: "completed" as const,
+  };
 }

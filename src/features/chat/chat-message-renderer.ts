@@ -37,7 +37,7 @@ export class ChatMessageRenderer {
 
   constructor(private readonly options: ChatMessageRendererOptions) {
     this.scrollController = new MessageScrollController({
-      messagesPinnedToBottom: () => this.state.messagesPinnedToBottom,
+      messagesPinnedToBottom: () => this.state.ui.messagesPinnedToBottom,
       setMessagesPinnedToBottom: (pinned) => {
         this.dispatch({ type: "ui/messages-pinned-set", pinned });
       },
@@ -46,7 +46,7 @@ export class ChatMessageRenderer {
       app: options.app,
       owner: options.owner,
       vaultPath: options.vaultPath,
-      messagesPinnedToBottom: () => this.state.messagesPinnedToBottom,
+      messagesPinnedToBottom: () => this.state.ui.messagesPinnedToBottom,
       pinMessagesToBottom: (messagesEl) => {
         this.pinMessagesToBottom(messagesEl);
       },
@@ -66,19 +66,19 @@ export class ChatMessageRenderer {
     this.messagesEl = messagesEl;
     const scrollPlan = this.scrollController.prepareRender(messagesEl, this.options.consumeScrollIntent());
     const busy = chatTurnBusy(state);
-    const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.displayItems);
-    const forkCandidates = busy ? [] : forkCandidatesFromItems(state.displayItems);
+    const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.transcript.displayItems);
+    const forkCandidates = busy ? [] : forkCandidatesFromItems(state.transcript.displayItems);
     const implementPlanCandidate = implementPlanCandidateFromState(state);
 
     const blocks = messageStreamBlocks({
-      activeThreadId: state.activeThreadId,
-      turnLifecycle: state.turnLifecycle,
-      historyCursor: state.historyCursor,
-      loadingHistory: state.loadingHistory,
-      displayItems: state.displayItems,
-      turnDiffs: state.turnDiffs,
-      workspaceRoot: state.activeThreadCwd ?? this.options.vaultPath,
-      openDetails: state.openDetails,
+      activeThreadId: state.activeThread.id,
+      turnLifecycle: state.turn.lifecycle,
+      historyCursor: state.transcript.historyCursor,
+      loadingHistory: state.transcript.loadingHistory,
+      displayItems: state.transcript.displayItems,
+      turnDiffs: state.transcript.turnDiffs,
+      workspaceRoot: state.activeThread.cwd ?? this.options.vaultPath,
+      openDetails: state.ui.openDetails,
       onDetailsToggle: (key, open) => {
         this.setOpenDetail(key, open);
       },
@@ -95,11 +95,11 @@ export class ChatMessageRenderer {
       },
       canRollbackItem: (item: DisplayItem) => isRollbackCandidateItem(item, rollbackCandidate),
       onRollbackItem: () => {
-        if (state.activeThreadId) this.options.rollbackThread(state.activeThreadId);
+        if (state.activeThread.id) this.options.rollbackThread(state.activeThread.id);
       },
       canForkItem: (item: DisplayItem) => isForkCandidateItem(item, forkCandidates),
       onForkItem: (item, archiveSource) => {
-        if (state.activeThreadId && item.turnId) this.options.forkThreadFromTurn(state.activeThreadId, item.turnId, archiveSource);
+        if (state.activeThread.id && item.turnId) this.options.forkThreadFromTurn(state.activeThread.id, item.turnId, archiveSource);
       },
       openTurnDiff: (turnDiffState) => {
         this.options.openTurnDiff(turnDiffState);
@@ -147,7 +147,7 @@ export class ChatMessageRenderer {
 
   private setOpenDetail(key: string, open: boolean): void {
     if (open && key.startsWith("message:fork-actions:")) {
-      for (const openKey of this.state.openDetails) {
+      for (const openKey of this.state.ui.openDetails) {
         if (openKey.startsWith("message:fork-actions:") && openKey !== key) {
           this.dispatch({ type: "ui/detail-open-set", key: openKey, open: false });
         }
@@ -162,7 +162,7 @@ export class ChatMessageRenderer {
 
     this.bottomPinFrame = messagesEl.win.requestAnimationFrame(() => {
       this.bottomPinFrame = null;
-      if (!this.state.messagesPinnedToBottom) return;
+      if (!this.state.ui.messagesPinnedToBottom) return;
       this.scrollController.pinToBottom(this.messagesEl);
     });
   }

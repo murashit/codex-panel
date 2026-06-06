@@ -88,24 +88,24 @@ export interface RestoredThreadTitleSnapshot {
 
 export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput): RuntimeSnapshot {
   return {
-    effectiveConfig: state.effectiveConfig,
-    activeThreadId: state.activeThreadId,
-    activeModel: state.activeModel,
-    activeReasoningEffort: state.activeReasoningEffort,
-    activeCollaborationMode: state.activeCollaborationMode,
-    activeServiceTier: state.activeServiceTier,
-    activeApprovalPolicy: state.activeApprovalPolicy,
-    activeApprovalsReviewer: state.activeApprovalsReviewer,
-    activePermissionProfile: state.activePermissionProfile,
-    requestedModel: state.requestedModel,
-    requestedReasoningEffort: state.requestedReasoningEffort,
-    requestedApprovalsReviewer: state.requestedApprovalsReviewer,
-    selectedCollaborationMode: state.selectedCollaborationMode,
-    requestedServiceTier: state.requestedServiceTier,
-    tokenUsage: state.tokenUsage,
-    rateLimit: state.rateLimit,
-    hasThreadTurns: state.displayItems.some((item) => item.turnId),
-    availableModels: state.availableModels,
+    effectiveConfig: state.connection.effectiveConfig,
+    activeThreadId: state.activeThread.id,
+    activeModel: state.runtime.activeModel,
+    activeReasoningEffort: state.runtime.activeReasoningEffort,
+    activeCollaborationMode: state.runtime.activeCollaborationMode,
+    activeServiceTier: state.runtime.activeServiceTier,
+    activeApprovalPolicy: state.runtime.activeApprovalPolicy,
+    activeApprovalsReviewer: state.runtime.activeApprovalsReviewer,
+    activePermissionProfile: state.runtime.activePermissionProfile,
+    requestedModel: state.runtime.requestedModel,
+    requestedReasoningEffort: state.runtime.requestedReasoningEffort,
+    requestedApprovalsReviewer: state.runtime.requestedApprovalsReviewer,
+    selectedCollaborationMode: state.runtime.selectedCollaborationMode,
+    requestedServiceTier: state.runtime.requestedServiceTier,
+    tokenUsage: state.activeThread.tokenUsage,
+    rateLimit: state.connection.rateLimit,
+    hasThreadTurns: state.transcript.displayItems.some((item) => item.turnId),
+    availableModels: state.connection.availableModels,
   };
 }
 
@@ -113,9 +113,9 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   modelChoices: RuntimeChoice[];
   effortChoices: RuntimeChoice[];
 } {
-  const config = readRuntimeConfig(input.state.effectiveConfig);
+  const config = readRuntimeConfig(input.state.connection.effectiveConfig);
   const activeModel = currentModel(input.snapshot, config);
-  const models = sortedAvailableModels(input.state.availableModels);
+  const models = sortedAvailableModels(input.state.connection.availableModels);
   const modelChoices: RuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
     selected: activeModel === model.model,
@@ -144,20 +144,20 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
 }
 
 export function chatViewDisplayTitle(state: ChatState, restoredThreadTitle: string | null): string {
-  return codexPanelDisplayTitle(state.activeThreadId, state.listedThreads, restoredThreadTitle);
+  return codexPanelDisplayTitle(state.activeThread.id, state.threadList.listedThreads, restoredThreadTitle);
 }
 
 export function activeThreadTitle(state: ChatState): string | null {
-  const threadId = state.activeThreadId;
+  const threadId = state.activeThread.id;
   if (!threadId) return null;
-  const thread = state.listedThreads.find((item) => item.id === threadId);
+  const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
   return thread ? getThreadTitle(thread) : null;
 }
 
 export function activeComposerThreadName(state: ChatState, restoredThread: RestoredThreadTitleSnapshot | null): string | null {
-  const threadId = state.activeThreadId;
+  const threadId = state.activeThread.id;
   if (!threadId) return null;
-  const thread = state.listedThreads.find((item) => item.id === threadId);
+  const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
   const listedName = thread ? explicitThreadName(thread) : null;
   if (listedName) return listedName;
   return restoredThread?.threadId === threadId ? restoredThread.explicitName : null;
@@ -168,7 +168,7 @@ export function composerPlaceholder(threadName: string | null): string {
 }
 
 export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapshot): ComposerMetaViewModel {
-  if (state.status === "Connection failed.") {
+  if (state.connection.status === "Connection failed.") {
     return {
       fatal: "Codex app-server disconnected",
       context: contextComposerMeter(null),
@@ -181,13 +181,13 @@ export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapsho
     };
   }
 
-  const config = readRuntimeConfig(state.effectiveConfig);
+  const config = readRuntimeConfig(state.connection.effectiveConfig);
   const context = contextSummary(snapshot);
   const model = currentModel(snapshot, config);
   const effort = currentReasoningEffort(snapshot, config);
   const composerContext = contextComposerMeter(context?.percent ?? null);
   const compactEffort = effort ? compactReasoningEffortLabel(effort) : null;
-  const planActive = state.selectedCollaborationMode === "plan";
+  const planActive = state.runtime.selectedCollaborationMode === "plan";
   const reviewActive = autoReviewActive(snapshot, config);
   const fastActive = fastModeActive(snapshot, config);
   return {
@@ -235,9 +235,9 @@ function onOffLabel(active: boolean): string {
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
   const limit = rateLimitSummary(snapshot);
-  const historyOpen = state.openDetails.has("history");
-  const chatActionsOpen = state.openDetails.has("chat-actions");
-  const statusPanelOpen = state.openDetails.has("status-panel");
+  const historyOpen = state.ui.openDetails.has("history");
+  const chatActionsOpen = state.ui.openDetails.has("chat-actions");
+  const statusPanelOpen = state.ui.openDetails.has("status-panel");
   return {
     newChatDisabled: input.turnBusy,
     chatActionsOpen,
@@ -247,8 +247,8 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
     configSections: effectiveConfigSections(snapshot, input.vaultPath),
     openPanel: historyOpen ? "history" : chatActionsOpen ? "chat-actions" : statusPanelOpen ? "status" : null,
     threads: toolbarThreadRows({
-      threads: state.listedThreads,
-      activeThreadId: state.activeThreadId,
+      threads: state.threadList.listedThreads,
+      activeThreadId: state.activeThread.id,
       turnBusy: input.turnBusy,
       archiveConfirmThreadId: input.archiveConfirmThreadId,
       archiveExportEnabled: input.archiveExportEnabled,
@@ -297,9 +297,9 @@ export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInpu
   return connectionDiagnosticSections({
     connected: input.connected,
     configuredCommand: input.configuredCommand,
-    initializeResponse: input.state.initializeResponse,
-    activeThreadCreationCliVersion: input.state.activeThreadCreationCliVersion,
-    diagnostics: input.state.appServerDiagnostics,
+    initializeResponse: input.state.connection.initializeResponse,
+    activeThreadCreationCliVersion: input.state.activeThread.creationCliVersion,
+    diagnostics: input.state.connection.appServerDiagnostics,
   });
 }
 
@@ -308,17 +308,17 @@ export function statusSummaryLines(state: ChatState, snapshot: RuntimeSnapshot):
   const limit = rateLimitSummary(snapshot);
   return [
     "Thread status",
-    `Thread: ${state.activeThreadId ?? "(none)"}`,
+    `Thread: ${state.activeThread.id ?? "(none)"}`,
     context ? context.title : "Context: not available",
     ...(limit ? usageLimitStatusLines(limit) : ["Usage limits: not available"]),
   ];
 }
 
 export function modelStatusLines(state: ChatState, snapshot: RuntimeSnapshot, collaborationModeLabel: string): string[] {
-  const config = readRuntimeConfig(state.effectiveConfig);
+  const config = readRuntimeConfig(state.connection.effectiveConfig);
   return [
     `Model: ${currentModel(snapshot, config) ?? "(Codex default)"}`,
-    `Override: ${pendingRuntimeSettingLabel(state.requestedModel)}`,
+    `Override: ${pendingRuntimeSettingLabel(state.runtime.requestedModel)}`,
     `Provider: ${statusValue(config.modelProvider, "(Codex default)")}`,
     `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
     `Mode: ${collaborationModeLabel}`,
@@ -327,10 +327,10 @@ export function modelStatusLines(state: ChatState, snapshot: RuntimeSnapshot, co
 }
 
 export function effortStatusLines(state: ChatState, snapshot: RuntimeSnapshot): string[] {
-  const config = readRuntimeConfig(state.effectiveConfig);
+  const config = readRuntimeConfig(state.connection.effectiveConfig);
   return [
     `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
-    `Override: ${pendingRuntimeSettingLabel(state.requestedReasoningEffort)}`,
+    `Override: ${pendingRuntimeSettingLabel(state.runtime.requestedReasoningEffort)}`,
     `Supported: ${supportedReasoningEfforts(snapshot).join(", ")}`,
   ];
 }

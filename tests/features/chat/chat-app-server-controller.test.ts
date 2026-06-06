@@ -13,7 +13,7 @@ describe("ChatAppServerController", () => {
   it("publishes newly started threads before the first turn completes", async () => {
     const state = createChatState();
     const existing = threadFixture("existing");
-    state.listedThreads = [existing];
+    state.threadList.listedThreads = [existing];
     const stateStore = createChatStateStore(state);
     const started = threadFixture("started");
     const optimistic = { ...started, preview: "first prompt" };
@@ -45,7 +45,7 @@ describe("ChatAppServerController", () => {
 
     await controller.startThread("first prompt");
 
-    expect(stateStore.getState().listedThreads.map((thread) => thread.id)).toEqual(["started", "existing"]);
+    expect(stateStore.getState().threadList.listedThreads.map((thread) => thread.id)).toEqual(["started", "existing"]);
     expect(publishThreadList).toHaveBeenCalledWith([optimistic, existing]);
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
@@ -157,15 +157,15 @@ describe("ChatAppServerController", () => {
     expect(listSkills).not.toHaveBeenCalled();
     expect(readAccountRateLimits).not.toHaveBeenCalled();
     expect(listHooks).toHaveBeenCalledWith("/vault");
-    expect(stateStore.getState().appServerDiagnostics.probes["model/list"]).toMatchObject({
+    expect(stateStore.getState().connection.appServerDiagnostics.probes["model/list"]).toMatchObject({
       status: "ok",
       summary: "1 models",
     });
-    expect(stateStore.getState().appServerDiagnostics.probes["skills/list"]).toMatchObject({
+    expect(stateStore.getState().connection.appServerDiagnostics.probes["skills/list"]).toMatchObject({
       status: "ok",
       summary: "1 skills",
     });
-    expect(stateStore.getState().appServerDiagnostics.probes["account/rateLimits/read"]).toMatchObject({
+    expect(stateStore.getState().connection.appServerDiagnostics.probes["account/rateLimits/read"]).toMatchObject({
       status: "ok",
       summary: "available",
     });
@@ -192,7 +192,7 @@ describe("ChatAppServerController", () => {
 
     await controller.refreshPublishedRateLimits();
 
-    expect(stateStore.getState().rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
+    expect(stateStore.getState().connection.rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
     expect(publishAppServerMetadata).toHaveBeenCalledWith(expect.objectContaining({ rateLimit }));
   });
 
@@ -202,7 +202,7 @@ describe("ChatAppServerController", () => {
       limitName: "Codex",
       primary: { usedPercent: 42, windowDurationMins: 300, resetsAt: null },
     });
-    state.rateLimit = previousRateLimit;
+    state.connection.rateLimit = previousRateLimit;
     const stateStore = createChatStateStore(state);
     const publishAppServerMetadata = vi.fn();
     const client = {
@@ -221,14 +221,14 @@ describe("ChatAppServerController", () => {
 
     await controller.refreshPublishedRateLimits();
 
-    expect(stateStore.getState().rateLimit).toBe(previousRateLimit);
-    expect(stateStore.getState().appServerDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
+    expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
+    expect(stateStore.getState().connection.appServerDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
     expect(publishAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("loads MCP status lines with cached startup diagnostics", async () => {
     const state = createChatState();
-    state.activeThreadId = "thread-1";
+    state.activeThread.id = "thread-1";
     const stateStore = createChatStateStore(state);
     const listMcpServerStatus = vi.fn().mockResolvedValue({ data: [mcpServerStatus()] });
     const client = {

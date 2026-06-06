@@ -58,7 +58,7 @@ export function planChatNotification(
   localItemId: LocalItemIdFactory,
 ): ChatNotificationPlan {
   const route = routeServerNotification(notification, {
-    activeThreadId: state.activeThreadId,
+    activeThreadId: state.activeThread.id,
     activeTurnId: activeTurnId(state),
   });
   switch (route.kind) {
@@ -87,21 +87,21 @@ function planStreamUpdate(state: ChatState, notification: ServerNotification, lo
   const { method, params } = notification;
   if (method === "item/agentMessage/delta") {
     const displayItems = appendAssistantDelta(
-      completeReasoningItems(state.displayItems, params.turnId),
+      completeReasoningItems(state.transcript.displayItems, params.turnId),
       params.itemId,
       params.turnId,
       params.delta,
     );
-    return actionPlan({ type: "display/items-replaced", items: displayItems });
+    return actionPlan({ type: "transcript/items-replaced", items: displayItems });
   }
   if (method === "item/plan/delta") {
     return actionPlan({
-      type: "display/items-replaced",
-      items: appendPlanDelta(state.displayItems, params.itemId, params.turnId, params.delta),
+      type: "transcript/items-replaced",
+      items: appendPlanDelta(state.transcript.displayItems, params.itemId, params.turnId, params.delta),
     });
   }
   if (method === "turn/plan/updated") {
-    return actionPlan({ type: "display/item-upserted", item: planProgressDisplayItem(params.turnId, params.explanation, params.plan) });
+    return actionPlan({ type: "transcript/item-upserted", item: planProgressDisplayItem(params.turnId, params.explanation, params.plan) });
   }
   if (method === "item/reasoning/summaryTextDelta") {
     return appendToolTextPlan(state, params.itemId, params.turnId, "reasoning", params.delta, "reasoning");
@@ -120,8 +120,8 @@ function planStreamUpdate(state: ChatState, notification: ServerNotification, lo
   }
   if (method === "item/commandExecution/outputDelta") {
     return actionPlan({
-      type: "display/items-replaced",
-      items: appendItemOutput(state.displayItems, params.itemId, params.turnId, params.delta, "command", "Command running"),
+      type: "transcript/items-replaced",
+      items: appendItemOutput(state.transcript.displayItems, params.itemId, params.turnId, params.delta, "command", "Command running"),
     });
   }
   if (method === "item/fileChange/patchUpdated") {
@@ -129,12 +129,19 @@ function planStreamUpdate(state: ChatState, notification: ServerNotification, lo
   }
   if (method === "item/fileChange/outputDelta") {
     return actionPlan({
-      type: "display/items-replaced",
-      items: appendItemOutput(state.displayItems, params.itemId, params.turnId, params.delta, "fileChange", "File change inProgress"),
+      type: "transcript/items-replaced",
+      items: appendItemOutput(
+        state.transcript.displayItems,
+        params.itemId,
+        params.turnId,
+        params.delta,
+        "fileChange",
+        "File change inProgress",
+      ),
     });
   }
   if (method === "turn/diff/updated") {
-    return actionPlan({ type: "display/turn-diff-updated", turnId: params.turnId, diff: params.diff });
+    return actionPlan({ type: "transcript/turn-diff-updated", turnId: params.turnId, diff: params.diff });
   }
   if (method === "hook/started") {
     return hookRunPlan(state, params.run, params.turnId, "running");
@@ -144,23 +151,23 @@ function planStreamUpdate(state: ChatState, notification: ServerNotification, lo
   }
   if (method === "item/mcpToolCall/progress") {
     return actionPlan({
-      type: "display/items-replaced",
-      items: appendToolOutput(state.displayItems, params.itemId, params.turnId, params.message, "mcp progress"),
+      type: "transcript/items-replaced",
+      items: appendToolOutput(state.transcript.displayItems, params.itemId, params.turnId, params.message, "mcp progress"),
     });
   }
   if (method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed") {
     const reviewItem = createAutoReviewResultItem(params);
     return actionPlan({
-      type: "display/items-replaced",
-      items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(state.displayItems), reviewItem),
+      type: "transcript/items-replaced",
+      items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(state.transcript.displayItems), reviewItem),
     });
   }
   if (method === "guardianWarning") {
     const item = createReviewResultItem(localItemId("review"), params.message);
-    if (isUnstructuredAutoReviewWarning(item) && hasStructuredAutoReviewResult(state.displayItems, activeTurnId(state))) {
+    if (isUnstructuredAutoReviewWarning(item) && hasStructuredAutoReviewResult(state.transcript.displayItems, activeTurnId(state))) {
       return EMPTY_PLAN;
     }
-    return actionPlan({ type: "display/item-upserted", item });
+    return actionPlan({ type: "transcript/item-upserted", item });
   }
   return EMPTY_PLAN;
 }
@@ -195,16 +202,16 @@ function planTurnLifecycle(state: ChatState, notification: ServerNotification): 
 function planThreadLifecycle(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
   const { method, params } = notification;
   if (method === "thread/started") {
-    if (!state.activeThreadId || state.activeThreadId === params.thread.id) {
-      return actionPlan({ type: "thread/cwd-set", cwd: params.thread.cwd });
+    if (!state.activeThread.id || state.activeThread.id === params.thread.id) {
+      return actionPlan({ type: "active-thread/cwd-set", cwd: params.thread.cwd });
     }
     return EMPTY_PLAN;
   }
   if (method === "thread/archived") {
     return {
       actions: [
-        { type: "thread/list-applied", threads: state.listedThreads.filter((thread) => thread.id !== params.threadId) },
-        ...(state.activeThreadId === params.threadId ? ([{ type: "thread/active-cleared" }] satisfies ChatAction[]) : []),
+        { type: "thread-list/applied", threads: state.threadList.listedThreads.filter((thread) => thread.id !== params.threadId) },
+        ...(state.activeThread.id === params.threadId ? ([{ type: "active-thread/cleared" }] satisfies ChatAction[]) : []),
       ],
       effects: [{ type: "notify-thread-archived", threadId: params.threadId }],
     };
@@ -217,17 +224,17 @@ function planThreadLifecycle(state: ChatState, notification: ServerNotification,
     return {
       actions: [
         {
-          type: "thread/list-applied",
-          threads: state.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread)),
+          type: "thread-list/applied",
+          threads: state.threadList.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread)),
         },
       ],
       effects: [{ type: "notify-thread-renamed", threadId: params.threadId, name }],
     };
   }
   if (method === "thread/settings/updated") {
-    if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
+    if (state.activeThread.id !== params.threadId) return EMPTY_PLAN;
     return actionPlan({
-      type: "thread/settings-applied",
+      type: "active-thread/settings-applied",
       cwd: params.threadSettings.cwd,
       model: params.threadSettings.model,
       reasoningEffort: params.threadSettings.effort,
@@ -239,20 +246,20 @@ function planThreadLifecycle(state: ChatState, notification: ServerNotification,
     });
   }
   if (method === "thread/goal/updated") {
-    if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
-    const actions: ChatAction[] = [{ type: "thread/goal-set", goal: params.goal }];
-    const item = goalChangeItem(localItemId("goal"), state.activeGoal, params.goal);
+    if (state.activeThread.id !== params.threadId) return EMPTY_PLAN;
+    const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal: params.goal }];
+    const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, params.goal);
     if (item) {
-      actions.push({ type: "display/item-upserted", item });
+      actions.push({ type: "transcript/item-upserted", item });
     }
     return { actions, effects: [] };
   }
   if (method === "thread/goal/cleared") {
-    if (state.activeThreadId !== params.threadId) return EMPTY_PLAN;
-    const actions: ChatAction[] = [{ type: "thread/goal-set", goal: null }];
-    const item = goalChangeItem(localItemId("goal"), state.activeGoal, null);
+    if (state.activeThread.id !== params.threadId) return EMPTY_PLAN;
+    const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal: null }];
+    const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, null);
     if (item) {
-      actions.push({ type: "display/item-upserted", item });
+      actions.push({ type: "transcript/item-upserted", item });
     }
     return { actions, effects: [] };
   }
@@ -262,7 +269,7 @@ function planThreadLifecycle(state: ChatState, notification: ServerNotification,
 function planDiagnosticStatus(notification: ServerNotification): ChatNotificationPlan {
   const { method, params } = notification;
   if (method === "thread/tokenUsage/updated") {
-    return actionPlan({ type: "thread/token-usage-set", tokenUsage: params.tokenUsage });
+    return actionPlan({ type: "active-thread/token-usage-set", tokenUsage: params.tokenUsage });
   }
   if (method === "account/rateLimits/updated") {
     return {
@@ -305,23 +312,23 @@ function planUserVisibleNotice(notification: ServerNotification, localItemId: Lo
 function startedItemPlan(item: ThreadItem, turnId: string): ChatNotificationPlan {
   if (shouldSuppressLifecycleItem(item)) return EMPTY_PLAN;
   const displayItem = displayItemFromThreadItem(item, turnId);
-  return displayItem ? actionPlan({ type: "display/item-upserted", item: displayItem }) : EMPTY_PLAN;
+  return displayItem ? actionPlan({ type: "transcript/item-upserted", item: displayItem }) : EMPTY_PLAN;
 }
 
 function completedItemPlan(state: ChatState, item: ThreadItem, turnId: string): ChatNotificationPlan {
   if (item.type === "userMessage") return EMPTY_PLAN;
   const displayItem = displayItemFromThreadItem(item, turnId);
   if (!displayItem) return EMPTY_PLAN;
-  let displayItems = upsertDisplayItem(state.displayItems, displayItem);
+  let displayItems = upsertDisplayItem(state.transcript.displayItems, displayItem);
   if (displayItem.kind === "reasoning") {
     displayItems = completeReasoningItems(displayItems, turnId);
   }
-  return actionPlan({ type: "display/items-replaced", items: displayItems });
+  return actionPlan({ type: "transcript/items-replaced", items: displayItems });
 }
 
 function fileChangePlan(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): ChatNotificationPlan {
   return actionPlan({
-    type: "display/item-upserted",
+    type: "transcript/item-upserted",
     item: {
       id: itemId,
       kind: "fileChange",
@@ -343,7 +350,10 @@ function appendToolTextPlan(
   delta: string,
   kind: Extract<DisplayKind, "tool" | "hook" | "reasoning"> = "tool",
 ): ChatNotificationPlan {
-  return actionPlan({ type: "display/items-replaced", items: appendItemText(state.displayItems, itemId, turnId, label, delta, kind) });
+  return actionPlan({
+    type: "transcript/items-replaced",
+    items: appendItemText(state.transcript.displayItems, itemId, turnId, label, delta, kind),
+  });
 }
 
 function hookRunPlan(
@@ -364,7 +374,7 @@ function hookRunPlan(
       : { ...currentPendingTurnStart, promptSubmitHookItemIds: [...hookIds, item.id] };
   }
   return actionPlan({
-    type: "display/pending-turn-item-upserted",
+    type: "turn/pending-start-hook-upserted",
     item,
     pendingTurnStart,
   });
@@ -382,20 +392,20 @@ function hookRunTurnId(
 
 function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly DisplayItem[] {
   const pending = pendingTurnStartForState(state);
-  if (!pending) return state.displayItems;
-  return attachHookRunsToTurn(state.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
+  if (!pending) return state.transcript.displayItems;
+  return attachHookRunsToTurn(state.transcript.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }
 
 function reconciledCompletedTurnItems(state: ChatState, turn: Turn): readonly DisplayItem[] {
   const turnItems = displayItemsFromTurns([turn]);
-  if (turnItems.length === 0) return state.displayItems;
+  if (turnItems.length === 0) return state.transcript.displayItems;
   const serverUserMessages = turnItems.filter(isUserMessage);
   const serverUserClientIds = new Set(serverUserMessages.map((item) => item.clientId).filter(isString));
   const serverUserMessagesByClientId = new Map(
     serverUserMessages.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
   );
   const serverUserFallbackTexts = serverUserClientIds.size > 0 ? new Set<string>() : new Set(serverUserMessages.map((item) => item.text));
-  const stateDisplayItems = state.displayItems.map(
+  const stateDisplayItems = state.transcript.displayItems.map(
     (item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item,
   );
   let mergedTurnItems = stateDisplayItems
@@ -458,7 +468,7 @@ function isString(value: string | null | undefined): value is string {
 }
 
 function systemMessagePlan(message: { id: string; text: string }): ChatNotificationPlan {
-  return actionPlan({ type: "system/message-added", item: createSystemItem(message.id, message.text) });
+  return actionPlan({ type: "transcript/system-message-added", item: createSystemItem(message.id, message.text) });
 }
 
 function actionPlan(action: ChatAction): ChatNotificationPlan {

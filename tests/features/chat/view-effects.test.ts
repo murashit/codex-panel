@@ -45,7 +45,7 @@ describe("createChatViewEffects", () => {
   it("groups view-host effects by responsibility", async () => {
     const host = createHost();
     const effects = createChatViewEffects(host);
-    const action = { type: "status/set" as const, status: "ready" };
+    const action = { type: "connection/status-set" as const, status: "ready" };
     const details = [{ title: "detail", body: "body" }];
     const restoredThread = { threadId: "thread", title: "Title", explicitName: null };
 

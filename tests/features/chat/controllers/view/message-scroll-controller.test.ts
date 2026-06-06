@@ -25,7 +25,7 @@ describe("ChatMessageScrollController", () => {
 
     controller.scrollToBottomOnFocus();
 
-    expect(stateStore.getState().messagesPinnedToBottom).toBe(true);
+    expect(stateStore.getState().ui.messagesPinnedToBottom).toBe(true);
     expect(controller.consumeIntent()).toBe("force-bottom");
     expect(render).toHaveBeenCalledOnce();
   });

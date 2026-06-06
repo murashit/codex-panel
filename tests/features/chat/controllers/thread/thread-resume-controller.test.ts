@@ -92,7 +92,7 @@ describe("ThreadResumeController", () => {
 
     expect(resumeThread).toHaveBeenCalledWith("thread", "/vault");
     expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
-    expect(stateStore.getState().activeThreadId).toBe("thread");
+    expect(stateStore.getState().activeThread.id).toBe("thread");
     expect(loadLatest).toHaveBeenCalledWith("thread");
     expect(restoredClear).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
@@ -119,7 +119,7 @@ describe("ThreadResumeController", () => {
   it("does not switch threads while a different turn is busy", async () => {
     const { controller, host, resumeThread, stateStore } = createController();
     stateStore.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("active"),
       cwd: "/vault",
       model: null,
@@ -148,11 +148,11 @@ describe("ThreadResumeController", () => {
 
     expect(recoverTokenUsageFromRollout).toHaveBeenCalledWith("/tmp/rollout.jsonl");
     expect(loadLatest).toHaveBeenCalledWith("thread");
-    expect(stateStore.getState().tokenUsage).toBeNull();
+    expect(stateStore.getState().activeThread.tokenUsage).toBeNull();
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
 
-    expect(stateStore.getState().tokenUsage).toMatchObject({ last: { inputTokens: 42 } });
+    expect(stateStore.getState().activeThread.tokenUsage).toMatchObject({ last: { inputTokens: 42 } });
   });
 
   it("ignores stale rollout token usage recovery", async () => {
@@ -165,7 +165,7 @@ describe("ThreadResumeController", () => {
 
     await controller.resumeThread("thread");
     stateStore.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: second.thread,
       cwd: "/vault",
       model: null,
@@ -178,8 +178,8 @@ describe("ThreadResumeController", () => {
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
 
-    expect(stateStore.getState().activeThreadId).toBe("other");
-    expect(stateStore.getState().tokenUsage).toBeNull();
+    expect(stateStore.getState().activeThread.id).toBe("other");
+    expect(stateStore.getState().activeThread.tokenUsage).toBeNull();
   });
 
   it("does not let late rollout token usage recovery overwrite live token usage", async () => {
@@ -190,11 +190,11 @@ describe("ThreadResumeController", () => {
     const { controller, stateStore } = createController(response, { recoverTokenUsageFromRollout });
 
     await controller.resumeThread("thread");
-    stateStore.dispatch({ type: "thread/token-usage-set", tokenUsage: tokenUsageFixture(99) });
+    stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage: tokenUsageFixture(99) });
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
 
-    expect(stateStore.getState().tokenUsage).toMatchObject({ last: { inputTokens: 99 } });
+    expect(stateStore.getState().activeThread.tokenUsage).toMatchObject({ last: { inputTokens: 99 } });
   });
 
   it("ignores rollout token usage recovery failures", async () => {
@@ -206,7 +206,7 @@ describe("ThreadResumeController", () => {
     await controller.resumeThread("thread");
     await Promise.resolve();
 
-    expect(stateStore.getState().tokenUsage).toBeNull();
+    expect(stateStore.getState().activeThread.tokenUsage).toBeNull();
     expect(host.addSystemMessage).not.toHaveBeenCalledWith("read failed");
   });
 });

@@ -9,7 +9,7 @@ import {
 
 function resumeThreadState(stateStore: ChatStateStore, threadId: string): void {
   stateStore.dispatch({
-    type: "thread/resumed",
+    type: "active-thread/resumed",
     thread: { id: threadId, cliVersion: "test" } as never,
     cwd: "/vault",
     model: null,
@@ -76,7 +76,7 @@ describe("ThreadSelectionController", () => {
 
     await controller.selectThreadFromToolbar("thread");
 
-    expect(stateStore.getState().openDetails.size).toBe(0);
+    expect(stateStore.getState().ui.openDetails.size).toBe(0);
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
   });
@@ -89,7 +89,7 @@ describe("ThreadSelectionController", () => {
 
     await controller.selectThreadFromToolbar("other");
 
-    expect(stateStore.getState().openDetails.has("history")).toBe(true);
+    expect(stateStore.getState().ui.openDetails.has("history")).toBe(true);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
     expect(host.closeForThreadSelection).not.toHaveBeenCalled();
     expect(host.resumeThread).not.toHaveBeenCalled();

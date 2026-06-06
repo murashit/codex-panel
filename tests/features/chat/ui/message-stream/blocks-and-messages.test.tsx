@@ -845,28 +845,30 @@ describe("message stream rendering and message actions", () => {
       messageState: "completed",
     } as const;
     const baseState = {
-      activeThreadId: "thread",
-      turnLifecycle: { kind: "idle" as const },
-      composerDraft: "",
-      selectedCollaborationMode: "plan" as const,
-      displayItems: [
-        firstPlan,
-        {
-          id: "a1",
-          kind: "message",
-          role: "assistant",
-          text: "answer",
-          messageKind: "assistantResponse",
-          messageState: "completed",
-        } as const,
-        secondPlan,
-      ],
+      activeThread: { id: "thread" },
+      turn: { lifecycle: { kind: "idle" as const } },
+      composer: { draft: "" },
+      runtime: { selectedCollaborationMode: "plan" as const },
+      transcript: {
+        displayItems: [
+          firstPlan,
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "answer",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          } as const,
+          secondPlan,
+        ],
+      },
     };
 
     expect(implementPlanCandidateFromState(baseState)).toBe(secondPlan);
-    expect(implementPlanCandidateFromState({ ...baseState, selectedCollaborationMode: "default" })).toBeNull();
-    expect(implementPlanCandidateFromState({ ...baseState, composerDraft: "edit first" })).toBeNull();
-    expect(implementPlanCandidateFromState({ ...baseState, turnLifecycle: { kind: "running", turnId: "turn-2" } })).toBeNull();
+    expect(implementPlanCandidateFromState({ ...baseState, runtime: { selectedCollaborationMode: "default" } })).toBeNull();
+    expect(implementPlanCandidateFromState({ ...baseState, composer: { draft: "edit first" } })).toBeNull();
+    expect(implementPlanCandidateFromState({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
   });
 
   it("does not render copy actions for tool items", () => {

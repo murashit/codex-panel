@@ -17,62 +17,64 @@ import type { ThreadGoal } from "../../../src/generated/app-server/v2/ThreadGoal
 describe("chatReducer", () => {
   it("clears active turn and thread-scoped state", () => {
     const state = createChatState();
-    state.activeThreadId = "thread";
-    state.turnLifecycle = { kind: "running", turnId: "turn" };
-    state.activeModel = "gpt-5.1";
-    state.activeGoal = goal("thread");
-    state.historyCursor = "cursor";
-    state.loadingHistory = true;
-    state.composerDraft = "keep me";
-    state.displayItems = [message("m1")];
-    state.turnDiffs = new Map([["turn", "@@"]]);
-    state.approvals = [approval(1)];
-    state.pendingUserInputs = [userInput(2)];
-    state.userInputDrafts = new Map([["2:note", "draft"]]);
-    state.composerSuggestSelected = 1;
-    state.composerSuggestions = [suggestion("/plan")];
-    state.composerSuggestionsDismissedSignature = "dismissed";
+    state.activeThread.id = "thread";
+    state.turn.lifecycle = { kind: "running", turnId: "turn" };
+    state.runtime.activeModel = "gpt-5.1";
+    state.activeThread.goal = goal("thread");
+    state.transcript.historyCursor = "cursor";
+    state.transcript.loadingHistory = true;
+    state.composer.draft = "keep me";
+    state.transcript.displayItems = [message("m1")];
+    state.transcript.turnDiffs = new Map([["turn", "@@"]]);
+    state.requests.approvals = [approval(1)];
+    state.requests.pendingUserInputs = [userInput(2)];
+    state.requests.userInputDrafts = new Map([["2:note", "draft"]]);
+    state.composer.suggestSelected = 1;
+    state.composer.suggestions = [suggestion("/plan")];
+    state.composer.suggestionsDismissedSignature = "dismissed";
+    state.ui.messagesPinnedToBottom = false;
 
-    const next = chatReducer(state, { type: "thread/active-cleared" });
+    const next = chatReducer(state, { type: "active-thread/cleared" });
 
     expect(next).not.toBe(state);
-    expect(next.activeThreadId).toBeNull();
-    expect(next.activeGoal).toBeNull();
+    expect(next.activeThread.id).toBeNull();
+    expect(next.activeThread.goal).toBeNull();
     expect(activeTurnId(next)).toBeNull();
-    expect(next.displayItems).toEqual([]);
-    expect(next.turnDiffs.size).toBe(0);
-    expect(next.historyCursor).toBeNull();
-    expect(next.loadingHistory).toBe(false);
-    expect(next.approvals).toEqual([]);
-    expect(next.pendingUserInputs).toEqual([]);
-    expect(next.userInputDrafts.size).toBe(0);
-    expect(next.composerDraft).toBe("");
-    expect(next.composerSuggestSelected).toBe(0);
-    expect(next.composerSuggestions).toEqual([]);
-    expect(next.composerSuggestionsDismissedSignature).toBeNull();
+    expect(next.transcript.displayItems).toEqual([]);
+    expect(next.transcript.turnDiffs.size).toBe(0);
+    expect(next.transcript.historyCursor).toBeNull();
+    expect(next.transcript.loadingHistory).toBe(false);
+    expect(next.requests.approvals).toEqual([]);
+    expect(next.requests.pendingUserInputs).toEqual([]);
+    expect(next.requests.userInputDrafts.size).toBe(0);
+    expect(next.composer.draft).toBe("");
+    expect(next.composer.suggestSelected).toBe(0);
+    expect(next.composer.suggestions).toEqual([]);
+    expect(next.composer.suggestionsDismissedSignature).toBeNull();
+    expect(next.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("resets thread-scoped state when resuming a thread", () => {
     const state = createChatState();
-    state.activeThreadId = "previous-thread";
-    state.turnLifecycle = { kind: "running", turnId: "previous-turn" };
-    state.historyCursor = "cursor";
-    state.activeGoal = goal("previous-thread");
-    state.loadingHistory = true;
-    state.composerDraft = "previous draft";
-    state.displayItems = [message("previous-message")];
-    state.turnDiffs = new Map([["previous-turn", "@@"]]);
-    state.approvals = [approval(1)];
-    state.pendingUserInputs = [userInput(2)];
-    state.userInputDrafts = new Map([["2:note", "draft"]]);
-    state.composerSuggestSelected = 1;
-    state.composerSuggestions = [suggestion("/plan")];
-    state.composerSuggestionsDismissedSignature = "dismissed";
-    state.messagesPinnedToBottom = false;
+    state.activeThread.id = "previous-thread";
+    state.turn.lifecycle = { kind: "running", turnId: "previous-turn" };
+    state.transcript.historyCursor = "cursor";
+    state.activeThread.goal = goal("previous-thread");
+    state.transcript.loadingHistory = true;
+    state.composer.draft = "previous draft";
+    state.transcript.displayItems = [message("previous-message")];
+    state.transcript.turnDiffs = new Map([["previous-turn", "@@"]]);
+    state.requests.approvals = [approval(1)];
+    state.requests.pendingUserInputs = [userInput(2)];
+    state.requests.userInputDrafts = new Map([["2:note", "draft"]]);
+    state.composer.suggestSelected = 1;
+    state.composer.suggestions = [suggestion("/plan")];
+    state.composer.suggestionsDismissedSignature = "dismissed";
+    state.ui.messagesPinnedToBottom = false;
     const resumedItems = [message("resumed-message")];
 
     const next = chatReducer(state, {
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("resumed-thread"),
       cwd: "/vault",
       model: "gpt-5.1",
@@ -84,29 +86,29 @@ describe("chatReducer", () => {
       displayItems: resumedItems,
     });
 
-    expect(next.activeThreadId).toBe("resumed-thread");
-    expect(next.activeGoal).toBeNull();
+    expect(next.activeThread.id).toBe("resumed-thread");
+    expect(next.activeThread.goal).toBeNull();
     expect(activeTurnId(next)).toBeNull();
-    expect(next.historyCursor).toBeNull();
-    expect(next.loadingHistory).toBe(false);
-    expect(next.composerDraft).toBe("");
-    expect(next.displayItems).toEqual(resumedItems);
-    expect(next.turnDiffs.size).toBe(0);
-    expect(next.approvals).toEqual([]);
-    expect(next.pendingUserInputs).toEqual([]);
-    expect(next.userInputDrafts.size).toBe(0);
-    expect(next.composerSuggestSelected).toBe(0);
-    expect(next.composerSuggestions).toEqual([]);
-    expect(next.composerSuggestionsDismissedSignature).toBeNull();
-    expect(next.messagesPinnedToBottom).toBe(true);
+    expect(next.transcript.historyCursor).toBeNull();
+    expect(next.transcript.loadingHistory).toBe(false);
+    expect(next.composer.draft).toBe("");
+    expect(next.transcript.displayItems).toEqual(resumedItems);
+    expect(next.transcript.turnDiffs.size).toBe(0);
+    expect(next.requests.approvals).toEqual([]);
+    expect(next.requests.pendingUserInputs).toEqual([]);
+    expect(next.requests.userInputDrafts.size).toBe(0);
+    expect(next.composer.suggestSelected).toBe(0);
+    expect(next.composer.suggestions).toEqual([]);
+    expect(next.composer.suggestionsDismissedSignature).toBeNull();
+    expect(next.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {
     const state = createChatState();
-    state.displayItems = [message("previous-message")];
+    state.transcript.displayItems = [message("previous-message")];
 
     const next = chatReducer(state, {
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("resumed-thread"),
       cwd: "/vault",
       model: null,
@@ -117,86 +119,105 @@ describe("chatReducer", () => {
       activePermissionProfile: null,
     });
 
-    expect(next.displayItems).toEqual([]);
+    expect(next.transcript.displayItems).toEqual([]);
   });
 
   it("keeps composer state when restoring a thread placeholder", () => {
     const state = createChatState();
-    state.activeThreadId = "previous-thread";
-    state.turnLifecycle = { kind: "running", turnId: "previous-turn" };
-    state.activeModel = "gpt-5.1";
-    state.activeGoal = goal("previous-thread");
-    state.historyCursor = "cursor";
-    state.loadingHistory = true;
-    state.composerDraft = "draft in this panel";
-    state.composerSuggestSelected = 1;
-    state.composerSuggestions = [suggestion("/resume")];
-    state.composerSuggestionsDismissedSignature = "dismissed";
-    state.displayItems = [message("previous-message")];
-    state.turnDiffs = new Map([["previous-turn", "@@"]]);
-    state.approvals = [approval(1)];
-    state.pendingUserInputs = [userInput(2)];
-    state.userInputDrafts = new Map([["2:note", "answer"]]);
-    state.messagesPinnedToBottom = false;
+    state.activeThread.id = "previous-thread";
+    state.turn.lifecycle = { kind: "running", turnId: "previous-turn" };
+    state.runtime.activeModel = "gpt-5.1";
+    state.activeThread.goal = goal("previous-thread");
+    state.transcript.historyCursor = "cursor";
+    state.transcript.loadingHistory = true;
+    state.composer.draft = "draft in this panel";
+    state.composer.suggestSelected = 1;
+    state.composer.suggestions = [suggestion("/resume")];
+    state.composer.suggestionsDismissedSignature = "dismissed";
+    state.transcript.displayItems = [message("previous-message")];
+    state.transcript.turnDiffs = new Map([["previous-turn", "@@"]]);
+    state.requests.approvals = [approval(1)];
+    state.requests.pendingUserInputs = [userInput(2)];
+    state.requests.userInputDrafts = new Map([["2:note", "answer"]]);
+    state.ui.messagesPinnedToBottom = false;
     const placeholder = message("placeholder");
 
     const next = chatReducer(state, {
-      type: "thread/restored-placeholder",
+      type: "active-thread/restored-placeholder",
       threadId: "restored-thread",
       item: placeholder,
     });
 
-    expect(next.activeThreadId).toBe("restored-thread");
+    expect(next.activeThread.id).toBe("restored-thread");
     expect(activeTurnId(next)).toBeNull();
-    expect(next.activeModel).toBeNull();
-    expect(next.activeGoal).toBeNull();
-    expect(next.historyCursor).toBeNull();
-    expect(next.loadingHistory).toBe(false);
-    expect(next.displayItems).toEqual([placeholder]);
-    expect(next.turnDiffs.size).toBe(0);
-    expect(next.approvals).toEqual([]);
-    expect(next.pendingUserInputs).toEqual([]);
-    expect(next.userInputDrafts.size).toBe(0);
-    expect(next.messagesPinnedToBottom).toBe(true);
-    expect(next.composerDraft).toBe("draft in this panel");
-    expect(next.composerSuggestSelected).toBe(1);
-    expect(next.composerSuggestions).toEqual([suggestion("/resume")]);
-    expect(next.composerSuggestionsDismissedSignature).toBe("dismissed");
+    expect(next.runtime.activeModel).toBeNull();
+    expect(next.activeThread.goal).toBeNull();
+    expect(next.transcript.historyCursor).toBeNull();
+    expect(next.transcript.loadingHistory).toBe(false);
+    expect(next.transcript.displayItems).toEqual([placeholder]);
+    expect(next.transcript.turnDiffs.size).toBe(0);
+    expect(next.requests.approvals).toEqual([]);
+    expect(next.requests.pendingUserInputs).toEqual([]);
+    expect(next.requests.userInputDrafts.size).toBe(0);
+    expect(next.ui.messagesPinnedToBottom).toBe(true);
+    expect(next.composer.draft).toBe("draft in this panel");
+    expect(next.composer.suggestSelected).toBe(1);
+    expect(next.composer.suggestions).toEqual([suggestion("/resume")]);
+    expect(next.composer.suggestionsDismissedSignature).toBe("dismissed");
   });
 
   it("clones map and set backed state when updating turn diffs and open panels", () => {
     const state = createChatState();
-    state.turnDiffs = new Map([["turn", "old"]]);
-    state.openDetails = new Set(["status-panel"]);
+    state.transcript.turnDiffs = new Map([["turn", "old"]]);
+    state.ui.openDetails = new Set(["status-panel"]);
 
-    const withDiff = chatReducer(state, { type: "display/turn-diff-updated", turnId: "turn", diff: "new" });
+    const withDiff = chatReducer(state, { type: "transcript/turn-diff-updated", turnId: "turn", diff: "new" });
     const withHistoryPanel = chatReducer(withDiff, { type: "ui/panel-set", panel: "history" });
 
-    expect(withDiff.turnDiffs).not.toBe(state.turnDiffs);
-    expect(withDiff.turnDiffs.get("turn")).toBe("new");
-    expect(withHistoryPanel.openDetails).not.toBe(withDiff.openDetails);
-    expect(withHistoryPanel.openDetails.has("history")).toBe(true);
-    expect(withHistoryPanel.openDetails.has("status-panel")).toBe(false);
+    expect(withDiff.transcript.turnDiffs).not.toBe(state.transcript.turnDiffs);
+    expect(withDiff.transcript.turnDiffs.get("turn")).toBe("new");
+    expect(withHistoryPanel.ui.openDetails).not.toBe(withDiff.ui.openDetails);
+    expect(withHistoryPanel.ui.openDetails.has("history")).toBe(true);
+    expect(withHistoryPanel.ui.openDetails.has("status-panel")).toBe(false);
   });
 
   it("returns the same state reference for no-op actions", () => {
     const state = createChatState();
 
-    expect(chatReducer(state, { type: "status/set", status: "Idle" })).toBe(state);
+    expect(chatReducer(state, { type: "connection/status-set", status: "Idle" })).toBe(state);
     expect(chatReducer(state, { type: "request/approval-queued", approval: approval(1) })).not.toBe(state);
     const queued = chatReducer(state, { type: "request/approval-queued", approval: approval(1) });
     expect(chatReducer(queued, { type: "request/approval-queued", approval: approval(1) })).toBe(queued);
+  });
+
+  it("keeps slice actions scoped to their owning state group", () => {
+    const connectionState = createChatState();
+    expectOnlySliceReferenceChanged(
+      chatReducer(connectionState, { type: "connection/status-set", status: "Working" }),
+      connectionState,
+      "connection",
+    );
+
+    const uiState = createChatState();
+    expectOnlySliceReferenceChanged(chatReducer(uiState, { type: "ui/messages-pinned-set", pinned: false }), uiState, "ui");
+
+    const transcriptState = createChatState();
+    expectOnlySliceReferenceChanged(
+      chatReducer(transcriptState, { type: "transcript/items-replaced", items: [message("next")] }),
+      transcriptState,
+      "transcript",
+    );
   });
 
   it("deduplicates reported logs while keeping reported log state immutable", () => {
     const state = createChatState();
     const item = { id: "log", kind: "system", role: "system", text: "once" } satisfies DisplayItem;
 
-    const first = chatReducer(state, { type: "system/deduped-log-added", text: "once", item });
-    const second = chatReducer(first, { type: "system/deduped-log-added", text: "once", item });
+    const first = chatReducer(state, { type: "transcript/deduped-log-added", text: "once", item });
+    const second = chatReducer(first, { type: "transcript/deduped-log-added", text: "once", item });
 
-    expect(first.reportedLogs).not.toBe(state.reportedLogs);
-    expect(first.displayItems).toEqual([item]);
+    expect(first.transcript.reportedLogs).not.toBe(state.transcript.reportedLogs);
+    expect(first.transcript.displayItems).toEqual([item]);
     expect(second).toBe(first);
   });
 
@@ -250,7 +271,7 @@ describe("chatReducer", () => {
 
   it("clears running state when a turn start fails", () => {
     const state = createChatState();
-    state.turnLifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] } };
+    state.turn.lifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] } };
 
     const next = chatReducer(state, { type: "turn/start-failed", displayItems: [] });
 
@@ -259,9 +280,49 @@ describe("chatReducer", () => {
     expect(pendingTurnStart(next)).toBeNull();
   });
 
+  it("clears turn-scoped requests when clearing the local turn scope", () => {
+    const state = createChatState();
+    state.turn.lifecycle = { kind: "running", turnId: "turn" };
+    state.requests.approvals = [approval(1)];
+    state.requests.pendingUserInputs = [userInput(2)];
+    state.requests.userInputDrafts = new Map([["2:note", "draft"]]);
+    state.transcript.displayItems = [message("kept")];
+
+    const next = chatReducer(state, { type: "turn/scoped-cleared" });
+
+    expect(chatTurnBusy(next)).toBe(false);
+    expect(activeTurnId(next)).toBeNull();
+    expect(next.requests.approvals).toEqual([]);
+    expect(next.requests.pendingUserInputs).toEqual([]);
+    expect(next.requests.userInputDrafts.size).toBe(0);
+    expect(next.transcript.displayItems).toBe(state.transcript.displayItems);
+  });
+
+  it("resolves requests while optionally appending a result item", () => {
+    const state = createChatState();
+    state.requests.approvals = [approval(1)];
+    state.requests.pendingUserInputs = [userInput(2)];
+    state.requests.userInputDrafts = new Map([
+      ["2:note", "draft"],
+      ["2:note:other", "other draft"],
+    ]);
+    state.transcript.displayItems = [message("existing")];
+
+    const withoutResult = chatReducer(state, { type: "request/resolved", requestId: 1 });
+    expect(withoutResult.requests.approvals).toEqual([]);
+    expect(withoutResult.requests.pendingUserInputs).toEqual([userInput(2)]);
+    expect(withoutResult.transcript.displayItems).toBe(state.transcript.displayItems);
+
+    const resultItem = message("result");
+    const withResult = chatReducer(withoutResult, { type: "request/resolved", requestId: 2, resultItem });
+    expect(withResult.requests.pendingUserInputs).toEqual([]);
+    expect(withResult.requests.userInputDrafts.size).toBe(0);
+    expect(withResult.transcript.displayItems).toEqual([message("existing"), resultItem]);
+  });
+
   it("ignores turn start acknowledgements after the turn has already gone idle", () => {
     const state = createChatState();
-    state.turnLifecycle = { kind: "idle" };
+    state.turn.lifecycle = { kind: "idle" };
 
     const next = chatReducer(state, {
       type: "turn/start-acknowledged",
@@ -277,8 +338,8 @@ describe("chatReducer", () => {
   it("ignores completed turns while a new turn is still starting", () => {
     const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] };
     const state = createChatState();
-    state.turnLifecycle = { kind: "starting", pendingTurnStart: pending };
-    state.displayItems = [{ id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello" }];
+    state.turn.lifecycle = { kind: "starting", pendingTurnStart: pending };
+    state.transcript.displayItems = [{ id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello" }];
 
     const next = chatReducer(state, {
       type: "turn/completed",
@@ -290,37 +351,37 @@ describe("chatReducer", () => {
     expect(next).toBe(state);
     expect(chatTurnBusy(next)).toBe(true);
     expect(pendingTurnStart(next)).toEqual(pending);
-    expect(next.displayItems).toEqual(state.displayItems);
+    expect(next.transcript.displayItems).toEqual(state.transcript.displayItems);
   });
 
   it("keeps toolbar panels mutually exclusive", () => {
     let state = createChatState();
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "history" });
-    expect(state.openDetails.has("history")).toBe(true);
+    expect(state.ui.openDetails.has("history")).toBe(true);
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "chat-actions" });
-    expect(state.openDetails.has("history")).toBe(false);
-    expect(state.openDetails.has("chat-actions")).toBe(true);
+    expect(state.ui.openDetails.has("history")).toBe(false);
+    expect(state.ui.openDetails.has("chat-actions")).toBe(true);
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "status-panel" });
-    expect(state.openDetails.has("chat-actions")).toBe(false);
-    expect(state.openDetails.has("status-panel")).toBe(true);
+    expect(state.ui.openDetails.has("chat-actions")).toBe(false);
+    expect(state.ui.openDetails.has("status-panel")).toBe(true);
   });
 
   it("updates remembered details and user input drafts through typed UI actions", () => {
     let state = createChatState();
 
     state = chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: true });
-    expect(state.openDetails.has("request:1")).toBe(true);
+    expect(state.ui.openDetails.has("request:1")).toBe(true);
     expect(chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: true })).toBe(state);
 
     state = chatReducer(state, { type: "request/user-input-draft-set", key: "1:note", value: "answer" });
-    expect(state.userInputDrafts.get("1:note")).toBe("answer");
+    expect(state.requests.userInputDrafts.get("1:note")).toBe("answer");
     expect(chatReducer(state, { type: "request/user-input-draft-set", key: "1:note", value: "answer" })).toBe(state);
 
     state = chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: false });
-    expect(state.openDetails.has("request:1")).toBe(false);
+    expect(state.ui.openDetails.has("request:1")).toBe(false);
   });
 
   it("commits pending runtime settings and resets applied overrides", () => {
@@ -341,40 +402,40 @@ describe("chatReducer", () => {
       },
     });
 
-    expect(next.activeModel).toBe("gpt-5.1");
-    expect(next.requestedModel).toEqual({ kind: "unchanged" });
-    expect(next.activeReasoningEffort).toBe("high");
-    expect(next.requestedReasoningEffort).toEqual({ kind: "unchanged" });
-    expect(next.activeServiceTier).toBe("fast");
-    expect(next.requestedServiceTier).toEqual({ kind: "unchanged" });
-    expect(next.activeApprovalsReviewer).toBe("auto_review");
-    expect(next.requestedApprovalsReviewer).toEqual({ kind: "unchanged" });
-    expect(next.activeCollaborationMode).toBe("plan");
+    expect(next.runtime.activeModel).toBe("gpt-5.1");
+    expect(next.runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(next.runtime.activeReasoningEffort).toBe("high");
+    expect(next.runtime.requestedReasoningEffort).toEqual({ kind: "unchanged" });
+    expect(next.runtime.activeServiceTier).toBe("fast");
+    expect(next.runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
+    expect(next.runtime.activeApprovalsReviewer).toBe("auto_review");
+    expect(next.runtime.requestedApprovalsReviewer).toEqual({ kind: "unchanged" });
+    expect(next.runtime.activeCollaborationMode).toBe("plan");
   });
 
   it("keeps requested policy toggles pending until app-server settings commit", () => {
     let state = createChatState();
-    state.activeServiceTier = "flex";
-    state.activeApprovalsReviewer = "user";
+    state.runtime.activeServiceTier = "flex";
+    state.runtime.activeApprovalsReviewer = "user";
 
     state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: "fast" });
     state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: "auto_review" });
 
-    expect(state.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
-    expect(state.activeServiceTier).toBe("flex");
-    expect(state.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(state.activeApprovalsReviewer).toBe("user");
+    expect(state.runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(state.runtime.activeServiceTier).toBe("flex");
+    expect(state.runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(state.runtime.activeApprovalsReviewer).toBe("user");
   });
 
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {
     const initial = createChatState();
-    initial.displayItems = [message("initial")];
+    initial.transcript.displayItems = [message("initial")];
     const store = createChatStateStore(initial);
 
-    store.dispatch({ type: "display/item-upserted", item: message("next") });
+    store.dispatch({ type: "transcript/item-upserted", item: message("next") });
 
-    expect(initial.displayItems).toEqual([message("initial")]);
-    expect(store.getState().displayItems).toEqual([message("initial"), message("next")]);
+    expect(initial.transcript.displayItems).toEqual([message("initial")]);
+    expect(store.getState().transcript.displayItems).toEqual([message("initial"), message("next")]);
   });
 
   it("keeps panel-local thread, request, and composer state isolated across stores", () => {
@@ -382,7 +443,7 @@ describe("chatReducer", () => {
     const panelB = createChatStateStore();
 
     panelA.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("thread-a"),
       cwd: "/vault",
       model: null,
@@ -397,7 +458,7 @@ describe("chatReducer", () => {
     panelA.dispatch({ type: "request/user-input-draft-set", key: "1:note", value: "panel A answer" });
 
     panelB.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("thread-b"),
       cwd: "/vault",
       model: null,
@@ -412,21 +473,21 @@ describe("chatReducer", () => {
     panelB.dispatch({ type: "request/user-input-draft-set", key: "2:note", value: "panel B answer" });
 
     panelA.dispatch({ type: "request/resolved", requestId: 1 });
-    panelA.dispatch({ type: "thread/active-cleared" });
+    panelA.dispatch({ type: "active-thread/cleared" });
 
     expect(panelA.getState()).toMatchObject({
-      activeThreadId: null,
-      composerDraft: "",
-      pendingUserInputs: [],
+      activeThread: { id: null },
+      composer: { draft: "" },
+      requests: { pendingUserInputs: [] },
     });
-    expect(panelA.getState().userInputDrafts.size).toBe(0);
+    expect(panelA.getState().requests.userInputDrafts.size).toBe(0);
 
     expect(panelB.getState()).toMatchObject({
-      activeThreadId: "thread-b",
-      composerDraft: "panel B draft",
-      pendingUserInputs: [expect.objectContaining({ requestId: 2 })],
+      activeThread: { id: "thread-b" },
+      composer: { draft: "panel B draft" },
+      requests: { pendingUserInputs: [expect.objectContaining({ requestId: 2 })] },
     });
-    expect(panelB.getState().userInputDrafts.get("2:note")).toBe("panel B answer");
+    expect(panelB.getState().requests.userInputDrafts.get("2:note")).toBe("panel B answer");
   });
 
   it("notifies ChatStateStore subscribers only when the state reference changes", () => {
@@ -434,14 +495,14 @@ describe("chatReducer", () => {
     const listener = vi.fn();
     const unsubscribe = store.subscribe(listener);
 
-    store.dispatch({ type: "status/set", status: "Idle" });
+    store.dispatch({ type: "connection/status-set", status: "Idle" });
     expect(listener).not.toHaveBeenCalled();
 
-    store.dispatch({ type: "status/set", status: "Working" });
+    store.dispatch({ type: "connection/status-set", status: "Working" });
     expect(listener).toHaveBeenCalledTimes(1);
 
     unsubscribe();
-    store.dispatch({ type: "status/set", status: "Done" });
+    store.dispatch({ type: "connection/status-set", status: "Done" });
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
@@ -450,11 +511,22 @@ function message(id: string): DisplayItem {
   return { id, kind: "message", role: "assistant", text: id, messageKind: "assistantResponse", messageState: "completed" };
 }
 
-function suggestion(display: string): ChatState["composerSuggestions"][number] {
+function suggestion(display: string): ChatState["composer"]["suggestions"][number] {
   return { display, detail: "Plan mode", replacement: display, start: 0, appendSpaceOnInsert: true };
 }
 
-function approval(requestId: number): ChatState["approvals"][number] {
+function expectOnlySliceReferenceChanged(next: ChatState, previous: ChatState, changedKey: keyof ChatState): void {
+  expect(next).not.toBe(previous);
+  for (const key of Object.keys(previous) as (keyof ChatState)[]) {
+    if (key === changedKey) {
+      expect(next[key]).not.toBe(previous[key]);
+    } else {
+      expect(next[key]).toBe(previous[key]);
+    }
+  }
+}
+
+function approval(requestId: number): ChatState["requests"]["approvals"][number] {
   return {
     requestId,
     method: "item/commandExecution/requestApproval",
@@ -462,7 +534,7 @@ function approval(requestId: number): ChatState["approvals"][number] {
   };
 }
 
-function userInput(requestId: number): ChatState["pendingUserInputs"][number] {
+function userInput(requestId: number): ChatState["requests"]["pendingUserInputs"][number] {
   return {
     requestId,
     method: "item/tool/requestUserInput",

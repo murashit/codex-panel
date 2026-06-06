@@ -86,7 +86,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const threadPort: TurnSubmissionThreadPort = {
     startThread: vi.fn().mockImplementation(async () => {
       stateStore.dispatch({
-        type: "thread/resumed",
+        type: "active-thread/resumed",
         thread: thread("thread"),
         cwd: "/vault",
         model: null,
@@ -147,7 +147,7 @@ describe("TurnSubmissionController", () => {
     expect(host.thread.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.thread.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(startTurn).toHaveBeenCalledWith("thread", "/vault", textInput("hello"), expect.stringMatching(/^local-user-\d+$/));
-    expect(stateStore.getState().turnLifecycle).toEqual({ kind: "running", turnId: "turn" });
+    expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.composer.setDraft).toHaveBeenCalledWith("");
     expect(host.status.setStatus).toHaveBeenCalledWith("Turn running...");
     expect(host.view.scheduleRender).toHaveBeenCalledOnce();
@@ -156,7 +156,7 @@ describe("TurnSubmissionController", () => {
   it("steers a running turn instead of starting another turn", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
     stateStore.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("thread"),
       cwd: "/vault",
       model: null,
@@ -176,7 +176,9 @@ describe("TurnSubmissionController", () => {
     expect(host.status.setStatus).toHaveBeenCalledWith("Steered current turn.");
     const localSteerId = steerTurn.mock.calls[0]?.[3];
     expect(
-      stateStore.getState().displayItems.some((item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up"),
+      stateStore
+        .getState()
+        .transcript.displayItems.some((item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up"),
     ).toBe(true);
   });
 });

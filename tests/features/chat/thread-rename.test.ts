@@ -79,7 +79,7 @@ describe("ThreadRenameController", () => {
     await controller.rename("thread", " Slash command title ");
 
     expect(setThreadName).toHaveBeenCalledWith("thread", "Slash command title");
-    expect(stateStore.getState().listedThreads[0]?.name).toBe("Slash command title");
+    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Slash command title");
     expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Slash command title");
     expect(controller.editState("thread")).toBeNull();
   });
@@ -120,7 +120,7 @@ function controllerFixture(
   overrides: Partial<ConstructorParameters<typeof ThreadRenameController>[0]> = {},
 ): ConstructorParameters<typeof ThreadRenameController>[0] & { controller: ThreadRenameController; render: ReturnType<typeof vi.fn> } {
   const stateStore = createChatStateStore();
-  stateStore.dispatch({ type: "thread/list-applied", threads: [threadFixture("thread")] });
+  stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
   const render = vi.fn();
   const host = {
     stateStore,

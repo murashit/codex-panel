@@ -44,7 +44,7 @@ describe("PendingRequestController", () => {
     pendingRequests.resolveUserInput(input);
 
     expect(respondToServerRequest).toHaveBeenCalledWith(7, { answers: { direction: { answers: ["Left"] } } });
-    expect(stateStore.getState().pendingUserInputs).toEqual([]);
+    expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
     expect(refreshLiveState).toHaveBeenCalledOnce();
     expect(render).toHaveBeenCalledOnce();
   });

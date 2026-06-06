@@ -92,7 +92,7 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     ...statusOverrides,
   };
   const goals: SlashCommandGoalPort = {
-    activeGoal: vi.fn(() => stateStore.getState().activeGoal),
+    activeGoal: vi.fn(() => stateStore.getState().activeThread.goal),
     setObjective: vi.fn().mockResolvedValue(true),
     setStatus: vi.fn().mockResolvedValue(true),
     clear: vi.fn().mockResolvedValue(true),
@@ -125,11 +125,11 @@ describe("SlashCommandController", () => {
   it("routes compact through the shared thread action port", async () => {
     const { compactThread, host, stateStore } = createHost();
     stateStore.dispatch({
-      type: "thread/list-applied",
+      type: "thread-list/applied",
       threads: [thread("thread", "Thread")],
     });
     stateStore.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("thread", "Thread"),
       cwd: "/vault",
       model: null,
@@ -149,7 +149,7 @@ describe("SlashCommandController", () => {
   it("routes compact through the shared thread action port before a client is connected", async () => {
     const { compactThread, host, stateStore } = createHost({ currentClient: () => null });
     stateStore.dispatch({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: thread("thread", "Thread"),
       cwd: "/vault",
       model: null,
@@ -188,7 +188,7 @@ describe("SlashCommandController", () => {
   it("reports unreadable referenced threads", async () => {
     const { host, stateStore, threadTurnsList } = createHost();
     stateStore.dispatch({
-      type: "thread/list-applied",
+      type: "thread-list/applied",
       threads: [thread("other", "Other")],
     });
     const controller = new SlashCommandController(host);

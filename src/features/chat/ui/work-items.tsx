@@ -30,7 +30,7 @@ export interface WorkItemContext {
 }
 
 export function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">): string | null {
-  return activeTurnId(context);
+  return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 
 export function activeAgentRunSummaryBlock(context: WorkItemContext): AgentRunSummary | null {

@@ -268,7 +268,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     sendShortcut: () => host.plugin.settings.sendShortcut,
     scrollThreadFromComposerEdges: () => host.plugin.settings.scrollThreadFromComposerEdges,
     canInterrupt: () =>
-      host.getState().turnLifecycle.kind !== "idle" && Boolean(host.getState().activeThreadId && activeTurnId(host.getState())),
+      host.getState().turn.lifecycle.kind !== "idle" && Boolean(host.getState().activeThread.id && activeTurnId(host.getState())),
     composerPlaceholder: host.composerPlaceholder,
     composerMeta: host.composerMetaViewModel,
     currentModelForSuggestions: () => currentModel(host.runtimeSnapshot()),
@@ -518,7 +518,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
     ensureConnected: host.effects.client.ensureConnected,
     addSystemMessage: host.effects.status.addSystemMessage,
     addGoalEvent: (item) => {
-      host.stateStore.dispatch({ type: "display/item-upserted", item });
+      host.stateStore.dispatch({ type: "transcript/item-upserted", item });
     },
     render: host.effects.render.now,
     refreshLiveState: host.effects.liveState.refresh,
@@ -615,7 +615,7 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
 }
 
 function activeTurnId(state: ChatState): string | null {
-  return state.turnLifecycle.kind === "running" ? state.turnLifecycle.turnId : null;
+  return state.turn.lifecycle.kind === "running" ? state.turn.lifecycle.turnId : null;
 }
 
 function applyCachedSharedAppServerState(host: ChatViewControllerAssemblyHost, appServer: ChatAppServerController): void {

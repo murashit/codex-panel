@@ -47,7 +47,7 @@ describe("ChatPanelShell", () => {
     });
 
     await act(async () => {
-      store.dispatch({ type: "status/set", status: "Working" });
+      store.dispatch({ type: "connection/status-set", status: "Working" });
       await settleShellEffects();
     });
 
@@ -70,9 +70,12 @@ describe("ChatPanelShell", () => {
     });
 
     await act(async () => {
-      store.dispatch({ type: "status/set", status: "Working" });
+      store.dispatch({ type: "connection/status-set", status: "Working" });
       store.dispatch({ type: "ui/panel-set", panel: "status-panel" });
-      store.dispatch({ type: "system/message-added", item: { id: "system-1", kind: "system", role: "system", text: "Model set." } });
+      store.dispatch({
+        type: "transcript/system-message-added",
+        item: { id: "system-1", kind: "system", role: "system", text: "Model set." },
+      });
       await settleShellEffects();
     });
 
@@ -224,7 +227,7 @@ describe("ChatPanelShell", () => {
     await act(async () => {
       unmountChatPanelShell(container);
     });
-    store.dispatch({ type: "status/set", status: "Closed" });
+    store.dispatch({ type: "connection/status-set", status: "Closed" });
     await settleShellEffects();
 
     expect(renderers.toolbar.render).not.toHaveBeenCalled();
@@ -238,21 +241,21 @@ function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
     showToolbar: true,
     toolbar: {
       render: vi.fn((toolbar: HTMLElement) => {
-        toolbar.textContent = store.getState().status;
+        toolbar.textContent = store.getState().connection.status;
       }),
-      snapshot: () => store.getState().status,
+      snapshot: () => store.getState().connection.status,
     },
     goal: {
       render: vi.fn((goal: HTMLElement) => {
-        goal.textContent = store.getState().activeGoal?.objective ?? "no goal";
+        goal.textContent = store.getState().activeThread.goal?.objective ?? "no goal";
       }),
-      snapshot: () => store.getState().activeGoal?.objective ?? "",
+      snapshot: () => store.getState().activeThread.goal?.objective ?? "",
     },
     messages: {
       render: vi.fn((messages: HTMLElement) => {
-        messages.textContent = String(store.getState().displayItems.length);
+        messages.textContent = String(store.getState().transcript.displayItems.length);
       }),
-      snapshot: () => store.getState().displayItems.length,
+      snapshot: () => store.getState().transcript.displayItems.length,
     },
     composer: {
       render: vi.fn((composer: HTMLElement) => {
@@ -273,24 +276,24 @@ function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>
         renderUiRoot(
           toolbar,
           <>
-            <div className="test-toolbar">{store.getState().status}</div>
+            <div className="test-toolbar">{store.getState().connection.status}</div>
             <div className="test-toolbar-panel">panel</div>
           </>,
         );
       }),
-      snapshot: () => store.getState().status,
+      snapshot: () => store.getState().connection.status,
     },
     goal: {
       render: vi.fn((goal: HTMLElement) => {
-        renderUiRoot(goal, <div className="test-goal">{store.getState().activeGoal?.objective ?? "no goal"}</div>);
+        renderUiRoot(goal, <div className="test-goal">{store.getState().activeThread.goal?.objective ?? "no goal"}</div>);
       }),
-      snapshot: () => store.getState().activeGoal?.objective ?? "",
+      snapshot: () => store.getState().activeThread.goal?.objective ?? "",
     },
     messages: {
       render: vi.fn((messages: HTMLElement) => {
-        renderUiRoot(messages, <div className="test-messages">{String(store.getState().displayItems.length)}</div>);
+        renderUiRoot(messages, <div className="test-messages">{String(store.getState().transcript.displayItems.length)}</div>);
       }),
-      snapshot: () => store.getState().displayItems.length,
+      snapshot: () => store.getState().transcript.displayItems.length,
     },
     composer: {
       render: vi.fn((composer: HTMLElement) => {
@@ -316,19 +319,19 @@ function trackedRootShellRenderers(store: ReturnType<typeof createChatStateStore
       render: vi.fn((toolbar: HTMLElement) => {
         renderUiRoot(toolbar, <TrackedSlot slot="toolbar" cleanup={cleanup} />);
       }),
-      snapshot: () => store.getState().status,
+      snapshot: () => store.getState().connection.status,
     },
     goal: {
       render: vi.fn((goal: HTMLElement) => {
         renderUiRoot(goal, <TrackedSlot slot="goal" cleanup={cleanup} />);
       }),
-      snapshot: () => store.getState().activeGoal?.objective ?? "",
+      snapshot: () => store.getState().activeThread.goal?.objective ?? "",
     },
     messages: {
       render: vi.fn((messages: HTMLElement) => {
         renderUiRoot(messages, <TrackedSlot slot="messages" cleanup={cleanup} />);
       }),
-      snapshot: () => store.getState().displayItems.length,
+      snapshot: () => store.getState().transcript.displayItems.length,
     },
     composer: {
       render: vi.fn((composer: HTMLElement) => {

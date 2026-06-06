@@ -20,7 +20,7 @@ export class ChatGoalController {
   constructor(private readonly host: ChatGoalControllerHost) {}
 
   activeGoal(): ThreadGoal | null {
-    return this.host.stateStore.getState().activeGoal;
+    return this.host.stateStore.getState().activeThread.goal;
   }
 
   async syncThreadGoal(threadId: string): Promise<void> {
@@ -30,7 +30,7 @@ export class ChatGoalController {
       const response = await client.getThreadGoal(threadId);
       this.applyGoalIfActive(threadId, response.goal, { reportChange: false });
     } catch (error) {
-      if (this.host.stateStore.getState().activeThreadId !== threadId) return;
+      if (this.host.stateStore.getState().activeThread.id !== threadId) return;
       this.host.addSystemMessage(`Could not load thread goal: ${errorMessage(error)}`);
     }
   }
@@ -41,7 +41,7 @@ export class ChatGoalController {
       this.host.addSystemMessage("Goal objective cannot be empty.");
       return false;
     }
-    const current = this.host.stateStore.getState().activeGoal;
+    const current = this.host.stateStore.getState().activeThread.goal;
     const isNewGoal = current === null;
     const applied = await this.setGoal(threadId, {
       objective: trimmed,
@@ -90,9 +90,9 @@ export class ChatGoalController {
 
   private applyGoalIfActive(threadId: string, goal: ThreadGoal | null, options: { reportChange: boolean }): boolean {
     const state = this.host.stateStore.getState();
-    if (state.activeThreadId !== threadId) return false;
-    const item = options.reportChange ? goalChangeItem(goalEventId(), state.activeGoal, goal) : null;
-    this.host.stateStore.dispatch({ type: "thread/goal-set", goal });
+    if (state.activeThread.id !== threadId) return false;
+    const item = options.reportChange ? goalChangeItem(goalEventId(), state.activeThread.goal, goal) : null;
+    this.host.stateStore.dispatch({ type: "active-thread/goal-set", goal });
     if (item) this.host.addGoalEvent(item);
     this.host.refreshLiveState();
     this.host.render();

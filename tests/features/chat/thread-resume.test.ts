@@ -17,7 +17,7 @@ describe("chat thread resume helpers", () => {
     });
 
     expect(action).toMatchObject({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: resumed,
       cwd: "/vault",
       model: "gpt-5.5",
@@ -40,7 +40,7 @@ describe("chat thread resume helpers", () => {
     });
 
     expect(action).toMatchObject({
-      type: "thread/resumed",
+      type: "active-thread/resumed",
       thread: resumed,
       forceMessagesToBottom: true,
     });

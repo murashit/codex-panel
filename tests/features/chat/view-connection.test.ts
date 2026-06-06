@@ -146,7 +146,7 @@ describe("CodexChatView connection lifecycle", () => {
     await view.connect();
 
     expect(refreshThreadList).toHaveBeenCalledOnce();
-    expect((view as unknown as { state: { listedThreads: unknown[] } }).state.listedThreads).toEqual(threads);
+    expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual(threads);
   });
 
   it("publishes app-server metadata after connecting", async () => {
@@ -233,9 +233,9 @@ describe("CodexChatView connection lifecycle", () => {
         },
       ]);
     });
-    expect((view as unknown as { state: ChatState }).state.activeThreadId).toBe("thread-new");
-    expect((view as unknown as { state: ChatState }).state.activeGoal?.objective).toBe("Ship the feature");
-    expect((view as unknown as { state: ChatState }).state.displayItems).toContainEqual(
+    expect((view as unknown as { state: ChatState }).state.activeThread.id).toBe("thread-new");
+    expect((view as unknown as { state: ChatState }).state.activeThread.goal?.objective).toBe("Ship the feature");
+    expect((view as unknown as { state: ChatState }).state.transcript.displayItems).toContainEqual(
       expect.objectContaining({ kind: "goal", text: "set: Ship the feature", objective: "Ship the feature" }),
     );
     expect(view.containerEl.textContent).toContain("Ship the feature");
@@ -282,7 +282,7 @@ describe("CodexChatView connection lifecycle", () => {
     await connecting;
 
     expect(client.listThreads).not.toHaveBeenCalled();
-    expect((view as unknown as { state: { status: string } }).state.status).toBe("Codex app-server stopped.");
+    expect((view as unknown as { state: { connection: { status: string } } }).state.connection.status).toBe("Codex app-server stopped.");
   });
 
   it("restores the active thread from workspace state and hydrates it after a delay", async () => {
@@ -354,7 +354,9 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.listSkills).toHaveBeenCalledOnce();
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledWith("/vault");
-    expect((view as unknown as { state: { listedThreads: unknown[] } }).state.listedThreads).toEqual([threadFixture("thread-1")]);
+    expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual([
+      threadFixture("thread-1"),
+    ]);
   });
 
   it("applies cached shared thread list and metadata when opened", async () => {
@@ -379,29 +381,45 @@ describe("CodexChatView connection lifecycle", () => {
 
     const state = (
       view as unknown as {
-        state: { listedThreads: unknown[]; effectiveConfig: unknown; availableModels: unknown[]; availableSkills: unknown[] };
+        state: {
+          threadList: { listedThreads: unknown[] };
+          connection: { effectiveConfig: unknown; availableModels: unknown[]; availableSkills: unknown[] };
+        };
       }
     ).state;
-    expect(state.listedThreads).toEqual([cachedThread]);
-    expect(state.effectiveConfig).toEqual({ config: { model: "gpt-cached" }, origins: {}, layers: [] });
-    expect(state.availableModels).toEqual([]);
-    expect(state.availableSkills).toEqual([{ name: "writer", enabled: true }]);
+    expect(state.threadList.listedThreads).toEqual([cachedThread]);
+    expect(state.connection.effectiveConfig).toEqual({ config: { model: "gpt-cached" }, origins: {}, layers: [] });
+    expect(state.connection.availableModels).toEqual([]);
+    expect(state.connection.availableSkills).toEqual([{ name: "writer", enabled: true }]);
   });
 
   it("tracks composer slot dependencies for model and skill suggestions", async () => {
     await chatView();
     const state = createChatState();
-    state.effectiveConfig = effectiveConfig("gpt-configured");
-    state.availableSkills = [skillFixture("writer")];
+    state.connection.effectiveConfig = effectiveConfig("gpt-configured");
+    state.connection.availableSkills = [skillFixture("writer")];
 
     const base = composerSlotSnapshot(state, null);
 
-    expect(composerSlotSnapshot({ ...state, effectiveConfig: effectiveConfig("gpt-updated") }, null)).not.toBe(base);
-    expect(composerSlotSnapshot({ ...state, requestedModel: { kind: "set", value: "gpt-requested" } }, null)).not.toBe(base);
-    expect(composerSlotSnapshot({ ...state, selectedCollaborationMode: "plan" }, null)).not.toBe(base);
-    expect(composerSlotSnapshot({ ...state, requestedApprovalsReviewer: { kind: "set", value: "auto_review" } }, null)).not.toBe(base);
-    expect(composerSlotSnapshot({ ...state, requestedServiceTier: { kind: "set", value: "fast" } }, null)).not.toBe(base);
-    expect(composerSlotSnapshot({ ...state, availableSkills: [skillFixture("reader")] }, null)).not.toBe(base);
+    expect(
+      composerSlotSnapshot({ ...state, connection: { ...state.connection, effectiveConfig: effectiveConfig("gpt-updated") } }, null),
+    ).not.toBe(base);
+    expect(
+      composerSlotSnapshot({ ...state, runtime: { ...state.runtime, requestedModel: { kind: "set", value: "gpt-requested" } } }, null),
+    ).not.toBe(base);
+    expect(composerSlotSnapshot({ ...state, runtime: { ...state.runtime, selectedCollaborationMode: "plan" } }, null)).not.toBe(base);
+    expect(
+      composerSlotSnapshot(
+        { ...state, runtime: { ...state.runtime, requestedApprovalsReviewer: { kind: "set", value: "auto_review" } } },
+        null,
+      ),
+    ).not.toBe(base);
+    expect(
+      composerSlotSnapshot({ ...state, runtime: { ...state.runtime, requestedServiceTier: { kind: "set", value: "fast" } } }, null),
+    ).not.toBe(base);
+    expect(
+      composerSlotSnapshot({ ...state, connection: { ...state.connection, availableSkills: [skillFixture("reader")] } }, null),
+    ).not.toBe(base);
   });
 
   it("hydrates a focused restored thread immediately", async () => {
@@ -457,12 +475,12 @@ describe("CodexChatView connection lifecycle", () => {
     const controller = (view as unknown as { controller: { handleNotification: (notification: ServerNotification) => void } }).controller;
     controller.handleNotification(turnStartedNotification("thread-1", "turn-1"));
     controller.handleNotification(turnCompletedNotification("thread-1", "turn-1"));
-    expect((view as unknown as { state: ChatState }).state.turnLifecycle).toEqual({ kind: "idle" });
+    expect((view as unknown as { state: ChatState }).state.turn.lifecycle).toEqual({ kind: "idle" });
 
     startTurn.resolve({ turn: { id: "turn-1" } });
     await submit;
 
-    expect((view as unknown as { state: ChatState }).state.turnLifecycle).toEqual({ kind: "idle" });
+    expect((view as unknown as { state: ChatState }).state.turn.lifecycle).toEqual({ kind: "idle" });
     expect(view.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
   });
 
@@ -797,7 +815,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.threadTurnsList).not.toHaveBeenCalled();
     expect(view.containerEl.textContent).toContain("hello");
     expect(view.containerEl.textContent).toContain("done");
-    expect((view as unknown as { state: ChatState }).state.historyCursor).toBe("older-cursor");
+    expect((view as unknown as { state: ChatState }).state.transcript.historyCursor).toBe("older-cursor");
   });
 
   it("ignores stale resume results when another thread is opened first", async () => {
@@ -987,18 +1005,18 @@ function threadFixture(threadId: string) {
   };
 }
 
-function effectiveConfig(model: string): ChatState["effectiveConfig"] {
+function effectiveConfig(model: string): ChatState["connection"]["effectiveConfig"] {
   return { config: { model }, origins: {}, layers: [] } as never;
 }
 
-function skillFixture(name: string): ChatState["availableSkills"][number] {
+function skillFixture(name: string): ChatState["connection"]["availableSkills"][number] {
   return {
     name,
     description: `${name} skill`,
     path: `/skills/${name}/SKILL.md`,
     scope: "repo",
     enabled: true,
-  } as ChatState["availableSkills"][number];
+  } as ChatState["connection"]["availableSkills"][number];
 }
 
 function turnWithUserMessage(text: string) {

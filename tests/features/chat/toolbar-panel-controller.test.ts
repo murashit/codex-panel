@@ -36,7 +36,7 @@ describe("ToolbarPanelController", () => {
       scheduleRender,
     });
     controller.toggleHistory();
-    expect(stateStore.getState().openDetails.has("history")).toBe(true);
+    expect(stateStore.getState().ui.openDetails.has("history")).toBe(true);
 
     controller.closeOnOutsidePointer({
       target: document.createElement("button"),
@@ -45,7 +45,7 @@ describe("ToolbarPanelController", () => {
       renameEditing: false,
     });
 
-    expect(stateStore.getState().openDetails.size).toBe(0);
+    expect(stateStore.getState().ui.openDetails.size).toBe(0);
     expect(scheduleRender).toHaveBeenCalledWith({ forceSlots: true });
   });
 });
