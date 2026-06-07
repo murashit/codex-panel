@@ -1,9 +1,8 @@
-import { closePanelsAction } from "../../chat-state-actions";
+import { clearLocalTurnAction, closePanelsAction } from "../../chat-state-actions";
 import type { ChatStateStore } from "../../chat-state";
-import type { ConnectionStatePort, ThreadLifecycleStatePort } from "../state-ports";
+import type { ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ChatReconnectControllerHost {
-  connectionState: ConnectionStatePort;
   stateStore: ChatStateStore;
   threadState: ThreadLifecycleStatePort;
   invalidateConnectionWork: () => void;
@@ -29,7 +28,7 @@ export class ChatReconnectController {
     this.host.clearDeferredDiagnostics();
     this.host.reconnect();
     this.host.clearClient();
-    this.host.connectionState.clearLocalTurn();
+    this.host.stateStore.dispatch(clearLocalTurnAction());
     this.host.setStatus("Reconnecting...");
     this.host.render();
 

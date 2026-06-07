@@ -22,7 +22,6 @@ import { PendingRequestController } from "../controllers/requests/pending-reques
 import { ServerRequestResponder } from "../controllers/requests/server-request-responder";
 import {
   createChatShellRenderPort,
-  createConnectionStatePort,
   createPendingRequestStatePort,
   createSubmissionStatePort,
   createThreadLifecycleStatePort,
@@ -237,7 +236,6 @@ function createControllerContext(ports: ChatPanelContext) {
     viewId,
     stateStore,
     currentClient: client.getClient,
-    connectionState: createConnectionStatePort(stateStore),
     submissionState: createSubmissionStatePort(stateStore),
     threadState: createThreadLifecycleStatePort(stateStore),
   };
@@ -620,12 +618,12 @@ function createConnectionControllerGroup(
     appServerDiagnostics: ChatAppServerDiagnosticsController;
   },
 ) {
-  const { plugin, client, thread, status, liveState, render, lifecycle, connectionState } = context;
+  const { plugin, client, thread, status, liveState, render, lifecycle, stateStore } = context;
   const { connectionWork } = lifecycle;
 
   return {
     connectionController: new ChatConnectionController({
-      state: connectionState,
+      stateStore,
       connection: refs.connection,
       connectionWork,
       metadata: {
@@ -676,7 +674,6 @@ function createThreadToolbarControllerGroup(
     lifecycle,
     stateStore,
     currentClient,
-    connectionState,
     threadState,
   } = context;
   const { deferredTasks, resumeWork } = lifecycle;
@@ -729,7 +726,6 @@ function createThreadToolbarControllerGroup(
     addSystemMessage: status.addSystemMessage,
   });
   const reconnectActions = new ChatReconnectController({
-    connectionState,
     stateStore,
     threadState,
     invalidateConnectionWork: lifecycle.invalidateConnectionWork,

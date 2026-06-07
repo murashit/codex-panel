@@ -1,4 +1,3 @@
-import type { InitializeResponse } from "../../../generated/app-server/InitializeResponse";
 import type { Thread } from "../../../generated/app-server/v2/Thread";
 import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
 import { activeTurnId, chatTurnBusy, pendingTurnStart, type ChatStateStore, type PendingTurnStart } from "../chat-state";
@@ -9,12 +8,6 @@ import { implementPlanCandidateFromState } from "../plan-implementation";
 import { resumedThreadAction, type ThreadActivationResponse } from "../thread-resume";
 import { composerSlotSnapshot, goalSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "../panel/snapshot";
 import { renderChatPanelShell } from "../ui/shell";
-
-export interface ConnectionStatePort {
-  connectionInitialized(initializeResponse: InitializeResponse): void;
-  clearConnectionScope(): void;
-  clearLocalTurn(): void;
-}
 
 interface PendingRequestSnapshot {
   approvals: readonly PendingApproval[];
@@ -72,20 +65,6 @@ export interface ChatShellRenderPort {
       renderComposer: (parent: HTMLElement) => void;
     },
   ): void;
-}
-
-export function createConnectionStatePort(stateStore: ChatStateStore): ConnectionStatePort {
-  return {
-    connectionInitialized(initializeResponse) {
-      stateStore.dispatch({ type: "connection/initialized", initializeResponse });
-    },
-    clearConnectionScope() {
-      stateStore.dispatch({ type: "connection/scoped-cleared" });
-    },
-    clearLocalTurn() {
-      stateStore.dispatch({ type: "turn/scoped-cleared" });
-    },
-  };
 }
 
 export function createPendingRequestStatePort(stateStore: ChatStateStore): PendingRequestStatePort {

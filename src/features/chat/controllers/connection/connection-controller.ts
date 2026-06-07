@@ -1,8 +1,9 @@
 import { StaleConnectionError } from "../../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../../app-server/client";
 import type { InitializeResponse } from "../../../../generated/app-server/InitializeResponse";
+import { clearConnectionScopeAction, connectionInitializedAction } from "../../chat-state-actions";
+import type { ChatStateStore } from "../../chat-state";
 import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../../panel/lifecycle";
-import type { ConnectionStatePort } from "../state-ports";
 
 export interface ChatConnectionAdapter {
   connect(): Promise<InitializeResponse>;
@@ -20,7 +21,7 @@ export interface ChatConnectionDiagnosticsPort {
 }
 
 export interface ChatConnectionControllerHost {
-  state: ConnectionStatePort;
+  stateStore: ChatStateStore;
   connection: ChatConnectionAdapter;
   connectionWork: ChatConnectionWorkTracker;
   metadata: ChatConnectionMetadataPort;
@@ -71,7 +72,7 @@ export class ChatConnectionController {
     this.invalidate();
     this.host.invalidateResumeWork();
     this.host.setStatus("Codex app-server stopped.");
-    this.host.state.clearConnectionScope();
+    this.host.stateStore.dispatch(clearConnectionScopeAction());
     this.host.resetThreadTurnPresence(false);
     this.host.setClient(null);
     this.host.refreshLiveState();
@@ -119,7 +120,7 @@ export class ChatConnectionController {
   private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
     this.host.setStatus("Starting Codex app-server...");
     try {
-      this.host.state.connectionInitialized(await this.host.connection.connect());
+      this.host.stateStore.dispatch(connectionInitializedAction(await this.host.connection.connect()));
       if (this.host.connectionWork.isStale(connection)) return;
       const client = this.host.connection.currentClient();
       this.host.setClient(client);
