@@ -1,17 +1,17 @@
-import type { MessageScrollIntent } from "../../ui/scroll";
+import type { MessageStreamScrollIntent } from "../../ui/message-virtualizer";
 import type { PanelUiStatePort } from "../state-ports";
 
-export interface ChatMessageScrollControllerHost {
+export interface ChatMessageScrollIntentControllerHost {
   state: PanelUiStatePort;
   render: () => void;
 }
 
-export class ChatMessageScrollController {
-  private nextIntent: MessageScrollIntent = "auto";
+export class ChatMessageScrollIntentController {
+  private nextIntent: MessageStreamScrollIntent = "auto";
 
-  constructor(private readonly host: ChatMessageScrollControllerHost) {}
+  constructor(private readonly host: ChatMessageScrollIntentControllerHost) {}
 
-  consumeIntent(): MessageScrollIntent {
+  consumeIntent(): MessageStreamScrollIntent {
     const value = this.nextIntent;
     this.nextIntent = "auto";
     return value;

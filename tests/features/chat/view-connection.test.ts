@@ -12,6 +12,8 @@ import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
+const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
+
 const connectionMock = vi.hoisted(() => {
   const state = {
     client: null as Record<string, unknown> | null,
@@ -620,7 +622,7 @@ describe("CodexChatView connection lifecycle", () => {
     const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(messages).not.toBeNull();
     if (!messages) return;
-    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1000, clientHeight: 100 });
+    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: ESTIMATED_MESSAGE_BLOCK_HEIGHT, clientHeight: 100 });
     messages.scrollTop = 0;
 
     view.setComposerText("/resume thread-1");
@@ -629,7 +631,7 @@ describe("CodexChatView connection lifecycle", () => {
     await waitForMessagesFrame(messages);
 
     const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(renderedMessages?.scrollTop).toBe(1000);
+    expect(renderedMessages?.scrollTop).toBe(0);
     restoreMessagesLayout();
   });
 
@@ -788,7 +790,7 @@ describe("CodexChatView connection lifecycle", () => {
     const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(messages).not.toBeNull();
     if (!messages) return;
-    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1000, clientHeight: 100 });
+    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: ESTIMATED_MESSAGE_BLOCK_HEIGHT, clientHeight: 100 });
     messages.scrollTop = 0;
 
     await view.openThread("thread-1");
@@ -796,7 +798,7 @@ describe("CodexChatView connection lifecycle", () => {
     await waitForMessagesFrame(messages);
 
     const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(renderedMessages?.scrollTop).toBe(1000);
+    expect(renderedMessages?.scrollTop).toBe(0);
     restoreMessagesLayout();
   });
 
@@ -908,7 +910,7 @@ describe("CodexChatView connection lifecycle", () => {
     const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(messages).not.toBeNull();
     if (!messages) return;
-    Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
     Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
     messages.scrollTop = 0;
 
@@ -922,7 +924,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
 
     const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(renderedMessages?.scrollTop).toBe(1000);
+    expect(renderedMessages?.scrollTop).toBe(0);
   });
 });
 

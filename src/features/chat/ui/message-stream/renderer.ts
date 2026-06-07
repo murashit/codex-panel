@@ -4,7 +4,7 @@ import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
 import { unmountUiRoot } from "../../../../shared/ui/ui-root";
 import type { ChatAction, ChatState, ChatStateStore } from "../../chat-state";
 import type { ComposerBoundaryScrollAction } from "../../composer/boundary-scroll";
-import { MessageScrollController, type MessageScrollIntent } from "../scroll";
+import { MessageStreamVirtualizer, type MessageStreamScrollIntent } from "../message-virtualizer";
 import { messageStreamBlocks } from "./blocks";
 import {
   createMessageStreamContext,
@@ -30,7 +30,7 @@ interface ChatMessageRendererWorkspacePort {
 }
 
 interface ChatMessageRendererScrollPort {
-  consumeIntent: () => MessageScrollIntent;
+  consumeIntent: () => MessageStreamScrollIntent;
 }
 
 interface ChatMessageRendererHistoryPort {
@@ -50,11 +50,11 @@ export interface ChatMessageRendererOptions {
 export class ChatMessageRenderer {
   private messagesEl: HTMLElement | null = null;
   private bottomPinFrame: number | null = null;
-  private readonly scrollController: MessageScrollController;
+  private readonly messageVirtualizer: MessageStreamVirtualizer;
   private readonly markdownRenderer: MarkdownMessageRenderer;
 
   constructor(private readonly options: ChatMessageRendererOptions) {
-    this.scrollController = new MessageScrollController({
+    this.messageVirtualizer = new MessageStreamVirtualizer({
       messagesPinnedToBottom: () => this.state.ui.messagesPinnedToBottom,
       setMessagesPinnedToBottom: (pinned) => {
         this.dispatch({ type: "ui/messages-pinned-set", pinned });
@@ -82,10 +82,10 @@ export class ChatMessageRenderer {
   render(messagesEl: HTMLElement): void {
     const state = this.state;
     this.messagesEl = messagesEl;
-    const scrollPlan = this.scrollController.prepareRender(messagesEl, this.options.scroll.consumeIntent());
     const blocks = messageStreamBlocks(createMessageStreamContext(state, this.messageStreamPort()));
-    renderMessageStreamBlocks(messagesEl, blocks);
-    this.scrollController.completeRender(scrollPlan);
+    const scrollPlan = this.messageVirtualizer.prepareRender(messagesEl, this.options.scroll.consumeIntent(), blocks);
+    renderMessageStreamBlocks(messagesEl, blocks, this.messageVirtualizer);
+    this.messageVirtualizer.completeRender(scrollPlan);
   }
 
   private messageStreamPort(): ChatMessageStreamContextPort {
@@ -112,25 +112,25 @@ export class ChatMessageRenderer {
     if (this.messagesEl) {
       unmountUiRoot(this.messagesEl);
     }
-    this.scrollController.dispose();
+    this.messageVirtualizer.dispose();
     this.messagesEl = null;
   }
 
   scrollFromComposer(action: ComposerBoundaryScrollAction): void {
     if (action.amount === "page") {
-      this.scrollController.scrollByPage(action.direction);
+      this.messageVirtualizer.scrollByPage(action.direction);
     } else {
-      this.scrollController.scrollByTextLines(action.direction);
+      this.messageVirtualizer.scrollByTextLines(action.direction);
     }
   }
 
   forceMessagesToBottom(): void {
-    this.scrollController.pinToBottom(this.messagesEl);
+    this.messageVirtualizer.pinToBottom(this.messagesEl);
     this.scheduleBottomPinAfterLayout();
   }
 
   correctMessagesAfterLayoutChange(): void {
-    this.scrollController.correctAfterLayoutChange();
+    this.messageVirtualizer.correctAfterLayoutChange();
   }
 
   private async copyMessageText(text: string): Promise<void> {
@@ -138,7 +138,7 @@ export class ChatMessageRenderer {
   }
 
   private pinMessagesToBottom(messagesEl: HTMLElement): void {
-    this.scrollController.pinToBottom(messagesEl);
+    this.messageVirtualizer.pinToBottom(messagesEl);
   }
 
   private scheduleBottomPinAfterLayout(): void {
@@ -148,7 +148,7 @@ export class ChatMessageRenderer {
     this.bottomPinFrame = messagesEl.win.requestAnimationFrame(() => {
       this.bottomPinFrame = null;
       if (!this.state.ui.messagesPinnedToBottom) return;
-      this.scrollController.pinToBottom(this.messagesEl);
+      this.messageVirtualizer.pinToBottom(this.messagesEl);
     });
   }
 

@@ -11,6 +11,7 @@ import {
   messageStreamBlocks as rawMessageStreamBlocks,
   renderMessageStreamBlocks,
 } from "../../../../../src/features/chat/ui/message-stream";
+import { MessageStreamVirtualizer } from "../../../../../src/features/chat/ui/message-virtualizer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(
@@ -51,8 +52,18 @@ export function actEvent(action: () => void): void {
 }
 
 export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: MessageStreamBlock[]): void {
+  Object.defineProperty(parent, "clientHeight", { value: 320, configurable: true });
+  Object.defineProperty(parent, "clientWidth", { value: 240, configurable: true });
+  const virtualizer = new MessageStreamVirtualizer({
+    messagesPinnedToBottom: () => true,
+    setMessagesPinnedToBottom: () => {
+      return undefined;
+    },
+  });
   void act(() => {
-    renderMessageStreamBlocks(parent, blocks);
+    const plan = virtualizer.prepareRender(parent, "auto", blocks);
+    renderMessageStreamBlocks(parent, blocks, virtualizer);
+    virtualizer.completeRender(plan);
   });
 }
 

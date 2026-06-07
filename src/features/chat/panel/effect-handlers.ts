@@ -1,4 +1,4 @@
-import type { ChatMessageScrollController } from "../controllers/view/message-scroll-controller";
+import type { ChatMessageScrollIntentController } from "../controllers/view/message-scroll-intent-controller";
 import type { ChatAction } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
@@ -31,7 +31,7 @@ export interface ChatViewEffectHandlersOptions {
   composerCommands: {
     setText: (text: string) => void;
   };
-  messageScroll: ChatMessageScrollController;
+  messageScrollIntent: ChatMessageScrollIntentController;
   scheduleRender: (options?: ChatViewRenderScheduleOptions) => void;
   notifyActiveThreadIdentityChanged: () => void;
   refreshTabHeader: () => void;
@@ -70,17 +70,17 @@ export function createChatViewEffectHandlers(options: ChatViewEffectHandlersOpti
     },
     scroll: {
       forceBottom: () => {
-        options.messageScroll.forceBottom();
+        options.messageScrollIntent.forceBottom();
         options.renderCommands.forceMessagesToBottom();
       },
       correctAfterLayoutChange: () => {
         options.renderCommands.correctMessagesAfterLayoutChange();
       },
       preservePosition: () => {
-        options.messageScroll.preservePosition();
+        options.messageScrollIntent.preservePosition();
       },
       bottomOnFocus: () => {
-        options.messageScroll.scrollToBottomOnFocus();
+        options.messageScrollIntent.scrollToBottomOnFocus();
       },
     },
     status: {

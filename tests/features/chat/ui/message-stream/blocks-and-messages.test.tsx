@@ -79,11 +79,11 @@ describe("message stream rendering and message actions", () => {
       }),
     );
 
-    expect([...parent.children].map((element) => element.getAttribute("data-codex-panel-block-key"))).toEqual([
-      "item:u1",
-      "activity:turn-t1-activity",
-      "item:a1",
-    ]);
+    expect(
+      [...parent.querySelectorAll<HTMLElement>("[data-codex-panel-block-key]")].map((element) =>
+        element.getAttribute("data-codex-panel-block-key"),
+      ),
+    ).toEqual(["item:u1", "activity:turn-t1-activity", "item:a1"]);
     const activitySummary = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="activity:turn-t1-activity"] summary');
     expect(activitySummary?.textContent).toBe("Work details: hook");
     expect(activitySummary?.tabIndex).toBe(-1);

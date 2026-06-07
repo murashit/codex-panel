@@ -13,7 +13,16 @@
   margin-bottom: var(--codex-panel-section-gap);
 }
 
+.codex-panel__message-virtualizer {
+  position: relative;
+  width: 100%;
+}
+
 .codex-panel__message-block {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
   display: flow-root;
 }
 

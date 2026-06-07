@@ -18,6 +18,8 @@ import {
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 
+const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
+
 installObsidianDomShims();
 
 describe("ChatMessageRenderer scroll pinning", () => {
@@ -140,7 +142,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const renderer = chatMessageRenderer(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
-    Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
     Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
     messages.scrollTop = 920;
 
@@ -149,7 +151,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     renderer.render(messages);
     await settleMessageRender(messages);
 
-    expect(messages.scrollTop).toBe(1000);
+    expect(messages.scrollTop).toBe(0);
     expect(scrollIntoView).not.toHaveBeenCalled();
     expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
@@ -172,7 +174,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const renderer = chatMessageRenderer(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
-    Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
     Object.defineProperty(messages, "clientHeight", { value: 160, configurable: true });
     messages.scrollTop = 1000;
     renderer.render(messages);
@@ -183,7 +185,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     renderer.forceMessagesToBottom();
 
-    expect(messages.scrollTop).toBe(1000);
+    expect(messages.scrollTop).toBe(0);
     expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
 
@@ -208,7 +210,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     let scrollTop = 0;
     let layoutSettled = false;
     Object.defineProperties(messages, {
-      scrollHeight: { value: 1000, configurable: true },
+      scrollHeight: { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true },
       clientHeight: {
         get: () => (layoutSettled ? 100 : 160),
         configurable: true,
@@ -216,7 +218,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
       scrollTop: {
         get: () => scrollTop,
         set: (value: number) => {
-          scrollTop = Math.min(value, 1000 - messages.clientHeight);
+          scrollTop = Math.min(value, Math.max(0, ESTIMATED_MESSAGE_BLOCK_HEIGHT - messages.clientHeight));
         },
         configurable: true,
       },
@@ -224,15 +226,15 @@ describe("ChatMessageRenderer scroll pinning", () => {
     messages.scrollTop = 1000;
     renderer.render(messages);
     await settleMessageRender(messages);
-    expect(messages.scrollTop).toBe(840);
+    expect(messages.scrollTop).toBe(0);
 
     renderer.forceMessagesToBottom();
-    expect(messages.scrollTop).toBe(840);
+    expect(messages.scrollTop).toBe(0);
 
     layoutSettled = true;
     await settleMessageRender(messages);
 
-    expect(messages.scrollTop).toBe(900);
+    expect(messages.scrollTop).toBe(0);
     expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
 

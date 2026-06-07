@@ -28,7 +28,7 @@ import {
   ChatViewDeferredTasks,
   type ChatViewRenderScheduleOptions,
 } from "./panel/lifecycle";
-import { ChatMessageScrollController } from "./controllers/view/message-scroll-controller";
+import { ChatMessageScrollIntentController } from "./controllers/view/message-scroll-intent-controller";
 import type { ChatViewEffects } from "./panel/effects";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/controllers";
 import { createPanelUiStatePort } from "./controllers/state-ports";
@@ -46,7 +46,7 @@ export class CodexChatView extends ItemView {
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly effects: ChatViewEffects;
-  private readonly messageScroll: ChatMessageScrollController;
+  private readonly messageScrollIntent: ChatMessageScrollIntentController;
   private readonly slotRenderers: ChatViewSlotRenderers;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
@@ -62,7 +62,7 @@ export class CodexChatView extends ItemView {
     this.resumeWork = new ChatResumeWorkTracker(() => {
       this.controllers.thread.history.invalidate();
     });
-    this.messageScroll = new ChatMessageScrollController({
+    this.messageScrollIntent = new ChatMessageScrollIntentController({
       state: createPanelUiStatePort(this.chatState),
       render: () => {
         this.controllers.render.controller.render();
@@ -104,7 +104,7 @@ export class CodexChatView extends ItemView {
         deferredTasks: this.deferredTasks,
         resumeWork: this.resumeWork,
         connectionWork: this.connectionWork,
-        messageScroll: this.messageScroll,
+        messageScrollIntent: this.messageScrollIntent,
         opened: {
           get: () => this.opened,
           set: (opened) => {
@@ -292,7 +292,7 @@ export class CodexChatView extends ItemView {
           this.controllers.composer.controller.setDraft(text, { focus: true, renderIfDetached: true });
         },
       },
-      messageScroll: this.messageScroll,
+      messageScrollIntent: this.messageScrollIntent,
       scheduleRender: (options) => {
         this.scheduleRender(options);
       },
@@ -416,7 +416,7 @@ export class CodexChatView extends ItemView {
     if (threadId && this.isRestoredThreadPending(threadId)) {
       await this.ensureRestoredThreadLoaded();
     }
-    this.messageScroll.scrollToBottomOnFocus();
+    this.messageScrollIntent.scrollToBottomOnFocus();
     this.focusComposer();
   }
 
@@ -454,7 +454,7 @@ export class CodexChatView extends ItemView {
     this.controllers.thread.identity.clearActiveThreadContext();
     this.chatState.dispatch({ type: "ui/panel-set", panel: null });
     this.effects.status.set("New chat.");
-    this.messageScroll.forceBottom();
+    this.messageScrollIntent.forceBottom();
     this.controllers.render.controller.render();
     this.focusComposer();
   }

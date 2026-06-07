@@ -3,7 +3,7 @@ import type { App, Component, EventRef, WorkspaceLeaf } from "obsidian";
 import type { AppServerClient } from "../../../app-server/client";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import type { RuntimeSnapshot } from "../../../runtime/state";
-import type { ChatMessageScrollController } from "../controllers/view/message-scroll-controller";
+import type { ChatMessageScrollIntentController } from "../controllers/view/message-scroll-intent-controller";
 import type { ChatState, ChatStateStore } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
 import type { DisplayDetailSection } from "../display/types";
@@ -48,7 +48,7 @@ interface ChatViewLifecyclePort {
   deferredTasks: ChatViewDeferredTasks;
   resumeWork: ChatResumeWorkTracker;
   connectionWork: ChatConnectionWorkTracker;
-  messageScroll: ChatMessageScrollController;
+  messageScrollIntent: ChatMessageScrollIntentController;
   getOpened: () => boolean;
   setOpened: (opened: boolean) => void;
   getClosing: () => boolean;
@@ -134,7 +134,7 @@ export interface ChatViewControllerPortsOptions {
     deferredTasks: ChatViewDeferredTasks;
     resumeWork: ChatResumeWorkTracker;
     connectionWork: ChatConnectionWorkTracker;
-    messageScroll: ChatMessageScrollController;
+    messageScrollIntent: ChatMessageScrollIntentController;
     opened: {
       get: () => boolean;
       set: (opened: boolean) => void;
@@ -186,7 +186,7 @@ function createControllerLifecyclePort(options: ChatViewControllerPortsOptions["
     deferredTasks: options.deferredTasks,
     resumeWork: options.resumeWork,
     connectionWork: options.connectionWork,
-    messageScroll: options.messageScroll,
+    messageScrollIntent: options.messageScrollIntent,
     getOpened: options.opened.get,
     setOpened: options.opened.set,
     getClosing: options.closing.get,

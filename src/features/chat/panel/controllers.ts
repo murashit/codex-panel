@@ -286,7 +286,7 @@ function createSubmissionControllerGroup(
 ) {
   const { app, owner, plugin, state, stateStore, viewId, render, runtime, thread, effects, lifecycle, currentClient, submissionState } =
     context;
-  const { messageScroll } = lifecycle;
+  const { messageScrollIntent } = lifecycle;
 
   const composerController = new ChatComposerController({
     app,
@@ -414,7 +414,7 @@ function createSubmissionControllerGroup(
       vaultPath: plugin.vaultPath,
     },
     scroll: {
-      consumeIntent: () => messageScroll.consumeIntent(),
+      consumeIntent: () => messageScrollIntent.consumeIntent(),
     },
     history: {
       loadOlderTurns: () => void refs.history.loadOlder(),

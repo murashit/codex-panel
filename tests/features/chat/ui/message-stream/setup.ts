@@ -6,9 +6,21 @@ import { beforeEach } from "vitest";
 installObsidianDomShims();
 
 beforeEach(() => {
+  let nextAnimationFrameId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
   window.requestAnimationFrame = (callback) => {
-    callback(0);
-    return 0;
+    const id = nextAnimationFrameId;
+    nextAnimationFrameId += 1;
+    callbacks.set(id, callback);
+    queueMicrotask(() => {
+      const scheduled = callbacks.get(id);
+      if (!scheduled) return;
+      callbacks.delete(id);
+      scheduled(0);
+    });
+    return id;
   };
-  window.cancelAnimationFrame = () => undefined;
+  window.cancelAnimationFrame = (id) => {
+    callbacks.delete(id);
+  };
 });
