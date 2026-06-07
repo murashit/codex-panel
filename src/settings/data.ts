@@ -17,7 +17,7 @@ export interface SettingsDataLoad {
   archivedThreads: SettledSettingsData<Thread[]>;
 }
 
-export type SettledSettingsData<T> =
+type SettledSettingsData<T> =
   | {
       ok: true;
       data: T;

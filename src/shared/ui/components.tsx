@@ -2,12 +2,12 @@ import { setIcon } from "obsidian";
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-export interface ObsidianIconProps {
+interface ObsidianIconProps {
   icon: string;
   className?: string;
 }
 
-export function ObsidianIcon({ icon, className }: ObsidianIconProps): UiNode {
+function ObsidianIcon({ icon, className }: ObsidianIconProps): UiNode {
   const ref = useRef<HTMLSpanElement | null>(null);
   useLayoutEffect(() => {
     const element = ref.current;

@@ -29,7 +29,7 @@ export interface RateLimitSummary {
   rows: RateLimitSummaryRow[];
 }
 
-export interface RateLimitSummaryRow {
+interface RateLimitSummaryRow {
   label: string;
   value: string;
   resetLabel: string | null;

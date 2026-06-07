@@ -3,7 +3,7 @@ import { CLIENT_VERSION } from "../../constants";
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { AppServerDiagnostics, CapabilityProbeResult, McpServerDiagnostic } from "../../app-server/compatibility";
 
-export interface DiagnosticRow {
+interface DiagnosticRow {
   label: string;
   value: string;
   level?: "normal" | "warning" | "error";

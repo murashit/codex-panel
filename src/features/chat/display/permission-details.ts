@@ -35,7 +35,7 @@ export function addOptional(rows: DetailRow[], key: string, value: unknown): voi
   rows.push({ key, value: stringValue(value) });
 }
 
-export function stringValue(value: unknown, fallback = ""): string {
+function stringValue(value: unknown, fallback = ""): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
   if (Array.isArray(value) && value.every((item) => typeof item === "string" || typeof item === "number" || typeof item === "boolean")) {

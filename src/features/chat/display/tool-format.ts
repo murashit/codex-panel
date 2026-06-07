@@ -29,7 +29,7 @@ export function bodyDetail(title: string, body: string | null | undefined): Disp
   return body ? [{ title, body }] : [];
 }
 
-export function jsonDetail(title: string, value: unknown): DisplayDetailSection[] {
+function jsonDetail(title: string, value: unknown): DisplayDetailSection[] {
   return value === null || value === undefined ? [] : [{ title, body: jsonPreview(value) }];
 }
 

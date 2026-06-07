@@ -25,7 +25,7 @@ export interface ChatViewControllerPorts {
   effects: ChatViewEffects;
 }
 
-export interface ChatViewObsidianPort {
+interface ChatViewObsidianPort {
   app: App;
   owner: Component;
   viewId: string;
@@ -36,17 +36,17 @@ export interface ChatViewObsidianPort {
   archiveAdapter: () => ArchiveExportAdapter;
 }
 
-export interface ChatViewStatePort {
+interface ChatViewStatePort {
   stateStore: ChatStateStore;
   getState: () => ChatState;
 }
 
-export interface ChatViewClientPort {
+interface ChatViewClientPort {
   getClient: () => AppServerClient | null;
   setClient: (client: AppServerClient | null) => void;
 }
 
-export interface ChatViewLifecyclePort {
+interface ChatViewLifecyclePort {
   deferredTasks: ChatViewDeferredTasks;
   resumeWork: ChatResumeWorkTracker;
   connectionWork: ChatConnectionWorkTracker;
@@ -57,7 +57,7 @@ export interface ChatViewLifecyclePort {
   setClosing: (closing: boolean) => void;
 }
 
-export interface ChatViewRenderPort {
+interface ChatViewRenderPort {
   panelRoot: () => HTMLElement | null;
   renderToolbar: (toolbar: HTMLElement) => void;
   renderGoal: (goal: HTMLElement) => void;
@@ -70,7 +70,7 @@ export interface ChatViewRenderPort {
   closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
 }
 
-export interface ChatViewRuntimePort {
+interface ChatViewRuntimePort {
   runtimeSnapshot: () => RuntimeSnapshot;
   collaborationModeLabel: () => string;
   connectionDiagnosticDetails: () => DisplayDetailSection[];
@@ -80,7 +80,7 @@ export interface ChatViewRuntimePort {
   statusSummaryLines: () => string[];
 }
 
-export interface ChatViewThreadPort {
+interface ChatViewThreadPort {
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startNewThread: () => Promise<void>;
   selectThread: (threadId: string) => Promise<void>;

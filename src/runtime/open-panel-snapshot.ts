@@ -1,4 +1,4 @@
-export type OpenCodexPanelTurnLifecycle = { kind: "idle" } | { kind: "starting" } | { kind: "running"; turnId: string };
+type OpenCodexPanelTurnLifecycle = { kind: "idle" } | { kind: "starting" } | { kind: "running"; turnId: string };
 
 export interface OpenCodexPanelSnapshot {
   viewId: string;

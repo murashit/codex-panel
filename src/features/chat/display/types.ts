@@ -15,12 +15,11 @@ export type DisplayKind =
   | "approvalResult"
   | "userInputResult"
   | "reviewResult";
-export type DisplayRole = "user" | "assistant" | "system" | "tool";
+type DisplayRole = "user" | "assistant" | "system" | "tool";
 export type ExecutionState = "running" | "completed" | "failed" | null;
-export type MessageKind = "user" | "assistantResponse" | "proposedPlan";
-export type MessageState = "streaming" | "completed";
+type MessageState = "streaming" | "completed";
 
-export interface DisplayBase {
+interface DisplayBase {
   id: string;
   kind: DisplayKind;
   role: DisplayRole;
@@ -53,19 +52,19 @@ interface MessageDisplayBase extends DisplayBase {
   autoReviewSummaries?: string[];
 }
 
-export interface UserMessageDisplayItem extends MessageDisplayBase {
+interface UserMessageDisplayItem extends MessageDisplayBase {
   messageKind: "user";
   role: "user";
   messageState?: never;
 }
 
-export interface AssistantResponseMessageDisplayItem extends MessageDisplayBase {
+interface AssistantResponseMessageDisplayItem extends MessageDisplayBase {
   messageKind: "assistantResponse";
   role: "assistant";
   messageState: MessageState;
 }
 
-export interface ProposedPlanMessageDisplayItem extends MessageDisplayBase {
+interface ProposedPlanMessageDisplayItem extends MessageDisplayBase {
   messageKind: "proposedPlan";
   role: "assistant";
   messageState: MessageState;
@@ -80,11 +79,11 @@ export interface DisplayFileMention {
   path: string;
 }
 
-export interface DisplayTurnDiff {
+interface DisplayTurnDiff {
   diff: string;
 }
 
-export interface SystemMessageDisplayItem extends DisplayBase {
+interface SystemMessageDisplayItem extends DisplayBase {
   kind: "system";
   role: "system";
   details?: DisplayDetailSection[];
@@ -97,7 +96,7 @@ export interface GoalDisplayItem extends DisplayBase {
   details?: DisplayDetailSection[];
 }
 
-export interface UserInputResultDisplayItem extends DisplayBase {
+interface UserInputResultDisplayItem extends DisplayBase {
   kind: "userInputResult";
   role: "tool";
   details?: DisplayDetailSection[];
@@ -168,7 +167,7 @@ export interface ContextCompactionDisplayItem extends DisplayBase {
   role: "tool";
 }
 
-export interface TaskProgressStep {
+interface TaskProgressStep {
   step: string;
   status: "pending" | "inProgress" | "completed";
 }

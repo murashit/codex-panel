@@ -24,8 +24,8 @@ export interface MessageScrollControllerOptions {
   setMessagesPinnedToBottom: (pinned: boolean) => void;
 }
 
-export const MESSAGE_BOTTOM_THRESHOLD = 4;
-export const MESSAGE_BLOCK_KEY_ATTRIBUTE = "data-codex-panel-block-key";
+const MESSAGE_BOTTOM_THRESHOLD = 4;
+const MESSAGE_BLOCK_KEY_ATTRIBUTE = "data-codex-panel-block-key";
 
 export function isNearScrollBottom(metrics: ScrollMetrics, threshold = MESSAGE_BOTTOM_THRESHOLD): boolean {
   return metrics.scrollHeight - metrics.scrollTop - metrics.clientHeight < threshold;

@@ -1,5 +1,5 @@
-export type ComposerBoundaryScrollDirection = -1 | 1;
-export type ComposerBoundaryScrollAmount = "text-lines" | "page";
+type ComposerBoundaryScrollDirection = -1 | 1;
+type ComposerBoundaryScrollAmount = "text-lines" | "page";
 
 export interface ComposerBoundaryScrollAction {
   direction: ComposerBoundaryScrollDirection;

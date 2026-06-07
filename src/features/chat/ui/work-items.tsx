@@ -29,7 +29,7 @@ export interface WorkItemContext {
   onDetailsToggle?: (key: string, open: boolean) => void;
 }
 
-export function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">): string | null {
+function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">): string | null {
   return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 

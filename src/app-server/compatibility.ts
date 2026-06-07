@@ -13,7 +13,7 @@ export const CAPABILITY_PROBE_METHODS = [
 ] as const;
 
 export type CapabilityProbeMethod = (typeof CAPABILITY_PROBE_METHODS)[number];
-export type CapabilityProbeStatus = "unknown" | "ok" | "failed";
+type CapabilityProbeStatus = "unknown" | "ok" | "failed";
 
 export interface CapabilityProbeResult {
   method: CapabilityProbeMethod;
@@ -46,7 +46,7 @@ export function createAppServerDiagnostics(): AppServerDiagnostics {
   };
 }
 
-export function createCapabilityProbeResult(method: CapabilityProbeMethod): CapabilityProbeResult {
+function createCapabilityProbeResult(method: CapabilityProbeMethod): CapabilityProbeResult {
   return {
     method,
     status: "unknown",

@@ -541,7 +541,7 @@ function webSearchDetails(item: WebSearchItem): DisplayDetailSection[] {
   return metaDetail("web search", rows);
 }
 
-export function commandDisplayItem(item: CommandExecutionItem, turnId?: string): DisplayItem {
+function commandDisplayItem(item: CommandExecutionItem, turnId?: string): DisplayItem {
   const exitCode = typeof item.exitCode === "number" ? item.exitCode : undefined;
   const durationMs = typeof item.durationMs === "number" ? item.durationMs : undefined;
   const target = commandTargetLabel(item);
@@ -567,7 +567,7 @@ export function commandDisplayItem(item: CommandExecutionItem, turnId?: string):
   };
 }
 
-export function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): DisplayItem {
+function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): DisplayItem {
   const changes = normalizeFileChanges(item.changes);
   const qualifier = statusQualifier(item.status, failedStatusLabel(item.status));
   return {
@@ -595,7 +595,7 @@ export function shouldSuppressLifecycleItem(item: ThreadItem): boolean {
   return item.type === "agentMessage" || item.type === "userMessage";
 }
 
-export function pathRelativeToWorkspace(path: string, workspaceRoot?: string | null): string {
+function pathRelativeToWorkspace(path: string, workspaceRoot?: string | null): string {
   return pathRelativeToRoot(path, workspaceRoot);
 }
 

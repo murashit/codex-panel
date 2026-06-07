@@ -1,7 +1,7 @@
 import type { EditorPosition } from "obsidian";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 
-export type SelectionRewriteStatus = SelectionRewriteState["status"];
+type SelectionRewriteStatus = SelectionRewriteState["status"];
 const TERMINAL_SELECTION_REWRITE_STATUSES = new Set<SelectionRewriteStatus>(["applied", "cancelled"]);
 
 interface SelectionRewriteBaseState {
@@ -54,13 +54,6 @@ export type SelectionRewriteState = SelectionRewriteBaseState &
         debugText: string | null;
       }
   );
-
-export interface SelectionRewriteGeneratingState extends SelectionRewriteBaseState {
-  status: "generating";
-  streamText: string;
-  replacementText: null;
-  debugText: null;
-}
 
 export interface SelectionRewriteRuntimeSettings {
   rewriteSelectionModel: string | null;

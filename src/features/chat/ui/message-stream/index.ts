@@ -4,7 +4,7 @@ export {
   type ChatMessageStreamContextPort,
   type ChatMessageStreamRequestPort,
 } from "./context-builder";
-export { createMessageStreamContextPort, type MessageStreamContextPortOptions } from "./context-port";
-export { messageStreamActiveTurnId, messageStreamBlocks } from "./blocks";
+export { createMessageStreamContextPort } from "./context-port";
+export { messageStreamBlocks } from "./blocks";
 export { renderMessageStreamBlocks } from "./render";
-export type { MessageStreamBlock, MessageStreamContext } from "./context";
+export type { MessageStreamBlock } from "./context";

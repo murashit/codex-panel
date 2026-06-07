@@ -37,7 +37,7 @@ export interface MessageMetadataContext extends MessageDetailStateContext {
   openTurnDiff?: (state: ChatTurnDiffViewState) => void;
 }
 
-export interface MessageStreamLayoutContext {
+interface MessageStreamLayoutContext {
   activeThreadId: string | null;
   turnLifecycle: ChatTurnLifecycleState;
   historyCursor: string | null;

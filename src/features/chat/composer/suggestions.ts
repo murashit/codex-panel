@@ -33,7 +33,7 @@ export interface NoteCandidate {
   recentIndex: number | null;
 }
 
-export interface NoteHeadingCandidate {
+interface NoteHeadingCandidate {
   heading: string;
   linkHeading: string;
   level: number;
@@ -109,7 +109,7 @@ export function composerSuggestionSignature(value: string, cursor: number): stri
   return `${value}\u0000${String(cursor)}`;
 }
 
-export function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandidate[]): ComposerSuggestion[] | null {
+function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandidate[]): ComposerSuggestion[] | null {
   const start = beforeCursor.lastIndexOf("[[");
   if (start === -1) return null;
 
@@ -229,7 +229,7 @@ function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCand
   return b.mtime - a.mtime || a.basename.localeCompare(b.basename) || a.path.localeCompare(b.path);
 }
 
-export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
+function activeSlashCommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
   const match = /^(\/[A-Za-z-]*)$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
@@ -249,7 +249,7 @@ export function activeSlashCommandSuggestions(beforeCursor: string): ComposerSug
     }));
 }
 
-export function activeSlashSubcommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
+function activeSlashSubcommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
   const match = /^\/([A-Za-z-]+)\s+([A-Za-z-]{0,120})$/.exec(beforeCursor);
   if (!match) return null;
 
@@ -275,7 +275,7 @@ export function activeSlashSubcommandSuggestions(beforeCursor: string): Composer
     }));
 }
 
-export function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
+function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/(?:resume|refer|archive|rename)\s+([^\s\n]{0,120})$/);
   if (!completion) return null;
 
@@ -301,7 +301,7 @@ export function activeThreadCommandSuggestions(beforeCursor: string, threads: re
     }));
 }
 
-export function activeModelOverrideSuggestions(beforeCursor: string, models: readonly Model[]): ComposerSuggestion[] | null {
+function activeModelOverrideSuggestions(beforeCursor: string, models: readonly Model[]): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/model\s+([^\n]{0,120})$/);
   if (!completion) return null;
 
@@ -340,7 +340,7 @@ export function activeModelOverrideSuggestions(beforeCursor: string, models: rea
     .slice(0, 8);
 }
 
-export function activeReasoningEffortSuggestions(
+function activeReasoningEffortSuggestions(
   beforeCursor: string,
   models: readonly Model[],
   currentModel: string | null,
@@ -384,7 +384,7 @@ function activeCommandArgumentCompletionQuery(beforeCursor: string, pattern: Reg
   return { query, start: beforeCursor.length - rawQuery.length };
 }
 
-export function activeSkillSuggestions(beforeCursor: string, skills: readonly SkillMetadata[]): ComposerSuggestion[] | null {
+function activeSkillSuggestions(beforeCursor: string, skills: readonly SkillMetadata[]): ComposerSuggestion[] | null {
   const match = /(^|[\s([{])\$([^\s\])}]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 

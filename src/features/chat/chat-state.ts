@@ -46,7 +46,7 @@ export type ChatTurnLifecycleEvent =
   | { type: "start-failed" }
   | { type: "pending-start-hook-upserted"; pendingTurnStart: PendingTurnStart | null };
 
-export interface ChatConnectionState {
+interface ChatConnectionState {
   status: string;
   effectiveConfig: ConfigReadResponse | null;
   initializeResponse: InitializeResponse | null;
@@ -56,7 +56,7 @@ export interface ChatConnectionState {
   availableSkills: readonly SkillMetadata[];
 }
 
-export interface ChatThreadListState {
+interface ChatThreadListState {
   listedThreads: readonly Thread[];
   threadsLoaded: boolean;
 }
@@ -96,7 +96,7 @@ export interface ChatTranscriptState {
   reportedLogs: ReadonlySet<string>;
 }
 
-export interface ChatRequestState {
+interface ChatRequestState {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
   userInputDrafts: ReadonlyMap<string, string>;
@@ -109,7 +109,7 @@ export interface ChatComposerState {
   suggestionsDismissedSignature: string | null;
 }
 
-export interface ChatUiState {
+interface ChatUiState {
   messagesPinnedToBottom: boolean;
   openDetails: ReadonlySet<string>;
 }
@@ -770,7 +770,7 @@ function reduceUiSlice(state: ChatUiState, action: ChatSliceAction): ChatUiState
   }
 }
 
-export function clearActiveTurnState(state: ChatState): ChatState {
+function clearActiveTurnState(state: ChatState): ChatState {
   return patchChatState(state, {
     turn: {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
@@ -779,7 +779,7 @@ export function clearActiveTurnState(state: ChatState): ChatState {
   });
 }
 
-export function clearActiveThreadState(state: ChatState): ChatState {
+function clearActiveThreadState(state: ChatState): ChatState {
   return clearActiveTurnState(
     patchChatState(state, {
       activeThread: initialActiveThreadState(),
@@ -797,7 +797,7 @@ export function clearActiveThreadState(state: ChatState): ChatState {
   );
 }
 
-export function clearConnectionScopedState(state: ChatState): ChatState {
+function clearConnectionScopedState(state: ChatState): ChatState {
   return patchChatState(clearActiveTurnState(state), {
     activeThread: initialActiveThreadState(),
     runtime: {
@@ -916,7 +916,7 @@ function initialUiState(): ChatUiState {
   };
 }
 
-export function cloneChatState(state: ChatState): ChatState {
+function cloneChatState(state: ChatState): ChatState {
   return {
     connection: {
       ...state.connection,

@@ -5,7 +5,7 @@ import type { GoalDisplayItem } from "./display/types";
 
 const GOAL_SUMMARY_LIMIT = 140;
 
-export function goalChangeMessage(previous: ThreadGoal | null, next: ThreadGoal | null): string | null {
+function goalChangeMessage(previous: ThreadGoal | null, next: ThreadGoal | null): string | null {
   if (!previous && next) return "Goal set.";
   if (previous && !next) return "Goal cleared.";
   if (!previous || !next) return null;

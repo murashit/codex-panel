@@ -41,7 +41,7 @@ export function archivedThreadDisplayTitle(thread: Thread): string {
   return truncateTitle(title, MAX_THREAD_DISPLAY_TITLE_LENGTH);
 }
 
-export function fullThreadTitle(thread: Thread): string {
+function fullThreadTitle(thread: Thread): string {
   return normalizeTitle(getThreadTitle(thread));
 }
 

@@ -8,7 +8,7 @@ import type { PermissionsRequestApprovalResponse } from "../../../../generated/a
 import { addOptional, nonEmptyString, permissionRows } from "../../display/permission-details";
 
 export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel" | CommandApprovalDecisionAction;
-export interface CommandApprovalDecisionAction {
+interface CommandApprovalDecisionAction {
   kind: "command-decision";
   decision: CommandExecutionApprovalDecision;
 }
@@ -17,7 +17,7 @@ export interface ApprovalActionOption {
   action: ApprovalAction;
   className: string;
 }
-export type ApprovalRequest = Extract<
+type ApprovalRequest = Extract<
   ServerRequest,
   {
     method: "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" | "item/permissions/requestApproval";
@@ -59,7 +59,7 @@ export function toPendingApproval(request: ServerRequest): PendingApproval | nul
   }
 }
 
-export function isApprovalRequest(request: ServerRequest): request is ApprovalRequest {
+function isApprovalRequest(request: ServerRequest): request is ApprovalRequest {
   return (
     request.method === "item/commandExecution/requestApproval" ||
     request.method === "item/fileChange/requestApproval" ||

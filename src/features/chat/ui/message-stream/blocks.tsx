@@ -10,7 +10,7 @@ import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type Wor
 import type { MessageStreamBlock, MessageStreamContext, RenderableTextItem } from "./context";
 import { messageItemNode } from "./message-item";
 
-export function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLifecycle">): string | null {
+function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLifecycle">): string | null {
   return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 

@@ -104,11 +104,6 @@ export function collabAgentStateExecutionState(status: string): ExecutionState {
   return null;
 }
 
-export function toolStatusExecutionState(status: string | undefined): ExecutionState {
-  if (!status) return null;
-  return standardToolCallExecutionState(status);
-}
-
 function standardToolCallExecutionState(status: string): ExecutionState {
   if (oneOf(status, STANDARD_TOOL_RUNNING)) return "running";
   if (oneOf(status, STANDARD_TOOL_COMPLETED)) return "completed";
@@ -118,10 +113,4 @@ function standardToolCallExecutionState(status: string): ExecutionState {
 
 function oneOf<T extends string>(value: string, values: readonly T[]): value is T {
   return (values as readonly string[]).includes(value);
-}
-
-export function executionStateLabel(state: Exclude<ExecutionState, null>): string {
-  if (state === "running") return "Running";
-  if (state === "failed") return "Failed";
-  return "Done";
 }

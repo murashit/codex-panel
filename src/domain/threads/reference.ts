@@ -14,7 +14,7 @@ export interface ReferencedThreadDisplay {
   turnLimit: number;
 }
 
-export interface ReferencedThreadEnvelope {
+interface ReferencedThreadEnvelope {
   version: 1;
   reference: ReferencedThreadDisplay;
   visibleText: string;
@@ -58,11 +58,11 @@ export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTu
   ].join("\n");
 }
 
-export function referencedThreadStatus(thread: Thread, count: number): string {
+function referencedThreadStatus(thread: Thread, count: number): string {
   return `Referencing ${shortThreadId(thread.id)} (${String(count)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`;
 }
 
-export function referencedThreadDisplay(thread: Thread, count: number): ReferencedThreadDisplay {
+function referencedThreadDisplay(thread: Thread, count: number): ReferencedThreadDisplay {
   return {
     threadId: thread.id,
     title: getThreadTitle(thread),

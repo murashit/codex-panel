@@ -16,7 +16,7 @@ export interface ThreadNamingContext {
   assistantResponse: string;
 }
 
-export interface ThreadNamingContextPage {
+interface ThreadNamingContextPage {
   data: Turn[];
   nextCursor: string | null;
 }

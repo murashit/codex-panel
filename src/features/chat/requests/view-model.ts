@@ -9,7 +9,6 @@ import {
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import { definedProp } from "../../../utils";
 import type { PendingUserInput } from "./user-input/model";
-import { userInputDraftKey, userInputOtherDraftKey } from "./user-input/drafts";
 
 export function pendingRequestsSignature(
   approvals: readonly PendingApproval[],
@@ -38,13 +37,6 @@ export function pendingRequestFocusSignature(approvals: readonly PendingApproval
     approvals: approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),
     inputs: inputs.map((input) => ({ id: input.requestId, method: input.method })),
   });
-}
-
-export function clearUserInputDrafts(drafts: Map<string, string>, input: PendingUserInput): void {
-  for (const question of input.params.questions) {
-    drafts.delete(userInputDraftKey(input.requestId, question.id));
-    drafts.delete(userInputOtherDraftKey(input.requestId, question.id));
-  }
 }
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): DisplayItem {

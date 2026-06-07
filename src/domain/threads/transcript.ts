@@ -2,7 +2,7 @@ import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import { inputToText } from "../../utils";
 
-export type TranscriptEntryKind = "user" | "assistant" | "plan";
+type TranscriptEntryKind = "user" | "assistant" | "plan";
 
 export interface TurnTranscriptEntry {
   kind: TranscriptEntryKind;

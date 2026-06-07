@@ -6,25 +6,25 @@ import type { ReferencedThreadDisplay } from "../../../../domain/threads/referen
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
 import type { SubmissionStatePort } from "../state-ports";
 
-export interface ComposerDraftPort {
+interface ComposerDraftPort {
   readonly trimmedDraft: string;
   setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean }): void;
 }
 
-export interface ComposerSlashCommandPort {
+interface ComposerSlashCommandPort {
   execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined>;
 }
 
-export interface ComposerTurnSubmissionPort {
+interface ComposerTurnSubmissionPort {
   sendTurnText(text: string, codexInputOverride?: UserInput[], referencedThread?: ReferencedThreadDisplay): Promise<void>;
 }
 
-export interface ComposerConnectionPort {
+interface ComposerConnectionPort {
   ensureConnected: () => Promise<void>;
   currentClient: () => AppServerClient | null;
 }
 
-export interface ComposerStatusPort {
+interface ComposerStatusPort {
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
 }

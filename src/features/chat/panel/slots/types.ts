@@ -5,7 +5,7 @@ import type { ChatState } from "../../chat-state";
 import type { ToolbarThreadRow } from "../../toolbar-model";
 import type { RestoredThreadTitleSnapshot } from "../model";
 
-export interface ChatViewToolbarActions {
+interface ChatViewToolbarActions {
   archiveConfirmId: () => string | null;
   renameState: (threadId: string) => ToolbarThreadRow["rename"];
   startNewThread: () => Promise<void>;
@@ -26,7 +26,7 @@ export interface ChatViewToolbarActions {
   autoNameDraft: (threadId: string) => Promise<void>;
 }
 
-export interface ChatViewGoalActions {
+interface ChatViewGoalActions {
   saveObjective: (objective: string, tokenBudget: number | null) => Promise<void>;
   setStatus: (threadId: string, status: "active" | "paused") => Promise<unknown>;
   clear: (threadId: string) => Promise<unknown>;

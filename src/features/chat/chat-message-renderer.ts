@@ -16,24 +16,24 @@ import { MarkdownMessageRenderer } from "./markdown-message-renderer";
 import { type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import { unmountUiRoot } from "../../shared/ui/ui-root";
 
-export interface ChatMessageRendererObsidianPort {
+interface ChatMessageRendererObsidianPort {
   app: App;
   owner: Component;
 }
 
-export interface ChatMessageRendererStatePort {
+interface ChatMessageRendererStatePort {
   store: ChatStateStore;
 }
 
-export interface ChatMessageRendererWorkspacePort {
+interface ChatMessageRendererWorkspacePort {
   vaultPath: string;
 }
 
-export interface ChatMessageRendererScrollPort {
+interface ChatMessageRendererScrollPort {
   consumeIntent: () => MessageScrollIntent;
 }
 
-export interface ChatMessageRendererHistoryPort {
+interface ChatMessageRendererHistoryPort {
   loadOlderTurns: () => void;
 }
 

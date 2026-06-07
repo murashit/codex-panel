@@ -4,12 +4,12 @@ import type { SubmissionStatePort } from "../state-ports";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 
-export interface PlanImplementationConnectionPort {
+interface PlanImplementationConnectionPort {
   currentClient(): AppServerClient | null;
   ensureConnected(): Promise<void>;
 }
 
-export interface PlanImplementationSubmissionPort {
+interface PlanImplementationSubmissionPort {
   sendTurnText(text: string): Promise<void>;
 }
 

@@ -414,7 +414,7 @@ function parseThreadAndNameArgs(args: string): { threadQuery: string; text: stri
   return text ? { threadQuery: parsed.threadQuery, text } : null;
 }
 
-export function resolveThreadArgument(args: string, threads: readonly Thread[]): ThreadResolution {
+function resolveThreadArgument(args: string, threads: readonly Thread[]): ThreadResolution {
   const query = args.trim();
   if (!query) {
     const thread = threads.at(0);

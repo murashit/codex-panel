@@ -6,7 +6,6 @@ import type { ServerRequest } from "../generated/app-server/ServerRequest";
 
 export type ClientRequestMethod = ClientRequest["method"];
 export type ClientRequestParams<M extends ClientRequestMethod> = Extract<ClientRequest, { method: M }>["params"];
-export type ClientRequestMessage<M extends ClientRequestMethod = ClientRequestMethod> = Extract<ClientRequest, { method: M }>;
 
 export interface RpcError {
   code?: number;

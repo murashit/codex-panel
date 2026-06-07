@@ -1,4 +1,4 @@
-export type SlashCommandArgsKind =
+type SlashCommandArgsKind =
   | "none"
   | "optionalThread"
   | "requiredThread"
@@ -8,11 +8,11 @@ export type SlashCommandArgsKind =
   | "goal"
   | "showOrSet";
 
-export type SlashCommandSubcommandArgsKind = "none" | "requiredMessage";
+type SlashCommandSubcommandArgsKind = "none" | "requiredMessage";
 
-export type SlashCommandSurface = "panelAction" | "threadSetting" | "diagnostic" | "composition";
+type SlashCommandSurface = "panelAction" | "threadSetting" | "diagnostic" | "composition";
 
-export const SLASH_COMMAND_SURFACE_LABELS: Record<SlashCommandSurface, string> = {
+const SLASH_COMMAND_SURFACE_LABELS: Record<SlashCommandSurface, string> = {
   panelAction: "Panel actions",
   threadSetting: "Thread settings",
   diagnostic: "Diagnostics",
@@ -189,10 +189,6 @@ export function slashCommandSubcommandDefinition(command: SlashCommandName, subc
 
 export function slashCommandHelpLines(): string[] {
   return SLASH_COMMANDS.map((item) => `${item.usage} - ${item.detail}`);
-}
-
-export function slashCommandHelpRows(): { key: string; value: string }[] {
-  return SLASH_COMMANDS.map((item) => ({ key: item.usage, value: item.detail }));
 }
 
 export function slashCommandHelpSections(): { title: string; rows: { key: string; value: string }[] }[] {

@@ -18,7 +18,6 @@ import {
 } from "../app-server/service-tier";
 import { defaultCollaborationMode, planCollaborationMode } from "./collaboration-mode";
 import { findModelByIdOrName, supportedEffortsForModel } from "./model";
-import { compactModelLabel, compactReasoningEffortLabel } from "./settings";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
@@ -131,12 +130,6 @@ export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRun
 export function supportedReasoningEfforts(snapshot: RuntimeSnapshot): ReasoningEffort[] {
   const model = currentModel(snapshot);
   return supportedEffortsForModel(findModelByIdOrName(snapshot.availableModels, model));
-}
-
-export function runtimeSummaryLabel(model: string | null, effort: ReasoningEffort | null): string {
-  const modelLabel = compactModelLabel(model);
-  if (!effort) return modelLabel;
-  return `${modelLabel} ${compactReasoningEffortLabel(effort)}`;
 }
 
 export function serviceTierLabel(

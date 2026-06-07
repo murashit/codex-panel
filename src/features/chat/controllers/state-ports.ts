@@ -21,7 +21,7 @@ export interface PanelUiStatePort {
   pinMessagesToBottom(): void;
 }
 
-export interface PendingRequestSnapshot {
+interface PendingRequestSnapshot {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
   userInputDrafts: ReadonlyMap<string, string>;
@@ -47,7 +47,7 @@ export interface ThreadLifecycleStatePort {
   applyRecoveredTokenUsage(threadId: string, tokenUsage: ThreadTokenUsage): boolean;
 }
 
-export interface SubmissionStateSnapshot {
+interface SubmissionStateSnapshot {
   activeThreadId: string | null;
   activeTurnId: string | null;
   busy: boolean;

@@ -5,7 +5,7 @@ import type { ToolRequestUserInputQuestion } from "../../../../generated/app-ser
 import type { ToolRequestUserInputResponse } from "../../../../generated/app-server/v2/ToolRequestUserInputResponse";
 import { userInputDraftKey } from "./drafts";
 
-export type UserInputRequest = Extract<ServerRequest, { method: "item/tool/requestUserInput" }>;
+type UserInputRequest = Extract<ServerRequest, { method: "item/tool/requestUserInput" }>;
 
 export interface PendingUserInput {
   requestId: RequestId;
