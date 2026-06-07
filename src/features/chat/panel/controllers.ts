@@ -132,17 +132,17 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
   connection.setHandlers({
     onNotification: (notification) => {
       controller.handleNotification(notification);
-      context.effects.liveState.refresh();
-      context.effects.render.schedule();
+      context.liveState.refresh();
+      context.render.schedule();
     },
     onServerRequest: (request) => {
       controller.handleServerRequest(request);
-      context.effects.liveState.refresh();
-      context.effects.render.now();
+      context.liveState.refresh();
+      context.render.now();
     },
     onLog: (message) => {
       controller.handleAppServerLog(message);
-      context.effects.render.now();
+      context.render.now();
     },
     onExit: () => {
       connectionController.handleExit();
@@ -215,7 +215,7 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
 }
 
 function createControllerContext(ports: ChatPanelContext) {
-  const { obsidian, plugin, state, client, lifecycle, render, runtime, thread, effects } = ports;
+  const { obsidian, plugin, state, client, lifecycle, render, runtime, thread, liveState, scroll, status, composer } = ports;
   const { app, owner, viewId } = obsidian;
   const { stateStore } = state;
 
@@ -229,7 +229,10 @@ function createControllerContext(ports: ChatPanelContext) {
     render,
     runtime,
     thread,
-    effects,
+    liveState,
+    scroll,
+    status,
+    composer,
     app,
     owner,
     viewId,
@@ -284,8 +287,24 @@ function createSubmissionControllerGroup(
     history: ThreadHistoryController;
   },
 ) {
-  const { app, owner, plugin, state, stateStore, viewId, render, runtime, thread, effects, lifecycle, currentClient, submissionState } =
-    context;
+  const {
+    app,
+    owner,
+    plugin,
+    state,
+    stateStore,
+    viewId,
+    render,
+    runtime,
+    thread,
+    liveState,
+    scroll,
+    status,
+    lifecycle,
+    currentClient,
+    submissionState,
+    client,
+  } = context;
   const { messageScrollIntent } = lifecycle;
 
   const composerController = new ChatComposerController({
@@ -302,18 +321,18 @@ function createSubmissionControllerGroup(
     togglePlan: () => void refs.runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
     toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
-    renderIfDetached: effects.render.now,
-    onDraftChange: effects.liveState.refresh,
+    renderIfDetached: render.now,
+    onDraftChange: liveState.refresh,
     onComposerResize: () => {
-      effects.scroll.correctAfterLayoutChange();
+      scroll.correctAfterLayoutChange();
     },
   });
   const pendingRequests = new PendingRequestController({
     state: createPendingRequestStatePort(stateStore),
     controller: refs.controller,
     composerHasFocus: () => composerController.hasFocus(),
-    refreshLiveState: effects.liveState.refresh,
-    render: effects.render.now,
+    refreshLiveState: liveState.refresh,
+    render: render.now,
   });
 
   const turnSubmission = new TurnSubmissionController({
@@ -327,8 +346,8 @@ function createSubmissionControllerGroup(
     },
     thread: {
       startThread: (preview) => refs.appServerThreads.startThread(preview),
-      notifyActiveThreadIdentityChanged: effects.thread.notifyIdentityChanged,
-      resetThreadTurnPresence: effects.thread.resetTurnPresence,
+      notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
+      resetThreadTurnPresence: thread.resetTurnPresence,
     },
     runtime: {
       applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
@@ -340,13 +359,13 @@ function createSubmissionControllerGroup(
       },
     },
     view: {
-      forceMessagesToBottom: effects.scroll.forceBottom,
-      render: effects.render.now,
-      scheduleRender: effects.render.schedule,
+      forceMessagesToBottom: scroll.forceBottom,
+      render: render.now,
+      scheduleRender: render.schedule,
     },
     status: {
-      setStatus: effects.status.set,
-      addSystemMessage: effects.status.addSystemMessage,
+      setStatus: status.set,
+      addSystemMessage: status.addSystemMessage,
     },
   });
   const slashCommands = new SlashCommandController({
@@ -381,9 +400,9 @@ function createSubmissionControllerGroup(
       clear: (threadId) => refs.goals.clear(threadId),
     },
     status: {
-      addSystemMessage: effects.status.addSystemMessage,
-      addStructuredSystemMessage: effects.status.addStructuredSystemMessage,
-      setStatus: effects.status.set,
+      addSystemMessage: status.addSystemMessage,
+      addStructuredSystemMessage: status.addStructuredSystemMessage,
+      setStatus: status.set,
       statusSummaryLines: runtime.statusSummaryLines,
       connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,
       mcpStatusLines: runtime.mcpStatusLines,
@@ -395,7 +414,7 @@ function createSubmissionControllerGroup(
     state: submissionState,
     connection: {
       currentClient,
-      ensureConnected: effects.client.ensureConnected,
+      ensureConnected: client.ensureConnected,
     },
     submission: {
       sendTurnText: (text) => turnSubmission.sendTurnText(text),
@@ -437,11 +456,11 @@ function createSubmissionControllerGroup(
     turnSubmission,
     connection: {
       currentClient,
-      ensureConnected: effects.client.ensureConnected,
+      ensureConnected: client.ensureConnected,
     },
     status: {
-      setStatus: effects.status.set,
-      addSystemMessage: effects.status.addSystemMessage,
+      setStatus: status.set,
+      addSystemMessage: status.addSystemMessage,
     },
   });
   composerController.setActionHandlers({
@@ -469,7 +488,7 @@ function createConnectionLifecycleControllerGroup(
     appServerMetadata: ChatAppServerMetadataController;
   },
 ) {
-  const { ports, obsidian, lifecycle, render, effects } = context;
+  const { ports, obsidian, lifecycle, render, liveState, scroll, client } = context;
   const { deferredTasks } = lifecycle;
 
   return {
@@ -478,7 +497,7 @@ function createConnectionLifecycleControllerGroup(
       opened: lifecycle.getOpened,
       closing: lifecycle.getClosing,
       connected: () => refs.connection.isConnected(),
-      ensureConnected: effects.client.ensureConnected,
+      ensureConnected: client.ensureConnected,
     }),
     openCloseController: new ChatViewOpenCloseController({
       setOpened: lifecycle.setOpened,
@@ -490,16 +509,16 @@ function createConnectionLifecycleControllerGroup(
       registerPointerDown: obsidian.registerPointerDown,
       registerActiveLeafChange: obsidian.registerActiveLeafChange,
       isOwnLeaf: obsidian.isOwnLeaf,
-      scrollMessagesToBottomOnFocus: effects.scroll.bottomOnFocus,
+      scrollMessagesToBottomOnFocus: scroll.bottomOnFocus,
       applyCachedSharedAppServerState: () => {
         applyCachedSharedAppServerState(ports, refs.appServerThreads, refs.appServerMetadata);
       },
-      render: effects.render.now,
-      scheduleDeferredAppServerWarmup: effects.lifecycle.scheduleDeferredAppServerWarmup,
-      scheduleDeferredRestoredThreadHydration: effects.lifecycle.scheduleDeferredRestoredThreadHydration,
+      render: render.now,
+      scheduleDeferredAppServerWarmup: lifecycle.scheduleDeferredAppServerWarmup,
+      scheduleDeferredRestoredThreadHydration: lifecycle.scheduleDeferredRestoredThreadHydration,
       closeToolbarPanelOnOutsidePointer: render.closeToolbarPanelOnOutsidePointer,
-      invalidateConnectionWork: effects.lifecycle.invalidateConnectionWork,
-      invalidateResumeWork: effects.lifecycle.invalidateResumeWork,
+      invalidateConnectionWork: lifecycle.invalidateConnectionWork,
+      invalidateResumeWork: lifecycle.invalidateResumeWork,
       clearDeferredTasks: () => {
         deferredTasks.clearAll();
       },
@@ -513,9 +532,9 @@ function createConnectionLifecycleControllerGroup(
       disconnect: () => {
         refs.connection.disconnect();
       },
-      clearClient: effects.client.clear,
-      refreshLiveState: effects.liveState.refresh,
-      deferRefreshLiveState: effects.liveState.deferRefresh,
+      clearClient: client.clear,
+      refreshLiveState: liveState.refresh,
+      deferRefreshLiveState: liveState.deferRefresh,
     }),
   };
 }
@@ -527,7 +546,7 @@ function createAppServerControllerGroup(
     goals: ChatThreadGoalController;
   },
 ) {
-  const { plugin, runtime, effects, stateStore } = context;
+  const { plugin, runtime, scroll, stateStore } = context;
   const appServerBaseHost = {
     stateStore,
     vaultPath: plugin.vaultPath,
@@ -549,7 +568,7 @@ function createAppServerControllerGroup(
   const appServerThreads = new ChatAppServerThreadController({
     ...appServerBaseHost,
     runtimeSnapshot: runtime.runtimeSnapshot,
-    forceMessagesToBottom: effects.scroll.forceBottom,
+    forceMessagesToBottom: scroll.forceBottom,
     publishThreadList: (threads) => {
       plugin.applyThreadListSnapshot(threads);
     },
@@ -570,7 +589,7 @@ function createInboundController(
     serverRequestResponder: ServerRequestResponder;
   },
 ) {
-  const { plugin, thread, effects, stateStore } = context;
+  const { plugin, thread, render, stateStore } = context;
 
   return new ChatInboundController(stateStore, {
     refreshThreads: () => {
@@ -588,7 +607,7 @@ function createInboundController(
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
     recordMcpStartupStatus: (name, status, message) => {
       refs.appServerDiagnostics.recordMcpStartupStatus(name, status, message);
-      effects.render.schedule();
+      render.schedule();
     },
     respondToServerRequest: (requestId, result) => refs.serverRequestResponder.respond(requestId, result),
     rejectServerRequest: (requestId, code, message) => refs.serverRequestResponder.reject(requestId, code, message),
@@ -603,7 +622,7 @@ function createConnectionControllerGroup(
     appServerDiagnostics: ChatAppServerDiagnosticsController;
   },
 ) {
-  const { plugin, client, thread, effects, lifecycle, connectionState } = context;
+  const { plugin, client, thread, status, liveState, render, lifecycle, connectionState } = context;
   const { connectionWork } = lifecycle;
 
   return {
@@ -619,18 +638,18 @@ function createConnectionControllerGroup(
         refreshPublishedCapabilityDiagnostics: () => refs.appServerDiagnostics.refreshPublishedCapabilityDiagnostics(),
       },
       setClient: client.setClient,
-      invalidateResumeWork: effects.lifecycle.invalidateResumeWork,
+      invalidateResumeWork: lifecycle.invalidateResumeWork,
       loadSharedThreadList: thread.loadSharedThreadList,
-      scheduleDeferredDiagnostics: effects.lifecycle.scheduleDeferredDiagnostics,
-      clearDeferredDiagnostics: effects.lifecycle.clearDeferredDiagnostics,
-      refreshTabHeader: effects.thread.refreshTabHeader,
-      resetThreadTurnPresence: effects.thread.resetTurnPresence,
-      setStatus: effects.status.set,
-      addSystemMessage: effects.status.addSystemMessage,
+      scheduleDeferredDiagnostics: lifecycle.scheduleDeferredDiagnostics,
+      clearDeferredDiagnostics: lifecycle.clearDeferredDiagnostics,
+      refreshTabHeader: thread.refreshTabHeader,
+      resetThreadTurnPresence: thread.resetTurnPresence,
+      setStatus: status.set,
+      addSystemMessage: status.addSystemMessage,
       configuredCommand: () => plugin.settings.codexPath,
-      refreshLiveState: effects.liveState.refresh,
-      render: effects.render.now,
-      scheduleRender: effects.render.schedule,
+      refreshLiveState: liveState.refresh,
+      render: render.now,
+      scheduleRender: render.schedule,
       notifyConnectionFailed: () => {
         new Notice("Codex app-server connection failed.");
       },
@@ -644,37 +663,54 @@ function createThreadToolbarControllerGroup(
     connection: ConnectionManager;
   },
 ) {
-  const { obsidian, plugin, runtime, thread, effects, lifecycle, stateStore, currentClient, connectionState, panelState, threadState } =
-    context;
+  const {
+    obsidian,
+    plugin,
+    state,
+    runtime,
+    thread,
+    status,
+    liveState,
+    scroll,
+    render,
+    client,
+    composer,
+    lifecycle,
+    stateStore,
+    currentClient,
+    connectionState,
+    panelState,
+    threadState,
+  } = context;
   const { deferredTasks, resumeWork } = lifecycle;
 
   const history = new ThreadHistoryController({
     stateStore,
     currentClient,
-    render: effects.render.now,
-    addSystemMessage: effects.status.addSystemMessage,
-    forceMessagesToBottom: effects.scroll.forceBottom,
-    keepCurrentScrollPosition: effects.scroll.preservePosition,
-    setThreadTurnPresence: effects.thread.resetTurnPresence,
+    render: render.now,
+    addSystemMessage: status.addSystemMessage,
+    forceMessagesToBottom: scroll.forceBottom,
+    keepCurrentScrollPosition: scroll.preservePosition,
+    setThreadTurnPresence: thread.resetTurnPresence,
   });
   const threadActions = new ChatThreadActionController({
     stateStore,
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
     archiveAdapter: obsidian.archiveAdapter,
-    ensureConnected: effects.client.ensureConnected,
+    ensureConnected: client.ensureConnected,
     currentClient,
     history,
-    addSystemMessage: effects.status.addSystemMessage,
-    setStatus: effects.status.set,
-    setComposerText: effects.composer.setText,
+    addSystemMessage: status.addSystemMessage,
+    setStatus: status.set,
+    setComposerText: composer.setText,
     openThreadInNewView: (threadId) => plugin.openThreadInNewView(threadId),
     openThreadInCurrentPanel: thread.selectThread,
     notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
     notifyThreadRenamed: (threadId, name) => {
       plugin.notifyThreadRenamed(threadId, name);
     },
-    notifyActiveThreadIdentityChanged: effects.thread.notifyIdentityChanged,
+    notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     refreshThreads: thread.refreshThreads,
     refreshSharedThreadListFromOpenSurface: () => {
       plugin.refreshSharedThreadListFromOpenSurface();
@@ -683,7 +719,7 @@ function createThreadToolbarControllerGroup(
   const toolbarPanels = new ToolbarPanelController({
     stateStore,
     threadActions,
-    scheduleRender: effects.render.schedule,
+    scheduleRender: render.schedule,
   });
   const threadSelection = new ThreadSelectionController({
     panelState,
@@ -693,59 +729,59 @@ function createThreadToolbarControllerGroup(
     },
     focusThreadInOpenView: (threadId) => plugin.focusThreadInOpenView(threadId),
     resumeThread: thread.resumeThread,
-    addSystemMessage: effects.status.addSystemMessage,
+    addSystemMessage: status.addSystemMessage,
   });
   const reconnectActions = new ChatReconnectController({
     connectionState,
     panelState,
     threadState,
-    invalidateConnectionWork: effects.lifecycle.invalidateConnectionWork,
-    invalidateResumeWork: effects.lifecycle.invalidateResumeWork,
-    clearDeferredDiagnostics: effects.lifecycle.clearDeferredDiagnostics,
+    invalidateConnectionWork: lifecycle.invalidateConnectionWork,
+    invalidateResumeWork: lifecycle.invalidateResumeWork,
+    clearDeferredDiagnostics: lifecycle.clearDeferredDiagnostics,
     reconnect: () => {
       refs.connection.reconnect();
     },
-    clearClient: effects.client.clear,
-    setStatus: effects.status.set,
-    render: effects.render.now,
-    ensureConnected: effects.client.ensureConnected,
+    clearClient: client.clear,
+    setStatus: status.set,
+    render: render.now,
+    ensureConnected: client.ensureConnected,
     resumeThread: thread.resumeThread,
-    addSystemMessage: effects.status.addSystemMessage,
+    addSystemMessage: status.addSystemMessage,
   });
   const runtimeSettings = new ChatRuntimeSettingsController({
     stateStore,
     currentClient,
     runtimeSnapshot: runtime.runtimeSnapshot,
     collaborationModeLabel: runtime.collaborationModeLabel,
-    addSystemMessage: effects.status.addSystemMessage,
+    addSystemMessage: status.addSystemMessage,
   });
   const goals = new ChatThreadGoalController({
     stateStore,
     currentClient,
-    ensureConnected: effects.client.ensureConnected,
-    addSystemMessage: effects.status.addSystemMessage,
+    ensureConnected: client.ensureConnected,
+    addSystemMessage: status.addSystemMessage,
     addGoalEvent: (item) => {
       stateStore.dispatch({ type: "transcript/item-upserted", item });
     },
-    render: effects.render.now,
-    refreshLiveState: effects.liveState.refresh,
+    render: render.now,
+    refreshLiveState: liveState.refresh,
   });
   const restoredThread = new RestoredThreadController({
     deferredTasks,
     opened: lifecycle.getOpened,
     resumeThread: thread.resumeThread,
-    invalidateResumeWork: effects.lifecycle.invalidateResumeWork,
+    invalidateResumeWork: lifecycle.invalidateResumeWork,
     state: threadState,
-    systemItem: effects.state.systemItem,
-    setStatus: effects.status.set,
-    refreshTabHeader: effects.thread.refreshTabHeader,
+    systemItem: state.systemItem,
+    setStatus: status.set,
+    refreshTabHeader: thread.refreshTabHeader,
   });
   const viewStateController = new ChatViewStateController({
-    invalidateResumeWork: effects.lifecycle.invalidateResumeWork,
-    clearRestoredThreadLifecycle: effects.thread.clearRestoredLifecycle,
-    clearDeferredRestoredThreadHydration: effects.lifecycle.clearDeferredRestoredThreadHydration,
-    scheduleDeferredAppServerWarmup: effects.lifecycle.scheduleDeferredAppServerWarmup,
-    restoreThreadPlaceholder: effects.thread.restorePlaceholder,
+    invalidateResumeWork: lifecycle.invalidateResumeWork,
+    clearRestoredThreadLifecycle: thread.clearRestoredLifecycle,
+    clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
+    scheduleDeferredAppServerWarmup: lifecycle.scheduleDeferredAppServerWarmup,
+    restoreThreadPlaceholder: thread.restorePlaceholder,
   });
   const threadResume = new ThreadResumeController({
     state: threadState,
@@ -754,16 +790,16 @@ function createThreadToolbarControllerGroup(
     history,
     restoredThread,
     currentClient,
-    ensureConnected: effects.client.ensureConnected,
+    ensureConnected: client.ensureConnected,
     closing: lifecycle.getClosing,
-    systemItem: effects.state.systemItem,
-    resetThreadTurnPresence: effects.thread.resetTurnPresence,
-    clearDeferredRestoredThreadHydration: effects.lifecycle.clearDeferredRestoredThreadHydration,
-    notifyActiveThreadIdentityChanged: effects.thread.notifyIdentityChanged,
-    addSystemMessage: effects.status.addSystemMessage,
-    forceMessagesToBottom: effects.scroll.forceBottom,
-    render: effects.render.now,
-    refreshLiveState: effects.liveState.refresh,
+    systemItem: state.systemItem,
+    resetThreadTurnPresence: thread.resetTurnPresence,
+    clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
+    notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
+    addSystemMessage: status.addSystemMessage,
+    forceMessagesToBottom: scroll.forceBottom,
+    render: render.now,
+    refreshLiveState: liveState.refresh,
     syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),
     recoverTokenUsageFromRollout: (path) =>
       recoverRolloutTokenUsage(path, async (filePath, options) => {
@@ -774,23 +810,23 @@ function createThreadToolbarControllerGroup(
   const threadIdentity = new ThreadIdentityController({
     state: threadState,
     restoredThread,
-    invalidateResumeWork: effects.lifecycle.invalidateResumeWork,
-    clearDeferredRestoredThreadHydration: effects.lifecycle.clearDeferredRestoredThreadHydration,
-    resetThreadTurnPresence: effects.thread.resetTurnPresence,
-    notifyActiveThreadIdentityChanged: effects.thread.notifyIdentityChanged,
-    refreshTabHeader: effects.thread.refreshTabHeader,
-    refreshLiveState: effects.liveState.refresh,
-    render: effects.render.now,
+    invalidateResumeWork: lifecycle.invalidateResumeWork,
+    clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
+    resetThreadTurnPresence: thread.resetTurnPresence,
+    notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
+    refreshTabHeader: thread.refreshTabHeader,
+    refreshLiveState: liveState.refresh,
+    render: render.now,
   });
   const threadRename = new ThreadRenameController({
     stateStore,
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
-    ensureConnected: effects.client.ensureConnected,
+    ensureConnected: client.ensureConnected,
     currentClient: () => refs.connection.currentClient(),
     refreshThreads: thread.refreshThreads,
-    render: effects.render.shellSlots,
-    addSystemMessage: effects.status.addSystemMessage,
+    render: render.shellSlots,
+    addSystemMessage: status.addSystemMessage,
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
   });
 

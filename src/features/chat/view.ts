@@ -2,7 +2,7 @@ import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/client";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
-import type { DisplayDetailSection } from "./display/types";
+import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { Thread } from "../../generated/app-server/v2/Thread";
@@ -12,6 +12,7 @@ import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } f
 import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
 import type { CodexChatHost } from "./chat-host";
+import { createSystemItem } from "./display/system";
 import {
   activeThreadTitle as buildActiveThreadTitle,
   chatViewDisplayTitle,
@@ -29,11 +30,9 @@ import {
   type ChatViewRenderScheduleOptions,
 } from "./panel/lifecycle";
 import { ChatMessageScrollIntentController } from "./controllers/view/message-scroll-intent-controller";
-import type { ChatViewEffects } from "./panel/effects";
 import type { ChatPanelContext } from "./panel/context";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/controllers";
 import { createPanelUiStatePort } from "./controllers/state-ports";
-import { createChatViewEffectHandlers } from "./panel/effect-handlers";
 import { createChatViewSlotRendererPorts } from "./panel/slots/ports";
 import { ChatViewSlotRenderers } from "./panel/slots/renderers";
 
@@ -45,7 +44,6 @@ export class CodexChatView extends ItemView {
   private readonly chatState = createChatStateStore();
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly deferredTasks: ChatViewDeferredTasks;
-  private readonly effects: ChatViewEffects;
   private readonly messageScrollIntent: ChatMessageScrollIntentController;
   private readonly slotRenderers: ChatViewSlotRenderers;
   private readonly connectionWork = new ChatConnectionWorkTracker();
@@ -68,7 +66,6 @@ export class CodexChatView extends ItemView {
         this.controllers.render.controller.render();
       },
     });
-    this.effects = this.createEffectHandlers();
     this.controllers = createChatViewControllers(this.createControllerPorts());
     this.slotRenderers = new ChatViewSlotRenderers(this.createSlotRendererPorts());
   }
@@ -95,12 +92,17 @@ export class CodexChatView extends ItemView {
       state: {
         stateStore: this.chatState,
         getState: () => this.state,
+        systemItem: (text) => this.systemItem(text),
       },
       client: {
         getClient: () => this.client,
         setClient: (client) => {
           this.client = client;
         },
+        clear: () => {
+          this.client = null;
+        },
+        ensureConnected: () => this.controllers.connection.controller.ensureConnected(),
       },
       lifecycle: {
         deferredTasks: this.deferredTasks,
@@ -114,6 +116,27 @@ export class CodexChatView extends ItemView {
         getClosing: () => this.closing,
         setClosing: (closing) => {
           this.closing = closing;
+        },
+        invalidateConnectionWork: () => {
+          this.controllers.connection.controller.invalidate();
+        },
+        invalidateResumeWork: () => {
+          this.invalidateResumeWork();
+        },
+        scheduleDeferredDiagnostics: () => {
+          this.scheduleDeferredDiagnostics();
+        },
+        clearDeferredDiagnostics: () => {
+          this.clearDeferredDiagnostics();
+        },
+        scheduleDeferredRestoredThreadHydration: () => {
+          this.scheduleDeferredRestoredThreadHydration();
+        },
+        clearDeferredRestoredThreadHydration: () => {
+          this.clearDeferredRestoredThreadHydration();
+        },
+        scheduleDeferredAppServerWarmup: () => {
+          this.scheduleDeferredAppServerWarmup();
         },
       },
       render: {
@@ -137,6 +160,15 @@ export class CodexChatView extends ItemView {
         closeToolbarPanelOnOutsidePointer: (event) => {
           this.closeToolbarPanelOnOutsidePointer(event);
         },
+        now: () => {
+          this.controllers.render.controller.render();
+        },
+        shellSlots: () => {
+          this.controllers.render.controller.renderShellSlots();
+        },
+        schedule: (options) => {
+          this.scheduleRender(options);
+        },
       },
       runtime: {
         runtimeSnapshot: () => this.runtimeSnapshot(),
@@ -158,8 +190,65 @@ export class CodexChatView extends ItemView {
           this.controllers.appServer.metadata.publishAppServerMetadataSnapshot();
         },
         loadSharedThreadList: () => this.loadSharedThreadList(),
+        notifyIdentityChanged: () => {
+          this.notifyActiveThreadIdentityChanged();
+        },
+        resetTurnPresence: (hadTurns) => {
+          this.controllers.thread.rename.resetThreadTurnPresence(hadTurns);
+        },
+        restorePlaceholder: (restoredThread) => {
+          this.controllers.thread.restored.restore(restoredThread);
+        },
+        clearRestoredLifecycle: () => {
+          this.controllers.thread.restored.clear();
+        },
+        refreshTabHeader: () => {
+          this.refreshTabHeader();
+        },
       },
-      effects: this.effects,
+      liveState: {
+        refresh: () => {
+          this.plugin.refreshThreadsViewLiveState();
+        },
+        deferRefresh: () => {
+          this.containerEl.win.setTimeout(() => {
+            this.plugin.refreshThreadsViewLiveState();
+          }, 0);
+        },
+      },
+      scroll: {
+        forceBottom: () => {
+          this.messageScrollIntent.forceBottom();
+          this.controllers.render.messages.forceMessagesToBottom();
+        },
+        correctAfterLayoutChange: () => {
+          this.controllers.render.messages.correctMessagesAfterLayoutChange();
+        },
+        preservePosition: () => {
+          this.messageScrollIntent.preservePosition();
+        },
+        bottomOnFocus: () => {
+          this.messageScrollIntent.scrollToBottomOnFocus();
+        },
+      },
+      status: {
+        set: (status) => {
+          this.dispatch({ type: "connection/status-set", status });
+        },
+        addSystemMessage: (text) => {
+          this.controllers.inbound.controller.addSystemMessage(text);
+          this.controllers.render.controller.render();
+        },
+        addStructuredSystemMessage: (text, details) => {
+          this.controllers.inbound.controller.addStructuredSystemMessage(text, details);
+          this.controllers.render.controller.render();
+        },
+      },
+      composer: {
+        setText: (text) => {
+          this.controllers.composer.controller.setDraft(text, { focus: true, renderIfDetached: true });
+        },
+      },
     };
   }
 
@@ -230,100 +319,18 @@ export class CodexChatView extends ItemView {
           this.controllers.composer.controller.render(parent);
         },
       },
-      effects: this.effects,
+      status: {
+        addSystemMessage: (text) => {
+          this.controllers.inbound.controller.addSystemMessage(text);
+          this.controllers.render.controller.render();
+        },
+      },
       dispatch: (action) => {
         this.dispatch(action);
       },
       startNewThread: () => this.startNewThread(),
       setRequestedModelFromUi: (model) => this.setRequestedModelFromUi(model),
       setRequestedReasoningEffortFromUi: (effort) => this.setRequestedReasoningEffortFromUi(effort),
-    });
-  }
-
-  private createEffectHandlers(): ChatViewEffects {
-    return createChatViewEffectHandlers({
-      plugin: this.plugin,
-      viewWindow: () => this.containerEl.win,
-      renderCommands: {
-        render: (options) => {
-          this.controllers.render.controller.render(options);
-        },
-        renderShellSlots: () => {
-          this.controllers.render.controller.renderShellSlots();
-        },
-        forceMessagesToBottom: () => {
-          this.controllers.render.messages.forceMessagesToBottom();
-        },
-        correctMessagesAfterLayoutChange: () => {
-          this.controllers.render.messages.correctMessagesAfterLayoutChange();
-        },
-      },
-      statusCommands: {
-        addSystemMessage: (text) => {
-          this.controllers.inbound.controller.addSystemMessage(text);
-          this.controllers.render.controller.render();
-        },
-        addStructuredSystemMessage: (text, details) => {
-          this.controllers.inbound.controller.addStructuredSystemMessage(text, details);
-          this.controllers.render.controller.render();
-        },
-      },
-      threadCommands: {
-        resetThreadTurnPresence: (hadTurns) => {
-          this.controllers.thread.rename.resetThreadTurnPresence(hadTurns);
-        },
-        restorePlaceholder: (restoredThread) => {
-          this.controllers.thread.restored.restore(restoredThread);
-        },
-        clearRestoredLifecycle: () => {
-          this.controllers.thread.restored.clear();
-        },
-      },
-      connectionCommands: {
-        invalidate: () => {
-          this.controllers.connection.controller.invalidate();
-        },
-        ensureConnected: () => this.controllers.connection.controller.ensureConnected(),
-      },
-      composerCommands: {
-        setText: (text) => {
-          this.controllers.composer.controller.setDraft(text, { focus: true, renderIfDetached: true });
-        },
-      },
-      messageScrollIntent: this.messageScrollIntent,
-      scheduleRender: (options) => {
-        this.scheduleRender(options);
-      },
-      notifyActiveThreadIdentityChanged: () => {
-        this.notifyActiveThreadIdentityChanged();
-      },
-      refreshTabHeader: () => {
-        this.refreshTabHeader();
-      },
-      invalidateResumeWork: () => {
-        this.invalidateResumeWork();
-      },
-      scheduleDeferredDiagnostics: () => {
-        this.scheduleDeferredDiagnostics();
-      },
-      clearDeferredDiagnostics: () => {
-        this.clearDeferredDiagnostics();
-      },
-      scheduleDeferredRestoredThreadHydration: () => {
-        this.scheduleDeferredRestoredThreadHydration();
-      },
-      clearDeferredRestoredThreadHydration: () => {
-        this.clearDeferredRestoredThreadHydration();
-      },
-      scheduleDeferredAppServerWarmup: () => {
-        this.scheduleDeferredAppServerWarmup();
-      },
-      dispatch: (action) => {
-        this.dispatch(action);
-      },
-      clearClient: () => {
-        this.client = null;
-      },
     });
   }
 
@@ -337,6 +344,10 @@ export class CodexChatView extends ItemView {
 
   private dispatch(action: ChatAction): void {
     this.chatState.dispatch(action);
+  }
+
+  private systemItem(text: string): DisplayItem {
+    return createSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text);
   }
 
   override getViewType(): string {
@@ -451,7 +462,7 @@ export class CodexChatView extends ItemView {
 
     this.controllers.thread.identity.clearActiveThreadContext();
     this.chatState.dispatch({ type: "ui/panel-set", panel: null });
-    this.effects.status.set("New chat.");
+    this.dispatch({ type: "connection/status-set", status: "New chat." });
     this.messageScrollIntent.forceBottom();
     this.controllers.render.controller.render();
     this.focusComposer();

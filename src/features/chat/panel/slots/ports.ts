@@ -3,7 +3,6 @@ import type { RuntimeSnapshot } from "../../../../runtime/state";
 import type { CodexChatHost } from "../../chat-host";
 import type { ChatAction, ChatState } from "../../chat-state";
 import type { ToolbarThreadRow } from "../../toolbar-model";
-import type { ChatViewEffects } from "../effects";
 import type { ChatViewRenderScheduleOptions } from "../lifecycle";
 import type { RestoredThreadTitleSnapshot } from "../model";
 import type { ChatViewSlotRendererPorts } from "./types";
@@ -64,7 +63,9 @@ export interface ChatViewSlotRendererPortsOptions {
   goalCommands: ChatSlotGoalCommands;
   appServerCommands: ChatSlotAppServerCommands;
   renderCommands: ChatSlotRenderCommands;
-  effects: ChatViewEffects;
+  status: {
+    addSystemMessage: (text: string) => void;
+  };
   dispatch: (action: ChatAction) => void;
   startNewThread: () => Promise<void>;
   setRequestedModelFromUi: (model: string | null) => Promise<void>;
@@ -156,7 +157,7 @@ export function createChatViewSlotRendererPorts(options: ChatViewSlotRendererPor
 async function compactConversation(options: ChatViewSlotRendererPortsOptions): Promise<void> {
   const threadId = options.state().activeThread.id;
   if (!threadId) {
-    options.effects.status.addSystemMessage("No active thread to compact.");
+    options.status.addSystemMessage("No active thread to compact.");
     return;
   }
   await options.threadCommands.compactThread(threadId);
@@ -180,7 +181,7 @@ async function saveGoalObjective(options: ChatViewSlotRendererPortsOptions, obje
       const response = await options.appServerCommands.startThread(objective, { syncGoal: false });
       threadId = response?.thread.id ?? null;
     } catch (error) {
-      options.effects.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+      options.status.addSystemMessage(error instanceof Error ? error.message : String(error));
       return;
     }
   }

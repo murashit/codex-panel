@@ -6,9 +6,14 @@ import type { RuntimeSnapshot } from "../../../runtime/state";
 import type { ChatState, ChatStateStore } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
 import type { ChatMessageScrollIntentController } from "../controllers/view/message-scroll-intent-controller";
-import type { DisplayDetailSection } from "../display/types";
-import type { ChatViewEffects } from "./effects";
-import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
+import type { DisplayDetailSection, DisplayItem } from "../display/types";
+import type {
+  ChatConnectionWorkTracker,
+  ChatResumeWorkTracker,
+  ChatViewDeferredTasks,
+  ChatViewRenderScheduleOptions,
+  RestoredThreadState,
+} from "./lifecycle";
 import type { ComposerMetaViewModel } from "./model";
 
 export interface ChatPanelContext {
@@ -20,7 +25,10 @@ export interface ChatPanelContext {
   render: ChatPanelRenderContext;
   runtime: ChatPanelRuntimeContext;
   thread: ChatPanelThreadContext;
-  effects: ChatViewEffects;
+  liveState: ChatPanelLiveStateContext;
+  scroll: ChatPanelScrollContext;
+  status: ChatPanelStatusContext;
+  composer: ChatPanelComposerContext;
 }
 
 interface ChatPanelObsidianContext {
@@ -37,11 +45,14 @@ interface ChatPanelObsidianContext {
 interface ChatPanelStateContext {
   stateStore: ChatStateStore;
   getState: () => ChatState;
+  systemItem: (text: string) => DisplayItem;
 }
 
 interface ChatPanelClientContext {
   getClient: () => AppServerClient | null;
   setClient: (client: AppServerClient | null) => void;
+  clear: () => void;
+  ensureConnected: () => Promise<void>;
 }
 
 interface ChatPanelLifecycleContext {
@@ -53,6 +64,13 @@ interface ChatPanelLifecycleContext {
   setOpened: (opened: boolean) => void;
   getClosing: () => boolean;
   setClosing: (closing: boolean) => void;
+  invalidateConnectionWork: () => void;
+  invalidateResumeWork: () => void;
+  scheduleDeferredDiagnostics: () => void;
+  clearDeferredDiagnostics: () => void;
+  scheduleDeferredRestoredThreadHydration: () => void;
+  clearDeferredRestoredThreadHydration: () => void;
+  scheduleDeferredAppServerWarmup: () => void;
 }
 
 interface ChatPanelRenderContext {
@@ -66,6 +84,9 @@ interface ChatPanelRenderContext {
   composerPlaceholder: () => string;
   composerMetaViewModel: () => ComposerMetaViewModel;
   closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
+  now: () => void;
+  shellSlots: () => void;
+  schedule: (options?: ChatViewRenderScheduleOptions) => void;
 }
 
 interface ChatPanelRuntimeContext {
@@ -87,4 +108,31 @@ interface ChatPanelThreadContext {
   refreshSkills: (forceReload?: boolean) => Promise<void>;
   publishAppServerMetadataSnapshot: () => void;
   loadSharedThreadList: () => Promise<void>;
+  notifyIdentityChanged: () => void;
+  resetTurnPresence: (hadTurns: boolean) => void;
+  restorePlaceholder: (restoredThread: RestoredThreadState) => void;
+  clearRestoredLifecycle: () => void;
+  refreshTabHeader: () => void;
+}
+
+interface ChatPanelLiveStateContext {
+  refresh: () => void;
+  deferRefresh: () => void;
+}
+
+interface ChatPanelScrollContext {
+  forceBottom: () => void;
+  correctAfterLayoutChange: () => void;
+  preservePosition: () => void;
+  bottomOnFocus: () => void;
+}
+
+interface ChatPanelStatusContext {
+  set: (status: string) => void;
+  addSystemMessage: (text: string) => void;
+  addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
+}
+
+interface ChatPanelComposerContext {
+  setText: (text: string) => void;
 }
