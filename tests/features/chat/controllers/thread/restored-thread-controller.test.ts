@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { ThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
+import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
 import { RestoredThreadController } from "../../../../../src/features/chat/controllers/thread/restored-thread-controller";
 import { ChatViewDeferredTasks } from "../../../../../src/features/chat/panel/lifecycle";
 import { deferred } from "../../../../support/async";
@@ -10,14 +10,14 @@ import { deferred } from "../../../../support/async";
 describe("RestoredThreadController", () => {
   it("restores a placeholder and schedules deferred hydration", () => {
     vi.useFakeTimers();
-    const restorePlaceholder = vi.fn();
+    const stateStore = createChatStateStore(createChatState());
     const resumeThread = vi.fn().mockResolvedValue(undefined);
     const controller = new RestoredThreadController({
       deferredTasks: new ChatViewDeferredTasks(() => window),
       opened: () => true,
       resumeThread,
       invalidateResumeWork: vi.fn(),
-      state: restoredThreadState({ restorePlaceholder }),
+      stateStore,
       systemItem: (text) => ({ id: "system", kind: "system", role: "system", text }),
       setStatus: vi.fn(),
       refreshTabHeader: vi.fn(),
@@ -26,7 +26,7 @@ describe("RestoredThreadController", () => {
     controller.restore({ threadId: "thread", title: "Title", explicitName: null });
 
     expect(controller.placeholder()).toMatchObject({ threadId: "thread", title: "Title" });
-    expect(restorePlaceholder).toHaveBeenCalledOnce();
+    expect(stateStore.getState().activeThread.id).toBe("thread");
     vi.advanceTimersByTime(1_500);
     expect(resumeThread).toHaveBeenCalledWith("thread");
     vi.useRealTimers();
@@ -64,26 +64,10 @@ function restoredThreadControllerFixture(overrides: Partial<ConstructorParameter
     opened: () => false,
     resumeThread: vi.fn().mockResolvedValue(undefined),
     invalidateResumeWork: vi.fn(),
-    state: restoredThreadState(),
+    stateStore: createChatStateStore(createChatState()),
     systemItem: (text) => ({ id: "system", kind: "system", role: "system", text }),
     setStatus: vi.fn(),
     refreshTabHeader: vi.fn(),
     ...overrides,
   });
-}
-
-function restoredThreadState(overrides: Partial<ThreadLifecycleStatePort> = {}): ThreadLifecycleStatePort {
-  return {
-    activeThreadId: () => null,
-    canSwitchToThread: () => true,
-    listedThreads: [],
-    clearActiveThread: vi.fn(),
-    applyThreadList: vi.fn(),
-    restorePlaceholder: vi.fn(),
-    displayItemsEmpty: () => true,
-    applyResumedThread: vi.fn(),
-    applyTokenUsage: vi.fn(),
-    applyRecoveredTokenUsage: vi.fn(),
-    ...overrides,
-  };
 }

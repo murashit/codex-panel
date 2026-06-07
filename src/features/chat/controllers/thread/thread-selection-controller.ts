@@ -1,10 +1,9 @@
 import { closePanelsAction } from "../../chat-state-actions";
+import { canSwitchToThread } from "../../chat-state-selectors";
 import type { ChatStateStore } from "../../chat-state";
-import type { ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ThreadSelectionControllerHost {
   stateStore: ChatStateStore;
-  threadState: ThreadLifecycleStatePort;
   closeForThreadSelection: () => void;
   focusThreadInOpenView: (threadId: string) => Promise<boolean>;
   resumeThread: (threadId: string) => Promise<void>;
@@ -15,7 +14,7 @@ export class ThreadSelectionController {
   constructor(private readonly host: ThreadSelectionControllerHost) {}
 
   async selectThread(threadId: string): Promise<void> {
-    if (!this.host.threadState.canSwitchToThread(threadId)) {
+    if (!canSwitchToThread(this.host.stateStore.getState(), threadId)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
@@ -26,7 +25,7 @@ export class ThreadSelectionController {
   }
 
   async selectThreadFromToolbar(threadId: string): Promise<void> {
-    if (!this.host.threadState.canSwitchToThread(threadId)) return;
+    if (!canSwitchToThread(this.host.stateStore.getState(), threadId)) return;
 
     this.host.stateStore.dispatch(closePanelsAction());
     await this.selectThread(threadId);

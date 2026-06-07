@@ -1,14 +1,16 @@
 import type { AppServerClient } from "../../../../app-server/client";
 import type { ThreadTokenUsage } from "../../../../generated/app-server/v2/ThreadTokenUsage";
+import { setActiveThreadTokenUsageAction } from "../../chat-state-actions";
+import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../../chat-state-selectors";
+import type { ChatStateStore } from "../../chat-state";
 import type { DisplayItem } from "../../display/types";
 import type { RestoredThreadController } from "./restored-thread-controller";
-import type { ThreadActivationResponse } from "../../thread-resume";
+import { resumedThreadAction, type ThreadActivationResponse } from "../../thread-resume";
 import type { ThreadHistoryController } from "./thread-history-controller";
 import type { ChatResumeWorkTracker, ActiveChatResume } from "../../panel/lifecycle";
-import type { ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ThreadResumeControllerHost {
-  state: ThreadLifecycleStatePort;
+  stateStore: ChatStateStore;
   vaultPath: string;
   resumeWork: ChatResumeWorkTracker;
   history: ThreadHistoryController;
@@ -32,7 +34,7 @@ export class ThreadResumeController {
   constructor(private readonly host: ThreadResumeControllerHost) {}
 
   async resumeThread(threadId: string): Promise<void> {
-    if (!this.host.state.canSwitchToThread(threadId)) {
+    if (!canSwitchToThread(this.host.stateStore.getState(), threadId)) {
       this.host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
@@ -54,7 +56,7 @@ export class ThreadResumeController {
       if (this.isStale(resume)) return;
       await this.host.syncThreadGoal(response.thread.id);
       if (this.isStale(resume)) return;
-      if (this.host.state.displayItemsEmpty()) {
+      if (displayItemsEmpty(this.host.stateStore.getState())) {
         this.host.addSystemMessage(`Resumed thread ${response.thread.id}`);
         this.host.forceMessagesToBottom();
         this.host.render();
@@ -67,7 +69,13 @@ export class ThreadResumeController {
   }
 
   private applyResumedThread(response: ThreadActivationResponse): void {
-    this.host.state.applyResumedThread(response, [this.host.systemItem("Loading thread...")]);
+    this.host.stateStore.dispatch(
+      resumedThreadAction({
+        response,
+        listedThreads: listedThreads(this.host.stateStore.getState()),
+        displayItems: [this.host.systemItem("Loading thread...")],
+      }),
+    );
     this.host.restoredThread.clear();
     this.host.clearDeferredRestoredThreadHydration();
     this.host.resetThreadTurnPresence(false);
@@ -83,7 +91,9 @@ export class ThreadResumeController {
       .recoverTokenUsageFromRollout(path)
       .then((tokenUsage) => {
         if (!tokenUsage || this.isStale(resume)) return;
-        if (!this.host.state.applyRecoveredTokenUsage(threadId, tokenUsage)) return;
+        const state = this.host.stateStore.getState();
+        if (activeThreadId(state) !== threadId || state.activeThread.tokenUsage !== null) return;
+        this.host.stateStore.dispatch(setActiveThreadTokenUsageAction(tokenUsage));
         this.host.refreshLiveState();
         this.host.render();
       })

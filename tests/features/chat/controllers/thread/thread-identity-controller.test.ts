@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
-import { createThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { ThreadIdentityController } from "../../../../../src/features/chat/controllers/thread/thread-identity-controller";
 import type { RestoredThreadController } from "../../../../../src/features/chat/controllers/thread/restored-thread-controller";
 import type { RestoredThreadPlaceholderState } from "../../../../../src/features/chat/panel/lifecycle";
@@ -43,7 +42,7 @@ function createController() {
     rename: restoredRename,
   } as unknown as RestoredThreadController;
   const host = {
-    state: createThreadLifecycleStatePort(stateStore),
+    stateStore,
     restoredThread,
     invalidateResumeWork: vi.fn(),
     clearDeferredRestoredThreadHydration: vi.fn(),

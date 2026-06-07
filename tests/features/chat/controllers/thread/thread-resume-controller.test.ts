@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/client";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
 import type { RestoredThreadController } from "../../../../../src/features/chat/controllers/thread/restored-thread-controller";
-import { createThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { ThreadActivationResponse } from "../../../../../src/features/chat/thread-resume";
 import { ThreadResumeController } from "../../../../../src/features/chat/controllers/thread/thread-resume-controller";
 import type { ThreadHistoryController } from "../../../../../src/features/chat/controllers/thread/thread-history-controller";
@@ -62,7 +61,7 @@ function createController(
   const applyLatestPage = vi.fn();
   const restoredClear = vi.fn();
   const host = {
-    state: createThreadLifecycleStatePort(stateStore),
+    stateStore,
     vaultPath: "/vault",
     resumeWork: new ChatResumeWorkTracker(() => undefined),
     history: { loadLatest, applyLatestPage } as unknown as ThreadHistoryController,

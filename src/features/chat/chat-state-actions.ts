@@ -1,5 +1,8 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
+import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { ChatAction } from "./chat-state";
+import type { DisplayItem } from "./display/types";
 
 export function connectionInitializedAction(initializeResponse: InitializeResponse): ChatAction {
   return { type: "connection/initialized", initializeResponse };
@@ -11,6 +14,22 @@ export function clearConnectionScopeAction(): ChatAction {
 
 export function clearLocalTurnAction(): ChatAction {
   return { type: "turn/scoped-cleared" };
+}
+
+export function clearActiveThreadAction(): ChatAction {
+  return { type: "active-thread/cleared" };
+}
+
+export function applyThreadListAction(threads: readonly Thread[], threadsLoaded?: boolean): ChatAction {
+  return { type: "thread-list/applied", threads, ...(threadsLoaded === undefined ? {} : { threadsLoaded }) };
+}
+
+export function restoreThreadPlaceholderAction(threadId: string, item: DisplayItem): ChatAction {
+  return { type: "active-thread/restored-placeholder", threadId, item };
+}
+
+export function setActiveThreadTokenUsageAction(tokenUsage: ThreadTokenUsage): ChatAction {
+  return { type: "active-thread/token-usage-set", tokenUsage };
 }
 
 export function closePanelsAction(): ChatAction {

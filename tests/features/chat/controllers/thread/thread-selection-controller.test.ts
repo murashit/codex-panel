@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/chat-state";
-import { createThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import {
   ThreadSelectionController,
   type ThreadSelectionControllerHost,
@@ -25,7 +24,6 @@ function createController(overrides: Partial<ThreadSelectionControllerHost> = {}
   const stateStore = createChatStateStore(createChatState());
   const host: ThreadSelectionControllerHost = {
     stateStore,
-    threadState: createThreadLifecycleStatePort(stateStore),
     closeForThreadSelection: vi.fn(),
     focusThreadInOpenView: vi.fn().mockResolvedValue(false),
     resumeThread: vi.fn().mockResolvedValue(undefined),

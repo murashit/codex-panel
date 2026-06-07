@@ -1,5 +1,6 @@
 import type { DisplayItem } from "../../display/types";
-import type { ThreadLifecycleStatePort } from "../state-ports";
+import { restoreThreadPlaceholderAction } from "../../chat-state-actions";
+import type { ChatStateStore } from "../../chat-state";
 import {
   transitionRestoredThreadLifecycle,
   type RestoredThreadLifecycleState,
@@ -13,7 +14,7 @@ export interface RestoredThreadControllerHost {
   opened: () => boolean;
   resumeThread: (threadId: string) => Promise<void>;
   invalidateResumeWork: () => void;
-  state: ThreadLifecycleStatePort;
+  stateStore: ChatStateStore;
   systemItem: (text: string) => DisplayItem;
   setStatus: (status: string) => void;
   refreshTabHeader: () => void;
@@ -48,7 +49,9 @@ export class RestoredThreadController {
       type: "placeholder-restored",
       restoredThread,
     });
-    this.host.state.restorePlaceholder(restoredThread.threadId, this.host.systemItem("Thread restored. Send a message to resume it."));
+    this.host.stateStore.dispatch(
+      restoreThreadPlaceholderAction(restoredThread.threadId, this.host.systemItem("Thread restored. Send a message to resume it.")),
+    );
     this.host.setStatus("Thread ready to resume.");
     this.host.refreshTabHeader();
     this.scheduleHydration();

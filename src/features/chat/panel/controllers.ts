@@ -20,7 +20,7 @@ import { ChatConnectionController } from "../controllers/connection/connection-c
 import { ChatReconnectController } from "../controllers/connection/reconnect-controller";
 import { PendingRequestController } from "../controllers/requests/pending-request-controller";
 import { ServerRequestResponder } from "../controllers/requests/server-request-responder";
-import { createChatShellRenderPort, createSubmissionStatePort, createThreadLifecycleStatePort } from "../controllers/state-ports";
+import { createChatShellRenderPort, createSubmissionStatePort } from "../controllers/state-ports";
 import { ComposerSubmissionController } from "../controllers/submission/composer-submission-controller";
 import { PlanImplementationController } from "../controllers/submission/plan-implementation-controller";
 import { SlashCommandController } from "../controllers/submission/slash-command-controller";
@@ -232,7 +232,6 @@ function createControllerContext(ports: ChatPanelContext) {
     stateStore,
     currentClient: client.getClient,
     submissionState: createSubmissionStatePort(stateStore),
-    threadState: createThreadLifecycleStatePort(stateStore),
   };
 }
 
@@ -669,7 +668,6 @@ function createThreadToolbarControllerGroup(
     lifecycle,
     stateStore,
     currentClient,
-    threadState,
   } = context;
   const { deferredTasks, resumeWork } = lifecycle;
 
@@ -712,7 +710,6 @@ function createThreadToolbarControllerGroup(
   });
   const threadSelection = new ThreadSelectionController({
     stateStore,
-    threadState,
     closeForThreadSelection: () => {
       toolbarPanels.closeForThreadSelection();
     },
@@ -722,7 +719,6 @@ function createThreadToolbarControllerGroup(
   });
   const reconnectActions = new ChatReconnectController({
     stateStore,
-    threadState,
     invalidateConnectionWork: lifecycle.invalidateConnectionWork,
     invalidateResumeWork: lifecycle.invalidateResumeWork,
     clearDeferredDiagnostics: lifecycle.clearDeferredDiagnostics,
@@ -759,7 +755,7 @@ function createThreadToolbarControllerGroup(
     opened: lifecycle.getOpened,
     resumeThread: thread.resumeThread,
     invalidateResumeWork: lifecycle.invalidateResumeWork,
-    state: threadState,
+    stateStore,
     systemItem: state.systemItem,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
@@ -772,7 +768,7 @@ function createThreadToolbarControllerGroup(
     restoreThreadPlaceholder: thread.restorePlaceholder,
   });
   const threadResume = new ThreadResumeController({
-    state: threadState,
+    stateStore,
     vaultPath: plugin.vaultPath,
     resumeWork,
     history,
@@ -796,7 +792,7 @@ function createThreadToolbarControllerGroup(
       }),
   });
   const threadIdentity = new ThreadIdentityController({
-    state: threadState,
+    stateStore,
     restoredThread,
     invalidateResumeWork: lifecycle.invalidateResumeWork,
     clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
