@@ -118,8 +118,36 @@ export class CodexChatView extends ItemView {
           },
         },
       },
-      controllers: () => this.controllers,
-      slotRenderers: () => this.slotRenderers,
+      renderSlots: {
+        renderToolbar: (toolbar) => {
+          this.slotRenderers.renderToolbar(toolbar);
+        },
+        renderGoal: (goal) => {
+          this.slotRenderers.renderGoal(goal);
+        },
+        renderMessages: (parent) => {
+          this.slotRenderers.renderMessages(parent);
+        },
+        renderComposer: (parent) => {
+          this.slotRenderers.renderComposer(parent);
+        },
+        pendingRequestsSignature: () => this.slotRenderers.pendingRequestsSignature(),
+        activeComposerThreadName: () => this.slotRenderers.activeComposerThreadName(),
+        composerPlaceholder: () => this.slotRenderers.composerPlaceholder(),
+        composerMetaViewModel: () => this.slotRenderers.composerMetaViewModel(),
+      },
+      appServer: {
+        mcpStatusLines: () => this.controllers.appServer.diagnostics.mcpStatusLines(),
+        publishMetadataSnapshot: () => {
+          this.controllers.appServer.metadata.publishAppServerMetadataSnapshot();
+        },
+      },
+      threadCommands: {
+        selectThread: (threadId) => this.controllers.thread.selection.selectThread(threadId),
+        resumeThread: (threadId) => this.controllers.thread.resume.resumeThread(threadId),
+        refreshThreads: () => this.controllers.connection.controller.refreshThreads(),
+        refreshSkills: (forceReload) => this.controllers.connection.controller.refreshSkills(forceReload),
+      },
       panelRoot: () => this.panelRoot(),
       closeToolbarPanelOnOutsidePointer: (event) => {
         this.closeToolbarPanelOnOutsidePointer(event);
@@ -160,7 +188,52 @@ export class CodexChatView extends ItemView {
     return createChatViewEffectHandlers({
       plugin: this.plugin,
       viewWindow: () => this.containerEl.win,
-      controllers: () => this.controllers,
+      renderCommands: {
+        render: (options) => {
+          this.controllers.render.controller.render(options);
+        },
+        renderShellSlots: () => {
+          this.controllers.render.controller.renderShellSlots();
+        },
+        forceMessagesToBottom: () => {
+          this.controllers.render.messages.forceMessagesToBottom();
+        },
+        correctMessagesAfterLayoutChange: () => {
+          this.controllers.render.messages.correctMessagesAfterLayoutChange();
+        },
+      },
+      statusCommands: {
+        addSystemMessage: (text) => {
+          this.controllers.inbound.controller.addSystemMessage(text);
+          this.controllers.render.controller.render();
+        },
+        addStructuredSystemMessage: (text, details) => {
+          this.controllers.inbound.controller.addStructuredSystemMessage(text, details);
+          this.controllers.render.controller.render();
+        },
+      },
+      threadCommands: {
+        resetThreadTurnPresence: (hadTurns) => {
+          this.controllers.thread.rename.resetThreadTurnPresence(hadTurns);
+        },
+        restorePlaceholder: (restoredThread) => {
+          this.controllers.thread.restored.restore(restoredThread);
+        },
+        clearRestoredLifecycle: () => {
+          this.controllers.thread.restored.clear();
+        },
+      },
+      connectionCommands: {
+        invalidate: () => {
+          this.controllers.connection.controller.invalidate();
+        },
+        ensureConnected: () => this.controllers.connection.controller.ensureConnected(),
+      },
+      composerCommands: {
+        setText: (text) => {
+          this.controllers.composer.controller.setDraft(text, { focus: true, renderIfDetached: true });
+        },
+      },
       messageScroll: this.messageScroll,
       scheduleRender: (options) => {
         this.scheduleRender(options);

@@ -7,11 +7,9 @@ import type { ChatMessageScrollController } from "../controllers/view/message-sc
 import type { ChatState, ChatStateStore } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
 import type { DisplayDetailSection } from "../display/types";
-import type { ChatViewControllers } from "./controllers";
 import type { ChatViewEffects } from "./effects";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
 import type { ComposerMetaViewModel } from "./model";
-import type { ChatViewSlotRenderers } from "./slots/renderers";
 
 export interface ChatViewControllerPorts {
   obsidian: ChatViewObsidianPort;
@@ -91,6 +89,29 @@ interface ChatViewThreadPort {
   loadSharedThreadList: () => Promise<void>;
 }
 
+interface ChatViewSlotRenderCallbacks {
+  renderToolbar: (toolbar: HTMLElement) => void;
+  renderGoal: (goal: HTMLElement) => void;
+  renderMessages: (parent: HTMLElement) => void;
+  renderComposer: (parent: HTMLElement) => void;
+  pendingRequestsSignature: () => string;
+  activeComposerThreadName: () => string | null;
+  composerPlaceholder: () => string;
+  composerMetaViewModel: () => ComposerMetaViewModel;
+}
+
+interface ChatViewAppServerCommands {
+  mcpStatusLines: () => Promise<string[]>;
+  publishMetadataSnapshot: () => void;
+}
+
+interface ChatViewThreadCommands {
+  selectThread: (threadId: string) => Promise<void>;
+  resumeThread: (threadId: string) => Promise<void>;
+  refreshThreads: () => Promise<void>;
+  refreshSkills: (forceReload?: boolean) => Promise<void>;
+}
+
 export interface ChatViewControllerPortsOptions {
   obsidian: {
     app: ChatViewObsidianPort["app"];
@@ -123,8 +144,9 @@ export interface ChatViewControllerPortsOptions {
       set: (closing: boolean) => void;
     };
   };
-  controllers: () => ChatViewControllers;
-  slotRenderers: () => ChatViewSlotRenderers;
+  renderSlots: ChatViewSlotRenderCallbacks;
+  appServer: ChatViewAppServerCommands;
+  threadCommands: ChatViewThreadCommands;
   panelRoot: () => HTMLElement | null;
   closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
   runtimeSnapshot: () => RuntimeSnapshot;
@@ -176,21 +198,21 @@ function createControllerRenderPort(options: ChatViewControllerPortsOptions): Ch
   return {
     panelRoot: options.panelRoot,
     renderToolbar: (toolbar) => {
-      options.slotRenderers().renderToolbar(toolbar);
+      options.renderSlots.renderToolbar(toolbar);
     },
     renderGoal: (goal) => {
-      options.slotRenderers().renderGoal(goal);
+      options.renderSlots.renderGoal(goal);
     },
     renderMessages: (parent) => {
-      options.slotRenderers().renderMessages(parent);
+      options.renderSlots.renderMessages(parent);
     },
     renderComposer: (parent) => {
-      options.slotRenderers().renderComposer(parent);
+      options.renderSlots.renderComposer(parent);
     },
-    pendingRequestsSignature: () => options.slotRenderers().pendingRequestsSignature(),
-    activeComposerThreadName: () => options.slotRenderers().activeComposerThreadName(),
-    composerPlaceholder: () => options.slotRenderers().composerPlaceholder(),
-    composerMetaViewModel: () => options.slotRenderers().composerMetaViewModel(),
+    pendingRequestsSignature: options.renderSlots.pendingRequestsSignature,
+    activeComposerThreadName: options.renderSlots.activeComposerThreadName,
+    composerPlaceholder: options.renderSlots.composerPlaceholder,
+    composerMetaViewModel: options.renderSlots.composerMetaViewModel,
     closeToolbarPanelOnOutsidePointer: options.closeToolbarPanelOnOutsidePointer,
   };
 }
@@ -200,7 +222,7 @@ function createControllerRuntimePort(options: ChatViewControllerPortsOptions): C
     runtimeSnapshot: options.runtimeSnapshot,
     collaborationModeLabel: options.collaborationModeLabel,
     connectionDiagnosticDetails: options.connectionDiagnosticDetails,
-    mcpStatusLines: () => options.controllers().appServer.diagnostics.mcpStatusLines(),
+    mcpStatusLines: options.appServer.mcpStatusLines,
     modelStatusLines: options.modelStatusLines,
     effortStatusLines: options.effortStatusLines,
     statusSummaryLines: options.statusSummaryLines,
@@ -211,13 +233,11 @@ function createControllerThreadPort(options: ChatViewControllerPortsOptions): Ch
   return {
     ensureRestoredThreadLoaded: options.ensureRestoredThreadLoaded,
     startNewThread: options.startNewThread,
-    selectThread: (threadId) => options.controllers().thread.selection.selectThread(threadId),
-    resumeThread: (threadId) => options.controllers().thread.resume.resumeThread(threadId),
-    refreshThreads: () => options.controllers().connection.controller.refreshThreads(),
-    refreshSkills: (forceReload) => options.controllers().connection.controller.refreshSkills(forceReload),
-    publishAppServerMetadataSnapshot: () => {
-      options.controllers().appServer.metadata.publishAppServerMetadataSnapshot();
-    },
+    selectThread: options.threadCommands.selectThread,
+    resumeThread: options.threadCommands.resumeThread,
+    refreshThreads: options.threadCommands.refreshThreads,
+    refreshSkills: options.threadCommands.refreshSkills,
+    publishAppServerMetadataSnapshot: options.appServer.publishMetadataSnapshot,
     loadSharedThreadList: options.loadSharedThreadList,
   };
 }

@@ -3,14 +3,34 @@ import type { ChatAction } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import { createSystemItem } from "../display/system";
-import type { ChatViewControllers } from "./controllers";
 import type { ChatViewEffects } from "./effects";
-import type { ChatViewRenderScheduleOptions } from "./lifecycle";
+import type { ChatViewRenderScheduleOptions, RestoredThreadState } from "./lifecycle";
 
 export interface ChatViewEffectHandlersOptions {
   plugin: CodexChatHost;
   viewWindow: () => Window;
-  controllers: () => ChatViewControllers;
+  renderCommands: {
+    render: (options?: ChatViewRenderScheduleOptions) => void;
+    renderShellSlots: () => void;
+    forceMessagesToBottom: () => void;
+    correctMessagesAfterLayoutChange: () => void;
+  };
+  statusCommands: {
+    addSystemMessage: (text: string) => void;
+    addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
+  };
+  threadCommands: {
+    resetThreadTurnPresence: (hadTurns: boolean) => void;
+    restorePlaceholder: (restoredThread: RestoredThreadState) => void;
+    clearRestoredLifecycle: () => void;
+  };
+  connectionCommands: {
+    invalidate: () => void;
+    ensureConnected: () => Promise<void>;
+  };
+  composerCommands: {
+    setText: (text: string) => void;
+  };
   messageScroll: ChatMessageScrollController;
   scheduleRender: (options?: ChatViewRenderScheduleOptions) => void;
   notifyActiveThreadIdentityChanged: () => void;
@@ -26,14 +46,13 @@ export interface ChatViewEffectHandlersOptions {
 }
 
 export function createChatViewEffectHandlers(options: ChatViewEffectHandlersOptions): ChatViewEffects {
-  const controllers = options.controllers;
   return {
     render: {
       now: () => {
-        controllers().render.controller.render();
+        options.renderCommands.render();
       },
       shellSlots: () => {
-        controllers().render.controller.renderShellSlots();
+        options.renderCommands.renderShellSlots();
       },
       schedule: (renderOptions) => {
         options.scheduleRender(renderOptions);
@@ -52,10 +71,10 @@ export function createChatViewEffectHandlers(options: ChatViewEffectHandlersOpti
     scroll: {
       forceBottom: () => {
         options.messageScroll.forceBottom();
-        controllers().render.messages.forceMessagesToBottom();
+        options.renderCommands.forceMessagesToBottom();
       },
       correctAfterLayoutChange: () => {
-        controllers().render.messages.correctMessagesAfterLayoutChange();
+        options.renderCommands.correctMessagesAfterLayoutChange();
       },
       preservePosition: () => {
         options.messageScroll.preservePosition();
@@ -69,28 +88,28 @@ export function createChatViewEffectHandlers(options: ChatViewEffectHandlersOpti
         options.dispatch({ type: "connection/status-set", status });
       },
       addSystemMessage: (text) => {
-        addSystemMessage(controllers(), text);
+        options.statusCommands.addSystemMessage(text);
       },
       addStructuredSystemMessage: (text, details) => {
-        addStructuredSystemMessage(controllers(), text, details);
+        options.statusCommands.addStructuredSystemMessage(text, details);
       },
     },
     thread: {
       notifyIdentityChanged: options.notifyActiveThreadIdentityChanged,
       resetTurnPresence: (hadTurns) => {
-        controllers().thread.rename.resetThreadTurnPresence(hadTurns);
+        options.threadCommands.resetThreadTurnPresence(hadTurns);
       },
       restorePlaceholder: (restoredThread) => {
-        controllers().thread.restored.restore(restoredThread);
+        options.threadCommands.restorePlaceholder(restoredThread);
       },
       clearRestoredLifecycle: () => {
-        controllers().thread.restored.clear();
+        options.threadCommands.clearRestoredLifecycle();
       },
       refreshTabHeader: options.refreshTabHeader,
     },
     lifecycle: {
       invalidateConnectionWork: () => {
-        controllers().connection.controller.invalidate();
+        options.connectionCommands.invalidate();
       },
       invalidateResumeWork: options.invalidateResumeWork,
       scheduleDeferredDiagnostics: options.scheduleDeferredDiagnostics,
@@ -105,24 +124,14 @@ export function createChatViewEffectHandlers(options: ChatViewEffectHandlersOpti
     },
     client: {
       clear: options.clearClient,
-      ensureConnected: () => controllers().connection.controller.ensureConnected(),
+      ensureConnected: options.connectionCommands.ensureConnected,
     },
     composer: {
       setText: (text) => {
-        controllers().composer.controller.setDraft(text, { focus: true, renderIfDetached: true });
+        options.composerCommands.setText(text);
       },
     },
   };
-}
-
-function addSystemMessage(controllers: ChatViewControllers, text: string): void {
-  controllers.inbound.controller.addSystemMessage(text);
-  controllers.render.controller.render();
-}
-
-function addStructuredSystemMessage(controllers: ChatViewControllers, text: string, details: DisplayDetailSection[]): void {
-  controllers.inbound.controller.addStructuredSystemMessage(text, details);
-  controllers.render.controller.render();
 }
 
 function systemItem(text: string): DisplayItem {
