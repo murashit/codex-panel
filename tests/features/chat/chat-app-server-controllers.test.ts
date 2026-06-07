@@ -46,7 +46,7 @@ describe("chat app-server controllers", () => {
 
     await controller.startThread("first prompt");
 
-    expect(stateStore.getState().threadList.listedThreads.map((thread) => thread.id)).toEqual(["started", "existing"]);
+    expect(stateStore.getState().threadList.listedThreads).toEqual([optimistic, existing]);
     expect(publishThreadList).toHaveBeenCalledWith([optimistic, existing]);
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });

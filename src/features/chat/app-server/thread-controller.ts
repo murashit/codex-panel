@@ -39,7 +39,8 @@ export class ChatAppServerThreadController {
     const thread =
       response.thread.preview.trim().length > 0 || !fallbackPreview ? response.thread : { ...response.thread, preview: fallbackPreview };
     const listedThreads = upsertThread(state.threadList.listedThreads, thread);
-    this.host.stateStore.dispatch(resumedThreadAction({ response, listedThreads, forceMessagesToBottom: true }));
+    const resumedResponse = thread === response.thread ? response : { ...response, thread };
+    this.host.stateStore.dispatch(resumedThreadAction({ response: resumedResponse, listedThreads, forceMessagesToBottom: true }));
     this.host.publishThreadList(listedThreads);
     this.host.forceMessagesToBottom();
     if (options.syncGoal ?? true) this.host.syncThreadGoal(response.thread.id);
