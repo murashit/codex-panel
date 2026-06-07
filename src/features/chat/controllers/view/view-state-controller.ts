@@ -9,19 +9,23 @@ export interface ChatViewStateControllerHost {
   restoreThreadPlaceholder: (restoredThread: RestoredThreadState) => void;
 }
 
-export class ChatViewStateController {
-  constructor(private readonly host: ChatViewStateControllerHost) {}
+export interface ChatViewStateActions {
+  applyState(state: unknown): void;
+}
 
-  applyState(state: unknown): void {
-    const restoredThread = parseRestoredThreadState(state);
-    if (!restoredThread) {
-      this.host.invalidateResumeWork();
-      this.host.clearRestoredThreadLifecycle();
-      this.host.clearDeferredRestoredThreadHydration();
-      this.host.scheduleDeferredAppServerWarmup();
-      return;
-    }
+export function createChatViewStateActions(host: ChatViewStateControllerHost): ChatViewStateActions {
+  return {
+    applyState(state) {
+      const restoredThread = parseRestoredThreadState(state);
+      if (!restoredThread) {
+        host.invalidateResumeWork();
+        host.clearRestoredThreadLifecycle();
+        host.clearDeferredRestoredThreadHydration();
+        host.scheduleDeferredAppServerWarmup();
+        return;
+      }
 
-    this.host.restoreThreadPlaceholder(restoredThread);
-  }
+      host.restoreThreadPlaceholder(restoredThread);
+    },
+  };
 }

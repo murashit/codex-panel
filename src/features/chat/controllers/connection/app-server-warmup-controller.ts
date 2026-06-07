@@ -8,19 +8,20 @@ export interface AppServerWarmupControllerHost {
   ensureConnected: () => Promise<void>;
 }
 
-export class AppServerWarmupController {
-  constructor(private readonly host: AppServerWarmupControllerHost) {}
+export interface AppServerWarmupActions {
+  schedule(): void;
+}
 
-  schedule(): void {
-    if (!this.shouldWarmup()) return;
+export function createAppServerWarmupActions(host: AppServerWarmupControllerHost): AppServerWarmupActions {
+  const shouldWarmup = (): boolean => host.opened() && !host.connected();
+  return {
+    schedule() {
+      if (!shouldWarmup()) return;
 
-    this.host.deferredTasks.scheduleAppServerWarmup(() => {
-      if (!this.shouldWarmup() || this.host.closing()) return;
-      void this.host.ensureConnected();
-    });
-  }
-
-  private shouldWarmup(): boolean {
-    return this.host.opened() && !this.host.connected();
-  }
+      host.deferredTasks.scheduleAppServerWarmup(() => {
+        if (!shouldWarmup() || host.closing()) return;
+        void host.ensureConnected();
+      });
+    },
+  };
 }

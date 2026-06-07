@@ -15,7 +15,7 @@ import { ChatThreadActionController } from "../controllers/thread/thread-actions
 import { ThreadHistoryController } from "../controllers/thread/thread-history-controller";
 import { ThreadRenameController } from "../controllers/thread/thread-rename-controller";
 import { ToolbarPanelController } from "./toolbar-controller";
-import { AppServerWarmupController } from "../controllers/connection/app-server-warmup-controller";
+import { createAppServerWarmupActions, type AppServerWarmupActions } from "../controllers/connection/app-server-warmup-controller";
 import { ChatConnectionController } from "../controllers/connection/connection-controller";
 import { ChatReconnectController } from "../controllers/connection/reconnect-controller";
 import { PendingRequestController } from "../controllers/requests/pending-request-controller";
@@ -28,10 +28,10 @@ import { TurnSubmissionController } from "../controllers/submission/turn-submiss
 import { RestoredThreadController } from "../controllers/thread/restored-thread-controller";
 import { ThreadIdentityController } from "../controllers/thread/thread-identity-controller";
 import { ThreadResumeController } from "../controllers/thread/thread-resume-controller";
-import { ThreadSelectionController } from "../controllers/thread/thread-selection-controller";
+import { createThreadSelectionActions, type ThreadSelectionActions } from "../controllers/thread/thread-selection-controller";
 import { ChatViewOpenCloseController } from "../controllers/view/view-open-close-controller";
 import { ChatViewRenderController } from "../controllers/view/view-render-controller";
-import { ChatViewStateController } from "../controllers/view/view-state-controller";
+import { createChatViewStateActions, type ChatViewStateActions } from "../controllers/view/view-state-controller";
 import { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatPanelContext } from "./context";
 
@@ -40,7 +40,7 @@ export interface ChatViewControllers {
     manager: ConnectionManager;
     controller: ChatConnectionController;
     reconnect: ChatReconnectController;
-    warmup: AppServerWarmupController;
+    warmup: AppServerWarmupActions;
   };
   inbound: {
     controller: ChatInboundController;
@@ -57,7 +57,7 @@ export interface ChatViewControllers {
     restored: RestoredThreadController;
     identity: ThreadIdentityController;
     rename: ThreadRenameController;
-    selection: ThreadSelectionController;
+    selection: ThreadSelectionActions;
   };
   runtime: {
     settings: ChatRuntimeSettingsController;
@@ -77,7 +77,7 @@ export interface ChatViewControllers {
     controller: ChatViewRenderController;
     messages: ChatMessageRenderer;
     openClose: ChatViewOpenCloseController;
-    viewState: ChatViewStateController;
+    viewState: ChatViewStateActions;
   };
 }
 
@@ -480,7 +480,7 @@ function createConnectionLifecycleControllerGroup(
   const { deferredTasks } = lifecycle;
 
   return {
-    appServerWarmup: new AppServerWarmupController({
+    appServerWarmup: createAppServerWarmupActions({
       deferredTasks,
       opened: lifecycle.getOpened,
       closing: lifecycle.getClosing,
@@ -706,7 +706,7 @@ function createThreadToolbarControllerGroup(
     threadActions,
     scheduleRender: render.schedule,
   });
-  const threadSelection = new ThreadSelectionController({
+  const threadSelection = createThreadSelectionActions({
     stateStore,
     closeForThreadSelection: () => {
       toolbarPanels.closeForThreadSelection();
@@ -758,7 +758,7 @@ function createThreadToolbarControllerGroup(
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
   });
-  const viewStateController = new ChatViewStateController({
+  const viewStateController = createChatViewStateActions({
     invalidateResumeWork: lifecycle.invalidateResumeWork,
     clearRestoredThreadLifecycle: thread.clearRestoredLifecycle,
     clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,

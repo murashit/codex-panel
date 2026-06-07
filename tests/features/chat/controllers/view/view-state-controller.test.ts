@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  ChatViewStateController,
+  createChatViewStateActions,
   type ChatViewStateControllerHost,
 } from "../../../../../src/features/chat/controllers/view/view-state-controller";
 
@@ -14,7 +14,7 @@ function createController(overrides: Partial<ChatViewStateControllerHost> = {}) 
     restoreThreadPlaceholder: vi.fn(),
     ...overrides,
   };
-  return { controller: new ChatViewStateController(host), host };
+  return { controller: createChatViewStateActions(host), host };
 }
 
 describe("ChatViewStateController", () => {

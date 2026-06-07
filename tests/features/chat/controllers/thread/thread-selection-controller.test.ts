@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/chat-state";
 import {
-  ThreadSelectionController,
+  createThreadSelectionActions,
   type ThreadSelectionControllerHost,
 } from "../../../../../src/features/chat/controllers/thread/thread-selection-controller";
 
@@ -30,7 +30,7 @@ function createController(overrides: Partial<ThreadSelectionControllerHost> = {}
     addSystemMessage: vi.fn(),
     ...overrides,
   };
-  return { controller: new ThreadSelectionController(host), host, stateStore };
+  return { controller: createThreadSelectionActions(host), host, stateStore };
 }
 
 describe("ThreadSelectionController", () => {

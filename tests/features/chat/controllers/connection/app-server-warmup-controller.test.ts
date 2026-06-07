@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AppServerWarmupController } from "../../../../../src/features/chat/controllers/connection/app-server-warmup-controller";
+import { createAppServerWarmupActions } from "../../../../../src/features/chat/controllers/connection/app-server-warmup-controller";
 import { ChatViewDeferredTasks } from "../../../../../src/features/chat/panel/lifecycle";
 
 function createController({
@@ -11,7 +11,7 @@ function createController({
   connected = false,
 }: { opened?: boolean; closing?: boolean; connected?: boolean } = {}) {
   const ensureConnected = vi.fn().mockResolvedValue(undefined);
-  const controller = new AppServerWarmupController({
+  const controller = createAppServerWarmupActions({
     deferredTasks: new ChatViewDeferredTasks(() => window),
     opened: () => opened,
     closing: () => closing,

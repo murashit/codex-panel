@@ -10,24 +10,30 @@ export interface ThreadSelectionControllerHost {
   addSystemMessage: (text: string) => void;
 }
 
-export class ThreadSelectionController {
-  constructor(private readonly host: ThreadSelectionControllerHost) {}
+export interface ThreadSelectionActions {
+  selectThread(threadId: string): Promise<void>;
+  selectThreadFromToolbar(threadId: string): Promise<void>;
+}
 
-  async selectThread(threadId: string): Promise<void> {
-    if (!canSwitchToThread(this.host.stateStore.getState(), threadId)) {
-      this.host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
+export function createThreadSelectionActions(host: ThreadSelectionControllerHost): ThreadSelectionActions {
+  const selectThread = async (threadId: string): Promise<void> => {
+    if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
+      host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
 
-    this.host.closeForThreadSelection();
-    if (await this.host.focusThreadInOpenView(threadId)) return;
-    await this.host.resumeThread(threadId);
-  }
+    host.closeForThreadSelection();
+    if (await host.focusThreadInOpenView(threadId)) return;
+    await host.resumeThread(threadId);
+  };
 
-  async selectThreadFromToolbar(threadId: string): Promise<void> {
-    if (!canSwitchToThread(this.host.stateStore.getState(), threadId)) return;
+  return {
+    selectThread,
+    async selectThreadFromToolbar(threadId) {
+      if (!canSwitchToThread(host.stateStore.getState(), threadId)) return;
 
-    this.host.stateStore.dispatch(closePanelsAction());
-    await this.selectThread(threadId);
-  }
+      host.stateStore.dispatch(closePanelsAction());
+      await selectThread(threadId);
+    },
+  };
 }
