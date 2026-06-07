@@ -29,7 +29,7 @@ import {
   ChatViewDeferredTasks,
   type ChatViewRenderScheduleOptions,
 } from "./panel/lifecycle";
-import { ChatMessageScrollIntentController } from "./controllers/view/message-scroll-intent-controller";
+import { ChatMessageScrollIntentController } from "./panel/message-scroll-intent-controller";
 import type { ChatPanelContext } from "./panel/context";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/controllers";
 import { activeComposerThreadName, composerMetaViewModel, composerPlaceholder, renderComposerSlot } from "./panel/slots/composer";

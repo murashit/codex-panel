@@ -6,7 +6,7 @@ import { createChatState, createChatStateStore } from "../../../src/features/cha
 import {
   ChatThreadActionController,
   type ChatThreadActionControllerHost,
-} from "../../../src/features/chat/controllers/thread/thread-actions-controller";
+} from "../../../src/features/chat/threads/thread-actions-controller";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";

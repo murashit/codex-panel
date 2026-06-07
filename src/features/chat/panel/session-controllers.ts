@@ -4,10 +4,10 @@ import type { ConnectionManager } from "../../../app-server/connection-manager";
 import { ChatAppServerDiagnosticsController } from "../app-server/diagnostics-controller";
 import { ChatAppServerMetadataController } from "../app-server/metadata-controller";
 import { ChatAppServerThreadController } from "../app-server/thread-controller";
-import { ChatConnectionController } from "../controllers/connection/connection-controller";
-import type { ServerRequestResponder } from "../controllers/requests/server-request-responder";
-import type { ChatThreadGoalController } from "../controllers/thread/thread-goal-controller";
-import type { ThreadRenameController } from "../controllers/thread/thread-rename-controller";
+import { ChatConnectionController } from "../session/connection-controller";
+import type { ServerRequestResponder } from "../requests/server-request-responder";
+import type { ChatThreadGoalController } from "../threads/thread-goal-controller";
+import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import { ChatInboundController } from "../inbound/controller";
 import type { ChatPanelContext } from "./context";
 

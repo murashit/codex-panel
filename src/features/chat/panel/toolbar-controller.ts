@@ -1,5 +1,5 @@
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
-import type { ChatThreadActionController } from "../controllers/thread/thread-actions-controller";
+import type { ChatThreadActionController } from "../threads/thread-actions-controller";
 import type { ChatViewRenderScheduleOptions } from "./lifecycle";
 
 export interface ToolbarPanelControllerHost {

@@ -5,7 +5,7 @@ import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import type { RuntimeSnapshot } from "../../../runtime/state";
 import type { ChatState, ChatStateStore } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
-import type { ChatMessageScrollIntentController } from "../controllers/view/message-scroll-intent-controller";
+import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type {
   ChatConnectionWorkTracker,

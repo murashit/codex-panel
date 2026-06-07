@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { ToolbarPanelController } from "../../../../src/features/chat/panel/toolbar-controller";
-import type { ChatThreadActionController } from "../../../../src/features/chat/controllers/thread/thread-actions-controller";
+import type { ChatThreadActionController } from "../../../../src/features/chat/threads/thread-actions-controller";
 
 describe("ToolbarPanelController", () => {
   it("tracks archive confirmation and delegates archive actions", async () => {

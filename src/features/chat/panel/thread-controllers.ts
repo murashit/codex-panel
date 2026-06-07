@@ -1,16 +1,16 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
-import { ChatRuntimeSettingsController } from "../controllers/runtime/runtime-settings-controller";
-import { ChatThreadActionController } from "../controllers/thread/thread-actions-controller";
-import { ChatThreadGoalController } from "../controllers/thread/thread-goal-controller";
-import { ThreadHistoryController } from "../controllers/thread/thread-history-controller";
-import { ThreadIdentityController } from "../controllers/thread/thread-identity-controller";
-import { ThreadRenameController } from "../controllers/thread/thread-rename-controller";
-import { ThreadResumeController } from "../controllers/thread/thread-resume-controller";
-import { createThreadSelectionActions } from "../controllers/thread/thread-selection-controller";
-import { RestoredThreadController } from "../controllers/thread/restored-thread-controller";
-import { ChatReconnectController } from "../controllers/connection/reconnect-controller";
-import { createChatViewStateActions } from "../controllers/view/view-state-controller";
+import { ChatRuntimeSettingsController } from "../runtime/runtime-settings-controller";
+import { ChatThreadActionController } from "../threads/thread-actions-controller";
+import { ChatThreadGoalController } from "../threads/thread-goal-controller";
+import { ThreadHistoryController } from "../threads/thread-history-controller";
+import { ThreadIdentityController } from "../threads/thread-identity-controller";
+import { ThreadRenameController } from "../threads/thread-rename-controller";
+import { ThreadResumeController } from "../threads/thread-resume-controller";
+import { createThreadSelectionActions } from "../threads/thread-selection-controller";
+import { RestoredThreadController } from "../threads/restored-thread-controller";
+import { ChatReconnectController } from "../session/reconnect-controller";
+import { createChatViewStateActions } from "./view-state-controller";
 import { ToolbarPanelController } from "./toolbar-controller";
 import type { ChatPanelContext } from "./context";
 
