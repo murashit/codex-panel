@@ -173,7 +173,65 @@ export class CodexChatView extends ItemView {
       turnBusy: () => this.turnBusy,
       restoredPlaceholder: () => this.restoredThreadPlaceholder(),
       runtimeSnapshot: () => this.runtimeSnapshot(),
-      controllers: this.controllers,
+      toolbarCommands: {
+        archiveConfirmId: () => this.controllers.toolbar.panels.archiveConfirmId(),
+        renameState: (threadId) => this.controllers.thread.rename.editState(threadId),
+        toggleChatActions: () => {
+          this.controllers.toolbar.panels.toggleChatActions();
+        },
+        closeToolbarPanels: () => {
+          this.controllers.toolbar.panels.closeToolbarPanels();
+        },
+        toggleHistory: () => {
+          this.controllers.toolbar.panels.toggleHistory();
+        },
+        toggleStatus: () => {
+          this.controllers.toolbar.panels.toggleStatus();
+        },
+        startArchive: (threadId) => {
+          this.controllers.toolbar.panels.startArchive(threadId);
+        },
+        archiveThread: (threadId, saveMarkdown) => this.controllers.toolbar.panels.archiveThread(threadId, saveMarkdown),
+      },
+      threadCommands: {
+        compactThread: (threadId) => this.controllers.thread.actions.compactThread(threadId),
+        selectThreadFromToolbar: (threadId) => this.controllers.thread.selection.selectThreadFromToolbar(threadId),
+        startRename: (threadId) => {
+          this.controllers.thread.rename.start(threadId);
+        },
+        updateRenameDraft: (threadId, value) => {
+          this.controllers.thread.rename.updateDraft(threadId, value);
+        },
+        saveRename: (threadId, value) => this.controllers.thread.rename.save(threadId, value),
+        cancelRename: (threadId) => {
+          this.controllers.thread.rename.cancel(threadId);
+        },
+        autoNameDraft: (threadId) => this.controllers.thread.rename.autoNameDraft(threadId),
+      },
+      connectionCommands: {
+        ensureConnected: () => this.controllers.connection.controller.ensureConnected(),
+        reconnectPanel: () => this.controllers.connection.reconnect.reconnectPanel(),
+        refreshStatusPanel: () => this.controllers.connection.controller.refreshStatusPanel(),
+      },
+      goalCommands: {
+        setStatus: (threadId, status) => this.controllers.runtime.goals.setStatus(threadId, status),
+        clear: (threadId) => this.controllers.runtime.goals.clear(threadId),
+        setObjective: (threadId, objective, tokenBudget) => this.controllers.runtime.goals.setObjective(threadId, objective, tokenBudget),
+      },
+      appServerCommands: {
+        startThread: (prompt, options) => this.controllers.appServer.threads.startThread(prompt, options),
+      },
+      renderCommands: {
+        render: (options) => {
+          this.controllers.render.controller.render(options);
+        },
+        renderMessages: (parent) => {
+          this.controllers.render.messages.render(parent);
+        },
+        renderComposer: (parent) => {
+          this.controllers.composer.controller.render(parent);
+        },
+      },
       effects: this.effects,
       dispatch: (action) => {
         this.dispatch(action);

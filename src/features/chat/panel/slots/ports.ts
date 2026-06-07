@@ -2,10 +2,54 @@ import type { ReasoningEffort } from "../../../../generated/app-server/Reasoning
 import type { RuntimeSnapshot } from "../../../../runtime/state";
 import type { CodexChatHost } from "../../chat-host";
 import type { ChatAction, ChatState } from "../../chat-state";
-import type { ChatViewControllers } from "../controllers";
+import type { ToolbarThreadRow } from "../../toolbar-model";
 import type { ChatViewEffects } from "../effects";
+import type { ChatViewRenderScheduleOptions } from "../lifecycle";
 import type { RestoredThreadTitleSnapshot } from "../model";
 import type { ChatViewSlotRendererPorts } from "./types";
+
+interface ChatSlotToolbarCommands {
+  archiveConfirmId: () => string | null;
+  renameState: (threadId: string) => ToolbarThreadRow["rename"];
+  toggleChatActions: () => void;
+  closeToolbarPanels: () => void;
+  toggleHistory: () => void;
+  toggleStatus: () => void;
+  startArchive: (threadId: string) => void;
+  archiveThread: (threadId: string, saveMarkdown: boolean) => Promise<void>;
+}
+
+interface ChatSlotThreadCommands {
+  compactThread: (threadId: string) => Promise<void>;
+  selectThreadFromToolbar: (threadId: string) => Promise<void>;
+  startRename: (threadId: string) => void;
+  updateRenameDraft: (threadId: string, value: string) => void;
+  saveRename: (threadId: string, value: string) => Promise<void>;
+  cancelRename: (threadId: string) => void;
+  autoNameDraft: (threadId: string) => Promise<void>;
+}
+
+interface ChatSlotConnectionCommands {
+  ensureConnected: () => Promise<void>;
+  reconnectPanel: () => Promise<void>;
+  refreshStatusPanel: () => Promise<void>;
+}
+
+interface ChatSlotGoalCommands {
+  setStatus: (threadId: string, status: "active" | "paused") => Promise<unknown>;
+  clear: (threadId: string) => Promise<unknown>;
+  setObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<unknown>;
+}
+
+interface ChatSlotAppServerCommands {
+  startThread: (prompt: string, options: { syncGoal: boolean }) => Promise<{ thread: { id: string } } | null>;
+}
+
+interface ChatSlotRenderCommands {
+  render: (options?: ChatViewRenderScheduleOptions) => void;
+  renderMessages: (parent: HTMLElement) => void;
+  renderComposer: (parent: HTMLElement) => void;
+}
 
 export interface ChatViewSlotRendererPortsOptions {
   plugin: CodexChatHost;
@@ -14,7 +58,12 @@ export interface ChatViewSlotRendererPortsOptions {
   turnBusy: () => boolean;
   restoredPlaceholder: () => RestoredThreadTitleSnapshot | null;
   runtimeSnapshot: () => RuntimeSnapshot;
-  controllers: ChatViewControllers;
+  toolbarCommands: ChatSlotToolbarCommands;
+  threadCommands: ChatSlotThreadCommands;
+  connectionCommands: ChatSlotConnectionCommands;
+  goalCommands: ChatSlotGoalCommands;
+  appServerCommands: ChatSlotAppServerCommands;
+  renderCommands: ChatSlotRenderCommands;
   effects: ChatViewEffects;
   dispatch: (action: ChatAction) => void;
   startNewThread: () => Promise<void>;
@@ -23,7 +72,7 @@ export interface ChatViewSlotRendererPortsOptions {
 }
 
 export function createChatViewSlotRendererPorts(options: ChatViewSlotRendererPortsOptions): ChatViewSlotRendererPorts {
-  const { controllers, plugin } = options;
+  const { plugin } = options;
   return {
     state: {
       chat: options.state,
@@ -46,48 +95,48 @@ export function createChatViewSlotRendererPorts(options: ChatViewSlotRendererPor
     },
     actions: {
       toolbar: {
-        archiveConfirmId: () => controllers.toolbar.panels.archiveConfirmId(),
-        renameState: (threadId) => controllers.thread.rename.editState(threadId),
+        archiveConfirmId: options.toolbarCommands.archiveConfirmId,
+        renameState: options.toolbarCommands.renameState,
         startNewThread: options.startNewThread,
         toggleChatActions: () => {
-          controllers.toolbar.panels.toggleChatActions();
+          options.toolbarCommands.toggleChatActions();
         },
         compactConversation: () => {
-          controllers.toolbar.panels.closeToolbarPanels();
+          options.toolbarCommands.closeToolbarPanels();
           return compactConversation(options);
         },
         showGoalEditor: () => {
           setGoalEditingOpen(options, true, { closeToolbarPanel: true });
         },
         toggleHistory: () => {
-          controllers.toolbar.panels.toggleHistory();
+          options.toolbarCommands.toggleHistory();
         },
         toggleStatusPanel: () => {
-          controllers.toolbar.panels.toggleStatus();
+          options.toolbarCommands.toggleStatus();
         },
-        reconnectPanel: () => controllers.connection.reconnect.reconnectPanel(),
-        refreshStatusPanel: () => controllers.connection.controller.refreshStatusPanel(),
-        selectThreadFromToolbar: (threadId) => controllers.thread.selection.selectThreadFromToolbar(threadId),
+        reconnectPanel: options.connectionCommands.reconnectPanel,
+        refreshStatusPanel: options.connectionCommands.refreshStatusPanel,
+        selectThreadFromToolbar: options.threadCommands.selectThreadFromToolbar,
         startArchive: (threadId) => {
-          controllers.toolbar.panels.startArchive(threadId);
+          options.toolbarCommands.startArchive(threadId);
         },
-        archiveThread: (threadId, saveMarkdown) => controllers.toolbar.panels.archiveThread(threadId, saveMarkdown),
+        archiveThread: options.toolbarCommands.archiveThread,
         startRename: (threadId) => {
-          controllers.thread.rename.start(threadId);
+          options.threadCommands.startRename(threadId);
         },
         updateRenameDraft: (threadId, value) => {
-          controllers.thread.rename.updateDraft(threadId, value);
+          options.threadCommands.updateRenameDraft(threadId, value);
         },
-        saveRename: (threadId, value) => controllers.thread.rename.save(threadId, value),
+        saveRename: options.threadCommands.saveRename,
         cancelRename: (threadId) => {
-          controllers.thread.rename.cancel(threadId);
+          options.threadCommands.cancelRename(threadId);
         },
-        autoNameDraft: (threadId) => controllers.thread.rename.autoNameDraft(threadId),
+        autoNameDraft: options.threadCommands.autoNameDraft,
       },
       goal: {
         saveObjective: (objective, tokenBudget) => saveGoalObjective(options, objective, tokenBudget),
-        setStatus: (threadId, status) => controllers.runtime.goals.setStatus(threadId, status),
-        clear: (threadId) => controllers.runtime.goals.clear(threadId),
+        setStatus: options.goalCommands.setStatus,
+        clear: options.goalCommands.clear,
         setEditingOpen: (open) => {
           setGoalEditingOpen(options, open);
         },
@@ -95,10 +144,10 @@ export function createChatViewSlotRendererPorts(options: ChatViewSlotRendererPor
     },
     slots: {
       renderMessages: (parent) => {
-        controllers.render.messages.render(parent);
+        options.renderCommands.renderMessages(parent);
       },
       renderComposer: (parent) => {
-        controllers.composer.controller.render(parent);
+        options.renderCommands.renderComposer(parent);
       },
     },
   };
@@ -110,7 +159,7 @@ async function compactConversation(options: ChatViewSlotRendererPortsOptions): P
     options.effects.status.addSystemMessage("No active thread to compact.");
     return;
   }
-  await options.controllers.thread.actions.compactThread(threadId);
+  await options.threadCommands.compactThread(threadId);
 }
 
 function setGoalEditingOpen(
@@ -120,15 +169,15 @@ function setGoalEditingOpen(
 ): void {
   if (closeToolbarPanel) options.dispatch({ type: "ui/panel-set", panel: null });
   options.dispatch({ type: "ui/detail-open-set", key: "goal:editor", open });
-  options.controllers.render.controller.render({ forceSlots: true });
+  options.renderCommands.render({ forceSlots: true });
 }
 
 async function saveGoalObjective(options: ChatViewSlotRendererPortsOptions, objective: string, tokenBudget: number | null): Promise<void> {
   let threadId = options.state().activeThread.id;
   if (!threadId) {
     try {
-      await options.controllers.connection.controller.ensureConnected();
-      const response = await options.controllers.appServer.threads.startThread(objective, { syncGoal: false });
+      await options.connectionCommands.ensureConnected();
+      const response = await options.appServerCommands.startThread(objective, { syncGoal: false });
       threadId = response?.thread.id ?? null;
     } catch (error) {
       options.effects.status.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -136,5 +185,5 @@ async function saveGoalObjective(options: ChatViewSlotRendererPortsOptions, obje
     }
   }
   if (!threadId) return;
-  void options.controllers.runtime.goals.setObjective(threadId, objective, tokenBudget);
+  void options.goalCommands.setObjective(threadId, objective, tokenBudget);
 }
