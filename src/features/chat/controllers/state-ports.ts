@@ -1,26 +1,11 @@
 import type { Thread } from "../../../generated/app-server/v2/Thread";
 import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
 import { activeTurnId, chatTurnBusy, pendingTurnStart, type ChatStateStore, type PendingTurnStart } from "../chat-state";
-import type { PendingApproval } from "../requests/approvals/model";
-import type { PendingUserInput } from "../requests/user-input/model";
 import type { DisplayItem } from "../display/types";
 import { implementPlanCandidateFromState } from "../plan-implementation";
 import { resumedThreadAction, type ThreadActivationResponse } from "../thread-resume";
 import { composerSlotSnapshot, goalSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "../panel/snapshot";
 import { renderChatPanelShell } from "../ui/shell";
-
-interface PendingRequestSnapshot {
-  approvals: readonly PendingApproval[];
-  pendingUserInputs: readonly PendingUserInput[];
-  userInputDrafts: ReadonlyMap<string, string>;
-  openDetails: ReadonlySet<string>;
-}
-
-export interface PendingRequestStatePort {
-  snapshot(): PendingRequestSnapshot;
-  setDetailOpen(key: string, open: boolean): void;
-  setUserInputDraft(key: string, value: string): void;
-}
 
 export interface ThreadLifecycleStatePort {
   activeThreadId(): string | null;
@@ -65,26 +50,6 @@ export interface ChatShellRenderPort {
       renderComposer: (parent: HTMLElement) => void;
     },
   ): void;
-}
-
-export function createPendingRequestStatePort(stateStore: ChatStateStore): PendingRequestStatePort {
-  return {
-    snapshot() {
-      const state = stateStore.getState();
-      return {
-        approvals: state.requests.approvals,
-        pendingUserInputs: state.requests.pendingUserInputs,
-        userInputDrafts: state.requests.userInputDrafts,
-        openDetails: state.ui.openDetails,
-      };
-    },
-    setDetailOpen(key, open) {
-      stateStore.dispatch({ type: "ui/detail-open-set", key, open });
-    },
-    setUserInputDraft(key, value) {
-      stateStore.dispatch({ type: "request/user-input-draft-set", key, value });
-    },
-  };
 }
 
 export function createThreadLifecycleStatePort(stateStore: ChatStateStore): ThreadLifecycleStatePort {

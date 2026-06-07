@@ -20,12 +20,7 @@ import { ChatConnectionController } from "../controllers/connection/connection-c
 import { ChatReconnectController } from "../controllers/connection/reconnect-controller";
 import { PendingRequestController } from "../controllers/requests/pending-request-controller";
 import { ServerRequestResponder } from "../controllers/requests/server-request-responder";
-import {
-  createChatShellRenderPort,
-  createPendingRequestStatePort,
-  createSubmissionStatePort,
-  createThreadLifecycleStatePort,
-} from "../controllers/state-ports";
+import { createChatShellRenderPort, createSubmissionStatePort, createThreadLifecycleStatePort } from "../controllers/state-ports";
 import { ComposerSubmissionController } from "../controllers/submission/composer-submission-controller";
 import { PlanImplementationController } from "../controllers/submission/plan-implementation-controller";
 import { SlashCommandController } from "../controllers/submission/slash-command-controller";
@@ -324,7 +319,7 @@ function createSubmissionControllerGroup(
     },
   });
   const pendingRequests = new PendingRequestController({
-    state: createPendingRequestStatePort(stateStore),
+    stateStore,
     controller: refs.controller,
     composerHasFocus: () => composerController.hasFocus(),
     refreshLiveState: liveState.refresh,

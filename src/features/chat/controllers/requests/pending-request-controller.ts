@@ -1,15 +1,17 @@
 import type { ComponentChild as UiNode } from "preact";
 
+import { setDetailOpenAction, setUserInputDraftAction } from "../../chat-state-actions";
+import { pendingRequestSnapshot } from "../../chat-state-selectors";
+import type { ChatStateStore } from "../../chat-state";
 import type { ApprovalAction, PendingApproval } from "../../requests/approvals/model";
 import type { ChatInboundController } from "../../inbound/controller";
 import { pendingRequestFocusSignature } from "../../requests/view-model";
 import { pendingRequestMessageNode } from "../../ui/pending-request-message";
 import { userInputDraftKey, userInputOtherDraftKey } from "../../requests/user-input/drafts";
 import { answersForPendingUserInput, type PendingUserInput } from "../../requests/user-input/model";
-import type { PendingRequestStatePort } from "../state-ports";
 
 export interface PendingRequestControllerHost {
-  state: PendingRequestStatePort;
+  stateStore: ChatStateStore;
   controller: ChatInboundController;
   composerHasFocus: () => boolean;
   refreshLiveState: () => void;
@@ -22,7 +24,7 @@ export class PendingRequestController {
   constructor(private readonly host: PendingRequestControllerHost) {}
 
   renderNode(): UiNode {
-    const state = this.host.state.snapshot();
+    const state = pendingRequestSnapshot(this.host.stateStore.getState());
     return pendingRequestMessageNode(
       state.approvals,
       state.pendingUserInputs,
@@ -43,10 +45,10 @@ export class PendingRequestController {
           this.cancelUserInput(input);
         },
         setOpenDetail: (key, open) => {
-          this.host.state.setDetailOpen(key, open);
+          this.host.stateStore.dispatch(setDetailOpenAction(key, open));
         },
         setUserInputDraft: (key, value) => {
-          this.host.state.setUserInputDraft(key, value);
+          this.host.stateStore.dispatch(setUserInputDraftAction(key, value));
         },
       },
       this.consumeAutoFocus(),
@@ -59,7 +61,10 @@ export class PendingRequestController {
   }
 
   resolveUserInput(input: PendingUserInput): void {
-    this.host.controller.resolveUserInput(input, answersForPendingUserInput(input, this.host.state.snapshot().userInputDrafts));
+    this.host.controller.resolveUserInput(
+      input,
+      answersForPendingUserInput(input, pendingRequestSnapshot(this.host.stateStore.getState()).userInputDrafts),
+    );
     this.commitRequestAction();
   }
 
@@ -74,7 +79,7 @@ export class PendingRequestController {
   }
 
   private consumeAutoFocus(): boolean {
-    const state = this.host.state.snapshot();
+    const state = pendingRequestSnapshot(this.host.stateStore.getState());
     const signature = pendingRequestFocusSignature(state.approvals, state.pendingUserInputs);
     if (!signature) {
       this.lastFocusSignature = "";

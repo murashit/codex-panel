@@ -20,3 +20,11 @@ export function closePanelsAction(): ChatAction {
 export function pinMessagesToBottomAction(): ChatAction {
   return { type: "ui/messages-pinned-set", pinned: true };
 }
+
+export function setDetailOpenAction(key: string, open: boolean): ChatAction {
+  return { type: "ui/detail-open-set", key, open };
+}
+
+export function setUserInputDraftAction(key: string, value: string): ChatAction {
+  return { type: "request/user-input-draft-set", key, value };
+}

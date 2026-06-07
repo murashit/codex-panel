@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ChatInboundController } from "../../../../../src/features/chat/inbound/controller";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
-import { createPendingRequestStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { PendingRequestController } from "../../../../../src/features/chat/controllers/requests/pending-request-controller";
 import { toPendingUserInput } from "../../../../../src/features/chat/requests/user-input/model";
 import type { ServerRequest } from "../../../../../src/generated/app-server/ServerRequest";
@@ -31,7 +30,7 @@ describe("PendingRequestController", () => {
       rejectServerRequest: vi.fn(),
     });
     const pendingRequests = new PendingRequestController({
-      state: createPendingRequestStatePort(stateStore),
+      stateStore,
       controller,
       composerHasFocus: () => false,
       refreshLiveState,
