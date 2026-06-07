@@ -11,11 +11,11 @@ for (const arg of args) {
 }
 
 if (args.has("--ci")) {
-  for (const script of ["typecheck:ci", "test:ci", "lint:ts:ci", "lint:css", "format:check:ci", "build:styles:check", "build"]) {
+  for (const script of ["typecheck:ci", "test:ci", "lint:ts:ci", "lint:css", "format:check:ci", "build:styles:check", "unused", "build"]) {
     run(npmCommand, ["run", script]);
   }
 } else {
-  run("node", ["scripts/run-parallel.mjs", "typecheck", "test", "lint:ts", "lint:css", "format:check", "build:styles:check"]);
+  run("node", ["scripts/run-parallel.mjs", "typecheck", "test", "lint:ts", "lint:css", "format:check", "build:styles:check", "unused"]);
   run(npmCommand, ["run", "build"]);
 }
 
