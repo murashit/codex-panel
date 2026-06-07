@@ -1,6 +1,6 @@
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
-import { inputToText } from "./user-input-text";
+import type { UserInput } from "../../generated/app-server/v2/UserInput";
 
 type TranscriptEntryKind = "user" | "assistant" | "plan";
 
@@ -40,6 +40,20 @@ export function turnConversationSummary(turn: Turn): TurnConversationSummary {
 
 export function userItemText(item: Extract<ThreadItem, { type: "userMessage" }>): string {
   return inputToText(item.content);
+}
+
+function inputToText(content: UserInput[]): string {
+  const hasText = content.some((item) => item.type === "text" && item.text.length > 0);
+  return content
+    .map((item) => {
+      if (item.type === "text") return item.text;
+      if (item.type === "localImage") return `[local image] ${item.path}`;
+      if (item.type === "image") return `[image] ${item.url}`;
+      if (item.type === "mention") return hasText ? "" : `[@${item.name}] ${item.path}`;
+      return hasText ? "" : `[$${item.name}] ${item.path}`;
+    })
+    .filter(Boolean)
+    .join("\n");
 }
 
 function transcriptEntriesFromItem(item: ThreadItem, turn: Turn): TurnTranscriptEntry[] {

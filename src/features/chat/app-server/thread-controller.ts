@@ -4,7 +4,6 @@ import type { Thread } from "../../../generated/app-server/v2/Thread";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../../runtime/state";
 import { resumedThreadAction } from "../thread-resume";
 import type { ChatAppServerBaseHost } from "./shared";
-import { chatAppServerState, dispatchChatAppServerAction } from "./shared";
 
 export interface ChatAppServerThreadControllerHost extends ChatAppServerBaseHost {
   runtimeSnapshot: () => RuntimeSnapshot;
@@ -17,7 +16,7 @@ export class ChatAppServerThreadController {
   constructor(private readonly host: ChatAppServerThreadControllerHost) {}
 
   applyThreadList(threads: readonly Thread[]): void {
-    dispatchChatAppServerAction(this.host, { type: "thread-list/applied", threads, threadsLoaded: true });
+    this.host.stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
   }
 
   async loadThreadList(): Promise<readonly Thread[]> {
@@ -35,9 +34,9 @@ export class ChatAppServerThreadController {
     if (!client) return null;
     const serviceTier = requestedOrConfiguredServiceTier(this.host.runtimeSnapshot());
     const response = await client.startThread(this.host.vaultPath, serviceTier);
-    const state = chatAppServerState(this.host);
+    const state = this.host.stateStore.getState();
     const listedThreads = upsertThread(state.threadList.listedThreads, threadWithPreviewFallback(response.thread, preview));
-    dispatchChatAppServerAction(this.host, resumedThreadAction({ response, listedThreads, forceMessagesToBottom: true }));
+    this.host.stateStore.dispatch(resumedThreadAction({ response, listedThreads, forceMessagesToBottom: true }));
     this.host.publishThreadList(listedThreads);
     this.host.forceMessagesToBottom();
     if (options.syncGoal ?? true) this.host.syncThreadGoal(response.thread.id);

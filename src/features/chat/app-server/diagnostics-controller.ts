@@ -8,7 +8,7 @@ import {
 import type { McpServerStatus } from "../../../generated/app-server/v2/McpServerStatus";
 import type { SharedAppServerMetadata } from "../../../runtime/shared-app-server-state";
 import { mcpStatusLines as buildMcpStatusLines } from "../mcp-status";
-import { chatAppServerState, cloneAppServerDiagnostics, dispatchChatAppServerAction, type ChatAppServerBaseHost } from "./shared";
+import { cloneAppServerDiagnostics, type ChatAppServerBaseHost } from "./shared";
 
 export interface RefreshCapabilityDiagnosticsOptions {
   cachedAppServerMetadata?: boolean;
@@ -61,7 +61,7 @@ export class ChatAppServerDiagnosticsController {
       ),
       this.probeCapability(
         "mcpServerStatus/list",
-        () => client.listMcpServerStatus(mcpServerStatusParams(chatAppServerState(this.host).activeThread.id)),
+        () => client.listMcpServerStatus(mcpServerStatusParams(this.host.stateStore.getState().activeThread.id)),
         (response) => {
           this.recordMcpServerStatus(response.data);
           const issueCount = response.data.filter((server) => server.authStatus === "notLoggedIn").length;
@@ -102,7 +102,7 @@ export class ChatAppServerDiagnosticsController {
     if (!client) return ["MCP servers", "Codex app-server is not connected."];
 
     try {
-      const state = chatAppServerState(this.host);
+      const state = this.host.stateStore.getState();
       const response = await client.listMcpServerStatus(mcpServerStatusParams(state.activeThread.id));
       return buildMcpStatusLines(response.data, state.connection.appServerDiagnostics.mcpServers);
     } catch (error) {
@@ -112,9 +112,9 @@ export class ChatAppServerDiagnosticsController {
   }
 
   recordMcpStartupStatus(name: string, startupStatus: "starting" | "ready" | "failed" | "cancelled", message: string | null): void {
-    dispatchChatAppServerAction(this.host, {
+    this.host.stateStore.dispatch({
       type: "connection/metadata-applied",
-      appServerDiagnostics: upsertMcpServerDiagnostic(chatAppServerState(this.host).connection.appServerDiagnostics, {
+      appServerDiagnostics: upsertMcpServerDiagnostic(this.host.stateStore.getState().connection.appServerDiagnostics, {
         name,
         startupStatus,
         authStatus: null,
@@ -131,18 +131,18 @@ export class ChatAppServerDiagnosticsController {
   ): Promise<void> {
     try {
       const response = await request();
-      const diagnostics = cloneAppServerDiagnostics(chatAppServerState(this.host).connection.appServerDiagnostics);
+      const diagnostics = cloneAppServerDiagnostics(this.host.stateStore.getState().connection.appServerDiagnostics);
       diagnostics.probes[method] = capabilityProbeOk(method, summarize(response));
-      dispatchChatAppServerAction(this.host, { type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
+      this.host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
     } catch (error) {
-      const diagnostics = cloneAppServerDiagnostics(chatAppServerState(this.host).connection.appServerDiagnostics);
+      const diagnostics = cloneAppServerDiagnostics(this.host.stateStore.getState().connection.appServerDiagnostics);
       diagnostics.probes[method] = capabilityProbeError(method, error);
-      dispatchChatAppServerAction(this.host, { type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
+      this.host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
     }
   }
 
   private recordMcpServerStatus(servers: McpServerStatus[]): void {
-    let diagnostics = chatAppServerState(this.host).connection.appServerDiagnostics;
+    let diagnostics = this.host.stateStore.getState().connection.appServerDiagnostics;
     for (const server of servers) {
       diagnostics = upsertMcpServerDiagnostic(diagnostics, {
         name: server.name,
@@ -152,7 +152,7 @@ export class ChatAppServerDiagnosticsController {
         message: null,
       });
     }
-    dispatchChatAppServerAction(this.host, { type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
+    this.host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
   }
 }
 

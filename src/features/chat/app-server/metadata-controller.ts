@@ -3,7 +3,7 @@ import type { Model } from "../../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../../generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../../generated/app-server/v2/SkillMetadata";
 import type { SharedAppServerMetadata } from "../../../runtime/shared-app-server-state";
-import { chatAppServerState, cloneAppServerDiagnostics, dispatchChatAppServerAction, type ChatAppServerBaseHost } from "./shared";
+import { cloneAppServerDiagnostics, type ChatAppServerBaseHost } from "./shared";
 
 export interface ChatAppServerMetadataControllerHost extends ChatAppServerBaseHost {
   publishAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
@@ -13,7 +13,7 @@ export class ChatAppServerMetadataController {
   constructor(private readonly host: ChatAppServerMetadataControllerHost) {}
 
   appServerMetadataSnapshot(): SharedAppServerMetadata {
-    const state = chatAppServerState(this.host);
+    const state = this.host.stateStore.getState();
     return {
       effectiveConfig: state.connection.effectiveConfig,
       availableModels: state.connection.availableModels,
@@ -24,7 +24,7 @@ export class ChatAppServerMetadataController {
   }
 
   applyAppServerMetadata(metadata: SharedAppServerMetadata): void {
-    dispatchChatAppServerAction(this.host, {
+    this.host.stateStore.dispatch({
       type: "connection/metadata-applied",
       effectiveConfig: metadata.effectiveConfig,
       availableModels: metadata.availableModels,
@@ -39,7 +39,7 @@ export class ChatAppServerMetadataController {
     if (!client) return null;
     const effectiveConfig = await client.readEffectiveConfig(this.host.vaultPath);
     const [models, skills, rateLimit] = await Promise.all([this.loadModels(), this.loadSkills(), this.loadRateLimit()]);
-    const diagnostics = cloneAppServerDiagnostics(chatAppServerState(this.host).connection.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.host.stateStore.getState().connection.appServerDiagnostics);
     diagnostics.probes["model/list"] = models.probe;
     diagnostics.probes["skills/list"] = skills.probe;
     diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
@@ -70,9 +70,9 @@ export class ChatAppServerMetadataController {
 
   async refreshModels(): Promise<void> {
     const models = await this.loadModels();
-    const diagnostics = cloneAppServerDiagnostics(chatAppServerState(this.host).connection.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.host.stateStore.getState().connection.appServerDiagnostics);
     diagnostics.probes["model/list"] = models.probe;
-    dispatchChatAppServerAction(this.host, {
+    this.host.stateStore.dispatch({
       type: "connection/metadata-applied",
       availableModels: models.data,
       appServerDiagnostics: diagnostics,
@@ -92,9 +92,9 @@ export class ChatAppServerMetadataController {
 
   async refreshSkills(forceReload = false): Promise<void> {
     const skills = await this.loadSkills(forceReload);
-    const diagnostics = cloneAppServerDiagnostics(chatAppServerState(this.host).connection.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.host.stateStore.getState().connection.appServerDiagnostics);
     diagnostics.probes["skills/list"] = skills.probe;
-    dispatchChatAppServerAction(this.host, {
+    this.host.stateStore.dispatch({
       type: "connection/metadata-applied",
       availableSkills: skills.data,
       appServerDiagnostics: diagnostics,
@@ -121,9 +121,9 @@ export class ChatAppServerMetadataController {
 
   async refreshRateLimits(): Promise<void> {
     const rateLimit = await this.loadRateLimit();
-    const diagnostics = cloneAppServerDiagnostics(chatAppServerState(this.host).connection.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.host.stateStore.getState().connection.appServerDiagnostics);
     diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
-    dispatchChatAppServerAction(this.host, {
+    this.host.stateStore.dispatch({
       type: "connection/metadata-applied",
       rateLimit: rateLimit.data,
       appServerDiagnostics: diagnostics,
@@ -132,10 +132,10 @@ export class ChatAppServerMetadataController {
 
   async refreshPublishedRateLimits(): Promise<void> {
     const rateLimit = await this.loadRateLimit();
-    const diagnostics = cloneAppServerDiagnostics(chatAppServerState(this.host).connection.appServerDiagnostics);
+    const diagnostics = cloneAppServerDiagnostics(this.host.stateStore.getState().connection.appServerDiagnostics);
     diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
     if (rateLimit.probe.status === "ok") {
-      dispatchChatAppServerAction(this.host, {
+      this.host.stateStore.dispatch({
         type: "connection/metadata-applied",
         rateLimit: rateLimit.data,
         appServerDiagnostics: diagnostics,
@@ -143,7 +143,7 @@ export class ChatAppServerMetadataController {
       this.publishAppServerMetadataSnapshot();
       return;
     }
-    dispatchChatAppServerAction(this.host, { type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
+    this.host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
   }
 
   async loadRateLimit(): Promise<{ data: RateLimitSnapshot | null; probe: AppServerDiagnostics["probes"]["account/rateLimits/read"] }> {
