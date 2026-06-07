@@ -30,9 +30,9 @@ import {
 } from "./panel/lifecycle";
 import { ChatMessageScrollIntentController } from "./controllers/view/message-scroll-intent-controller";
 import type { ChatViewEffects } from "./panel/effects";
+import type { ChatPanelContext } from "./panel/context";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/controllers";
 import { createPanelUiStatePort } from "./controllers/state-ports";
-import { createChatViewControllerPorts } from "./panel/controller-ports";
 import { createChatViewEffectHandlers } from "./panel/effect-handlers";
 import { createChatViewSlotRendererPorts } from "./panel/slots/ports";
 import { ChatViewSlotRenderers } from "./panel/slots/renderers";
@@ -73,8 +73,8 @@ export class CodexChatView extends ItemView {
     this.slotRenderers = new ChatViewSlotRenderers(this.createSlotRendererPorts());
   }
 
-  private createControllerPorts() {
-    return createChatViewControllerPorts({
+  private createControllerPorts(): ChatPanelContext {
+    return {
       obsidian: {
         app: this.app,
         owner: this,
@@ -92,11 +92,13 @@ export class CodexChatView extends ItemView {
         archiveAdapter: () => this.app.vault.adapter,
       },
       plugin: this.plugin,
-      stateStore: this.chatState,
-      getState: () => this.state,
+      state: {
+        stateStore: this.chatState,
+        getState: () => this.state,
+      },
       client: {
-        get: () => this.client,
-        set: (client) => {
+        getClient: () => this.client,
+        setClient: (client) => {
           this.client = client;
         },
       },
@@ -105,20 +107,17 @@ export class CodexChatView extends ItemView {
         resumeWork: this.resumeWork,
         connectionWork: this.connectionWork,
         messageScrollIntent: this.messageScrollIntent,
-        opened: {
-          get: () => this.opened,
-          set: (opened) => {
-            this.opened = opened;
-          },
+        getOpened: () => this.opened,
+        setOpened: (opened) => {
+          this.opened = opened;
         },
-        closing: {
-          get: () => this.closing,
-          set: (closing) => {
-            this.closing = closing;
-          },
+        getClosing: () => this.closing,
+        setClosing: (closing) => {
+          this.closing = closing;
         },
       },
-      renderSlots: {
+      render: {
+        panelRoot: () => this.panelRoot(),
         renderToolbar: (toolbar) => {
           this.slotRenderers.renderToolbar(toolbar);
         },
@@ -135,34 +134,33 @@ export class CodexChatView extends ItemView {
         activeComposerThreadName: () => this.slotRenderers.activeComposerThreadName(),
         composerPlaceholder: () => this.slotRenderers.composerPlaceholder(),
         composerMetaViewModel: () => this.slotRenderers.composerMetaViewModel(),
-      },
-      appServer: {
-        mcpStatusLines: () => this.controllers.appServer.diagnostics.mcpStatusLines(),
-        publishMetadataSnapshot: () => {
-          this.controllers.appServer.metadata.publishAppServerMetadataSnapshot();
+        closeToolbarPanelOnOutsidePointer: (event) => {
+          this.closeToolbarPanelOnOutsidePointer(event);
         },
       },
-      threadCommands: {
+      runtime: {
+        runtimeSnapshot: () => this.runtimeSnapshot(),
+        collaborationModeLabel: () => this.collaborationModeLabel(),
+        connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
+        mcpStatusLines: () => this.controllers.appServer.diagnostics.mcpStatusLines(),
+        modelStatusLines: () => this.modelStatusLines(),
+        effortStatusLines: () => this.effortStatusLines(),
+        statusSummaryLines: () => this.statusSummaryLines(),
+      },
+      thread: {
+        ensureRestoredThreadLoaded: () => this.ensureRestoredThreadLoaded(),
+        startNewThread: () => this.startNewThread(),
         selectThread: (threadId) => this.controllers.thread.selection.selectThread(threadId),
         resumeThread: (threadId) => this.controllers.thread.resume.resumeThread(threadId),
         refreshThreads: () => this.controllers.connection.controller.refreshThreads(),
         refreshSkills: (forceReload) => this.controllers.connection.controller.refreshSkills(forceReload),
+        publishAppServerMetadataSnapshot: () => {
+          this.controllers.appServer.metadata.publishAppServerMetadataSnapshot();
+        },
+        loadSharedThreadList: () => this.loadSharedThreadList(),
       },
-      panelRoot: () => this.panelRoot(),
-      closeToolbarPanelOnOutsidePointer: (event) => {
-        this.closeToolbarPanelOnOutsidePointer(event);
-      },
-      runtimeSnapshot: () => this.runtimeSnapshot(),
-      collaborationModeLabel: () => this.collaborationModeLabel(),
-      connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
-      modelStatusLines: () => this.modelStatusLines(),
-      effortStatusLines: () => this.effortStatusLines(),
-      statusSummaryLines: () => this.statusSummaryLines(),
-      ensureRestoredThreadLoaded: () => this.ensureRestoredThreadLoaded(),
-      startNewThread: () => this.startNewThread(),
-      loadSharedThreadList: () => this.loadSharedThreadList(),
       effects: this.effects,
-    });
+    };
   }
 
   private createSlotRendererPorts() {

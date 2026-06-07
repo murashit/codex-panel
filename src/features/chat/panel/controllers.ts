@@ -40,7 +40,7 @@ import { ChatViewOpenCloseController } from "../controllers/view/view-open-close
 import { ChatViewRenderController } from "../controllers/view/view-render-controller";
 import { ChatViewStateController } from "../controllers/view/view-state-controller";
 import { ChatMessageRenderer } from "../ui/message-stream";
-import type { ChatViewControllerPorts } from "./controller-ports";
+import type { ChatPanelContext } from "./context";
 
 export interface ChatViewControllers {
   connection: {
@@ -90,7 +90,7 @@ export interface ChatViewControllers {
 
 type ControllerContext = ReturnType<typeof createControllerContext>;
 
-export function createChatViewControllers(ports: ChatViewControllerPorts): ChatViewControllers {
+export function createChatViewControllers(ports: ChatPanelContext): ChatViewControllers {
   const context = createControllerContext(ports);
   const connection = new ConnectionManager(() => context.plugin.settings.codexPath, context.plugin.vaultPath);
   const { renderController } = createViewRenderControllerGroup(context, { connection });
@@ -214,7 +214,7 @@ export function createChatViewControllers(ports: ChatViewControllerPorts): ChatV
   };
 }
 
-function createControllerContext(ports: ChatViewControllerPorts) {
+function createControllerContext(ports: ChatPanelContext) {
   const { obsidian, plugin, state, client, lifecycle, render, runtime, thread, effects } = ports;
   const { app, owner, viewId } = obsidian;
   const { stateStore } = state;
@@ -811,7 +811,7 @@ function createThreadToolbarControllerGroup(
 }
 
 function applyCachedSharedAppServerState(
-  ports: ChatViewControllerPorts,
+  ports: ChatPanelContext,
   appServerThreads: ChatAppServerThreadController,
   appServerMetadata: ChatAppServerMetadataController,
 ): void {
