@@ -1,6 +1,6 @@
 import type { ChatStateStore } from "../chat-state";
-import { composerSlotSnapshot, goalSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "../panel/snapshot";
 import { renderChatPanelShell } from "../ui/shell";
+import { composerSlotSnapshot, goalSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "./snapshot";
 
 export interface ChatShellRenderPort {
   render(

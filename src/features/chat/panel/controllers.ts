@@ -20,7 +20,7 @@ import { ChatConnectionController } from "../controllers/connection/connection-c
 import { ChatReconnectController } from "../controllers/connection/reconnect-controller";
 import { PendingRequestController } from "../controllers/requests/pending-request-controller";
 import { ServerRequestResponder } from "../controllers/requests/server-request-responder";
-import { createChatShellRenderPort } from "../controllers/state-ports";
+import { createChatShellRenderPort } from "./shell-render";
 import { ComposerSubmissionController } from "../controllers/submission/composer-submission-controller";
 import { PlanImplementationController } from "../controllers/submission/plan-implementation-controller";
 import { SlashCommandController } from "../controllers/submission/slash-command-controller";

@@ -1,5 +1,5 @@
 import type { ChatViewRenderScheduleOptions } from "../../panel/lifecycle";
-import type { ChatShellRenderPort } from "../state-ports";
+import type { ChatShellRenderPort } from "../../panel/shell-render";
 
 export interface ChatViewRenderControllerHost {
   shell: ChatShellRenderPort;
