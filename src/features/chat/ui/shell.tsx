@@ -161,7 +161,7 @@ function ensureBody(container: HTMLElement): HTMLElement {
 
 function startStatusBarClearanceSync(container: HTMLElement): () => void {
   const win = container.ownerDocument.defaultView;
-  if (!win) return noop;
+  if (!win) return () => undefined;
 
   const cleanupCallbacks: (() => void)[] = [];
   let observedStatusBar: HTMLElement | null = null;
@@ -214,10 +214,6 @@ function startStatusBarClearanceSync(container: HTMLElement): () => void {
     statusBarMutationObserver?.disconnect();
     statusBarResizeObserver?.disconnect();
   };
-}
-
-function noop(): void {
-  return undefined;
 }
 
 function syncStatusBarClearance(container: HTMLElement): void {

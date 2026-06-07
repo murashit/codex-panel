@@ -35,17 +35,14 @@ export class ChatAppServerThreadController {
     const serviceTier = requestedOrConfiguredServiceTier(this.host.runtimeSnapshot());
     const response = await client.startThread(this.host.vaultPath, serviceTier);
     const state = this.host.stateStore.getState();
-    const listedThreads = upsertThread(state.threadList.listedThreads, threadWithPreviewFallback(response.thread, preview));
+    const fallbackPreview = preview?.trim();
+    const thread =
+      response.thread.preview.trim().length > 0 || !fallbackPreview ? response.thread : { ...response.thread, preview: fallbackPreview };
+    const listedThreads = upsertThread(state.threadList.listedThreads, thread);
     this.host.stateStore.dispatch(resumedThreadAction({ response, listedThreads, forceMessagesToBottom: true }));
     this.host.publishThreadList(listedThreads);
     this.host.forceMessagesToBottom();
     if (options.syncGoal ?? true) this.host.syncThreadGoal(response.thread.id);
     return response;
   }
-}
-
-function threadWithPreviewFallback(thread: Thread, preview: string | undefined): Thread {
-  if (thread.preview.trim().length > 0) return thread;
-  const fallback = preview?.trim();
-  return fallback ? { ...thread, preview: fallback } : thread;
 }

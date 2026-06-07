@@ -8,7 +8,7 @@ import { ChatAppServerMetadataController } from "../app-server/metadata-controll
 import { ChatAppServerThreadController } from "../app-server/thread-controller";
 import { ChatComposerController } from "../composer/controller";
 import { ChatInboundController } from "../inbound/controller";
-import type { ChatState } from "../chat-state";
+import { activeTurnId } from "../chat-state";
 import { ChatThreadGoalController } from "../controllers/thread/thread-goal-controller";
 import { ChatRuntimeSettingsController } from "../controllers/runtime/runtime-settings-controller";
 import { ChatThreadActionController } from "../controllers/thread/thread-actions-controller";
@@ -808,10 +808,6 @@ function createThreadToolbarControllerGroup(
     threadIdentity,
     threadRename,
   };
-}
-
-function activeTurnId(state: ChatState): string | null {
-  return state.turn.lifecycle.kind === "running" ? state.turn.lifecycle.turnId : null;
 }
 
 function applyCachedSharedAppServerState(
