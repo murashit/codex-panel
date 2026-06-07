@@ -43,26 +43,6 @@ const unsafeIteratorRestrictions = [
     message: "Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.",
   },
 ];
-const chatStateRestrictions = [
-  {
-    selector: "AssignmentExpression[left.type='MemberExpression'][left.object.name='state']",
-    message: "Route ChatState updates through ChatStateStore.dispatch().",
-  },
-  {
-    selector: "AssignmentExpression[left.type='MemberExpression'][left.object.type='MemberExpression'][left.object.property.name='state']",
-    message: "Route ChatState updates through ChatStateStore.dispatch().",
-  },
-  {
-    selector:
-      "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.name='state']",
-    message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
-  },
-  {
-    selector:
-      "CallExpression[callee.property.name=/^(push|set|delete|clear|add)$/][callee.object.type='MemberExpression'][callee.object.object.type='MemberExpression'][callee.object.object.property.name='state']",
-    message: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
-  },
-];
 const pureChatModelRestrictions = [
   {
     selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
@@ -90,11 +70,9 @@ const pureChatModelRestrictions = [
   },
 ];
 const chatImperativeDomBridgeFiles = [
+  "src/features/chat/ui/message-stream/**/*.{ts,tsx}",
   "src/features/chat/ui/composer.tsx",
   "src/features/chat/ui/goal-banner.tsx",
-  "src/features/chat/ui/message-stream/markdown-renderer.ts",
-  "src/features/chat/ui/message-stream/rendered-markdown-links.ts",
-  "src/features/chat/ui/message-stream/**/*.tsx",
   "src/features/chat/ui/scroll.ts",
   "src/features/chat/ui/shell.tsx",
   "src/features/chat/ui/tool-result.tsx",
@@ -136,8 +114,63 @@ const codexPanelEslintPlugin = {
         };
       },
     },
+    "no-chat-state-direct-mutation": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Disallow direct ChatState mutation in chat modules.",
+        },
+        messages: {
+          assign: "Route ChatState updates through ChatStateStore.dispatch().",
+          mutateCollection: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
+        },
+        schema: [],
+      },
+      create(context) {
+        const mutatingCollectionMethods = new Set(["add", "clear", "delete", "push", "set"]);
+        return {
+          AssignmentExpression(node) {
+            if (isChatStateMember(node.left)) context.report({ node: node.left, messageId: "assign" });
+          },
+          CallExpression(node) {
+            if (!isMemberExpression(node.callee)) return;
+            const method = staticPropertyName(node.callee.property);
+            if (!method || !mutatingCollectionMethods.has(method)) return;
+            if (isChatStateMember(node.callee.object)) context.report({ node: node.callee, messageId: "mutateCollection" });
+          },
+        };
+      },
+    },
   },
 };
+
+function isChatStateMember(node) {
+  if (!isMemberExpression(node)) return false;
+
+  let current = node;
+  while (isMemberExpression(current)) {
+    if (isIdentifier(current.object, "state")) return true;
+    if (isThisStateMember(current.object)) return true;
+    current = current.object;
+  }
+  return false;
+}
+
+function isThisStateMember(node) {
+  return isMemberExpression(node) && node.object?.type === "ThisExpression" && staticPropertyName(node.property) === "state";
+}
+
+function isMemberExpression(node) {
+  return node?.type === "MemberExpression";
+}
+
+function isIdentifier(node, name) {
+  return node?.type === "Identifier" && node.name === name;
+}
+
+function staticPropertyName(node) {
+  return node?.type === "Identifier" ? node.name : node?.type === "Literal" && typeof node.value === "string" ? node.value : null;
+}
 
 function findInitializerCallbackReference(root, name) {
   let reference = null;
@@ -300,8 +333,8 @@ export default defineConfig([
         ...unsafeIteratorRestrictions,
         ...imperativeDomRestrictions,
         ...preactFormRestrictions,
-        ...chatStateRestrictions,
       ],
+      "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },
   {
@@ -312,8 +345,8 @@ export default defineConfig([
         ...removedChatStateEscapeHatchRestrictions,
         ...unsafeIteratorRestrictions,
         ...preactFormRestrictions,
-        ...chatStateRestrictions,
       ],
+      "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },
   {
@@ -336,9 +369,9 @@ export default defineConfig([
         ...unsafeIteratorRestrictions,
         ...imperativeDomRestrictions,
         ...preactFormRestrictions,
-        ...chatStateRestrictions,
         ...pureChatModelRestrictions,
       ],
+      "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },
   {

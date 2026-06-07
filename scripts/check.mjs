@@ -2,6 +2,16 @@ import { spawnSync } from "node:child_process";
 
 const args = new Set(process.argv.slice(2));
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const checks = [
+  { local: "typecheck", ci: "typecheck:ci", localPhase: "parallel" },
+  { local: "test", ci: "test:ci", localPhase: "parallel" },
+  { local: "lint:ts", ci: "lint:ts:ci", localPhase: "parallel" },
+  { local: "lint:css", ci: "lint:css", localPhase: "parallel" },
+  { local: "format:check", ci: "format:check:ci", localPhase: "parallel" },
+  { local: "build:styles:check", ci: "build:styles:check", localPhase: "parallel" },
+  { local: "unused", ci: "unused", localPhase: "parallel" },
+  { local: "build", ci: "build", localPhase: "sequential" },
+];
 
 for (const arg of args) {
   if (arg !== "--ci") {
@@ -11,12 +21,11 @@ for (const arg of args) {
 }
 
 if (args.has("--ci")) {
-  for (const script of ["typecheck:ci", "test:ci", "lint:ts:ci", "lint:css", "format:check:ci", "build:styles:check", "unused", "build"]) {
-    run(npmCommand, ["run", script]);
-  }
+  for (const check of checks) run(npmCommand, ["run", check.ci]);
 } else {
-  run("node", ["scripts/run-parallel.mjs", "typecheck", "test", "lint:ts", "lint:css", "format:check", "build:styles:check", "unused"]);
-  run(npmCommand, ["run", "build"]);
+  const parallelScripts = checks.filter((check) => check.localPhase === "parallel").map((check) => check.local);
+  run("node", ["scripts/run-parallel.mjs", ...parallelScripts]);
+  for (const check of checks.filter((check) => check.localPhase === "sequential")) run(npmCommand, ["run", check.local]);
 }
 
 function run(command, args) {

@@ -4,33 +4,13 @@ export default {
   extends: ["stylelint-config-standard"],
   plugins: [noSpecificityWhere],
   rules: {
-    "codex-panel/no-specificity-where": [
-      true,
-      {
-        severity: "warning",
-      },
-    ],
-    "color-named": [
-      "never",
-      {
-        severity: "warning",
-      },
-    ],
-    "color-no-hex": [
-      true,
-      {
-        severity: "warning",
-      },
-    ],
+    "codex-panel/no-specificity-where": true,
+    "color-named": "never",
+    "color-no-hex": true,
     "custom-property-empty-line-before": null,
     "declaration-block-no-redundant-longhand-properties": null,
     "declaration-empty-line-before": null,
-    "declaration-no-important": [
-      true,
-      {
-        severity: "warning",
-      },
-    ],
+    "declaration-no-important": true,
     "declaration-property-value-disallowed-list": [
       {
         "/^(?:background(?:-color)?|border(?:-(?:block|inline|top|right|bottom|left))?(?:-color)?|box-shadow|caret-color|color|fill|outline(?:-color)?|stroke|text-shadow)$/":
@@ -45,7 +25,6 @@ export default {
       },
       {
         message: "Use Obsidian or Codex Panel design tokens instead of hardcoded colors or typography.",
-        severity: "warning",
       },
     ],
     "declaration-property-unit-disallowed-list": [
@@ -55,67 +34,29 @@ export default {
       },
       {
         message: "Prefer Obsidian or Codex Panel spacing/size tokens for layout dimensions.",
-        severity: "warning",
       },
     ],
-    "function-disallowed-list": [
-      ["rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch"],
-      {
-        severity: "warning",
-      },
-    ],
-    "keyframes-name-pattern": [
-      "^codex-panel-[a-z0-9-]+$",
-      {
-        severity: "warning",
-      },
-    ],
-    "max-nesting-depth": [
-      2,
-      {
-        severity: "warning",
-      },
-    ],
+    "function-disallowed-list": ["rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch"],
+    "keyframes-name-pattern": "^codex-panel-[a-z0-9-]+$",
+    "max-nesting-depth": 2,
     "no-descending-specificity": null,
     "selector-class-pattern": null,
-    "selector-max-compound-selectors": [
-      4,
-      {
-        severity: "warning",
-      },
-    ],
-    "selector-max-specificity": [
-      "0,4,0",
-      {
-        severity: "warning",
-      },
-    ],
+    "selector-max-compound-selectors": 4,
+    "selector-max-specificity": "0,4,0",
     "selector-max-type": [
       0,
       {
         ignoreTypes: ["dd", "dt", "pre", "span", "summary", "svg", "ul"],
-        severity: "warning",
       },
     ],
-    "selector-max-id": [
-      0,
-      {
-        severity: "warning",
-      },
-    ],
+    "selector-max-id": 0,
     "selector-disallowed-list": [
       ["/:has\\(/"],
       {
         message: "Avoid :has() because it can cause broad selector invalidation.",
-        severity: "warning",
       },
     ],
-    "selector-max-universal": [
-      0,
-      {
-        severity: "warning",
-      },
-    ],
+    "selector-max-universal": 0,
     "selector-not-notation": null,
   },
 };
