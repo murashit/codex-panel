@@ -48,9 +48,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   constructor(
     app: App,
+    owner: Plugin,
     private readonly plugin: CodexPanelSettingTabHost,
   ) {
-    super(app, plugin);
+    super(app, owner);
     this.models = plugin.cachedModels();
   }
 
@@ -528,7 +529,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 }
 
-export interface CodexPanelSettingTabHost extends Plugin {
+export interface CodexPanelSettingTabHost {
   settings: CodexPanelSettings;
   vaultPath: string;
   saveSettings(): Promise<void>;

@@ -3,16 +3,13 @@ import { Plugin } from "obsidian";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
 import { CodexChatView } from "./features/chat/view";
+import type { CodexChatHost } from "./features/chat/chat-host";
 import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
-import { openThreadPicker } from "./features/thread-picker/modal";
-import type { OpenCodexPanelSnapshot } from "./runtime/open-panel-snapshot";
-import { CodexThreadsView } from "./features/threads-view/view";
-import type { Thread } from "./generated/app-server/v2/Thread";
-import type { Model } from "./generated/app-server/v2/Model";
-import type { SharedAppServerMetadata } from "./runtime/shared-app-server-state";
+import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
+import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";
 import { SharedAppServerCache } from "./runtime/shared-app-server-cache";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
-import { CodexPanelSettingTab } from "./settings/tab";
+import { CodexPanelSettingTab, type CodexPanelSettingTabHost } from "./settings/tab";
 import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/ui/turn-diff";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 import { ThreadSurfaceCoordinator } from "./workspace/thread-surface-coordinator";
@@ -24,14 +21,14 @@ export default class CodexPanelPlugin extends Plugin {
   private readonly panels = new WorkspacePanelCoordinator({
     app: this.app,
     refreshThreadsViewLiveState: () => {
-      this.refreshThreadsViewLiveState();
+      this.threadSurfaces.refreshThreadsViewLiveState();
     },
   });
   private readonly threadSurfaces = new ThreadSurfaceCoordinator({
     app: this.app,
     panels: this.panels,
     refreshThreadSurfaces: () => {
-      this.refreshSharedThreadListFromOpenSurface();
+      this.threadSurfaces.refreshSharedThreadListFromOpenSurface();
     },
   });
 
@@ -40,9 +37,9 @@ export default class CodexPanelPlugin extends Plugin {
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
 
-    this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this));
+    this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this.chatHost()));
     this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexChatTurnDiffView(leaf));
-    this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this));
+    this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this.threadsHost()));
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
         this.panels.recordLastFocusedPanel(leaf);
@@ -50,19 +47,19 @@ export default class CodexPanelPlugin extends Plugin {
     );
 
     this.addRibbonIcon("bot-message-square", "Open panel", () => {
-      void this.activateView();
+      void this.panels.activateView();
     });
 
     this.addCommand({
       id: "open-panel",
       name: "Open panel",
-      callback: () => void this.activateView(),
+      callback: () => void this.panels.activateView(),
     });
 
     this.addCommand({
       id: "open-new-panel",
       name: "Open new panel",
-      callback: () => void this.activateNewView(),
+      callback: () => void this.panels.activateNewView(),
     });
 
     this.addCommand({
@@ -74,21 +71,21 @@ export default class CodexPanelPlugin extends Plugin {
     this.addCommand({
       id: "open-thread",
       name: "Open thread...",
-      callback: () => void openThreadPicker(this),
+      callback: () => void openThreadPicker(this.threadPickerHost()),
     });
 
     this.addCommand({
       id: "new-chat",
       name: "Start new chat",
       callback: async () => {
-        const view = await this.activateView();
+        const view = await this.panels.activateView();
         await view.startNewThread();
       },
     });
 
     registerSelectionRewriteCommand(this);
 
-    this.addSettingTab(new CodexPanelSettingTab(this.app, this));
+    this.addSettingTab(new CodexPanelSettingTab(this.app, this, this.settingTabHost()));
 
     this.panels.scheduleBootRestoredPanelLoads();
   }
@@ -97,39 +94,7 @@ export default class CodexPanelPlugin extends Plugin {
     this.panels.cancelBootRestoredPanelLoads();
   }
 
-  async activateView(): Promise<CodexChatView> {
-    return this.panels.activateView();
-  }
-
-  async activateNewView(options: { connect?: boolean } = {}): Promise<CodexChatView> {
-    return this.panels.activateNewView(options);
-  }
-
-  async openThreadInNewView(threadId: string): Promise<CodexChatView> {
-    return this.panels.openThreadInNewView(threadId);
-  }
-
-  async openNewPanel(): Promise<void> {
-    await this.panels.openNewPanel();
-  }
-
-  async openThreadInAvailableView(threadId: string): Promise<void> {
-    await this.panels.openThreadInAvailableView(threadId);
-  }
-
-  async openThreadInCurrentView(threadId: string): Promise<void> {
-    await this.panels.openThreadInCurrentView(threadId);
-  }
-
-  async focusThreadInOpenView(threadId: string): Promise<boolean> {
-    return this.panels.focusThreadInOpenView(threadId);
-  }
-
-  async openThreadInIdleEmptyView(threadId: string): Promise<boolean> {
-    return this.panels.openThreadInIdleEmptyView(threadId);
-  }
-
-  async activateThreadsView(): Promise<CodexThreadsView> {
+  private async activateThreadsView(): Promise<CodexThreadsView> {
     const leaf = await this.app.workspace.ensureSideLeaf(VIEW_TYPE_CODEX_THREADS, "left", {
       active: true,
       reveal: true,
@@ -139,7 +104,7 @@ export default class CodexPanelPlugin extends Plugin {
     return view;
   }
 
-  async openTurnDiff(state: ChatTurnDiffViewState): Promise<void> {
+  private async openTurnDiff(state: ChatTurnDiffViewState): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF).at(0);
     const leaf = existing ?? this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true, state: { ...persistedChatTurnDiffViewState(state) } });
@@ -148,67 +113,6 @@ export default class CodexPanelPlugin extends Plugin {
       leaf.view.setDiffPayload(state);
     }
     await this.app.workspace.revealLeaf(leaf);
-  }
-
-  refreshOpenViews(): void {
-    this.threadSurfaces.refreshOpenViews();
-  }
-
-  refreshSharedThreadListFromOpenSurface(): void {
-    this.threadSurfaces.refreshSharedThreadListFromOpenSurface();
-  }
-
-  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]> {
-    return this.sharedAppServerCache.refreshThreadList(fetchThreads, (threads) => {
-      this.threadSurfaces.applyThreadListSnapshot(threads);
-    });
-  }
-
-  applyThreadListSnapshot(threads: readonly Thread[]): void {
-    this.sharedAppServerCache.applyThreadListSnapshot(threads);
-    this.threadSurfaces.applyThreadListSnapshot(threads);
-  }
-
-  cachedThreadList(): readonly Thread[] | null {
-    return this.sharedAppServerCache.cachedThreadList();
-  }
-
-  publishAppServerMetadata(metadata: SharedAppServerMetadata): void {
-    this.sharedAppServerCache.applyAppServerMetadataSnapshot(metadata);
-    this.threadSurfaces.publishAppServerMetadata(metadata);
-  }
-
-  publishModels(models: readonly Model[]): void {
-    this.sharedAppServerCache.applyModelsSnapshot(models);
-    this.threadSurfaces.publishModels(models);
-  }
-
-  cachedAppServerMetadata(): SharedAppServerMetadata | null {
-    return this.sharedAppServerCache.cachedAppServerMetadata();
-  }
-
-  cachedModels(): Model[] {
-    return this.sharedAppServerCache.cachedModels();
-  }
-
-  refreshThreadsViewLiveState(): void {
-    this.threadSurfaces.refreshThreadsViewLiveState();
-  }
-
-  notifyThreadArchived(threadId: string, options: { closeOpenPanels?: boolean } = {}): void {
-    this.threadSurfaces.notifyThreadArchived(threadId, options);
-  }
-
-  notifyThreadRenamed(threadId: string, name: string | null): void {
-    this.threadSurfaces.notifyThreadRenamed(threadId, name);
-  }
-
-  getOpenPanelSnapshots(): OpenCodexPanelSnapshot[] {
-    return this.panels.getOpenPanelSnapshots();
-  }
-
-  async focusOpenPanel(viewId: string, threadId: string | null = null): Promise<boolean> {
-    return this.panels.focusOpenPanel(viewId, threadId);
   }
 
   async loadSettings(): Promise<void> {
@@ -221,5 +125,96 @@ export default class CodexPanelPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  private chatHost(): CodexChatHost {
+    return {
+      settings: this.settings,
+      vaultPath: this.vaultPath,
+      openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
+      focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
+      openTurnDiff: (state) => this.openTurnDiff(state),
+      notifyThreadArchived: (threadId) => {
+        this.threadSurfaces.notifyThreadArchived(threadId);
+      },
+      notifyThreadRenamed: (threadId, name) => {
+        this.threadSurfaces.notifyThreadRenamed(threadId, name);
+      },
+      refreshThreadsViewLiveState: () => {
+        this.threadSurfaces.refreshThreadsViewLiveState();
+      },
+      refreshSharedThreadListFromOpenSurface: () => {
+        this.threadSurfaces.refreshSharedThreadListFromOpenSurface();
+      },
+      applyThreadListSnapshot: (threads) => {
+        this.sharedAppServerCache.applyThreadListSnapshot(threads);
+        this.threadSurfaces.applyThreadListSnapshot(threads);
+      },
+      refreshThreadList: (fetchThreads) =>
+        this.sharedAppServerCache.refreshThreadList(fetchThreads, (threads) => {
+          this.threadSurfaces.applyThreadListSnapshot(threads);
+        }),
+      cachedThreadList: () => this.sharedAppServerCache.cachedThreadList(),
+      publishAppServerMetadata: (metadata) => {
+        this.sharedAppServerCache.applyAppServerMetadataSnapshot(metadata);
+        this.threadSurfaces.publishAppServerMetadata(metadata);
+      },
+      cachedAppServerMetadata: () => this.sharedAppServerCache.cachedAppServerMetadata(),
+    };
+  }
+
+  private threadsHost(): CodexThreadsHost {
+    return {
+      settings: this.settings,
+      vaultPath: this.vaultPath,
+      openNewPanel: () => this.panels.openNewPanel(),
+      openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
+      getOpenPanelSnapshots: () => this.panels.getOpenPanelSnapshots(),
+      notifyThreadArchived: (threadId, options) => {
+        this.threadSurfaces.notifyThreadArchived(threadId, options);
+      },
+      notifyThreadRenamed: (threadId, name) => {
+        this.threadSurfaces.notifyThreadRenamed(threadId, name);
+      },
+      refreshThreadList: (fetchThreads) =>
+        this.sharedAppServerCache.refreshThreadList(fetchThreads, (threads) => {
+          this.threadSurfaces.applyThreadListSnapshot(threads);
+        }),
+      cachedThreadList: () => this.sharedAppServerCache.cachedThreadList(),
+    };
+  }
+
+  private threadPickerHost(): ThreadPickerHost {
+    return {
+      app: this.app,
+      settings: this.settings,
+      vaultPath: this.vaultPath,
+      cachedThreadList: () => this.sharedAppServerCache.cachedThreadList(),
+      refreshThreadList: (fetchThreads) =>
+        this.sharedAppServerCache.refreshThreadList(fetchThreads, (threads) => {
+          this.threadSurfaces.applyThreadListSnapshot(threads);
+        }),
+      openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
+      openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
+    };
+  }
+
+  private settingTabHost(): CodexPanelSettingTabHost {
+    return {
+      settings: this.settings,
+      vaultPath: this.vaultPath,
+      saveSettings: () => this.saveSettings(),
+      refreshOpenViews: () => {
+        this.threadSurfaces.refreshOpenViews();
+      },
+      refreshSharedThreadListFromOpenSurface: () => {
+        this.threadSurfaces.refreshSharedThreadListFromOpenSurface();
+      },
+      cachedModels: () => this.sharedAppServerCache.cachedModels(),
+      publishModels: (models) => {
+        this.sharedAppServerCache.applyModelsSnapshot(models);
+        this.threadSurfaces.publishModels(models);
+      },
+    };
   }
 }

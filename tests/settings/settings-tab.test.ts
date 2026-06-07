@@ -369,6 +369,7 @@ function newSettingsTab(
 ): CodexPanelSettingTab {
   return new CodexPanelSettingTab(
     {} as never,
+    {} as never,
     {
       settings: {
         codexPath: "codex",
