@@ -14,7 +14,7 @@ import {
   runtimeSnapshotForChatState,
   statusSummaryLines,
   toolbarViewModel,
-} from "../../../src/features/chat/view/model";
+} from "../../../src/features/chat/panel/model";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/ConfigReadResponse";

@@ -7,7 +7,7 @@ import { createThreadLifecycleStatePort } from "../../../../../src/features/chat
 import type { ThreadActivationResponse } from "../../../../../src/features/chat/thread-resume";
 import { ThreadResumeController } from "../../../../../src/features/chat/controllers/thread/thread-resume-controller";
 import type { ThreadHistoryLoader } from "../../../../../src/features/chat/thread-history";
-import { ChatResumeWorkTracker } from "../../../../../src/features/chat/view/lifecycle";
+import { ChatResumeWorkTracker } from "../../../../../src/features/chat/panel/lifecycle";
 import type { ThreadItem } from "../../../../../src/generated/app-server/v2/ThreadItem";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
 import type { ThreadTokenUsage } from "../../../../../src/generated/app-server/v2/ThreadTokenUsage";

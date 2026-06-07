@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/view";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
-import { composerSlotSnapshot } from "../../../src/features/chat/view/snapshot";
+import { composerSlotSnapshot } from "../../../src/features/chat/panel/snapshot";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
@@ -466,15 +466,17 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     view.setComposerText("hello");
-    await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+    await submitComposerByEnter(view);
 
-    expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-    expect(client.startTurn).toHaveBeenCalledWith(
-      "thread-1",
-      "/vault",
-      [{ type: "text", text: "hello", text_elements: [] }],
-      expect.stringMatching(/^local-user-\d+$/),
-    );
+    await waitForAsyncWork(() => {
+      expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
+      expect(client.startTurn).toHaveBeenCalledWith(
+        "thread-1",
+        "/vault",
+        [{ type: "text", text: "hello", text_elements: [] }],
+        expect.stringMatching(/^local-user-\d+$/),
+      );
+    });
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
   });
 
@@ -488,7 +490,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.openThread("thread-1");
     view.setComposerText("hello");
-    const submit = (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+    await submitComposerByEnter(view);
     await waitForAsyncWork(() => {
       expect(client.startTurn).toHaveBeenCalled();
     });
@@ -501,7 +503,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect((view as unknown as { state: ChatState }).state.turn.lifecycle).toEqual({ kind: "idle" });
 
     startTurn.resolve({ turn: { id: "turn-1" } });
-    await submit;
+    await flushAsyncTicks();
 
     expect((view as unknown as { state: ChatState }).state.turn.lifecycle).toEqual({ kind: "idle" });
     expect(view.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
@@ -561,7 +563,7 @@ describe("CodexChatView connection lifecycle", () => {
     await view.onOpen();
     await view.connect();
     view.setComposerText("/clear hello");
-    await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+    await submitComposerByEnter(view);
 
     expect(client.startThread).not.toHaveBeenCalled();
     expect(client.startTurn).not.toHaveBeenCalled();
@@ -579,7 +581,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.connect();
     view.setComposerText("/resume thread-1");
-    await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+    await submitComposerByEnter(view);
 
     expect(focusThreadInOpenView).toHaveBeenCalledWith("thread-1");
     expect(connectionMock.state.client["resumeThread"]).not.toHaveBeenCalled();
@@ -600,7 +602,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.connect();
     view.setComposerText("/resume thread-1");
-    await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+    await submitComposerByEnter(view);
 
     expect(focusThreadInOpenView).toHaveBeenCalledWith("thread-1");
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
@@ -623,7 +625,7 @@ describe("CodexChatView connection lifecycle", () => {
     messages.scrollTop = 0;
 
     view.setComposerText("/resume thread-1");
-    await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+    await submitComposerByEnter(view);
     await waitForMessagesFrame(messages);
     await waitForMessagesFrame(messages);
 
@@ -645,7 +647,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.connect();
     view.setComposerText("/archive thread-1");
-    await (view as unknown as { submitComposerAction: () => Promise<void> }).submitComposerAction();
+    await submitComposerByEnter(view);
 
     expect(client.archiveThread).toHaveBeenCalledWith("thread-1");
     expect(notifyThreadArchived).toHaveBeenCalledWith("thread-1");
@@ -1167,6 +1169,18 @@ function requiredButton(parent: ParentNode, selector: string): HTMLButtonElement
   const element = parent.querySelector<HTMLButtonElement>(selector);
   if (!element) throw new Error(`Missing ${selector}`);
   return element;
+}
+
+async function submitComposerByEnter(view: { containerEl: HTMLElement }): Promise<void> {
+  const composer = requiredTextArea(view.containerEl, ".codex-panel__composer-input");
+  composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  await flushAsyncTicks();
+}
+
+async function flushAsyncTicks(): Promise<void> {
+  for (let index = 0; index < 20; index += 1) {
+    await Promise.resolve();
+  }
 }
 
 function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {

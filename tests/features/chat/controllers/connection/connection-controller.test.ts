@@ -9,7 +9,7 @@ import {
   type ChatConnectionMetadataPort,
 } from "../../../../../src/features/chat/controllers/connection/connection-controller";
 import { createConnectionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
-import { ChatConnectionWorkTracker } from "../../../../../src/features/chat/view/lifecycle";
+import { ChatConnectionWorkTracker } from "../../../../../src/features/chat/panel/lifecycle";
 
 function createController({ connected = false, client = {} as AppServerClient } = {}) {
   const stateStore = createChatStateStore(createChatState());

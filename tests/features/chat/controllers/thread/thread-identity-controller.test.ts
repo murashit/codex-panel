@@ -4,7 +4,7 @@ import { createChatState, createChatStateStore } from "../../../../../src/featur
 import { createThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { ThreadIdentityController } from "../../../../../src/features/chat/controllers/thread/thread-identity-controller";
 import type { RestoredThreadController } from "../../../../../src/features/chat/controllers/thread/restored-thread-controller";
-import type { RestoredThreadPlaceholderState } from "../../../../../src/features/chat/view/lifecycle";
+import type { RestoredThreadPlaceholderState } from "../../../../../src/features/chat/panel/lifecycle";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
 
 function thread(id: string, name: string | null = null): Thread {

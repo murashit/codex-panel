@@ -1,6 +1,6 @@
 import { unmountUiRoot } from "../../../shared/ui/ui-root";
 import type { ChatState, ChatStateStore } from "../chat-state";
-import type { ChatPanelSlotSnapshot } from "../view/snapshot";
+import type { ChatPanelSlotSnapshot } from "../panel/snapshot";
 
 export interface ChatPanelShellProps {
   stateStore: ChatStateStore;

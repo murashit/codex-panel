@@ -1,19 +1,15 @@
-import { Notice, type App, type Component, type EventRef, type WorkspaceLeaf } from "obsidian";
+import { Notice } from "obsidian";
 
-import type { AppServerClient } from "../../../app-server/client";
 import { ConnectionManager } from "../../../app-server/connection-manager";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
-import type { ArchiveExportAdapter } from "../../../domain/threads/export";
-import type { RuntimeSnapshot } from "../../../runtime/state";
 import { currentModel } from "../../../runtime/state";
 import { ChatAppServerDiagnosticsController } from "../app-server/diagnostics-controller";
 import { ChatAppServerMetadataController } from "../app-server/metadata-controller";
 import { ChatAppServerThreadController } from "../app-server/thread-controller";
 import { ChatComposerController } from "../chat-composer-controller";
 import { ChatController } from "../chat-controller";
-import type { CodexChatHost } from "../chat-host";
 import { ChatMessageRenderer } from "../chat-message-renderer";
-import type { ChatState, ChatStateStore } from "../chat-state";
+import type { ChatState } from "../chat-state";
 import { ChatGoalController } from "../goal-controller";
 import { ChatRuntimeSettingsController } from "../runtime-settings-controller";
 import { ChatThreadActionController } from "../controllers/thread/thread-actions-controller";
@@ -41,16 +37,12 @@ import { RestoredThreadController } from "../controllers/thread/restored-thread-
 import { ThreadIdentityController } from "../controllers/thread/thread-identity-controller";
 import { ThreadResumeController } from "../controllers/thread/thread-resume-controller";
 import { ThreadSelectionController } from "../controllers/thread/thread-selection-controller";
-import type { ChatMessageScrollController } from "../controllers/view/message-scroll-controller";
 import { ChatViewOpenCloseController } from "../controllers/view/view-open-close-controller";
 import { ChatViewRenderController } from "../controllers/view/view-render-controller";
 import { ChatViewStateController } from "../controllers/view/view-state-controller";
-import type { DisplayDetailSection } from "../display/types";
-import type { ChatViewEffects } from "./effects";
-import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
-import type { ComposerMetaViewModel } from "./model";
+import type { ChatViewControllerPorts } from "./controller-ports";
 
-export interface ChatViewControllerAssembly {
+export interface ChatViewControllers {
   connection: {
     manager: ConnectionManager;
     controller: ChatConnectionController;
@@ -96,89 +88,11 @@ export interface ChatViewControllerAssembly {
   };
 }
 
-export interface ChatViewControllerAssemblyHost {
-  obsidian: ChatViewObsidianPort;
-  plugin: CodexChatHost;
-  state: ChatViewStatePort;
-  client: ChatViewClientPort;
-  lifecycle: ChatViewLifecyclePort;
-  render: ChatViewRenderPort;
-  runtime: ChatViewRuntimePort;
-  thread: ChatViewThreadPort;
-  effects: ChatViewEffects;
-}
-
-export interface ChatViewObsidianPort {
-  app: App;
-  owner: Component;
-  viewId: string;
-  registerEvent: (eventRef: EventRef) => void;
-  registerPointerDown: (handler: (event: PointerEvent) => void) => void;
-  registerActiveLeafChange: (handler: (leaf: WorkspaceLeaf | null) => void) => void;
-  isOwnLeaf: (leaf: WorkspaceLeaf | null) => boolean;
-  archiveAdapter: () => ArchiveExportAdapter;
-}
-
-export interface ChatViewStatePort {
-  stateStore: ChatStateStore;
-  getState: () => ChatState;
-}
-
-export interface ChatViewClientPort {
-  getClient: () => AppServerClient | null;
-  setClient: (client: AppServerClient | null) => void;
-}
-
-export interface ChatViewLifecyclePort {
-  deferredTasks: ChatViewDeferredTasks;
-  resumeWork: ChatResumeWorkTracker;
-  connectionWork: ChatConnectionWorkTracker;
-  messageScroll: ChatMessageScrollController;
-  getOpened: () => boolean;
-  setOpened: (opened: boolean) => void;
-  getClosing: () => boolean;
-  setClosing: (closing: boolean) => void;
-}
-
-export interface ChatViewRenderPort {
-  panelRoot: () => HTMLElement | null;
-  renderToolbar: (toolbar: HTMLElement) => void;
-  renderGoal: (goal: HTMLElement) => void;
-  renderMessages: (parent: HTMLElement) => void;
-  renderComposer: (parent: HTMLElement) => void;
-  pendingRequestsSignature: () => string;
-  activeComposerThreadName: () => string | null;
-  composerPlaceholder: () => string;
-  composerMetaViewModel: () => ComposerMetaViewModel;
-  closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
-}
-
-export interface ChatViewRuntimePort {
-  runtimeSnapshot: () => RuntimeSnapshot;
-  collaborationModeLabel: () => string;
-  connectionDiagnosticDetails: () => DisplayDetailSection[];
-  mcpStatusLines: () => Promise<string[]>;
-  modelStatusLines: () => string[];
-  effortStatusLines: () => string[];
-  statusSummaryLines: () => string[];
-}
-
-export interface ChatViewThreadPort {
-  ensureRestoredThreadLoaded: () => Promise<boolean>;
-  startNewThread: () => Promise<void>;
-  selectThread: (threadId: string) => Promise<void>;
-  resumeThread: (threadId: string) => Promise<void>;
-  refreshThreads: () => Promise<void>;
-  refreshSkills: (forceReload?: boolean) => Promise<void>;
-  publishAppServerMetadataSnapshot: () => void;
-  loadSharedThreadList: () => Promise<void>;
-}
-
-type AssemblyContext = ReturnType<typeof createAssemblyContext>;
+type ControllerContext = ReturnType<typeof createControllerContext>;
 type ControllerRef<T> = () => T;
 
-export function createChatViewControllerAssembly(host: ChatViewControllerAssemblyHost): ChatViewControllerAssembly {
-  const context = createAssemblyContext(host);
+export function createChatViewControllers(ports: ChatViewControllerPorts): ChatViewControllers {
+  const context = createControllerContext(ports);
   let connection!: ConnectionManager;
   let controller!: ChatController;
   let appServerThreads!: ChatAppServerThreadController;
@@ -315,13 +229,13 @@ export function createChatViewControllerAssembly(host: ChatViewControllerAssembl
   };
 }
 
-function createAssemblyContext(host: ChatViewControllerAssemblyHost) {
-  const { obsidian, plugin, state, client, lifecycle, render, runtime, thread, effects } = host;
+function createControllerContext(ports: ChatViewControllerPorts) {
+  const { obsidian, plugin, state, client, lifecycle, render, runtime, thread, effects } = ports;
   const { app, owner, viewId } = obsidian;
   const { stateStore } = state;
 
   return {
-    host,
+    ports,
     obsidian,
     plugin,
     state,
@@ -344,7 +258,7 @@ function createAssemblyContext(host: ChatViewControllerAssemblyHost) {
 }
 
 function createViewRenderControllerGroup(
-  context: AssemblyContext,
+  context: ControllerContext,
   refs: {
     connection: ControllerRef<ConnectionManager>;
   },
@@ -373,7 +287,7 @@ function createViewRenderControllerGroup(
 }
 
 function createSubmissionControllerGroup(
-  context: AssemblyContext,
+  context: ControllerContext,
   refs: {
     appServerThreads: ControllerRef<ChatAppServerThreadController>;
     runtimeSettings: ControllerRef<ChatRuntimeSettingsController>;
@@ -558,7 +472,7 @@ function createSubmissionControllerGroup(
 }
 
 function createConnectionLifecycleControllerGroup(
-  context: AssemblyContext,
+  context: ControllerContext,
   refs: {
     controller: ControllerRef<ChatController>;
     connectionController: ControllerRef<ChatConnectionController>;
@@ -568,7 +482,7 @@ function createConnectionLifecycleControllerGroup(
     appServerMetadata: ControllerRef<ChatAppServerMetadataController>;
   },
 ) {
-  const { host, obsidian, plugin, lifecycle, render, effects } = context;
+  const { ports, obsidian, plugin, lifecycle, render, effects } = context;
   const { deferredTasks } = lifecycle;
   const connection = new ConnectionManager(() => plugin.settings.codexPath, plugin.vaultPath, {
     onNotification: (notification) => {
@@ -611,7 +525,7 @@ function createConnectionLifecycleControllerGroup(
       isOwnLeaf: obsidian.isOwnLeaf,
       scrollMessagesToBottomOnFocus: effects.scroll.bottomOnFocus,
       applyCachedSharedAppServerState: () => {
-        applyCachedSharedAppServerState(host, refs.appServerThreads(), refs.appServerMetadata());
+        applyCachedSharedAppServerState(ports, refs.appServerThreads(), refs.appServerMetadata());
       },
       render: effects.render.now,
       scheduleDeferredAppServerWarmup: effects.lifecycle.scheduleDeferredAppServerWarmup,
@@ -640,7 +554,7 @@ function createConnectionLifecycleControllerGroup(
 }
 
 function createAppServerControllerGroup(
-  context: AssemblyContext,
+  context: ControllerContext,
   refs: {
     connection: ControllerRef<ConnectionManager>;
     goals: ControllerRef<ChatGoalController>;
@@ -681,7 +595,7 @@ function createAppServerControllerGroup(
 }
 
 function createInboundController(
-  context: AssemblyContext,
+  context: ControllerContext,
   refs: {
     appServerMetadata: ControllerRef<ChatAppServerMetadataController>;
     appServerDiagnostics: ControllerRef<ChatAppServerDiagnosticsController>;
@@ -715,7 +629,7 @@ function createInboundController(
 }
 
 function createConnectionControllerGroup(
-  context: AssemblyContext,
+  context: ControllerContext,
   refs: {
     connection: ControllerRef<ConnectionManager>;
     appServerMetadata: ControllerRef<ChatAppServerMetadataController>;
@@ -758,7 +672,7 @@ function createConnectionControllerGroup(
 }
 
 function createRequestThreadToolbarControllerGroup(
-  context: AssemblyContext,
+  context: ControllerContext,
   refs: {
     connection: ControllerRef<ConnectionManager>;
     controller: ControllerRef<ChatController>;
@@ -944,12 +858,12 @@ function activeTurnId(state: ChatState): string | null {
 }
 
 function applyCachedSharedAppServerState(
-  host: ChatViewControllerAssemblyHost,
+  ports: ChatViewControllerPorts,
   appServerThreads: ChatAppServerThreadController,
   appServerMetadata: ChatAppServerMetadataController,
 ): void {
-  const threads = host.plugin.cachedThreadList();
+  const threads = ports.plugin.cachedThreadList();
   if (threads) appServerThreads.applyThreadList(threads);
-  const metadata = host.plugin.cachedAppServerMetadata();
+  const metadata = ports.plugin.cachedAppServerMetadata();
   if (metadata) appServerMetadata.applyAppServerMetadata(metadata);
 }

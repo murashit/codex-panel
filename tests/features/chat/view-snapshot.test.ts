@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { latestProposedPlanItem, openPanelTurnLifecycle, parseRestoredThreadState } from "../../../src/features/chat/view/snapshot";
+import { latestProposedPlanItem, openPanelTurnLifecycle, parseRestoredThreadState } from "../../../src/features/chat/panel/snapshot";
 
 describe("chat view snapshots", () => {
   it("projects open panel turn lifecycle without exposing full chat state", () => {

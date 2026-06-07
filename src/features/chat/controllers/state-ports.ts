@@ -7,7 +7,7 @@ import type { PendingUserInput } from "../requests/user-input/model";
 import type { DisplayItem } from "../display/types";
 import { implementPlanCandidateFromState } from "../plan-implementation";
 import { resumedThreadAction, type ThreadActivationResponse } from "../thread-resume";
-import { composerSlotSnapshot, goalSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "../view/snapshot";
+import { composerSlotSnapshot, goalSlotSnapshot, messagesSlotSnapshot, toolbarSlotSnapshot } from "../panel/snapshot";
 import { renderChatPanelShell } from "../ui/shell";
 
 export interface ConnectionStatePort {

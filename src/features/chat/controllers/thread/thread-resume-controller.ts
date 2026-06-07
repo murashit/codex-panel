@@ -4,7 +4,7 @@ import type { DisplayItem } from "../../display/types";
 import type { RestoredThreadController } from "./restored-thread-controller";
 import type { ThreadActivationResponse } from "../../thread-resume";
 import type { ThreadHistoryLoader } from "../../thread-history";
-import type { ChatResumeWorkTracker, ActiveChatResume } from "../../view/lifecycle";
+import type { ChatResumeWorkTracker, ActiveChatResume } from "../../panel/lifecycle";
 import type { ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ThreadResumeControllerHost {
