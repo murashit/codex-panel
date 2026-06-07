@@ -5,7 +5,7 @@ import { TFile } from "obsidian";
 
 import { ChatMessageRenderer } from "../../../src/features/chat/chat-message-renderer";
 import { chatReducer, createChatState, type ChatAction, type ChatState, type ChatStateStore } from "../../../src/features/chat/chat-state";
-import { bindRenderedWikiLinks, type RenderedMarkdownLinkContext } from "../../../src/features/chat/markdown-message-renderer";
+import { bindRenderedWikiLinks, type RenderedMarkdownLinkContext } from "../../../src/features/chat/rendered-markdown-links";
 import { installObsidianDomShims } from "../../support/dom";
 import { notices } from "../../mocks/obsidian";
 
@@ -359,27 +359,41 @@ function chatMessageRenderer(
 ): ChatMessageRenderer {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   return new ChatMessageRenderer({
-    app: {
-      workspace: {
-        getActiveFile: vi.fn(() => null),
-        openLinkText,
-      },
-      vault: {
-        configDir: "vault-config",
-        getAbstractFileByPath: (path: string) => files.get(path) ?? null,
-      },
-    } as never,
-    owner: {} as never,
-    stateStore: testStoreForState(state),
-    vaultPath,
-    consumeScrollIntent: () => "auto",
-    loadOlderTurns: vi.fn(),
-    rollbackThread: vi.fn(),
-    forkThreadFromTurn: vi.fn(),
-    implementPlan: vi.fn(),
-    openTurnDiff: vi.fn(),
-    pendingRequestsSignature: () => "",
-    renderPendingRequests: () => null,
+    obsidian: {
+      app: {
+        workspace: {
+          getActiveFile: vi.fn(() => null),
+          openLinkText,
+        },
+        vault: {
+          configDir: "vault-config",
+          getAbstractFileByPath: (path: string) => files.get(path) ?? null,
+        },
+      } as never,
+      owner: {} as never,
+    },
+    state: {
+      store: testStoreForState(state),
+    },
+    workspace: {
+      vaultPath,
+    },
+    scroll: {
+      consumeIntent: () => "auto",
+    },
+    history: {
+      loadOlderTurns: vi.fn(),
+    },
+    actions: {
+      rollbackThread: vi.fn(),
+      forkThreadFromTurn: vi.fn(),
+      implementPlan: vi.fn(),
+      openTurnDiff: vi.fn(),
+    },
+    requests: {
+      pendingSignature: () => "",
+      renderPending: () => null,
+    },
   });
 }
 

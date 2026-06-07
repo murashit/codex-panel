@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
-import { implementPlanCandidateFromState } from "../../../../../src/features/chat/chat-message-renderer";
+import { implementPlanCandidateFromState } from "../../../../../src/features/chat/plan-implementation";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {

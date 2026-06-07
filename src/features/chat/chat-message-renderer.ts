@@ -1,32 +1,50 @@
 import type { App, Component } from "obsidian";
-import type { ComponentChild as UiNode } from "preact";
 
-import type { DisplayItem } from "./display/types";
 import { copyTextWithNotice } from "../../shared/ui/clipboard";
-import { messageStreamBlocks, renderMessageStreamBlocks } from "./ui/message-stream";
+import {
+  createMessageStreamContext,
+  createMessageStreamContextPort,
+  messageStreamBlocks,
+  renderMessageStreamBlocks,
+  type ChatMessageStreamActionPort,
+  type ChatMessageStreamContextPort,
+  type ChatMessageStreamRequestPort,
+} from "./ui/message-stream";
 import type { ComposerBoundaryScrollAction } from "./composer/boundary-scroll";
 import { MessageScrollController, type MessageScrollIntent } from "./ui/scroll";
-import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 import { MarkdownMessageRenderer } from "./markdown-message-renderer";
-import { forkCandidatesFromItems, isForkCandidateItem } from "./fork";
-import { isRollbackCandidateItem, rollbackCandidateFromItems } from "./rollback";
-import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
-import { implementPlanCandidateFromState } from "./plan-implementation";
+import { type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
 import { unmountUiRoot } from "../../shared/ui/ui-root";
 
-export interface ChatMessageRendererOptions {
+export interface ChatMessageRendererObsidianPort {
   app: App;
   owner: Component;
-  stateStore: ChatStateStore;
+}
+
+export interface ChatMessageRendererStatePort {
+  store: ChatStateStore;
+}
+
+export interface ChatMessageRendererWorkspacePort {
   vaultPath: string;
-  consumeScrollIntent: () => MessageScrollIntent;
+}
+
+export interface ChatMessageRendererScrollPort {
+  consumeIntent: () => MessageScrollIntent;
+}
+
+export interface ChatMessageRendererHistoryPort {
   loadOlderTurns: () => void;
-  rollbackThread: (threadId: string) => void;
-  forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
-  implementPlan: (item: DisplayItem) => void;
-  openTurnDiff: (state: ChatTurnDiffViewState) => void;
-  pendingRequestsSignature: () => string;
-  renderPendingRequests: () => UiNode;
+}
+
+export interface ChatMessageRendererOptions {
+  obsidian: ChatMessageRendererObsidianPort;
+  state: ChatMessageRendererStatePort;
+  workspace: ChatMessageRendererWorkspacePort;
+  scroll: ChatMessageRendererScrollPort;
+  history: ChatMessageRendererHistoryPort;
+  actions: ChatMessageStreamActionPort;
+  requests: ChatMessageStreamRequestPort;
 }
 
 export class ChatMessageRenderer {
@@ -43,9 +61,9 @@ export class ChatMessageRenderer {
       },
     });
     this.markdownRenderer = new MarkdownMessageRenderer({
-      app: options.app,
-      owner: options.owner,
-      vaultPath: options.vaultPath,
+      app: options.obsidian.app,
+      owner: options.obsidian.owner,
+      vaultPath: options.workspace.vaultPath,
       messagesPinnedToBottom: () => this.state.ui.messagesPinnedToBottom,
       pinMessagesToBottom: (messagesEl) => {
         this.pinMessagesToBottom(messagesEl);
@@ -54,61 +72,39 @@ export class ChatMessageRenderer {
   }
 
   private get state(): ChatState {
-    return this.options.stateStore.getState();
+    return this.options.state.store.getState();
   }
 
   private dispatch(action: ChatAction): void {
-    this.options.stateStore.dispatch(action);
+    this.options.state.store.dispatch(action);
   }
 
   render(messagesEl: HTMLElement): void {
     const state = this.state;
     this.messagesEl = messagesEl;
-    const scrollPlan = this.scrollController.prepareRender(messagesEl, this.options.consumeScrollIntent());
-    const busy = chatTurnBusy(state);
-    const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.transcript.displayItems);
-    const forkCandidates = busy ? [] : forkCandidatesFromItems(state.transcript.displayItems);
-    const implementPlanCandidate = implementPlanCandidateFromState(state);
+    const scrollPlan = this.scrollController.prepareRender(messagesEl, this.options.scroll.consumeIntent());
+    const blocks = messageStreamBlocks(createMessageStreamContext(state, this.messageStreamPort()));
+    renderMessageStreamBlocks(messagesEl, blocks);
+    this.scrollController.completeRender(scrollPlan);
+  }
 
-    const blocks = messageStreamBlocks({
-      activeThreadId: state.activeThread.id,
-      turnLifecycle: state.turn.lifecycle,
-      historyCursor: state.transcript.historyCursor,
-      loadingHistory: state.transcript.loadingHistory,
-      displayItems: state.transcript.displayItems,
-      turnDiffs: state.transcript.turnDiffs,
-      workspaceRoot: state.activeThread.cwd ?? this.options.vaultPath,
-      openDetails: state.ui.openDetails,
-      onDetailsToggle: (key, open) => {
-        this.setOpenDetail(key, open);
+  private messageStreamPort(): ChatMessageStreamContextPort {
+    return createMessageStreamContextPort({
+      vaultPath: this.options.workspace.vaultPath,
+      state: () => this.state,
+      dispatch: (action) => {
+        this.dispatch(action);
       },
       loadOlderTurns: () => {
-        this.options.loadOlderTurns();
+        this.options.history.loadOlderTurns();
       },
       renderMarkdown: (element, text) => {
         this.markdownRenderer.renderMarkdown(element, text);
       },
-      copyText: (text) => void this.copyMessageText(text),
-      canImplementPlanItem: (item: DisplayItem) => item.id === implementPlanCandidate?.id,
-      onImplementPlanItem: (item) => {
-        this.options.implementPlan(item);
-      },
-      canRollbackItem: (item: DisplayItem) => isRollbackCandidateItem(item, rollbackCandidate),
-      onRollbackItem: () => {
-        if (state.activeThread.id) this.options.rollbackThread(state.activeThread.id);
-      },
-      canForkItem: (item: DisplayItem) => isForkCandidateItem(item, forkCandidates),
-      onForkItem: (item, archiveSource) => {
-        if (state.activeThread.id && item.turnId) this.options.forkThreadFromTurn(state.activeThread.id, item.turnId, archiveSource);
-      },
-      openTurnDiff: (turnDiffState) => {
-        this.options.openTurnDiff(turnDiffState);
-      },
-      pendingRequestsSignature: this.options.pendingRequestsSignature(),
-      renderPendingRequests: () => this.options.renderPendingRequests(),
+      copyMessageText: (text) => void this.copyMessageText(text),
+      actions: this.options.actions,
+      requests: this.options.requests,
     });
-    renderMessageStreamBlocks(messagesEl, blocks);
-    this.scrollController.completeRender(scrollPlan);
   }
 
   dispose(): void {
@@ -145,17 +141,6 @@ export class ChatMessageRenderer {
     this.scrollController.pinToBottom(messagesEl);
   }
 
-  private setOpenDetail(key: string, open: boolean): void {
-    if (open && key.startsWith("message:fork-actions:")) {
-      for (const openKey of this.state.ui.openDetails) {
-        if (openKey.startsWith("message:fork-actions:") && openKey !== key) {
-          this.dispatch({ type: "ui/detail-open-set", key: openKey, open: false });
-        }
-      }
-    }
-    this.dispatch({ type: "ui/detail-open-set", key, open });
-  }
-
   private scheduleBottomPinAfterLayout(): void {
     const messagesEl = this.messagesEl;
     if (!messagesEl || this.bottomPinFrame !== null) return;
@@ -174,5 +159,3 @@ export class ChatMessageRenderer {
     this.bottomPinFrame = null;
   }
 }
-
-export { implementPlanCandidateFromState };

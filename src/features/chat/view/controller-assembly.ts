@@ -482,18 +482,33 @@ function createSubmissionControllerGroup(
   });
 
   messageRenderer = new ChatMessageRenderer({
-    app,
-    owner,
-    stateStore,
-    vaultPath: plugin.vaultPath,
-    consumeScrollIntent: () => messageScroll.consumeIntent(),
-    loadOlderTurns: () => void refs.history().loadOlder(),
-    rollbackThread: (threadId) => void refs.threadActions().rollbackThread(threadId),
-    forkThreadFromTurn: (threadId, turnId, archiveSource) => void refs.threadActions().forkThreadFromTurn(threadId, turnId, archiveSource),
-    implementPlan: (item) => void planImplementation.implement(item),
-    openTurnDiff: (state) => void plugin.openTurnDiff(state),
-    pendingRequestsSignature: render.pendingRequestsSignature,
-    renderPendingRequests: () => refs.pendingRequests().renderNode(),
+    obsidian: {
+      app,
+      owner,
+    },
+    state: {
+      store: stateStore,
+    },
+    workspace: {
+      vaultPath: plugin.vaultPath,
+    },
+    scroll: {
+      consumeIntent: () => messageScroll.consumeIntent(),
+    },
+    history: {
+      loadOlderTurns: () => void refs.history().loadOlder(),
+    },
+    actions: {
+      rollbackThread: (threadId) => void refs.threadActions().rollbackThread(threadId),
+      forkThreadFromTurn: (threadId, turnId, archiveSource) =>
+        void refs.threadActions().forkThreadFromTurn(threadId, turnId, archiveSource),
+      implementPlan: (item) => void planImplementation.implement(item),
+      openTurnDiff: (state) => void plugin.openTurnDiff(state),
+    },
+    requests: {
+      pendingSignature: render.pendingRequestsSignature,
+      renderPending: () => refs.pendingRequests().renderNode(),
+    },
   });
   composerController = new ChatComposerController({
     app,
