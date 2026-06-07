@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ChatRuntimeSettingsController } from "../../../src/features/chat/runtime-settings-controller";
-import { createChatState, createChatStateStore, type ActiveThreadSettingsAppliedAction } from "../../../src/features/chat/chat-state";
-import type { AppServerClient } from "../../../src/app-server/client";
-import type { Model } from "../../../src/generated/app-server/v2/Model";
+import { ChatRuntimeSettingsController } from "../../../../../src/features/chat/controllers/runtime/runtime-settings-controller";
+import { createChatState, createChatStateStore, type ActiveThreadSettingsAppliedAction } from "../../../../../src/features/chat/chat-state";
+import type { AppServerClient } from "../../../../../src/app-server/client";
+import type { Model } from "../../../../../src/generated/app-server/v2/Model";
 
 describe("ChatRuntimeSettingsController", () => {
   it("applies pending runtime overrides through thread settings and commits them", async () => {

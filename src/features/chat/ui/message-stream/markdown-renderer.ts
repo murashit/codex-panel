@@ -1,7 +1,7 @@
 import { MarkdownRenderer, type App, type Component } from "obsidian";
 
+import { notifyMessageContentRendered } from "../message-content-events";
 import { bindRenderedMarkdownFileLinks, bindRenderedWikiLinks } from "./rendered-markdown-links";
-import { notifyMessageContentRendered } from "./ui/message-content-events";
 
 export interface MarkdownMessageRendererOptions {
   app: App;

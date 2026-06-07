@@ -3,11 +3,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TFile } from "obsidian";
 
-import { ChatMessageRenderer } from "../../../src/features/chat/chat-message-renderer";
-import { chatReducer, createChatState, type ChatAction, type ChatState, type ChatStateStore } from "../../../src/features/chat/chat-state";
-import { bindRenderedWikiLinks, type RenderedMarkdownLinkContext } from "../../../src/features/chat/rendered-markdown-links";
-import { installObsidianDomShims } from "../../support/dom";
-import { notices } from "../../mocks/obsidian";
+import {
+  chatReducer,
+  createChatState,
+  type ChatAction,
+  type ChatState,
+  type ChatStateStore,
+} from "../../../../../src/features/chat/chat-state";
+import {
+  ChatMessageRenderer,
+  bindRenderedWikiLinks,
+  type RenderedMarkdownLinkContext,
+} from "../../../../../src/features/chat/ui/message-stream";
+import { notices } from "../../../../mocks/obsidian";
+import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
 

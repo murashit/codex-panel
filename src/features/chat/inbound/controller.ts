@@ -1,18 +1,18 @@
-import { approvalResponse, type ApprovalAction, type PendingApproval } from "./requests/approvals/model";
-import { createStructuredSystemItem, createSystemItem } from "./display/system";
-import type { DisplayDetailSection } from "./display/types";
-import type { RequestId } from "../../generated/app-server/RequestId";
-import type { ServerNotification } from "../../generated/app-server/ServerNotification";
-import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-import type { Turn } from "../../generated/app-server/v2/Turn";
-import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
-import { userInputResponse, type PendingUserInput } from "./requests/user-input/model";
-import { classifyAppServerLog } from "./app-server-logs";
-import { routeServerRequest } from "./inbound/routing";
-import { createApprovalResultItem, createUserInputResultItem } from "./requests/view-model";
-import { planChatNotification, type ChatNotificationEffect } from "./inbound/notification-plan";
+import type { RequestId } from "../../../generated/app-server/RequestId";
+import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
+import type { ServerRequest } from "../../../generated/app-server/ServerRequest";
+import type { Turn } from "../../../generated/app-server/v2/Turn";
+import { classifyAppServerLog } from "../app-server-logs";
+import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
+import { createStructuredSystemItem, createSystemItem } from "../display/system";
+import type { DisplayDetailSection } from "../display/types";
+import { approvalResponse, type ApprovalAction, type PendingApproval } from "../requests/approvals/model";
+import { userInputResponse, type PendingUserInput } from "../requests/user-input/model";
+import { createApprovalResultItem, createUserInputResultItem } from "../requests/view-model";
+import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
+import { routeServerRequest } from "./routing";
 
-export interface ChatControllerActions {
+export interface ChatInboundControllerActions {
   refreshThreads: () => void;
   refreshRateLimits: () => void;
   refreshSkills: (forceReload?: boolean) => void;
@@ -25,10 +25,10 @@ export interface ChatControllerActions {
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
 }
 
-export class ChatController {
+export class ChatInboundController {
   constructor(
     private readonly store: ChatStateStore,
-    private readonly actions: ChatControllerActions,
+    private readonly actions: ChatInboundControllerActions,
   ) {}
 
   private get state(): ChatState {

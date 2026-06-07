@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../src/app-server/client";
-import { ChatGoalController } from "../../../src/features/chat/goal-controller";
-import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
-import type { ThreadGoal } from "../../../src/generated/app-server/v2/ThreadGoal";
+import type { AppServerClient } from "../../../../../src/app-server/client";
+import { ChatThreadGoalController } from "../../../../../src/features/chat/controllers/thread/thread-goal-controller";
+import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
+import type { ThreadGoal } from "../../../../../src/generated/app-server/v2/ThreadGoal";
 
-describe("ChatGoalController", () => {
+describe("ChatThreadGoalController", () => {
   it("syncs the active thread goal into chat state", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
@@ -14,7 +14,7 @@ describe("ChatGoalController", () => {
     const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
     const render = vi.fn();
     const refreshLiveState = vi.fn();
-    const controller = new ChatGoalController({
+    const controller = new ChatThreadGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -37,7 +37,7 @@ describe("ChatGoalController", () => {
     const stateStore = createChatStateStore(state);
     const addSystemMessage = vi.fn();
     const client = { getThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) } as unknown as AppServerClient;
-    const controller = new ChatGoalController({
+    const controller = new ChatThreadGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -69,7 +69,7 @@ describe("ChatGoalController", () => {
     } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const controller = new ChatGoalController({
+    const controller = new ChatThreadGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -102,7 +102,7 @@ describe("ChatGoalController", () => {
     const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const controller = new ChatGoalController({
+    const controller = new ChatThreadGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -142,7 +142,7 @@ describe("ChatGoalController", () => {
     const injectThreadItems = vi.fn().mockResolvedValue({});
     const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
     const addGoalEvent = vi.fn();
-    const controller = new ChatGoalController({
+    const controller = new ChatThreadGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -167,7 +167,7 @@ describe("ChatGoalController", () => {
     const client = { setThreadGoal } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const controller = new ChatGoalController({
+    const controller = new ChatThreadGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -190,7 +190,7 @@ describe("ChatGoalController", () => {
     const currentGoal = goal();
     const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
-    const controller = new ChatGoalController({
+    const controller = new ChatThreadGoalController({
       stateStore,
       currentClient: () => client,
       ensureConnected: vi.fn().mockResolvedValue(undefined),

@@ -6,16 +6,15 @@ import { currentModel } from "../../../runtime/state";
 import { ChatAppServerDiagnosticsController } from "../app-server/diagnostics-controller";
 import { ChatAppServerMetadataController } from "../app-server/metadata-controller";
 import { ChatAppServerThreadController } from "../app-server/thread-controller";
-import { ChatComposerController } from "../chat-composer-controller";
-import { ChatController } from "../chat-controller";
-import { ChatMessageRenderer } from "../chat-message-renderer";
+import { ChatComposerController } from "../composer/controller";
+import { ChatInboundController } from "../inbound/controller";
 import type { ChatState } from "../chat-state";
-import { ChatGoalController } from "../goal-controller";
-import { ChatRuntimeSettingsController } from "../runtime-settings-controller";
+import { ChatThreadGoalController } from "../controllers/thread/thread-goal-controller";
+import { ChatRuntimeSettingsController } from "../controllers/runtime/runtime-settings-controller";
 import { ChatThreadActionController } from "../controllers/thread/thread-actions-controller";
-import { ThreadHistoryLoader } from "../thread-history";
+import { ThreadHistoryController } from "../controllers/thread/thread-history-controller";
 import { ThreadRenameController } from "../controllers/thread/thread-rename-controller";
-import { ToolbarPanelController } from "../toolbar-panel-controller";
+import { ToolbarPanelController } from "./toolbar-controller";
 import { AppServerWarmupController } from "../controllers/connection/app-server-warmup-controller";
 import { ChatConnectionController } from "../controllers/connection/connection-controller";
 import { ChatReconnectController } from "../controllers/connection/reconnect-controller";
@@ -40,6 +39,7 @@ import { ThreadSelectionController } from "../controllers/thread/thread-selectio
 import { ChatViewOpenCloseController } from "../controllers/view/view-open-close-controller";
 import { ChatViewRenderController } from "../controllers/view/view-render-controller";
 import { ChatViewStateController } from "../controllers/view/view-state-controller";
+import { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatViewControllerPorts } from "./controller-ports";
 
 export interface ChatViewControllers {
@@ -50,7 +50,7 @@ export interface ChatViewControllers {
     warmup: AppServerWarmupController;
   };
   inbound: {
-    controller: ChatController;
+    controller: ChatInboundController;
   };
   appServer: {
     threads: ChatAppServerThreadController;
@@ -58,7 +58,7 @@ export interface ChatViewControllers {
     diagnostics: ChatAppServerDiagnosticsController;
   };
   thread: {
-    history: ThreadHistoryLoader;
+    history: ThreadHistoryController;
     resume: ThreadResumeController;
     actions: ChatThreadActionController;
     restored: RestoredThreadController;
@@ -68,7 +68,7 @@ export interface ChatViewControllers {
   };
   runtime: {
     settings: ChatRuntimeSettingsController;
-    goals: ChatGoalController;
+    goals: ChatThreadGoalController;
   };
   requests: {
     pending: PendingRequestController;
@@ -94,16 +94,16 @@ type ControllerRef<T> = () => T;
 export function createChatViewControllers(ports: ChatViewControllerPorts): ChatViewControllers {
   const context = createControllerContext(ports);
   let connection!: ConnectionManager;
-  let controller!: ChatController;
+  let controller!: ChatInboundController;
   let appServerThreads!: ChatAppServerThreadController;
   let appServerMetadata!: ChatAppServerMetadataController;
   let appServerDiagnostics!: ChatAppServerDiagnosticsController;
   let connectionController!: ChatConnectionController;
-  let history!: ThreadHistoryLoader;
+  let history!: ThreadHistoryController;
   let threadResume!: ThreadResumeController;
   let threadActions!: ChatThreadActionController;
   let runtimeSettings!: ChatRuntimeSettingsController;
-  let goals!: ChatGoalController;
+  let goals!: ChatThreadGoalController;
   let restoredThread!: RestoredThreadController;
   let threadIdentity!: ThreadIdentityController;
   let threadRename!: ThreadRenameController;
@@ -294,8 +294,8 @@ function createSubmissionControllerGroup(
     threadActions: ControllerRef<ChatThreadActionController>;
     threadRename: ControllerRef<ThreadRenameController>;
     reconnectActions: ControllerRef<ChatReconnectController>;
-    goals: ControllerRef<ChatGoalController>;
-    history: ControllerRef<ThreadHistoryLoader>;
+    goals: ControllerRef<ChatThreadGoalController>;
+    history: ControllerRef<ThreadHistoryController>;
     pendingRequests: ControllerRef<PendingRequestController>;
   },
 ) {
@@ -474,7 +474,7 @@ function createSubmissionControllerGroup(
 function createConnectionLifecycleControllerGroup(
   context: ControllerContext,
   refs: {
-    controller: ControllerRef<ChatController>;
+    controller: ControllerRef<ChatInboundController>;
     connectionController: ControllerRef<ChatConnectionController>;
     composerController: ControllerRef<ChatComposerController>;
     messageRenderer: ControllerRef<ChatMessageRenderer>;
@@ -557,7 +557,7 @@ function createAppServerControllerGroup(
   context: ControllerContext,
   refs: {
     connection: ControllerRef<ConnectionManager>;
-    goals: ControllerRef<ChatGoalController>;
+    goals: ControllerRef<ChatThreadGoalController>;
   },
 ) {
   const { plugin, runtime, effects, stateStore } = context;
@@ -605,7 +605,7 @@ function createInboundController(
 ) {
   const { plugin, thread, effects, stateStore } = context;
 
-  return new ChatController(stateStore, {
+  return new ChatInboundController(stateStore, {
     refreshThreads: () => {
       void thread.refreshThreads();
     },
@@ -675,7 +675,7 @@ function createRequestThreadToolbarControllerGroup(
   context: ControllerContext,
   refs: {
     connection: ControllerRef<ConnectionManager>;
-    controller: ControllerRef<ChatController>;
+    controller: ControllerRef<ChatInboundController>;
     composerController: ControllerRef<ChatComposerController>;
   },
 ) {
@@ -690,7 +690,7 @@ function createRequestThreadToolbarControllerGroup(
     refreshLiveState: effects.liveState.refresh,
     render: effects.render.now,
   });
-  const history = new ThreadHistoryLoader({
+  const history = new ThreadHistoryController({
     stateStore,
     currentClient,
     render: effects.render.now,
@@ -761,7 +761,7 @@ function createRequestThreadToolbarControllerGroup(
     collaborationModeLabel: runtime.collaborationModeLabel,
     addSystemMessage: effects.status.addSystemMessage,
   });
-  const goals = new ChatGoalController({
+  const goals = new ChatThreadGoalController({
     stateStore,
     currentClient,
     ensureConnected: effects.client.ensureConnected,

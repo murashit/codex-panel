@@ -3,7 +3,7 @@ import type { ThreadTokenUsage } from "../../../../generated/app-server/v2/Threa
 import type { DisplayItem } from "../../display/types";
 import type { RestoredThreadController } from "./restored-thread-controller";
 import type { ThreadActivationResponse } from "../../thread-resume";
-import type { ThreadHistoryLoader } from "../../thread-history";
+import type { ThreadHistoryController } from "./thread-history-controller";
 import type { ChatResumeWorkTracker, ActiveChatResume } from "../../panel/lifecycle";
 import type { ThreadLifecycleStatePort } from "../state-ports";
 
@@ -11,7 +11,7 @@ export interface ThreadResumeControllerHost {
   state: ThreadLifecycleStatePort;
   vaultPath: string;
   resumeWork: ChatResumeWorkTracker;
-  history: ThreadHistoryLoader;
+  history: ThreadHistoryController;
   restoredThread: RestoredThreadController;
   currentClient: () => AppServerClient | null;
   ensureConnected: () => Promise<void>;

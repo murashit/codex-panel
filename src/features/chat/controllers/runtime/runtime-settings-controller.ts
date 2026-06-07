@@ -1,11 +1,11 @@
-import type { AppServerClient } from "../../app-server/client";
-import { requestedServiceTierRequestValue, type RequestedServiceTier } from "../../app-server/service-tier";
-import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
-import type { ModeKind } from "../../generated/app-server/ModeKind";
-import type { ApprovalsReviewer } from "../../generated/app-server/v2/ApprovalsReviewer";
-import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
-import { collaborationModeToggleMessage, nextCollaborationMode } from "../../runtime/collaboration-mode";
-import { readRuntimeConfig } from "../../runtime/config";
+import type { AppServerClient } from "../../../../app-server/client";
+import { requestedServiceTierRequestValue, type RequestedServiceTier } from "../../../../app-server/service-tier";
+import type { ModeKind } from "../../../../generated/app-server/ModeKind";
+import type { ReasoningEffort } from "../../../../generated/app-server/ReasoningEffort";
+import type { ApprovalsReviewer } from "../../../../generated/app-server/v2/ApprovalsReviewer";
+import type { ThreadSettingsUpdateParams } from "../../../../generated/app-server/v2/ThreadSettingsUpdateParams";
+import { collaborationModeToggleMessage, nextCollaborationMode } from "../../../../runtime/collaboration-mode";
+import { readRuntimeConfig } from "../../../../runtime/config";
 import {
   autoReviewActive,
   fastModeActive,
@@ -13,9 +13,9 @@ import {
   pendingRuntimeSettingPayload,
   requestedTurnRuntimeSettings,
   type RuntimeSnapshot,
-} from "../../runtime/state";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/settings";
-import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
+} from "../../../../runtime/state";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../../../runtime/settings";
+import type { ChatAction, ChatState, ChatStateStore } from "../../chat-state";
 
 type ThreadSettingsUpdate = Omit<ThreadSettingsUpdateParams, "threadId">;
 

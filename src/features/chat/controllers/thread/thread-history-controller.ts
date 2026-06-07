@@ -1,9 +1,9 @@
-import type { AppServerClient } from "../../app-server/client";
-import { displayItemsFromTurns } from "./display/thread-items";
-import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
-import type { TurnsPage } from "../../generated/app-server/v2/TurnsPage";
+import type { AppServerClient } from "../../../../app-server/client";
+import type { TurnsPage } from "../../../../generated/app-server/v2/TurnsPage";
+import type { ChatAction, ChatState, ChatStateStore } from "../../chat-state";
+import { displayItemsFromTurns } from "../../display/thread-items";
 
-export interface ThreadHistoryLoaderHost {
+export interface ThreadHistoryControllerHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   render: () => void;
@@ -20,10 +20,10 @@ type ThreadHistoryLoadLifecycleEvent =
   | { type: "finished"; load: ActiveThreadHistoryLoad }
   | { type: "invalidated" };
 
-export class ThreadHistoryLoader {
+export class ThreadHistoryController {
   private lifecycle: ThreadHistoryLoadLifecycleState = { kind: "idle" };
 
-  constructor(private readonly host: ThreadHistoryLoaderHost) {}
+  constructor(private readonly host: ThreadHistoryControllerHost) {}
 
   private get state(): ChatState {
     return this.host.stateStore.getState();

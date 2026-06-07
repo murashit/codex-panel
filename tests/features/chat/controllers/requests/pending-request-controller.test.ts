@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ChatController } from "../../../../../src/features/chat/chat-controller";
+import { ChatInboundController } from "../../../../../src/features/chat/inbound/controller";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
 import { createPendingRequestStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { PendingRequestController } from "../../../../../src/features/chat/controllers/requests/pending-request-controller";
@@ -18,7 +18,7 @@ describe("PendingRequestController", () => {
     const respondToServerRequest = vi.fn().mockReturnValue(true);
     const refreshLiveState = vi.fn();
     const render = vi.fn();
-    const controller = new ChatController(stateStore, {
+    const controller = new ChatInboundController(stateStore, {
       refreshThreads: vi.fn(),
       refreshRateLimits: vi.fn(),
       refreshSkills: vi.fn(),

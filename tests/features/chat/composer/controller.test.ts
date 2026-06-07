@@ -3,10 +3,10 @@
 import type { App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
-import { ChatComposerController } from "../../../src/features/chat/chat-composer-controller";
-import { createChatStateStore } from "../../../src/features/chat/chat-state";
-import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
-import { installObsidianDomShims } from "../../support/dom";
+import { ChatComposerController } from "../../../../src/features/chat/composer/controller";
+import { createChatStateStore } from "../../../../src/features/chat/chat-state";
+import type { SkillMetadata } from "../../../../src/generated/app-server/v2/SkillMetadata";
+import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
 

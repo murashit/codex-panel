@@ -8,7 +8,7 @@ import type { CodexPanelSettings } from "../../../../settings/model";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../../chat-state";
 import { turnsAfterTurnId } from "../../fork";
 import { rollbackCandidateFromItems } from "../../rollback";
-import type { ThreadHistoryLoader } from "../../thread-history";
+import type { ThreadHistoryController } from "./thread-history-controller";
 
 export interface ChatThreadActionControllerHost {
   stateStore: ChatStateStore;
@@ -17,7 +17,7 @@ export interface ChatThreadActionControllerHost {
   archiveAdapter: () => ArchiveExportAdapter;
   ensureConnected: () => Promise<void>;
   currentClient: () => AppServerClient | null;
-  history: ThreadHistoryLoader;
+  history: ThreadHistoryController;
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;

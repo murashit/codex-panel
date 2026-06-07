@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ChatController } from "../../../src/features/chat/chat-controller";
-import { attachHookRunsToTurn } from "../../../src/features/chat/hook-display";
+import { ChatInboundController } from "../../../../src/features/chat/inbound/controller";
+import { attachHookRunsToTurn } from "../../../../src/features/chat/hook-display";
 import {
   activeTurnId,
   chatReducer,
@@ -11,17 +11,17 @@ import {
   type ChatAction,
   type ChatState,
   type ChatStateStore,
-} from "../../../src/features/chat/chat-state";
-import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
-import type { ServerRequest } from "../../../src/generated/app-server/ServerRequest";
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import type { Turn } from "../../../src/generated/app-server/v2/Turn";
+} from "../../../../src/features/chat/chat-state";
+import type { ServerNotification } from "../../../../src/generated/app-server/ServerNotification";
+import type { ServerRequest } from "../../../../src/generated/app-server/ServerRequest";
+import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
 
 function controllerForState(
   state = createChatState(),
-  actions: Partial<ConstructorParameters<typeof ChatController>[1]> = {},
-): ChatController {
-  return new ChatController(testStoreForState(state), {
+  actions: Partial<ConstructorParameters<typeof ChatInboundController>[1]> = {},
+): ChatInboundController {
+  return new ChatInboundController(testStoreForState(state), {
     refreshThreads: vi.fn(),
     refreshRateLimits: vi.fn(),
     refreshSkills: vi.fn(),
@@ -54,7 +54,7 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-describe("ChatController", () => {
+describe("ChatInboundController", () => {
   describe("active turn routing", () => {
     it("applies matching streaming deltas as assistant markdown", () => {
       const state = createChatState();

@@ -6,7 +6,7 @@ import type { RestoredThreadController } from "../../../../../src/features/chat/
 import { createThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { ThreadActivationResponse } from "../../../../../src/features/chat/thread-resume";
 import { ThreadResumeController } from "../../../../../src/features/chat/controllers/thread/thread-resume-controller";
-import type { ThreadHistoryLoader } from "../../../../../src/features/chat/thread-history";
+import type { ThreadHistoryController } from "../../../../../src/features/chat/controllers/thread/thread-history-controller";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/panel/lifecycle";
 import type { ThreadItem } from "../../../../../src/generated/app-server/v2/ThreadItem";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
@@ -65,7 +65,7 @@ function createController(
     state: createThreadLifecycleStatePort(stateStore),
     vaultPath: "/vault",
     resumeWork: new ChatResumeWorkTracker(() => undefined),
-    history: { loadLatest, applyLatestPage } as unknown as ThreadHistoryLoader,
+    history: { loadLatest, applyLatestPage } as unknown as ThreadHistoryController,
     restoredThread: { clear: restoredClear } as unknown as RestoredThreadController,
     currentClient: () => client,
     ensureConnected: vi.fn().mockResolvedValue(undefined),

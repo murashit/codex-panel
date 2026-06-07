@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import type { ApprovalAction, PendingApproval } from "../../requests/approvals/model";
-import type { ChatController } from "../../chat-controller";
+import type { ChatInboundController } from "../../inbound/controller";
 import { pendingRequestFocusSignature } from "../../requests/view-model";
 import { pendingRequestMessageNode } from "../../ui/pending-request-message";
 import { userInputDraftKey, userInputOtherDraftKey } from "../../requests/user-input/drafts";
@@ -10,7 +10,7 @@ import type { PendingRequestStatePort } from "../state-ports";
 
 export interface PendingRequestControllerHost {
   state: PendingRequestStatePort;
-  controller: ChatController;
+  controller: ChatInboundController;
   composerHasFocus: () => boolean;
   refreshLiveState: () => void;
   render: () => void;

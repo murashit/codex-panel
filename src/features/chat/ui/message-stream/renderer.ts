@@ -1,20 +1,20 @@
 import type { App, Component } from "obsidian";
 
-import { copyTextWithNotice } from "../../shared/ui/clipboard";
+import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
+import { unmountUiRoot } from "../../../../shared/ui/ui-root";
+import type { ChatAction, ChatState, ChatStateStore } from "../../chat-state";
+import type { ComposerBoundaryScrollAction } from "../../composer/boundary-scroll";
+import { MessageScrollController, type MessageScrollIntent } from "../scroll";
+import { messageStreamBlocks } from "./blocks";
 import {
   createMessageStreamContext,
-  createMessageStreamContextPort,
-  messageStreamBlocks,
-  renderMessageStreamBlocks,
   type ChatMessageStreamActionPort,
   type ChatMessageStreamContextPort,
   type ChatMessageStreamRequestPort,
-} from "./ui/message-stream";
-import type { ComposerBoundaryScrollAction } from "./composer/boundary-scroll";
-import { MessageScrollController, type MessageScrollIntent } from "./ui/scroll";
-import { MarkdownMessageRenderer } from "./markdown-message-renderer";
-import { type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
-import { unmountUiRoot } from "../../shared/ui/ui-root";
+} from "./context-builder";
+import { createMessageStreamContextPort } from "./context-port";
+import { MarkdownMessageRenderer } from "./markdown-renderer";
+import { renderMessageStreamBlocks } from "./render";
 
 interface ChatMessageRendererObsidianPort {
   app: App;

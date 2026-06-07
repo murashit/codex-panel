@@ -1,9 +1,13 @@
 import type { App, EventRef } from "obsidian";
 
-import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "./composer/boundary-scroll";
-import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
-import { textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret";
-import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./composer/obsidian-context";
+import type { UserInput } from "../../../generated/app-server/v2/UserInput";
+import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
+import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret";
+import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
+import type { ComposerMetaViewModel } from "../panel/model";
+import { renderComposerShell, syncComposerHeight } from "../ui/composer";
+import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "./boundary-scroll";
+import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./obsidian-context";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -12,12 +16,8 @@ import {
   nextComposerSuggestionIndex,
   type ComposerSuggestion,
   type NoteCandidate,
-} from "./composer/suggestions";
-import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-context";
-import type { UserInput } from "../../generated/app-server/v2/UserInput";
-import { renderComposerShell, syncComposerHeight } from "./ui/composer";
-import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
-import type { ComposerMetaViewModel } from "./panel/model";
+} from "./suggestions";
+import { userInputWithWikiLinkMentionsAndSkills } from "./wikilink-context";
 
 export interface ChatComposerControllerOptions {
   app: App;

@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
-import { ThreadHistoryLoader } from "../../../src/features/chat/thread-history";
-import type { AppServerClient } from "../../../src/app-server/client";
-import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../../src/generated/app-server/v2/Turn";
-import { deferred } from "../../support/async";
+import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
+import { ThreadHistoryController } from "../../../../../src/features/chat/controllers/thread/thread-history-controller";
+import type { AppServerClient } from "../../../../../src/app-server/client";
+import type { ThreadItem } from "../../../../../src/generated/app-server/v2/ThreadItem";
+import type { Turn } from "../../../../../src/generated/app-server/v2/Turn";
+import { deferred } from "../../../../support/async";
 
-describe("ThreadHistoryLoader", () => {
+describe("ThreadHistoryController", () => {
   it("keeps the latest history load when an older request resolves later", async () => {
     const first = deferred<ThreadTurnsListResponse>();
     const second = deferred<ThreadTurnsListResponse>();
@@ -98,7 +98,7 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
   const stateStore = createChatStateStore(state);
   const dispatch = vi.spyOn(stateStore, "dispatch");
   const addSystemMessage = vi.fn();
-  const loader = new ThreadHistoryLoader({
+  const loader = new ThreadHistoryController({
     stateStore,
     currentClient: () =>
       ({

@@ -1,12 +1,12 @@
-import type { AppServerClient } from "../../app-server/client";
-import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
-import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
-import type { ThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
-import type { ChatStateStore } from "./chat-state";
-import type { GoalDisplayItem } from "./display/types";
-import { goalChangeItem } from "./goal-messages";
+import type { AppServerClient } from "../../../../app-server/client";
+import type { JsonValue } from "../../../../generated/app-server/serde_json/JsonValue";
+import type { ThreadGoal } from "../../../../generated/app-server/v2/ThreadGoal";
+import type { ThreadGoalStatus } from "../../../../generated/app-server/v2/ThreadGoalStatus";
+import type { ChatStateStore } from "../../chat-state";
+import type { GoalDisplayItem } from "../../display/types";
+import { goalChangeItem } from "../../goal-messages";
 
-export interface ChatGoalControllerHost {
+export interface ChatThreadGoalControllerHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   ensureConnected: () => Promise<void>;
@@ -16,8 +16,8 @@ export interface ChatGoalControllerHost {
   refreshLiveState: () => void;
 }
 
-export class ChatGoalController {
-  constructor(private readonly host: ChatGoalControllerHost) {}
+export class ChatThreadGoalController {
+  constructor(private readonly host: ChatThreadGoalControllerHost) {}
 
   activeGoal(): ThreadGoal | null {
     return this.host.stateStore.getState().activeThread.goal;
