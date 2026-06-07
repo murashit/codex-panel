@@ -1,6 +1,6 @@
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../generated/app-server/v2/Turn";
-import { inputToText } from "../../utils";
+import { inputToText } from "./user-input-text";
 
 type TranscriptEntryKind = "user" | "assistant" | "plan";
 

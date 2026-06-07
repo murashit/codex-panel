@@ -35,6 +35,8 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   archiveExportTags: "",
 };
 
+const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof CodexPanelSettings)[];
+
 export function normalizeSettings(data: unknown): CodexPanelSettings {
   const record = asRecord(data);
   return {
@@ -63,21 +65,7 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
 
 export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelSettings): boolean {
   const record = asRecord(data);
-  return (
-    Object.keys(record).length === 12 &&
-    record["codexPath"] === settings.codexPath &&
-    record["threadNamingModel"] === settings.threadNamingModel &&
-    record["threadNamingEffort"] === settings.threadNamingEffort &&
-    record["rewriteSelectionModel"] === settings.rewriteSelectionModel &&
-    record["rewriteSelectionEffort"] === settings.rewriteSelectionEffort &&
-    record["showToolbar"] === settings.showToolbar &&
-    record["sendShortcut"] === settings.sendShortcut &&
-    record["scrollThreadFromComposerEdges"] === settings.scrollThreadFromComposerEdges &&
-    record["archiveExportEnabled"] === settings.archiveExportEnabled &&
-    record["archiveExportFolderTemplate"] === settings.archiveExportFolderTemplate &&
-    record["archiveExportFilenameTemplate"] === settings.archiveExportFilenameTemplate &&
-    record["archiveExportTags"] === settings.archiveExportTags
-  );
+  return Object.keys(record).length === SETTINGS_KEYS.length && SETTINGS_KEYS.every((key) => record[key] === settings[key]);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

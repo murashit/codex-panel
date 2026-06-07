@@ -39,6 +39,7 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {
   if (isThreadCatalogNotification(notification)) return { kind: "threadLifecycle", notification };
   if (!isMessageInActiveScope(notification, scope)) return { kind: "inactive", notification };
+  if (isIdleThreadStreamUpdate(notification, scope)) return { kind: "inactive", notification };
 
   if (isStreamUpdateNotification(notification)) return { kind: "streamUpdate", notification };
   if (isTurnLifecycleNotification(notification)) return { kind: "turnLifecycle", notification };
@@ -260,6 +261,15 @@ function isStreamUpdateNotification(notification: ServerNotification): boolean {
     default:
       return false;
   }
+}
+
+function isIdleThreadStreamUpdate(notification: ServerNotification, scope: ActiveRouteScope): boolean {
+  return (
+    scope.activeThreadId !== null &&
+    scope.activeTurnId === null &&
+    messageTurnId(notification) !== null &&
+    isStreamUpdateNotification(notification)
+  );
 }
 
 function isTurnLifecycleNotification(notification: ServerNotification): boolean {

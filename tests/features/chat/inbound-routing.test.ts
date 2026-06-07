@@ -68,6 +68,12 @@ describe("chat inbound routing", () => {
     expect(routeServerNotification(otherTurn, activeScope).kind).toBe("inactive");
   });
 
+  it("marks delayed stream updates inactive after the active thread returns to idle", () => {
+    const idleActiveThreadScope = { activeThreadId: "thread-active", activeTurnId: null };
+
+    expect(routeServerNotification(agentDeltaNotification(), idleActiveThreadScope).kind).toBe("inactive");
+  });
+
   it("routes thread catalog notifications even when another thread is active", () => {
     expect(routeServerNotification({ method: "thread/archived", params: { threadId: "thread-other" } }, activeScope).kind).toBe(
       "threadLifecycle",
