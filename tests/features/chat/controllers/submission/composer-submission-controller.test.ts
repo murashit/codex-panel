@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/client";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
 import { ComposerSubmissionController } from "../../../../../src/features/chat/controllers/submission/composer-submission-controller";
-import { createSubmissionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
 
 function thread(id: string): Thread {
@@ -39,7 +38,7 @@ function createController(draft: string) {
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const execute = vi.fn().mockResolvedValue(undefined);
   const controller = new ComposerSubmissionController({
-    state: createSubmissionStatePort(stateStore),
+    stateStore,
     composer: {
       get trimmedDraft() {
         return draft;

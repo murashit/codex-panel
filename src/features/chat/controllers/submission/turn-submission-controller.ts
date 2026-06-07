@@ -2,13 +2,20 @@ import type { AppServerClient } from "../../../../app-server/client";
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
 import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
 import {
+  addLocalUserMessageAction,
+  optimisticTurnStartedAction,
+  turnStartAcknowledgedAction,
+  turnStartFailedAction,
+} from "../../chat-state-actions";
+import { submissionStateSnapshot } from "../../chat-state-selectors";
+import type { ChatStateStore } from "../../chat-state";
+import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
   localUserMessageItemFromInput,
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./turn-submission";
-import type { SubmissionStatePort } from "../state-ports";
 
 export interface TurnSubmissionConnectionPort {
   vaultPath: string;
@@ -46,7 +53,7 @@ export interface TurnSubmissionStatusPort {
 }
 
 export interface TurnSubmissionControllerHost {
-  state: SubmissionStatePort;
+  stateStore: ChatStateStore;
   connection: TurnSubmissionConnectionPort;
   restoredThread: TurnSubmissionRestoredThreadPort;
   thread: TurnSubmissionThreadPort;
@@ -64,7 +71,7 @@ export class TurnSubmissionController {
     const client = this.host.connection.currentClient();
     if (!client) return;
 
-    const initialState = this.host.state.snapshot();
+    const initialState = submissionStateSnapshot(this.host.stateStore.getState());
     if (initialState.busy) {
       await this.steerCurrentTurn(client, text, codexInputOverride, referencedThread);
       return;
@@ -78,7 +85,7 @@ export class TurnSubmissionController {
         this.host.thread.notifyActiveThreadIdentityChanged();
         this.host.thread.resetThreadTurnPresence(false);
       }
-      const activeThreadId = this.host.state.snapshot().activeThreadId;
+      const activeThreadId = submissionStateSnapshot(this.host.stateStore.getState()).activeThreadId;
       if (!activeThreadId) return;
       if (!(await this.host.runtime.applyPendingThreadSettings())) return;
 
@@ -90,13 +97,13 @@ export class TurnSubmissionController {
         codexInput,
         referencedThread,
       });
-      this.host.state.optimisticTurnStarted(optimistic.item, optimistic.pendingTurnStart);
+      this.host.stateStore.dispatch(optimisticTurnStartedAction(optimistic.item, optimistic.pendingTurnStart));
       this.host.view.forceMessagesToBottom();
       this.host.composer.setDraft("");
       this.host.view.render();
 
       const response = await client.startTurn(activeThreadId, this.host.connection.vaultPath, codexInput, optimisticUserId);
-      const acknowledgedState = this.host.state.snapshot();
+      const acknowledgedState = submissionStateSnapshot(this.host.stateStore.getState());
       const pendingStart = acknowledgedState.pendingTurnStart;
       if (
         shouldAcknowledgeTurnStart({
@@ -112,17 +119,17 @@ export class TurnSubmissionController {
           turnId: response.turn.id,
           pendingTurnStart: pendingStart,
         });
-        this.host.state.turnStartAcknowledged(response.turn.id, displayItems);
+        this.host.stateStore.dispatch(turnStartAcknowledgedAction(response.turn.id, displayItems));
         this.host.status.setStatus("Turn running...");
       }
     } catch (error) {
-      const failedState = this.host.state.snapshot();
+      const failedState = submissionStateSnapshot(this.host.stateStore.getState());
       const displayItems = cleanupFailedTurnStart({
         items: failedState.displayItems,
         optimisticUserId,
         pendingTurnStart: failedState.pendingTurnStart,
       });
-      this.host.state.turnStartFailed(displayItems);
+      this.host.stateStore.dispatch(turnStartFailedAction(displayItems));
       this.host.composer.setDraft(text);
       this.host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -135,7 +142,7 @@ export class TurnSubmissionController {
     codexInputOverride?: UserInput[],
     referencedThread?: ReferencedThreadDisplay,
   ): Promise<void> {
-    const state = this.host.state.snapshot();
+    const state = submissionStateSnapshot(this.host.stateStore.getState());
     const threadId = state.activeThreadId;
     const expectedTurnId = state.activeTurnId;
     if (!threadId || !expectedTurnId) {
@@ -149,14 +156,16 @@ export class TurnSubmissionController {
 
     try {
       await client.steerTurn(threadId, expectedTurnId, codexInput, localSteerId);
-      this.host.state.addLocalUserMessage(
-        localUserMessageItemFromInput({
-          id: localSteerId,
-          text,
-          turnId: expectedTurnId,
-          referencedThread,
-          codexInput,
-        }),
+      this.host.stateStore.dispatch(
+        addLocalUserMessageAction(
+          localUserMessageItemFromInput({
+            id: localSteerId,
+            text,
+            turnId: expectedTurnId,
+            referencedThread,
+            codexInput,
+          }),
+        ),
       );
       this.host.view.forceMessagesToBottom();
       this.host.status.setStatus("Steered current turn.");

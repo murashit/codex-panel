@@ -7,7 +7,6 @@ import {
   PlanImplementationController,
   type PlanImplementationControllerHost,
 } from "../../../../../src/features/chat/controllers/submission/plan-implementation-controller";
-import { createSubmissionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 
 const planItem = (id: string): DisplayItem => ({
@@ -40,7 +39,7 @@ function createController({ client = {} as AppServerClient } = {}) {
   const ensureConnected = vi.fn().mockResolvedValue(undefined);
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const host: PlanImplementationControllerHost = {
-    state: createSubmissionStatePort(stateStore),
+    stateStore,
     connection: {
       currentClient: () => client,
       ensureConnected,

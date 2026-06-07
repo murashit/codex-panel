@@ -20,7 +20,7 @@ import { ChatConnectionController } from "../controllers/connection/connection-c
 import { ChatReconnectController } from "../controllers/connection/reconnect-controller";
 import { PendingRequestController } from "../controllers/requests/pending-request-controller";
 import { ServerRequestResponder } from "../controllers/requests/server-request-responder";
-import { createChatShellRenderPort, createSubmissionStatePort } from "../controllers/state-ports";
+import { createChatShellRenderPort } from "../controllers/state-ports";
 import { ComposerSubmissionController } from "../controllers/submission/composer-submission-controller";
 import { PlanImplementationController } from "../controllers/submission/plan-implementation-controller";
 import { SlashCommandController } from "../controllers/submission/slash-command-controller";
@@ -231,7 +231,6 @@ function createControllerContext(ports: ChatPanelContext) {
     viewId,
     stateStore,
     currentClient: client.getClient,
-    submissionState: createSubmissionStatePort(stateStore),
   };
 }
 
@@ -292,7 +291,6 @@ function createSubmissionControllerGroup(
     status,
     lifecycle,
     currentClient,
-    submissionState,
     client,
   } = context;
   const { messageScrollIntent } = lifecycle;
@@ -326,7 +324,7 @@ function createSubmissionControllerGroup(
   });
 
   const turnSubmission = new TurnSubmissionController({
-    state: submissionState,
+    stateStore,
     connection: {
       vaultPath: plugin.vaultPath,
       currentClient,
@@ -359,7 +357,7 @@ function createSubmissionControllerGroup(
     },
   });
   const slashCommands = new SlashCommandController({
-    state: submissionState,
+    stateStore,
     currentClient,
     codexInput: (text) => composerController.codexInput(text),
     threads: {
@@ -401,7 +399,7 @@ function createSubmissionControllerGroup(
     },
   });
   const planImplementation = new PlanImplementationController({
-    state: submissionState,
+    stateStore,
     connection: {
       currentClient,
       ensureConnected: client.ensureConnected,
@@ -440,7 +438,7 @@ function createSubmissionControllerGroup(
     },
   });
   const composerSubmission = new ComposerSubmissionController({
-    state: submissionState,
+    stateStore,
     composer: composerController,
     slashCommands,
     turnSubmission,

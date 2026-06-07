@@ -1,10 +1,11 @@
 import type { AppServerClient } from "../../../../app-server/client";
+import { submissionStateSnapshot } from "../../chat-state-selectors";
+import type { ChatStateStore } from "../../chat-state";
 import { parseSlashCommand } from "../../composer/suggestions";
 import type { SlashCommandExecutionResult } from "../../slash-command-execution";
 import type { SlashCommandName } from "../../composer/slash-commands";
 import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
-import type { SubmissionStatePort } from "../state-ports";
 
 interface ComposerDraftPort {
   readonly trimmedDraft: string;
@@ -30,7 +31,7 @@ interface ComposerStatusPort {
 }
 
 export interface ComposerSubmissionControllerHost {
-  state: SubmissionStatePort;
+  stateStore: ChatStateStore;
   composer: ComposerDraftPort;
   slashCommands: ComposerSlashCommandPort;
   turnSubmission: ComposerTurnSubmissionPort;
@@ -43,7 +44,7 @@ export class ComposerSubmissionController {
 
   async submit(): Promise<void> {
     const draft = this.host.composer.trimmedDraft;
-    const state = this.host.state.snapshot();
+    const state = submissionStateSnapshot(this.host.stateStore.getState());
     if (state.busy && state.activeThreadId && state.activeTurnId && draft.length === 0) {
       await this.interruptTurn();
       return;
@@ -75,7 +76,7 @@ export class ComposerSubmissionController {
   }
 
   private async interruptTurn(): Promise<void> {
-    const state = this.host.state.snapshot();
+    const state = submissionStateSnapshot(this.host.stateStore.getState());
     const turnId = state.activeTurnId;
     const client = this.host.connection.currentClient();
     if (!client || !state.activeThreadId || !turnId) return;

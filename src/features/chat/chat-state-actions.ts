@@ -1,7 +1,7 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
-import type { ChatAction } from "./chat-state";
+import type { ChatAction, PendingTurnStart } from "./chat-state";
 import type { DisplayItem } from "./display/types";
 
 export function connectionInitializedAction(initializeResponse: InitializeResponse): ChatAction {
@@ -14,6 +14,10 @@ export function clearConnectionScopeAction(): ChatAction {
 
 export function clearLocalTurnAction(): ChatAction {
   return { type: "turn/scoped-cleared" };
+}
+
+export function setRequestedCollaborationModeDefaultAction(): ChatAction {
+  return { type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" };
 }
 
 export function clearActiveThreadAction(): ChatAction {
@@ -46,4 +50,20 @@ export function setDetailOpenAction(key: string, open: boolean): ChatAction {
 
 export function setUserInputDraftAction(key: string, value: string): ChatAction {
   return { type: "request/user-input-draft-set", key, value };
+}
+
+export function optimisticTurnStartedAction(item: DisplayItem, pendingTurnStart: PendingTurnStart): ChatAction {
+  return { type: "turn/optimistic-started", item, pendingTurnStart };
+}
+
+export function turnStartAcknowledgedAction(turnId: string, displayItems: readonly DisplayItem[]): ChatAction {
+  return { type: "turn/start-acknowledged", turnId, displayItems };
+}
+
+export function turnStartFailedAction(displayItems: readonly DisplayItem[]): ChatAction {
+  return { type: "turn/start-failed", displayItems };
+}
+
+export function addLocalUserMessageAction(item: DisplayItem): ChatAction {
+  return { type: "transcript/system-message-added", item };
 }

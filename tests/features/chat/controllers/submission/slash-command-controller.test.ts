@@ -10,7 +10,6 @@ import {
   type SlashCommandStatusPort,
   type SlashCommandThreadPort,
 } from "../../../../../src/features/chat/controllers/submission/slash-command-controller";
-import { createSubmissionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
 import type { UserInput } from "../../../../../src/generated/app-server/v2/UserInput";
 
@@ -99,7 +98,7 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     ...goalOverrides,
   };
   const host: SlashCommandControllerHost = {
-    state: createSubmissionStatePort(stateStore),
+    stateStore,
     currentClient: () => client,
     codexInput: vi.fn((text: string) => textInput(text)),
     threads,

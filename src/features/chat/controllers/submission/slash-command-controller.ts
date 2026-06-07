@@ -16,7 +16,8 @@ import type { ReasoningEffort } from "../../../../generated/app-server/Reasoning
 import type { ThreadGoal } from "../../../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../../../generated/app-server/v2/ThreadGoalStatus";
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";
-import type { SubmissionStatePort } from "../state-ports";
+import { submissionStateSnapshot } from "../../chat-state-selectors";
+import type { ChatStateStore } from "../../chat-state";
 
 export interface SlashCommandThreadPort {
   startNewThread: () => Promise<void>;
@@ -57,7 +58,7 @@ export interface SlashCommandGoalPort {
 }
 
 export interface SlashCommandControllerHost {
-  state: SubmissionStatePort;
+  stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   codexInput: (text: string) => UserInput[];
   threads: SlashCommandThreadPort;
@@ -70,7 +71,7 @@ export class SlashCommandController {
   constructor(private readonly host: SlashCommandControllerHost) {}
 
   async execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined> {
-    const state = this.host.state.snapshot();
+    const state = submissionStateSnapshot(this.host.stateStore.getState());
     const client = this.host.currentClient();
     if (!client && command !== "reconnect" && command !== "compact") return;
     return runSlashCommand(command, args, {
