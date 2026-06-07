@@ -1,8 +1,10 @@
-import type { ConnectionStatePort, PanelUiStatePort, ThreadLifecycleStatePort } from "../state-ports";
+import { closePanelsAction } from "../../chat-state-actions";
+import type { ChatStateStore } from "../../chat-state";
+import type { ConnectionStatePort, ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ChatReconnectControllerHost {
   connectionState: ConnectionStatePort;
-  panelState: PanelUiStatePort;
+  stateStore: ChatStateStore;
   threadState: ThreadLifecycleStatePort;
   invalidateConnectionWork: () => void;
   invalidateResumeWork: () => void;
@@ -21,7 +23,7 @@ export class ChatReconnectController {
 
   async reconnectPanel(): Promise<void> {
     const threadId = this.host.threadState.activeThreadId();
-    this.host.panelState.closePanels();
+    this.host.stateStore.dispatch(closePanelsAction());
     this.host.invalidateConnectionWork();
     this.host.invalidateResumeWork();
     this.host.clearDeferredDiagnostics();

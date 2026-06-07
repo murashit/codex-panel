@@ -1,8 +1,9 @@
 import type { MessageStreamScrollIntent } from "../../ui/message-virtualizer";
-import type { PanelUiStatePort } from "../state-ports";
+import { pinMessagesToBottomAction } from "../../chat-state-actions";
+import type { ChatStateStore } from "../../chat-state";
 
 export interface ChatMessageScrollIntentControllerHost {
-  state: PanelUiStatePort;
+  stateStore: ChatStateStore;
   render: () => void;
 }
 
@@ -18,7 +19,7 @@ export class ChatMessageScrollIntentController {
   }
 
   forceBottom(): void {
-    this.host.state.pinMessagesToBottom();
+    this.host.stateStore.dispatch(pinMessagesToBottomAction());
     this.nextIntent = "force-bottom";
   }
 

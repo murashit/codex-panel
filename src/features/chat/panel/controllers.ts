@@ -23,7 +23,6 @@ import { ServerRequestResponder } from "../controllers/requests/server-request-r
 import {
   createChatShellRenderPort,
   createConnectionStatePort,
-  createPanelUiStatePort,
   createPendingRequestStatePort,
   createSubmissionStatePort,
   createThreadLifecycleStatePort,
@@ -239,7 +238,6 @@ function createControllerContext(ports: ChatPanelContext) {
     stateStore,
     currentClient: client.getClient,
     connectionState: createConnectionStatePort(stateStore),
-    panelState: createPanelUiStatePort(stateStore),
     submissionState: createSubmissionStatePort(stateStore),
     threadState: createThreadLifecycleStatePort(stateStore),
   };
@@ -679,7 +677,6 @@ function createThreadToolbarControllerGroup(
     stateStore,
     currentClient,
     connectionState,
-    panelState,
     threadState,
   } = context;
   const { deferredTasks, resumeWork } = lifecycle;
@@ -722,7 +719,7 @@ function createThreadToolbarControllerGroup(
     scheduleRender: render.schedule,
   });
   const threadSelection = new ThreadSelectionController({
-    panelState,
+    stateStore,
     threadState,
     closeForThreadSelection: () => {
       toolbarPanels.closeForThreadSelection();
@@ -733,7 +730,7 @@ function createThreadToolbarControllerGroup(
   });
   const reconnectActions = new ChatReconnectController({
     connectionState,
-    panelState,
+    stateStore,
     threadState,
     invalidateConnectionWork: lifecycle.invalidateConnectionWork,
     invalidateResumeWork: lifecycle.invalidateResumeWork,

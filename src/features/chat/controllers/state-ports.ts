@@ -16,11 +16,6 @@ export interface ConnectionStatePort {
   clearLocalTurn(): void;
 }
 
-export interface PanelUiStatePort {
-  closePanels(): void;
-  pinMessagesToBottom(): void;
-}
-
 interface PendingRequestSnapshot {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
@@ -89,17 +84,6 @@ export function createConnectionStatePort(stateStore: ChatStateStore): Connectio
     },
     clearLocalTurn() {
       stateStore.dispatch({ type: "turn/scoped-cleared" });
-    },
-  };
-}
-
-export function createPanelUiStatePort(stateStore: ChatStateStore): PanelUiStatePort {
-  return {
-    closePanels() {
-      stateStore.dispatch({ type: "ui/panel-set", panel: null });
-    },
-    pinMessagesToBottom() {
-      stateStore.dispatch({ type: "ui/messages-pinned-set", pinned: true });
     },
   };
 }

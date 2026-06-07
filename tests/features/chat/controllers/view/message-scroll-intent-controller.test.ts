@@ -1,13 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/chat-state";
-import { createPanelUiStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { ChatMessageScrollIntentController } from "../../../../../src/features/chat/controllers/view/message-scroll-intent-controller";
 
 describe("ChatMessageScrollIntentController", () => {
   it("consumes one-shot scroll intents", () => {
     const controller = new ChatMessageScrollIntentController({
-      state: createPanelUiStatePort(createChatStateStore(createChatState())),
+      stateStore: createChatStateStore(createChatState()),
       render: vi.fn(),
     });
 
@@ -21,7 +20,7 @@ describe("ChatMessageScrollIntentController", () => {
     const stateStore = createChatStateStore(createChatState());
     stateStore.dispatch({ type: "ui/messages-pinned-set", pinned: false });
     const render = vi.fn();
-    const controller = new ChatMessageScrollIntentController({ state: createPanelUiStatePort(stateStore), render });
+    const controller = new ChatMessageScrollIntentController({ stateStore, render });
 
     controller.scrollToBottomOnFocus();
 

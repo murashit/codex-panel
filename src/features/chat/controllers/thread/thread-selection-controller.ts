@@ -1,7 +1,9 @@
-import type { PanelUiStatePort, ThreadLifecycleStatePort } from "../state-ports";
+import { closePanelsAction } from "../../chat-state-actions";
+import type { ChatStateStore } from "../../chat-state";
+import type { ThreadLifecycleStatePort } from "../state-ports";
 
 export interface ThreadSelectionControllerHost {
-  panelState: PanelUiStatePort;
+  stateStore: ChatStateStore;
   threadState: ThreadLifecycleStatePort;
   closeForThreadSelection: () => void;
   focusThreadInOpenView: (threadId: string) => Promise<boolean>;
@@ -26,7 +28,7 @@ export class ThreadSelectionController {
   async selectThreadFromToolbar(threadId: string): Promise<void> {
     if (!this.host.threadState.canSwitchToThread(threadId)) return;
 
-    this.host.panelState.closePanels();
+    this.host.stateStore.dispatch(closePanelsAction());
     await this.selectThread(threadId);
   }
 }

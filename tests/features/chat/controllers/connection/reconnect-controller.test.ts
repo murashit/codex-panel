@@ -5,11 +5,7 @@ import {
   ChatReconnectController,
   type ChatReconnectControllerHost,
 } from "../../../../../src/features/chat/controllers/connection/reconnect-controller";
-import {
-  createConnectionStatePort,
-  createPanelUiStatePort,
-  createThreadLifecycleStatePort,
-} from "../../../../../src/features/chat/controllers/state-ports";
+import { createConnectionStatePort, createThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 
 function createHost(overrides: Partial<ChatReconnectControllerHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -27,7 +23,7 @@ function createHost(overrides: Partial<ChatReconnectControllerHost> = {}) {
   });
   const host: ChatReconnectControllerHost = {
     connectionState: createConnectionStatePort(stateStore),
-    panelState: createPanelUiStatePort(stateStore),
+    stateStore,
     threadState: createThreadLifecycleStatePort(stateStore),
     invalidateConnectionWork: vi.fn(),
     invalidateResumeWork: vi.fn(),

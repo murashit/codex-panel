@@ -32,7 +32,6 @@ import {
 import { ChatMessageScrollIntentController } from "./controllers/view/message-scroll-intent-controller";
 import type { ChatPanelContext } from "./panel/context";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/controllers";
-import { createPanelUiStatePort } from "./controllers/state-ports";
 import { createChatViewSlotRendererPorts } from "./panel/slots/ports";
 import { ChatViewSlotRenderers } from "./panel/slots/renderers";
 
@@ -61,7 +60,7 @@ export class CodexChatView extends ItemView {
       this.controllers.thread.history.invalidate();
     });
     this.messageScrollIntent = new ChatMessageScrollIntentController({
-      state: createPanelUiStatePort(this.chatState),
+      stateStore: this.chatState,
       render: () => {
         this.controllers.render.controller.render();
       },
