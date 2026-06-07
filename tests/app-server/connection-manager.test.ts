@@ -50,18 +50,18 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit: () => undefined,
-      },
       (codexPath, cwd, handlers) =>
         new AppServerClient(codexPath, cwd, handlers, 5, (transportHandlers) => {
           transport = new SilentTransport(transportHandlers);
           return transport;
         }),
     );
+    manager.setHandlers({
+      onNotification: () => undefined,
+      onServerRequest: () => undefined,
+      onLog: () => undefined,
+      onExit: () => undefined,
+    });
 
     await expect(manager.connect()).rejects.toThrow("Codex app-server request timed out: initialize");
 
@@ -74,18 +74,18 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit: () => undefined,
-      },
       (codexPath, cwd, handlers) =>
         new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
           transport = new SilentTransport(transportHandlers);
           return transport;
         }),
     );
+    manager.setHandlers({
+      onNotification: () => undefined,
+      onServerRequest: () => undefined,
+      onLog: () => undefined,
+      onExit: () => undefined,
+    });
 
     const first = manager.connect();
     const second = manager.connect();
@@ -103,18 +103,18 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit,
-      },
       (codexPath, cwd, handlers) =>
         new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
           transport = new SilentTransport(transportHandlers);
           return transport;
         }),
     );
+    manager.setHandlers({
+      onNotification: () => undefined,
+      onServerRequest: () => undefined,
+      onLog: () => undefined,
+      onExit,
+    });
 
     const connecting = manager.connect();
     transport.emitExit();
@@ -124,24 +124,78 @@ describe("ConnectionManager", () => {
     expect(manager.currentClient()).toBeNull();
   });
 
-  it("marks initialization completed after disconnect as stale", async () => {
+  it("uses the latest attached handlers for app-server events", async () => {
     let transport!: SilentTransport;
-    const onExit = vi.fn();
+    const firstExit = vi.fn();
+    const secondExit = vi.fn();
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      {
-        onNotification: () => undefined,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
-        onExit,
-      },
       (codexPath, cwd, handlers) =>
         new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
           transport = new SilentTransport(transportHandlers);
           return transport;
         }),
     );
+    manager.setHandlers({
+      onNotification: () => undefined,
+      onServerRequest: () => undefined,
+      onLog: () => undefined,
+      onExit: firstExit,
+    });
+    manager.setHandlers({
+      onNotification: () => undefined,
+      onServerRequest: () => undefined,
+      onLog: () => undefined,
+      onExit: secondExit,
+    });
+
+    const connecting = manager.connect();
+    transport.emitExit();
+
+    await expect(connecting).rejects.toThrow("Codex app-server exited: unknown");
+    expect(firstExit).not.toHaveBeenCalled();
+    expect(secondExit).toHaveBeenCalledOnce();
+  });
+
+  it("fails clearly when app-server events arrive before handlers are attached", async () => {
+    let transport!: SilentTransport;
+    const manager = new ConnectionManager(
+      () => "/bin/codex",
+      "/vault",
+      (codexPath, cwd, handlers) =>
+        new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
+          transport = new SilentTransport(transportHandlers);
+          return transport;
+        }),
+    );
+
+    const connecting = manager.connect();
+
+    expect(() => {
+      transport.emitExit();
+    }).toThrow("ConnectionManager handlers have not been attached.");
+    await expect(connecting).rejects.toThrow("Codex app-server exited: unknown");
+  });
+
+  it("marks initialization completed after disconnect as stale", async () => {
+    let transport!: SilentTransport;
+    const onExit = vi.fn();
+    const manager = new ConnectionManager(
+      () => "/bin/codex",
+      "/vault",
+      (codexPath, cwd, handlers) =>
+        new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
+          transport = new SilentTransport(transportHandlers);
+          return transport;
+        }),
+    );
+    manager.setHandlers({
+      onNotification: () => undefined,
+      onServerRequest: () => undefined,
+      onLog: () => undefined,
+      onExit,
+    });
 
     const connecting = manager.connect();
     manager.disconnect();

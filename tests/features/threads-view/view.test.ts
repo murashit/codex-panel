@@ -35,7 +35,7 @@ vi.mock("../../../src/app-server/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {
-    constructor(_codexPath: unknown, _cwd: unknown, handlers: { onExit: () => void }) {
+    setHandlers(handlers: { onExit: () => void }): void {
       connectionMock.state.onExit = handlers.onExit;
     }
 

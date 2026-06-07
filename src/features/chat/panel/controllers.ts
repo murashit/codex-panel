@@ -89,81 +89,12 @@ export interface ChatViewControllers {
 }
 
 type ControllerContext = ReturnType<typeof createControllerContext>;
-type ControllerRef<T> = () => T;
 
 export function createChatViewControllers(ports: ChatViewControllerPorts): ChatViewControllers {
   const context = createControllerContext(ports);
-  let connection!: ConnectionManager;
-  let controller!: ChatInboundController;
-  let appServerThreads!: ChatAppServerThreadController;
-  let appServerMetadata!: ChatAppServerMetadataController;
-  let appServerDiagnostics!: ChatAppServerDiagnosticsController;
-  let connectionController!: ChatConnectionController;
-  let history!: ThreadHistoryController;
-  let threadResume!: ThreadResumeController;
-  let threadActions!: ChatThreadActionController;
-  let runtimeSettings!: ChatRuntimeSettingsController;
-  let goals!: ChatThreadGoalController;
-  let restoredThread!: RestoredThreadController;
-  let threadIdentity!: ThreadIdentityController;
-  let threadRename!: ThreadRenameController;
-  let pendingRequests!: PendingRequestController;
-  let toolbarPanels!: ToolbarPanelController;
-  let reconnectActions!: ChatReconnectController;
-  let composerController!: ChatComposerController;
-  let messageRenderer!: ChatMessageRenderer;
-  let renderController!: ChatViewRenderController;
-  let openCloseController!: ChatViewOpenCloseController;
-  let viewStateController!: ChatViewStateController;
-  let appServerWarmup!: AppServerWarmupController;
-  let composerSubmission!: ComposerSubmissionController;
-  let threadSelection!: ThreadSelectionController;
-  let serverRequestResponder!: ServerRequestResponder;
-
-  ({ renderController } = createViewRenderControllerGroup(context, {
-    connection: () => connection,
-  }));
-
-  ({ messageRenderer, composerController, composerSubmission, serverRequestResponder } = createSubmissionControllerGroup(context, {
-    appServerThreads: () => appServerThreads,
-    runtimeSettings: () => runtimeSettings,
-    threadActions: () => threadActions,
-    threadRename: () => threadRename,
-    reconnectActions: () => reconnectActions,
-    goals: () => goals,
-    history: () => history,
-    pendingRequests: () => pendingRequests,
-  }));
-
-  ({ connection, appServerWarmup, openCloseController } = createConnectionLifecycleControllerGroup(context, {
-    controller: () => controller,
-    connectionController: () => connectionController,
-    composerController: () => composerController,
-    messageRenderer: () => messageRenderer,
-    appServerThreads: () => appServerThreads,
-    appServerMetadata: () => appServerMetadata,
-  }));
-
-  ({ appServerThreads, appServerMetadata, appServerDiagnostics } = createAppServerControllerGroup(context, {
-    connection,
-    goals: () => goals,
-  }));
-
-  controller = createInboundController(context, {
-    appServerMetadata,
-    appServerDiagnostics,
-    threadRename: () => threadRename,
-    serverRequestResponder,
-  });
-
-  connectionController = createConnectionControllerGroup(context, {
-    connection,
-    appServerMetadata,
-    appServerDiagnostics,
-  }).connectionController;
-
-  ({
-    pendingRequests,
+  const connection = new ConnectionManager(() => context.plugin.settings.codexPath, context.plugin.vaultPath);
+  const { renderController } = createViewRenderControllerGroup(context, { connection });
+  const {
     history,
     threadActions,
     toolbarPanels,
@@ -176,11 +107,65 @@ export function createChatViewControllers(ports: ChatViewControllerPorts): ChatV
     threadResume,
     threadIdentity,
     threadRename,
-  } = createRequestThreadToolbarControllerGroup(context, {
+  } = createThreadToolbarControllerGroup(context, {
     connection,
+  });
+  const { appServerThreads, appServerMetadata, appServerDiagnostics } = createAppServerControllerGroup(context, {
+    connection,
+    goals,
+  });
+  const serverRequestResponder = new ServerRequestResponder({
+    currentClient: context.currentClient,
+  });
+  const controller = createInboundController(context, {
+    appServerMetadata,
+    appServerDiagnostics,
+    threadRename,
+    serverRequestResponder,
+  });
+  const { connectionController } = createConnectionControllerGroup(context, {
+    connection,
+    appServerMetadata,
+    appServerDiagnostics,
+  });
+
+  connection.setHandlers({
+    onNotification: (notification) => {
+      controller.handleNotification(notification);
+      context.effects.liveState.refresh();
+      context.effects.render.schedule();
+    },
+    onServerRequest: (request) => {
+      controller.handleServerRequest(request);
+      context.effects.liveState.refresh();
+      context.effects.render.now();
+    },
+    onLog: (message) => {
+      controller.handleAppServerLog(message);
+      context.effects.render.now();
+    },
+    onExit: () => {
+      connectionController.handleExit();
+    },
+  });
+
+  const { pendingRequests, messageRenderer, composerController, composerSubmission } = createSubmissionControllerGroup(context, {
     controller,
+    appServerThreads,
+    runtimeSettings,
+    threadActions,
+    threadRename,
+    reconnectActions,
+    goals,
+    history,
+  });
+  const { appServerWarmup, openCloseController } = createConnectionLifecycleControllerGroup(context, {
+    connection,
     composerController,
-  }));
+    messageRenderer,
+    appServerThreads,
+    appServerMetadata,
+  });
 
   return {
     connection: {
@@ -260,7 +245,7 @@ function createControllerContext(ports: ChatViewControllerPorts) {
 function createViewRenderControllerGroup(
   context: ControllerContext,
   refs: {
-    connection: ControllerRef<ConnectionManager>;
+    connection: ConnectionManager;
   },
 ) {
   const { plugin, render, lifecycle, stateStore } = context;
@@ -269,7 +254,7 @@ function createViewRenderControllerGroup(
   return {
     renderController: new ChatViewRenderController({
       shell: createChatShellRenderPort(stateStore, {
-        connected: () => refs.connection().isConnected(),
+        connected: () => refs.connection.isConnected(),
         showToolbar: () => plugin.settings.showToolbar,
         pendingRequestsSignature: render.pendingRequestsSignature,
         activeComposerThreadName: render.activeComposerThreadName,
@@ -289,22 +274,47 @@ function createViewRenderControllerGroup(
 function createSubmissionControllerGroup(
   context: ControllerContext,
   refs: {
-    appServerThreads: ControllerRef<ChatAppServerThreadController>;
-    runtimeSettings: ControllerRef<ChatRuntimeSettingsController>;
-    threadActions: ControllerRef<ChatThreadActionController>;
-    threadRename: ControllerRef<ThreadRenameController>;
-    reconnectActions: ControllerRef<ChatReconnectController>;
-    goals: ControllerRef<ChatThreadGoalController>;
-    history: ControllerRef<ThreadHistoryController>;
-    pendingRequests: ControllerRef<PendingRequestController>;
+    controller: ChatInboundController;
+    appServerThreads: ChatAppServerThreadController;
+    runtimeSettings: ChatRuntimeSettingsController;
+    threadActions: ChatThreadActionController;
+    threadRename: ThreadRenameController;
+    reconnectActions: ChatReconnectController;
+    goals: ChatThreadGoalController;
+    history: ThreadHistoryController;
   },
 ) {
   const { app, owner, plugin, state, stateStore, viewId, render, runtime, thread, effects, lifecycle, currentClient, submissionState } =
     context;
   const { messageScroll } = lifecycle;
-  let composerController!: ChatComposerController;
-  let messageRenderer!: ChatMessageRenderer;
-  let composerSubmission!: ComposerSubmissionController;
+
+  const composerController = new ChatComposerController({
+    app,
+    stateStore,
+    viewId,
+    sendShortcut: () => plugin.settings.sendShortcut,
+    scrollThreadFromComposerEdges: () => plugin.settings.scrollThreadFromComposerEdges,
+    canInterrupt: () =>
+      state.getState().turn.lifecycle.kind !== "idle" && Boolean(state.getState().activeThread.id && activeTurnId(state.getState())),
+    composerPlaceholder: render.composerPlaceholder,
+    composerMeta: render.composerMetaViewModel,
+    currentModelForSuggestions: () => currentModel(runtime.runtimeSnapshot()),
+    togglePlan: () => void refs.runtimeSettings.toggleCollaborationMode(),
+    toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
+    toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
+    renderIfDetached: effects.render.now,
+    onDraftChange: effects.liveState.refresh,
+    onComposerResize: () => {
+      effects.scroll.correctAfterLayoutChange();
+    },
+  });
+  const pendingRequests = new PendingRequestController({
+    state: createPendingRequestStatePort(stateStore),
+    controller: refs.controller,
+    composerHasFocus: () => composerController.hasFocus(),
+    refreshLiveState: effects.liveState.refresh,
+    render: effects.render.now,
+  });
 
   const turnSubmission = new TurnSubmissionController({
     state: submissionState,
@@ -316,12 +326,12 @@ function createSubmissionControllerGroup(
       ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     },
     thread: {
-      startThread: (preview) => refs.appServerThreads().startThread(preview),
+      startThread: (preview) => refs.appServerThreads.startThread(preview),
       notifyActiveThreadIdentityChanged: effects.thread.notifyIdentityChanged,
       resetThreadTurnPresence: effects.thread.resetTurnPresence,
     },
     runtime: {
-      applyPendingThreadSettings: () => refs.runtimeSettings().applyPendingThreadSettings(),
+      applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
     },
     composer: {
       codexInput: (text) => composerController.codexInput(text),
@@ -346,29 +356,29 @@ function createSubmissionControllerGroup(
     threads: {
       startNewThread: thread.startNewThread,
       startThreadForGoal: async (objective) => {
-        const response = await refs.appServerThreads().startThread(objective, { syncGoal: false });
+        const response = await refs.appServerThreads.startThread(objective, { syncGoal: false });
         return response?.thread.id ?? null;
       },
       resumeThread: thread.selectThread,
-      forkThread: (threadId) => refs.threadActions().forkThread(threadId),
-      rollbackThread: (threadId) => refs.threadActions().rollbackThread(threadId),
-      compactThread: (threadId) => refs.threadActions().compactThread(threadId),
-      archiveThread: (threadId) => refs.threadActions().archiveThread(threadId),
-      renameThread: (threadId, name) => refs.threadRename().rename(threadId, name),
-      reconnect: () => refs.reconnectActions().reconnectPanel(),
+      forkThread: (threadId) => refs.threadActions.forkThread(threadId),
+      rollbackThread: (threadId) => refs.threadActions.rollbackThread(threadId),
+      compactThread: (threadId) => refs.threadActions.compactThread(threadId),
+      archiveThread: (threadId) => refs.threadActions.archiveThread(threadId),
+      renameThread: (threadId, name) => refs.threadRename.rename(threadId, name),
+      reconnect: () => refs.reconnectActions.reconnectPanel(),
     },
     runtime: {
-      toggleFastMode: () => refs.runtimeSettings().toggleFastMode(),
-      toggleCollaborationMode: () => refs.runtimeSettings().toggleCollaborationMode(),
-      toggleAutoReview: () => void refs.runtimeSettings().toggleAutoReview(),
-      setRequestedModel: (model) => refs.runtimeSettings().setRequestedModel(model),
-      setRequestedReasoningEffort: (effort) => refs.runtimeSettings().setRequestedReasoningEffort(effort),
+      toggleFastMode: () => refs.runtimeSettings.toggleFastMode(),
+      toggleCollaborationMode: () => refs.runtimeSettings.toggleCollaborationMode(),
+      toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
+      setRequestedModel: (model) => refs.runtimeSettings.setRequestedModel(model),
+      setRequestedReasoningEffort: (effort) => refs.runtimeSettings.setRequestedReasoningEffort(effort),
     },
     goals: {
-      activeGoal: () => refs.goals().activeGoal(),
-      setObjective: (threadId, objective, tokenBudget) => refs.goals().setObjective(threadId, objective, tokenBudget),
-      setStatus: (threadId, status) => refs.goals().setStatus(threadId, status),
-      clear: (threadId) => refs.goals().clear(threadId),
+      activeGoal: () => refs.goals.activeGoal(),
+      setObjective: (threadId, objective, tokenBudget) => refs.goals.setObjective(threadId, objective, tokenBudget),
+      setStatus: (threadId, status) => refs.goals.setStatus(threadId, status),
+      clear: (threadId) => refs.goals.clear(threadId),
     },
     status: {
       addSystemMessage: effects.status.addSystemMessage,
@@ -381,9 +391,6 @@ function createSubmissionControllerGroup(
       effortStatusLines: runtime.effortStatusLines,
     },
   });
-  const serverRequestResponder = new ServerRequestResponder({
-    currentClient,
-  });
   const planImplementation = new PlanImplementationController({
     state: submissionState,
     connection: {
@@ -395,7 +402,7 @@ function createSubmissionControllerGroup(
     },
   });
 
-  messageRenderer = new ChatMessageRenderer({
+  const messageRenderer = new ChatMessageRenderer({
     obsidian: {
       app,
       owner,
@@ -410,45 +417,20 @@ function createSubmissionControllerGroup(
       consumeIntent: () => messageScroll.consumeIntent(),
     },
     history: {
-      loadOlderTurns: () => void refs.history().loadOlder(),
+      loadOlderTurns: () => void refs.history.loadOlder(),
     },
     actions: {
-      rollbackThread: (threadId) => void refs.threadActions().rollbackThread(threadId),
-      forkThreadFromTurn: (threadId, turnId, archiveSource) =>
-        void refs.threadActions().forkThreadFromTurn(threadId, turnId, archiveSource),
+      rollbackThread: (threadId) => void refs.threadActions.rollbackThread(threadId),
+      forkThreadFromTurn: (threadId, turnId, archiveSource) => void refs.threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
       implementPlan: (item) => void planImplementation.implement(item),
       openTurnDiff: (state) => void plugin.openTurnDiff(state),
     },
     requests: {
       pendingSignature: render.pendingRequestsSignature,
-      renderPending: () => refs.pendingRequests().renderNode(),
+      renderPending: () => pendingRequests.renderNode(),
     },
   });
-  composerController = new ChatComposerController({
-    app,
-    stateStore,
-    viewId,
-    sendShortcut: () => plugin.settings.sendShortcut,
-    scrollThreadFromComposerEdges: () => plugin.settings.scrollThreadFromComposerEdges,
-    canInterrupt: () =>
-      state.getState().turn.lifecycle.kind !== "idle" && Boolean(state.getState().activeThread.id && activeTurnId(state.getState())),
-    composerPlaceholder: render.composerPlaceholder,
-    composerMeta: render.composerMetaViewModel,
-    currentModelForSuggestions: () => currentModel(runtime.runtimeSnapshot()),
-    togglePlan: () => void refs.runtimeSettings().toggleCollaborationMode(),
-    toggleAutoReview: () => void refs.runtimeSettings().toggleAutoReview(),
-    toggleFast: () => void refs.runtimeSettings().toggleFastMode(),
-    renderIfDetached: effects.render.now,
-    onDraftChange: effects.liveState.refresh,
-    onComposerResize: () => {
-      effects.scroll.correctAfterLayoutChange();
-    },
-    onSubmit: () => void composerSubmission.submit(),
-    onThreadScrollFromComposer: (action) => {
-      messageRenderer.scrollFromComposer(action);
-    },
-  });
-  composerSubmission = new ComposerSubmissionController({
+  const composerSubmission = new ComposerSubmissionController({
     state: submissionState,
     composer: composerController,
     slashCommands,
@@ -462,55 +444,40 @@ function createSubmissionControllerGroup(
       addSystemMessage: effects.status.addSystemMessage,
     },
   });
+  composerController.setActionHandlers({
+    submit: () => void composerSubmission.submit(),
+    threadScrollFromComposer: (action) => {
+      messageRenderer.scrollFromComposer(action);
+    },
+  });
 
   return {
+    pendingRequests,
     messageRenderer,
     composerController,
     composerSubmission,
-    serverRequestResponder,
   };
 }
 
 function createConnectionLifecycleControllerGroup(
   context: ControllerContext,
   refs: {
-    controller: ControllerRef<ChatInboundController>;
-    connectionController: ControllerRef<ChatConnectionController>;
-    composerController: ControllerRef<ChatComposerController>;
-    messageRenderer: ControllerRef<ChatMessageRenderer>;
-    appServerThreads: ControllerRef<ChatAppServerThreadController>;
-    appServerMetadata: ControllerRef<ChatAppServerMetadataController>;
+    connection: ConnectionManager;
+    composerController: ChatComposerController;
+    messageRenderer: ChatMessageRenderer;
+    appServerThreads: ChatAppServerThreadController;
+    appServerMetadata: ChatAppServerMetadataController;
   },
 ) {
-  const { ports, obsidian, plugin, lifecycle, render, effects } = context;
+  const { ports, obsidian, lifecycle, render, effects } = context;
   const { deferredTasks } = lifecycle;
-  const connection = new ConnectionManager(() => plugin.settings.codexPath, plugin.vaultPath, {
-    onNotification: (notification) => {
-      refs.controller().handleNotification(notification);
-      effects.liveState.refresh();
-      effects.render.schedule();
-    },
-    onServerRequest: (request) => {
-      refs.controller().handleServerRequest(request);
-      effects.liveState.refresh();
-      effects.render.now();
-    },
-    onLog: (message) => {
-      refs.controller().handleAppServerLog(message);
-      effects.render.now();
-    },
-    onExit: () => {
-      refs.connectionController().handleExit();
-    },
-  });
 
   return {
-    connection,
     appServerWarmup: new AppServerWarmupController({
       deferredTasks,
       opened: lifecycle.getOpened,
       closing: lifecycle.getClosing,
-      connected: () => connection.isConnected(),
+      connected: () => refs.connection.isConnected(),
       ensureConnected: effects.client.ensureConnected,
     }),
     openCloseController: new ChatViewOpenCloseController({
@@ -518,14 +485,14 @@ function createConnectionLifecycleControllerGroup(
       setClosing: lifecycle.setClosing,
       registerEvent: obsidian.registerEvent,
       registerComposerNoteIndexInvalidation: (register) => {
-        refs.composerController().registerNoteIndexInvalidation(register);
+        refs.composerController.registerNoteIndexInvalidation(register);
       },
       registerPointerDown: obsidian.registerPointerDown,
       registerActiveLeafChange: obsidian.registerActiveLeafChange,
       isOwnLeaf: obsidian.isOwnLeaf,
       scrollMessagesToBottomOnFocus: effects.scroll.bottomOnFocus,
       applyCachedSharedAppServerState: () => {
-        applyCachedSharedAppServerState(ports, refs.appServerThreads(), refs.appServerMetadata());
+        applyCachedSharedAppServerState(ports, refs.appServerThreads, refs.appServerMetadata);
       },
       render: effects.render.now,
       scheduleDeferredAppServerWarmup: effects.lifecycle.scheduleDeferredAppServerWarmup,
@@ -538,13 +505,13 @@ function createConnectionLifecycleControllerGroup(
       },
       panelRoot: render.panelRoot,
       disposeMessages: () => {
-        refs.messageRenderer().dispose();
+        refs.messageRenderer.dispose();
       },
       disposeComposer: () => {
-        refs.composerController().dispose();
+        refs.composerController.dispose();
       },
       disconnect: () => {
-        connection.disconnect();
+        refs.connection.disconnect();
       },
       clearClient: effects.client.clear,
       refreshLiveState: effects.liveState.refresh,
@@ -557,7 +524,7 @@ function createAppServerControllerGroup(
   context: ControllerContext,
   refs: {
     connection: ConnectionManager;
-    goals: ControllerRef<ChatThreadGoalController>;
+    goals: ChatThreadGoalController;
   },
 ) {
   const { plugin, runtime, effects, stateStore } = context;
@@ -587,7 +554,7 @@ function createAppServerControllerGroup(
       plugin.applyThreadListSnapshot(threads);
     },
     syncThreadGoal: (threadId) => {
-      void refs.goals().syncThreadGoal(threadId);
+      void refs.goals.syncThreadGoal(threadId);
     },
   });
 
@@ -599,7 +566,7 @@ function createInboundController(
   refs: {
     appServerMetadata: ChatAppServerMetadataController;
     appServerDiagnostics: ChatAppServerDiagnosticsController;
-    threadRename: ControllerRef<ThreadRenameController>;
+    threadRename: ThreadRenameController;
     serverRequestResponder: ServerRequestResponder;
   },
 ) {
@@ -615,7 +582,7 @@ function createInboundController(
     refreshSkills: (forceReload) => void thread.refreshSkills(forceReload),
     publishAppServerMetadata: thread.publishAppServerMetadataSnapshot,
     maybeNameThread: (threadId, turn) => {
-      refs.threadRename().maybeAutoNameThread(threadId, turn);
+      refs.threadRename.maybeAutoNameThread(threadId, turn);
     },
     notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
@@ -671,25 +638,16 @@ function createConnectionControllerGroup(
   };
 }
 
-function createRequestThreadToolbarControllerGroup(
+function createThreadToolbarControllerGroup(
   context: ControllerContext,
   refs: {
     connection: ConnectionManager;
-    controller: ChatInboundController;
-    composerController: ChatComposerController;
   },
 ) {
   const { obsidian, plugin, runtime, thread, effects, lifecycle, stateStore, currentClient, connectionState, panelState, threadState } =
     context;
   const { deferredTasks, resumeWork } = lifecycle;
 
-  const pendingRequests = new PendingRequestController({
-    state: createPendingRequestStatePort(stateStore),
-    controller: refs.controller,
-    composerHasFocus: () => refs.composerController.hasFocus(),
-    refreshLiveState: effects.liveState.refresh,
-    render: effects.render.now,
-  });
   const history = new ThreadHistoryController({
     stateStore,
     currentClient,
@@ -837,7 +795,6 @@ function createRequestThreadToolbarControllerGroup(
   });
 
   return {
-    pendingRequests,
     history,
     threadActions,
     toolbarPanels,

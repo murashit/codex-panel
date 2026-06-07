@@ -49,8 +49,6 @@ describe("ChatComposerController", () => {
       renderIfDetached: vi.fn(),
       onDraftChange: vi.fn(),
       onComposerResize: vi.fn(),
-      onSubmit: vi.fn(),
-      onThreadScrollFromComposer: vi.fn(),
     });
 
     controller.render(parent);
@@ -106,8 +104,6 @@ describe("ChatComposerController", () => {
       renderIfDetached: vi.fn(),
       onDraftChange: vi.fn(),
       onComposerResize: vi.fn(),
-      onSubmit: vi.fn(),
-      onThreadScrollFromComposer: vi.fn(),
     });
 
     controller.render(parent);
@@ -117,6 +113,56 @@ describe("ChatComposerController", () => {
 
     expect(togglePlan).toHaveBeenCalledOnce();
     expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.classList.contains("is-active")).toBe(false);
+  });
+
+  it("delegates submit events through attached action handlers", () => {
+    const stateStore = createChatStateStore();
+    stateStore.dispatch({ type: "composer/draft-set", draft: "hello" });
+    const parent = document.createElement("div");
+    const submit = vi.fn();
+    const controller = new ChatComposerController({
+      app: app(),
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      canInterrupt: () => false,
+      composerPlaceholder: () => "Ask Codex to work on this task...",
+      composerMeta: () => ({
+        fatal: null,
+        context: {
+          cells: [
+            { text: "⣀", placeholder: true },
+            { text: "⣀", placeholder: true },
+            { text: "⣀", placeholder: true },
+            { text: "⣀", placeholder: true },
+          ],
+          percent: "--%",
+        },
+        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+        model: "default",
+        effort: null,
+        planActive: false,
+        autoReviewActive: false,
+        fastActive: false,
+      }),
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      renderIfDetached: vi.fn(),
+      onDraftChange: vi.fn(),
+      onComposerResize: vi.fn(),
+    });
+    controller.setActionHandlers({
+      submit,
+      threadScrollFromComposer: vi.fn(),
+    });
+
+    controller.render(parent);
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+
+    expect(submit).toHaveBeenCalledOnce();
   });
 });
 

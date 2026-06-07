@@ -83,10 +83,11 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly
   if (cached) return cached;
 
   let connection: ConnectionManager | null = null;
-  connection = new ConnectionManager(() => host.settings.codexPath, host.vaultPath, {
+  connection = new ConnectionManager(() => host.settings.codexPath, host.vaultPath);
+  connection.setHandlers({
     onNotification: () => undefined,
     onServerRequest: (request) => {
-      connection?.currentClient()?.rejectServerRequest(request.id, -32601, "Codex thread picker does not handle server requests.");
+      connection.currentClient()?.rejectServerRequest(request.id, -32601, "Codex thread picker does not handle server requests.");
     },
     onLog: () => undefined,
     onExit: () => undefined,

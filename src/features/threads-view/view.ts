@@ -66,7 +66,8 @@ export class CodexThreadsView extends ItemView {
   ) {
     super(leaf);
     this.deferredTasks = new ThreadsViewDeferredTasks(() => this.containerEl.win);
-    this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath, {
+    this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath);
+    this.connection.setHandlers({
       onNotification: () => {
         this.scheduleRefresh();
       },

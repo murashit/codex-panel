@@ -35,8 +35,11 @@ export interface ChatComposerControllerOptions {
   renderIfDetached: () => void;
   onDraftChange: () => void;
   onComposerResize: () => void;
-  onSubmit: () => void;
-  onThreadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
+}
+
+export interface ChatComposerActionHandlers {
+  submit: () => void;
+  threadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
 }
 
 export class ChatComposerController {
@@ -44,8 +47,13 @@ export class ChatComposerController {
   private parent: HTMLElement | null = null;
   private noteCandidatesCache: { sourcePath: string; notes: NoteCandidate[] } | null = null;
   private noteEventsRegistered = false;
+  private actionHandlers: ChatComposerActionHandlers | null = null;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
+
+  setActionHandlers(handlers: ChatComposerActionHandlers): void {
+    this.actionHandlers = handlers;
+  }
 
   private get state(): ChatState {
     return this.options.stateStore.getState();
@@ -105,11 +113,11 @@ export class ChatComposerController {
           }
           if (isComposerSendKey(event, this.options.sendShortcut())) {
             event.preventDefault();
-            this.options.onSubmit();
+            this.currentActionHandlers().submit();
           }
         },
         onSendOrInterrupt: () => {
-          this.options.onSubmit();
+          this.currentActionHandlers().submit();
         },
         onTogglePlan: () => {
           this.options.togglePlan();
@@ -221,7 +229,7 @@ export class ChatComposerController {
     if (!action) return false;
 
     event.preventDefault();
-    this.options.onThreadScrollFromComposer(action);
+    this.currentActionHandlers().threadScrollFromComposer(action);
     return true;
   }
 
@@ -311,5 +319,10 @@ export class ChatComposerController {
       this.noteCandidatesCache = { sourcePath, notes: appNoteCandidates(this.options.app) };
     }
     return this.noteCandidatesCache.notes;
+  }
+
+  private currentActionHandlers(): ChatComposerActionHandlers {
+    if (!this.actionHandlers) throw new Error("ChatComposerController action handlers have not been attached.");
+    return this.actionHandlers;
   }
 }

@@ -27,13 +27,17 @@ export class StaleConnectionError extends Error {
 
 export class ConnectionManager {
   private state: ConnectionLifecycleState = { kind: "idle", generation: 0 };
+  private handlers: ConnectionManagerHandlers | null = null;
 
   constructor(
     private readonly codexPath: () => string,
     private readonly cwd: string,
-    private readonly handlers: ConnectionManagerHandlers,
     private readonly clientFactory: AppServerClientFactory = (codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers),
   ) {}
+
+  setHandlers(handlers: ConnectionManagerHandlers): void {
+    this.handlers = handlers;
+  }
 
   currentClient(): AppServerClient | null {
     return this.state.kind === "connected" && this.state.client.isConnected() ? this.state.client : null;
@@ -54,20 +58,20 @@ export class ConnectionManager {
     const client = this.clientFactory(this.codexPath(), this.cwd, {
       onNotification: (notification) => {
         if (this.isStale(generation)) return;
-        this.handlers.onNotification(notification);
+        this.currentHandlers().onNotification(notification);
       },
       onServerRequest: (request) => {
         if (this.isStale(generation)) return;
-        this.handlers.onServerRequest(request);
+        this.currentHandlers().onServerRequest(request);
       },
       onLog: (message) => {
         if (this.isStale(generation)) return;
-        this.handlers.onLog(message);
+        this.currentHandlers().onLog(message);
       },
       onExit: () => {
         if (this.isStale(generation)) return;
         this.state = { kind: "disconnected", generation };
-        this.handlers.onExit();
+        this.currentHandlers().onExit();
       },
     });
     const promise = client
@@ -109,5 +113,10 @@ export class ConnectionManager {
 
   private isStale(generation: number): boolean {
     return generation !== this.state.generation;
+  }
+
+  private currentHandlers(): ConnectionManagerHandlers {
+    if (!this.handlers) throw new Error("ConnectionManager handlers have not been attached.");
+    return this.handlers;
   }
 }
