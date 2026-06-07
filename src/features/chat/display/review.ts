@@ -1,4 +1,4 @@
-import { permissionRows } from "../approvals/permission-details";
+import { permissionRows } from "./permission-details";
 import type { GuardianApprovalReviewAction } from "../../../generated/app-server/v2/GuardianApprovalReviewAction";
 import type { ItemGuardianApprovalReviewCompletedNotification } from "../../../generated/app-server/v2/ItemGuardianApprovalReviewCompletedNotification";
 import type { ItemGuardianApprovalReviewStartedNotification } from "../../../generated/app-server/v2/ItemGuardianApprovalReviewStartedNotification";

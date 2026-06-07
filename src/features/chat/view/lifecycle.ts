@@ -3,8 +3,8 @@ import {
   type ActiveConnectionWork,
   type ConnectionWorkLifecycleEvent,
   type ConnectionWorkLifecycleState,
-} from "../../shared/lifecycle/connection-work";
-import { DeferredTask, type DeferredTaskWindow } from "../../shared/lifecycle/deferred-task";
+} from "../../../shared/lifecycle/connection-work";
+import { DeferredTask, type DeferredTaskWindow } from "../../../shared/lifecycle/deferred-task";
 
 export interface ChatViewRenderScheduleOptions {
   forceSlots?: boolean;

@@ -5,8 +5,8 @@ import {
   questionDefaultAnswer,
   toPendingUserInput,
   userInputResponse,
-} from "../../../../src/features/chat/user-input/model";
-import { pendingRequestFocusSignature, pendingRequestsSignature } from "../../../../src/features/chat/request-state";
+} from "../../../../src/features/chat/requests/user-input/model";
+import { pendingRequestFocusSignature, pendingRequestsSignature } from "../../../../src/features/chat/requests/view-model";
 import type { ServerRequest } from "../../../../src/generated/app-server/ServerRequest";
 
 function expectPresent<T>(value: T | null | undefined): T {

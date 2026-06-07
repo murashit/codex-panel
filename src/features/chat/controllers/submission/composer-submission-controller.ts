@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/client";
 import { parseSlashCommand } from "../../composer/suggestions";
-import type { SlashCommandExecutionResult } from "../../slash-commands";
+import type { SlashCommandExecutionResult } from "../../slash-command-execution";
 import type { SlashCommandName } from "../../composer/slash-commands";
 import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
 import type { UserInput } from "../../../../generated/app-server/v2/UserInput";

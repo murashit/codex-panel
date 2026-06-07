@@ -1,4 +1,4 @@
-import type { RequestId } from "../../../generated/app-server/RequestId";
+import type { RequestId } from "../../../../generated/app-server/RequestId";
 
 export function userInputDraftKey(requestId: RequestId, questionId: string): string {
   return `${String(requestId)}:${questionId}`;

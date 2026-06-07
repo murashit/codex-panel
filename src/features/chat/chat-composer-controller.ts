@@ -17,7 +17,7 @@ import { userInputWithWikiLinkMentionsAndSkills } from "./composer/wikilink-cont
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { renderComposerShell, syncComposerHeight } from "./ui/composer";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "./chat-state";
-import type { ComposerMetaViewModel } from "./view-model";
+import type { ComposerMetaViewModel } from "./view/model";
 
 export interface ChatComposerControllerOptions {
   app: App;

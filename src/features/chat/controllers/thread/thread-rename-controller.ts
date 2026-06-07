@@ -1,17 +1,17 @@
-import type { AppServerClient } from "../../app-server/client";
-import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { Turn } from "../../generated/app-server/v2/Turn";
-import type { CodexPanelSettings } from "../../settings/model";
-import type { ChatAction, ChatState, ChatStateStore } from "./chat-state";
-import { getThreadTitle } from "../../domain/threads/model";
+import type { AppServerClient } from "../../../../app-server/client";
+import { generateThreadTitleWithCodex } from "../../../../app-server/thread-naming";
+import { getThreadTitle } from "../../../../domain/threads/model";
 import {
   findThreadNamingContext,
   namingContextFromTurn,
   THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE,
   type ThreadNamingContext,
-} from "../../domain/threads/naming";
-import { generateThreadTitleWithCodex } from "../../app-server/thread-naming";
-import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";
+} from "../../../../domain/threads/naming";
+import type { Thread } from "../../../../generated/app-server/v2/Thread";
+import type { Turn } from "../../../../generated/app-server/v2/Turn";
+import type { CodexPanelSettings } from "../../../../settings/model";
+import type { ChatAction, ChatState, ChatStateStore } from "../../chat-state";
+import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../thread-naming";
 
 export interface ThreadRenameEditState {
   draft: string;

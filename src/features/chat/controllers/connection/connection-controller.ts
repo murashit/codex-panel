@@ -1,8 +1,7 @@
 import { StaleConnectionError } from "../../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../../app-server/client";
 import type { InitializeResponse } from "../../../../generated/app-server/InitializeResponse";
-import type { ChatAppServerController } from "../../chat-app-server-controller";
-import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../../view-lifecycle";
+import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../../view/lifecycle";
 import type { ConnectionStatePort } from "../state-ports";
 
 export interface ChatConnectionAdapter {
@@ -11,11 +10,21 @@ export interface ChatConnectionAdapter {
   isConnected(): boolean;
 }
 
+export interface ChatConnectionMetadataPort {
+  refreshPublishedAppServerMetadata: () => Promise<unknown>;
+  refreshPublishedSkills: (forceReload?: boolean) => Promise<void>;
+}
+
+export interface ChatConnectionDiagnosticsPort {
+  refreshPublishedCapabilityDiagnostics: () => Promise<void>;
+}
+
 export interface ChatConnectionControllerHost {
   state: ConnectionStatePort;
   connection: ChatConnectionAdapter;
   connectionWork: ChatConnectionWorkTracker;
-  appServer: ChatAppServerController;
+  metadata: ChatConnectionMetadataPort;
+  diagnostics: ChatConnectionDiagnosticsPort;
   setClient: (client: AppServerClient | null) => void;
   invalidateResumeWork: () => void;
   loadSharedThreadList: () => Promise<void>;
@@ -74,7 +83,7 @@ export class ChatConnectionController {
     if (!this.host.connection.currentClient()) return;
     try {
       await this.host.loadSharedThreadList();
-      await this.host.appServer.refreshPublishedAppServerMetadata();
+      await this.host.metadata.refreshPublishedAppServerMetadata();
       this.host.refreshTabHeader();
       this.host.render();
     } catch (error) {
@@ -87,7 +96,7 @@ export class ChatConnectionController {
     await this.ensureConnected();
     if (!this.host.connection.currentClient()) return;
     this.host.clearDeferredDiagnostics();
-    await this.host.appServer.refreshPublishedCapabilityDiagnostics();
+    await this.host.diagnostics.refreshPublishedCapabilityDiagnostics();
     this.host.render();
   }
 
@@ -103,7 +112,7 @@ export class ChatConnectionController {
   async refreshSkills(forceReload = false): Promise<void> {
     this.host.setClient(this.host.connection.currentClient());
     if (!this.host.connection.currentClient()) return;
-    await this.host.appServer.refreshPublishedSkills(forceReload);
+    await this.host.metadata.refreshPublishedSkills(forceReload);
     this.host.render();
   }
 
@@ -115,7 +124,7 @@ export class ChatConnectionController {
       const client = this.host.connection.currentClient();
       this.host.setClient(client);
       if (!client) throw new Error("Codex app-server connection did not initialize.");
-      await this.host.appServer.refreshPublishedAppServerMetadata();
+      await this.host.metadata.refreshPublishedAppServerMetadata();
       if (this.host.connectionWork.isStale(connection)) return;
       await this.host.loadSharedThreadList();
       if (this.host.connectionWork.isStale(connection)) return;

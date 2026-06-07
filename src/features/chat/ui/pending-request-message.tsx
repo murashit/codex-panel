@@ -8,10 +8,10 @@ import {
   approvalTitle,
   type ApprovalAction,
   type PendingApproval,
-} from "../approvals/model";
+} from "../requests/approvals/model";
 import type { RequestId } from "../../../generated/app-server/RequestId";
-import type { PendingUserInput } from "../user-input/model";
-import { questionDefaultAnswer } from "../user-input/model";
+import type { PendingUserInput } from "../requests/user-input/model";
+import { questionDefaultAnswer } from "../requests/user-input/model";
 import { createWorkMessageClassName } from "./work-message";
 
 export interface PendingRequestMessageActions {

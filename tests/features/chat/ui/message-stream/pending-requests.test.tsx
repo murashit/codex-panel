@@ -2,8 +2,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { PendingApproval } from "../../../../../src/features/chat/approvals/model";
-import type { PendingUserInput } from "../../../../../src/features/chat/user-input/model";
+import type { PendingApproval } from "../../../../../src/features/chat/requests/approvals/model";
+import type { PendingUserInput } from "../../../../../src/features/chat/requests/user-input/model";
 import { pendingRequestMessageNode } from "../../../../../src/features/chat/ui/pending-request-message";
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 import { changeInputValue } from "../../../../support/dom";

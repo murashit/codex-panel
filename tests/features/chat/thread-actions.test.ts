@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../src/app-server/client";
 import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
-import { ChatThreadActionController, type ChatThreadActionControllerHost } from "../../../src/features/chat/thread-actions";
+import {
+  ChatThreadActionController,
+  type ChatThreadActionControllerHost,
+} from "../../../src/features/chat/controllers/thread/thread-actions-controller";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 

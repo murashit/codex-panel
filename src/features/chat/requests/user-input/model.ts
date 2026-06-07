@@ -1,8 +1,8 @@
-import type { RequestId } from "../../../generated/app-server/RequestId";
-import type { ServerRequest } from "../../../generated/app-server/ServerRequest";
-import type { ToolRequestUserInputParams } from "../../../generated/app-server/v2/ToolRequestUserInputParams";
-import type { ToolRequestUserInputQuestion } from "../../../generated/app-server/v2/ToolRequestUserInputQuestion";
-import type { ToolRequestUserInputResponse } from "../../../generated/app-server/v2/ToolRequestUserInputResponse";
+import type { RequestId } from "../../../../generated/app-server/RequestId";
+import type { ServerRequest } from "../../../../generated/app-server/ServerRequest";
+import type { ToolRequestUserInputParams } from "../../../../generated/app-server/v2/ToolRequestUserInputParams";
+import type { ToolRequestUserInputQuestion } from "../../../../generated/app-server/v2/ToolRequestUserInputQuestion";
+import type { ToolRequestUserInputResponse } from "../../../../generated/app-server/v2/ToolRequestUserInputResponse";
 import { userInputDraftKey } from "./drafts";
 
 export type UserInputRequest = Extract<ServerRequest, { method: "item/tool/requestUserInput" }>;

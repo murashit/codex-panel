@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/view";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
-import { composerSlotSnapshot } from "../../../src/features/chat/view-snapshot";
+import { composerSlotSnapshot } from "../../../src/features/chat/view/snapshot";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
@@ -177,6 +177,27 @@ describe("CodexChatView connection lifecycle", () => {
     expect(root.querySelector(":scope > .codex-panel__toolbar")).not.toBeNull();
     expect(root.querySelector(":scope > .codex-panel__body .codex-panel__slot--messages")).not.toBeNull();
     expect(root.querySelector(":scope > .codex-panel__body .codex-panel__slot--composer")).not.toBeNull();
+  });
+
+  it("wires open lifecycle registrations through the view controller host", async () => {
+    const activeLeafChangeListeners: ((leaf: unknown) => void)[] = [];
+    const addEventListener = vi.spyOn(document, "addEventListener");
+    const cachedThreadList = vi.fn(() => null);
+    const cachedAppServerMetadata = vi.fn(() => null);
+    const host = chatHost({
+      cachedThreadList,
+      cachedAppServerMetadata,
+    });
+    const view = await chatView({ activeLeafChangeListeners, host });
+
+    await view.onOpen();
+
+    expect(addEventListener).toHaveBeenCalledWith("pointerdown", expect.any(Function));
+    expect(activeLeafChangeListeners).toHaveLength(1);
+    expect(cachedThreadList).toHaveBeenCalledOnce();
+    expect(cachedAppServerMetadata).toHaveBeenCalledOnce();
+
+    addEventListener.mockRestore();
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
@@ -472,7 +493,9 @@ describe("CodexChatView connection lifecycle", () => {
       expect(client.startTurn).toHaveBeenCalled();
     });
 
-    const controller = (view as unknown as { controller: { handleNotification: (notification: ServerNotification) => void } }).controller;
+    const controller = (
+      view as unknown as { controllers: { inbound: { controller: { handleNotification: (notification: ServerNotification) => void } } } }
+    ).controllers.inbound.controller;
     controller.handleNotification(turnStartedNotification("thread-1", "turn-1"));
     controller.handleNotification(turnCompletedNotification("thread-1", "turn-1"));
     expect((view as unknown as { state: ChatState }).state.turn.lifecycle).toEqual({ kind: "idle" });
@@ -644,9 +667,11 @@ describe("CodexChatView connection lifecycle", () => {
     await view.openThread("source");
     await (
       view as unknown as {
-        threadActions: { forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => Promise<void> };
+        controllers: {
+          thread: { actions: { forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => Promise<void> } };
+        };
       }
-    ).threadActions.forkThreadFromTurn("source", "turn-1", true);
+    ).controllers.thread.actions.forkThreadFromTurn("source", "turn-1", true);
 
     expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
     expect(client.archiveThread).toHaveBeenCalledWith("source");

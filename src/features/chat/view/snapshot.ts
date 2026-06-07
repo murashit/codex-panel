@@ -1,12 +1,12 @@
-import type { Model } from "../../generated/app-server/v2/Model";
-import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
-import { currentModel } from "../../runtime/state";
-import { readRuntimeConfig } from "../../runtime/config";
-import { activeTurnId, chatTurnBusy, type ChatState } from "./chat-state";
-import type { DisplayItem } from "./display/types";
-import { runtimeSnapshotForChatState } from "./view-model";
-import type { RestoredThreadState } from "./view-lifecycle";
+import type { Model } from "../../../generated/app-server/v2/Model";
+import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { OpenCodexPanelSnapshot } from "../../../runtime/open-panel-snapshot";
+import { readRuntimeConfig } from "../../../runtime/config";
+import { currentModel } from "../../../runtime/state";
+import { activeTurnId, chatTurnBusy, type ChatState } from "../chat-state";
+import type { DisplayItem } from "../display/types";
+import type { RestoredThreadState } from "./lifecycle";
+import { runtimeSnapshotForChatState } from "./model";
 
 export type ChatPanelSlotSnapshot = string | number | boolean | null;
 

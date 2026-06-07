@@ -1,4 +1,4 @@
-import type { ChatViewRenderScheduleOptions } from "../../view-lifecycle";
+import type { ChatViewRenderScheduleOptions } from "../../view/lifecycle";
 import type { ChatShellRenderPort } from "../state-ports";
 
 export interface ChatViewRenderControllerHost {

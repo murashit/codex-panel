@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../src/app-server/client";
-import { ChatAppServerController } from "../../../src/features/chat/chat-app-server-controller";
+import { ChatAppServerDiagnosticsController } from "../../../src/features/chat/app-server/diagnostics-controller";
+import { ChatAppServerMetadataController } from "../../../src/features/chat/app-server/metadata-controller";
+import { ChatAppServerThreadController } from "../../../src/features/chat/app-server/thread-controller";
 import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { McpServerStatus } from "../../../src/generated/app-server/v2/McpServerStatus";
@@ -9,7 +11,7 @@ import type { RateLimitSnapshot } from "../../../src/generated/app-server/v2/Rat
 import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 
-describe("ChatAppServerController", () => {
+describe("chat app-server controllers", () => {
   it("publishes newly started threads before the first turn completes", async () => {
     const state = createChatState();
     const existing = threadFixture("existing");
@@ -32,14 +34,13 @@ describe("ChatAppServerController", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = new ChatAppServerController({
+    const controller = new ChatAppServerThreadController({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
       forceMessagesToBottom: () => undefined,
       publishThreadList,
-      publishAppServerMetadata: () => undefined,
       syncThreadGoal,
     });
 
@@ -67,14 +68,13 @@ describe("ChatAppServerController", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = new ChatAppServerController({
+    const controller = new ChatAppServerThreadController({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
       forceMessagesToBottom: () => undefined,
       publishThreadList: vi.fn(),
-      publishAppServerMetadata: () => undefined,
       syncThreadGoal,
     });
 
@@ -100,14 +100,13 @@ describe("ChatAppServerController", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = new ChatAppServerController({
+    const controller = new ChatAppServerThreadController({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
       forceMessagesToBottom: () => undefined,
       publishThreadList,
-      publishAppServerMetadata: () => undefined,
       syncThreadGoal: () => undefined,
     });
 
@@ -135,23 +134,26 @@ describe("ChatAppServerController", () => {
       readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
     } as unknown as AppServerClient;
 
-    const controller = new ChatAppServerController({
+    const metadata = new ChatAppServerMetadataController({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshot: () => ({}) as never,
-      forceMessagesToBottom: () => undefined,
-      publishThreadList: () => undefined,
       publishAppServerMetadata: () => undefined,
-      syncThreadGoal: () => undefined,
+    });
+    const diagnostics = new ChatAppServerDiagnosticsController({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      publishAppServerMetadata: () => undefined,
+      appServerMetadataSnapshot: () => metadata.appServerMetadataSnapshot(),
     });
 
-    await controller.refreshAppServerMetadata();
+    await metadata.refreshAppServerMetadata();
     listModels.mockClear();
     listSkills.mockClear();
     readAccountRateLimits.mockClear();
 
-    await controller.refreshCapabilityDiagnostics({ cachedAppServerMetadata: true });
+    await diagnostics.refreshCapabilityDiagnostics({ cachedAppServerMetadata: true });
 
     expect(listModels).not.toHaveBeenCalled();
     expect(listSkills).not.toHaveBeenCalled();
@@ -179,15 +181,11 @@ describe("ChatAppServerController", () => {
     const client = {
       readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
     } as unknown as AppServerClient;
-    const controller = new ChatAppServerController({
+    const controller = new ChatAppServerMetadataController({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshot: () => ({}) as never,
-      forceMessagesToBottom: () => undefined,
-      publishThreadList: () => undefined,
       publishAppServerMetadata,
-      syncThreadGoal: () => undefined,
     });
 
     await controller.refreshPublishedRateLimits();
@@ -208,15 +206,11 @@ describe("ChatAppServerController", () => {
     const client = {
       readAccountRateLimits: vi.fn().mockRejectedValue(new Error("offline")),
     } as unknown as AppServerClient;
-    const controller = new ChatAppServerController({
+    const controller = new ChatAppServerMetadataController({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshot: () => ({}) as never,
-      forceMessagesToBottom: () => undefined,
-      publishThreadList: () => undefined,
       publishAppServerMetadata,
-      syncThreadGoal: () => undefined,
     });
 
     await controller.refreshPublishedRateLimits();
@@ -234,15 +228,18 @@ describe("ChatAppServerController", () => {
     const client = {
       listMcpServerStatus,
     } as unknown as AppServerClient;
-    const controller = new ChatAppServerController({
+    const metadata = new ChatAppServerMetadataController({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshot: () => ({}) as never,
-      forceMessagesToBottom: () => undefined,
-      publishThreadList: () => undefined,
       publishAppServerMetadata: () => undefined,
-      syncThreadGoal: () => undefined,
+    });
+    const controller = new ChatAppServerDiagnosticsController({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      publishAppServerMetadata: () => undefined,
+      appServerMetadataSnapshot: () => metadata.appServerMetadataSnapshot(),
     });
 
     controller.recordMcpStartupStatus("github", "ready", null);

@@ -6,7 +6,7 @@ import {
   type RestoredThreadPlaceholderState,
   type RestoredThreadState,
   type ChatViewDeferredTasks,
-} from "../../view-lifecycle";
+} from "../../view/lifecycle";
 
 export interface RestoredThreadControllerHost {
   deferredTasks: ChatViewDeferredTasks;

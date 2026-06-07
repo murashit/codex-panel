@@ -1,5 +1,5 @@
-import { parseRestoredThreadState } from "../../view-snapshot";
-import type { RestoredThreadState } from "../../view-lifecycle";
+import { parseRestoredThreadState } from "../../view/snapshot";
+import type { RestoredThreadState } from "../../view/lifecycle";
 
 export interface ChatViewStateControllerHost {
   invalidateResumeWork: () => void;

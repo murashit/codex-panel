@@ -1,6 +1,6 @@
-import { jsonPreview } from "../../../utils";
 import type { FileSystemPath } from "../../../generated/app-server/v2/FileSystemPath";
 import type { RequestPermissionProfile } from "../../../generated/app-server/v2/RequestPermissionProfile";
+import { jsonPreview } from "../../../utils";
 
 export interface DetailRow {
   key: string;

@@ -1,11 +1,11 @@
-import { parseServiceTier } from "../../app-server/service-tier";
-import type { ServerNotification } from "../../generated/app-server/ServerNotification";
-import type { FileUpdateChange } from "../../generated/app-server/v2/FileUpdateChange";
-import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../generated/app-server/v2/Turn";
-import { jsonPreview } from "../../utils";
-import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "./chat-state";
-import { createAutoReviewResultItem, createReviewResultItem } from "./display/review";
+import { parseServiceTier } from "../../../app-server/service-tier";
+import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
+import type { FileUpdateChange } from "../../../generated/app-server/v2/FileUpdateChange";
+import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";
+import type { Turn } from "../../../generated/app-server/v2/Turn";
+import { jsonPreview } from "../../../utils";
+import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../chat-state";
+import { createAutoReviewResultItem, createReviewResultItem } from "../display/review";
 import {
   appendAssistantDelta,
   appendItemOutput,
@@ -14,19 +14,19 @@ import {
   appendToolOutput,
   completeReasoningItems,
   upsertDisplayItem,
-} from "./display/stream-updates";
+} from "../display/stream-updates";
 import {
   displayItemFromThreadItem,
   displayItemsFromTurns,
   normalizeFileChanges,
   shouldSuppressLifecycleItem,
-} from "./display/thread-items";
-import type { DisplayItem, DisplayKind, MessageDisplayItem } from "./display/types";
-import { planProgressDisplayItem } from "./display/plan";
-import { createSystemItem } from "./display/system";
-import { goalChangeItem } from "./goal-messages";
-import { attachHookRunsToTurn, hookRunDisplayItem } from "./hook-display";
-import { routeServerNotification } from "./inbound-routing";
+} from "../display/thread-items";
+import { planProgressDisplayItem } from "../display/plan";
+import { createSystemItem } from "../display/system";
+import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../display/types";
+import { goalChangeItem } from "../goal-messages";
+import { attachHookRunsToTurn, hookRunDisplayItem } from "../hook-display";
+import { routeServerNotification } from "./routing";
 
 export type ChatNotificationEffect =
   | { type: "refresh-threads" }

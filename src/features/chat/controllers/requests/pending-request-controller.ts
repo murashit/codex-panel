@@ -1,11 +1,11 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ApprovalAction, PendingApproval } from "../../approvals/model";
+import type { ApprovalAction, PendingApproval } from "../../requests/approvals/model";
 import type { ChatController } from "../../chat-controller";
-import { pendingRequestFocusSignature } from "../../request-state";
+import { pendingRequestFocusSignature } from "../../requests/view-model";
 import { pendingRequestMessageNode } from "../../ui/pending-request-message";
-import { userInputDraftKey, userInputOtherDraftKey } from "../../user-input/drafts";
-import { answersForPendingUserInput, type PendingUserInput } from "../../user-input/model";
+import { userInputDraftKey, userInputOtherDraftKey } from "../../requests/user-input/drafts";
+import { answersForPendingUserInput, type PendingUserInput } from "../../requests/user-input/model";
 import type { PendingRequestStatePort } from "../state-ports";
 
 export interface PendingRequestControllerHost {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadLifecycleStatePort } from "../../../../../src/features/chat/controllers/state-ports";
 import { RestoredThreadController } from "../../../../../src/features/chat/controllers/thread/restored-thread-controller";
-import { ChatViewDeferredTasks } from "../../../../../src/features/chat/view-lifecycle";
+import { ChatViewDeferredTasks } from "../../../../../src/features/chat/view/lifecycle";
 import { deferred } from "../../../../support/async";
 
 describe("RestoredThreadController", () => {

@@ -5,10 +5,11 @@ import { createChatState, createChatStateStore } from "../../../../../src/featur
 import {
   ChatConnectionController,
   type ChatConnectionAdapter,
+  type ChatConnectionDiagnosticsPort,
+  type ChatConnectionMetadataPort,
 } from "../../../../../src/features/chat/controllers/connection/connection-controller";
 import { createConnectionStatePort } from "../../../../../src/features/chat/controllers/state-ports";
-import { ChatConnectionWorkTracker } from "../../../../../src/features/chat/view-lifecycle";
-import type { ChatAppServerController } from "../../../../../src/features/chat/chat-app-server-controller";
+import { ChatConnectionWorkTracker } from "../../../../../src/features/chat/view/lifecycle";
 
 function createController({ connected = false, client = {} as AppServerClient } = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -25,11 +26,13 @@ function createController({ connected = false, client = {} as AppServerClient } 
   const refreshPublishedAppServerMetadata = vi.fn().mockResolvedValue(null);
   const refreshPublishedCapabilityDiagnostics = vi.fn().mockResolvedValue(undefined);
   const refreshPublishedSkills = vi.fn().mockResolvedValue(undefined);
-  const appServer = {
+  const metadata = {
     refreshPublishedAppServerMetadata,
-    refreshPublishedCapabilityDiagnostics,
     refreshPublishedSkills,
-  } as unknown as ChatAppServerController;
+  } satisfies ChatConnectionMetadataPort;
+  const diagnostics = {
+    refreshPublishedCapabilityDiagnostics,
+  } satisfies ChatConnectionDiagnosticsPort;
   const setClient = vi.fn((next: AppServerClient | null) => {
     currentClient = next;
   });
@@ -37,7 +40,8 @@ function createController({ connected = false, client = {} as AppServerClient } 
     state: createConnectionStatePort(stateStore),
     connection,
     connectionWork: new ChatConnectionWorkTracker(),
-    appServer,
+    metadata,
+    diagnostics,
     setClient,
     invalidateResumeWork: vi.fn(),
     loadSharedThreadList: vi.fn().mockResolvedValue(undefined),

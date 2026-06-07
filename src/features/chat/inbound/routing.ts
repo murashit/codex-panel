@@ -1,7 +1,7 @@
-import { toPendingApproval, type PendingApproval } from "./approvals/model";
-import type { ServerNotification } from "../../generated/app-server/ServerNotification";
-import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-import { toPendingUserInput, type PendingUserInput } from "./user-input/model";
+import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
+import type { ServerRequest } from "../../../generated/app-server/ServerRequest";
+import { toPendingApproval, type PendingApproval } from "../requests/approvals/model";
+import { toPendingUserInput, type PendingUserInput } from "../requests/user-input/model";
 
 export interface ActiveRouteScope {
   activeThreadId: string | null;

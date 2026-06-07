@@ -5,7 +5,11 @@ import {
   REFERENCED_THREAD_TURN_LIMIT,
 } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../generated/app-server/v2/Thread";
-import { executeSlashCommand as runSlashCommand, type SlashCommandExecutionResult, type ThreadReferenceInput } from "../../slash-commands";
+import {
+  executeSlashCommand as runSlashCommand,
+  type SlashCommandExecutionResult,
+  type ThreadReferenceInput,
+} from "../../slash-command-execution";
 import type { SlashCommandName } from "../../composer/slash-commands";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ReasoningEffort } from "../../../../generated/app-server/ReasoningEffort";

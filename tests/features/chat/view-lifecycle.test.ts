@@ -10,7 +10,7 @@ import {
   transitionChatResumeLifecycle,
   transitionRestoredThreadLifecycle,
   type ActiveChatConnection,
-} from "../../../src/features/chat/view-lifecycle";
+} from "../../../src/features/chat/view/lifecycle";
 
 describe("ChatViewDeferredTasks", () => {
   beforeEach(() => {

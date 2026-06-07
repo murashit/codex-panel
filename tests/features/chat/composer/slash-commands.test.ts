@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../src/features/chat/composer/slash-commands";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
 import type { ThreadGoal } from "../../../../src/generated/app-server/v2/ThreadGoal";
-import { executeSlashCommand, type SlashCommandExecutionContext } from "../../../../src/features/chat/slash-commands";
+import { executeSlashCommand, type SlashCommandExecutionContext } from "../../../../src/features/chat/slash-command-execution";
 
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {

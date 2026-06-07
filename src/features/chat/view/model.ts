@@ -1,6 +1,6 @@
-import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
-import type { RuntimeSnapshot } from "../../runtime/state";
+import type { ReasoningEffort } from "../../../generated/app-server/ReasoningEffort";
+import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { RuntimeSnapshot } from "../../../runtime/state";
 import {
   autoReviewActive,
   currentModel,
@@ -9,16 +9,16 @@ import {
   pendingRuntimeSettingLabel,
   serviceTierLabel,
   supportedReasoningEfforts,
-} from "../../runtime/state";
-import { readRuntimeConfig } from "../../runtime/config";
-import { sortedAvailableModels } from "../../runtime/model";
-import { compactReasoningEffortLabel } from "../../runtime/settings";
-import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../runtime/view";
-import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../../domain/threads/model";
-import { connectionDiagnosticSections } from "./diagnostics";
-import type { ChatState } from "./chat-state";
-import { statusValue, usageLimitStatusLines } from "./status-lines";
-import type { ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
+} from "../../../runtime/state";
+import { readRuntimeConfig } from "../../../runtime/config";
+import { sortedAvailableModels } from "../../../runtime/model";
+import { compactReasoningEffortLabel } from "../../../runtime/settings";
+import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../../runtime/view";
+import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../../../domain/threads/model";
+import type { ChatState } from "../chat-state";
+import { connectionDiagnosticSections } from "../diagnostics";
+import { statusValue, usageLimitStatusLines } from "../status-lines";
+import type { ToolbarThreadRow, ToolbarViewModel } from "../toolbar-model";
 
 export interface RuntimeSnapshotInput {
   state: ChatState;
