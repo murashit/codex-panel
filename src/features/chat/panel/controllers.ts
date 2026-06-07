@@ -145,21 +145,21 @@ export function createChatViewControllers(ports: ChatViewControllerPorts): ChatV
   }));
 
   ({ appServerThreads, appServerMetadata, appServerDiagnostics } = createAppServerControllerGroup(context, {
-    connection: () => connection,
+    connection,
     goals: () => goals,
   }));
 
   controller = createInboundController(context, {
-    appServerMetadata: () => appServerMetadata,
-    appServerDiagnostics: () => appServerDiagnostics,
+    appServerMetadata,
+    appServerDiagnostics,
     threadRename: () => threadRename,
-    serverRequestResponder: () => serverRequestResponder,
+    serverRequestResponder,
   });
 
   connectionController = createConnectionControllerGroup(context, {
-    connection: () => connection,
-    appServerMetadata: () => appServerMetadata,
-    appServerDiagnostics: () => appServerDiagnostics,
+    connection,
+    appServerMetadata,
+    appServerDiagnostics,
   }).connectionController;
 
   ({
@@ -177,9 +177,9 @@ export function createChatViewControllers(ports: ChatViewControllerPorts): ChatV
     threadIdentity,
     threadRename,
   } = createRequestThreadToolbarControllerGroup(context, {
-    connection: () => connection,
-    controller: () => controller,
-    composerController: () => composerController,
+    connection,
+    controller,
+    composerController,
   }));
 
   return {
@@ -556,7 +556,7 @@ function createConnectionLifecycleControllerGroup(
 function createAppServerControllerGroup(
   context: ControllerContext,
   refs: {
-    connection: ControllerRef<ConnectionManager>;
+    connection: ConnectionManager;
     goals: ControllerRef<ChatThreadGoalController>;
   },
 ) {
@@ -564,7 +564,7 @@ function createAppServerControllerGroup(
   const appServerBaseHost = {
     stateStore,
     vaultPath: plugin.vaultPath,
-    currentClient: () => refs.connection().currentClient(),
+    currentClient: () => refs.connection.currentClient(),
   };
   const appServerMetadata = new ChatAppServerMetadataController({
     ...appServerBaseHost,
@@ -597,10 +597,10 @@ function createAppServerControllerGroup(
 function createInboundController(
   context: ControllerContext,
   refs: {
-    appServerMetadata: ControllerRef<ChatAppServerMetadataController>;
-    appServerDiagnostics: ControllerRef<ChatAppServerDiagnosticsController>;
+    appServerMetadata: ChatAppServerMetadataController;
+    appServerDiagnostics: ChatAppServerDiagnosticsController;
     threadRename: ControllerRef<ThreadRenameController>;
-    serverRequestResponder: ControllerRef<ServerRequestResponder>;
+    serverRequestResponder: ServerRequestResponder;
   },
 ) {
   const { plugin, thread, effects, stateStore } = context;
@@ -610,7 +610,7 @@ function createInboundController(
       void thread.refreshThreads();
     },
     refreshRateLimits: () => {
-      void refs.appServerMetadata().refreshPublishedRateLimits();
+      void refs.appServerMetadata.refreshPublishedRateLimits();
     },
     refreshSkills: (forceReload) => void thread.refreshSkills(forceReload),
     publishAppServerMetadata: thread.publishAppServerMetadataSnapshot,
@@ -620,20 +620,20 @@ function createInboundController(
     notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
     recordMcpStartupStatus: (name, status, message) => {
-      refs.appServerDiagnostics().recordMcpStartupStatus(name, status, message);
+      refs.appServerDiagnostics.recordMcpStartupStatus(name, status, message);
       effects.render.schedule();
     },
-    respondToServerRequest: (requestId, result) => refs.serverRequestResponder().respond(requestId, result),
-    rejectServerRequest: (requestId, code, message) => refs.serverRequestResponder().reject(requestId, code, message),
+    respondToServerRequest: (requestId, result) => refs.serverRequestResponder.respond(requestId, result),
+    rejectServerRequest: (requestId, code, message) => refs.serverRequestResponder.reject(requestId, code, message),
   });
 }
 
 function createConnectionControllerGroup(
   context: ControllerContext,
   refs: {
-    connection: ControllerRef<ConnectionManager>;
-    appServerMetadata: ControllerRef<ChatAppServerMetadataController>;
-    appServerDiagnostics: ControllerRef<ChatAppServerDiagnosticsController>;
+    connection: ConnectionManager;
+    appServerMetadata: ChatAppServerMetadataController;
+    appServerDiagnostics: ChatAppServerDiagnosticsController;
   },
 ) {
   const { plugin, client, thread, effects, lifecycle, connectionState } = context;
@@ -642,14 +642,14 @@ function createConnectionControllerGroup(
   return {
     connectionController: new ChatConnectionController({
       state: connectionState,
-      connection: refs.connection(),
+      connection: refs.connection,
       connectionWork,
       metadata: {
-        refreshPublishedAppServerMetadata: () => refs.appServerMetadata().refreshPublishedAppServerMetadata(),
-        refreshPublishedSkills: (forceReload) => refs.appServerMetadata().refreshPublishedSkills(forceReload),
+        refreshPublishedAppServerMetadata: () => refs.appServerMetadata.refreshPublishedAppServerMetadata(),
+        refreshPublishedSkills: (forceReload) => refs.appServerMetadata.refreshPublishedSkills(forceReload),
       },
       diagnostics: {
-        refreshPublishedCapabilityDiagnostics: () => refs.appServerDiagnostics().refreshPublishedCapabilityDiagnostics(),
+        refreshPublishedCapabilityDiagnostics: () => refs.appServerDiagnostics.refreshPublishedCapabilityDiagnostics(),
       },
       setClient: client.setClient,
       invalidateResumeWork: effects.lifecycle.invalidateResumeWork,
@@ -674,9 +674,9 @@ function createConnectionControllerGroup(
 function createRequestThreadToolbarControllerGroup(
   context: ControllerContext,
   refs: {
-    connection: ControllerRef<ConnectionManager>;
-    controller: ControllerRef<ChatInboundController>;
-    composerController: ControllerRef<ChatComposerController>;
+    connection: ConnectionManager;
+    controller: ChatInboundController;
+    composerController: ChatComposerController;
   },
 ) {
   const { obsidian, plugin, runtime, thread, effects, lifecycle, stateStore, currentClient, connectionState, panelState, threadState } =
@@ -685,8 +685,8 @@ function createRequestThreadToolbarControllerGroup(
 
   const pendingRequests = new PendingRequestController({
     state: createPendingRequestStatePort(stateStore),
-    controller: refs.controller(),
-    composerHasFocus: () => refs.composerController().hasFocus(),
+    controller: refs.controller,
+    composerHasFocus: () => refs.composerController.hasFocus(),
     refreshLiveState: effects.liveState.refresh,
     render: effects.render.now,
   });
@@ -745,7 +745,7 @@ function createRequestThreadToolbarControllerGroup(
     invalidateResumeWork: effects.lifecycle.invalidateResumeWork,
     clearDeferredDiagnostics: effects.lifecycle.clearDeferredDiagnostics,
     reconnect: () => {
-      refs.connection().reconnect();
+      refs.connection.reconnect();
     },
     clearClient: effects.client.clear,
     setStatus: effects.status.set,
@@ -829,7 +829,7 @@ function createRequestThreadToolbarControllerGroup(
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
     ensureConnected: effects.client.ensureConnected,
-    currentClient: () => refs.connection().currentClient(),
+    currentClient: () => refs.connection.currentClient(),
     refreshThreads: thread.refreshThreads,
     render: effects.render.shellSlots,
     addSystemMessage: effects.status.addSystemMessage,
