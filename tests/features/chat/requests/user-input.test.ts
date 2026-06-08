@@ -5,7 +5,7 @@ import {
   questionDefaultAnswer,
   toPendingUserInput,
   userInputResponse,
-} from "../../../../src/features/chat/requests/user-input/model";
+} from "../../../../src/features/chat/requests/user-input";
 import { pendingRequestFocusSignature, pendingRequestsSignature } from "../../../../src/features/chat/requests/view-model";
 import type { ServerRequest } from "../../../../src/generated/app-server/ServerRequest";
 

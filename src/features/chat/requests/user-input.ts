@@ -1,9 +1,8 @@
-import type { RequestId } from "../../../../generated/app-server/RequestId";
-import type { ServerRequest } from "../../../../generated/app-server/ServerRequest";
-import type { ToolRequestUserInputParams } from "../../../../generated/app-server/v2/ToolRequestUserInputParams";
-import type { ToolRequestUserInputQuestion } from "../../../../generated/app-server/v2/ToolRequestUserInputQuestion";
-import type { ToolRequestUserInputResponse } from "../../../../generated/app-server/v2/ToolRequestUserInputResponse";
-import { userInputDraftKey } from "./drafts";
+import type { RequestId } from "../../../generated/app-server/RequestId";
+import type { ServerRequest } from "../../../generated/app-server/ServerRequest";
+import type { ToolRequestUserInputParams } from "../../../generated/app-server/v2/ToolRequestUserInputParams";
+import type { ToolRequestUserInputQuestion } from "../../../generated/app-server/v2/ToolRequestUserInputQuestion";
+import type { ToolRequestUserInputResponse } from "../../../generated/app-server/v2/ToolRequestUserInputResponse";
 
 type UserInputRequest = Extract<ServerRequest, { method: "item/tool/requestUserInput" }>;
 
@@ -37,6 +36,14 @@ export function userInputResponse(input: PendingUserInput, answers: Record<strin
 
 export function questionDefaultAnswer(question: ToolRequestUserInputQuestion): string {
   return question.options?.[0]?.label ?? "";
+}
+
+export function userInputDraftKey(requestId: RequestId, questionId: string): string {
+  return `${String(requestId)}:${questionId}`;
+}
+
+export function userInputOtherDraftKey(requestId: RequestId, questionId: string): string {
+  return `${String(requestId)}:${questionId}:other`;
 }
 
 export function answersForPendingUserInput(input: PendingUserInput, drafts: ReadonlyMap<string, string>): Record<string, string> {

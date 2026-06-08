@@ -7,7 +7,7 @@ import {
   approvalSummary,
   approvalTitle,
   toPendingApproval,
-} from "../../../../src/features/chat/requests/approvals/model";
+} from "../../../../src/features/chat/requests/approval";
 import type { ServerRequest } from "../../../../src/generated/app-server/ServerRequest";
 import type { CommandExecutionApprovalDecision } from "../../../../src/generated/app-server/v2/CommandExecutionApprovalDecision";
 

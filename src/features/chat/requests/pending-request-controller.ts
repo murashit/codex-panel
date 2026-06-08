@@ -3,12 +3,11 @@ import type { ComponentChild as UiNode } from "preact";
 import { setDetailOpenAction, setUserInputDraftAction } from "../chat-state-actions";
 import { pendingRequestSnapshot } from "../chat-state-selectors";
 import type { ChatStateStore } from "../chat-state";
-import type { ApprovalAction, PendingApproval } from "../requests/approvals/model";
+import type { ApprovalAction, PendingApproval } from "../requests/approval";
 import type { ChatInboundController } from "../inbound/controller";
 import { pendingRequestFocusSignature } from "../requests/view-model";
 import { pendingRequestMessageNode } from "../ui/pending-request-message";
-import { userInputDraftKey, userInputOtherDraftKey } from "../requests/user-input/drafts";
-import { answersForPendingUserInput, type PendingUserInput } from "../requests/user-input/model";
+import { answersForPendingUserInput, userInputDraftKey, userInputOtherDraftKey, type PendingUserInput } from "../requests/user-input";
 
 export interface PendingRequestControllerHost {
   stateStore: ChatStateStore;

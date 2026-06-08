@@ -5,10 +5,10 @@ import {
   approvalTitle,
   type ApprovalAction,
   type PendingApproval,
-} from "./approvals/model";
+} from "./approval";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import { definedProp } from "../../../utils";
-import type { PendingUserInput } from "./user-input/model";
+import type { PendingUserInput } from "./user-input";
 
 export function pendingRequestsSignature(
   approvals: readonly PendingApproval[],

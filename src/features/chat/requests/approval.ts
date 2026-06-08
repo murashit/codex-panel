@@ -1,11 +1,11 @@
-import type { RequestId } from "../../../../generated/app-server/RequestId";
-import type { ServerRequest } from "../../../../generated/app-server/ServerRequest";
-import type { CommandExecutionApprovalDecision } from "../../../../generated/app-server/v2/CommandExecutionApprovalDecision";
-import type { CommandExecutionRequestApprovalResponse } from "../../../../generated/app-server/v2/CommandExecutionRequestApprovalResponse";
-import type { FileChangeRequestApprovalResponse } from "../../../../generated/app-server/v2/FileChangeRequestApprovalResponse";
-import type { GrantedPermissionProfile } from "../../../../generated/app-server/v2/GrantedPermissionProfile";
-import type { PermissionsRequestApprovalResponse } from "../../../../generated/app-server/v2/PermissionsRequestApprovalResponse";
-import { addOptional, nonEmptyString, permissionRows } from "../../display/permission-details";
+import type { RequestId } from "../../../generated/app-server/RequestId";
+import type { ServerRequest } from "../../../generated/app-server/ServerRequest";
+import type { CommandExecutionApprovalDecision } from "../../../generated/app-server/v2/CommandExecutionApprovalDecision";
+import type { CommandExecutionRequestApprovalResponse } from "../../../generated/app-server/v2/CommandExecutionRequestApprovalResponse";
+import type { FileChangeRequestApprovalResponse } from "../../../generated/app-server/v2/FileChangeRequestApprovalResponse";
+import type { GrantedPermissionProfile } from "../../../generated/app-server/v2/GrantedPermissionProfile";
+import type { PermissionsRequestApprovalResponse } from "../../../generated/app-server/v2/PermissionsRequestApprovalResponse";
+import { addOptional, nonEmptyString, permissionRows } from "../display/permission-details";
 
 export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel" | CommandApprovalDecisionAction;
 interface CommandApprovalDecisionAction {

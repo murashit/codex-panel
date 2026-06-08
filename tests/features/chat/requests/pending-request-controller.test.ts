@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ChatInboundController } from "../../../../src/features/chat/inbound/controller";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { PendingRequestController } from "../../../../src/features/chat/requests/pending-request-controller";
-import { toPendingUserInput } from "../../../../src/features/chat/requests/user-input/model";
+import { toPendingUserInput } from "../../../../src/features/chat/requests/user-input";
 import type { ServerRequest } from "../../../../src/generated/app-server/ServerRequest";
 
 function expectPresent<T>(value: T | null | undefined): T {

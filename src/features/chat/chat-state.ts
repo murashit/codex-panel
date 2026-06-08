@@ -21,11 +21,11 @@ import {
   unchangedRuntimeSetting,
   type PendingRuntimeSetting,
 } from "../../runtime/effective-settings";
-import type { PendingApproval } from "./requests/approvals/model";
+import type { PendingApproval } from "./requests/approval";
 import type { ComposerSuggestion } from "./composer/suggestions";
 import { upsertDisplayItem } from "./display/stream-updates";
 import type { DisplayItem } from "./display/types";
-import type { PendingUserInput } from "./requests/user-input/model";
+import type { PendingUserInput } from "./requests/user-input";
 
 export interface PendingTurnStart {
   anchorItemId: string;

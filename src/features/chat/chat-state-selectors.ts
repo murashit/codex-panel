@@ -1,8 +1,8 @@
 import { activeTurnId as selectActiveTurnId, chatTurnBusy, pendingTurnStart } from "./chat-state";
 import type { ChatState, PendingTurnStart } from "./chat-state";
 import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { PendingApproval } from "./requests/approvals/model";
-import type { PendingUserInput } from "./requests/user-input/model";
+import type { PendingApproval } from "./requests/approval";
+import type { PendingUserInput } from "./requests/user-input";
 import type { DisplayItem } from "./display/types";
 import { implementPlanCandidateFromState } from "./display/action-candidates";
 
