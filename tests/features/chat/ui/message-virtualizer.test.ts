@@ -53,6 +53,57 @@ describe("MessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
+  it("repins when the user scrolls back to the end", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    let pinned = true;
+    const controller = controllerWithPinnedState(
+      () => pinned,
+      (value) => {
+        pinned = value;
+      },
+    );
+
+    renderVirtualItems(controller, container, ["first", "second"], [300, 180], "force-bottom");
+    expect(container.scrollTop).toBe(380);
+    expect(pinned).toBe(true);
+
+    container.scrollTop = 80;
+    container.dispatchEvent(new Event("scroll"));
+    expect(pinned).toBe(false);
+
+    container.scrollTop = 380;
+    container.dispatchEvent(new Event("scroll"));
+    expect(pinned).toBe(true);
+
+    renderVirtualItems(controller, container, ["first", "second", "third"], [300, 180, 140], "auto");
+
+    expect(container.scrollTop).toBe(520);
+    expect(pinned).toBe(true);
+    controller.dispose();
+  });
+
+  it("keeps following the end when a pinned item grows after measurement", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    let pinned = true;
+    const controller = controllerWithPinnedState(
+      () => pinned,
+      (value) => {
+        pinned = value;
+      },
+    );
+
+    renderVirtualItems(controller, container, ["first", "command"], [200, 100], "force-bottom");
+    expect(container.scrollTop).toBe(200);
+    expect(pinned).toBe(true);
+
+    container.dataset["testTotalSize"] = "450";
+    measureVirtualItem(controller, "command", 1, 250);
+
+    expect(container.scrollTop).toBe(350);
+    expect(pinned).toBe(true);
+    controller.dispose();
+  });
+
   it("delegates older-content prepends to keyed end anchoring", () => {
     const container = messageContainer({ scrollTop: 140, clientHeight: 120 });
     let pinned = false;
@@ -149,15 +200,19 @@ function renderVirtualItems(
   const plan = controller.prepareRender(container, intent, blocks);
   controller.getTotalSize();
   keys.forEach((key, index) => {
-    const element = document.createElement("div");
-    element.setAttribute("data-codex-panel-block-key", key);
-    element.setAttribute(MESSAGE_VIRTUAL_ITEM_INDEX_ATTRIBUTE, String(index));
-    Object.defineProperty(element, "offsetHeight", { value: heights[index], configurable: true });
-    Object.defineProperty(element, "isConnected", { value: true, configurable: true });
-    controller.measureElement(element);
+    measureVirtualItem(controller, key, index, heights[index] ?? 0);
   });
   controller.getTotalSize();
   controller.completeRender(plan);
+}
+
+function measureVirtualItem(controller: MessageStreamVirtualizer, key: string, index: number, height: number): void {
+  const element = document.createElement("div");
+  element.setAttribute("data-codex-panel-block-key", key);
+  element.setAttribute(MESSAGE_VIRTUAL_ITEM_INDEX_ATTRIBUTE, String(index));
+  Object.defineProperty(element, "offsetHeight", { value: height, configurable: true });
+  Object.defineProperty(element, "isConnected", { value: true, configurable: true });
+  controller.measureElement(element);
 }
 
 function messageContainer(metrics: { scrollTop: number; clientHeight: number }): HTMLElement {

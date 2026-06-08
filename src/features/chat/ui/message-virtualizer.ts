@@ -42,8 +42,7 @@ export class MessageStreamVirtualizer {
     virtualizer._willUpdate();
 
     const shouldScrollToBottom =
-      intent === "force-bottom" ||
-      (intent !== "preserve" && (this.options.messagesPinnedToBottom() || virtualizer.isAtEnd(MESSAGE_BOTTOM_THRESHOLD)));
+      intent === "force-bottom" || (intent !== "preserve" && (this.options.messagesPinnedToBottom() || this.isPinnedAtBottom()));
     this.options.setMessagesPinnedToBottom(shouldScrollToBottom);
 
     return {
@@ -154,26 +153,42 @@ export class MessageStreamVirtualizer {
         }),
       scrollToFn: scrollMessageElement,
       measureElement: measureMessageElement,
+      shouldAdjustScrollPositionOnItemSizeChange: (item: VirtualItem, _delta: number, instance: Virtualizer<HTMLElement, HTMLElement>) =>
+        this.shouldAdjustScrollPositionOnItemSizeChange(item, instance),
       onChange: (instance: Virtualizer<HTMLElement, HTMLElement>) => {
-        this.options.setMessagesPinnedToBottom(instance.isAtEnd(MESSAGE_BOTTOM_THRESHOLD));
+        this.updatePinnedState(instance);
         this.onVirtualizerChange?.();
       },
     };
   }
 
   private scrollBy(delta: number): void {
-    const virtualizer = this.virtualizer;
     const container = this.container;
-    if (!virtualizer || !container) return;
-    virtualizer.scrollToOffset(container.scrollTop + delta);
+    if (!container) return;
+    scrollMessageElementToTop(container, container.scrollTop + delta);
     this.updatePinnedState();
   }
 
-  private updatePinnedState(): void {
-    const virtualizer = this.virtualizer;
-    if (!virtualizer) return;
-    this.options.setMessagesPinnedToBottom(virtualizer.isAtEnd(MESSAGE_BOTTOM_THRESHOLD));
+  private updatePinnedState(virtualizer = this.virtualizer): void {
+    this.options.setMessagesPinnedToBottom(this.isPinnedAtBottom(virtualizer));
   }
+
+  private isPinnedAtBottom(virtualizer = this.virtualizer): boolean {
+    const container = this.container;
+    if (!virtualizer || !container) return false;
+    return isNearScrollBottom(container) || virtualizer.isAtEnd(MESSAGE_BOTTOM_THRESHOLD);
+  }
+
+  private shouldAdjustScrollPositionOnItemSizeChange(item: VirtualItem, virtualizer: Virtualizer<HTMLElement, HTMLElement>): boolean {
+    if (this.options.messagesPinnedToBottom() || this.isPinnedAtBottom(virtualizer)) return true;
+    const container = this.container;
+    if (!container) return false;
+    return item.start < container.scrollTop && virtualizer.scrollDirection !== "backward";
+  }
+}
+
+function isNearScrollBottom(element: HTMLElement, threshold = MESSAGE_BOTTOM_THRESHOLD): boolean {
+  return element.scrollHeight - element.scrollTop - element.clientHeight < threshold;
 }
 
 function observeMessageElementRect(instance: Virtualizer<HTMLElement, HTMLElement>, cb: (rect: Rect) => void): undefined | (() => void) {
@@ -214,13 +229,22 @@ function scrollMessageElement(
   if (!element) return;
 
   const unclampedTop = Math.max(0, offset + (options.adjustments ?? 0));
-  const scrollSize = element.scrollHeight || instance.getTotalSize();
-  const top = scrollSize > 0 ? Math.min(Math.max(0, scrollSize - element.clientHeight), unclampedTop) : unclampedTop;
+  scrollMessageElementToTop(element, unclampedTop, options.behavior, instance.getTotalSize());
+}
+
+function scrollMessageElementToTop(
+  element: HTMLElement,
+  scrollTop: number,
+  behavior?: "auto" | "smooth" | "instant",
+  fallbackScrollSize = 0,
+): void {
+  const scrollSize = element.scrollHeight || fallbackScrollSize;
+  const top = scrollSize > 0 ? Math.min(Math.max(0, scrollSize - element.clientHeight), Math.max(0, scrollTop)) : Math.max(0, scrollTop);
   const previousTop = element.scrollTop;
-  const behavior = options.behavior === "instant" ? "auto" : options.behavior;
+  const scrollBehavior = behavior === "instant" ? "auto" : behavior;
   if (typeof element.scrollTo === "function") {
-    if (behavior) {
-      element.scrollTo({ top, behavior });
+    if (scrollBehavior) {
+      element.scrollTo({ top, behavior: scrollBehavior });
     } else {
       element.scrollTo({ top });
     }
