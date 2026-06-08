@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/client";
-import { ServerRequestResponder } from "../../../../src/features/chat/requests/server-request-responder";
+import { createServerRequestActions } from "../../../../src/features/chat/requests/server-request-actions";
 
-describe("ServerRequestResponder", () => {
+describe("createServerRequestActions", () => {
   it("responds through the current app-server client", () => {
     const respondToServerRequest = vi.fn();
-    const responder = new ServerRequestResponder({
+    const responder = createServerRequestActions({
       currentClient: () => ({ respondToServerRequest }) as unknown as AppServerClient,
     });
 
@@ -17,7 +17,7 @@ describe("ServerRequestResponder", () => {
 
   it("rejects through the current app-server client", () => {
     const rejectServerRequest = vi.fn();
-    const responder = new ServerRequestResponder({
+    const responder = createServerRequestActions({
       currentClient: () => ({ rejectServerRequest }) as unknown as AppServerClient,
     });
 
@@ -27,9 +27,9 @@ describe("ServerRequestResponder", () => {
   });
 
   it("reports failure when there is no client or the client throws", () => {
-    expect(new ServerRequestResponder({ currentClient: () => null }).respond(7, null)).toBe(false);
+    expect(createServerRequestActions({ currentClient: () => null }).respond(7, null)).toBe(false);
     expect(
-      new ServerRequestResponder({
+      createServerRequestActions({
         currentClient: () =>
           ({
             rejectServerRequest: () => {

@@ -4,12 +4,12 @@ import { ChatRuntimeSettingsController } from "../runtime/runtime-settings-contr
 import { ChatThreadActionController } from "./thread-actions-controller";
 import { ChatThreadGoalController } from "./thread-goal-controller";
 import { ThreadHistoryController } from "./thread-history-controller";
-import { ThreadIdentityController } from "./thread-identity-controller";
+import { createThreadIdentityActions } from "./thread-identity-actions";
 import { ThreadRenameController } from "./thread-rename-controller";
 import { ThreadResumeController } from "./thread-resume-controller";
 import { createThreadSelectionActions } from "./thread-selection-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
-import { ChatReconnectController } from "../session/reconnect-controller";
+import { createChatReconnectActions } from "../session/reconnect-actions";
 import { createChatViewStateActions } from "../panel/view-state-controller";
 import { ToolbarPanelController } from "../panel/toolbar-controller";
 import type { ChatPanelContext } from "../panel/context";
@@ -71,7 +71,7 @@ export function createThreadControllerGroup(
     resumeThread: thread.resumeThread,
     addSystemMessage: status.addSystemMessage,
   });
-  const reconnectActions = new ChatReconnectController({
+  const reconnectActions = createChatReconnectActions({
     stateStore,
     invalidateConnectionWork: lifecycle.invalidateConnectionWork,
     invalidateResumeWork: lifecycle.invalidateResumeWork,
@@ -145,7 +145,7 @@ export function createThreadControllerGroup(
         return response?.dataBase64 ?? "";
       }),
   });
-  const threadIdentity = new ThreadIdentityController({
+  const threadIdentity = createThreadIdentityActions({
     stateStore,
     restoredThread,
     invalidateResumeWork: lifecycle.invalidateResumeWork,

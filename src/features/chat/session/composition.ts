@@ -5,7 +5,7 @@ import { ChatAppServerDiagnosticsController } from "../app-server/diagnostics-co
 import { ChatAppServerMetadataController } from "../app-server/metadata-controller";
 import { ChatAppServerThreadController } from "../app-server/thread-controller";
 import { ChatConnectionController } from "./connection-controller";
-import type { ServerRequestResponder } from "../requests/server-request-responder";
+import type { ServerRequestActions } from "../requests/server-request-actions";
 import type { ChatThreadGoalController } from "../threads/thread-goal-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import { ChatInboundController } from "../inbound/controller";
@@ -59,7 +59,7 @@ export function createChatInboundController(
     appServerMetadata: ChatAppServerMetadataController;
     appServerDiagnostics: ChatAppServerDiagnosticsController;
     threadRename: ThreadRenameController;
-    serverRequestResponder: ServerRequestResponder;
+    serverRequestResponder: ServerRequestActions;
   },
 ): ChatInboundController {
   const { plugin, thread, render } = context;

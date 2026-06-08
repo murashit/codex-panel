@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
-import { ChatReconnectController, type ChatReconnectControllerHost } from "../../../../src/features/chat/session/reconnect-controller";
+import { createChatReconnectActions, type ChatReconnectActionsHost } from "../../../../src/features/chat/session/reconnect-actions";
 
-function createHost(overrides: Partial<ChatReconnectControllerHost> = {}) {
+function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
   stateStore.dispatch({
@@ -17,7 +17,7 @@ function createHost(overrides: Partial<ChatReconnectControllerHost> = {}) {
     approvalsReviewer: null,
     activePermissionProfile: null,
   });
-  const host: ChatReconnectControllerHost = {
+  const host: ChatReconnectActionsHost = {
     stateStore,
     invalidateConnectionWork: vi.fn(),
     invalidateResumeWork: vi.fn(),
@@ -34,10 +34,10 @@ function createHost(overrides: Partial<ChatReconnectControllerHost> = {}) {
   return { host, stateStore };
 }
 
-describe("ChatReconnectController", () => {
+describe("createChatReconnectActions", () => {
   it("resets local connection state before reconnecting and resumes the active thread", async () => {
     const { host, stateStore } = createHost();
-    const controller = new ChatReconnectController(host);
+    const controller = createChatReconnectActions(host);
 
     await controller.reconnectPanel();
 
@@ -57,7 +57,7 @@ describe("ChatReconnectController", () => {
     const { host } = createHost({
       resumeThread: vi.fn().mockRejectedValue(new Error("resume failed")),
     });
-    const controller = new ChatReconnectController(host);
+    const controller = createChatReconnectActions(host);
 
     await controller.reconnectPanel();
 

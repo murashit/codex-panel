@@ -3,7 +3,7 @@ import type { ChatAppServerMetadataController } from "../app-server/metadata-con
 import type { ChatAppServerThreadController } from "../app-server/thread-controller";
 import type { ChatComposerController } from "../composer/controller";
 import { createAppServerWarmupActions } from "../session/app-server-warmup-controller";
-import { ChatViewOpenCloseController } from "./view-open-close-controller";
+import { createChatViewOpenCloseActions } from "./open-close-actions";
 import { ChatViewRenderController } from "./view-render-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import { applyCachedSharedAppServerState } from "./cached-app-server-state";
@@ -60,7 +60,7 @@ export function createConnectionLifecycleControllerGroup(
       connected: () => refs.connection.isConnected(),
       ensureConnected: client.ensureConnected,
     }),
-    openCloseController: new ChatViewOpenCloseController({
+    openCloseController: createChatViewOpenCloseActions({
       setOpened: lifecycle.setOpened,
       setClosing: lifecycle.setClosing,
       registerEvent: obsidian.registerEvent,

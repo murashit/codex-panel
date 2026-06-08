@@ -3,19 +3,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EventRef } from "obsidian";
 
-import {
-  ChatViewOpenCloseController,
-  type ChatViewOpenCloseControllerHost,
-} from "../../../../src/features/chat/panel/view-open-close-controller";
+import { createChatViewOpenCloseActions, type ChatViewOpenCloseActionsHost } from "../../../../src/features/chat/panel/open-close-actions";
 import { unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
 
 vi.mock("../../../../src/features/chat/ui/shell", () => ({
   unmountChatPanelShell: vi.fn(),
 }));
 
-function createHost(overrides: Partial<ChatViewOpenCloseControllerHost> = {}) {
+function createHost(overrides: Partial<ChatViewOpenCloseActionsHost> = {}) {
   const root = document.createElement("div");
-  const host: ChatViewOpenCloseControllerHost = {
+  const host: ChatViewOpenCloseActionsHost = {
     setOpened: vi.fn(),
     setClosing: vi.fn(),
     registerEvent: vi.fn(),
@@ -43,10 +40,10 @@ function createHost(overrides: Partial<ChatViewOpenCloseControllerHost> = {}) {
     deferRefreshLiveState: vi.fn(),
     ...overrides,
   };
-  return { controller: new ChatViewOpenCloseController(host), host, root };
+  return { controller: createChatViewOpenCloseActions(host), host, root };
 }
 
-describe("ChatViewOpenCloseController", () => {
+describe("createChatViewOpenCloseActions", () => {
   beforeEach(() => {
     vi.mocked(unmountChatPanelShell).mockClear();
   });

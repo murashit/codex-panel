@@ -1,11 +1,11 @@
 import type { ChatAppServerThreadController } from "../app-server/thread-controller";
 import { ChatComposerController } from "../composer/controller";
 import { activeTurnId } from "../chat-state";
-import type { ChatReconnectController } from "../session/reconnect-controller";
+import type { ChatReconnectActions } from "../session/reconnect-actions";
 import { PendingRequestController } from "../requests/pending-request-controller";
 import type { ChatRuntimeSettingsController } from "../runtime/runtime-settings-controller";
 import { ComposerSubmissionController } from "./composer-submission-controller";
-import { PlanImplementationController } from "./plan-implementation-controller";
+import { createPlanImplementationActions } from "./plan-implementation-actions";
 import { SlashCommandController } from "./slash-command-controller";
 import { TurnSubmissionController } from "./turn-submission-controller";
 import type { ChatThreadActionController } from "../threads/thread-actions-controller";
@@ -25,7 +25,7 @@ export function createTurnControllerGroup(
     runtimeSettings: ChatRuntimeSettingsController;
     threadActions: ChatThreadActionController;
     threadRename: ThreadRenameController;
-    reconnectActions: ChatReconnectController;
+    reconnectActions: ChatReconnectActions;
     goals: ChatThreadGoalController;
     history: ThreadHistoryController;
   },
@@ -139,7 +139,7 @@ export function createTurnControllerGroup(
       effortStatusLines: runtime.effortStatusLines,
     },
   });
-  const planImplementation = new PlanImplementationController({
+  const planImplementation = createPlanImplementationActions({
     stateStore,
     connection: {
       currentClient,

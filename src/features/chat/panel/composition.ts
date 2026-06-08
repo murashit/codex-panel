@@ -12,15 +12,15 @@ import type { ThreadRenameController } from "../threads/thread-rename-controller
 import type { ToolbarPanelController } from "./toolbar-controller";
 import type { AppServerWarmupActions } from "../session/app-server-warmup-controller";
 import type { ChatConnectionController } from "../session/connection-controller";
-import type { ChatReconnectController } from "../session/reconnect-controller";
+import type { ChatReconnectActions } from "../session/reconnect-actions";
 import type { PendingRequestController } from "../requests/pending-request-controller";
-import { ServerRequestResponder } from "../requests/server-request-responder";
+import { createServerRequestActions } from "../requests/server-request-actions";
 import type { ComposerSubmissionController } from "../turns/composer-submission-controller";
 import type { RestoredThreadController } from "../threads/restored-thread-controller";
-import type { ThreadIdentityController } from "../threads/thread-identity-controller";
+import type { ThreadIdentityActions } from "../threads/thread-identity-actions";
 import type { ThreadResumeController } from "../threads/thread-resume-controller";
 import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
-import type { ChatViewOpenCloseController } from "./view-open-close-controller";
+import type { ChatViewOpenCloseActions } from "./open-close-actions";
 import type { ChatViewRenderController } from "./view-render-controller";
 import type { ChatViewStateActions } from "./view-state-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
@@ -34,7 +34,7 @@ export interface ChatViewControllers {
   connection: {
     manager: ConnectionManager;
     controller: ChatConnectionController;
-    reconnect: ChatReconnectController;
+    reconnect: ChatReconnectActions;
     warmup: AppServerWarmupActions;
   };
   inbound: {
@@ -50,7 +50,7 @@ export interface ChatViewControllers {
     resume: ThreadResumeController;
     actions: ChatThreadActionController;
     restored: RestoredThreadController;
-    identity: ThreadIdentityController;
+    identity: ThreadIdentityActions;
     rename: ThreadRenameController;
     selection: ThreadSelectionActions;
   };
@@ -71,7 +71,7 @@ export interface ChatViewControllers {
   render: {
     controller: ChatViewRenderController;
     messages: ChatMessageRenderer;
-    openClose: ChatViewOpenCloseController;
+    openClose: ChatViewOpenCloseActions;
     viewState: ChatViewStateActions;
   };
 }
@@ -99,7 +99,7 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
     connection,
     goals,
   });
-  const serverRequestResponder = new ServerRequestResponder({
+  const serverRequestResponder = createServerRequestActions({
     currentClient: ports.client.getClient,
   });
   const controller = createChatInboundController(ports, {

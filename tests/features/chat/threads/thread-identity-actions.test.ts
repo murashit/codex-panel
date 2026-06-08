@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
-import { ThreadIdentityController } from "../../../../src/features/chat/threads/thread-identity-controller";
+import { createThreadIdentityActions } from "../../../../src/features/chat/threads/thread-identity-actions";
 import type { RestoredThreadController } from "../../../../src/features/chat/threads/restored-thread-controller";
 import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/panel/lifecycle";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
@@ -52,10 +52,10 @@ function createController() {
     refreshLiveState: vi.fn(),
     render: vi.fn(),
   };
-  return { controller: new ThreadIdentityController(host), host, restoredPlaceholder, restoredRename, stateStore };
+  return { controller: createThreadIdentityActions(host), host, restoredPlaceholder, restoredRename, stateStore };
 }
 
-describe("ThreadIdentityController", () => {
+describe("createThreadIdentityActions", () => {
   it("clears the active thread when it is archived", () => {
     const { controller, host, stateStore } = createController();
     stateStore.dispatch({

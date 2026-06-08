@@ -4,9 +4,9 @@ import type { AppServerClient } from "../../../../src/app-server/client";
 import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../src/features/chat/chat-state";
 import { implementPlanCandidateFromState } from "../../../../src/features/chat/plan-implementation";
 import {
-  PlanImplementationController,
-  type PlanImplementationControllerHost,
-} from "../../../../src/features/chat/turns/plan-implementation-controller";
+  createPlanImplementationActions,
+  type PlanImplementationActionsHost,
+} from "../../../../src/features/chat/turns/plan-implementation-actions";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 
 const planItem = (id: string): DisplayItem => ({
@@ -38,7 +38,7 @@ function createController({ client = {} as AppServerClient } = {}) {
   const stateStore = createChatStateStore(createChatState());
   const ensureConnected = vi.fn().mockResolvedValue(undefined);
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
-  const host: PlanImplementationControllerHost = {
+  const host: PlanImplementationActionsHost = {
     stateStore,
     connection: {
       currentClient: () => client,
@@ -48,10 +48,10 @@ function createController({ client = {} as AppServerClient } = {}) {
       sendTurnText,
     },
   };
-  return { controller: new PlanImplementationController(host), ensureConnected, sendTurnText, stateStore };
+  return { controller: createPlanImplementationActions(host), ensureConnected, sendTurnText, stateStore };
 }
 
-describe("PlanImplementationController", () => {
+describe("createPlanImplementationActions", () => {
   it("finds the latest proposed plan only when the thread is implementable", () => {
     const stateStore = createChatStateStore(createChatState());
     const first = planItem("first");
