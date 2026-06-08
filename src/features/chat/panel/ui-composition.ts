@@ -1,6 +1,6 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
-import type { ChatAppServerMetadataController } from "../app-server/metadata-controller";
-import type { ChatAppServerThreadController } from "../app-server/thread-controller";
+import type { ChatAppServerMetadataActions } from "../app-server/metadata-actions";
+import type { ChatAppServerThreadActions } from "../app-server/thread-actions";
 import type { ChatComposerController } from "../composer/controller";
 import { createAppServerWarmupActions } from "../session/app-server-warmup-controller";
 import { createChatViewOpenCloseActions } from "./open-close-actions";
@@ -45,8 +45,8 @@ export function createConnectionLifecycleControllerGroup(
     connection: ConnectionManager;
     composerController: ChatComposerController;
     messageRenderer: ChatMessageRenderer;
-    appServerThreads: ChatAppServerThreadController;
-    appServerMetadata: ChatAppServerMetadataController;
+    appServerThreads: ChatAppServerThreadActions;
+    appServerMetadata: ChatAppServerMetadataActions;
   },
 ) {
   const { obsidian, lifecycle, render, liveState, scroll, client } = context;

@@ -1,8 +1,8 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
-import { ChatRuntimeSettingsController } from "../runtime/runtime-settings-controller";
-import { ChatThreadActionController } from "./thread-actions-controller";
-import { ChatThreadGoalController } from "./thread-goal-controller";
+import { createChatRuntimeSettingsActions } from "../runtime/runtime-settings-actions";
+import { createChatThreadActions } from "./thread-actions";
+import { createChatThreadGoalActions } from "./thread-goal-actions";
 import { ThreadHistoryController } from "./thread-history-controller";
 import { createThreadIdentityActions } from "./thread-identity-actions";
 import { ThreadRenameController } from "./thread-rename-controller";
@@ -34,7 +34,7 @@ export function createThreadControllerGroup(
     keepCurrentScrollPosition: scroll.preservePosition,
     setThreadTurnPresence: thread.resetTurnPresence,
   });
-  const threadActions = new ChatThreadActionController({
+  const threadActions = createChatThreadActions({
     stateStore,
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
@@ -86,14 +86,14 @@ export function createThreadControllerGroup(
     resumeThread: thread.resumeThread,
     addSystemMessage: status.addSystemMessage,
   });
-  const runtimeSettings = new ChatRuntimeSettingsController({
+  const runtimeSettings = createChatRuntimeSettingsActions({
     stateStore,
     currentClient,
     runtimeSnapshot: runtime.runtimeSnapshot,
     collaborationModeLabel: runtime.collaborationModeLabel,
     addSystemMessage: status.addSystemMessage,
   });
-  const goals = new ChatThreadGoalController({
+  const goals = createChatThreadGoalActions({
     stateStore,
     currentClient,
     ensureConnected: client.ensureConnected,

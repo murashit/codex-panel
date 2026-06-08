@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { ToolbarPanelController } from "../../../../src/features/chat/panel/toolbar-controller";
-import type { ChatThreadActionController } from "../../../../src/features/chat/threads/thread-actions-controller";
+import type { ChatThreadActions } from "../../../../src/features/chat/threads/thread-actions";
 
 describe("ToolbarPanelController", () => {
   it("tracks archive confirmation and delegates archive actions", async () => {
@@ -13,7 +13,7 @@ describe("ToolbarPanelController", () => {
     const scheduleRender = vi.fn();
     const controller = new ToolbarPanelController({
       stateStore,
-      threadActions: { archiveThread } as unknown as ChatThreadActionController,
+      threadActions: { archiveThread } as unknown as ChatThreadActions,
       scheduleRender,
     });
 
@@ -32,7 +32,7 @@ describe("ToolbarPanelController", () => {
     const scheduleRender = vi.fn();
     const controller = new ToolbarPanelController({
       stateStore,
-      threadActions: { archiveThread: vi.fn() } as unknown as ChatThreadActionController,
+      threadActions: { archiveThread: vi.fn() } as unknown as ChatThreadActions,
       scheduleRender,
     });
     controller.toggleHistory();

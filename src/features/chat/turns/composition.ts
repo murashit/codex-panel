@@ -1,15 +1,15 @@
-import type { ChatAppServerThreadController } from "../app-server/thread-controller";
+import type { ChatAppServerThreadActions } from "../app-server/thread-actions";
 import { ChatComposerController } from "../composer/controller";
 import { activeTurnId } from "../chat-state";
 import type { ChatReconnectActions } from "../session/reconnect-actions";
 import { PendingRequestController } from "../requests/pending-request-controller";
-import type { ChatRuntimeSettingsController } from "../runtime/runtime-settings-controller";
-import { ComposerSubmissionController } from "./composer-submission-controller";
+import type { ChatRuntimeSettingsActions } from "../runtime/runtime-settings-actions";
+import { createComposerSubmissionActions } from "./composer-submission-actions";
 import { createPlanImplementationActions } from "./plan-implementation-actions";
-import { SlashCommandController } from "./slash-command-controller";
+import { createSlashCommandActions } from "./slash-command-actions";
 import { TurnSubmissionController } from "./turn-submission-controller";
-import type { ChatThreadActionController } from "../threads/thread-actions-controller";
-import type { ChatThreadGoalController } from "../threads/thread-goal-controller";
+import type { ChatThreadActions } from "../threads/thread-actions";
+import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadHistoryController } from "../threads/thread-history-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import type { ChatInboundController } from "../inbound/controller";
@@ -21,12 +21,12 @@ export function createTurnControllerGroup(
   context: ChatPanelContext,
   refs: {
     controller: ChatInboundController;
-    appServerThreads: ChatAppServerThreadController;
-    runtimeSettings: ChatRuntimeSettingsController;
-    threadActions: ChatThreadActionController;
+    appServerThreads: ChatAppServerThreadActions;
+    runtimeSettings: ChatRuntimeSettingsActions;
+    threadActions: ChatThreadActions;
     threadRename: ThreadRenameController;
     reconnectActions: ChatReconnectActions;
-    goals: ChatThreadGoalController;
+    goals: ChatThreadGoalActions;
     history: ThreadHistoryController;
   },
 ) {
@@ -97,7 +97,7 @@ export function createTurnControllerGroup(
       addSystemMessage: status.addSystemMessage,
     },
   });
-  const slashCommands = new SlashCommandController({
+  const slashCommands = createSlashCommandActions({
     stateStore,
     currentClient,
     codexInput: (text) => composerController.codexInput(text),
@@ -178,7 +178,7 @@ export function createTurnControllerGroup(
       renderPending: () => pendingRequests.renderNode(),
     },
   });
-  const composerSubmission = new ComposerSubmissionController({
+  const composerSubmission = createComposerSubmissionActions({
     stateStore,
     composer: composerController,
     slashCommands,

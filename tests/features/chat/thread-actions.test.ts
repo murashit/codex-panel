@@ -3,10 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../src/app-server/client";
 import type { ArchiveExportAdapter } from "../../../src/domain/threads/export";
 import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
-import {
-  ChatThreadActionController,
-  type ChatThreadActionControllerHost,
-} from "../../../src/features/chat/threads/thread-actions-controller";
+import { createChatThreadActions, type ChatThreadActionsHost } from "../../../src/features/chat/threads/thread-actions";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
@@ -18,7 +15,7 @@ type MockArchiveExportAdapter = ArchiveExportAdapter & {
   write: ReturnType<typeof vi.fn<ArchiveExportAdapter["write"]>>;
 };
 
-describe("ChatThreadActionController", () => {
+describe("createChatThreadActions", () => {
   beforeEach(() => {
     notices.length = 0;
   });
@@ -26,7 +23,7 @@ describe("ChatThreadActionController", () => {
   it("requests thread compaction and reports the shared status", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: [] });
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.compactThread("source");
 
@@ -50,7 +47,7 @@ describe("ChatThreadActionController", () => {
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
       },
     });
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.archiveThread("source");
 
@@ -80,7 +77,7 @@ describe("ChatThreadActionController", () => {
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
       },
     });
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.archiveThread("source");
 
@@ -93,7 +90,7 @@ describe("ChatThreadActionController", () => {
   it("forks from a selected turn by dropping later turns on the fork", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-1", false);
 
@@ -107,7 +104,7 @@ describe("ChatThreadActionController", () => {
   it("does not open the fork in a new panel before archiving the source", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-2", true);
 
@@ -131,7 +128,7 @@ describe("ChatThreadActionController", () => {
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
       },
     });
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
@@ -150,7 +147,7 @@ describe("ChatThreadActionController", () => {
     const client = clientMock();
     client.archiveThread.mockRejectedValue(new Error("archive failed"));
     const host = hostMock({ client, displayItems: turnItems() });
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
@@ -164,7 +161,7 @@ describe("ChatThreadActionController", () => {
   it("replaces the source panel before notifying surfaces after fork and archive succeeds", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
@@ -181,7 +178,7 @@ describe("ChatThreadActionController", () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
     host.openThreadInCurrentPanel.mockRejectedValue(new Error("resume failed"));
-    const controller = new ChatThreadActionController(host);
+    const controller = createChatThreadActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
@@ -268,7 +265,7 @@ function hostMock({
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshThreads: vi.fn().mockResolvedValue(undefined),
     refreshSharedThreadListFromOpenSurface: vi.fn(),
-  } satisfies ChatThreadActionControllerHost;
+  } satisfies ChatThreadActionsHost;
 }
 
 function archiveAdapterMock(overrides: Partial<MockArchiveExportAdapter> = {}): MockArchiveExportAdapter {

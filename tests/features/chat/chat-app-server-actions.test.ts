@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../src/app-server/client";
-import { ChatAppServerDiagnosticsController } from "../../../src/features/chat/app-server/diagnostics-controller";
-import { ChatAppServerMetadataController } from "../../../src/features/chat/app-server/metadata-controller";
-import { ChatAppServerThreadController } from "../../../src/features/chat/app-server/thread-controller";
+import { createChatAppServerDiagnosticsActions } from "../../../src/features/chat/app-server/diagnostics-actions";
+import { createChatAppServerMetadataActions } from "../../../src/features/chat/app-server/metadata-actions";
+import { createChatAppServerThreadActions } from "../../../src/features/chat/app-server/thread-actions";
 import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { McpServerStatus } from "../../../src/generated/app-server/v2/McpServerStatus";
@@ -34,7 +34,7 @@ describe("chat app-server controllers", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = new ChatAppServerThreadController({
+    const controller = createChatAppServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -68,7 +68,7 @@ describe("chat app-server controllers", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = new ChatAppServerThreadController({
+    const controller = createChatAppServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -100,7 +100,7 @@ describe("chat app-server controllers", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = new ChatAppServerThreadController({
+    const controller = createChatAppServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -134,13 +134,13 @@ describe("chat app-server controllers", () => {
       readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
     } as unknown as AppServerClient;
 
-    const metadata = new ChatAppServerMetadataController({
+    const metadata = createChatAppServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       publishAppServerMetadata: () => undefined,
     });
-    const diagnostics = new ChatAppServerDiagnosticsController({
+    const diagnostics = createChatAppServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -181,7 +181,7 @@ describe("chat app-server controllers", () => {
     const client = {
       readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
     } as unknown as AppServerClient;
-    const controller = new ChatAppServerMetadataController({
+    const controller = createChatAppServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -206,7 +206,7 @@ describe("chat app-server controllers", () => {
     const client = {
       readAccountRateLimits: vi.fn().mockRejectedValue(new Error("offline")),
     } as unknown as AppServerClient;
-    const controller = new ChatAppServerMetadataController({
+    const controller = createChatAppServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -228,13 +228,13 @@ describe("chat app-server controllers", () => {
     const client = {
       listMcpServerStatus,
     } as unknown as AppServerClient;
-    const metadata = new ChatAppServerMetadataController({
+    const metadata = createChatAppServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       publishAppServerMetadata: () => undefined,
     });
-    const controller = new ChatAppServerDiagnosticsController({
+    const controller = createChatAppServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,

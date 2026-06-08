@@ -1,12 +1,12 @@
 import { ConnectionManager } from "../../../app-server/connection-manager";
-import type { ChatAppServerDiagnosticsController } from "../app-server/diagnostics-controller";
-import type { ChatAppServerMetadataController } from "../app-server/metadata-controller";
-import type { ChatAppServerThreadController } from "../app-server/thread-controller";
+import type { ChatAppServerDiagnosticsActions } from "../app-server/diagnostics-actions";
+import type { ChatAppServerMetadataActions } from "../app-server/metadata-actions";
+import type { ChatAppServerThreadActions } from "../app-server/thread-actions";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatInboundController } from "../inbound/controller";
-import type { ChatThreadGoalController } from "../threads/thread-goal-controller";
-import type { ChatRuntimeSettingsController } from "../runtime/runtime-settings-controller";
-import type { ChatThreadActionController } from "../threads/thread-actions-controller";
+import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
+import type { ChatRuntimeSettingsActions } from "../runtime/runtime-settings-actions";
+import type { ChatThreadActions } from "../threads/thread-actions";
 import type { ThreadHistoryController } from "../threads/thread-history-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import type { ToolbarPanelController } from "./toolbar-controller";
@@ -15,7 +15,7 @@ import type { ChatConnectionController } from "../session/connection-controller"
 import type { ChatReconnectActions } from "../session/reconnect-actions";
 import type { PendingRequestController } from "../requests/pending-request-controller";
 import { createServerRequestActions } from "../requests/server-request-actions";
-import type { ComposerSubmissionController } from "../turns/composer-submission-controller";
+import type { ComposerSubmissionActions } from "../turns/composer-submission-actions";
 import type { RestoredThreadController } from "../threads/restored-thread-controller";
 import type { ThreadIdentityActions } from "../threads/thread-identity-actions";
 import type { ThreadResumeController } from "../threads/thread-resume-controller";
@@ -41,22 +41,22 @@ export interface ChatViewControllers {
     controller: ChatInboundController;
   };
   appServer: {
-    threads: ChatAppServerThreadController;
-    metadata: ChatAppServerMetadataController;
-    diagnostics: ChatAppServerDiagnosticsController;
+    threads: ChatAppServerThreadActions;
+    metadata: ChatAppServerMetadataActions;
+    diagnostics: ChatAppServerDiagnosticsActions;
   };
   thread: {
     history: ThreadHistoryController;
     resume: ThreadResumeController;
-    actions: ChatThreadActionController;
+    actions: ChatThreadActions;
     restored: RestoredThreadController;
     identity: ThreadIdentityActions;
     rename: ThreadRenameController;
     selection: ThreadSelectionActions;
   };
   runtime: {
-    settings: ChatRuntimeSettingsController;
-    goals: ChatThreadGoalController;
+    settings: ChatRuntimeSettingsActions;
+    goals: ChatThreadGoalActions;
   };
   requests: {
     pending: PendingRequestController;
@@ -66,7 +66,7 @@ export interface ChatViewControllers {
   };
   composer: {
     controller: ChatComposerController;
-    submission: ComposerSubmissionController;
+    submission: ComposerSubmissionActions;
   };
   render: {
     controller: ChatViewRenderController;

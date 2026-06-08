@@ -1,18 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ChatRuntimeSettingsController } from "../../../../src/features/chat/runtime/runtime-settings-controller";
+import {
+  createChatRuntimeSettingsActions,
+  type ChatRuntimeSettingsActions,
+} from "../../../../src/features/chat/runtime/runtime-settings-actions";
 import { createChatState, createChatStateStore, type ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/chat-state";
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { Model } from "../../../../src/generated/app-server/v2/Model";
 
-describe("ChatRuntimeSettingsController", () => {
+describe("createChatRuntimeSettingsActions", () => {
   it("applies pending runtime overrides through thread settings and commits them", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
-    const controller = new ChatRuntimeSettingsController({
+    const controller = createChatRuntimeSettingsActions({
       stateStore: store,
       currentClient: () => client as AppServerClient,
       runtimeSnapshot: () => ({
@@ -107,8 +110,8 @@ function runtimeControllerFixture(
   store: ReturnType<typeof createChatStateStore>,
   client: Pick<AppServerClient, "updateThreadSettings">,
   messages: string[],
-): ChatRuntimeSettingsController {
-  return new ChatRuntimeSettingsController({
+): ChatRuntimeSettingsActions {
+  return createChatRuntimeSettingsActions({
     stateStore: store,
     currentClient: () => client as AppServerClient,
     runtimeSnapshot: () => {
