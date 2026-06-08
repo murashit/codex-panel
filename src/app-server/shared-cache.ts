@@ -5,6 +5,7 @@ import {
   applySharedModels,
   applySharedThreadList,
   cachedSharedAppServerMetadata,
+  cachedSharedModels,
   cachedSharedThreadList,
   createSharedAppServerState,
   type SharedAppServerMetadata,
@@ -58,6 +59,6 @@ export class SharedAppServerCache {
   }
 
   cachedModels(): Model[] {
-    return [...this.state.availableModels];
+    return cachedSharedModels(this.state);
   }
 }

@@ -1,6 +1,5 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
-import { createChatRuntimeSettingsActions } from "../runtime/runtime-settings-actions";
 import { createChatThreadActions } from "./thread-actions";
 import { createChatThreadGoalActions } from "./thread-goal-actions";
 import { ThreadHistoryController } from "./thread-history-controller";
@@ -9,9 +8,7 @@ import { ThreadRenameController } from "./thread-rename-controller";
 import { ThreadResumeController } from "./thread-resume-controller";
 import { createThreadSelectionActions } from "./thread-selection-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
-import { createChatReconnectActions } from "../session/reconnect-actions";
-import { createChatViewStateActions } from "../panel/view-state-controller";
-import { ToolbarPanelController } from "../panel/toolbar-controller";
+import type { ToolbarPanelController } from "../panel/toolbar-controller";
 import type { ChatPanelContext } from "../panel/context";
 
 export function createThreadControllerGroup(
@@ -20,7 +17,7 @@ export function createThreadControllerGroup(
     connection: ConnectionManager;
   },
 ) {
-  const { obsidian, plugin, state, runtime, thread, status, liveState, scroll, render, client, composer, lifecycle } = context;
+  const { obsidian, plugin, state, thread, status, liveState, scroll, render, client, composer, lifecycle } = context;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
   const { deferredTasks, resumeWork } = lifecycle;
@@ -57,42 +54,6 @@ export function createThreadControllerGroup(
       plugin.refreshSharedThreadListFromOpenSurface();
     },
   });
-  const toolbarPanels = new ToolbarPanelController({
-    stateStore,
-    threadActions,
-    scheduleRender: render.schedule,
-  });
-  const threadSelection = createThreadSelectionActions({
-    stateStore,
-    closeForThreadSelection: () => {
-      toolbarPanels.closeForThreadSelection();
-    },
-    focusThreadInOpenView: (threadId) => plugin.focusThreadInOpenView(threadId),
-    resumeThread: thread.resumeThread,
-    addSystemMessage: status.addSystemMessage,
-  });
-  const reconnectActions = createChatReconnectActions({
-    stateStore,
-    invalidateConnectionWork: lifecycle.invalidateConnectionWork,
-    invalidateResumeWork: lifecycle.invalidateResumeWork,
-    clearDeferredDiagnostics: lifecycle.clearDeferredDiagnostics,
-    reconnect: () => {
-      refs.connection.reconnect();
-    },
-    clearClient: client.clear,
-    setStatus: status.set,
-    render: render.now,
-    ensureConnected: client.ensureConnected,
-    resumeThread: thread.resumeThread,
-    addSystemMessage: status.addSystemMessage,
-  });
-  const runtimeSettings = createChatRuntimeSettingsActions({
-    stateStore,
-    currentClient,
-    runtimeSnapshot: runtime.runtimeSnapshot,
-    collaborationModeLabel: runtime.collaborationModeLabel,
-    addSystemMessage: status.addSystemMessage,
-  });
   const goals = createChatThreadGoalActions({
     stateStore,
     currentClient,
@@ -113,13 +74,6 @@ export function createThreadControllerGroup(
     systemItem: state.systemItem,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
-  });
-  const viewStateController = createChatViewStateActions({
-    invalidateResumeWork: lifecycle.invalidateResumeWork,
-    clearRestoredThreadLifecycle: thread.clearRestoredLifecycle,
-    clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
-    scheduleDeferredAppServerWarmup: lifecycle.scheduleDeferredAppServerWarmup,
-    restoreThreadPlaceholder: thread.restorePlaceholder,
   });
   const threadResume = new ThreadResumeController({
     stateStore,
@@ -171,15 +125,32 @@ export function createThreadControllerGroup(
   return {
     history,
     threadActions,
-    toolbarPanels,
-    threadSelection,
-    reconnectActions,
-    runtimeSettings,
     goals,
     restoredThread,
-    viewStateController,
     threadResume,
     threadIdentity,
     threadRename,
   };
+}
+
+export function createThreadSelectionControllerGroup(
+  context: ChatPanelContext,
+  refs: {
+    toolbarPanels: ToolbarPanelController;
+  },
+) {
+  const { plugin, thread, status } = context;
+  const stateStore = context.state.stateStore;
+
+  const threadSelection = createThreadSelectionActions({
+    stateStore,
+    closeForThreadSelection: () => {
+      refs.toolbarPanels.closeForThreadSelection();
+    },
+    focusThreadInOpenView: (threadId) => plugin.focusThreadInOpenView(threadId),
+    resumeThread: thread.resumeThread,
+    addSystemMessage: status.addSystemMessage,
+  });
+
+  return { threadSelection };
 }

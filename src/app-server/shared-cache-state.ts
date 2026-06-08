@@ -66,6 +66,10 @@ export function cachedSharedAppServerMetadata(state: SharedAppServerState): Shar
   return null;
 }
 
+export function cachedSharedModels(state: SharedAppServerState): Model[] {
+  return cloneModels(state.availableModels);
+}
+
 function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): SharedAppServerMetadata {
   return {
     ...metadata,

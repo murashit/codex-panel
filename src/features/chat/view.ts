@@ -73,6 +73,8 @@ export class CodexChatView extends ItemView {
   }
 
   private createControllerPorts(): ChatPanelContext {
+    // Some callbacks are late-bound to controllers assigned immediately after this object is created.
+    // Controller constructors must not invoke those callbacks synchronously during composition.
     return {
       obsidian: {
         app: this.app,

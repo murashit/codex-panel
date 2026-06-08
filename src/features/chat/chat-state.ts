@@ -242,6 +242,7 @@ type RequestAction =
   | { type: "request/user-input-draft-set"; key: string; value: string };
 
 type TranscriptAction =
+  | { type: "transcript/item-added"; item: DisplayItem }
   | { type: "transcript/system-message-added"; item: DisplayItem }
   | { type: "transcript/deduped-log-added"; text: string; item: DisplayItem }
   | { type: "transcript/history-loading-set"; loading: boolean }
@@ -710,6 +711,7 @@ function reduceRequestSlice(state: ChatRequestState, action: ChatSliceAction): C
 
 function reduceTranscriptSlice(state: ChatTranscriptState, action: ChatSliceAction): ChatTranscriptState {
   switch (action.type) {
+    case "transcript/item-added":
     case "transcript/system-message-added":
       return patchObject(state, { displayItems: [...state.displayItems, action.item] });
     case "transcript/deduped-log-added":

@@ -25,10 +25,16 @@ import type { ChatViewRenderController } from "./view-render-controller";
 import type { ChatViewStateActions } from "./view-state-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatPanelContext } from "./context";
-import { createChatAppServerControllers, createChatConnectionControllers, createChatInboundController } from "../session/composition";
-import { createThreadControllerGroup } from "../threads/composition";
-import { createTurnControllerGroup } from "../turns/composition";
-import { createConnectionLifecycleControllerGroup, createViewRenderControllerGroup } from "./ui-composition";
+import {
+  createChatAppServerControllers,
+  createChatConnectionControllers,
+  createChatInboundController,
+  createChatReconnectControllerGroup,
+} from "../session/composition";
+import { createChatRuntimeControllerGroup } from "../runtime/composition";
+import { createThreadControllerGroup, createThreadSelectionControllerGroup } from "../threads/composition";
+import { createConversationSurfaceControllerGroup } from "../turns/composition";
+import { createConnectionLifecycleControllerGroup, createPanelUiControllerGroup, createViewRenderControllerGroup } from "./ui-composition";
 
 export interface ChatViewControllers {
   connection: {
@@ -79,20 +85,17 @@ export interface ChatViewControllers {
 export function createChatViewControllers(ports: ChatPanelContext): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
   const { renderController } = createViewRenderControllerGroup(ports, { connection });
-  const {
-    history,
+  const { runtimeSettings } = createChatRuntimeControllerGroup(ports);
+  const { history, threadActions, goals, restoredThread, threadResume, threadIdentity, threadRename } = createThreadControllerGroup(ports, {
+    connection,
+  });
+  const { toolbarPanels, viewStateController } = createPanelUiControllerGroup(ports, {
     threadActions,
+  });
+  const { threadSelection } = createThreadSelectionControllerGroup(ports, {
     toolbarPanels,
-    threadSelection,
-    reconnectActions,
-    runtimeSettings,
-    goals,
-    restoredThread,
-    viewStateController,
-    threadResume,
-    threadIdentity,
-    threadRename,
-  } = createThreadControllerGroup(ports, {
+  });
+  const { reconnectActions } = createChatReconnectControllerGroup(ports, {
     connection,
   });
   const { appServerThreads, appServerMetadata, appServerDiagnostics } = createChatAppServerControllers(ports, {
@@ -134,7 +137,7 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
     },
   });
 
-  const { pendingRequests, messageRenderer, composerController, composerSubmission } = createTurnControllerGroup(ports, {
+  const { pendingRequests, messageRenderer, composerController, composerSubmission } = createConversationSurfaceControllerGroup(ports, {
     controller,
     appServerThreads,
     runtimeSettings,

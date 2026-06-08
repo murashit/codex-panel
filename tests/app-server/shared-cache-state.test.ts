@@ -6,6 +6,7 @@ import {
   applySharedModels,
   applySharedThreadList,
   cachedSharedAppServerMetadata,
+  cachedSharedModels,
   cachedSharedThreadList,
   createSharedAppServerState,
 } from "../../src/app-server/shared-cache-state";
@@ -29,6 +30,9 @@ describe("shared app-server cache state", () => {
     const modelState = applySharedModels(createSharedAppServerState(), sourceModels);
     sourceModels.push(modelFixture("gpt-5.6"));
     expect(modelState.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
+    const cachedModels = cachedSharedModels(modelState);
+    cachedModels[0]?.supportedReasoningEfforts.push({ reasoningEffort: "high", description: "High" });
+    expect(cachedSharedModels(modelState)[0]?.supportedReasoningEfforts).toEqual([]);
 
     const metadataState = applySharedAppServerMetadata(createSharedAppServerState(), {
       effectiveConfig: null,

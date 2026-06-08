@@ -17,7 +17,7 @@ import { currentModel } from "../../../runtime/effective-settings";
 import { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatPanelContext } from "../panel/context";
 
-export function createTurnControllerGroup(
+export function createConversationSurfaceControllerGroup(
   context: ChatPanelContext,
   refs: {
     controller: ChatInboundController;

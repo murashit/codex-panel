@@ -64,6 +64,6 @@ export function turnStartFailedAction(displayItems: readonly DisplayItem[]): Cha
   return { type: "turn/start-failed", displayItems };
 }
 
-export function addLocalUserMessageAction(item: DisplayItem): ChatAction {
-  return { type: "transcript/system-message-added", item };
+export function addTranscriptItemAction(item: DisplayItem): ChatAction {
+  return { type: "transcript/item-added", item };
 }

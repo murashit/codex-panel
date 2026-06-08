@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../app-server/client";
 import type { UserInput } from "../../../generated/app-server/v2/UserInput";
 import type { ReferencedThreadDisplay } from "../../../domain/threads/reference";
 import {
-  addLocalUserMessageAction,
+  addTranscriptItemAction,
   optimisticTurnStartedAction,
   turnStartAcknowledgedAction,
   turnStartFailedAction,
@@ -157,7 +157,7 @@ export class TurnSubmissionController {
     try {
       await client.steerTurn(threadId, expectedTurnId, codexInput, localSteerId);
       this.host.stateStore.dispatch(
-        addLocalUserMessageAction(
+        addTranscriptItemAction(
           localUserMessageItemFromInput({
             id: localSteerId,
             text,

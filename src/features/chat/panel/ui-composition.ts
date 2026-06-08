@@ -2,9 +2,12 @@ import type { ConnectionManager } from "../../../app-server/connection-manager";
 import type { ChatAppServerMetadataActions } from "../app-server/metadata-actions";
 import type { ChatAppServerThreadActions } from "../app-server/thread-actions";
 import type { ChatComposerController } from "../composer/controller";
+import type { ChatThreadActions } from "../threads/thread-actions";
 import { createAppServerWarmupActions } from "../session/app-server-warmup-controller";
 import { createChatViewOpenCloseActions } from "./open-close-actions";
+import { ToolbarPanelController } from "./toolbar-controller";
 import { ChatViewRenderController } from "./view-render-controller";
+import { createChatViewStateActions } from "./view-state-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import { applyCachedSharedAppServerState } from "./cached-app-server-state";
 import type { ChatPanelContext } from "./context";
@@ -98,4 +101,28 @@ export function createConnectionLifecycleControllerGroup(
       deferRefreshLiveState: liveState.deferRefresh,
     }),
   };
+}
+
+export function createPanelUiControllerGroup(
+  context: ChatPanelContext,
+  refs: {
+    threadActions: ChatThreadActions;
+  },
+) {
+  const { lifecycle, render, thread } = context;
+
+  const toolbarPanels = new ToolbarPanelController({
+    stateStore: context.state.stateStore,
+    threadActions: refs.threadActions,
+    scheduleRender: render.schedule,
+  });
+  const viewStateController = createChatViewStateActions({
+    invalidateResumeWork: lifecycle.invalidateResumeWork,
+    clearRestoredThreadLifecycle: thread.clearRestoredLifecycle,
+    clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
+    scheduleDeferredAppServerWarmup: lifecycle.scheduleDeferredAppServerWarmup,
+    restoreThreadPlaceholder: thread.restorePlaceholder,
+  });
+
+  return { toolbarPanels, viewStateController };
 }

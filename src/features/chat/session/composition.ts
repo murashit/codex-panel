@@ -5,6 +5,7 @@ import { createChatAppServerDiagnosticsActions, type ChatAppServerDiagnosticsAct
 import { createChatAppServerMetadataActions, type ChatAppServerMetadataActions } from "../app-server/metadata-actions";
 import { createChatAppServerThreadActions } from "../app-server/thread-actions";
 import { ChatConnectionController } from "./connection-controller";
+import { createChatReconnectActions } from "./reconnect-actions";
 import type { ServerRequestActions } from "../requests/server-request-actions";
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
@@ -128,4 +129,31 @@ export function createChatConnectionControllers(
       },
     }),
   };
+}
+
+export function createChatReconnectControllerGroup(
+  context: ChatPanelContext,
+  refs: {
+    connection: ConnectionManager;
+  },
+) {
+  const { client, lifecycle, render, status, thread } = context;
+
+  const reconnectActions = createChatReconnectActions({
+    stateStore: context.state.stateStore,
+    invalidateConnectionWork: lifecycle.invalidateConnectionWork,
+    invalidateResumeWork: lifecycle.invalidateResumeWork,
+    clearDeferredDiagnostics: lifecycle.clearDeferredDiagnostics,
+    reconnect: () => {
+      refs.connection.reconnect();
+    },
+    clearClient: client.clear,
+    setStatus: status.set,
+    render: render.now,
+    ensureConnected: client.ensureConnected,
+    resumeThread: thread.resumeThread,
+    addSystemMessage: status.addSystemMessage,
+  });
+
+  return { reconnectActions };
 }
