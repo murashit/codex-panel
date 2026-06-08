@@ -87,6 +87,7 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/diff/render.ts",
   "src/shared/ui/dom.ts",
   "src/shared/ui/components.tsx",
+  "src/shared/ui/textarea-autogrow.ts",
   "src/shared/ui/textarea-caret.ts",
   "src/shared/ui/ui-root.tsx",
 ];

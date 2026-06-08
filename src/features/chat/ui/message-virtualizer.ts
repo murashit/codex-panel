@@ -159,7 +159,7 @@ export class MessageStreamVirtualizer {
             return;
           }
           this.rememberScrollMetrics(scrollElement, { scrollSize: instance.getTotalSize() });
-      }),
+        }),
       scrollToFn: scrollMessageElement,
       measureElement: measureMessageElement,
       onChange: () => {

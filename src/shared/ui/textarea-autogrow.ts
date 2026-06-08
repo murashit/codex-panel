@@ -4,6 +4,7 @@ export interface TextareaHeightOptions {
 }
 
 const textareaHeightMirrors = new WeakMap<Document, HTMLTextAreaElement>();
+const TEXTAREA_HEIGHT_MIRROR_CLASS = "codex-panel-textarea-height-mirror";
 
 export function syncTextareaHeight(textarea: HTMLTextAreaElement | null, options: TextareaHeightOptions): void {
   if (!textarea) return;
@@ -34,18 +35,7 @@ function textareaHeightMirror(doc: Document): HTMLTextAreaElement {
   mirror.tabIndex = -1;
   mirror.setAttribute("aria-hidden", "true");
   mirror.readOnly = true;
-  mirror.style.setProperty("position", "fixed");
-  mirror.style.setProperty("top", "0");
-  mirror.style.setProperty("left", "0");
-  mirror.style.setProperty("visibility", "hidden");
-  mirror.style.setProperty("pointer-events", "none");
-  mirror.style.setProperty("z-index", "-1");
-  mirror.style.setProperty("height", "auto");
-  mirror.style.setProperty("min-height", "0");
-  mirror.style.setProperty("max-height", "none");
-  mirror.style.setProperty("overflow", "hidden");
-  mirror.style.setProperty("resize", "none");
-  mirror.style.setProperty("transform", "translateX(-10000px)");
+  mirror.addClass(TEXTAREA_HEIGHT_MIRROR_CLASS);
   doc.body.appendChild(mirror);
   textareaHeightMirrors.set(doc, mirror);
   return mirror;
