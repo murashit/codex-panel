@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { forkCandidatesFromItems, isForkCandidateItem, turnsAfterTurnId } from "../../../../src/features/chat/display/fork";
+import {
+  forkCandidatesFromItems,
+  isForkCandidateItem,
+  isRollbackCandidateItem,
+  rollbackCandidateFromItems,
+  turnsAfterTurnId,
+} from "../../../../src/features/chat/display/action-candidates";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 
 describe("fork candidates", () => {
@@ -60,6 +66,58 @@ describe("fork candidates", () => {
     expect(turnsAfterTurnId(items, "turn-2")).toBe(1);
     expect(turnsAfterTurnId(items, "turn-3")).toBe(0);
     expect(turnsAfterTurnId(items, "missing")).toBeNull();
+  });
+});
+
+describe("rollback candidate", () => {
+  it("selects the first user message from the latest turn", () => {
+    const items: DisplayItem[] = [
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "older", turnId: "turn-1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "older answer",
+        turnId: "turn-1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+      { id: "u2", kind: "message", messageKind: "user", role: "user", text: "latest", turnId: "turn-2" },
+      {
+        id: "a2",
+        kind: "message",
+        role: "assistant",
+        text: "latest answer",
+        turnId: "turn-2",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
+
+    const candidate = rollbackCandidateFromItems(items);
+
+    expect(candidate).toEqual({ turnId: "turn-2", itemId: "u2", text: "latest" });
+    expect(isRollbackCandidateItem(expectPresent(items[2]), candidate)).toBe(true);
+    expect(isRollbackCandidateItem(expectPresent(items[0]), candidate)).toBe(false);
+    expect(isRollbackCandidateItem({ ...expectPresent(items[2]), turnId: "turn-other" }, candidate)).toBe(false);
+  });
+
+  it("returns null when there is no completed user turn in display items", () => {
+    expect(rollbackCandidateFromItems([])).toBeNull();
+    expect(rollbackCandidateFromItems([{ id: "system", kind: "system", role: "system", text: "Idle" }])).toBeNull();
+    expect(
+      rollbackCandidateFromItems([
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "answer",
+          turnId: "turn-1",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
+      ]),
+    ).toBeNull();
   });
 });
 

@@ -3,9 +3,13 @@ import type { ComponentChild as UiNode } from "preact";
 import type { ChatState } from "../../chat-state";
 import { chatTurnBusy } from "../../chat-state";
 import type { DisplayItem } from "../../display/types";
-import { forkCandidatesFromItems, isForkCandidateItem } from "../../display/fork";
-import { implementPlanCandidateFromState } from "../../display/plan-implementation";
-import { isRollbackCandidateItem, rollbackCandidateFromItems } from "../../display/rollback";
+import {
+  forkCandidatesFromItems,
+  implementPlanCandidateFromState,
+  isForkCandidateItem,
+  isRollbackCandidateItem,
+  rollbackCandidateFromItems,
+} from "../../display/action-candidates";
 import type { ChatTurnDiffViewState } from "../turn-diff";
 import type { MessageStreamContext } from "./context";
 

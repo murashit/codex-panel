@@ -1,9 +1,8 @@
 import type { Thread } from "../../../../generated/app-server/v2/Thread";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import { effectiveConfigSections, rateLimitSummary } from "../../../../runtime/status-summary";
-import type { ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
-import { connectionDiagnosticsModel } from "./diagnostics";
-import type { ToolbarViewModelInput } from "./types";
+import { connectionDiagnosticSections } from "../../diagnostics";
+import type { ConnectionDiagnosticsModelInput, ToolbarThreadRow, ToolbarViewModel, ToolbarViewModelInput } from "./types";
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
@@ -58,5 +57,15 @@ function toolbarThreadRows(input: {
       },
       rename: input.renameState(threadId),
     };
+  });
+}
+
+export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): ReturnType<typeof connectionDiagnosticSections> {
+  return connectionDiagnosticSections({
+    connected: input.connected,
+    configuredCommand: input.configuredCommand,
+    initializeResponse: input.state.connection.initializeResponse,
+    activeThreadCreationCliVersion: input.state.activeThread.creationCliVersion,
+    diagnostics: input.state.connection.appServerDiagnostics,
   });
 }

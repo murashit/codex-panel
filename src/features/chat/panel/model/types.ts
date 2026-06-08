@@ -1,7 +1,7 @@
 import type { ReasoningEffort } from "../../../../generated/app-server/ReasoningEffort";
 import type { RuntimeSnapshot } from "../../../../runtime/effective-settings";
+import type { EffectiveConfigSection, RateLimitSummary } from "../../../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
-import type { ToolbarThreadRow } from "./toolbar-model";
 
 export interface RuntimeSnapshotInput {
   state: ChatState;
@@ -36,6 +36,43 @@ export interface ComposerContextMeterCellViewModel {
 export interface ComposerContextMeterViewModel {
   cells: ComposerContextMeterCellViewModel[];
   percent: string;
+}
+
+export interface ToolbarThreadRow {
+  title: string;
+  threadId: string;
+  selected: boolean;
+  disabled: boolean;
+  canArchive: boolean;
+  archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
+  rename: {
+    draft: string;
+    generating: boolean;
+  } | null;
+}
+
+interface ToolbarDiagnosticRow {
+  label: string;
+  value: string;
+  level?: "normal" | "warning" | "error";
+}
+
+export interface ToolbarDiagnosticSection {
+  title: string;
+  rows: ToolbarDiagnosticRow[];
+}
+
+export interface ToolbarViewModel {
+  newChatDisabled: boolean;
+  chatActionsOpen: boolean;
+  historyOpen: boolean;
+  statusPanelOpen: boolean;
+  rateLimit: RateLimitSummary | null;
+  configSections: EffectiveConfigSection[];
+  openPanel: "history" | "chat-actions" | "status" | null;
+  threads: ToolbarThreadRow[];
+  connectLabel: string;
+  diagnostics: ToolbarDiagnosticSection[];
 }
 
 export interface ToolbarViewModelInput {

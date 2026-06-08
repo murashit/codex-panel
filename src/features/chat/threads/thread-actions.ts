@@ -6,8 +6,7 @@ import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import { inheritedForkThreadName, upsertThread } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
-import { turnsAfterTurnId } from "../display/fork";
-import { rollbackCandidateFromItems } from "../display/rollback";
+import { rollbackCandidateFromItems, turnsAfterTurnId } from "../display/action-candidates";
 import type { ThreadHistoryController } from "./thread-history-controller";
 
 export interface ChatThreadActionsHost {

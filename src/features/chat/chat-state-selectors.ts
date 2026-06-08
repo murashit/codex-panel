@@ -4,7 +4,7 @@ import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { PendingApproval } from "./requests/approvals/model";
 import type { PendingUserInput } from "./requests/user-input/model";
 import type { DisplayItem } from "./display/types";
-import { implementPlanCandidateFromState } from "./display/plan-implementation";
+import { implementPlanCandidateFromState } from "./display/action-candidates";
 
 export interface PendingRequestSnapshot {
   approvals: readonly PendingApproval[];

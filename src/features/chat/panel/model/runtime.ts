@@ -7,9 +7,8 @@ import {
   supportedReasoningEfforts,
 } from "../../../../runtime/effective-settings";
 import { sortedAvailableModels } from "../../../../runtime/models";
-import { contextSummary, rateLimitSummary } from "../../../../runtime/status-summary";
+import { contextSummary, rateLimitSummary, type RateLimitSummary } from "../../../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
-import { statusValue, usageLimitStatusLines } from "./status-lines";
 import type { RuntimeChoice, RuntimeComposerChoicesInput, RuntimeSnapshotInput } from "./types";
 
 export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput) {
@@ -103,4 +102,23 @@ export function effortStatusLines(state: ChatState, snapshot: ReturnType<typeof 
     `Override: ${pendingRuntimeSettingLabel(state.runtime.requestedReasoningEffort)}`,
     `Supported: ${supportedReasoningEfforts(snapshot).join(", ")}`,
   ];
+}
+
+function statusValue(value: unknown, fallback: string): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+  if (value === null || value === undefined) return fallback;
+  return jsonPreview(value, fallback);
+}
+
+function usageLimitStatusLines(limit: RateLimitSummary): string[] {
+  return ["Usage limits", ...limit.rows.map((row) => `${row.label}: ${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`)];
+}
+
+function jsonPreview(value: unknown, fallback: string): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return fallback;
+  }
 }

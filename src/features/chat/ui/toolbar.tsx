@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/status-summary";
 import { IconButton } from "../../../shared/ui/components";
 import { renderUiRoot } from "../../../shared/ui/ui-root";
-import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/model/toolbar-model";
+import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/model/types";
 
 type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;
