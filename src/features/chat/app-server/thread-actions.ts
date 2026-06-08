@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../app-server/client";
 import { upsertThread } from "../../../domain/threads/model";
 import type { Thread } from "../../../generated/app-server/v2/Thread";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../../runtime/effective-settings";
-import { resumedThreadAction } from "../thread-resume";
+import { resumedThreadAction } from "../threads/thread-resume";
 import type { ChatAppServerBaseHost } from "./shared";
 
 export interface ChatAppServerThreadActionsHost extends ChatAppServerBaseHost {

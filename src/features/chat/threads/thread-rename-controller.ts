@@ -11,7 +11,7 @@ import type { Thread } from "../../../generated/app-server/v2/Thread";
 import type { Turn } from "../../../generated/app-server/v2/Turn";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
-import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../thread-naming";
+import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";
 
 export interface ThreadRenameEditState {
   draft: string;

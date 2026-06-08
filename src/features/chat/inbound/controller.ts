@@ -2,7 +2,7 @@ import type { RequestId } from "../../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../../generated/app-server/ServerRequest";
 import type { Turn } from "../../../generated/app-server/v2/Turn";
-import { classifyAppServerLog } from "../app-server-logs";
+import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
 import { createStructuredSystemItem, createSystemItem } from "../display/system";
 import type { DisplayDetailSection } from "../display/types";

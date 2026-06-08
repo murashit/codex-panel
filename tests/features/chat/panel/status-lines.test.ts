@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { statusValue, usageLimitStatusLines } from "../../../src/features/chat/status-lines";
-import type { RateLimitSummary } from "../../../src/runtime/status-summary";
+import { statusValue, usageLimitStatusLines } from "../../../../src/features/chat/panel/model/status-lines";
+import type { RateLimitSummary } from "../../../../src/runtime/status-summary";
 
 describe("status line helpers", () => {
   it("formats primitive and structured diagnostic values", () => {

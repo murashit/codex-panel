@@ -2,7 +2,7 @@ import type { ReasoningEffort } from "../../../../generated/app-server/Reasoning
 import type { RuntimeSnapshot } from "../../../../runtime/effective-settings";
 import type { SendShortcut } from "../../../../shared/ui/keyboard";
 import type { ChatState } from "../../chat-state";
-import type { ToolbarThreadRow } from "../../toolbar-model";
+import type { ToolbarThreadRow } from "../model/toolbar-model";
 import type { RestoredThreadTitleSnapshot } from "../model";
 
 interface ChatViewToolbarActions {

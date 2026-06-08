@@ -24,8 +24,8 @@ import {
 import { planProgressDisplayItem } from "../display/plan";
 import { createSystemItem } from "../display/system";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../display/types";
-import { goalChangeItem } from "../goal-messages";
-import { attachHookRunsToTurn, hookRunDisplayItem } from "../hook-display";
+import { goalChangeItem } from "../display/goal-messages";
+import { attachHookRunsToTurn, hookRunDisplayItem } from "../display/hooks";
 import { routeServerNotification } from "./routing";
 
 export type ChatNotificationEffect =

@@ -1,7 +1,7 @@
 import type { PendingTurnStart } from "../chat-state";
 import type { DisplayFileMention, DisplayItem, MessageDisplayItem } from "../display/types";
 import { fileMentionsFromInput, userMessageDisplayText } from "../display/thread-items";
-import { attachHookRunsToTurn } from "../hook-display";
+import { attachHookRunsToTurn } from "../display/hooks";
 import type { UserInput } from "../../../generated/app-server/v2/UserInput";
 
 export interface LocalUserMessageParams {

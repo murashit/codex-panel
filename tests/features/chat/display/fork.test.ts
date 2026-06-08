@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { forkCandidatesFromItems, isForkCandidateItem, turnsAfterTurnId } from "../../../src/features/chat/fork";
-import type { DisplayItem } from "../../../src/features/chat/display/types";
+import { forkCandidatesFromItems, isForkCandidateItem, turnsAfterTurnId } from "../../../../src/features/chat/display/fork";
+import type { DisplayItem } from "../../../../src/features/chat/display/types";
 
 describe("fork candidates", () => {
   it("selects final assistant messages and counts later turns", () => {

@@ -5,8 +5,8 @@ import {
   type ChatRuntimeState,
   type ChatTranscriptState,
   type ChatTurnState,
-} from "./chat-state";
-import type { DisplayItem } from "./display/types";
+} from "../chat-state";
+import type { DisplayItem } from "./types";
 
 export function implementPlanCandidateFromState(state: {
   activeThread: Pick<ChatActiveThreadState, "id">;

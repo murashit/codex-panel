@@ -1,7 +1,7 @@
 import type { Thread } from "../../../../generated/app-server/v2/Thread";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import { effectiveConfigSections, rateLimitSummary } from "../../../../runtime/status-summary";
-import type { ToolbarThreadRow, ToolbarViewModel } from "../../toolbar-model";
+import type { ToolbarThreadRow, ToolbarViewModel } from "./toolbar-model";
 import { connectionDiagnosticsModel } from "./diagnostics";
 import type { ToolbarViewModelInput } from "./types";
 

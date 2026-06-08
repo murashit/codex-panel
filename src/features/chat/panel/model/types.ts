@@ -1,7 +1,7 @@
 import type { ReasoningEffort } from "../../../../generated/app-server/ReasoningEffort";
 import type { RuntimeSnapshot } from "../../../../runtime/effective-settings";
 import type { ChatState } from "../../chat-state";
-import type { ToolbarThreadRow } from "../../toolbar-model";
+import type { ToolbarThreadRow } from "./toolbar-model";
 
 export interface RuntimeSnapshotInput {
   state: ChatState;

@@ -1,6 +1,6 @@
-import type { ServerNotification } from "../../generated/app-server/ServerNotification";
-import type { DisplayItem } from "./display/types";
-import { definedProp } from "../../utils";
+import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
+import { definedProp } from "../../../utils";
+import type { DisplayItem } from "./types";
 
 export function hookRunDisplayItem(
   run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"],

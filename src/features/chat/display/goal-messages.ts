@@ -1,7 +1,7 @@
-import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
-import type { ThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
-import { truncate } from "../../utils";
-import type { GoalDisplayItem } from "./display/types";
+import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
+import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
+import { truncate } from "../../../utils";
+import type { GoalDisplayItem } from "./types";
 
 const GOAL_SUMMARY_LIMIT = 140;
 

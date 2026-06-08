@@ -5,7 +5,7 @@ import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } f
 import type { ChatStateStore } from "../chat-state";
 import type { DisplayItem } from "../display/types";
 import type { RestoredThreadController } from "./restored-thread-controller";
-import { resumedThreadAction, type ThreadActivationResponse } from "../thread-resume";
+import { resumedThreadAction, type ThreadActivationResponse } from "./thread-resume";
 import type { ThreadHistoryController } from "./thread-history-controller";
 import type { ChatResumeWorkTracker, ActiveChatResume } from "../panel/lifecycle";
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { goalChangeItem } from "../../../src/features/chat/goal-messages";
-import type { ThreadGoal } from "../../../src/generated/app-server/v2/ThreadGoal";
+import { goalChangeItem } from "../../../../src/features/chat/display/goal-messages";
+import type { ThreadGoal } from "../../../../src/generated/app-server/v2/ThreadGoal";
 
 describe("goal display items", () => {
   it("keeps goal event summaries compact while retaining the full objective in details", () => {

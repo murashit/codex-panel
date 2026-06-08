@@ -8,28 +8,28 @@ import {
   namingContextFromTurn,
   normalizeGeneratedTitle,
   titleFromNamingTurn,
-} from "../../../src/domain/threads/naming";
+} from "../../../../src/domain/threads/naming";
 import {
   generateThreadTitleWithCodex,
   threadNamingRuntimeOverride,
   validatedThreadNamingRuntimeOverride,
   type ThreadNamingClient,
   type ThreadNamingClientFactory,
-} from "../../../src/app-server/thread-naming";
-import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../src/features/chat/thread-naming";
-import type { AppServerClientHandlers } from "../../../src/app-server/client";
-import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
-import type { JsonValue } from "../../../src/generated/app-server/serde_json/JsonValue";
-import type { RequestId } from "../../../src/generated/app-server/RequestId";
-import type { ReasoningEffort } from "../../../src/generated/app-server/ReasoningEffort";
-import type { Model } from "../../../src/generated/app-server/v2/Model";
-import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
-import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
-import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
-import type { Turn } from "../../../src/generated/app-server/v2/Turn";
-import type { TurnStartResponse } from "../../../src/generated/app-server/v2/TurnStartResponse";
+} from "../../../../src/app-server/thread-naming";
+import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../../src/features/chat/threads/thread-naming";
+import type { AppServerClientHandlers } from "../../../../src/app-server/client";
+import type { InitializeResponse } from "../../../../src/generated/app-server/InitializeResponse";
+import type { JsonValue } from "../../../../src/generated/app-server/serde_json/JsonValue";
+import type { RequestId } from "../../../../src/generated/app-server/RequestId";
+import type { ReasoningEffort } from "../../../../src/generated/app-server/ReasoningEffort";
+import type { Model } from "../../../../src/generated/app-server/v2/Model";
+import type { ModelListResponse } from "../../../../src/generated/app-server/v2/ModelListResponse";
+import type { ServerNotification } from "../../../../src/generated/app-server/ServerNotification";
+import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
+import type { ThreadStartResponse } from "../../../../src/generated/app-server/v2/ThreadStartResponse";
+import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
+import type { TurnStartResponse } from "../../../../src/generated/app-server/v2/TurnStartResponse";
 
 describe("thread naming", () => {
   it("extracts the first user request and final assistant response from a completed turn", () => {

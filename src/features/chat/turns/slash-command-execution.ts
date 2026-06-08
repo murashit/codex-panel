@@ -1,10 +1,10 @@
-import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
-import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
-import type { ThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
-import type { UserInput } from "../../generated/app-server/v2/UserInput";
-import { getThreadTitle } from "../../domain/threads/model";
-import type { ReferencedThreadDisplay } from "../../domain/threads/reference";
+import type { ReasoningEffort } from "../../../generated/app-server/ReasoningEffort";
+import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
+import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
+import type { UserInput } from "../../../generated/app-server/v2/UserInput";
+import { getThreadTitle } from "../../../domain/threads/model";
+import type { ReferencedThreadDisplay } from "../../../domain/threads/reference";
 import {
   slashCommandDefinition,
   slashCommandHelpSections,
@@ -12,14 +12,14 @@ import {
   slashCommandSubcommands,
   type SlashCommandName,
   type SlashCommandSubcommandDefinition,
-} from "./composer/slash-commands";
-import type { DisplayDetailSection, DisplayDetailMetaRow } from "./display/types";
+} from "../composer/slash-commands";
+import type { DisplayDetailSection, DisplayDetailMetaRow } from "../display/types";
 import {
   modelOverrideMessage,
   parseModelOverride,
   parseReasoningEffortOverride,
   reasoningEffortOverrideMessage,
-} from "../../runtime/override-commands";
+} from "../../../runtime/override-commands";
 
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;

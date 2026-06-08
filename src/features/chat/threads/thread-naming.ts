@@ -1,7 +1,7 @@
-import type { ThreadNamingContext } from "../../domain/threads/naming";
-import { truncate } from "../../utils";
-import { isCompletedTurnOutcomeMessage } from "./display/turn-outcome-message";
-import type { DisplayItem } from "./display/types";
+import type { ThreadNamingContext } from "../../../domain/threads/naming";
+import { truncate } from "../../../utils";
+import { isCompletedTurnOutcomeMessage } from "../display/turn-outcome-message";
+import type { DisplayItem } from "../display/types";
 
 const MAX_CONTEXT_CHARS = 4_000;
 

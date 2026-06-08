@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ChatInboundController } from "../../../../src/features/chat/inbound/controller";
-import { attachHookRunsToTurn } from "../../../../src/features/chat/hook-display";
+import { attachHookRunsToTurn } from "../../../../src/features/chat/display/hooks";
 import {
   activeTurnId,
   chatReducer,

@@ -1,5 +1,5 @@
-import type { DisplayItem } from "./display/types";
-import { isCompletedTurnOutcomeMessage } from "./display/turn-outcome-message";
+import type { DisplayItem } from "./types";
+import { isCompletedTurnOutcomeMessage } from "./turn-outcome-message";
 
 export interface ForkCandidate {
   itemId: string;

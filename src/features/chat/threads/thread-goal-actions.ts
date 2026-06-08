@@ -4,7 +4,7 @@ import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
 import type { ChatStateStore } from "../chat-state";
 import type { GoalDisplayItem } from "../display/types";
-import { goalChangeItem } from "../goal-messages";
+import { goalChangeItem } from "../display/goal-messages";
 
 export interface ChatThreadGoalActionsHost {
   stateStore: ChatStateStore;

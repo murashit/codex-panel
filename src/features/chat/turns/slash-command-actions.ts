@@ -9,7 +9,7 @@ import {
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionResult,
   type ThreadReferenceInput,
-} from "../slash-command-execution";
+} from "./slash-command-execution";
 import type { SlashCommandName } from "../composer/slash-commands";
 import type { DisplayDetailSection } from "../display/types";
 import type { ReasoningEffort } from "../../../generated/app-server/ReasoningEffort";

@@ -1,4 +1,4 @@
-import type { DisplayItem, MessageDisplayItem } from "./display/types";
+import type { DisplayItem, MessageDisplayItem } from "./types";
 
 export interface RollbackCandidate {
   turnId: string;

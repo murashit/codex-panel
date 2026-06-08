@@ -9,7 +9,7 @@ import {
 import { sortedAvailableModels } from "../../../../runtime/models";
 import { contextSummary, rateLimitSummary } from "../../../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
-import { statusValue, usageLimitStatusLines } from "../../status-lines";
+import { statusValue, usageLimitStatusLines } from "./status-lines";
 import type { RuntimeChoice, RuntimeComposerChoicesInput, RuntimeSnapshotInput } from "./types";
 
 export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput) {
