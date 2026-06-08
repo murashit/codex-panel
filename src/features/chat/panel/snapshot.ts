@@ -1,8 +1,8 @@
 import type { Model } from "../../../generated/app-server/v2/Model";
 import type { Thread } from "../../../generated/app-server/v2/Thread";
-import type { OpenCodexPanelSnapshot } from "../../../runtime/open-panel-snapshot";
+import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import { readRuntimeConfig } from "../../../runtime/config";
-import { currentModel } from "../../../runtime/state";
+import { currentModel } from "../../../runtime/effective-settings";
 import { activeTurnId, chatTurnBusy, type ChatState } from "../chat-state";
 import type { DisplayItem } from "../display/types";
 import type { RestoredThreadState } from "./lifecycle";

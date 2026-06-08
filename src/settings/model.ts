@@ -2,7 +2,7 @@ import { FileSystemAdapter, type App } from "obsidian";
 
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
-import { normalizeReasoningEffort } from "../runtime/model";
+import { normalizeReasoningEffort } from "../runtime/models";
 import type { SendShortcut } from "../shared/ui/keyboard";
 
 export interface CodexPanelSettings {

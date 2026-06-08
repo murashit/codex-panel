@@ -20,7 +20,7 @@ import {
   setPendingRuntimeSetting,
   unchangedRuntimeSetting,
   type PendingRuntimeSetting,
-} from "../../runtime/state";
+} from "../../runtime/effective-settings";
 import type { PendingApproval } from "./requests/approvals/model";
 import type { ComposerSuggestion } from "./composer/suggestions";
 import { upsertDisplayItem } from "./display/stream-updates";

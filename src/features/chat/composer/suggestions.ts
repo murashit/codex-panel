@@ -8,7 +8,7 @@ import {
   REASONING_EFFORTS,
   sortedAvailableModels,
   supportedEffortsForModel,
-} from "../../../runtime/model";
+} from "../../../runtime/models";
 import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
 import { getThreadTitle } from "../../../domain/threads/model";
 import { shortThreadId } from "../../../utils";

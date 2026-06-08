@@ -9,7 +9,7 @@ import {
   createSharedAppServerState,
   type SharedAppServerMetadata,
   type SharedAppServerState,
-} from "./shared-app-server-state";
+} from "./shared-cache-state";
 
 type ThreadListRefreshLifecycleState = { kind: "idle" } | { kind: "refreshing"; promise: Promise<readonly Thread[]> };
 

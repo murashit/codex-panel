@@ -1,5 +1,5 @@
 import type { Thread } from "../../generated/app-server/v2/Thread";
-import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
+import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { ChatTurnDiffViewState } from "./ui/turn-diff";
 

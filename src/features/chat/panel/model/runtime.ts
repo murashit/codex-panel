@@ -5,9 +5,9 @@ import {
   pendingRuntimeSettingLabel,
   serviceTierLabel,
   supportedReasoningEfforts,
-} from "../../../../runtime/state";
-import { sortedAvailableModels } from "../../../../runtime/model";
-import { contextSummary, rateLimitSummary } from "../../../../runtime/view";
+} from "../../../../runtime/effective-settings";
+import { sortedAvailableModels } from "../../../../runtime/models";
+import { contextSummary, rateLimitSummary } from "../../../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
 import { statusValue, usageLimitStatusLines } from "../../status-lines";
 import type { RuntimeChoice, RuntimeComposerChoicesInput, RuntimeSnapshotInput } from "./types";

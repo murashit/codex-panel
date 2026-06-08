@@ -2,7 +2,7 @@ import type { App, Component, EventRef, WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../../../app-server/client";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
-import type { RuntimeSnapshot } from "../../../runtime/state";
+import type { RuntimeSnapshot } from "../../../runtime/effective-settings";
 import type { ChatState, ChatStateStore } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
 import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";

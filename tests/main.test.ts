@@ -8,7 +8,7 @@ import { DEFAULT_SETTINGS } from "../src/settings/model";
 import type CodexPanelPlugin from "../src/main";
 import type { CodexChatView } from "../src/features/chat/view";
 import type { Thread } from "../src/generated/app-server/v2/Thread";
-import type { SharedAppServerCache } from "../src/runtime/shared-app-server-cache";
+import type { SharedAppServerCache } from "../src/app-server/shared-cache";
 import type { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
 import type { ThreadSurfaceCoordinator } from "../src/workspace/thread-surface-coordinator";
 import { installObsidianDomShims } from "./support/dom";

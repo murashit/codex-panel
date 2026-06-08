@@ -6,11 +6,11 @@ import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { Thread } from "../../generated/app-server/v2/Thread";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/collaboration-mode";
-import type { RuntimeSnapshot } from "../../runtime/state";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/override-commands";
+import type { RuntimeSnapshot } from "../../runtime/effective-settings";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
-import type { OpenCodexPanelSnapshot } from "../../runtime/open-panel-snapshot";
-import type { SharedAppServerMetadata } from "../../runtime/shared-app-server-state";
+import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
+import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
 import type { CodexChatHost } from "./chat-host";
 import { createSystemItem } from "./display/system";
 import {

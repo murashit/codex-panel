@@ -6,7 +6,7 @@ import {
   type CapabilityProbeMethod,
 } from "../../../app-server/compatibility";
 import type { McpServerStatus } from "../../../generated/app-server/v2/McpServerStatus";
-import type { SharedAppServerMetadata } from "../../../runtime/shared-app-server-state";
+import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
 import { mcpStatusLines as buildMcpStatusLines } from "../mcp-status";
 import { cloneAppServerDiagnostics, type ChatAppServerBaseHost } from "./shared";
 

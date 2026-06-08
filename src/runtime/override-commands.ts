@@ -1,5 +1,6 @@
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
-import { isReasoningEffort } from "./model";
+import type { ModeKind } from "../generated/app-server/ModeKind";
+import { isReasoningEffort } from "./models";
 
 const DEFAULT_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
@@ -37,4 +38,16 @@ export function compactReasoningEffortLabel(effort: ReasoningEffort | null): str
   if (!effort) return "default";
   if (effort === "minimal") return "min";
   return effort;
+}
+
+export function nextCollaborationMode(mode: ModeKind): ModeKind {
+  return mode === "plan" ? "default" : "plan";
+}
+
+export function collaborationModeLabel(mode: ModeKind): string {
+  return mode === "plan" ? "Plan" : "Default";
+}
+
+export function collaborationModeToggleMessage(mode: ModeKind): string {
+  return mode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.";
 }

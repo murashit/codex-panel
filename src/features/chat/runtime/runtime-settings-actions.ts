@@ -4,7 +4,7 @@ import type { ModeKind } from "../../../generated/app-server/ModeKind";
 import type { ReasoningEffort } from "../../../generated/app-server/ReasoningEffort";
 import type { ApprovalsReviewer } from "../../../generated/app-server/v2/ApprovalsReviewer";
 import type { ThreadSettingsUpdateParams } from "../../../generated/app-server/v2/ThreadSettingsUpdateParams";
-import { collaborationModeToggleMessage, nextCollaborationMode } from "../../../runtime/collaboration-mode";
+import { collaborationModeToggleMessage, nextCollaborationMode } from "../../../runtime/override-commands";
 import { readRuntimeConfig } from "../../../runtime/config";
 import {
   autoReviewActive,
@@ -13,8 +13,8 @@ import {
   pendingRuntimeSettingPayload,
   requestedTurnRuntimeSettings,
   type RuntimeSnapshot,
-} from "../../../runtime/state";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../../runtime/settings";
+} from "../../../runtime/effective-settings";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../../runtime/override-commands";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 
 type ThreadSettingsUpdate = Omit<ThreadSettingsUpdateParams, "threadId">;

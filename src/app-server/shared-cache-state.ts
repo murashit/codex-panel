@@ -1,4 +1,4 @@
-import type { AppServerDiagnostics } from "../app-server/compatibility";
+import type { AppServerDiagnostics } from "./compatibility";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";

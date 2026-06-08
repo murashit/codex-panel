@@ -10,7 +10,7 @@ import {
   type ThreadsRowModel,
 } from "../../../src/features/threads-view/state";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import type { OpenCodexPanelSnapshot } from "../../../src/runtime/open-panel-snapshot";
+import type { OpenCodexPanelSnapshot } from "../../../src/workspace/open-panel-snapshot";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();

@@ -11,7 +11,7 @@ import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStart
 import type { Turn } from "../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
 import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
-import { runtimeOverride, validatedRuntimeOverride } from "../runtime/model";
+import { runtimeOverride, validatedRuntimeOverride } from "../runtime/models";
 import {
   createStructuredTurnRunLifecycle,
   structuredTurnRunMatches,

@@ -13,7 +13,7 @@ import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadHistoryController } from "../threads/thread-history-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import type { ChatInboundController } from "../inbound/controller";
-import { currentModel } from "../../../runtime/state";
+import { currentModel } from "../../../runtime/effective-settings";
 import { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatPanelContext } from "../panel/context";
 

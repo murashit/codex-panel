@@ -7,7 +7,7 @@ import type { CodexChatHost } from "./features/chat/chat-host";
 import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
 import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";
-import { SharedAppServerCache } from "./runtime/shared-app-server-cache";
+import { SharedAppServerCache } from "./app-server/shared-cache";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
 import { CodexPanelSettingTab, type CodexPanelSettingTabHost } from "./settings/tab";
 import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/ui/turn-diff";

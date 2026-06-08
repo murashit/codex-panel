@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import type { ConfigReadResponse } from "../../src/generated/app-server/v2/ConfigReadResponse";
 import type { Model } from "../../src/generated/app-server/v2/Model";
-import type { Thread } from "../../src/generated/app-server/v2/Thread";
-import { createAppServerDiagnostics } from "../../src/app-server/compatibility";
 import {
   compactModelLabel,
   compactReasoningEffortLabel,
@@ -11,7 +9,7 @@ import {
   parseModelOverride,
   parseReasoningEffortOverride,
   reasoningEffortOverrideMessage,
-} from "../../src/runtime/settings";
+} from "../../src/runtime/override-commands";
 import {
   autoReviewActive,
   currentApprovalsReviewer,
@@ -28,55 +26,15 @@ import {
   setPendingRuntimeSetting,
   serviceTierLabel,
   type RuntimeSnapshot,
-} from "../../src/runtime/state";
+} from "../../src/runtime/effective-settings";
 import { readRuntimeConfig } from "../../src/runtime/config";
-import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../src/runtime/view";
-import {
-  applySharedAppServerMetadata,
-  applySharedModels,
-  applySharedThreadList,
-  cachedSharedAppServerMetadata,
-  cachedSharedThreadList,
-  createSharedAppServerState,
-} from "../../src/runtime/shared-app-server-state";
+import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../src/runtime/status-summary";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {
     expect(parseModelOverride("gpt-5.5")).toBe("gpt-5.5");
     expect(parseModelOverride(" default ")).toBeNull();
     expect(parseModelOverride("")).toBeUndefined();
-  });
-
-  it("keeps shared app-server cache snapshots detached from caller-owned arrays", () => {
-    const sourceThreads = [threadFixture("thread-1")];
-    const threadState = applySharedThreadList(createSharedAppServerState(), sourceThreads);
-    sourceThreads.push(threadFixture("thread-2"));
-
-    const cachedThreads = cachedSharedThreadList(threadState);
-    expect(cachedThreads?.map((thread) => thread.id)).toEqual(["thread-1"]);
-
-    const mutableCachedThreads = cachedThreads as Thread[];
-    mutableCachedThreads.push(threadFixture("thread-3"));
-    expect(cachedSharedThreadList(threadState)?.map((thread) => thread.id)).toEqual(["thread-1"]);
-
-    const sourceModels = [modelFixture("gpt-5.5")];
-    const modelState = applySharedModels(createSharedAppServerState(), sourceModels);
-    sourceModels.push(modelFixture("gpt-5.6"));
-    expect(modelState.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
-
-    const metadataState = applySharedAppServerMetadata(createSharedAppServerState(), {
-      effectiveConfig: null,
-      availableModels: sourceModels,
-      availableSkills: [{ name: "skill", description: "", path: "/tmp/skill", scope: "repo", enabled: true }],
-      rateLimit: null,
-      appServerDiagnostics: {
-        ...createAppServerDiagnostics(),
-        mcpServers: [{ name: "server", startupStatus: "ready", authStatus: null, toolCount: 1, message: null }],
-      },
-    });
-    sourceModels.push(modelFixture("gpt-5.7"));
-    const cachedMetadata = cachedSharedAppServerMetadata(metadataState);
-    expect(cachedMetadata?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5", "gpt-5.6"]);
   });
 
   it("parses reasoning effort overrides", () => {
@@ -129,6 +87,28 @@ describe("runtime settings", () => {
     expect(currentReasoningEffort(snapshot)).toBe("low");
     expect(pendingRuntimeSettingPayload(snapshot.requestedModel)).toBe("gpt-5.4");
     expect(pendingRuntimeSettingPayload(snapshot.requestedReasoningEffort)).toBe("low");
+  });
+
+  it("builds the Plan collaboration mode payload from selected runtime settings", () => {
+    expect(
+      requestedTurnRuntimeSettings(
+        runtimeSnapshot({
+          selectedCollaborationMode: "plan",
+          requestedModel: setPendingRuntimeSetting("gpt-5.5"),
+          requestedReasoningEffort: setPendingRuntimeSetting("high"),
+        }),
+      ),
+    ).toEqual({
+      collaborationMode: {
+        mode: "plan",
+        settings: {
+          model: "gpt-5.5",
+          reasoning_effort: "high",
+          developer_instructions: null,
+        },
+      },
+      warning: null,
+    });
   });
 
   it("resolves approval reviewer from requested, active, then effective config", () => {
@@ -698,31 +678,6 @@ function configLayer(config: Record<string, unknown>, profile: string | null): N
     version: "1",
     config: config as NonNullable<ConfigReadResponse["layers"]>[number]["config"],
     disabledReason: null,
-  };
-}
-
-function threadFixture(id: string): Thread {
-  return {
-    id,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
-    preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
-    createdAt: 1,
-    updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
-    turns: [],
   };
 }
 

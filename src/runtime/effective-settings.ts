@@ -16,8 +16,7 @@ import {
   type ServiceTier,
   type ServiceTierRequest,
 } from "../app-server/service-tier";
-import { defaultCollaborationMode, planCollaborationMode } from "./collaboration-mode";
-import { findModelByIdOrName, supportedEffortsForModel } from "./model";
+import { findModelByIdOrName, supportedEffortsForModel } from "./models";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
@@ -116,11 +115,7 @@ export function autoReviewActive(
 export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRuntimeSettings {
   const model = currentModel(snapshot);
   const effort = currentReasoningEffort(snapshot);
-  const collaborationMode = model
-    ? snapshot.selectedCollaborationMode === "plan"
-      ? planCollaborationMode(model, effort)
-      : defaultCollaborationMode(model, effort)
-    : null;
+  const collaborationMode = model ? turnCollaborationMode(snapshot.selectedCollaborationMode, model, effort) : null;
   return {
     collaborationMode,
     warning: model ? null : "No effective model is available. Sending without a mode override.",
@@ -189,6 +184,17 @@ export function pendingRuntimeSettingLabel<T>(setting: PendingRuntimeSetting<T>)
 
 function isAutoReviewReviewer(value: ApprovalsReviewer | null): boolean {
   return value === "auto_review" || value === "guardian_subagent";
+}
+
+function turnCollaborationMode(mode: ModeKind, model: string, reasoningEffort: ReasoningEffort | null): CollaborationMode {
+  return {
+    mode,
+    settings: {
+      model,
+      reasoning_effort: reasoningEffort,
+      developer_instructions: null,
+    },
+  };
 }
 
 function currentModelServiceTiers(

@@ -6,7 +6,7 @@ import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
-import { findModelByIdOrName, sortedAvailableModels, supportedEffortsForModel } from "../../src/runtime/model";
+import { findModelByIdOrName, sortedAvailableModels, supportedEffortsForModel } from "../../src/runtime/models";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import { archivedThreadDisplayTitle } from "../../src/domain/threads/model";
 import { notices } from "../mocks/obsidian";

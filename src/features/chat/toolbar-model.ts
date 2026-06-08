@@ -1,4 +1,4 @@
-import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/view";
+import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/status-summary";
 
 type ToolbarPanelKind = "history" | "chat-actions" | "status";
 

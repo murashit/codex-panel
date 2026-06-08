@@ -15,7 +15,7 @@ import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
-import { runtimeOverride, validatedRuntimeOverride } from "../../runtime/model";
+import { runtimeOverride, validatedRuntimeOverride } from "../../runtime/models";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromTurn, type SelectionRewriteOutput } from "./output";

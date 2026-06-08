@@ -2,7 +2,7 @@ import type { RateLimitWindow } from "../generated/app-server/v2/RateLimitWindow
 import type { SpendControlLimitSnapshot } from "../generated/app-server/v2/SpendControlLimitSnapshot";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
 import { jsonPreview } from "../utils";
-import { sortedAvailableModels } from "./model";
+import { sortedAvailableModels } from "./models";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
   currentApprovalsReviewer,
@@ -14,7 +14,7 @@ import {
   pendingRuntimeSettingLabel,
   serviceTierLabel,
   type RuntimeSnapshot,
-} from "./state";
+} from "./effective-settings";
 
 export interface ContextSummary {
   label: string;

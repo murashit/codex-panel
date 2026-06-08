@@ -2,7 +2,7 @@ import { type AppServerDiagnostics, capabilityProbeError, capabilityProbeOk } fr
 import type { Model } from "../../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../../generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../../generated/app-server/v2/SkillMetadata";
-import type { SharedAppServerMetadata } from "../../../runtime/shared-app-server-state";
+import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
 import { cloneAppServerDiagnostics, type ChatAppServerBaseHost } from "./shared";
 
 export interface ChatAppServerMetadataActionsHost extends ChatAppServerBaseHost {
