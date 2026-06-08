@@ -4,10 +4,10 @@ import { activeTurnId } from "../chat-state";
 import type { ChatReconnectController } from "../session/reconnect-controller";
 import { PendingRequestController } from "../requests/pending-request-controller";
 import type { ChatRuntimeSettingsController } from "../runtime/runtime-settings-controller";
-import { ComposerSubmissionController } from "../turns/composer-submission-controller";
-import { PlanImplementationController } from "../turns/plan-implementation-controller";
-import { SlashCommandController } from "../turns/slash-command-controller";
-import { TurnSubmissionController } from "../turns/turn-submission-controller";
+import { ComposerSubmissionController } from "./composer-submission-controller";
+import { PlanImplementationController } from "./plan-implementation-controller";
+import { SlashCommandController } from "./slash-command-controller";
+import { TurnSubmissionController } from "./turn-submission-controller";
 import type { ChatThreadActionController } from "../threads/thread-actions-controller";
 import type { ChatThreadGoalController } from "../threads/thread-goal-controller";
 import type { ThreadHistoryController } from "../threads/thread-history-controller";
@@ -15,7 +15,7 @@ import type { ThreadRenameController } from "../threads/thread-rename-controller
 import type { ChatInboundController } from "../inbound/controller";
 import { currentModel } from "../../../runtime/state";
 import { ChatMessageRenderer } from "../ui/message-stream";
-import type { ChatPanelContext } from "./context";
+import type { ChatPanelContext } from "../panel/context";
 
 export function createTurnControllerGroup(
   context: ChatPanelContext,

@@ -31,7 +31,7 @@ import {
 } from "./panel/lifecycle";
 import { ChatMessageScrollIntentController } from "./panel/message-scroll-intent-controller";
 import type { ChatPanelContext } from "./panel/context";
-import { createChatViewControllers, type ChatViewControllers } from "./panel/controllers";
+import { createChatViewControllers, type ChatViewControllers } from "./panel/composition";
 import { activeComposerThreadName, composerMetaViewModel, composerPlaceholder, renderComposerSlot } from "./panel/slots/composer";
 import { renderGoalSlot } from "./panel/slots/goal";
 import { pendingRequestsSignature, renderMessagesSlot } from "./panel/slots/messages";

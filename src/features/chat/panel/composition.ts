@@ -25,10 +25,10 @@ import type { ChatViewRenderController } from "./view-render-controller";
 import type { ChatViewStateActions } from "./view-state-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatPanelContext } from "./context";
-import { createChatAppServerControllers, createChatConnectionControllers, createChatInboundController } from "./session-controllers";
-import { createThreadControllerGroup } from "./thread-controllers";
-import { createTurnControllerGroup } from "./turn-controllers";
-import { createConnectionLifecycleControllerGroup, createViewRenderControllerGroup } from "./ui-controllers";
+import { createChatAppServerControllers, createChatConnectionControllers, createChatInboundController } from "../session/composition";
+import { createThreadControllerGroup } from "../threads/composition";
+import { createTurnControllerGroup } from "../turns/composition";
+import { createConnectionLifecycleControllerGroup, createViewRenderControllerGroup } from "./ui-composition";
 
 export interface ChatViewControllers {
   connection: {

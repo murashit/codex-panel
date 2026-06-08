@@ -4,12 +4,12 @@ import type { ConnectionManager } from "../../../app-server/connection-manager";
 import { ChatAppServerDiagnosticsController } from "../app-server/diagnostics-controller";
 import { ChatAppServerMetadataController } from "../app-server/metadata-controller";
 import { ChatAppServerThreadController } from "../app-server/thread-controller";
-import { ChatConnectionController } from "../session/connection-controller";
+import { ChatConnectionController } from "./connection-controller";
 import type { ServerRequestResponder } from "../requests/server-request-responder";
 import type { ChatThreadGoalController } from "../threads/thread-goal-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import { ChatInboundController } from "../inbound/controller";
-import type { ChatPanelContext } from "./context";
+import type { ChatPanelContext } from "../panel/context";
 
 export function createChatAppServerControllers(
   context: ChatPanelContext,

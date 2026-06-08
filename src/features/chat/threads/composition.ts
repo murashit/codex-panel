@@ -1,18 +1,18 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
 import { ChatRuntimeSettingsController } from "../runtime/runtime-settings-controller";
-import { ChatThreadActionController } from "../threads/thread-actions-controller";
-import { ChatThreadGoalController } from "../threads/thread-goal-controller";
-import { ThreadHistoryController } from "../threads/thread-history-controller";
-import { ThreadIdentityController } from "../threads/thread-identity-controller";
-import { ThreadRenameController } from "../threads/thread-rename-controller";
-import { ThreadResumeController } from "../threads/thread-resume-controller";
-import { createThreadSelectionActions } from "../threads/thread-selection-controller";
-import { RestoredThreadController } from "../threads/restored-thread-controller";
+import { ChatThreadActionController } from "./thread-actions-controller";
+import { ChatThreadGoalController } from "./thread-goal-controller";
+import { ThreadHistoryController } from "./thread-history-controller";
+import { ThreadIdentityController } from "./thread-identity-controller";
+import { ThreadRenameController } from "./thread-rename-controller";
+import { ThreadResumeController } from "./thread-resume-controller";
+import { createThreadSelectionActions } from "./thread-selection-controller";
+import { RestoredThreadController } from "./restored-thread-controller";
 import { ChatReconnectController } from "../session/reconnect-controller";
-import { createChatViewStateActions } from "./view-state-controller";
-import { ToolbarPanelController } from "./toolbar-controller";
-import type { ChatPanelContext } from "./context";
+import { createChatViewStateActions } from "../panel/view-state-controller";
+import { ToolbarPanelController } from "../panel/toolbar-controller";
+import type { ChatPanelContext } from "../panel/context";
 
 export function createThreadControllerGroup(
   context: ChatPanelContext,
