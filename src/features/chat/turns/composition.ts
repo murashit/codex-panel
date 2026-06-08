@@ -52,7 +52,6 @@ export function createConversationSurfaceControllerGroup(
     toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
     renderIfDetached: render.now,
     onDraftChange: liveState.refresh,
-    onComposerResize: () => undefined,
   });
   const pendingRequests = new PendingRequestController({
     stateStore,

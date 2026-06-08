@@ -34,7 +34,6 @@ export interface ChatComposerControllerOptions {
   toggleFast: () => void;
   renderIfDetached: () => void;
   onDraftChange: () => void;
-  onComposerResize: () => void;
 }
 
 export interface ChatComposerActionHandlers {
@@ -97,9 +96,6 @@ export class ChatComposerController {
           this.options.onDraftChange();
           this.updateSuggestions({ renderOnChange: false });
           this.refreshControls();
-        },
-        onComposerResize: () => {
-          this.options.onComposerResize();
         },
         onUpdateSuggestions: () => {
           this.updateSuggestions();

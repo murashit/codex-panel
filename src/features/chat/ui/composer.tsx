@@ -14,7 +14,6 @@ export interface ComposerElements {
 
 export interface ComposerCallbacks {
   onInput: (value: string) => void;
-  onComposerResize: () => void;
   onUpdateSuggestions: () => void;
   onKeydown: (event: KeyboardEvent) => void;
   onSendOrInterrupt: () => void;
@@ -114,7 +113,7 @@ function ComposerShell({
     const composer = composerRef.current;
     if (!composer) return;
     onComposer(composer);
-    if (syncComposerHeight(composer)) callbacks.onComposerResize();
+    syncComposerHeight(composer);
   }, [callbacks, onComposer]);
   useLayoutEffect(() => {
     const container = suggestionsRef.current;
@@ -141,7 +140,7 @@ function ComposerShell({
           aria-activedescendant={selectedSuggestionId}
           value={draft}
           onInput={(event) => {
-            if (syncComposerHeight(event.currentTarget)) callbacks.onComposerResize();
+            syncComposerHeight(event.currentTarget);
             callbacks.onInput(event.currentTarget.value);
           }}
           onKeyUp={callbacks.onUpdateSuggestions}

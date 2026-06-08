@@ -11,7 +11,6 @@ installObsidianDomShims();
 function composerCallbacks() {
   return {
     onInput: vi.fn(),
-    onComposerResize: vi.fn(),
     onUpdateSuggestions: vi.fn(),
     onKeydown: vi.fn(),
     onSendOrInterrupt: vi.fn(),
@@ -288,7 +287,6 @@ describe("composer renderer decisions", () => {
       0,
       {
         onInput: vi.fn(),
-        onComposerResize: vi.fn(),
         onUpdateSuggestions: vi.fn(),
         onKeydown: vi.fn(),
         onSendOrInterrupt: vi.fn(),
@@ -341,7 +339,7 @@ describe("composer renderer decisions", () => {
     expect(callbacks.onInput).toHaveBeenCalledWith("Draft text");
   });
 
-  it("reports composer resize when autogrow changes the input height", () => {
+  it("syncs composer autogrow when the controlled input changes height", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
     let scrollHeight = 56;
@@ -352,12 +350,12 @@ describe("composer renderer decisions", () => {
     });
     try {
       const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
-      callbacks.onComposerResize.mockClear();
 
       scrollHeight = 120;
       changeInputValue(composer, "line one\nline two");
 
-      expect(callbacks.onComposerResize).toHaveBeenCalledOnce();
+      expect(composer.style.height).toBe("120px");
+      expect(composer.style.overflowY).toBe("hidden");
     } finally {
       if (descriptor) {
         Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);
@@ -432,14 +430,26 @@ describe("composer renderer decisions", () => {
     const getComputedStyleMock = vi.spyOn(window, "getComputedStyle").mockReturnValue({
       minHeight: "76px",
       maxHeight: "min(208px, 40vh)",
-    } as CSSStyleDeclaration);
+      boxSizing: "border-box",
+      width: "240px",
+      getPropertyValue: () => "",
+    } as unknown as CSSStyleDeclaration);
     Object.defineProperty(window, "innerHeight", { value: 400, configurable: true });
-    Object.defineProperty(composer, "scrollHeight", { value: 280, configurable: true });
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "scrollHeight");
+    Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
+      get: () => 280,
+      configurable: true,
+    });
 
     try {
       syncComposerHeight(composer);
     } finally {
       getComputedStyleMock.mockRestore();
+      if (descriptor) {
+        Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);
+      } else {
+        Reflect.deleteProperty(HTMLTextAreaElement.prototype, "scrollHeight");
+      }
     }
 
     expect(composer.style.height).toBe("160px");

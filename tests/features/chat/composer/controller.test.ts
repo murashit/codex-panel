@@ -48,7 +48,6 @@ describe("ChatComposerController", () => {
       toggleFast: vi.fn(),
       renderIfDetached: vi.fn(),
       onDraftChange: vi.fn(),
-      onComposerResize: vi.fn(),
     });
 
     controller.render(parent);
@@ -103,7 +102,6 @@ describe("ChatComposerController", () => {
       toggleFast: vi.fn(),
       renderIfDetached: vi.fn(),
       onDraftChange: vi.fn(),
-      onComposerResize: vi.fn(),
     });
 
     controller.render(parent);
@@ -152,7 +150,6 @@ describe("ChatComposerController", () => {
       toggleFast: vi.fn(),
       renderIfDetached: vi.fn(),
       onDraftChange: vi.fn(),
-      onComposerResize: vi.fn(),
     });
     controller.setActionHandlers({
       submit,

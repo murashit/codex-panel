@@ -3,20 +3,61 @@ export interface TextareaHeightOptions {
   maxHeightFallback: number;
 }
 
+const textareaHeightMirrors = new WeakMap<Document, HTMLTextAreaElement>();
+
 export function syncTextareaHeight(textarea: HTMLTextAreaElement | null, options: TextareaHeightOptions): void {
   if (!textarea) return;
   const style = getComputedStyle(textarea);
   const win = textarea.win;
   const minHeight = parseCssPixels(style.minHeight, options.minHeightFallback);
   const maxHeight = parseCssLengthExpression(style.maxHeight, win) ?? options.maxHeightFallback;
-  const resetHeightProps: Record<string, string> = { height: "auto" };
-  textarea.setCssProps(resetHeightProps);
-  const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+  const measuredScrollHeight = measureTextareaNaturalScrollHeight(textarea, style);
+  const nextHeight = Math.min(Math.max(measuredScrollHeight, minHeight), maxHeight);
   const sizingProps: Record<string, string> = {
     height: `${String(nextHeight)}px`,
-    "overflow-y": textarea.scrollHeight > maxHeight ? "auto" : "hidden",
+    "overflow-y": measuredScrollHeight > maxHeight ? "auto" : "hidden",
   };
   textarea.setCssProps(sizingProps);
+}
+
+function measureTextareaNaturalScrollHeight(textarea: HTMLTextAreaElement, style: CSSStyleDeclaration): number {
+  const mirror = textareaHeightMirror(textarea.ownerDocument);
+  mirror.value = textarea.value;
+  syncTextareaMirrorStyle(mirror, textarea, style);
+  return mirror.scrollHeight;
+}
+
+function textareaHeightMirror(doc: Document): HTMLTextAreaElement {
+  const existing = textareaHeightMirrors.get(doc);
+  if (existing) return existing;
+  const mirror = doc.createElement("textarea");
+  mirror.tabIndex = -1;
+  mirror.setAttribute("aria-hidden", "true");
+  mirror.readOnly = true;
+  mirror.style.setProperty("position", "fixed");
+  mirror.style.setProperty("top", "0");
+  mirror.style.setProperty("left", "0");
+  mirror.style.setProperty("visibility", "hidden");
+  mirror.style.setProperty("pointer-events", "none");
+  mirror.style.setProperty("z-index", "-1");
+  mirror.style.setProperty("height", "auto");
+  mirror.style.setProperty("min-height", "0");
+  mirror.style.setProperty("max-height", "none");
+  mirror.style.setProperty("overflow", "hidden");
+  mirror.style.setProperty("resize", "none");
+  mirror.style.setProperty("transform", "translateX(-10000px)");
+  doc.body.appendChild(mirror);
+  textareaHeightMirrors.set(doc, mirror);
+  return mirror;
+}
+
+function syncTextareaMirrorStyle(mirror: HTMLTextAreaElement, textarea: HTMLTextAreaElement, style: CSSStyleDeclaration): void {
+  const rect = textarea.getBoundingClientRect();
+  const width = style.boxSizing === "border-box" ? `${String(rect.width)}px` : style.width;
+  mirror.style.setProperty("width", width);
+  for (const property of TEXTAREA_MIRROR_CSS_PROPERTIES) {
+    mirror.style.setProperty(property, style.getPropertyValue(property));
+  }
 }
 
 function parseCssPixels(value: string, fallback: number): number {
@@ -44,3 +85,46 @@ function cssLengthToPixels(value: number, unit: string, win: Window): number {
   if (unit.toLowerCase() === "vh") return (win.innerHeight * value) / 100;
   return value;
 }
+
+const TEXTAREA_MIRROR_CSS_PROPERTIES = [
+  "border-bottom-width",
+  "border-left-width",
+  "border-right-width",
+  "border-top-width",
+  "box-sizing",
+  "direction",
+  "font-family",
+  "font-feature-settings",
+  "font-kerning",
+  "font-language-override",
+  "font-optical-sizing",
+  "font-size",
+  "font-size-adjust",
+  "font-stretch",
+  "font-style",
+  "font-synthesis",
+  "font-variant",
+  "font-variant-alternates",
+  "font-variant-caps",
+  "font-variant-east-asian",
+  "font-variant-ligatures",
+  "font-variant-numeric",
+  "font-variant-position",
+  "font-variation-settings",
+  "font-weight",
+  "letter-spacing",
+  "line-height",
+  "padding-bottom",
+  "padding-left",
+  "padding-right",
+  "padding-top",
+  "tab-size",
+  "text-align",
+  "text-indent",
+  "text-rendering",
+  "text-transform",
+  "white-space",
+  "word-break",
+  "word-spacing",
+  "overflow-wrap",
+] as const;
