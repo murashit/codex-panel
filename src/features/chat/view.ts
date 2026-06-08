@@ -62,12 +62,7 @@ export class CodexChatView extends ItemView {
     this.resumeWork = new ChatResumeWorkTracker(() => {
       this.controllers.thread.history.invalidate();
     });
-    this.messageScrollIntent = new ChatMessageScrollIntentController({
-      stateStore: this.chatState,
-      render: () => {
-        this.controllers.render.controller.render();
-      },
-    });
+    this.messageScrollIntent = new ChatMessageScrollIntentController();
     this.controllers = createChatViewControllers(this.createControllerPorts());
     this.slotPorts = this.createSlotRendererPorts();
   }
@@ -89,7 +84,9 @@ export class CodexChatView extends ItemView {
         registerActiveLeafChange: (handler) => {
           this.registerEvent(this.app.workspace.on("active-leaf-change", handler));
         },
-        isOwnLeaf: (candidateLeaf) => candidateLeaf === this.leaf,
+        handleActiveLeafChange: (leaf) => {
+          if (leaf === this.leaf) this.forceMessagesToBottomOnFocus();
+        },
         archiveAdapter: () => this.app.vault.adapter,
       },
       plugin: this.plugin,
@@ -225,14 +222,8 @@ export class CodexChatView extends ItemView {
           this.messageScrollIntent.forceBottom();
           this.controllers.render.messages.forceMessagesToBottom();
         },
-        correctAfterLayoutChange: () => {
-          this.controllers.render.messages.correctMessagesAfterLayoutChange();
-        },
         preservePosition: () => {
           this.messageScrollIntent.preservePosition();
-        },
-        bottomOnFocus: () => {
-          this.messageScrollIntent.scrollToBottomOnFocus();
         },
       },
       status: {
@@ -458,7 +449,7 @@ export class CodexChatView extends ItemView {
     if (threadId && this.isRestoredThreadPending(threadId)) {
       await this.ensureRestoredThreadLoaded();
     }
-    this.messageScrollIntent.scrollToBottomOnFocus();
+    this.forceMessagesToBottomOnFocus();
     this.focusComposer();
   }
 
@@ -496,7 +487,6 @@ export class CodexChatView extends ItemView {
     this.controllers.thread.identity.clearActiveThreadContext();
     this.chatState.dispatch({ type: "ui/panel-set", panel: null });
     this.dispatch({ type: "connection/status-set", status: "New chat." });
-    this.messageScrollIntent.forceBottom();
     this.controllers.render.controller.render();
     this.focusComposer();
   }
@@ -553,6 +543,11 @@ export class CodexChatView extends ItemView {
 
   private clearDeferredRestoredThreadHydration(): void {
     this.controllers.thread.restored.clearHydration();
+  }
+
+  private forceMessagesToBottomOnFocus(): void {
+    this.messageScrollIntent.forceBottom();
+    this.controllers.render.messages.forceMessagesToBottom();
   }
 
   private scheduleDeferredAppServerWarmup(): void {

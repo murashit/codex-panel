@@ -38,7 +38,7 @@ interface ChatPanelObsidianContext {
   registerEvent: (eventRef: EventRef) => void;
   registerPointerDown: (handler: (event: PointerEvent) => void) => void;
   registerActiveLeafChange: (handler: (leaf: WorkspaceLeaf | null) => void) => void;
-  isOwnLeaf: (leaf: WorkspaceLeaf | null) => boolean;
+  handleActiveLeafChange: (leaf: WorkspaceLeaf | null) => void;
   archiveAdapter: () => ArchiveExportAdapter;
 }
 
@@ -122,9 +122,7 @@ interface ChatPanelLiveStateContext {
 
 interface ChatPanelScrollContext {
   forceBottom: () => void;
-  correctAfterLayoutChange: () => void;
   preservePosition: () => void;
-  bottomOnFocus: () => void;
 }
 
 interface ChatPanelStatusContext {

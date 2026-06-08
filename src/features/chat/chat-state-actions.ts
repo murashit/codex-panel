@@ -40,10 +40,6 @@ export function closePanelsAction(): ChatAction {
   return { type: "ui/panel-set", panel: null };
 }
 
-export function pinMessagesToBottomAction(): ChatAction {
-  return { type: "ui/messages-pinned-set", pinned: true };
-}
-
 export function setDetailOpenAction(key: string, open: boolean): ChatAction {
   return { type: "ui/detail-open-set", key, open };
 }

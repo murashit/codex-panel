@@ -8,7 +8,6 @@ export interface ThreadHistoryControllerHost {
   currentClient: () => AppServerClient | null;
   render: () => void;
   addSystemMessage: (text: string) => void;
-  forceMessagesToBottom: () => void;
   keepCurrentScrollPosition: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
 }
@@ -58,7 +57,6 @@ export class ThreadHistoryController {
     if (this.state.activeThread.id !== threadId) return false;
     this.host.setThreadTurnPresence(response.data.length > 0);
     this.dispatch({ type: "transcript/items-replaced", items: displayItemsFromTurns(response.data), historyCursor: response.nextCursor });
-    this.host.forceMessagesToBottom();
     this.host.render();
     return true;
   }
@@ -82,7 +80,6 @@ export class ThreadHistoryController {
         items: [...olderItems.filter((item) => !existingIds.has(item.id)), ...current.transcript.displayItems],
         historyCursor: response.nextCursor,
       });
-      this.dispatch({ type: "ui/messages-pinned-set", pinned: false });
     } catch (error) {
       if (this.isStale(load)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));

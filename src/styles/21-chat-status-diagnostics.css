@@ -8,8 +8,9 @@
   gap: var(--codex-panel-panel-gap);
   max-height: min(var(--codex-panel-size-toolbar-panel-max-height), 45vh);
   overflow: auto;
-  margin-top: var(--codex-panel-item-gap);
-  padding: var(--codex-panel-item-gap) 0 0;
+  margin-top: 0;
+  margin-bottom: var(--codex-panel-panel-gap);
+  padding: 0;
   background: transparent;
 }
 

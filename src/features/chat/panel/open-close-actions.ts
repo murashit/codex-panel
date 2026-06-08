@@ -9,8 +9,7 @@ export interface ChatViewOpenCloseActionsHost {
   registerComposerNoteIndexInvalidation: (register: (eventRef: EventRef) => void) => void;
   registerPointerDown: (handler: (event: PointerEvent) => void) => void;
   registerActiveLeafChange: (handler: (leaf: WorkspaceLeaf | null) => void) => void;
-  isOwnLeaf: (leaf: WorkspaceLeaf | null) => boolean;
-  scrollMessagesToBottomOnFocus: () => void;
+  handleActiveLeafChange: (leaf: WorkspaceLeaf | null) => void;
   applyCachedSharedAppServerState: () => void;
   render: () => void;
   scheduleDeferredAppServerWarmup: () => void;
@@ -53,9 +52,7 @@ function openChatView(host: ChatViewOpenCloseActionsHost): void {
   host.registerPointerDown((event) => {
     host.closeToolbarPanelOnOutsidePointer(event);
   });
-  host.registerActiveLeafChange((leaf) => {
-    if (host.isOwnLeaf(leaf)) host.scrollMessagesToBottomOnFocus();
-  });
+  host.registerActiveLeafChange(host.handleActiveLeafChange);
   host.applyCachedSharedAppServerState();
   host.render();
   host.scheduleDeferredAppServerWarmup();

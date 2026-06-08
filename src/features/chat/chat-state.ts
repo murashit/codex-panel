@@ -102,7 +102,7 @@ interface ChatRequestState {
   userInputDrafts: ReadonlyMap<string, string>;
 }
 
-export interface ChatComposerState {
+interface ChatComposerState {
   draft: string;
   suggestSelected: number;
   suggestions: readonly ComposerSuggestion[];
@@ -110,7 +110,6 @@ export interface ChatComposerState {
 }
 
 interface ChatUiState {
-  messagesPinnedToBottom: boolean;
   openDetails: ReadonlySet<string>;
 }
 
@@ -165,7 +164,6 @@ export interface ActiveThreadResumedAction {
   displayItems?: readonly DisplayItem[];
   status?: string;
   listedThreads?: readonly Thread[];
-  forceMessagesToBottom?: boolean;
 }
 
 export interface ActiveThreadSettingsAppliedAction {
@@ -275,7 +273,6 @@ type UiAction =
       panel: "history" | "chat-actions" | "status-panel" | null;
       toggle?: boolean;
     }
-  | { type: "ui/messages-pinned-set"; pinned: boolean }
   | { type: "ui/detail-open-set"; key: string; open: boolean };
 
 export type ChatAction = ChatTransitionAction | ChatSliceAction;
@@ -454,10 +451,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
     },
     requests: initialRequestState(),
     composer: initialComposerState(),
-    ui: {
-      ...state.ui,
-      messagesPinnedToBottom: action.forceMessagesToBottom ?? true,
-    },
+    ui: initialUiState(),
   });
 }
 
@@ -499,10 +493,7 @@ function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, actio
         ...initialTranscriptState(),
         displayItems: [action.item],
       },
-      ui: {
-        ...state.ui,
-        messagesPinnedToBottom: true,
-      },
+      ui: initialUiState(),
     }),
   );
 }
@@ -763,8 +754,6 @@ function reduceUiSlice(state: ChatUiState, action: ChatSliceAction): ChatUiState
   switch (action.type) {
     case "ui/panel-set":
       return setPanelSlice(state, action.panel, action.toggle ?? false);
-    case "ui/messages-pinned-set":
-      return patchObject(state, { messagesPinnedToBottom: action.pinned });
     case "ui/detail-open-set":
       return setDetailOpenSlice(state, action.key, action.open);
     default:
@@ -791,10 +780,7 @@ function clearActiveThreadState(state: ChatState): ChatState {
       },
       transcript: initialTranscriptState(),
       composer: initialComposerState(),
-      ui: {
-        ...state.ui,
-        messagesPinnedToBottom: true,
-      },
+      ui: initialUiState(),
     }),
   );
 }
@@ -913,7 +899,6 @@ function initialComposerState(): ChatComposerState {
 
 function initialUiState(): ChatUiState {
   return {
-    messagesPinnedToBottom: true,
     openDetails: new Set(),
   };
 }
@@ -949,7 +934,6 @@ function cloneChatState(state: ChatState): ChatState {
       suggestions: [...state.composer.suggestions],
     },
     ui: {
-      messagesPinnedToBottom: state.ui.messagesPinnedToBottom,
       openDetails: new Set(state.ui.openDetails),
     },
   };

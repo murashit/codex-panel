@@ -52,7 +52,7 @@ export function createConnectionLifecycleControllerGroup(
     appServerMetadata: ChatAppServerMetadataActions;
   },
 ) {
-  const { obsidian, lifecycle, render, liveState, scroll, client } = context;
+  const { obsidian, lifecycle, render, liveState, client } = context;
   const { deferredTasks } = lifecycle;
 
   return {
@@ -72,8 +72,7 @@ export function createConnectionLifecycleControllerGroup(
       },
       registerPointerDown: obsidian.registerPointerDown,
       registerActiveLeafChange: obsidian.registerActiveLeafChange,
-      isOwnLeaf: obsidian.isOwnLeaf,
-      scrollMessagesToBottomOnFocus: scroll.bottomOnFocus,
+      handleActiveLeafChange: obsidian.handleActiveLeafChange,
       applyCachedSharedAppServerState: () => {
         applyCachedSharedAppServerState(context, refs.appServerThreads, refs.appServerMetadata);
       },

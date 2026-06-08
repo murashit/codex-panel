@@ -20,6 +20,27 @@ describe("panel CSS token scope", () => {
 });
 
 describe("chat toolbar CSS", () => {
+  it("lets the message slot size come from its grid row", () => {
+    const messages = /\.codex-panel__messages \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(messages).toContain("overflow-y: auto");
+    expect(messages).not.toMatch(/^\s+height:/m);
+  });
+
+  it("keeps toolbar panels visually separated from the following body content", () => {
+    const toolbarPanel = /\.codex-panel__toolbar-panel \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(toolbarPanel).toContain("margin-bottom: var(--codex-panel-panel-gap)");
+  });
+
+  it("aligns goal banner spacing with the message rhythm", () => {
+    const goalSlot = /\.codex-panel__slot--goal:not\(:empty\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const goal = /\.codex-panel__goal \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(goalSlot).toContain("padding-bottom: var(--codex-panel-edge-padding-x)");
+    expect(goal).toContain("margin: var(--codex-panel-edge-padding-x) var(--codex-panel-edge-padding-x) 0");
+  });
+
   it("lets icon-only toolbar actions use Obsidian nav action geometry", () => {
     const toolbarAction = /\.codex-panel-ui__toolbar-action \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const toolbar = /\.codex-panel__toolbar \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";

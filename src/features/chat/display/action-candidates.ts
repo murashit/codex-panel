@@ -1,7 +1,6 @@
 import {
   chatTurnBusy,
   type ChatActiveThreadState,
-  type ChatComposerState,
   type ChatRuntimeState,
   type ChatTranscriptState,
   type ChatTurnState,
@@ -62,16 +61,10 @@ export function isRollbackCandidateItem(item: DisplayItem, candidate: RollbackCa
 export function implementPlanCandidateFromState(state: {
   activeThread: Pick<ChatActiveThreadState, "id">;
   turn: ChatTurnState;
-  composer: Pick<ChatComposerState, "draft">;
   runtime: Pick<ChatRuntimeState, "selectedCollaborationMode">;
   transcript: Pick<ChatTranscriptState, "displayItems">;
 }): DisplayItem | null {
-  if (
-    !state.activeThread.id ||
-    chatTurnBusy(state) ||
-    state.composer.draft.trim().length > 0 ||
-    state.runtime.selectedCollaborationMode !== "plan"
-  ) {
+  if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
     return null;
   }
   return (

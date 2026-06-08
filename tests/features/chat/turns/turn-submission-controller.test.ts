@@ -111,7 +111,6 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     ...composerOverrides,
   };
   const view: TurnSubmissionViewPort = {
-    forceMessagesToBottom: vi.fn(),
     render: vi.fn(),
     scheduleRender: vi.fn(),
     ...viewOverrides,

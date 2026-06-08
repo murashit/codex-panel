@@ -29,6 +29,9 @@ describe("ChatPanelShell", () => {
     expect(container.textContent).toContain("0");
     expect(container.textContent).toContain("ready");
     expect(container.querySelector(".codex-panel__slot--config")).toBeNull();
+    expect(container.querySelector(".codex-panel__body > .codex-panel__slot--messages")).toBe(
+      container.querySelector(".codex-panel__body > .codex-panel__messages"),
+    );
 
     await act(async () => {
       unmountChatPanelShell(container);

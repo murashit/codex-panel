@@ -72,7 +72,7 @@ describe("ThreadHistoryController", () => {
 
   it("loads older history without coupling transcript replacement to bottom pin state", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue(threadTurnsResponse([turnFixture([assistantMessage("older", "Older")])], "next"));
-    const { loader, stateStore, dispatch } = historyFixture({ threadTurnsList });
+    const { loader, stateStore, dispatch, keepCurrentScrollPosition } = historyFixture({ threadTurnsList });
     stateStore.dispatch({ type: "transcript/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
 
     await loader.loadOlder();
@@ -80,13 +80,8 @@ describe("ThreadHistoryController", () => {
     expect(threadTurnsList).toHaveBeenCalledWith("thread", "cursor", 20);
     expect(stateStore.getState().transcript.displayItems.map((item) => item.id)).toEqual(["older", "current"]);
     expect(stateStore.getState().transcript.historyCursor).toBe("next");
-    expect(stateStore.getState().ui.messagesPinnedToBottom).toBe(false);
+    expect(keepCurrentScrollPosition).toHaveBeenCalledOnce();
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "transcript/items-replaced" }));
-    expect(dispatch).toHaveBeenCalledWith({ type: "ui/messages-pinned-set", pinned: false });
-    const transcriptReplaceActions = dispatch.mock.calls
-      .map(([action]) => action)
-      .filter((action) => action.type === "transcript/items-replaced");
-    expect(transcriptReplaceActions[transcriptReplaceActions.length - 1]).not.toHaveProperty("messagesPinnedToBottom");
   });
 });
 
@@ -98,6 +93,7 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
   const stateStore = createChatStateStore(state);
   const dispatch = vi.spyOn(stateStore, "dispatch");
   const addSystemMessage = vi.fn();
+  const keepCurrentScrollPosition = vi.fn();
   const loader = new ThreadHistoryController({
     stateStore,
     currentClient: () =>
@@ -106,11 +102,10 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
       }) as unknown as AppServerClient,
     render: vi.fn(),
     addSystemMessage,
-    forceMessagesToBottom: vi.fn(),
-    keepCurrentScrollPosition: vi.fn(),
+    keepCurrentScrollPosition,
     setThreadTurnPresence: vi.fn(),
   });
-  return { loader, stateStore, addSystemMessage, dispatch };
+  return { loader, stateStore, addSystemMessage, dispatch, keepCurrentScrollPosition };
 }
 
 function threadTurnsResponse(data: Turn[], nextCursor: string | null): ThreadTurnsListResponse {

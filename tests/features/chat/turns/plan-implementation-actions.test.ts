@@ -52,7 +52,7 @@ function createController({ client = {} as AppServerClient } = {}) {
 }
 
 describe("createPlanImplementationActions", () => {
-  it("finds the latest proposed plan only when the thread is implementable", () => {
+  it("finds the latest proposed plan only when the thread is idle and in plan mode", () => {
     const stateStore = createChatStateStore(createChatState());
     const first = planItem("first");
     const latest = planItem("latest");
@@ -62,7 +62,7 @@ describe("createPlanImplementationActions", () => {
 
     stateStore.dispatch({ type: "composer/draft-set", draft: "edit first" });
 
-    expect(implementPlanCandidateFromState(stateStore.getState())).toBeNull();
+    expect(implementPlanCandidateFromState(stateStore.getState())).toBe(latest);
   });
 
   it("switches out of plan mode and submits the implementation prompt", async () => {

@@ -23,7 +23,6 @@ export interface ResumedThreadActionParams {
   response: ThreadActivationResponse;
   listedThreads?: readonly Thread[];
   displayItems?: readonly DisplayItem[];
-  forceMessagesToBottom?: boolean;
 }
 
 export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
@@ -40,6 +39,5 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     activePermissionProfile: response.activePermissionProfile,
     ...(params.displayItems ? { displayItems: params.displayItems } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
-    ...(params.forceMessagesToBottom !== undefined ? { forceMessagesToBottom: params.forceMessagesToBottom } : {}),
   };
 }

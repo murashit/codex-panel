@@ -19,7 +19,7 @@ export function createChatAppServerControllers(
     goals: ChatThreadGoalActions;
   },
 ) {
-  const { plugin, runtime, scroll } = context;
+  const { plugin, runtime } = context;
   const stateStore = context.state.stateStore;
   const appServerBaseHost = {
     stateStore,
@@ -42,7 +42,6 @@ export function createChatAppServerControllers(
   const appServerThreads = createChatAppServerThreadActions({
     ...appServerBaseHost,
     runtimeSnapshot: runtime.runtimeSnapshot,
-    forceMessagesToBottom: scroll.forceBottom,
     publishThreadList: (threads) => {
       plugin.applyThreadListSnapshot(threads);
     },

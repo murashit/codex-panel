@@ -1,9 +1,9 @@
 .codex-panel__messages {
-  height: 100%;
+  box-sizing: border-box;
   min-height: 0;
   overflow-y: auto;
   overflow-anchor: none;
-  padding: var(--codex-panel-edge-padding-x) var(--codex-panel-edge-padding-x);
+  padding: 0 var(--codex-panel-edge-padding-x);
   user-select: text;
 }
 

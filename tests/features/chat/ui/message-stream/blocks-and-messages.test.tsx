@@ -2,9 +2,12 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
+import { MarkdownRenderer } from "obsidian";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 import { implementPlanCandidateFromState } from "../../../../../src/features/chat/display/action-candidates";
+import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
+import { deferred } from "../../../../support/async";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
@@ -725,6 +728,86 @@ describe("message stream rendering and message actions", () => {
     unmountUiRootInAct(parent);
   });
 
+  it("ignores stale async markdown renders after streaming content is replaced", async () => {
+    const parent = document.createElement("div");
+    const firstRender = deferred<undefined>();
+    const renderMarkdown = vi.spyOn(MarkdownRenderer, "render");
+    renderMarkdown
+      .mockImplementationOnce((_app, text: string, element: HTMLElement) =>
+        firstRender.promise.then(() => {
+          element.textContent = `stale:${text}`;
+        }),
+      )
+      .mockImplementation((_app, text: string, element: HTMLElement) => {
+        element.textContent = `fresh:${text}`;
+        return Promise.resolve();
+      });
+    const markdownRenderer = new MarkdownMessageRenderer({
+      app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
+      owner: {} as never,
+      vaultPath: "/vault",
+    });
+    const baseContext = {
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      openDetails: new Set<string>(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element: HTMLElement, text: string) => {
+        markdownRenderer.renderMarkdown(element, text);
+      },
+    };
+
+    renderMessageStreamBlocksInAct(
+      parent,
+      messageStreamBlocks({
+        ...baseContext,
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "old",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "streaming",
+          },
+        ],
+      }),
+    );
+    const staleContent = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-content"));
+
+    renderMessageStreamBlocksInAct(
+      parent,
+      messageStreamBlocks({
+        ...baseContext,
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "new",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "streaming",
+          },
+        ],
+      }),
+    );
+    await Promise.resolve();
+    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("fresh:new");
+
+    firstRender.resolve(undefined);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(staleContent.isConnected).toBe(false);
+    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("fresh:new");
+    renderMarkdown.mockRestore();
+    unmountUiRootInAct(parent);
+  });
+
   it("hides copy action for the active assistant message while a turn is running", () => {
     const item = {
       id: "a-running",
@@ -847,7 +930,6 @@ describe("message stream rendering and message actions", () => {
     const baseState = {
       activeThread: { id: "thread" },
       turn: { lifecycle: { kind: "idle" as const } },
-      composer: { draft: "" },
       runtime: { selectedCollaborationMode: "plan" as const },
       transcript: {
         displayItems: [
@@ -867,7 +949,6 @@ describe("message stream rendering and message actions", () => {
 
     expect(implementPlanCandidateFromState(baseState)).toBe(secondPlan);
     expect(implementPlanCandidateFromState({ ...baseState, runtime: { selectedCollaborationMode: "default" } })).toBeNull();
-    expect(implementPlanCandidateFromState({ ...baseState, composer: { draft: "edit first" } })).toBeNull();
     expect(implementPlanCandidateFromState({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
   });
 

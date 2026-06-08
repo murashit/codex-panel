@@ -17,6 +17,7 @@ import {
 } from "../../../../../src/features/chat/ui/message-stream";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { installMessageViewportMetrics } from "./test-helpers";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 
@@ -143,7 +144,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
-    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
+    installMessageViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 920;
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
@@ -153,7 +154,6 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     expect(messages.scrollTop).toBe(0);
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("can repin the current scroll container after composer growth shrinks the viewport", async () => {
@@ -175,18 +175,17 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
-    Object.defineProperty(messages, "clientHeight", { value: 160, configurable: true });
+    installMessageViewportMetrics(messages, { clientHeight: 160 });
     messages.scrollTop = 1000;
     renderer.render(messages);
     await settleMessageRender(messages);
 
-    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
+    installMessageViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 940;
 
     renderer.forceMessagesToBottom();
 
     expect(messages.scrollTop).toBe(0);
-    expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("repins after composer growth has changed the scroll viewport height", async () => {
@@ -215,6 +214,12 @@ describe("ChatMessageRenderer scroll pinning", () => {
         get: () => (layoutSettled ? 100 : 160),
         configurable: true,
       },
+      offsetHeight: {
+        get: () => messages.clientHeight,
+        configurable: true,
+      },
+      clientWidth: { value: 240, configurable: true },
+      offsetWidth: { value: 240, configurable: true },
       scrollTop: {
         get: () => scrollTop,
         set: (value: number) => {
@@ -235,7 +240,6 @@ describe("ChatMessageRenderer scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(0);
-    expect(state.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("does not force the bottom into view when the user is reading older messages", async () => {
@@ -256,14 +260,14 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const renderer = chatMessageRenderer(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    installMessageViewportMetrics(messages);
     renderer.render(messages);
     await settleMessageRender(messages);
 
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
-    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
+    installMessageViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 100;
     messages.dispatchEvent(new Event("scroll"));
-    expect(state.ui.messagesPinnedToBottom).toBe(false);
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
@@ -282,7 +286,6 @@ describe("ChatMessageRenderer scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.ui.messagesPinnedToBottom).toBe(false);
   });
 
   it("does not run a pending bottom pin after the user scrolls away", async () => {
@@ -304,7 +307,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
-    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
+    installMessageViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 920;
     renderer.render(messages);
 
@@ -315,7 +318,6 @@ describe("ChatMessageRenderer scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
-    expect(state.ui.messagesPinnedToBottom).toBe(false);
   });
 
   it("unmounts the Preact message stream root on dispose", () => {
@@ -336,6 +338,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const renderer = chatMessageRenderer(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    installMessageViewportMetrics(messages);
     renderer.render(messages);
     expect(messages.querySelector('[data-codex-panel-block-key="item:message"]')).not.toBeNull();
 

@@ -264,14 +264,14 @@ export class WorkspacePanelCoordinator {
     await this.options.app.workspace.revealLeaf(target.leaf);
     if ("view" in target) {
       await target.view.connect();
-      target.view.focusComposer();
+      await target.view.focusThread();
       return target.view;
     }
 
     await target.leaf.loadIfDeferred();
     if (target.leaf.view instanceof CodexChatView) {
       await target.leaf.view.connect();
-      target.leaf.view.focusComposer();
+      await target.leaf.view.focusThread();
       return target.leaf.view;
     }
 

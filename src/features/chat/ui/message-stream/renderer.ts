@@ -49,25 +49,15 @@ export interface ChatMessageRendererOptions {
 
 export class ChatMessageRenderer {
   private messagesEl: HTMLElement | null = null;
-  private bottomPinFrame: number | null = null;
   private readonly messageVirtualizer: MessageStreamVirtualizer;
   private readonly markdownRenderer: MarkdownMessageRenderer;
 
   constructor(private readonly options: ChatMessageRendererOptions) {
-    this.messageVirtualizer = new MessageStreamVirtualizer({
-      messagesPinnedToBottom: () => this.state.ui.messagesPinnedToBottom,
-      setMessagesPinnedToBottom: (pinned) => {
-        this.dispatch({ type: "ui/messages-pinned-set", pinned });
-      },
-    });
+    this.messageVirtualizer = new MessageStreamVirtualizer();
     this.markdownRenderer = new MarkdownMessageRenderer({
       app: options.obsidian.app,
       owner: options.obsidian.owner,
       vaultPath: options.workspace.vaultPath,
-      messagesPinnedToBottom: () => this.state.ui.messagesPinnedToBottom,
-      pinMessagesToBottom: (messagesEl) => {
-        this.pinMessagesToBottom(messagesEl);
-      },
     });
   }
 
@@ -108,7 +98,6 @@ export class ChatMessageRenderer {
   }
 
   dispose(): void {
-    this.cancelBottomPinFrame();
     if (this.messagesEl) {
       unmountUiRoot(this.messagesEl);
     }
@@ -126,36 +115,9 @@ export class ChatMessageRenderer {
 
   forceMessagesToBottom(): void {
     this.messageVirtualizer.pinToBottom(this.messagesEl);
-    this.scheduleBottomPinAfterLayout();
-  }
-
-  correctMessagesAfterLayoutChange(): void {
-    this.messageVirtualizer.correctAfterLayoutChange();
   }
 
   private async copyMessageText(text: string): Promise<void> {
     await copyTextWithNotice(text, "Copied message.", "Could not copy message.");
-  }
-
-  private pinMessagesToBottom(messagesEl: HTMLElement): void {
-    this.messageVirtualizer.pinToBottom(messagesEl);
-  }
-
-  private scheduleBottomPinAfterLayout(): void {
-    const messagesEl = this.messagesEl;
-    if (!messagesEl || this.bottomPinFrame !== null) return;
-
-    this.bottomPinFrame = messagesEl.win.requestAnimationFrame(() => {
-      this.bottomPinFrame = null;
-      if (!this.state.ui.messagesPinnedToBottom) return;
-      this.messageVirtualizer.pinToBottom(this.messagesEl);
-    });
-  }
-
-  private cancelBottomPinFrame(): void {
-    const messagesEl = this.messagesEl;
-    if (!messagesEl || this.bottomPinFrame === null) return;
-    messagesEl.win.cancelAnimationFrame(this.bottomPinFrame);
-    this.bottomPinFrame = null;
   }
 }

@@ -7,7 +7,6 @@ import type { ChatAppServerBaseHost } from "./shared";
 
 export interface ChatAppServerThreadActionsHost extends ChatAppServerBaseHost {
   runtimeSnapshot: () => RuntimeSnapshot;
-  forceMessagesToBottom: () => void;
   publishThreadList: (threads: readonly Thread[]) => void;
   syncThreadGoal: (threadId: string) => void;
 }
@@ -54,9 +53,8 @@ async function startThread(
     response.thread.preview.trim().length > 0 || !fallbackPreview ? response.thread : { ...response.thread, preview: fallbackPreview };
   const listedThreads = upsertThread(state.threadList.listedThreads, thread);
   const resumedResponse = thread === response.thread ? response : { ...response, thread };
-  host.stateStore.dispatch(resumedThreadAction({ response: resumedResponse, listedThreads, forceMessagesToBottom: true }));
+  host.stateStore.dispatch(resumedThreadAction({ response: resumedResponse, listedThreads }));
   host.publishThreadList(listedThreads);
-  host.forceMessagesToBottom();
   if (options.syncGoal ?? true) host.syncThreadGoal(response.thread.id);
   return response;
 }

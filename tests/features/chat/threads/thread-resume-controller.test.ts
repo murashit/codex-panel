@@ -115,6 +115,17 @@ describe("ThreadResumeController", () => {
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
+  it("pins to the bottom after resumed history and goal sync finish", async () => {
+    const { controller, host } = createController();
+
+    await controller.resumeThread("thread");
+
+    expect(host.forceMessagesToBottom).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(host.forceMessagesToBottom).mock.invocationCallOrder[0]).toBeGreaterThan(
+      vi.mocked(host.syncThreadGoal).mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
   it("does not switch threads while a different turn is busy", async () => {
     const { controller, host, resumeThread, stateStore } = createController();
     stateStore.dispatch({

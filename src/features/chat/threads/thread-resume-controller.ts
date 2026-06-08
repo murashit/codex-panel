@@ -56,11 +56,12 @@ export class ThreadResumeController {
       if (this.isStale(resume)) return;
       await this.host.syncThreadGoal(response.thread.id);
       if (this.isStale(resume)) return;
-      if (displayItemsEmpty(this.host.stateStore.getState())) {
+      const renderFallbackMessage = displayItemsEmpty(this.host.stateStore.getState());
+      if (renderFallbackMessage) {
         this.host.addSystemMessage(`Resumed thread ${response.thread.id}`);
-        this.host.forceMessagesToBottom();
-        this.host.render();
       }
+      this.host.forceMessagesToBottom();
+      if (renderFallbackMessage) this.host.render();
       this.host.refreshLiveState();
     } catch (error) {
       if (this.isStale(resume)) return;
@@ -80,7 +81,6 @@ export class ThreadResumeController {
     this.host.clearDeferredRestoredThreadHydration();
     this.host.resetThreadTurnPresence(false);
     this.host.notifyActiveThreadIdentityChanged();
-    this.host.forceMessagesToBottom();
     this.host.render();
     this.host.refreshLiveState();
   }

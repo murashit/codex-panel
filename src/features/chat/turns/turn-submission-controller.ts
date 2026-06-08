@@ -42,7 +42,6 @@ export interface TurnSubmissionComposerPort {
 }
 
 export interface TurnSubmissionViewPort {
-  forceMessagesToBottom: () => void;
   render: () => void;
   scheduleRender: () => void;
 }
@@ -98,7 +97,6 @@ export class TurnSubmissionController {
         referencedThread,
       });
       this.host.stateStore.dispatch(optimisticTurnStartedAction(optimistic.item, optimistic.pendingTurnStart));
-      this.host.view.forceMessagesToBottom();
       this.host.composer.setDraft("");
       this.host.view.render();
 
@@ -167,7 +165,6 @@ export class TurnSubmissionController {
           }),
         ),
       );
-      this.host.view.forceMessagesToBottom();
       this.host.status.setStatus("Steered current turn.");
     } catch (error) {
       this.host.composer.setDraft(text, { focus: true });

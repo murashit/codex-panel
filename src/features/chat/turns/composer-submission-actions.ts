@@ -30,6 +30,10 @@ interface ComposerStatusPort {
   addSystemMessage: (text: string) => void;
 }
 
+interface ComposerScrollPort {
+  forceBottom: () => void;
+}
+
 export interface ComposerSubmissionActionsHost {
   stateStore: ChatStateStore;
   composer: ComposerDraftPort;
@@ -37,6 +41,7 @@ export interface ComposerSubmissionActionsHost {
   turnSubmission: ComposerTurnSubmissionPort;
   connection: ComposerConnectionPort;
   status: ComposerStatusPort;
+  scroll: ComposerScrollPort;
 }
 
 export interface ComposerSubmissionActions {
@@ -74,11 +79,32 @@ async function sendMessage(host: ComposerSubmissionActionsHost): Promise<void> {
       host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
     }
     if (result?.sendText) {
-      await host.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
+      await sendComposerTurn(host, result.sendText, result.sendInput, result.referencedThread);
     }
     return;
   }
 
+  await sendComposerTurn(host, text);
+}
+
+function sendComposerTurn(host: ComposerSubmissionActionsHost, text: string): Promise<void>;
+function sendComposerTurn(
+  host: ComposerSubmissionActionsHost,
+  text: string,
+  codexInputOverride: UserInput[] | undefined,
+  referencedThread: ReferencedThreadDisplay | undefined,
+): Promise<void>;
+async function sendComposerTurn(
+  host: ComposerSubmissionActionsHost,
+  text: string,
+  codexInputOverride?: UserInput[],
+  referencedThread?: ReferencedThreadDisplay,
+): Promise<void> {
+  host.scroll.forceBottom();
+  if (arguments.length > 2) {
+    await host.turnSubmission.sendTurnText(text, codexInputOverride, referencedThread);
+    return;
+  }
   await host.turnSubmission.sendTurnText(text);
 }
 

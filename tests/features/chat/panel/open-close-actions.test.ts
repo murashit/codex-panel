@@ -21,8 +21,7 @@ function createHost(overrides: Partial<ChatViewOpenCloseActionsHost> = {}) {
     }),
     registerPointerDown: vi.fn(),
     registerActiveLeafChange: vi.fn(),
-    isOwnLeaf: vi.fn(() => false),
-    scrollMessagesToBottomOnFocus: vi.fn(),
+    handleActiveLeafChange: vi.fn(),
     applyCachedSharedAppServerState: vi.fn(),
     render: vi.fn(),
     scheduleDeferredAppServerWarmup: vi.fn(),
@@ -57,7 +56,7 @@ describe("createChatViewOpenCloseActions", () => {
     expect(host.setClosing).toHaveBeenCalledWith(false);
     expect(host.registerEvent).toHaveBeenCalledOnce();
     expect(host.registerPointerDown).toHaveBeenCalledOnce();
-    expect(host.registerActiveLeafChange).toHaveBeenCalledOnce();
+    expect(host.registerActiveLeafChange).toHaveBeenCalledWith(host.handleActiveLeafChange);
     expect(host.applyCachedSharedAppServerState).toHaveBeenCalledOnce();
     expect(host.render).toHaveBeenCalledOnce();
     expect(host.scheduleDeferredAppServerWarmup).toHaveBeenCalledOnce();

@@ -7,8 +7,6 @@ export interface MarkdownMessageRendererOptions {
   app: App;
   owner: Component;
   vaultPath: string;
-  messagesPinnedToBottom: () => boolean;
-  pinMessagesToBottom: (messagesEl: HTMLElement) => void;
 }
 
 export class MarkdownMessageRenderer {
@@ -21,17 +19,6 @@ export class MarkdownMessageRenderer {
       bindRenderedWikiLinks(parent, sourcePath, this.options);
       bindRenderedMarkdownFileLinks(parent, sourcePath, this.options);
       notifyMessageContentRendered(parent);
-      this.scrollMarkdownMessageIntoPinnedBottom(parent);
-    });
-  }
-
-  private scrollMarkdownMessageIntoPinnedBottom(parent: HTMLElement): void {
-    if (!this.options.messagesPinnedToBottom()) return;
-    const messagesEl = parent.closest<HTMLElement>(".codex-panel__messages");
-    if (!messagesEl) return;
-    messagesEl.win.requestAnimationFrame(() => {
-      if (!this.options.messagesPinnedToBottom()) return;
-      this.options.pinMessagesToBottom(messagesEl);
     });
   }
 }

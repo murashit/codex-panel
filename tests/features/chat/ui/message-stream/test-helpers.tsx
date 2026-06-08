@@ -52,19 +52,23 @@ export function actEvent(action: () => void): void {
 }
 
 export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: MessageStreamBlock[]): void {
-  Object.defineProperty(parent, "clientHeight", { value: 320, configurable: true });
-  Object.defineProperty(parent, "clientWidth", { value: 240, configurable: true });
-  const virtualizer = new MessageStreamVirtualizer({
-    messagesPinnedToBottom: () => true,
-    setMessagesPinnedToBottom: () => {
-      return undefined;
-    },
-  });
+  installMessageViewportMetrics(parent);
+  if (!parent.isConnected) document.body.appendChild(parent);
+  const virtualizer = new MessageStreamVirtualizer();
   void act(() => {
     const plan = virtualizer.prepareRender(parent, "auto", blocks);
     renderMessageStreamBlocks(parent, blocks, virtualizer);
     virtualizer.completeRender(plan);
   });
+}
+
+export function installMessageViewportMetrics(element: HTMLElement, metrics: { clientHeight?: number; clientWidth?: number } = {}): void {
+  const clientHeight = metrics.clientHeight ?? 320;
+  const clientWidth = metrics.clientWidth ?? 240;
+  Object.defineProperty(element, "clientHeight", { value: clientHeight, configurable: true });
+  Object.defineProperty(element, "offsetHeight", { value: clientHeight, configurable: true });
+  Object.defineProperty(element, "clientWidth", { value: clientWidth, configurable: true });
+  Object.defineProperty(element, "offsetWidth", { value: clientWidth, configurable: true });
 }
 
 export function renderUiRootInAct(parent: HTMLElement, node: UiNode): void {

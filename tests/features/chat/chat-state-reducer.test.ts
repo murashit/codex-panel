@@ -32,7 +32,6 @@ describe("chatReducer", () => {
     state.composer.suggestSelected = 1;
     state.composer.suggestions = [suggestion("/plan")];
     state.composer.suggestionsDismissedSignature = "dismissed";
-    state.ui.messagesPinnedToBottom = false;
 
     const next = chatReducer(state, { type: "active-thread/cleared" });
 
@@ -51,7 +50,6 @@ describe("chatReducer", () => {
     expect(next.composer.suggestSelected).toBe(0);
     expect(next.composer.suggestions).toEqual([]);
     expect(next.composer.suggestionsDismissedSignature).toBeNull();
-    expect(next.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("resets thread-scoped state when resuming a thread", () => {
@@ -70,7 +68,6 @@ describe("chatReducer", () => {
     state.composer.suggestSelected = 1;
     state.composer.suggestions = [suggestion("/plan")];
     state.composer.suggestionsDismissedSignature = "dismissed";
-    state.ui.messagesPinnedToBottom = false;
     const resumedItems = [message("resumed-message")];
 
     const next = chatReducer(state, {
@@ -100,7 +97,6 @@ describe("chatReducer", () => {
     expect(next.composer.suggestSelected).toBe(0);
     expect(next.composer.suggestions).toEqual([]);
     expect(next.composer.suggestionsDismissedSignature).toBeNull();
-    expect(next.ui.messagesPinnedToBottom).toBe(true);
   });
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {
@@ -139,7 +135,6 @@ describe("chatReducer", () => {
     state.requests.approvals = [approval(1)];
     state.requests.pendingUserInputs = [userInput(2)];
     state.requests.userInputDrafts = new Map([["2:note", "answer"]]);
-    state.ui.messagesPinnedToBottom = false;
     const placeholder = message("placeholder");
 
     const next = chatReducer(state, {
@@ -159,7 +154,6 @@ describe("chatReducer", () => {
     expect(next.requests.approvals).toEqual([]);
     expect(next.requests.pendingUserInputs).toEqual([]);
     expect(next.requests.userInputDrafts.size).toBe(0);
-    expect(next.ui.messagesPinnedToBottom).toBe(true);
     expect(next.composer.draft).toBe("draft in this panel");
     expect(next.composer.suggestSelected).toBe(1);
     expect(next.composer.suggestions).toEqual([suggestion("/resume")]);
@@ -199,7 +193,7 @@ describe("chatReducer", () => {
     );
 
     const uiState = createChatState();
-    expectOnlySliceReferenceChanged(chatReducer(uiState, { type: "ui/messages-pinned-set", pinned: false }), uiState, "ui");
+    expectOnlySliceReferenceChanged(chatReducer(uiState, { type: "ui/panel-set", panel: "history" }), uiState, "ui");
 
     const transcriptState = createChatState();
     expectOnlySliceReferenceChanged(

@@ -39,7 +39,6 @@ describe("chat app-server controllers", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
-      forceMessagesToBottom: () => undefined,
       publishThreadList,
       syncThreadGoal,
     });
@@ -73,7 +72,6 @@ describe("chat app-server controllers", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
-      forceMessagesToBottom: () => undefined,
       publishThreadList: vi.fn(),
       syncThreadGoal,
     });
@@ -105,7 +103,6 @@ describe("chat app-server controllers", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
-      forceMessagesToBottom: () => undefined,
       publishThreadList,
       syncThreadGoal: () => undefined,
     });

@@ -58,12 +58,10 @@ export function messagesSlotSnapshot(state: ChatState, pendingRequestsSignature:
     state.transcript.historyCursor,
     state.transcript.loadingHistory,
     chatTurnBusy(state),
-    state.ui.messagesPinnedToBottom,
-    state.composer.draft.trim().length > 0,
     state.runtime.selectedCollaborationMode,
     displayItemsSignature(state.transcript.displayItems),
     turnDiffsSignature(state.transcript.turnDiffs),
-    openDetailsSignature(state.ui.openDetails),
+    messageStreamOpenDetailsSignature(state.ui.openDetails),
     pendingRequestsSignature,
   );
 }
@@ -126,6 +124,14 @@ function stableSignature(value: unknown): string {
 
 function openDetailsSignature(openDetails: ReadonlySet<string>): string {
   return [...openDetails].sort().join("\n");
+}
+
+function messageStreamOpenDetailsSignature(openDetails: ReadonlySet<string>): string {
+  return [...openDetails].filter(isMessageStreamOpenDetailKey).sort().join("\n");
+}
+
+function isMessageStreamOpenDetailKey(key: string): boolean {
+  return key.startsWith("message:") || key.startsWith("turn:") || key.startsWith("approval:") || key.endsWith(":details");
 }
 
 function turnDiffsSignature(turnDiffs: ReadonlyMap<string, string>): string {

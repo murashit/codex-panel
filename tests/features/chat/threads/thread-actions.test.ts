@@ -186,6 +186,25 @@ describe("createChatThreadActions", () => {
     expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
     expect(host.addSystemMessage).toHaveBeenCalledWith("Archived thread source, but could not open forked thread forked: resume failed");
   });
+
+  it("applies rollback response turns directly before refreshing the shell", async () => {
+    const client = clientMock();
+    const host = hostMock({ client, displayItems: turnItems() });
+    const controller = createChatThreadActions(host);
+
+    await controller.rollbackThread("source");
+
+    expect(client.rollbackThread).toHaveBeenCalledWith("source");
+    expect(host.stateStore.getState().transcript.displayItems.slice(0, 2)).toMatchObject([
+      { kind: "message", role: "user", text: "kept prompt", turnId: "kept-turn" },
+      { kind: "message", role: "assistant", text: "kept answer", turnId: "kept-turn" },
+    ]);
+    expect(host.forceRenderSlots).toHaveBeenCalledOnce();
+    expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
+    expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.forceRenderSlots));
+    expect(callOrder(host.forceRenderSlots)).toBeLessThan(callOrder(vi.mocked(host.refreshThreads)));
+    expect(callOrder(vi.mocked(host.refreshThreads))).toBeLessThan(callOrder(host.refreshSharedThreadListFromOpenSurface));
+  });
 });
 
 function turnItems(): DisplayItem[] {
@@ -226,7 +245,7 @@ function turnItems(): DisplayItem[] {
 function clientMock() {
   return {
     forkThread: vi.fn().mockResolvedValue({ thread: { id: "forked" } }),
-    rollbackThread: vi.fn().mockResolvedValue({ thread: { id: "forked" } }),
+    rollbackThread: vi.fn().mockResolvedValue({ thread: rollbackThread() }),
     compactThread: vi.fn().mockResolvedValue({}),
     archiveThread: vi.fn().mockResolvedValue({}),
     readThread: vi.fn().mockResolvedValue({ thread: archivedThread() }),
@@ -254,10 +273,10 @@ function hostMock({
     archiveAdapter: () => archiveAdapter,
     ensureConnected: vi.fn().mockResolvedValue(undefined),
     currentClient: () => client as unknown as AppServerClient,
-    history: {} as never,
     addSystemMessage: vi.fn(),
     setStatus: vi.fn(),
     setComposerText: vi.fn(),
+    forceRenderSlots: vi.fn(),
     openThreadInNewView: vi.fn().mockResolvedValue(undefined),
     openThreadInCurrentPanel: vi.fn().mockResolvedValue(undefined),
     notifyThreadArchived: vi.fn(),
@@ -299,6 +318,30 @@ function archivedThread(): Thread {
     gitInfo: null,
     name: "Archived Thread",
     turns: [],
+  };
+}
+
+function rollbackThread(): Thread {
+  return {
+    ...archivedThread(),
+    id: "forked",
+    sessionId: "forked",
+    name: "Rolled Back Thread",
+    turns: [
+      {
+        id: "kept-turn",
+        items: [
+          { type: "userMessage", id: "kept-user", clientId: null, content: [{ type: "text", text: "kept prompt", text_elements: [] }] },
+          { type: "agentMessage", id: "kept-agent", text: "kept answer", phase: "final_answer", memoryCitation: null },
+        ],
+        itemsView: "full",
+        status: "completed",
+        error: null,
+        startedAt: 1,
+        completedAt: 2,
+        durationMs: 1000,
+      },
+    ],
   };
 }
 

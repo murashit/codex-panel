@@ -1,4 +1,4 @@
-import { observeElementOffset, Virtualizer, type Rect, type VirtualItem } from "@tanstack/virtual-core";
+import { observeElementOffset, observeElementRect, Virtualizer, type VirtualItem } from "@tanstack/virtual-core";
 
 import type { MessageStreamBlock } from "./message-stream/context";
 
@@ -8,11 +8,6 @@ type MessageScrollDirection = -1 | 1;
 interface MessageVirtualizerRenderPlan {
   generation: number;
   shouldScrollToBottom: boolean;
-}
-
-interface MessageStreamVirtualizerOptions {
-  messagesPinnedToBottom: () => boolean;
-  setMessagesPinnedToBottom: (pinned: boolean) => void;
 }
 
 const MESSAGE_BOTTOM_THRESHOLD = 4;
@@ -26,8 +21,8 @@ export class MessageStreamVirtualizer {
   private blocks: readonly MessageStreamBlock[] = [];
   private renderGeneration = 0;
   private onVirtualizerChange: (() => void) | null = null;
-
-  constructor(private readonly options: MessageStreamVirtualizerOptions) {}
+  private lastObservedViewportHeight: number | null = null;
+  private bottomPinnedBeforeViewportResize = true;
 
   prepareRender(
     container: HTMLElement,
@@ -35,15 +30,14 @@ export class MessageStreamVirtualizer {
     blocks: readonly MessageStreamBlock[],
   ): MessageVirtualizerRenderPlan {
     this.attach(container);
-    this.blocks = blocks;
-
     const virtualizer = this.requireVirtualizer();
+    const pinnedBeforeRender = isElementPinnedAtBottom(container, virtualizer.getTotalSize());
+
+    this.blocks = blocks;
     virtualizer.setOptions(this.virtualizerOptions());
     virtualizer._willUpdate();
 
-    const shouldScrollToBottom =
-      intent === "force-bottom" || (intent !== "preserve" && (this.options.messagesPinnedToBottom() || this.isPinnedAtBottom()));
-    this.options.setMessagesPinnedToBottom(shouldScrollToBottom);
+    const shouldScrollToBottom = intent === "force-bottom" || (intent !== "preserve" && pinnedBeforeRender);
 
     return {
       generation: ++this.renderGeneration,
@@ -58,8 +52,10 @@ export class MessageStreamVirtualizer {
     virtualizer._willUpdate();
     if (plan.shouldScrollToBottom) {
       virtualizer.scrollToEnd();
+      this.rememberScrollMetrics(undefined, { forcePinned: true });
+      return;
     }
-    this.updatePinnedState();
+    this.rememberScrollMetrics(undefined, { scrollSize: virtualizer.getTotalSize() });
   }
 
   getTotalSize(): number {
@@ -82,19 +78,7 @@ export class MessageStreamVirtualizer {
     if (!container) return;
     this.attach(container);
     this.virtualizer?.scrollToEnd();
-    this.updatePinnedState();
-  }
-
-  correctAfterLayoutChange(): void {
-    const virtualizer = this.virtualizer;
-    if (!virtualizer) return;
-
-    virtualizer.measure();
-    virtualizer._willUpdate();
-    if (this.options.messagesPinnedToBottom() || virtualizer.isAtEnd(MESSAGE_BOTTOM_THRESHOLD)) {
-      virtualizer.scrollToEnd();
-    }
-    this.updatePinnedState();
+    this.rememberScrollMetrics(undefined, { forcePinned: true });
   }
 
   scrollByTextLines(direction: MessageScrollDirection, container = this.container): void {
@@ -116,6 +100,8 @@ export class MessageStreamVirtualizer {
     this.container = null;
     this.blocks = [];
     this.onVirtualizerChange = null;
+    this.lastObservedViewportHeight = null;
+    this.bottomPinnedBeforeViewportResize = true;
   }
 
   private attach(container: HTMLElement): void {
@@ -124,6 +110,7 @@ export class MessageStreamVirtualizer {
     this.dispose();
     this.container = container;
     this.virtualizer = new Virtualizer(this.virtualizerOptions());
+    this.virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => this.bottomPinnedBeforeViewportResize;
     this.cleanupVirtualizer = this.virtualizer._didMount();
     this.virtualizer._willUpdate();
   }
@@ -134,6 +121,7 @@ export class MessageStreamVirtualizer {
   }
 
   private virtualizerOptions() {
+    const paddingBlock = messageBlockPadding(this.container);
     return {
       count: this.blocks.length,
       getScrollElement: () => this.container,
@@ -144,19 +132,37 @@ export class MessageStreamVirtualizer {
       anchorTo: "end" as const,
       followOnAppend: true,
       scrollEndThreshold: MESSAGE_BOTTOM_THRESHOLD,
+      paddingStart: paddingBlock,
+      paddingEnd: paddingBlock,
+      useAnimationFrameWithResizeObserver: true,
       overscan: 8,
-      observeElementRect: observeMessageElementRect,
+      observeElementRect: (instance: Virtualizer<HTMLElement, HTMLElement>, cb: (rect: { width: number; height: number }) => void) =>
+        observeElementRect(instance, (rect) => {
+          const pinnedBeforeResize = this.bottomPinnedBeforeViewportResize;
+          const resized = this.lastObservedViewportHeight !== null && rect.height !== this.lastObservedViewportHeight;
+          cb(rect);
+          this.lastObservedViewportHeight = rect.height;
+          if (resized && pinnedBeforeResize) {
+            instance.scrollToEnd();
+            this.rememberScrollMetrics(instance.scrollElement, { forcePinned: true });
+            return;
+          }
+          this.rememberScrollMetrics(instance.scrollElement, { scrollSize: instance.getTotalSize() });
+        }),
       observeElementOffset: (instance: Virtualizer<HTMLElement, HTMLElement>, callback: (offset: number, isScrolling: boolean) => void) =>
         observeElementOffset(instance, (offset, isScrolling) => {
           callback(offset, isScrolling);
-          this.updatePinnedState();
-        }),
+          const scrollElement = instance.scrollElement;
+          if (scrollElement && this.isViewportResizePending(scrollElement) && this.bottomPinnedBeforeViewportResize) {
+            instance.scrollToEnd();
+            this.rememberScrollMetrics(scrollElement, { forcePinned: true });
+            return;
+          }
+          this.rememberScrollMetrics(scrollElement, { scrollSize: instance.getTotalSize() });
+      }),
       scrollToFn: scrollMessageElement,
       measureElement: measureMessageElement,
-      shouldAdjustScrollPositionOnItemSizeChange: (item: VirtualItem, _delta: number, instance: Virtualizer<HTMLElement, HTMLElement>) =>
-        this.shouldAdjustScrollPositionOnItemSizeChange(item, instance),
-      onChange: (instance: Virtualizer<HTMLElement, HTMLElement>) => {
-        this.updatePinnedState(instance);
+      onChange: () => {
         this.onVirtualizerChange?.();
       },
     };
@@ -166,48 +172,39 @@ export class MessageStreamVirtualizer {
     const container = this.container;
     if (!container) return;
     scrollMessageElementToTop(container, container.scrollTop + delta);
-    this.updatePinnedState();
+    this.rememberScrollMetrics(container);
   }
 
-  private updatePinnedState(virtualizer = this.virtualizer): void {
-    this.options.setMessagesPinnedToBottom(this.isPinnedAtBottom(virtualizer));
+  private isViewportResizePending(element: HTMLElement): boolean {
+    return this.lastObservedViewportHeight !== null && element.clientHeight !== this.lastObservedViewportHeight;
   }
 
-  private isPinnedAtBottom(virtualizer = this.virtualizer): boolean {
-    const container = this.container;
-    if (!virtualizer || !container) return false;
-    return isNearScrollBottom(container) || virtualizer.isAtEnd(MESSAGE_BOTTOM_THRESHOLD);
-  }
-
-  private shouldAdjustScrollPositionOnItemSizeChange(item: VirtualItem, virtualizer: Virtualizer<HTMLElement, HTMLElement>): boolean {
-    if (this.options.messagesPinnedToBottom() || this.isPinnedAtBottom(virtualizer)) return true;
-    const container = this.container;
-    if (!container) return false;
-    return item.start < container.scrollTop && virtualizer.scrollDirection !== "backward";
+  private rememberScrollMetrics(
+    element = this.container,
+    options: {
+      forcePinned?: boolean;
+      scrollSize?: number;
+    } = {},
+  ): void {
+    if (!element) {
+      this.bottomPinnedBeforeViewportResize = true;
+      return;
+    }
+    this.bottomPinnedBeforeViewportResize = options.forcePinned ? true : isElementPinnedAtBottom(element, options.scrollSize);
   }
 }
 
-function isNearScrollBottom(element: HTMLElement, threshold = MESSAGE_BOTTOM_THRESHOLD): boolean {
-  return element.scrollHeight - element.scrollTop - element.clientHeight < threshold;
+function isElementPinnedAtBottom(element: HTMLElement, fallbackScrollSize = 0): boolean {
+  const scrollSize = fallbackScrollSize > 0 ? fallbackScrollSize : element.scrollHeight;
+  return scrollSize - element.clientHeight - element.scrollTop <= MESSAGE_BOTTOM_THRESHOLD;
 }
 
-function observeMessageElementRect(instance: Virtualizer<HTMLElement, HTMLElement>, cb: (rect: Rect) => void): undefined | (() => void) {
-  const element = instance.scrollElement;
-  if (!element) return;
-
-  const targetWindow = instance.targetWindow;
-  const readRect = () => {
-    cb({ width: element.clientWidth || element.offsetWidth, height: element.clientHeight || element.offsetHeight || 1 });
-  };
-  readRect();
-
-  if (!targetWindow?.ResizeObserver) return;
-
-  const observer = new targetWindow.ResizeObserver(readRect);
-  observer.observe(element, { box: "border-box" });
-  return () => {
-    observer.disconnect();
-  };
+function messageBlockPadding(element: HTMLElement | null): number {
+  if (!element) return 0;
+  const win = element.ownerDocument.defaultView;
+  if (!win) return 0;
+  const value = Number.parseFloat(win.getComputedStyle(element).paddingLeft);
+  return Number.isFinite(value) ? value : 0;
 }
 
 function measureMessageElement(
@@ -238,9 +235,8 @@ function scrollMessageElementToTop(
   behavior?: "auto" | "smooth" | "instant",
   fallbackScrollSize = 0,
 ): void {
-  const scrollSize = element.scrollHeight || fallbackScrollSize;
+  const scrollSize = Math.max(element.scrollHeight, fallbackScrollSize);
   const top = scrollSize > 0 ? Math.min(Math.max(0, scrollSize - element.clientHeight), Math.max(0, scrollTop)) : Math.max(0, scrollTop);
-  const previousTop = element.scrollTop;
   const scrollBehavior = behavior === "instant" ? "auto" : behavior;
   if (typeof element.scrollTo === "function") {
     if (scrollBehavior) {
@@ -250,9 +246,6 @@ function scrollMessageElementToTop(
     }
   } else {
     element.scrollTop = top;
-  }
-  if (element.scrollTop !== previousTop) {
-    element.dispatchEvent(new Event("scroll"));
   }
 }
 

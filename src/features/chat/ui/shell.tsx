@@ -44,11 +44,9 @@ const shellSlots = {
     },
   },
   messages: {
-    selector: ":scope > .codex-panel__body > .codex-panel__slot--messages > .codex-panel__messages",
+    selector: ":scope > .codex-panel__body > .codex-panel__messages",
     create(container: HTMLElement): HTMLElement {
-      const body = ensureBody(container);
-      const messagesSlot = body.createDiv({ cls: "codex-panel__slot codex-panel__slot--messages" });
-      return messagesSlot.createDiv({ cls: "codex-panel__messages" });
+      return ensureBody(container).createDiv({ cls: "codex-panel__slot codex-panel__slot--messages codex-panel__messages" });
     },
     props(props: ChatPanelShellProps): ChatPanelSlotProps {
       return props.messages;

@@ -30,7 +30,7 @@ export function createConversationSurfaceControllerGroup(
     history: ThreadHistoryController;
   },
 ) {
-  const { plugin, state, render, runtime, thread, liveState, scroll, status, lifecycle, client } = context;
+  const { plugin, state, render, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
   const { app, owner, viewId } = context.obsidian;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
@@ -52,9 +52,7 @@ export function createConversationSurfaceControllerGroup(
     toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
     renderIfDetached: render.now,
     onDraftChange: liveState.refresh,
-    onComposerResize: () => {
-      scroll.correctAfterLayoutChange();
-    },
+    onComposerResize: () => undefined,
   });
   const pendingRequests = new PendingRequestController({
     stateStore,
@@ -88,7 +86,6 @@ export function createConversationSurfaceControllerGroup(
       },
     },
     view: {
-      forceMessagesToBottom: scroll.forceBottom,
       render: render.now,
       scheduleRender: render.schedule,
     },
@@ -190,6 +187,9 @@ export function createConversationSurfaceControllerGroup(
     status: {
       setStatus: status.set,
       addSystemMessage: status.addSystemMessage,
+    },
+    scroll: {
+      forceBottom: scroll.forceBottom,
     },
   });
   composerController.setActionHandlers({

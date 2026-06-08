@@ -7,7 +7,7 @@ import { inheritedForkThreadName, upsertThread } from "../../../domain/threads/m
 import type { CodexPanelSettings } from "../../../settings/model";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
 import { rollbackCandidateFromItems, turnsAfterTurnId } from "../display/action-candidates";
-import type { ThreadHistoryController } from "./thread-history-controller";
+import { displayItemsFromTurns } from "../display/thread-items";
 
 export interface ChatThreadActionsHost {
   stateStore: ChatStateStore;
@@ -16,10 +16,10 @@ export interface ChatThreadActionsHost {
   archiveAdapter: () => ArchiveExportAdapter;
   ensureConnected: () => Promise<void>;
   currentClient: () => AppServerClient | null;
-  history: ThreadHistoryController;
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
+  forceRenderSlots: () => void;
   openThreadInNewView: (threadId: string) => Promise<unknown>;
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyThreadArchived: (threadId: string) => void;
@@ -188,9 +188,15 @@ async function rollbackThread(host: ChatThreadActionsHost, threadId: string): Pr
       activePermissionProfile: state(host).runtime.activePermissionProfile,
       listedThreads: upsertThread(state(host).threadList.listedThreads, response.thread),
     });
-    await host.history.loadLatest(response.thread.id);
+    dispatch(host, {
+      type: "transcript/items-replaced",
+      items: displayItemsFromTurns(response.thread.turns),
+      historyCursor: null,
+      loadingHistory: false,
+    });
     host.setComposerText(candidate.text);
     host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
+    host.forceRenderSlots();
     host.setStatus("Rolled back latest turn.");
     host.notifyActiveThreadIdentityChanged();
     await host.refreshThreads();

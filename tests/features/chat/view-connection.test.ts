@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/view";
@@ -83,10 +83,19 @@ vi.mock("../../../src/app-server/connection-manager", () => {
 installObsidianDomShims();
 
 describe("CodexChatView connection lifecycle", () => {
+  let restoreDefaultMessageViewportMetrics: (() => void) | null = null;
+
   beforeEach(() => {
     vi.useRealTimers();
     notices.length = 0;
     connectionMock.reset();
+    restoreDefaultMessageViewportMetrics = mockMessageViewportOffsetMetrics({ clientHeight: 320, clientWidth: 240 });
+  });
+
+  afterEach(() => {
+    restoreDefaultMessageViewportMetrics?.();
+    restoreDefaultMessageViewportMetrics = null;
+    document.body.replaceChildren();
   });
 
   it("shares post-initialize metadata loading across concurrent connect calls", async () => {
@@ -802,6 +811,51 @@ describe("CodexChatView connection lifecycle", () => {
     restoreMessagesLayout();
   });
 
+  it("pins focused thread messages to the bottom", async () => {
+    const client = connectedClient({
+      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1_000, clientHeight: 100 });
+
+    await view.onOpen();
+    await view.openThread("thread-1");
+    const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
+    expect(messages).not.toBeNull();
+    if (!messages) return;
+    messages.scrollTop = 0;
+
+    await view.focusThread("thread-1");
+
+    expect(messages.scrollTop).toBe(900);
+    restoreMessagesLayout();
+  });
+
+  it("pins messages to the bottom when its leaf is focused", async () => {
+    const activeLeafChangeListeners: ((leaf: unknown) => void)[] = [];
+    const client = connectedClient({
+      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView({ activeLeafChangeListeners });
+    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1_000, clientHeight: 100 });
+
+    await view.onOpen();
+    await view.openThread("thread-1");
+    const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
+    expect(messages).not.toBeNull();
+    if (!messages) return;
+    messages.scrollTop = 0;
+
+    activeLeafChangeListeners.forEach((listener) => {
+      listener((view as unknown as { leaf: unknown }).leaf);
+    });
+
+    expect(messages.scrollTop).toBe(900);
+    restoreMessagesLayout();
+  });
+
   it("renders resumed thread metadata before history hydration completes", async () => {
     const history = deferred<{ data: unknown[]; nextCursor: null }>();
     const client = connectedClient({
@@ -1134,6 +1188,7 @@ function waitForMessagesFrame(messages: HTMLElement): Promise<void> {
 function mockMessagesLayout(metrics: { scrollHeight: number; clientHeight: number }): () => void {
   const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
   const clientHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
+  const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
   Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
     configurable: true,
     get() {
@@ -1146,9 +1201,37 @@ function mockMessagesLayout(metrics: { scrollHeight: number; clientHeight: numbe
       return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientHeight : 0;
     },
   });
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+    configurable: true,
+    get() {
+      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientHeight : 0;
+    },
+  });
   return () => {
     restorePrototypeProperty(HTMLElement.prototype, "scrollHeight", scrollHeightDescriptor);
     restorePrototypeProperty(HTMLElement.prototype, "clientHeight", clientHeightDescriptor);
+    restorePrototypeProperty(HTMLElement.prototype, "offsetHeight", offsetHeightDescriptor);
+  };
+}
+
+function mockMessageViewportOffsetMetrics(metrics: { clientHeight: number; clientWidth: number }): () => void {
+  const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+  const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+    configurable: true,
+    get() {
+      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientHeight : 0;
+    },
+  });
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get() {
+      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientWidth : 0;
+    },
+  });
+  return () => {
+    restorePrototypeProperty(HTMLElement.prototype, "offsetHeight", offsetHeightDescriptor);
+    restorePrototypeProperty(HTMLElement.prototype, "offsetWidth", offsetWidthDescriptor);
   };
 }
 
@@ -1216,6 +1299,7 @@ async function chatView(
   const host = options.host ?? chatHost();
   const { CodexChatView } = await import("../../../src/features/chat/view");
   const containerEl = document.createElement("div");
+  document.body.appendChild(containerEl);
   containerEl.createDiv();
   containerEl.createDiv();
   return new CodexChatView(
@@ -1223,6 +1307,7 @@ async function chatView(
       app: {
         workspace: {
           getActiveFile: vi.fn(() => null),
+          getActiveViewOfType: vi.fn(() => null),
           getLastOpenFiles: vi.fn(() => []),
           on: vi.fn((eventName: string, callback: (leaf: unknown) => void) => {
             if (eventName === "active-leaf-change") options.activeLeafChangeListeners?.push(callback);
