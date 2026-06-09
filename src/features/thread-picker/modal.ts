@@ -1,7 +1,7 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
+import { listPanelThreads } from "../../app-server/panel-data";
 import { withShortLivedAppServerClient } from "../../app-server/short-lived-client";
-import { panelThreadsFromAppServerThreads } from "../../app-server/thread-model";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { PanelThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
@@ -87,8 +87,7 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly
     host.vaultPath,
     async (client) =>
       host.refreshThreadList(async () => {
-        const response = await client.listThreads(host.vaultPath);
-        return panelThreadsFromAppServerThreads(response.data);
+        return listPanelThreads(client, host.vaultPath);
       }),
     {
       unhandledServerRequestMessage: "Codex thread picker does not handle server requests.",

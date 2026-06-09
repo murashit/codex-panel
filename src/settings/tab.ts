@@ -1,6 +1,7 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
+import { restoreArchivedPanelThread, setPanelHookEnabled, trustPanelHook } from "../app-server/panel-data";
 import { withShortLivedAppServerClient } from "../app-server/short-lived-client";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
@@ -16,7 +17,7 @@ import {
   transitionSettingsDataRefreshLifecycle,
   type SettingsDataRefreshLifecycleState,
 } from "./data";
-import { loadHookData, loadSettingsData, restoreArchivedPanelThread, setPanelHookEnabled, trustPanelHook } from "./app-server-data";
+import { loadHookData, loadSettingsData } from "./app-server-data";
 import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
 import type { CodexPanelSettings } from "./model";
 

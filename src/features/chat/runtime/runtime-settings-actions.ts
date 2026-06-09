@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../app-server/client";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "./approvals";
 import type { PanelCollaborationMode } from "./collaboration";
-import { collaborationModeToggleMessage, nextCollaborationMode } from "./override-commands";
+import { collaborationModeToggleMessage, nextCollaborationMode } from "./collaboration";
 import { readRuntimeConfig } from "./config";
 import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "./effective-settings";
 import {

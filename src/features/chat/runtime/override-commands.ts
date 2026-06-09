@@ -1,5 +1,4 @@
 import { isReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
-export { collaborationModeLabel, collaborationModeToggleMessage, nextCollaborationMode } from "./collaboration";
 
 const DEFAULT_ALIASES = new Set(["default", "reset", "clear", "off"]);
 

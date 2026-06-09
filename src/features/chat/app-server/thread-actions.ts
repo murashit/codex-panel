@@ -1,4 +1,4 @@
-import { panelThreadsFromAppServerThreads } from "../../../app-server/thread-model";
+import { listPanelThreads } from "../../../app-server/panel-data";
 import type { PanelThread } from "../../../domain/threads/model";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../runtime/effective-settings";
 import { resumedThreadActionFromAppServerResponse } from "../threads/thread-resume";
@@ -37,8 +37,7 @@ function applyThreadList(host: ChatAppServerThreadActionsHost, threads: readonly
 async function loadThreadList(host: ChatAppServerThreadActionsHost): Promise<readonly PanelThread[]> {
   const client = host.currentClient();
   if (!client) throw new Error("Codex app-server is not connected.");
-  const response = await client.listThreads(host.vaultPath);
-  return panelThreadsFromAppServerThreads(response.data);
+  return listPanelThreads(client, host.vaultPath);
 }
 
 async function startThread(

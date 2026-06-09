@@ -4,9 +4,9 @@ import {
   collaborationModeLabel,
   collaborationModeToggleMessage,
   nextCollaborationMode,
-} from "../../src/features/chat/runtime/override-commands";
+} from "../../src/features/chat/runtime/collaboration";
 
-describe("runtime override commands", () => {
+describe("runtime collaboration mode", () => {
   it("toggles between Default and Plan mode", () => {
     expect(nextCollaborationMode("default")).toBe("plan");
     expect(nextCollaborationMode("plan")).toBe("default");

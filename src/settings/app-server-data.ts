@@ -1,18 +1,10 @@
 import type { AppServerClient } from "../app-server/client";
-import {
-  appServerHookOperationFromPanelHookItem,
-  panelHookItemsFromAppServerHooks,
-  panelModelOptionsFromAppServerModels,
-} from "../app-server/catalog-model";
-import { panelThreadFromAppServerThread, panelThreadsFromAppServerThreads } from "../app-server/thread-model";
-import type { PanelHookItem, PanelModelOption } from "../domain/catalog/metadata";
+import { listPanelHookData, listPanelModelOptions, listPanelThreads, type PanelHookData } from "../app-server/panel-data";
+import type { PanelModelOption } from "../domain/catalog/metadata";
 import type { PanelThread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 
-export interface LoadedHooks {
-  hooks: PanelHookItem[];
-  warnings: string[];
-  errors: string[];
+export interface LoadedHooks extends PanelHookData {
   status: string;
 }
 
@@ -35,9 +27,9 @@ type SettledSettingsData<T> =
 
 export async function loadSettingsData(client: AppServerClient, cwd: string): Promise<SettingsDataLoad> {
   const [modelsResult, hooksResult, archivedThreadsResult] = await Promise.allSettled([
-    readSettingsModelOptions(client),
-    readSettingsHooks(client, cwd),
-    client.listThreads(cwd, true),
+    listPanelModelOptions(client),
+    listPanelHookData(client, cwd),
+    listPanelThreads(client, cwd, { archived: true }),
   ] as const);
 
   return {
@@ -57,52 +49,23 @@ export async function loadSettingsData(client: AppServerClient, cwd: string): Pr
       archivedThreadsResult.status === "fulfilled"
         ? {
             ok: true,
-            data: panelThreadsFromAppServerThreads(archivedThreadsResult.value.data, { archived: true }),
-            status: `Loaded ${String(archivedThreadsResult.value.data.length)} archived thread${archivedThreadsResult.value.data.length === 1 ? "" : "s"}.`,
+            data: archivedThreadsResult.value,
+            status: `Loaded ${String(archivedThreadsResult.value.length)} archived thread${archivedThreadsResult.value.length === 1 ? "" : "s"}.`,
           }
         : { ok: false, status: `Could not load archived threads: ${errorMessage(archivedThreadsResult.reason)}` },
   };
 }
 
 export async function loadHookData(client: AppServerClient, cwd: string): Promise<LoadedHooks> {
-  const hooks = await readSettingsHooks(client, cwd);
+  const hooks = await listPanelHookData(client, cwd);
   return {
     ...hooks,
     status: hooksStatus(hooks.hooks.length),
   };
 }
 
-export async function trustPanelHook(client: AppServerClient, hook: PanelHookItem): Promise<void> {
-  await client.trustHook(appServerHookOperationFromPanelHookItem(hook));
-}
-
-export async function setPanelHookEnabled(client: AppServerClient, hook: PanelHookItem, enabled: boolean): Promise<void> {
-  await client.setHookEnabled(appServerHookOperationFromPanelHookItem(hook), enabled);
-}
-
-export async function restoreArchivedPanelThread(client: AppServerClient, threadId: string): Promise<PanelThread> {
-  const response = await client.unarchiveThread(threadId);
-  return panelThreadFromAppServerThread(response.thread);
-}
-
 function hooksStatus(count: number): string {
   return `Loaded ${String(count)} hook${count === 1 ? "" : "s"}.`;
-}
-
-async function readSettingsModelOptions(client: AppServerClient): Promise<PanelModelOption[]> {
-  const response = await client.listModels(false);
-  return panelModelOptionsFromAppServerModels(response.data);
-}
-
-async function readSettingsHooks(client: AppServerClient, cwd: string): Promise<Omit<LoadedHooks, "status">> {
-  const response = await client.listHooks(cwd);
-  const entry = response.data.find((item) => item.cwd === cwd);
-  if (!entry) return { hooks: [], warnings: [], errors: [] };
-  return {
-    hooks: panelHookItemsFromAppServerHooks(entry.hooks),
-    warnings: entry.warnings,
-    errors: entry.errors.map((error) => JSON.stringify(error)),
-  };
 }
 
 function settledHooks(hooks: Omit<LoadedHooks, "status">): SettledSettingsData<LoadedHooks> {

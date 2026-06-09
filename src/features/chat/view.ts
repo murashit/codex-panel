@@ -6,7 +6,7 @@ import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { PanelModelOption } from "../../domain/catalog/metadata";
 import type { PanelThread } from "../../domain/threads/model";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/override-commands";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/collaboration";
 import type { RuntimeSnapshot } from "./runtime/effective-settings";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
@@ -37,8 +37,6 @@ import { renderGoalSlot } from "./panel/slots/goal";
 import { pendingRequestsSignature, renderMessagesSlot } from "./panel/slots/messages";
 import { renderToolbarSlot } from "./panel/slots/toolbar";
 import type { ChatViewSlotRendererPorts } from "./panel/slots/types";
-
-export type { CodexChatHost } from "./chat-host";
 
 export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;

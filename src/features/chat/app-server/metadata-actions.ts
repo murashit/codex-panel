@@ -1,7 +1,7 @@
 import { type AppServerDiagnostics, capabilityProbeError, capabilityProbeOk } from "../../../app-server/compatibility";
+import { listPanelModelOptions, listPanelSkillCatalog } from "../../../app-server/panel-data";
 import type { RateLimitSnapshot } from "../../../generated/app-server/v2/RateLimitSnapshot";
 import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
-import { panelModelOptionsFromAppServerModels, panelSkillOptionsFromAppServerSkills } from "../../../app-server/catalog-model";
 import type { PanelModelOption, PanelSkillOption } from "../../../domain/catalog/metadata";
 import { cloneAppServerDiagnostics, type ChatAppServerBaseHost } from "./shared";
 
@@ -122,10 +122,10 @@ async function loadModels(
   const client = host.currentClient();
   if (!client) return { data: [], probe: capabilityProbeError("model/list", new Error("Codex app-server is not connected.")) };
   try {
-    const response = await client.listModels(false);
+    const data = await listPanelModelOptions(client);
     return {
-      data: panelModelOptionsFromAppServerModels(response.data),
-      probe: capabilityProbeOk("model/list", `${String(response.data.length)} models`),
+      data,
+      probe: capabilityProbeOk("model/list", `${String(data.length)} models`),
     };
   } catch (error) {
     return { data: [], probe: capabilityProbeError("model/list", error) };
@@ -155,10 +155,8 @@ async function loadSkills(
   const client = host.currentClient();
   if (!client) return { data: [], probe: capabilityProbeError("skills/list", new Error("Codex app-server is not connected.")) };
   try {
-    const response = await client.listSkills(host.vaultPath, forceReload);
-    const data = panelSkillOptionsFromAppServerSkills(response.data.flatMap((entry) => entry.skills).filter((skill) => skill.enabled));
-    const count = response.data.reduce((total, entry) => total + entry.skills.length, 0);
-    return { data, probe: capabilityProbeOk("skills/list", `${String(count)} skills`) };
+    const catalog = await listPanelSkillCatalog(client, host.vaultPath, { forceReload });
+    return { data: catalog.skills, probe: capabilityProbeOk("skills/list", `${String(catalog.totalCount)} skills`) };
   } catch (error) {
     return { data: [], probe: capabilityProbeError("skills/list", error) };
   }

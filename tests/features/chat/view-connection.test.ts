@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { CodexChatHost } from "../../../src/features/chat/view";
+import type { CodexChatHost } from "../../../src/features/chat/chat-host";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
 import { panelThreadFromAppServerThread } from "../../../src/app-server/thread-model";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
@@ -215,6 +215,7 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
+    vi.useFakeTimers();
     const client = connectedClient({
       setThreadGoal: vi.fn().mockResolvedValue({
         goal: {
@@ -260,6 +261,8 @@ describe("CodexChatView connection lifecycle", () => {
         status: "active",
         tokenBudget: null,
       });
+    });
+    await waitForAsyncWork(() => {
       expect(client.injectThreadItems).toHaveBeenCalledWith("thread-new", [
         {
           type: "message",
@@ -388,7 +391,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.listModels).toHaveBeenCalledOnce();
     expect(client.listSkills).toHaveBeenCalledOnce();
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
-    expect(client.listThreads).toHaveBeenCalledWith("/vault");
+    expect(client.listThreads).toHaveBeenCalledWith("/vault", false);
     expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual([
       panelThreadFromAppServerThread(threadFixture("thread-1")),
     ]);

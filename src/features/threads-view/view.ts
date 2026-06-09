@@ -2,7 +2,8 @@ import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
-import { panelThreadFromAppServerThread, panelThreadsFromAppServerThreads } from "../../app-server/thread-model";
+import { listPanelThreads } from "../../app-server/panel-data";
+import { panelThreadFromAppServerThread } from "../../app-server/thread-model";
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
 import type { PanelThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
@@ -131,8 +132,7 @@ export class CodexThreadsView extends ItemView {
       if (this.isStaleRefresh(refresh) || !this.client) return;
       const threads = await this.plugin.refreshThreadList(async () => {
         if (!this.client) return [];
-        const response = await this.client.listThreads(this.plugin.vaultPath);
-        return panelThreadsFromAppServerThreads(response.data);
+        return listPanelThreads(this.client, this.plugin.vaultPath);
       });
       if (this.isStaleRefresh(refresh)) return;
       this.threads = threads;
