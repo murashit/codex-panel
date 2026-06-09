@@ -2,15 +2,15 @@ import type { InitializeResponse } from "../../generated/app-server/InitializeRe
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
-import type { PanelThread } from "../../domain/threads/model";
-import type { PanelModelOption, PanelSkillOption } from "../../domain/catalog/metadata";
+import type { Thread } from "../../domain/threads/model";
+import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadSettingsUpdate } from "../../app-server/thread-settings";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { AppServerDiagnostics } from "../../app-server/compatibility";
 import { createAppServerDiagnostics } from "../../app-server/compatibility";
 import type { ApprovalsReviewer } from "./runtime/approvals";
-import type { PanelCollaborationMode } from "./runtime/collaboration";
+import type { CollaborationMode } from "./runtime/collaboration";
 import type { RequestedServiceTier } from "./runtime/service-tier-state";
 import {
   commitPendingThreadSettingsRuntimeState,
@@ -55,12 +55,12 @@ interface ChatConnectionState {
   initializeResponse: InitializeResponse | null;
   appServerDiagnostics: AppServerDiagnostics;
   rateLimit: RateLimitSnapshot | null;
-  availableModels: readonly PanelModelOption[];
-  availableSkills: readonly PanelSkillOption[];
+  availableModels: readonly ModelMetadata[];
+  availableSkills: readonly SkillMetadata[];
 }
 
 interface ChatThreadListState {
-  listedThreads: readonly PanelThread[];
+  listedThreads: readonly Thread[];
   threadsLoaded: boolean;
 }
 
@@ -108,15 +108,15 @@ type ConnectionAction =
   | {
       type: "connection/metadata-applied";
       effectiveConfig?: ConfigReadResponse | null;
-      availableModels?: readonly PanelModelOption[];
-      availableSkills?: readonly PanelSkillOption[];
+      availableModels?: readonly ModelMetadata[];
+      availableSkills?: readonly SkillMetadata[];
       rateLimit?: RateLimitSnapshot | null;
       appServerDiagnostics?: AppServerDiagnostics;
     };
 
 interface ThreadListAppliedAction {
   type: "thread-list/applied";
-  threads?: readonly PanelThread[];
+  threads?: readonly Thread[];
   threadsLoaded?: boolean;
 }
 
@@ -132,7 +132,7 @@ type RuntimeAction =
   | { type: "runtime/requested-effort-set"; effort: ReasoningEffort | null }
   | { type: "runtime/requested-service-tier-set"; serviceTier: RequestedServiceTier | null }
   | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null }
-  | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: PanelCollaborationMode }
+  | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: CollaborationMode }
   | { type: "runtime/pending-thread-settings-committed"; update: ThreadSettingsUpdate };
 
 interface TurnStartedAction {

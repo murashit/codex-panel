@@ -1,7 +1,7 @@
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { shortThreadId } from "../../utils";
-import { getThreadTitle, type PanelThread } from "./model";
+import { getThreadTitle, type Thread } from "./model";
 import { chronologicalTurnConversationSummaries } from "./transcript";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
@@ -34,7 +34,7 @@ export function referencedThreadTurns(turns: Turn[]): ReferencedThreadTurn[] {
   return chronologicalTurnConversationSummaries(turns);
 }
 
-export function referencedThreadPrompt(thread: PanelThread, turns: ReferencedThreadTurn[], userRequest: string): string {
+export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTurn[], userRequest: string): string {
   const reference = referencedThreadDisplay(thread, turns.length);
   const envelope = referencedThreadEnvelope(reference, userRequest);
 
@@ -57,11 +57,11 @@ export function referencedThreadPrompt(thread: PanelThread, turns: ReferencedThr
   ].join("\n");
 }
 
-function referencedThreadStatus(thread: PanelThread, count: number): string {
+function referencedThreadStatus(thread: Thread, count: number): string {
   return `Referencing ${shortThreadId(thread.id)} (${String(count)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`;
 }
 
-function referencedThreadDisplay(thread: PanelThread, count: number): ReferencedThreadDisplay {
+function referencedThreadDisplay(thread: Thread, count: number): ReferencedThreadDisplay {
   return {
     threadId: thread.id,
     title: getThreadTitle(thread),
@@ -71,7 +71,7 @@ function referencedThreadDisplay(thread: PanelThread, count: number): Referenced
 }
 
 export function referencedThreadInput(
-  thread: PanelThread,
+  thread: Thread,
   turns: readonly ReferencedThreadTurn[],
   userRequest: string,
   messageInput: UserInput[],

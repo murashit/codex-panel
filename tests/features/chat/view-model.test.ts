@@ -16,7 +16,7 @@ import {
   toolbarViewModel,
 } from "../../../src/features/chat/panel/model";
 import type { ChatState } from "../../../src/features/chat/chat-state";
-import type { PanelModelOption } from "../../../src/domain/catalog/metadata";
+import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/ConfigReadResponse";
 
@@ -295,7 +295,7 @@ function threadFixture(id: string, name: string | null): Thread & { archived: bo
   };
 }
 
-function modelFixture(model: string, fastTierId?: string): PanelModelOption {
+function modelFixture(model: string, fastTierId?: string): ModelMetadata {
   return {
     id: model,
     model,

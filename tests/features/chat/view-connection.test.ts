@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/chat-host";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
-import { panelThreadFromAppServerThread } from "../../../src/app-server/thread-model";
+import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
 import { composerSlotSnapshot } from "../../../src/features/chat/panel/snapshot";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
@@ -159,7 +159,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(refreshThreadList).toHaveBeenCalledOnce();
     expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual(
-      threads.map((thread) => panelThreadFromAppServerThread(thread)),
+      threads.map((thread) => threadFromAppServerThread(thread)),
     );
   });
 
@@ -393,7 +393,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledWith("/vault", false);
     expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual([
-      panelThreadFromAppServerThread(threadFixture("thread-1")),
+      threadFromAppServerThread(threadFixture("thread-1")),
     ]);
   });
 

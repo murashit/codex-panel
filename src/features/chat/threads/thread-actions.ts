@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../../app-server/client";
-import { panelThreadFromAppServerThread } from "../../../app-server/thread-model";
+import { threadFromAppServerThread } from "../../../app-server/thread-model";
 import { exportArchivedThreadMarkdown } from "../../../domain/threads/export";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import { inheritedForkThreadName } from "../../../domain/threads/model";
@@ -88,7 +88,7 @@ async function archiveThreadOnServer(
     if (saveMarkdown) {
       const response = await client.readThread(threadId, true);
       const result = await exportArchivedThreadMarkdown(
-        { ...panelThreadFromAppServerThread(response.thread, { archived: true }), turns: response.thread.turns },
+        { ...threadFromAppServerThread(response.thread, { archived: true }), turns: response.thread.turns },
         { ...settings, vaultPath: host.vaultPath },
         host.archiveAdapter(),
       );
@@ -182,7 +182,7 @@ async function rollbackThread(host: ChatThreadActionsHost, threadId: string): Pr
   try {
     host.setStatus("Rolling back latest turn...");
     const response = await client.rollbackThread(threadId);
-    const thread = panelThreadFromAppServerThread(response.thread);
+    const thread = threadFromAppServerThread(response.thread);
     dispatch(
       host,
       resumedThreadActionFromActiveRuntime({

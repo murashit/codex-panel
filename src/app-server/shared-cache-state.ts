@@ -1,13 +1,13 @@
 import type { AppServerDiagnostics } from "./compatibility";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
-import type { PanelThread } from "../domain/threads/model";
-import type { PanelModelOption, PanelSkillOption } from "../domain/catalog/metadata";
+import type { Thread } from "../domain/threads/model";
+import type { ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
 
 export interface SharedAppServerMetadata {
   effectiveConfig: ConfigReadResponse | null;
-  availableModels: readonly PanelModelOption[];
-  availableSkills: readonly PanelSkillOption[];
+  availableModels: readonly ModelMetadata[];
+  availableSkills: readonly SkillMetadata[];
   rateLimit: RateLimitSnapshot | null;
   appServerDiagnostics: AppServerDiagnostics;
 }
@@ -15,9 +15,9 @@ export interface SharedAppServerMetadata {
 type SharedCache<T> = { kind: "unloaded" } | { kind: "loaded"; data: T };
 
 export interface SharedAppServerState {
-  threads: SharedCache<readonly PanelThread[]>;
+  threads: SharedCache<readonly Thread[]>;
   appServerMetadata: SharedCache<SharedAppServerMetadata>;
-  availableModels: readonly PanelModelOption[];
+  availableModels: readonly ModelMetadata[];
 }
 
 export function createSharedAppServerState(): SharedAppServerState {
@@ -28,7 +28,7 @@ export function createSharedAppServerState(): SharedAppServerState {
   };
 }
 
-export function applySharedThreadList(state: SharedAppServerState, threads: readonly PanelThread[]): SharedAppServerState {
+export function applySharedThreadList(state: SharedAppServerState, threads: readonly Thread[]): SharedAppServerState {
   return {
     ...state,
     threads: { kind: "loaded", data: cloneThreads(threads) },
@@ -40,23 +40,23 @@ export function applySharedAppServerMetadata(state: SharedAppServerState, metada
   return {
     ...state,
     appServerMetadata: { kind: "loaded", data: clonedMetadata },
-    availableModels: cloneModelOptions(clonedMetadata.availableModels),
+    availableModels: cloneModelMetadata(clonedMetadata.availableModels),
   };
 }
 
-export function applySharedModels(state: SharedAppServerState, models: readonly PanelModelOption[]): SharedAppServerState {
-  const clonedModels = cloneModelOptions(models);
+export function applySharedModels(state: SharedAppServerState, models: readonly ModelMetadata[]): SharedAppServerState {
+  const clonedModels = cloneModelMetadata(models);
   return {
     ...state,
     appServerMetadata:
       state.appServerMetadata.kind === "loaded"
-        ? { kind: "loaded", data: { ...state.appServerMetadata.data, availableModels: cloneModelOptions(clonedModels) } }
+        ? { kind: "loaded", data: { ...state.appServerMetadata.data, availableModels: cloneModelMetadata(clonedModels) } }
         : state.appServerMetadata,
     availableModels: clonedModels,
   };
 }
 
-export function cachedSharedThreadList(state: SharedAppServerState): readonly PanelThread[] | null {
+export function cachedSharedThreadList(state: SharedAppServerState): readonly Thread[] | null {
   return state.threads.kind === "loaded" ? cloneThreads(state.threads.data) : null;
 }
 
@@ -65,15 +65,15 @@ export function cachedSharedAppServerMetadata(state: SharedAppServerState): Shar
   return null;
 }
 
-export function cachedSharedModels(state: SharedAppServerState): PanelModelOption[] {
-  return cloneModelOptions(state.availableModels);
+export function cachedSharedModels(state: SharedAppServerState): ModelMetadata[] {
+  return cloneModelMetadata(state.availableModels);
 }
 
 function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): SharedAppServerMetadata {
   return {
     ...metadata,
-    availableModels: cloneModelOptions(metadata.availableModels),
-    availableSkills: cloneSkillOptions(metadata.availableSkills),
+    availableModels: cloneModelMetadata(metadata.availableModels),
+    availableSkills: cloneSkillMetadata(metadata.availableSkills),
     appServerDiagnostics: {
       probes: { ...metadata.appServerDiagnostics.probes },
       mcpServers: metadata.appServerDiagnostics.mcpServers.map((server) => ({ ...server })),
@@ -81,11 +81,11 @@ function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): Shared
   };
 }
 
-function cloneThreads(threads: readonly PanelThread[]): PanelThread[] {
+function cloneThreads(threads: readonly Thread[]): Thread[] {
   return threads.map((thread) => ({ ...thread }));
 }
 
-function cloneModelOptions(models: readonly PanelModelOption[]): PanelModelOption[] {
+function cloneModelMetadata(models: readonly ModelMetadata[]): ModelMetadata[] {
   return models.map((model) => ({
     ...model,
     supportedReasoningEfforts: [...model.supportedReasoningEfforts],
@@ -95,6 +95,6 @@ function cloneModelOptions(models: readonly PanelModelOption[]): PanelModelOptio
   }));
 }
 
-function cloneSkillOptions(skills: readonly PanelSkillOption[]): PanelSkillOption[] {
+function cloneSkillMetadata(skills: readonly SkillMetadata[]): SkillMetadata[] {
   return skills.map((skill) => ({ ...skill }));
 }

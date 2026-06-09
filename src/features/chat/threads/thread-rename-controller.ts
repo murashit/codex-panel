@@ -6,7 +6,7 @@ import {
   THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE,
   type ThreadNamingContext,
 } from "../../../domain/threads/naming";
-import type { PanelThread } from "../../../domain/threads/model";
+import type { Thread } from "../../../domain/threads/model";
 import type { Turn } from "../../../generated/app-server/v2/Turn";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
@@ -257,7 +257,7 @@ export class ThreadRenameController {
     return Boolean(this.thread(threadId)?.name?.trim());
   }
 
-  private thread(threadId: string): PanelThread | undefined {
+  private thread(threadId: string): Thread | undefined {
     return this.state.threadList.listedThreads.find((item) => item.id === threadId);
   }
 }

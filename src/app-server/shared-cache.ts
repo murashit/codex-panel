@@ -1,5 +1,5 @@
-import type { PanelThread } from "../domain/threads/model";
-import type { PanelModelOption } from "../domain/catalog/metadata";
+import type { Thread } from "../domain/threads/model";
+import type { ModelMetadata } from "../domain/catalog/metadata";
 import {
   applySharedAppServerMetadata,
   applySharedModels,
@@ -12,16 +12,16 @@ import {
   type SharedAppServerState,
 } from "./shared-cache-state";
 
-type ThreadListRefreshLifecycleState = { kind: "idle" } | { kind: "refreshing"; promise: Promise<readonly PanelThread[]> };
+type ThreadListRefreshLifecycleState = { kind: "idle" } | { kind: "refreshing"; promise: Promise<readonly Thread[]> };
 
 export class SharedAppServerCache {
   private state: SharedAppServerState = createSharedAppServerState();
   private threadListRefreshLifecycle: ThreadListRefreshLifecycleState = { kind: "idle" };
 
   refreshThreadList(
-    fetchThreads: () => Promise<readonly PanelThread[]>,
-    onSnapshot?: (threads: readonly PanelThread[]) => void,
-  ): Promise<readonly PanelThread[]> {
+    fetchThreads: () => Promise<readonly Thread[]>,
+    onSnapshot?: (threads: readonly Thread[]) => void,
+  ): Promise<readonly Thread[]> {
     if (this.threadListRefreshLifecycle.kind === "refreshing") return this.threadListRefreshLifecycle.promise;
     const promise = fetchThreads()
       .then((threads) => {
@@ -38,11 +38,11 @@ export class SharedAppServerCache {
     return promise;
   }
 
-  applyThreadListSnapshot(threads: readonly PanelThread[]): void {
+  applyThreadListSnapshot(threads: readonly Thread[]): void {
     this.state = applySharedThreadList(this.state, threads);
   }
 
-  cachedThreadList(): readonly PanelThread[] | null {
+  cachedThreadList(): readonly Thread[] | null {
     return cachedSharedThreadList(this.state);
   }
 
@@ -54,11 +54,11 @@ export class SharedAppServerCache {
     return cachedSharedAppServerMetadata(this.state);
   }
 
-  applyModelsSnapshot(models: readonly PanelModelOption[]): void {
+  applyModelsSnapshot(models: readonly ModelMetadata[]): void {
     this.state = applySharedModels(this.state, models);
   }
 
-  cachedModels(): PanelModelOption[] {
+  cachedModels(): ModelMetadata[] {
     return cachedSharedModels(this.state);
   }
 }

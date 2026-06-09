@@ -6,7 +6,7 @@ import {
   serviceTierLabel,
   supportedReasoningEfforts,
 } from "../../runtime/effective-settings";
-import { sortedModelOptions } from "../../../../domain/catalog/metadata";
+import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import { contextSummary, rateLimitSummary, type RateLimitSummary } from "../../runtime/status-summary";
 import type {
   EffortStatusLinesInput,
@@ -46,7 +46,7 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
 } {
   const config = readRuntimeConfig(input.state.connection.effectiveConfig);
   const activeModel = currentModel(input.snapshot, config);
-  const models = sortedModelOptions(input.state.connection.availableModels);
+  const models = sortedModelMetadata(input.state.connection.availableModels);
   const modelChoices: RuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
     selected: activeModel === model.model,

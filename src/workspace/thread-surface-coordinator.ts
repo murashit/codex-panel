@@ -2,8 +2,8 @@ import type { App } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS } from "../constants";
 import { CodexThreadsView } from "../features/threads-view/view";
-import type { PanelModelOption } from "../domain/catalog/metadata";
-import type { PanelThread } from "../domain/threads/model";
+import type { ModelMetadata } from "../domain/catalog/metadata";
+import type { Thread } from "../domain/threads/model";
 import type { SharedAppServerMetadata } from "../app-server/shared-cache-state";
 import type { WorkspacePanelCoordinator } from "./panel-coordinator";
 
@@ -33,7 +33,7 @@ export class ThreadSurfaceCoordinator {
     if (threadsView) void threadsView.refresh();
   }
 
-  applyThreadListSnapshot(threads: readonly PanelThread[]): void {
+  applyThreadListSnapshot(threads: readonly Thread[]): void {
     for (const view of this.options.panels.panelViews()) {
       view.applyThreadListSnapshot(threads);
     }
@@ -48,7 +48,7 @@ export class ThreadSurfaceCoordinator {
     }
   }
 
-  publishModels(models: readonly PanelModelOption[]): void {
+  publishModels(models: readonly ModelMetadata[]): void {
     for (const view of this.options.panels.panelViews()) {
       view.applyAvailableModelsSnapshot(models);
     }

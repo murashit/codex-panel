@@ -1,9 +1,9 @@
 import { parseServiceTier } from "../../../app-server/thread-settings";
 import { upsertThread } from "../../../domain/threads/model";
-import { panelThreadFromAppServerThread } from "../../../app-server/thread-model";
+import { threadFromAppServerThread } from "../../../app-server/thread-model";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
-import type { PanelThread } from "../../../domain/threads/model";
+import type { Thread } from "../../../domain/threads/model";
 import type { ThreadStartResponse } from "../../../generated/app-server/v2/ThreadStartResponse";
 import type { ThreadResumeResponse } from "../../../generated/app-server/v2/ThreadResumeResponse";
 import type { ChatRuntimeState } from "../runtime/state";
@@ -11,7 +11,7 @@ import type { DisplayItem } from "../display/types";
 import type { ActiveThreadResumedAction } from "../chat-state-actions";
 
 interface ThreadActivationResponse {
-  thread: PanelThread;
+  thread: Thread;
   cwd: string;
   model: string | null;
   serviceTier: string | null;
@@ -23,18 +23,18 @@ interface ThreadActivationResponse {
 
 export interface ResumedThreadActionParams {
   response: ThreadActivationResponse;
-  listedThreads?: readonly PanelThread[];
+  listedThreads?: readonly Thread[];
   displayItems?: readonly DisplayItem[];
 }
 
 export interface ResumedThreadFromAppServerParams {
   response: ThreadStartResponse | ThreadResumeResponse;
-  listedThreads?: readonly PanelThread[];
+  listedThreads?: readonly Thread[];
   displayItems?: readonly DisplayItem[];
 }
 
 export interface ResumedThreadFromActiveRuntimeParams {
-  thread: PanelThread;
+  thread: Thread;
   cwd: string;
   runtime: Pick<
     ChatRuntimeState,
@@ -45,7 +45,7 @@ export interface ResumedThreadFromActiveRuntimeParams {
     | "activeApprovalsReviewer"
     | "activePermissionProfile"
   >;
-  listedThreads?: readonly PanelThread[];
+  listedThreads?: readonly Thread[];
   displayItems?: readonly DisplayItem[];
 }
 
@@ -93,7 +93,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
 
 function threadActivationResponseFromAppServerResponse(response: ThreadStartResponse | ThreadResumeResponse): ThreadActivationResponse {
   return {
-    thread: panelThreadFromAppServerThread(response.thread),
+    thread: threadFromAppServerThread(response.thread),
     cwd: response.cwd,
     model: response.model,
     reasoningEffort: response.reasoningEffort,

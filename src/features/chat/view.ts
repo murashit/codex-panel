@@ -4,8 +4,8 @@ import type { AppServerClient } from "../../app-server/client";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import type { PanelModelOption } from "../../domain/catalog/metadata";
-import type { PanelThread } from "../../domain/threads/model";
+import type { ModelMetadata } from "../../domain/catalog/metadata";
+import type { Thread } from "../../domain/threads/model";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/collaboration";
 import type { RuntimeSnapshot } from "./runtime/effective-settings";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
@@ -409,7 +409,7 @@ export class CodexChatView extends ItemView {
     return this.loadSharedThreadList();
   }
 
-  applyThreadListSnapshot(threads: readonly PanelThread[]): void {
+  applyThreadListSnapshot(threads: readonly Thread[]): void {
     this.controllers.appServer.threads.applyThreadList(threads);
     this.refreshTabHeader();
     this.controllers.render.controller.render();
@@ -420,7 +420,7 @@ export class CodexChatView extends ItemView {
     this.controllers.render.controller.render();
   }
 
-  applyAvailableModelsSnapshot(models: readonly PanelModelOption[]): void {
+  applyAvailableModelsSnapshot(models: readonly ModelMetadata[]): void {
     this.dispatch({ type: "connection/metadata-applied", availableModels: models });
     this.controllers.render.controller.render();
   }

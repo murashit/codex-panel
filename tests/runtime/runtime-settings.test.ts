@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ConfigReadResponse } from "../../src/generated/app-server/v2/ConfigReadResponse";
-import type { PanelModelOption } from "../../src/domain/catalog/metadata";
+import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import {
   compactModelLabel,
   compactReasoningEffortLabel,
@@ -698,7 +698,7 @@ function configLayer(config: Record<string, unknown>, profile: string | null): N
   };
 }
 
-function modelFixture(model: string): PanelModelOption {
+function modelFixture(model: string): ModelMetadata {
   return {
     id: model,
     model,

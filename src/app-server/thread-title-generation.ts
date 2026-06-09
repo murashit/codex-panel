@@ -5,10 +5,10 @@ import {
   type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "./ephemeral-structured-turn";
-import { panelModelOptionsFromAppServerModels } from "./catalog-model";
+import { modelMetadataFromAppServerModels } from "./catalog-model";
 import type { Turn } from "../generated/app-server/v2/Turn";
-import type { PanelModelOption, ReasoningEffort } from "../domain/catalog/metadata";
-import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../domain/catalog/runtime-overrides";
+import type { ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
+import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../domain/catalog/runtime-overrides";
 import { namingPrompt, titleFromGeneratedText, type ThreadNamingContext } from "../domain/threads/naming";
 import { turnConversationSummary } from "../domain/threads/transcript";
 
@@ -84,9 +84,9 @@ export function threadNamingRuntimeOverride(settings: ThreadNamingRuntimeSetting
 
 export function validatedThreadNamingRuntimeOverride(
   settings: ThreadNamingRuntimeSettings,
-  models: readonly PanelModelOption[],
+  models: readonly ModelMetadata[],
 ): ThreadNamingRuntimeOverride {
-  return validatedRuntimeOverrideForModelOptions({ model: settings.threadNamingModel, effort: settings.threadNamingEffort }, models);
+  return validatedRuntimeOverrideForModelMetadata({ model: settings.threadNamingModel, effort: settings.threadNamingEffort }, models);
 }
 
 async function threadNamingRuntimeOverrideForClient(
@@ -97,7 +97,7 @@ async function threadNamingRuntimeOverrideForClient(
   if (!runtime.model || !runtime.effort) return runtime;
   try {
     const response = await client.listModels(false);
-    return validatedThreadNamingRuntimeOverride(settings, panelModelOptionsFromAppServerModels(response.data));
+    return validatedThreadNamingRuntimeOverride(settings, modelMetadataFromAppServerModels(response.data));
   } catch {
     return runtime;
   }

@@ -1,16 +1,16 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
-import type { PanelThread } from "../../domain/threads/model";
+import type { Thread } from "../../domain/threads/model";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "./runtime/state";
-import type { PanelCollaborationMode } from "./runtime/collaboration";
+import type { CollaborationMode } from "./runtime/collaboration";
 import { parseServiceTier, type ServiceTier } from "../../app-server/thread-settings";
 import type { ChatAction, PendingTurnStart } from "./chat-state";
 import type { DisplayItem } from "./display/types";
 
 export interface ActiveThreadResumedAction {
   type: "active-thread/resumed";
-  thread: PanelThread;
+  thread: Thread;
   cwd: string;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
@@ -20,7 +20,7 @@ export interface ActiveThreadResumedAction {
   activePermissionProfile: ChatRuntimeState["activePermissionProfile"];
   displayItems?: readonly DisplayItem[];
   status?: string;
-  listedThreads?: readonly PanelThread[];
+  listedThreads?: readonly Thread[];
 }
 
 export interface ActiveThreadSettingsAppliedAction {
@@ -28,7 +28,7 @@ export interface ActiveThreadSettingsAppliedAction {
   cwd: string;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
-  collaborationMode: PanelCollaborationMode;
+  collaborationMode: CollaborationMode;
   serviceTier: ServiceTier | null;
   approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
@@ -39,7 +39,7 @@ export interface ActiveThreadSettingsAppliedActionSettings {
   cwd: string;
   model: string | null;
   effort: ReasoningEffort | null;
-  collaborationMode: { mode: PanelCollaborationMode };
+  collaborationMode: { mode: CollaborationMode };
   serviceTier: string | null;
   approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
@@ -66,7 +66,7 @@ export function clearActiveThreadAction(): ChatAction {
   return { type: "active-thread/cleared" };
 }
 
-export function applyThreadListAction(threads: readonly PanelThread[], threadsLoaded?: boolean): ChatAction {
+export function applyThreadListAction(threads: readonly Thread[], threadsLoaded?: boolean): ChatAction {
   return { type: "thread-list/applied", threads, ...(threadsLoaded === undefined ? {} : { threadsLoaded }) };
 }
 

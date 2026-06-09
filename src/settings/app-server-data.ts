@@ -1,17 +1,17 @@
 import type { AppServerClient } from "../app-server/client";
-import { listPanelHookData, listPanelModelOptions, listPanelThreads, type PanelHookData } from "../app-server/panel-data";
-import type { PanelModelOption } from "../domain/catalog/metadata";
-import type { PanelThread } from "../domain/threads/model";
+import { listHookData, listModelMetadata, listThreads, type HookData } from "../app-server/resource-operations";
+import type { ModelMetadata } from "../domain/catalog/metadata";
+import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 
-export interface LoadedHooks extends PanelHookData {
+export interface LoadedHooks extends HookData {
   status: string;
 }
 
 export interface SettingsDataLoad {
-  models: SettledSettingsData<PanelModelOption[]>;
+  models: SettledSettingsData<ModelMetadata[]>;
   hooks: SettledSettingsData<LoadedHooks>;
-  archivedThreads: SettledSettingsData<PanelThread[]>;
+  archivedThreads: SettledSettingsData<Thread[]>;
 }
 
 type SettledSettingsData<T> =
@@ -27,9 +27,9 @@ type SettledSettingsData<T> =
 
 export async function loadSettingsData(client: AppServerClient, cwd: string): Promise<SettingsDataLoad> {
   const [modelsResult, hooksResult, archivedThreadsResult] = await Promise.allSettled([
-    listPanelModelOptions(client),
-    listPanelHookData(client, cwd),
-    listPanelThreads(client, cwd, { archived: true }),
+    listModelMetadata(client),
+    listHookData(client, cwd),
+    listThreads(client, cwd, { archived: true }),
   ] as const);
 
   return {
@@ -57,7 +57,7 @@ export async function loadSettingsData(client: AppServerClient, cwd: string): Pr
 }
 
 export async function loadHookData(client: AppServerClient, cwd: string): Promise<LoadedHooks> {
-  const hooks = await listPanelHookData(client, cwd);
+  const hooks = await listHookData(client, cwd);
   return {
     ...hooks,
     status: hooksStatus(hooks.hooks.length),

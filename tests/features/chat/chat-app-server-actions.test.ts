@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../src/app-server/client";
-import { panelThreadFromAppServerThread } from "../../../src/app-server/thread-model";
+import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
 import { createChatAppServerDiagnosticsActions } from "../../../src/features/chat/app-server/diagnostics-actions";
 import { createChatAppServerMetadataActions } from "../../../src/features/chat/app-server/metadata-actions";
 import { createChatAppServerThreadActions } from "../../../src/features/chat/app-server/thread-actions";
@@ -16,11 +16,11 @@ describe("chat app-server controllers", () => {
   it("publishes newly started threads before the first turn completes", async () => {
     const state = createChatState();
     const existing = threadFixture("existing");
-    state.threadList.listedThreads = [panelThreadFromAppServerThread(existing)];
+    state.threadList.listedThreads = [threadFromAppServerThread(existing)];
     const stateStore = createChatStateStore(state);
     const started = threadFixture("started");
-    const optimistic = panelThreadFromAppServerThread({ ...started, preview: "first prompt" });
-    const existingPanelThread = panelThreadFromAppServerThread(existing);
+    const optimistic = threadFromAppServerThread({ ...started, preview: "first prompt" });
+    const existingThread = threadFromAppServerThread(existing);
     const publishThreadList = vi.fn();
     const syncThreadGoal = vi.fn();
     const client = {
@@ -47,8 +47,8 @@ describe("chat app-server controllers", () => {
 
     await controller.startThread("first prompt");
 
-    expect(stateStore.getState().threadList.listedThreads).toEqual([optimistic, existingPanelThread]);
-    expect(publishThreadList).toHaveBeenCalledWith([optimistic, existingPanelThread]);
+    expect(stateStore.getState().threadList.listedThreads).toEqual([optimistic, existingThread]);
+    expect(publishThreadList).toHaveBeenCalledWith([optimistic, existingThread]);
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
 
@@ -111,7 +111,7 @@ describe("chat app-server controllers", () => {
 
     await controller.startThread("local preview");
 
-    expect(publishThreadList).toHaveBeenCalledWith([panelThreadFromAppServerThread(started)]);
+    expect(publishThreadList).toHaveBeenCalledWith([threadFromAppServerThread(started)]);
   });
 
   it("reuses cached app-server metadata for deferred diagnostics", async () => {

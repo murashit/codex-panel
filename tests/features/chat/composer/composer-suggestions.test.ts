@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ReasoningEffort } from "../../../../src/generated/app-server/ReasoningEffort";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
-import type { PanelModelOption } from "../../../../src/domain/catalog/metadata";
+import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -46,7 +46,7 @@ function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread
   } as Thread & { archived: boolean };
 }
 
-function model(name: string, efforts: ReasoningEffort[], overrides: Partial<PanelModelOption> = {}): PanelModelOption {
+function model(name: string, efforts: ReasoningEffort[], overrides: Partial<ModelMetadata> = {}): ModelMetadata {
   return {
     id: name,
     model: name,

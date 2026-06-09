@@ -1,10 +1,10 @@
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
 import type { Model } from "../generated/app-server/v2/Model";
-import type { SkillMetadata } from "../generated/app-server/v2/SkillMetadata";
+import type { SkillMetadata as AppServerSkillMetadata } from "../generated/app-server/v2/SkillMetadata";
 import type { AppServerHookOperation } from "./client";
-import type { PanelHookItem, PanelModelOption, PanelSkillOption } from "../domain/catalog/metadata";
+import type { HookItem, ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
 
-function panelModelOptionFromAppServerModel(model: Model): PanelModelOption {
+function modelMetadataFromAppServerModel(model: Model): ModelMetadata {
   return {
     id: model.id,
     model: model.model,
@@ -21,11 +21,11 @@ function panelModelOptionFromAppServerModel(model: Model): PanelModelOption {
   };
 }
 
-export function panelModelOptionsFromAppServerModels(models: readonly Model[]): PanelModelOption[] {
-  return models.map((model) => panelModelOptionFromAppServerModel(model));
+export function modelMetadataFromAppServerModels(models: readonly Model[]): ModelMetadata[] {
+  return models.map((model) => modelMetadataFromAppServerModel(model));
 }
 
-function panelSkillOptionFromAppServerSkill(skill: SkillMetadata): PanelSkillOption {
+function skillMetadataFromAppServerSkill(skill: AppServerSkillMetadata): SkillMetadata {
   return {
     name: skill.name,
     description: skill.description,
@@ -36,11 +36,11 @@ function panelSkillOptionFromAppServerSkill(skill: SkillMetadata): PanelSkillOpt
   };
 }
 
-export function panelSkillOptionsFromAppServerSkills(skills: readonly SkillMetadata[]): PanelSkillOption[] {
-  return skills.map((skill) => panelSkillOptionFromAppServerSkill(skill));
+export function skillMetadataFromAppServerSkills(skills: readonly AppServerSkillMetadata[]): SkillMetadata[] {
+  return skills.map((skill) => skillMetadataFromAppServerSkill(skill));
 }
 
-function panelHookItemFromAppServerHook(hook: HookMetadata): PanelHookItem {
+function hookItemFromAppServerHook(hook: HookMetadata): HookItem {
   return {
     key: hook.key,
     eventName: hook.eventName,
@@ -55,11 +55,11 @@ function panelHookItemFromAppServerHook(hook: HookMetadata): PanelHookItem {
   };
 }
 
-export function panelHookItemsFromAppServerHooks(hooks: readonly HookMetadata[]): PanelHookItem[] {
-  return hooks.map((hook) => panelHookItemFromAppServerHook(hook));
+export function hookItemsFromAppServerHooks(hooks: readonly HookMetadata[]): HookItem[] {
+  return hooks.map((hook) => hookItemFromAppServerHook(hook));
 }
 
-export function appServerHookOperationFromPanelHookItem(hook: PanelHookItem): AppServerHookOperation {
+export function appServerHookOperationFromHookItem(hook: HookItem): AppServerHookOperation {
   return {
     key: hook.key,
     currentHash: hook.currentHash,

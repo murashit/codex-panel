@@ -1,21 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/client";
-import { listPanelHookData, listPanelSkillCatalog, listPanelThreads } from "../../src/app-server/panel-data";
+import { listHookData, listSkillCatalog, listThreads } from "../../src/app-server/resource-operations";
 
-describe("panel app-server data loaders", () => {
-  it("maps listed threads to panel threads with archive state", async () => {
-    const listThreads = vi.fn().mockResolvedValue({
+describe("app-server resource operations", () => {
+  it("maps listed threads to domain threads with archive state", async () => {
+    const clientListThreads = vi.fn().mockResolvedValue({
       data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20 }],
     });
     const client = {
-      listThreads,
+      listThreads: clientListThreads,
     } as unknown as AppServerClient;
 
-    await expect(listPanelThreads(client, "/vault", { archived: true })).resolves.toEqual([
+    await expect(listThreads(client, "/vault", { archived: true })).resolves.toEqual([
       { id: "thread-1", preview: "Preview", name: null, archived: true, createdAt: 10, updatedAt: 20 },
     ]);
-    expect(listThreads).toHaveBeenCalledWith("/vault", true);
+    expect(clientListThreads).toHaveBeenCalledWith("/vault", true);
   });
 
   it("uses only hook rows for the requested cwd", async () => {
@@ -28,7 +28,7 @@ describe("panel app-server data loaders", () => {
       }),
     } as unknown as AppServerClient;
 
-    await expect(listPanelHookData(client, "/vault")).resolves.toMatchObject({
+    await expect(listHookData(client, "/vault")).resolves.toMatchObject({
       hooks: [{ key: "vault" }],
       warnings: ["warn"],
       errors: ['{"message":"err"}'],
@@ -50,7 +50,7 @@ describe("panel app-server data loaders", () => {
       }),
     } as unknown as AppServerClient;
 
-    await expect(listPanelSkillCatalog(client, "/vault")).resolves.toMatchObject({
+    await expect(listSkillCatalog(client, "/vault")).resolves.toMatchObject({
       skills: [{ name: "enabled", description: "Enabled skill", path: "/skills/enabled", enabled: true }],
       totalCount: 2,
     });

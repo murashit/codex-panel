@@ -6,8 +6,8 @@ import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
-import type { PanelModelOption } from "../../src/domain/catalog/metadata";
-import { panelModelOptionsFromAppServerModels } from "../../src/app-server/catalog-model";
+import type { ModelMetadata } from "../../src/domain/catalog/metadata";
+import { modelMetadataFromAppServerModels } from "../../src/app-server/catalog-model";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import { archivedThreadDisplayTitle } from "../../src/domain/threads/model";
 import { notices } from "../mocks/obsidian";
@@ -193,7 +193,7 @@ describe("settings tab", () => {
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab({ cachedModels: panelModelOptionsFromAppServerModels([model("gpt-cached")]), publishModels });
+    const tab = newSettingsTab({ cachedModels: modelMetadataFromAppServerModels([model("gpt-cached")]), publishModels });
 
     tab.display();
 
@@ -201,7 +201,7 @@ describe("settings tab", () => {
 
     await flushPromises();
 
-    expect(publishModels).toHaveBeenCalledWith(panelModelOptionsFromAppServerModels([model("gpt-5.5")]));
+    expect(publishModels).toHaveBeenCalledWith(modelMetadataFromAppServerModels([model("gpt-5.5")]));
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
   });
 
@@ -348,8 +348,8 @@ function newSettingsTab(
   options: {
     saveSettings?: () => Promise<void>;
     sendShortcut?: "enter" | "mod-enter";
-    cachedModels?: PanelModelOption[];
-    publishModels?: (models: PanelModelOption[]) => void;
+    cachedModels?: ModelMetadata[];
+    publishModels?: (models: ModelMetadata[]) => void;
     refreshOpenViews?: () => void;
   } = {},
 ): CodexPanelSettingTab {

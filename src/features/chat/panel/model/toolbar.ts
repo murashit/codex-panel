@@ -1,4 +1,4 @@
-import type { PanelThread } from "../../../../domain/threads/model";
+import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import { effectiveConfigSections, rateLimitSummary } from "../../runtime/status-summary";
 import { connectionDiagnosticSections } from "../../diagnostics";
@@ -36,7 +36,7 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
 }
 
 function toolbarThreadRows(input: {
-  threads: readonly PanelThread[];
+  threads: readonly Thread[];
   activeThreadId: string | null;
   turnBusy: boolean;
   archiveConfirmThreadId: string | null;

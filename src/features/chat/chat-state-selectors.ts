@@ -1,6 +1,6 @@
 import { activeTurnId as selectActiveTurnId, chatTurnBusy, pendingTurnStart } from "./chat-state";
 import type { ChatState, PendingTurnStart } from "./chat-state";
-import type { PanelThread } from "../../domain/threads/model";
+import type { Thread } from "../../domain/threads/model";
 import type { PendingApproval } from "./requests/approval";
 import type { PendingUserInput } from "./requests/user-input";
 import type { DisplayItem } from "./display/types";
@@ -17,7 +17,7 @@ export interface SubmissionStateSnapshot {
   activeThreadId: string | null;
   activeTurnId: string | null;
   busy: boolean;
-  listedThreads: readonly PanelThread[];
+  listedThreads: readonly Thread[];
   displayItems: readonly DisplayItem[];
   pendingTurnStart: PendingTurnStart | null;
 }
@@ -39,7 +39,7 @@ export function canSwitchToThread(state: ChatState, threadId: string): boolean {
   return !chatTurnBusy(state) || threadId === state.activeThread.id;
 }
 
-export function listedThreads(state: ChatState): readonly PanelThread[] {
+export function listedThreads(state: ChatState): readonly Thread[] {
   return state.threadList.listedThreads;
 }
 

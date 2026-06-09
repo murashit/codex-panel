@@ -1,6 +1,6 @@
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import { shortThreadId } from "../../utils";
-import { getThreadTitle, type PanelThread } from "./model";
+import { getThreadTitle, type Thread } from "./model";
 import { referencedThreadDisplayFromPrompt } from "./reference";
 import { turnTranscriptEntries, type TurnTranscriptEntry } from "./transcript";
 
@@ -36,7 +36,7 @@ export interface ArchiveExportSettings {
   vaultPath?: string;
 }
 
-export interface ArchiveThreadInput extends PanelThread {
+export interface ArchiveThreadInput extends Thread {
   turns: Turn[];
 }
 

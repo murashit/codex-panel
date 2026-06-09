@@ -1,7 +1,7 @@
 import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
 import { parseServiceTier, type ServiceTier, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import type { PanelCollaborationMode } from "./collaboration";
+import type { CollaborationMode } from "./collaboration";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ApprovalsReviewer } from "./approvals";
 import type { RequestedServiceTier } from "./service-tier-state";
@@ -15,7 +15,7 @@ import {
 export interface ChatRuntimeState {
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
-  activeCollaborationMode: PanelCollaborationMode;
+  activeCollaborationMode: CollaborationMode;
   activeServiceTier: ServiceTier | null;
   activeApprovalPolicy: AskForApproval | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
@@ -23,7 +23,7 @@ export interface ChatRuntimeState {
   requestedModel: PendingRuntimeSetting<string>;
   requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
   requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
-  selectedCollaborationMode: PanelCollaborationMode;
+  selectedCollaborationMode: CollaborationMode;
   requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
 }
 
@@ -90,10 +90,7 @@ export function setRequestedApprovalsReviewerRuntimeState(
   };
 }
 
-export function setSelectedCollaborationModeRuntimeState(
-  state: ChatRuntimeState,
-  collaborationMode: PanelCollaborationMode,
-): ChatRuntimeState {
+export function setSelectedCollaborationModeRuntimeState(state: ChatRuntimeState, collaborationMode: CollaborationMode): ChatRuntimeState {
   return {
     ...state,
     selectedCollaborationMode: collaborationMode,

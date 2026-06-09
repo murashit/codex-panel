@@ -1,14 +1,14 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
-import { restoreArchivedPanelThread, setPanelHookEnabled, trustPanelHook } from "../app-server/panel-data";
+import { restoreArchivedThread, setHookItemEnabled, trustHookItem } from "../app-server/resource-operations";
 import { withShortLivedAppServerClient } from "../app-server/short-lived-client";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
-import type { PanelHookItem, PanelModelOption } from "../domain/catalog/metadata";
-import type { PanelThread } from "../domain/threads/model";
-import { REASONING_EFFORTS, supportedEffortsForModelOption } from "../domain/catalog/metadata";
-import { findModelOptionByIdOrName, sortedModelOptions } from "../domain/catalog/metadata";
+import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
+import type { Thread } from "../domain/threads/model";
+import { REASONING_EFFORTS, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
+import { findModelMetadataByIdOrName, sortedModelMetadata } from "../domain/catalog/metadata";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 import {
@@ -37,13 +37,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private settingsDataAutoLoadStarted = false;
   private settingsDynamicOperationId = 0;
   private settingsDataRefreshLifecycle: SettingsDataRefreshLifecycleState = { kind: "idle" };
-  private archivedThreads: PanelThread[] = [];
+  private archivedThreads: Thread[] = [];
   private archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
-  private hooks: PanelHookItem[] = [];
+  private hooks: HookItem[] = [];
   private hookWarnings: string[] = [];
   private hookErrors: string[] = [];
   private hooksLifecycle = createSettingsDynamicSectionLifecycle();
-  private models: PanelModelOption[] = [];
+  private models: ModelMetadata[] = [];
   private modelsLifecycle = createSettingsDynamicSectionLifecycle();
 
   constructor(
@@ -127,7 +127,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setDesc("Choose the model and reasoning effort used to suggest thread names.")
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.threadNamingModel;
-        const options = this.modelOptions();
+        const options = this.modelMetadata();
         dropdown.selectEl.ariaLabel = "Automatic thread naming model";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.some((model) => model.model === current || model.id === current)) {
@@ -164,7 +164,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setDesc("Choose the model and reasoning effort used by rewrite selection.")
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.rewriteSelectionModel;
-        const options = this.modelOptions();
+        const options = this.modelMetadata();
         dropdown.selectEl.ariaLabel = "Selection rewrite model";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.some((model) => model.model === current || model.id === current)) {
@@ -394,7 +394,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     }
   }
 
-  private async trustHook(hook: PanelHookItem): Promise<void> {
+  private async trustHook(hook: HookItem): Promise<void> {
     const operationId = this.nextSettingsDynamicOperationId();
     this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
       type: "started",
@@ -403,7 +403,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
     this.display();
     try {
-      await this.withSettingsConnection((client) => trustPanelHook(client, hook));
+      await this.withSettingsConnection((client) => trustHookItem(client, hook));
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "loaded",
         status: "Trusted hook definition.",
@@ -421,7 +421,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     }
   }
 
-  private async setHookEnabled(hook: PanelHookItem, enabled: boolean): Promise<void> {
+  private async setHookEnabled(hook: HookItem, enabled: boolean): Promise<void> {
     const operationId = this.nextSettingsDynamicOperationId();
     this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
       type: "started",
@@ -430,7 +430,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
     this.display();
     try {
-      await this.withSettingsConnection((client) => setPanelHookEnabled(client, hook, enabled));
+      await this.withSettingsConnection((client) => setHookItemEnabled(client, hook, enabled));
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "loaded",
         status: enabled ? "Enabled hook." : "Disabled hook.",
@@ -478,7 +478,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
     this.display();
     try {
-      const restoredThread = await this.withSettingsConnection((client) => restoreArchivedPanelThread(client, threadId));
+      const restoredThread = await this.withSettingsConnection((client) => restoreArchivedThread(client, threadId));
       this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
         type: "loaded",
@@ -509,13 +509,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     return this.settingsDynamicOperationId;
   }
 
-  private modelOptions(): PanelModelOption[] {
-    return sortedModelOptions(this.models);
+  private modelMetadata(): ModelMetadata[] {
+    return sortedModelMetadata(this.models);
   }
 
   private effortOptions(modelIdOrName: string | null): ReasoningEffort[] {
     const model = this.selectedModel(modelIdOrName);
-    return model ? supportedEffortsForModelOption(model) : [...REASONING_EFFORTS];
+    return model ? supportedEffortsForModelMetadata(model) : [...REASONING_EFFORTS];
   }
 
   private namingEffortSupported(effort: ReasoningEffort | null): boolean {
@@ -526,8 +526,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     return !effort || this.effortOptions(this.plugin.settings.rewriteSelectionModel).includes(effort);
   }
 
-  private selectedModel(modelIdOrName: string | null): PanelModelOption | null {
-    return findModelOptionByIdOrName(this.models, modelIdOrName);
+  private selectedModel(modelIdOrName: string | null): ModelMetadata | null {
+    return findModelMetadataByIdOrName(this.models, modelIdOrName);
   }
 }
 
@@ -537,6 +537,6 @@ export interface CodexPanelSettingTabHost {
   saveSettings(): Promise<void>;
   refreshOpenViews(): void;
   refreshSharedThreadListFromOpenSurface(): void;
-  cachedModels(): PanelModelOption[];
-  publishModels(models: PanelModelOption[]): void;
+  cachedModels(): ModelMetadata[];
+  publishModels(models: ModelMetadata[]): void;
 }

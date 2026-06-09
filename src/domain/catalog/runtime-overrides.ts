@@ -1,5 +1,5 @@
-import type { PanelModelOption, ReasoningEffort } from "./metadata";
-import { findModelOptionByIdOrName, supportedEffortsForModelOption } from "./metadata";
+import type { ModelMetadata, ReasoningEffort } from "./metadata";
+import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "./metadata";
 
 export interface RuntimeOverrideSettings {
   model: string | null;
@@ -18,16 +18,16 @@ export function runtimeOverride(settings: RuntimeOverrideSettings): RuntimeOverr
   };
 }
 
-export function validatedRuntimeOverrideForModelOptions(
+export function validatedRuntimeOverrideForModelMetadata(
   settings: RuntimeOverrideSettings,
-  models: readonly PanelModelOption[],
+  models: readonly ModelMetadata[],
 ): RuntimeOverride {
   const runtime = runtimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
 
-  const model = findModelOptionByIdOrName(models, runtime.model);
+  const model = findModelMetadataByIdOrName(models, runtime.model);
   if (!model) return runtime;
 
-  const supportedEfforts = new Set(supportedEffortsForModelOption(model));
+  const supportedEfforts = new Set(supportedEffortsForModelMetadata(model));
   return supportedEfforts.has(runtime.effort) ? runtime : { model: runtime.model };
 }

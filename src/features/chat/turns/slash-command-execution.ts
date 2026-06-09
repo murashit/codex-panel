@@ -1,5 +1,5 @@
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { PanelThread } from "../../../domain/threads/model";
+import type { Thread } from "../../../domain/threads/model";
 import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
 import type { UserInput } from "../../../generated/app-server/v2/UserInput";
@@ -24,11 +24,11 @@ import {
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;
   busy: boolean;
-  listedThreads: readonly PanelThread[];
+  listedThreads: readonly Thread[];
   startNewThread: () => Promise<void>;
   startThreadForGoal: (objective: string) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
-  referThread: (thread: PanelThread, message: string) => Promise<ThreadReferenceInput | null>;
+  referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
   forkThread: (threadId: string) => Promise<void>;
   rollbackThread: (threadId: string) => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
@@ -392,7 +392,7 @@ function lineToRow(line: string): DisplayDetailMetaRow {
   return { key: "message", value: line };
 }
 
-type ThreadResolution = { ok: true; thread: PanelThread } | { ok: false; message: string };
+type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: string };
 
 function parseReferArgs(args: string): { threadQuery: string; message: string } | null {
   const parsed = parseThreadAndTextArgs(args);
@@ -414,7 +414,7 @@ function parseThreadAndNameArgs(args: string): { threadQuery: string; text: stri
   return text ? { threadQuery: parsed.threadQuery, text } : null;
 }
 
-function resolveThreadArgument(args: string, threads: readonly PanelThread[]): ThreadResolution {
+function resolveThreadArgument(args: string, threads: readonly Thread[]): ThreadResolution {
   const query = args.trim();
   if (!query) {
     const thread = threads.at(0);

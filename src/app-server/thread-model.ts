@@ -1,7 +1,7 @@
-import type { Thread } from "../generated/app-server/v2/Thread";
-import type { PanelThread } from "../domain/threads/model";
+import type { Thread as AppServerThread } from "../generated/app-server/v2/Thread";
+import type { Thread } from "../domain/threads/model";
 
-export function panelThreadFromAppServerThread(thread: Thread, options: { archived?: boolean } = {}): PanelThread {
+export function threadFromAppServerThread(thread: AppServerThread, options: { archived?: boolean } = {}): Thread {
   return {
     id: thread.id,
     preview: normalizeString(thread.preview),
@@ -12,8 +12,8 @@ export function panelThreadFromAppServerThread(thread: Thread, options: { archiv
   };
 }
 
-export function panelThreadsFromAppServerThreads(threads: readonly Thread[], options: { archived?: boolean } = {}): PanelThread[] {
-  return threads.map((thread) => panelThreadFromAppServerThread(thread, options));
+export function threadsFromAppServerThreads(threads: readonly AppServerThread[], options: { archived?: boolean } = {}): Thread[] {
+  return threads.map((thread) => threadFromAppServerThread(thread, options));
 }
 
 function normalizeNullableString(value: string | null): string | null {

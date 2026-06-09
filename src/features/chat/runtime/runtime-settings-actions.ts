@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../app-server/client";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "./approvals";
-import type { PanelCollaborationMode } from "./collaboration";
+import type { CollaborationMode } from "./collaboration";
 import { collaborationModeToggleMessage, nextCollaborationMode } from "./collaboration";
 import { readRuntimeConfig } from "./config";
 import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "./effective-settings";
@@ -41,7 +41,7 @@ export interface ChatRuntimeSettingsActions {
   setRequestedReasoningEffortFromUi: (effort: ReasoningEffort | null) => Promise<void>;
   toggleFastMode: () => Promise<void>;
   toggleCollaborationMode: () => Promise<void>;
-  setCollaborationMode: (collaborationMode: PanelCollaborationMode) => Promise<boolean>;
+  setCollaborationMode: (collaborationMode: CollaborationMode) => Promise<boolean>;
   toggleAutoReview: () => Promise<void>;
 }
 
@@ -119,7 +119,7 @@ async function toggleCollaborationMode(host: RuntimeSettingsActionsHost): Promis
   await setCollaborationMode(host, next);
 }
 
-async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborationMode: PanelCollaborationMode): Promise<boolean> {
+async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborationMode: CollaborationMode): Promise<boolean> {
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode });
   dispatch(host, { type: "ui/panel-set", panel: null });
   const result = await applyPendingThreadSettingsResult(host);

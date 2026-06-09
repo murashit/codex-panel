@@ -8,7 +8,7 @@ import { createChatState, createChatStateStore, type ChatState } from "../../../
 import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/model";
 import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/chat-state-actions";
 import type { AppServerClient } from "../../../../src/app-server/client";
-import type { PanelModelOption } from "../../../../src/domain/catalog/metadata";
+import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 
 describe("createChatRuntimeSettingsActions", () => {
   it("applies pending runtime overrides through thread settings and commits them", async () => {
@@ -139,7 +139,7 @@ function runtimeSnapshotFixture(state: ChatState) {
   });
 }
 
-function modelFixture(model: string, fastTierId: string): PanelModelOption {
+function modelFixture(model: string, fastTierId: string): ModelMetadata {
   return {
     id: model,
     model,

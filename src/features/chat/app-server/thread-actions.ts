@@ -1,5 +1,5 @@
-import { listPanelThreads } from "../../../app-server/panel-data";
-import type { PanelThread } from "../../../domain/threads/model";
+import { listThreads } from "../../../app-server/resource-operations";
+import type { Thread } from "../../../domain/threads/model";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../runtime/effective-settings";
 import { resumedThreadActionFromAppServerResponse } from "../threads/thread-resume";
 import type { ChatAppServerBaseHost } from "./shared";
@@ -10,13 +10,13 @@ interface StartedThreadSummary {
 
 export interface ChatAppServerThreadActionsHost extends ChatAppServerBaseHost {
   runtimeSnapshot: () => RuntimeSnapshot;
-  publishThreadList: (threads: readonly PanelThread[]) => void;
+  publishThreadList: (threads: readonly Thread[]) => void;
   syncThreadGoal: (threadId: string) => void;
 }
 
 export interface ChatAppServerThreadActions {
-  applyThreadList: (threads: readonly PanelThread[]) => void;
-  loadThreadList: () => Promise<readonly PanelThread[]>;
+  applyThreadList: (threads: readonly Thread[]) => void;
+  loadThreadList: () => Promise<readonly Thread[]>;
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<StartedThreadSummary | null>;
 }
 
@@ -30,14 +30,14 @@ export function createChatAppServerThreadActions(host: ChatAppServerThreadAction
   };
 }
 
-function applyThreadList(host: ChatAppServerThreadActionsHost, threads: readonly PanelThread[]): void {
+function applyThreadList(host: ChatAppServerThreadActionsHost, threads: readonly Thread[]): void {
   host.stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
 }
 
-async function loadThreadList(host: ChatAppServerThreadActionsHost): Promise<readonly PanelThread[]> {
+async function loadThreadList(host: ChatAppServerThreadActionsHost): Promise<readonly Thread[]> {
   const client = host.currentClient();
   if (!client) throw new Error("Codex app-server is not connected.");
-  return listPanelThreads(client, host.vaultPath);
+  return listThreads(client, host.vaultPath);
 }
 
 async function startThread(

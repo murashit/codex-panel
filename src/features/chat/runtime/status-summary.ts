@@ -2,8 +2,8 @@ import type { RateLimitWindow } from "../../../generated/app-server/v2/RateLimit
 import type { SpendControlLimitSnapshot } from "../../../generated/app-server/v2/SpendControlLimitSnapshot";
 import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
 import { jsonPreview } from "../../../utils";
-import { sortedModelOptions } from "../../../domain/catalog/metadata";
-import { defaultEffortForModelOption } from "../../../domain/catalog/metadata";
+import { sortedModelMetadata } from "../../../domain/catalog/metadata";
+import { defaultEffortForModelMetadata } from "../../../domain/catalog/metadata";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
   currentApprovalsReviewer,
@@ -184,14 +184,14 @@ function contextUsageTokens(usage: ThreadTokenUsage): number {
 
 function configuredModel(snapshot: RuntimeSnapshot, config: RuntimeConfigProjection): string | null {
   if (config.model) return config.model;
-  return sortedModelOptions(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
+  return sortedModelMetadata(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
 }
 
 function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeConfigProjection): string | null {
   if (config.rawReasoningEffort) return config.rawReasoningEffort;
   const model = configuredModel(snapshot, config);
-  return defaultEffortForModelOption(
-    sortedModelOptions(snapshot.availableModels).find((availableModel) => availableModel.model === model) ?? null,
+  return defaultEffortForModelMetadata(
+    sortedModelMetadata(snapshot.availableModels).find((availableModel) => availableModel.model === model) ?? null,
   );
 }
 

@@ -146,7 +146,7 @@ export class WorkspacePanelCoordinator {
   panelLeavesForThread(threadId: string): WorkspaceLeaf[] {
     return this.panelLeaves().filter((leaf) => {
       if (leaf.view instanceof CodexChatView) return leaf.view.openPanelSnapshot().threadId === threadId;
-      return restoredPanelThreadId(leaf) === threadId;
+      return restoredThreadId(leaf) === threadId;
     });
   }
 
@@ -211,7 +211,7 @@ export class WorkspacePanelCoordinator {
   private findRestoredThreadPanelTarget(threadId: string): ThreadPanelTarget | null {
     for (const leaf of this.panelLeaves()) {
       if (leaf.view instanceof CodexChatView) continue;
-      if (restoredPanelThreadId(leaf) !== threadId) continue;
+      if (restoredThreadId(leaf) !== threadId) continue;
       return { kind: "restored", leaf };
     }
     return null;
@@ -369,7 +369,7 @@ function focusedPanelViewId(leaf: WorkspaceLeaf | null): string | null {
   return leaf?.view instanceof CodexChatView ? leaf.view.openPanelSnapshot().viewId : null;
 }
 
-function restoredPanelThreadId(leaf: WorkspaceLeaf): string | null {
+function restoredThreadId(leaf: WorkspaceLeaf): string | null {
   const state = leaf.getViewState().state;
   if (!state || typeof state !== "object") return null;
   const threadId = (state as { threadId?: unknown }).threadId;

@@ -161,13 +161,13 @@ describe("composer renderer decisions", () => {
     await waitForAsyncWork(() => {
       expect(parent.querySelector(".codex-panel__composer-meta-popover--model")?.textContent).toBe("gpt-5.5gpt-5.4");
     });
-    const modelOptions = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-option"));
-    expect(modelOptions.map((option) => option.getAttribute("role"))).toEqual([null, null]);
-    expect(modelOptions.map((option) => option.getAttribute("tabindex"))).toEqual([null, null]);
-    expect(modelOptions.map((option) => option.getAttribute("aria-selected"))).toEqual([null, null]);
-    expect(modelOptions.every((option) => !option.classList.contains("is-selected"))).toBe(true);
-    expect(modelOptions.every((option) => !option.classList.contains("codex-panel-ui__nav-item"))).toBe(true);
-    expect(modelOptions.every((option) => !option.classList.contains("codex-panel__toolbar-panel-item"))).toBe(true);
+    const metaOptions = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-option"));
+    expect(metaOptions.map((option) => option.getAttribute("role"))).toEqual([null, null]);
+    expect(metaOptions.map((option) => option.getAttribute("tabindex"))).toEqual([null, null]);
+    expect(metaOptions.map((option) => option.getAttribute("aria-selected"))).toEqual([null, null]);
+    expect(metaOptions.every((option) => !option.classList.contains("is-selected"))).toBe(true);
+    expect(metaOptions.every((option) => !option.classList.contains("codex-panel-ui__nav-item"))).toBe(true);
+    expect(metaOptions.every((option) => !option.classList.contains("codex-panel__toolbar-panel-item"))).toBe(true);
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-effort")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     await waitForAsyncWork(() => {

@@ -10,9 +10,8 @@ import {
   cachedSharedThreadList,
   createSharedAppServerState,
 } from "../../src/app-server/shared-cache-state";
-import type { PanelModelOption } from "../../src/domain/catalog/metadata";
-import type { PanelThread } from "../../src/domain/threads/model";
-import type { Thread } from "../../src/generated/app-server/v2/Thread";
+import type { ModelMetadata } from "../../src/domain/catalog/metadata";
+import type { Thread } from "../../src/domain/threads/model";
 
 describe("shared app-server cache state", () => {
   it("keeps snapshots detached from caller-owned arrays", () => {
@@ -23,7 +22,7 @@ describe("shared app-server cache state", () => {
     const cachedThreads = cachedSharedThreadList(threadState);
     expect(cachedThreads?.map((thread) => thread.id)).toEqual(["thread-1"]);
 
-    const mutableCachedThreads = cachedThreads as PanelThread[];
+    const mutableCachedThreads = cachedThreads as Thread[];
     mutableCachedThreads.push(threadFixture("thread-3"));
     expect(cachedSharedThreadList(threadState)?.map((thread) => thread.id)).toEqual(["thread-1"]);
 
@@ -51,33 +50,18 @@ describe("shared app-server cache state", () => {
   });
 });
 
-function threadFixture(id: string): Thread & { archived: boolean } {
+function threadFixture(id: string): Thread {
   return {
     id,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
-    createdAt: 1,
-    updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
+    createdAt: 1,
+    updatedAt: 1,
   };
 }
 
-function modelFixture(model: string): PanelModelOption {
+function modelFixture(model: string): ModelMetadata {
   return {
     id: model,
     model,

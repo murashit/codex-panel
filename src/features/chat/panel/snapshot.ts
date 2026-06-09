@@ -1,4 +1,4 @@
-import type { PanelThread } from "../../../domain/threads/model";
+import type { Thread } from "../../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import { readRuntimeConfig } from "../runtime/config";
 import { currentModel } from "../runtime/effective-settings";
@@ -154,7 +154,7 @@ function displayItemsSignature(items: readonly DisplayItem[]): string {
   return stableSignature(items);
 }
 
-function threadListSignature(threads: readonly PanelThread[]): string {
+function threadListSignature(threads: readonly Thread[]): string {
   return threads.map((thread) => signatureParts(thread.id, thread.name, thread.preview, thread.updatedAt, thread.archived)).join("\n");
 }
 

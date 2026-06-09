@@ -6,9 +6,9 @@ import {
   type StructuredTurnOutputSchema,
 } from "../../app-server/ephemeral-structured-turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import { panelModelOptionsFromAppServerModels } from "../../app-server/catalog-model";
-import type { PanelModelOption } from "../../domain/catalog/metadata";
-import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../../domain/catalog/runtime-overrides";
+import { modelMetadataFromAppServerModels } from "../../app-server/catalog-model";
+import type { ModelMetadata } from "../../domain/catalog/metadata";
+import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/catalog/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromTurn, type SelectionRewriteOutput } from "./output";
@@ -86,9 +86,9 @@ export function selectionRewriteRuntimeOverride(settings: SelectionRewriteRuntim
 
 export function validatedSelectionRewriteRuntimeOverride(
   settings: SelectionRewriteRuntimeSettings,
-  models: readonly PanelModelOption[],
+  models: readonly ModelMetadata[],
 ): SelectionRewriteRuntimeOverride {
-  return validatedRuntimeOverrideForModelOptions(
+  return validatedRuntimeOverrideForModelMetadata(
     { model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort },
     models,
   );
@@ -102,7 +102,7 @@ async function selectionRewriteRuntimeOverrideForClient(
   if (!runtime.model || !runtime.effort) return runtime;
   try {
     const response = await client.listModels(false);
-    return validatedSelectionRewriteRuntimeOverride(settings, panelModelOptionsFromAppServerModels(response.data));
+    return validatedSelectionRewriteRuntimeOverride(settings, modelMetadataFromAppServerModels(response.data));
   } catch {
     return runtime;
   }

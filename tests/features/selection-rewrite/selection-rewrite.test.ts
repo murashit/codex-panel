@@ -26,7 +26,7 @@ import {
   type SelectionRewriteClientFactory,
 } from "../../../src/features/selection-rewrite/runner";
 import type { AppServerClientHandlers } from "../../../src/app-server/client";
-import type { PanelModelOption } from "../../../src/domain/catalog/metadata";
+import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
 import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
@@ -501,7 +501,7 @@ describe("selection rewrite runtime overrides", () => {
   it("omits an explicit selection rewrite effort when the selected model does not support it", () => {
     expect(
       validatedSelectionRewriteRuntimeOverride({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" }, [
-        panelModel("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
+        modelMetadata("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
       ]),
     ).toEqual({ model: "gpt-5.4-mini" });
   });
@@ -775,7 +775,7 @@ function turnCompletedNotification(threadId: string, completedTurn: Turn): Serve
   };
 }
 
-function panelModel(name: string, efforts: ReasoningEffort[]): PanelModelOption {
+function modelMetadata(name: string, efforts: ReasoningEffort[]): ModelMetadata {
   return {
     id: name,
     model: name,

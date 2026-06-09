@@ -24,7 +24,7 @@ export interface ChatPanelContext {
   lifecycle: ChatPanelLifecycleContext;
   render: ChatPanelRenderContext;
   runtime: ChatPanelRuntimeContext;
-  thread: ChatPanelThreadContext;
+  thread: ChatThreadContext;
   liveState: ChatPanelLiveStateContext;
   scroll: ChatPanelScrollContext;
   status: ChatPanelStatusContext;
@@ -99,7 +99,7 @@ interface ChatPanelRuntimeContext {
   statusSummaryLines: () => string[];
 }
 
-interface ChatPanelThreadContext {
+interface ChatThreadContext {
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startNewThread: () => Promise<void>;
   selectThread: (threadId: string) => Promise<void>;

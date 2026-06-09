@@ -3,7 +3,7 @@ import type { AskForApproval } from "../../../generated/app-server/v2/AskForAppr
 import type { ConfigReadResponse } from "../../../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../../../generated/app-server/v2/RateLimitSnapshot";
 import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
-import { findModelOptionByIdOrName, type PanelModelOption } from "../../../domain/catalog/metadata";
+import { findModelMetadataByIdOrName, type ModelMetadata } from "../../../domain/catalog/metadata";
 import {
   configuredServiceTierRequestValue,
   clearedServiceTierRequestValue,
@@ -11,9 +11,9 @@ import {
   type ServiceTier,
   type ServiceTierRequest,
 } from "../../../app-server/thread-settings";
-import { supportedEffortsForModelOption, type ReasoningEffort } from "../../../domain/catalog/metadata";
+import { supportedEffortsForModelMetadata, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
-import type { PanelCollaborationMode } from "./collaboration";
+import type { CollaborationMode } from "./collaboration";
 import { isAutoReviewReviewer, type ApprovalsReviewer } from "./approvals";
 import { isFastServiceTier, type RequestedServiceTier } from "./service-tier-state";
 
@@ -24,7 +24,7 @@ export interface RuntimeSnapshot {
   activeThreadId: string | null;
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
-  activeCollaborationMode: PanelCollaborationMode;
+  activeCollaborationMode: CollaborationMode;
   activeServiceTier: ServiceTier | null;
   activeApprovalPolicy: AskForApproval | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
@@ -32,12 +32,12 @@ export interface RuntimeSnapshot {
   requestedModel: PendingRuntimeSetting<string>;
   requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
   requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
-  selectedCollaborationMode: PanelCollaborationMode;
+  selectedCollaborationMode: CollaborationMode;
   requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   hasThreadTurns: boolean;
-  availableModels: readonly PanelModelOption[];
+  availableModels: readonly ModelMetadata[];
 }
 
 export function currentServiceTier(
@@ -109,7 +109,7 @@ export function autoReviewActive(
 
 export function supportedReasoningEfforts(snapshot: RuntimeSnapshot): ReasoningEffort[] {
   const model = currentModel(snapshot);
-  return supportedEffortsForModelOption(findModelOptionByIdOrName(snapshot.availableModels, model));
+  return supportedEffortsForModelMetadata(findModelMetadataByIdOrName(snapshot.availableModels, model));
 }
 
 export function serviceTierLabel(
@@ -170,6 +170,6 @@ export function pendingRuntimeSettingLabel<T>(setting: PendingRuntimeSetting<T>)
 function currentModelServiceTiers(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
-): PanelModelOption["serviceTiers"] {
-  return findModelOptionByIdOrName(snapshot.availableModels, currentModel(snapshot, config))?.serviceTiers ?? [];
+): ModelMetadata["serviceTiers"] {
+  return findModelMetadataByIdOrName(snapshot.availableModels, currentModel(snapshot, config))?.serviceTiers ?? [];
 }

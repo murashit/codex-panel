@@ -1,9 +1,9 @@
-interface PanelModelServiceTier {
+interface ModelServiceTier {
   id: string;
   name: string;
 }
 
-export interface PanelModelOption {
+export interface ModelMetadata {
   id: string;
   model: string;
   displayName: string;
@@ -13,12 +13,12 @@ export interface PanelModelOption {
   defaultReasoningEffort: string | null;
   inputModalities: readonly string[];
   additionalSpeedTiers: readonly string[];
-  serviceTiers: readonly PanelModelServiceTier[];
+  serviceTiers: readonly ModelServiceTier[];
   defaultServiceTier: string | null;
   isDefault: boolean;
 }
 
-export interface PanelSkillOption {
+export interface SkillMetadata {
   name: string;
   description: string;
   shortDescription?: string;
@@ -27,9 +27,9 @@ export interface PanelSkillOption {
   enabled: boolean;
 }
 
-type PanelHookTrustStatus = "managed" | "untrusted" | "trusted" | "modified";
+type HookTrustStatus = "managed" | "untrusted" | "trusted" | "modified";
 
-export interface PanelHookItem {
+export interface HookItem {
   key: string;
   eventName: string;
   matcher: string | null;
@@ -39,7 +39,7 @@ export interface PanelHookItem {
   enabled: boolean;
   isManaged: boolean;
   currentHash: string;
-  trustStatus: PanelHookTrustStatus;
+  trustStatus: HookTrustStatus;
 }
 
 export const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh"] as const;
@@ -54,25 +54,25 @@ export function normalizeReasoningEffort(value: unknown): ReasoningEffort | null
   return isReasoningEffort(value) ? value : null;
 }
 
-export function supportedEffortsForModelOption(model: PanelModelOption | null): ReasoningEffort[] {
+export function supportedEffortsForModelMetadata(model: ModelMetadata | null): ReasoningEffort[] {
   const efforts = model?.supportedReasoningEfforts.filter(isReasoningEffort) ?? [];
   return efforts.length > 0 ? efforts : [...REASONING_EFFORTS];
 }
 
-export function defaultEffortForModelOption(model: PanelModelOption | null): ReasoningEffort | null {
+export function defaultEffortForModelMetadata(model: ModelMetadata | null): ReasoningEffort | null {
   return normalizeReasoningEffort(model?.defaultReasoningEffort);
 }
 
-export function sortedModelOptions(models: readonly PanelModelOption[]): PanelModelOption[] {
+export function sortedModelMetadata(models: readonly ModelMetadata[]): ModelMetadata[] {
   return [...models]
     .filter((model) => !model.hidden)
     .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.model.localeCompare(b.model));
 }
 
-export function findModelOptionByIdOrName(
-  models: readonly PanelModelOption[],
+export function findModelMetadataByIdOrName(
+  models: readonly ModelMetadata[],
   modelIdOrName: string | null | undefined,
-): PanelModelOption | null {
+): ModelMetadata | null {
   if (!modelIdOrName) return null;
   return models.find((model) => !model.hidden && (model.model === modelIdOrName || model.id === modelIdOrName)) ?? null;
 }

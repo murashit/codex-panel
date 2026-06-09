@@ -1,8 +1,8 @@
-import type { PanelThread } from "../../../domain/threads/model";
-import type { PanelModelOption, PanelSkillOption } from "../../../domain/catalog/metadata";
+import type { Thread } from "../../../domain/threads/model";
+import type { ModelMetadata, SkillMetadata } from "../../../domain/catalog/metadata";
 import { prepareFuzzySearch, sortSearchResults, type SearchResult } from "obsidian";
-import { findModelOptionByIdOrName, sortedModelOptions } from "../../../domain/catalog/metadata";
-import { isReasoningEffort, REASONING_EFFORTS, supportedEffortsForModelOption } from "../../../domain/catalog/metadata";
+import { findModelMetadataByIdOrName, sortedModelMetadata } from "../../../domain/catalog/metadata";
+import { isReasoningEffort, REASONING_EFFORTS, supportedEffortsForModelMetadata } from "../../../domain/catalog/metadata";
 import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
 import { getThreadTitle } from "../../../domain/threads/model";
 import { shortThreadId } from "../../../utils";
@@ -52,9 +52,9 @@ export function parseSlashCommand(text: string): { command: SlashCommandName; ar
 export function activeComposerSuggestions(
   beforeCursor: string,
   notes: NoteCandidate[],
-  skills: readonly PanelSkillOption[],
-  threads: readonly PanelThread[] = [],
-  models: readonly PanelModelOption[] = [],
+  skills: readonly SkillMetadata[],
+  threads: readonly Thread[] = [],
+  models: readonly ModelMetadata[] = [],
   currentModel: string | null = null,
 ): ComposerSuggestion[] {
   return (
@@ -269,7 +269,7 @@ function activeSlashSubcommandSuggestions(beforeCursor: string): ComposerSuggest
     }));
 }
 
-function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly PanelThread[]): ComposerSuggestion[] | null {
+function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/(?:resume|refer|archive|rename)\s+([^\s\n]{0,120})$/);
   if (!completion) return null;
 
@@ -295,7 +295,7 @@ function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly 
     }));
 }
 
-function activeModelOverrideSuggestions(beforeCursor: string, models: readonly PanelModelOption[]): ComposerSuggestion[] | null {
+function activeModelOverrideSuggestions(beforeCursor: string, models: readonly ModelMetadata[]): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/model\s+([^\n]{0,120})$/);
   if (!completion) return null;
 
@@ -310,7 +310,7 @@ function activeModelOverrideSuggestions(beforeCursor: string, models: readonly P
       start,
       appendSpaceOnInsert: true,
     },
-    ...sortedModelOptions(models)
+    ...sortedModelMetadata(models)
       .map((model, index) => {
         const id = model.id.toLowerCase();
         const name = model.model.toLowerCase();
@@ -336,7 +336,7 @@ function activeModelOverrideSuggestions(beforeCursor: string, models: readonly P
 
 function activeReasoningEffortSuggestions(
   beforeCursor: string,
-  models: readonly PanelModelOption[],
+  models: readonly ModelMetadata[],
   currentModel: string | null,
 ): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/reasoning\s+([^\n]{0,120})$/);
@@ -344,8 +344,8 @@ function activeReasoningEffortSuggestions(
 
   const { query, start } = completion;
   if (query === "default" || isReasoningEffort(query)) return null;
-  const model = findModelOptionByIdOrName(models, currentModel);
-  const efforts = model ? supportedEffortsForModelOption(model) : REASONING_EFFORTS;
+  const model = findModelMetadataByIdOrName(models, currentModel);
+  const efforts = model ? supportedEffortsForModelMetadata(model) : REASONING_EFFORTS;
   const modelDetail = model ? `Supported by ${model.model}` : "Supported reasoning effort";
   const suggestions = [
     {
@@ -378,7 +378,7 @@ function activeCommandArgumentCompletionQuery(beforeCursor: string, pattern: Reg
   return { query, start: beforeCursor.length - rawQuery.length };
 }
 
-function activeSkillSuggestions(beforeCursor: string, skills: readonly PanelSkillOption[]): ComposerSuggestion[] | null {
+function activeSkillSuggestions(beforeCursor: string, skills: readonly SkillMetadata[]): ComposerSuggestion[] | null {
   const match = /(^|[\s([{])\$([^\s\])}]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
