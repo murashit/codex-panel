@@ -2,10 +2,11 @@ import {
   runStructuredEphemeralTurn,
   type StructuredEphemeralTurnClient,
   type StructuredEphemeralTurnClientFactory,
+  type StructuredEphemeralTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "../../app-server/structured-ephemeral-turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import { loadPanelModelOptions } from "../../app-server/model-options";
+import { panelModelOptionsFromAppServerModels } from "../../app-server/catalog-model";
 import type { PanelModelOption } from "../../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../../domain/catalog/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
@@ -44,9 +45,6 @@ export type SelectionRewriteClientFactory = StructuredEphemeralTurnClientFactory
 export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
   let preview = "";
   const runtimeSettings = options.runtimeSettings;
-  const runtime = runtimeSettings
-    ? await selectionRewriteRuntimeOverrideForCodex(options.codexPath, options.cwd, runtimeSettings)
-    : undefined;
   const turn = await runStructuredEphemeralTurn({
     codexPath: options.codexPath,
     cwd: options.cwd,
@@ -60,7 +58,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     timedOutMessage: "Timed out while rewriting the selection.",
     abortMessage: "Selection rewrite cancelled.",
     signal: options.signal,
-    runtime,
+    resolveRuntime: runtimeSettings ? (client) => selectionRewriteRuntimeOverrideForClient(client, runtimeSettings) : undefined,
     clientFactory: options.clientFactory,
     onProgress: (event) => {
       if (event.type === "reasoning-activity") {
@@ -96,15 +94,15 @@ export function validatedSelectionRewriteRuntimeOverride(
   );
 }
 
-async function selectionRewriteRuntimeOverrideForCodex(
-  codexPath: string,
-  cwd: string,
+async function selectionRewriteRuntimeOverrideForClient(
+  client: StructuredEphemeralTurnRuntimeClient,
   settings: SelectionRewriteRuntimeSettings,
 ): Promise<SelectionRewriteRuntimeOverride> {
   const runtime = selectionRewriteRuntimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
-    return validatedSelectionRewriteRuntimeOverride(settings, await loadPanelModelOptions(codexPath, cwd, false));
+    const response = await client.listModels(false);
+    return validatedSelectionRewriteRuntimeOverride(settings, panelModelOptionsFromAppServerModels(response.data));
   } catch {
     return runtime;
   }

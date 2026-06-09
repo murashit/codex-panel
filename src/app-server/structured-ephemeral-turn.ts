@@ -9,6 +9,7 @@ import type { RequestId } from "../generated/app-server/RequestId";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
+import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../generated/app-server/v2/Turn";
@@ -38,11 +39,17 @@ export interface StructuredEphemeralTurnClient {
   ): Promise<TurnStartResponse>;
 }
 
+export interface StructuredEphemeralTurnRuntimeClient {
+  listModels(includeHidden?: boolean): Promise<ModelListResponse>;
+}
+
+type StructuredEphemeralTurnRuntimeCapableClient = StructuredEphemeralTurnClient & StructuredEphemeralTurnRuntimeClient;
+
 export type StructuredEphemeralTurnClientFactory = (
   codexPath: string,
   cwd: string,
   handlers: AppServerClientHandlers,
-) => StructuredEphemeralTurnClient;
+) => StructuredEphemeralTurnRuntimeCapableClient;
 
 export interface RunStructuredEphemeralTurnOptions {
   codexPath: string;
@@ -57,6 +64,7 @@ export interface RunStructuredEphemeralTurnOptions {
   timedOutMessage: string;
   abortMessage?: string;
   runtime?: StructuredTurnRuntimeOverride | undefined;
+  resolveRuntime?: ((client: StructuredEphemeralTurnRuntimeClient) => Promise<StructuredTurnRuntimeOverride>) | undefined;
   signal?: AbortSignal | undefined;
   onProgress?: (event: StructuredTurnProgressEvent) => void;
   clientFactory?: StructuredEphemeralTurnClientFactory | undefined;
@@ -85,7 +93,7 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
     };
   });
 
-  let client!: StructuredEphemeralTurnClient;
+  let client!: StructuredEphemeralTurnRuntimeCapableClient;
   const clientFactory = options.clientFactory ?? ((codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers));
   client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {
@@ -104,7 +112,9 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
 
   try {
     await abortable(client.connect(), options.signal, options.abortMessage);
-    const runtime = options.runtime ?? {};
+    const runtime = options.resolveRuntime
+      ? await abortable(options.resolveRuntime(client), options.signal, options.abortMessage)
+      : (options.runtime ?? {});
     const threadResponse = await abortable(
       client.startEphemeralThread(options.cwd, options.serviceName, options.developerInstructions),
       options.signal,

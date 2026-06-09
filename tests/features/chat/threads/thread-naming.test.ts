@@ -23,6 +23,7 @@ import type { JsonValue } from "../../../../src/generated/app-server/serde_json/
 import type { RequestId } from "../../../../src/generated/app-server/RequestId";
 import type { ReasoningEffort } from "../../../../src/generated/app-server/ReasoningEffort";
 import type { Model } from "../../../../src/generated/app-server/v2/Model";
+import type { ModelListResponse } from "../../../../src/generated/app-server/v2/ModelListResponse";
 import type { ServerNotification } from "../../../../src/generated/app-server/ServerNotification";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
@@ -327,6 +328,10 @@ class FakeThreadNamingClient implements ThreadNamingClient {
 
   disconnect(): void {
     return undefined;
+  }
+
+  async listModels(): Promise<ModelListResponse> {
+    return { data: [], nextCursor: null };
   }
 
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {

@@ -1,6 +1,7 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } from "obsidian";
 
 import type { AppServerClient } from "../app-server/client";
+import { withShortLivedAppServerClient } from "../app-server/short-lived-client";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
 import type { PanelHookItem, PanelModelOption } from "../domain/catalog/metadata";
@@ -15,7 +16,6 @@ import {
   transitionSettingsDataRefreshLifecycle,
   type SettingsDataRefreshLifecycleState,
 } from "./data";
-import { withShortLivedFallbackAppServerClient } from "../workspace/short-lived-app-server-client";
 import { loadHookData, loadSettingsData, restoreArchivedPanelThread, setPanelHookEnabled, trustPanelHook } from "./app-server-data";
 import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
 import type { CodexPanelSettings } from "./model";
@@ -498,14 +498,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async withSettingsConnection<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    return withShortLivedFallbackAppServerClient(
-      {
-        codexPath: this.plugin.settings.codexPath,
-        cwd: this.plugin.vaultPath,
-        unhandledServerRequestMessage: "Codex Panel settings does not handle server requests.",
-      },
-      operation,
-    );
+    return withShortLivedAppServerClient(this.plugin.settings.codexPath, this.plugin.vaultPath, operation, {
+      unhandledServerRequestMessage: "Codex Panel settings does not handle server requests.",
+    });
   }
 
   private nextSettingsDynamicOperationId(): number {

@@ -1,10 +1,10 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
+import { withShortLivedAppServerClient } from "../../app-server/short-lived-client";
 import { panelThreadsFromAppServerThreads } from "../../app-server/thread-model";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { PanelThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
-import { withShortLivedFallbackAppServerClient } from "../../workspace/short-lived-app-server-client";
 import { shortThreadId } from "../../utils";
 
 export interface ThreadPickerHost {
@@ -82,17 +82,17 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly
   const cached = host.cachedThreadList();
   if (cached) return cached;
 
-  return withShortLivedFallbackAppServerClient(
-    {
-      codexPath: host.settings.codexPath,
-      cwd: host.vaultPath,
-      unhandledServerRequestMessage: "Codex thread picker does not handle server requests.",
-    },
+  return withShortLivedAppServerClient(
+    host.settings.codexPath,
+    host.vaultPath,
     async (client) =>
       host.refreshThreadList(async () => {
         const response = await client.listThreads(host.vaultPath);
         return panelThreadsFromAppServerThreads(response.data);
       }),
+    {
+      unhandledServerRequestMessage: "Codex thread picker does not handle server requests.",
+    },
   );
 }
 

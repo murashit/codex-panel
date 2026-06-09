@@ -2,9 +2,10 @@ import {
   runStructuredEphemeralTurn,
   type StructuredEphemeralTurnClient,
   type StructuredEphemeralTurnClientFactory,
+  type StructuredEphemeralTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "../app-server/structured-ephemeral-turn";
-import { loadPanelModelOptions } from "../app-server/model-options";
+import { panelModelOptionsFromAppServerModels } from "../app-server/catalog-model";
 import type { PanelModelOption, ReasoningEffort } from "../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../domain/catalog/runtime-overrides";
 import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
@@ -48,7 +49,6 @@ export async function generateThreadTitleWithCodex(
   runtimeSettings: ThreadNamingRuntimeSettings,
   clientFactory?: ThreadNamingClientFactory,
 ): Promise<string | null> {
-  const runtime = await threadNamingRuntimeOverrideForCodex(codexPath, cwd, runtimeSettings);
   const turn = await runStructuredEphemeralTurn({
     codexPath,
     cwd,
@@ -60,7 +60,7 @@ export async function generateThreadTitleWithCodex(
     unhandledServerRequestMessage: "Thread title generation does not handle server requests.",
     exitedMessage: "Codex title generation app-server exited.",
     timedOutMessage: "Timed out while generating a Codex thread title.",
-    runtime,
+    resolveRuntime: (client) => threadNamingRuntimeOverrideForClient(client, runtimeSettings),
     clientFactory,
   });
   return titleFromNamingTurn(turn);
@@ -82,15 +82,15 @@ export function validatedThreadNamingRuntimeOverride(
   return validatedRuntimeOverrideForModelOptions({ model: settings.threadNamingModel, effort: settings.threadNamingEffort }, models);
 }
 
-async function threadNamingRuntimeOverrideForCodex(
-  codexPath: string,
-  cwd: string,
+async function threadNamingRuntimeOverrideForClient(
+  client: StructuredEphemeralTurnRuntimeClient,
   settings: ThreadNamingRuntimeSettings,
 ): Promise<ThreadNamingRuntimeOverride> {
   const runtime = threadNamingRuntimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
-    return validatedThreadNamingRuntimeOverride(settings, await loadPanelModelOptions(codexPath, cwd, false));
+    const response = await client.listModels(false);
+    return validatedThreadNamingRuntimeOverride(settings, panelModelOptionsFromAppServerModels(response.data));
   } catch {
     return runtime;
   }

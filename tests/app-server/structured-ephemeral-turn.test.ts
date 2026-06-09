@@ -14,6 +14,7 @@ import type { RequestId } from "../../src/generated/app-server/RequestId";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
 import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
+import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelListResponse";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../src/generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
@@ -92,6 +93,30 @@ describe("runStructuredEphemeralTurn", () => {
       "Structured test does not handle server requests.",
     );
   });
+
+  it("resolves runtime on the same client before starting the ephemeral thread", async () => {
+    const callOrder: string[] = [];
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startEphemeralThreadImpl = async () => {
+        callOrder.push("start-thread");
+        return threadStartResponse("thread");
+      };
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await runStructuredEphemeralTurn({
+      ...runOptions(clientFactory),
+      resolveRuntime: async (runtimeClient) => {
+        callOrder.push("resolve-runtime");
+        expect(runtimeClient).toBe(expectPresent(client.current));
+        await runtimeClient.listModels(false);
+        return { model: "gpt-5.1", effort: "low" };
+      },
+    });
+
+    expect(callOrder).toEqual(["resolve-runtime", "start-thread"]);
+    expect(expectPresent(client.current).listModels).toHaveBeenCalledWith(false);
+  });
 });
 
 function runOptions(clientFactory: StructuredEphemeralTurnClientFactory): Parameters<typeof runStructuredEphemeralTurn>[0] {
@@ -127,7 +152,9 @@ function fakeStructuredTurnClientFactory(configure?: (client: FakeStructuredTurn
 
 class FakeStructuredTurnClient implements StructuredEphemeralTurnClient {
   connectImpl: (() => Promise<InitializeResponse>) | null = null;
+  startEphemeralThreadImpl: (() => Promise<ThreadStartResponse>) | null = null;
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
+  readonly listModels = vi.fn(async (): Promise<ModelListResponse> => ({ data: [], nextCursor: null }));
   readonly rejectServerRequest = vi.fn();
   readonly structuredTurnStarted: Promise<void>;
   private resolveStructuredTurnStarted!: () => void;
@@ -147,7 +174,7 @@ class FakeStructuredTurnClient implements StructuredEphemeralTurnClient {
   }
 
   async startEphemeralThread(): Promise<ThreadStartResponse> {
-    return threadStartResponse("thread");
+    return this.startEphemeralThreadImpl ? this.startEphemeralThreadImpl() : threadStartResponse("thread");
   }
 
   async startStructuredTurn(
