@@ -27,27 +27,27 @@ import type { PendingApproval } from "./requests/approval";
 import type { ComposerSuggestion } from "./composer/suggestions";
 import { upsertDisplayItem } from "./display/stream-updates";
 import type { DisplayItem } from "./display/types";
-import type { PendingUserInput } from "./requests/user-input";
 import type { ActiveThreadResumedAction, ActiveThreadSettingsAppliedAction } from "./chat-state-actions";
+import { initialChatTranscriptState, reduceTranscriptSlice, type ChatTranscriptState, type TranscriptAction } from "./transcript-state";
+import {
+  initialChatRequestState,
+  reduceRequestSlice,
+  resolveChatRequest,
+  type ChatRequestState,
+  type RequestAction,
+} from "./requests/request-state";
+import { initialChatTurnState, transitionChatTurnLifecycleState, type ChatTurnState, type PendingTurnStart } from "./turns/turn-state";
 
-export interface PendingTurnStart {
-  anchorItemId: string;
-  promptSubmitHookItemIds: string[];
-}
-
-export type ChatTurnLifecycleState =
-  | { kind: "idle" }
-  | { kind: "starting"; pendingTurnStart: PendingTurnStart }
-  | { kind: "running"; turnId: string };
-
-export type ChatTurnLifecycleEvent =
-  | { type: "started"; turnId: string }
-  | { type: "completed"; turnId: string }
-  | { type: "cleared" }
-  | { type: "optimistic-started"; pendingTurnStart: PendingTurnStart }
-  | { type: "start-acknowledged"; turnId: string }
-  | { type: "start-failed" }
-  | { type: "pending-start-hook-upserted"; pendingTurnStart: PendingTurnStart | null };
+export {
+  activeTurnId,
+  chatTurnBusy,
+  pendingTurnStart,
+  transitionChatTurnLifecycleState,
+  type ChatTurnLifecycleState,
+  type ChatTurnState,
+  type PendingTurnStart,
+} from "./turns/turn-state";
+export type { ChatTranscriptState } from "./transcript-state";
 
 interface ChatConnectionState {
   status: string;
@@ -72,24 +72,6 @@ export interface ChatActiveThreadState {
 }
 
 export type { ChatRuntimeState } from "../../runtime/chat-runtime-state";
-
-export interface ChatTurnState {
-  lifecycle: ChatTurnLifecycleState;
-}
-
-export interface ChatTranscriptState {
-  displayItems: readonly DisplayItem[];
-  turnDiffs: ReadonlyMap<string, string>;
-  historyCursor: string | null;
-  loadingHistory: boolean;
-  reportedLogs: ReadonlySet<string>;
-}
-
-interface ChatRequestState {
-  approvals: readonly PendingApproval[];
-  pendingUserInputs: readonly PendingUserInput[];
-  userInputDrafts: ReadonlyMap<string, string>;
-}
 
 interface ChatComposerState {
   draft: string;
@@ -195,25 +177,6 @@ type TurnAction =
   | TurnOptimisticStartedAction
   | TurnStartAcknowledgedAction
   | TurnStartFailedAction;
-
-type RequestAction =
-  | { type: "request/approval-queued"; approval: PendingApproval }
-  | { type: "request/user-input-queued"; input: PendingUserInput }
-  | { type: "request/user-input-draft-set"; key: string; value: string };
-
-type TranscriptAction =
-  | { type: "transcript/item-added"; item: DisplayItem }
-  | { type: "transcript/system-message-added"; item: DisplayItem }
-  | { type: "transcript/deduped-log-added"; text: string; item: DisplayItem }
-  | { type: "transcript/history-loading-set"; loading: boolean }
-  | {
-      type: "transcript/items-replaced";
-      items: readonly DisplayItem[];
-      historyCursor?: string | null;
-      loadingHistory?: boolean;
-    }
-  | { type: "transcript/item-upserted"; item: DisplayItem }
-  | { type: "transcript/turn-diff-updated"; turnId: string; diff: string };
 
 type ComposerAction =
   | {
@@ -535,23 +498,9 @@ function reducePendingStartHookUpsertedTransition(state: ChatState, action: Pend
 }
 
 function reduceRequestResolvedTransition(state: ChatState, action: RequestResolvedAction): ChatState {
-  const resolvedInputs = state.requests.pendingUserInputs.filter((input) => input.requestId === action.requestId);
-  const draftKeys = new Set(
-    resolvedInputs.flatMap((input) =>
-      input.params.questions.flatMap((question) => [
-        `${String(input.requestId)}:${question.id}`,
-        `${String(input.requestId)}:${question.id}:other`,
-      ]),
-    ),
-  );
-  const userInputDrafts = new Map([...state.requests.userInputDrafts].filter(([key]) => !draftKeys.has(key)));
   const displayItems = action.resultItem ? [...state.transcript.displayItems, action.resultItem] : state.transcript.displayItems;
   return patchChatState(state, {
-    requests: {
-      approvals: state.requests.approvals.filter((approval) => approval.requestId !== action.requestId),
-      pendingUserInputs: state.requests.pendingUserInputs.filter((input) => input.requestId !== action.requestId),
-      userInputDrafts,
-    },
+    requests: resolveChatRequest(state.requests, action.requestId),
     transcript: {
       ...state.transcript,
       displayItems,
@@ -566,8 +515,8 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
     activeThread: reduceActiveThreadSlice(state.activeThread, action),
     runtime: reduceRuntimeSlice(state.runtime, action),
     turn: reduceTurnSlice(state.turn, action),
-    requests: reduceRequestSlice(state.requests, action),
-    transcript: reduceTranscriptSlice(state.transcript, action),
+    requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
+    transcript: isTranscriptAction(action) ? reduceTranscriptSlice(state.transcript, action) : state.transcript,
     composer: reduceComposerSlice(state.composer, action),
     ui: reduceUiSlice(state.ui, action),
   });
@@ -634,51 +583,6 @@ function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): C
 
 function reduceTurnSlice(state: ChatTurnState, _action: ChatSliceAction): ChatTurnState {
   return state;
-}
-
-function reduceRequestSlice(state: ChatRequestState, action: ChatSliceAction): ChatRequestState {
-  switch (action.type) {
-    case "request/approval-queued":
-      if (state.approvals.some((existing) => existing.requestId === action.approval.requestId)) return state;
-      return patchObject(state, { approvals: [...state.approvals, action.approval] });
-    case "request/user-input-queued":
-      if (state.pendingUserInputs.some((existing) => existing.requestId === action.input.requestId)) return state;
-      return patchObject(state, { pendingUserInputs: [...state.pendingUserInputs, action.input] });
-    case "request/user-input-draft-set":
-      return setUserInputDraftSlice(state, action.key, action.value);
-    default:
-      return state;
-  }
-}
-
-function reduceTranscriptSlice(state: ChatTranscriptState, action: ChatSliceAction): ChatTranscriptState {
-  switch (action.type) {
-    case "transcript/item-added":
-    case "transcript/system-message-added":
-      return patchObject(state, { displayItems: [...state.displayItems, action.item] });
-    case "transcript/deduped-log-added":
-      if (state.reportedLogs.has(action.text)) return state;
-      return patchObject(state, {
-        reportedLogs: new Set([...state.reportedLogs, action.text]),
-        displayItems: [...state.displayItems, action.item],
-      });
-    case "transcript/items-replaced":
-      return patchObject(state, {
-        displayItems: action.items,
-        ...definedPatch("historyCursor", action.historyCursor),
-        ...definedPatch("loadingHistory", action.loadingHistory),
-      });
-    case "transcript/history-loading-set":
-      return patchObject(state, { loadingHistory: action.loading });
-    case "transcript/item-upserted":
-      return patchObject(state, { displayItems: upsertDisplayItem(state.displayItems, action.item) });
-    case "transcript/turn-diff-updated":
-      return patchObject(state, {
-        turnDiffs: updatedTurnDiffs(state.turnDiffs, action.turnId, action.diff),
-      });
-    default:
-      return state;
-  }
 }
 
 function reduceComposerSlice(state: ChatComposerState, action: ChatSliceAction): ChatComposerState {
@@ -787,27 +691,15 @@ function initialRuntimeState(): ChatRuntimeState {
 }
 
 function initialTurnState(): ChatTurnState {
-  return {
-    lifecycle: { kind: "idle" },
-  };
+  return initialChatTurnState();
 }
 
 function initialTranscriptState(): ChatTranscriptState {
-  return {
-    displayItems: [],
-    turnDiffs: new Map(),
-    historyCursor: null,
-    loadingHistory: false,
-    reportedLogs: new Set(),
-  };
+  return initialChatTranscriptState();
 }
 
 function initialRequestState(): ChatRequestState {
-  return {
-    approvals: [],
-    pendingUserInputs: [],
-    userInputDrafts: new Map(),
-  };
+  return initialChatRequestState();
 }
 
 function initialComposerState(): ChatComposerState {
@@ -861,55 +753,8 @@ function cloneChatState(state: ChatState): ChatState {
   };
 }
 
-export function chatTurnBusy(state: Pick<ChatState, "turn"> | { lifecycle: ChatTurnLifecycleState }): boolean {
-  return turnLifecycleFor(state).kind !== "idle";
-}
-
-export function activeTurnId(state: Pick<ChatState, "turn"> | { lifecycle: ChatTurnLifecycleState }): string | null {
-  const lifecycle = turnLifecycleFor(state);
-  return lifecycle.kind === "running" ? lifecycle.turnId : null;
-}
-
-export function pendingTurnStart(state: Pick<ChatState, "turn"> | { lifecycle: ChatTurnLifecycleState }): PendingTurnStart | null {
-  const lifecycle = turnLifecycleFor(state);
-  return lifecycle.kind === "starting" ? lifecycle.pendingTurnStart : null;
-}
-
-function turnLifecycleFor(state: Pick<ChatState, "turn"> | { lifecycle: ChatTurnLifecycleState }): ChatTurnLifecycleState {
-  if ("turn" in state) return state.turn.lifecycle;
-  return state.lifecycle;
-}
-
-export function transitionChatTurnLifecycleState(state: ChatTurnLifecycleState, event: ChatTurnLifecycleEvent): ChatTurnLifecycleState {
-  switch (event.type) {
-    case "started":
-      return { kind: "running", turnId: event.turnId };
-    case "completed":
-      return state.kind === "running" && state.turnId === event.turnId ? { kind: "idle" } : state;
-    case "cleared":
-      return state.kind === "idle" ? state : { kind: "idle" };
-    case "optimistic-started":
-      return { kind: "starting", pendingTurnStart: event.pendingTurnStart };
-    case "start-acknowledged":
-      if (state.kind === "idle") return state;
-      if (state.kind === "running" && state.turnId !== event.turnId) return state;
-      return { kind: "running", turnId: event.turnId };
-    case "start-failed":
-      return { kind: "idle" };
-    case "pending-start-hook-upserted":
-      if (event.pendingTurnStart) return { kind: "starting", pendingTurnStart: event.pendingTurnStart };
-      return state.kind === "starting" ? { kind: "idle" } : state;
-  }
-}
-
-function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string, diff: string): ReadonlyMap<string, string> {
-  const next = new Map(turnDiffs);
-  if (diff.trim().length > 0) {
-    next.set(turnId, diff);
-  } else {
-    next.delete(turnId);
-  }
-  return next;
+function isTranscriptAction(action: ChatSliceAction): action is TranscriptAction {
+  return action.type.startsWith("transcript/");
 }
 
 function setPanelSlice(state: ChatUiState, panel: "history" | "chat-actions" | "status-panel" | null, toggle: boolean): ChatUiState {
@@ -938,9 +783,8 @@ function setDetailOpenSlice(state: ChatUiState, key: string, open: boolean): Cha
   return patchObject(state, { openDetails });
 }
 
-function setUserInputDraftSlice(state: ChatRequestState, key: string, value: string): ChatRequestState {
-  if (state.userInputDrafts.get(key) === value) return state;
-  return patchObject(state, { userInputDrafts: new Map([...state.userInputDrafts, [key, value]]) });
+function isRequestAction(action: ChatSliceAction): action is RequestAction {
+  return action.type.startsWith("request/");
 }
 
 function setComposerSuggestionsSlice(
