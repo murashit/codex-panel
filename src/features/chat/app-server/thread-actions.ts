@@ -1,8 +1,7 @@
-import { panelThreadFromAppServerThread, panelThreadsFromAppServerThreads } from "../../../app-server/thread-model";
-import { upsertThread } from "../../../domain/threads/model";
+import { panelThreadsFromAppServerThreads } from "../../../app-server/thread-model";
 import type { PanelThread } from "../../../domain/threads/model";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../../runtime/effective-settings";
-import { resumedThreadAction } from "../threads/thread-resume";
+import { resumedThreadActionFromAppServerResponse } from "../threads/thread-resume";
 import type { ChatAppServerBaseHost } from "./shared";
 
 interface StartedThreadSummary {
@@ -53,12 +52,16 @@ async function startThread(
   const response = await client.startThread(host.vaultPath, serviceTier);
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();
-  const appServerThread =
-    response.thread.preview.trim().length > 0 || !fallbackPreview ? response.thread : { ...response.thread, preview: fallbackPreview };
-  const thread = panelThreadFromAppServerThread(appServerThread);
-  const listedThreads = upsertThread(state.threadList.listedThreads, thread);
-  host.stateStore.dispatch(resumedThreadAction({ response: { ...response, thread }, listedThreads }));
-  host.publishThreadList(listedThreads);
+  const activationResponse =
+    response.thread.preview.trim().length > 0 || !fallbackPreview
+      ? response
+      : { ...response, thread: { ...response.thread, preview: fallbackPreview } };
+  const action = resumedThreadActionFromAppServerResponse({
+    response: activationResponse,
+    listedThreads: state.threadList.listedThreads,
+  });
+  host.stateStore.dispatch(action);
+  if (action.listedThreads) host.publishThreadList(action.listedThreads);
   if (options.syncGoal ?? true) host.syncThreadGoal(response.thread.id);
   return { threadId: response.thread.id };
 }

@@ -4,13 +4,9 @@ import {
   createChatRuntimeSettingsActions,
   type ChatRuntimeSettingsActions,
 } from "../../../../src/features/chat/runtime/runtime-settings-actions";
-import {
-  createChatState,
-  createChatStateStore,
-  type ActiveThreadSettingsAppliedAction,
-  type ChatState,
-} from "../../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore, type ChatState } from "../../../../src/features/chat/chat-state";
 import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/model";
+import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/chat-state-actions";
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { PanelModelOption } from "../../../../src/domain/catalog/model";
 

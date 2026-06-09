@@ -4,11 +4,12 @@ import type { AppServerClient } from "../../../app-server/client";
 import { panelThreadFromAppServerThread } from "../../../app-server/thread-model";
 import { exportArchivedThreadMarkdown } from "../../../domain/threads/export";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
-import { inheritedForkThreadName, upsertThread } from "../../../domain/threads/model";
+import { inheritedForkThreadName } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
 import { rollbackCandidateFromItems, turnsAfterTurnId } from "../display/action-candidates";
 import { displayItemsFromTurns } from "../display/thread-items";
+import { resumedThreadActionFromActiveRuntime } from "./thread-resume";
 
 export interface ChatThreadActionsHost {
   stateStore: ChatStateStore;
@@ -182,18 +183,15 @@ async function rollbackThread(host: ChatThreadActionsHost, threadId: string): Pr
     host.setStatus("Rolling back latest turn...");
     const response = await client.rollbackThread(threadId);
     const thread = panelThreadFromAppServerThread(response.thread);
-    dispatch(host, {
-      type: "active-thread/resumed",
-      thread,
-      cwd: response.thread.cwd,
-      model: state(host).runtime.activeModel,
-      reasoningEffort: state(host).runtime.activeReasoningEffort,
-      serviceTier: state(host).runtime.activeServiceTier,
-      approvalPolicy: state(host).runtime.activeApprovalPolicy,
-      approvalsReviewer: state(host).runtime.activeApprovalsReviewer,
-      activePermissionProfile: state(host).runtime.activePermissionProfile,
-      listedThreads: upsertThread(state(host).threadList.listedThreads, thread),
-    });
+    dispatch(
+      host,
+      resumedThreadActionFromActiveRuntime({
+        thread,
+        cwd: response.thread.cwd,
+        runtime: state(host).runtime,
+        listedThreads: state(host).threadList.listedThreads,
+      }),
+    );
     dispatch(host, {
       type: "transcript/items-replaced",
       items: displayItemsFromTurns(response.thread.turns),

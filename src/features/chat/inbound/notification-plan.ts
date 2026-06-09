@@ -1,4 +1,4 @@
-import { parseServiceTier } from "../../../runtime/service-tier";
+import { activeThreadSettingsAppliedAction } from "../chat-state-actions";
 import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
 import type { FileUpdateChange } from "../../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";
@@ -233,17 +233,7 @@ function planThreadLifecycle(state: ChatState, notification: ServerNotification,
   }
   if (method === "thread/settings/updated") {
     if (state.activeThread.id !== params.threadId) return EMPTY_PLAN;
-    return actionPlan({
-      type: "active-thread/settings-applied",
-      cwd: params.threadSettings.cwd,
-      model: params.threadSettings.model,
-      reasoningEffort: params.threadSettings.effort,
-      collaborationMode: params.threadSettings.collaborationMode.mode,
-      serviceTier: parseServiceTier(params.threadSettings.serviceTier),
-      approvalPolicy: params.threadSettings.approvalPolicy,
-      approvalsReviewer: params.threadSettings.approvalsReviewer,
-      activePermissionProfile: params.threadSettings.activePermissionProfile,
-    });
+    return actionPlan(activeThreadSettingsAppliedAction(params.threadSettings));
   }
   if (method === "thread/goal/updated") {
     if (state.activeThread.id !== params.threadId) return EMPTY_PLAN;

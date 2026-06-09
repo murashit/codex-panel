@@ -1,7 +1,5 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { ReasoningEffort } from "../../runtime/models";
-import type { ActivePermissionProfile } from "../../generated/app-server/v2/ActivePermissionProfile";
-import type { AskForApproval } from "../../generated/app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
 import type { PanelThread } from "../../domain/threads/model";
@@ -11,7 +9,7 @@ import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/T
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { AppServerDiagnostics } from "../../app-server/compatibility";
 import { createAppServerDiagnostics } from "../../app-server/compatibility";
-import type { RequestedServiceTier, ServiceTier } from "../../runtime/service-tier";
+import type { RequestedServiceTier } from "../../runtime/service-tier";
 import type { ApprovalsReviewer } from "../../runtime/approvals";
 import type { PanelCollaborationMode } from "../../runtime/collaboration";
 import {
@@ -30,6 +28,7 @@ import type { ComposerSuggestion } from "./composer/suggestions";
 import { upsertDisplayItem } from "./display/stream-updates";
 import type { DisplayItem } from "./display/types";
 import type { PendingUserInput } from "./requests/user-input";
+import type { ActiveThreadResumedAction, ActiveThreadSettingsAppliedAction } from "./chat-state-actions";
 
 export interface PendingTurnStart {
   anchorItemId: string;
@@ -140,33 +139,6 @@ interface ThreadListAppliedAction {
 }
 
 type ThreadListAction = ThreadListAppliedAction;
-
-export interface ActiveThreadResumedAction {
-  type: "active-thread/resumed";
-  thread: PanelThread;
-  cwd: string;
-  model: string | null;
-  reasoningEffort: ReasoningEffort | null;
-  serviceTier: ServiceTier | null;
-  approvalPolicy: AskForApproval | null;
-  approvalsReviewer: ApprovalsReviewer | null;
-  activePermissionProfile: ActivePermissionProfile | null;
-  displayItems?: readonly DisplayItem[];
-  status?: string;
-  listedThreads?: readonly PanelThread[];
-}
-
-export interface ActiveThreadSettingsAppliedAction {
-  type: "active-thread/settings-applied";
-  cwd: string;
-  model: string | null;
-  reasoningEffort: ReasoningEffort | null;
-  collaborationMode: PanelCollaborationMode;
-  serviceTier: ServiceTier | null;
-  approvalPolicy: AskForApproval | null;
-  approvalsReviewer: ApprovalsReviewer | null;
-  activePermissionProfile: ActivePermissionProfile | null;
-}
 
 type ActiveThreadAction =
   | { type: "active-thread/cwd-set"; cwd: string | null }
