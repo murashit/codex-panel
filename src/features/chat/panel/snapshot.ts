@@ -5,7 +5,7 @@ import { currentModel } from "../../../runtime/effective-settings";
 import { activeTurnId, chatTurnBusy, type ChatState } from "../chat-state";
 import type { DisplayItem } from "../display/types";
 import type { RestoredThreadState } from "./lifecycle";
-import { runtimeSnapshotForChatState } from "./model";
+import { runtimeSnapshotForChatSlices } from "./model";
 
 export type ChatPanelSlotSnapshot = string | number | boolean | null;
 
@@ -88,7 +88,17 @@ export function composerSlotSnapshot(state: ChatState, activeComposerThreadName:
     state.runtime.requestedReasoningEffort,
     state.activeThread.tokenUsage,
     state.connection.effectiveConfig,
-    currentModel(runtimeSnapshotForChatState({ state }), readRuntimeConfig(state.connection.effectiveConfig)),
+    currentModel(
+      runtimeSnapshotForChatSlices({
+        effectiveConfig: state.connection.effectiveConfig,
+        activeThread: state.activeThread,
+        runtime: state.runtime,
+        rateLimit: state.connection.rateLimit,
+        displayItems: state.transcript.displayItems,
+        availableModels: state.connection.availableModels,
+      }),
+      readRuntimeConfig(state.connection.effectiveConfig),
+    ),
     state.connection.availableSkills.length,
     skillsSignature(state.connection.availableSkills),
     modelsSignature(state.connection.availableModels),

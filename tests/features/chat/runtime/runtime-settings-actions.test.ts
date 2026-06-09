@@ -4,7 +4,13 @@ import {
   createChatRuntimeSettingsActions,
   type ChatRuntimeSettingsActions,
 } from "../../../../src/features/chat/runtime/runtime-settings-actions";
-import { createChatState, createChatStateStore, type ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/chat-state";
+import {
+  createChatState,
+  createChatStateStore,
+  type ActiveThreadSettingsAppliedAction,
+  type ChatState,
+} from "../../../../src/features/chat/chat-state";
+import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/model";
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { PanelModelOption } from "../../../../src/domain/catalog/model";
 
@@ -18,26 +24,7 @@ describe("createChatRuntimeSettingsActions", () => {
     const controller = createChatRuntimeSettingsActions({
       stateStore: store,
       currentClient: () => client as AppServerClient,
-      runtimeSnapshot: () => ({
-        effectiveConfig: store.getState().connection.effectiveConfig,
-        activeThreadId: store.getState().activeThread.id,
-        activeModel: store.getState().runtime.activeModel,
-        activeReasoningEffort: store.getState().runtime.activeReasoningEffort,
-        activeCollaborationMode: store.getState().runtime.activeCollaborationMode,
-        activeServiceTier: store.getState().runtime.activeServiceTier,
-        activeApprovalPolicy: store.getState().runtime.activeApprovalPolicy,
-        activeApprovalsReviewer: store.getState().runtime.activeApprovalsReviewer,
-        activePermissionProfile: store.getState().runtime.activePermissionProfile,
-        requestedModel: store.getState().runtime.requestedModel,
-        requestedReasoningEffort: store.getState().runtime.requestedReasoningEffort,
-        requestedApprovalsReviewer: store.getState().runtime.requestedApprovalsReviewer,
-        selectedCollaborationMode: store.getState().runtime.selectedCollaborationMode,
-        requestedServiceTier: store.getState().runtime.requestedServiceTier,
-        tokenUsage: store.getState().activeThread.tokenUsage,
-        rateLimit: store.getState().connection.rateLimit,
-        hasThreadTurns: false,
-        availableModels: store.getState().connection.availableModels,
-      }),
+      runtimeSnapshot: () => runtimeSnapshotFixture(store.getState()),
       collaborationModeLabel: () => "Plan",
       addSystemMessage: (text) => messages.push(text),
     });
@@ -130,29 +117,7 @@ function runtimeControllerFixture(
   return createChatRuntimeSettingsActions({
     stateStore: store,
     currentClient: () => client as AppServerClient,
-    runtimeSnapshot: () => {
-      const state = store.getState();
-      return {
-        effectiveConfig: state.connection.effectiveConfig,
-        activeThreadId: state.activeThread.id,
-        activeModel: state.runtime.activeModel,
-        activeReasoningEffort: state.runtime.activeReasoningEffort,
-        activeCollaborationMode: state.runtime.activeCollaborationMode,
-        activeServiceTier: state.runtime.activeServiceTier,
-        activeApprovalPolicy: state.runtime.activeApprovalPolicy,
-        activeApprovalsReviewer: state.runtime.activeApprovalsReviewer,
-        activePermissionProfile: state.runtime.activePermissionProfile,
-        requestedModel: state.runtime.requestedModel,
-        requestedReasoningEffort: state.runtime.requestedReasoningEffort,
-        requestedApprovalsReviewer: state.runtime.requestedApprovalsReviewer,
-        selectedCollaborationMode: state.runtime.selectedCollaborationMode,
-        requestedServiceTier: state.runtime.requestedServiceTier,
-        tokenUsage: state.activeThread.tokenUsage,
-        rateLimit: state.connection.rateLimit,
-        hasThreadTurns: false,
-        availableModels: state.connection.availableModels,
-      };
-    },
+    runtimeSnapshot: () => runtimeSnapshotFixture(store.getState()),
     collaborationModeLabel: () => "Plan",
     addSystemMessage: (text) => messages.push(text),
   });
@@ -165,6 +130,17 @@ function clientFixture(
     updateThreadSettings: vi.fn().mockResolvedValue({}),
     ...overrides,
   };
+}
+
+function runtimeSnapshotFixture(state: ChatState) {
+  return runtimeSnapshotForChatSlices({
+    effectiveConfig: state.connection.effectiveConfig,
+    activeThread: state.activeThread,
+    runtime: state.runtime,
+    rateLimit: state.connection.rateLimit,
+    displayItems: state.transcript.displayItems,
+    availableModels: state.connection.availableModels,
+  });
 }
 
 function modelFixture(model: string, fastTierId: string): PanelModelOption {

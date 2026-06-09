@@ -11,15 +11,20 @@ import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/T
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { AppServerDiagnostics } from "../../app-server/compatibility";
 import { createAppServerDiagnostics } from "../../app-server/compatibility";
-import { parseServiceTier, type RequestedServiceTier, type ServiceTier } from "../../runtime/service-tier";
+import type { RequestedServiceTier, ServiceTier } from "../../runtime/service-tier";
 import type { ApprovalsReviewer } from "../../runtime/approvals";
 import type { PanelCollaborationMode } from "../../runtime/collaboration";
 import {
-  resetRuntimeSettingToConfig,
-  setPendingRuntimeSetting,
-  unchangedRuntimeSetting,
-  type PendingRuntimeSetting,
-} from "../../runtime/effective-settings";
+  commitPendingThreadSettingsRuntimeState,
+  initialActiveChatRuntimeState,
+  initialChatRuntimeState,
+  setRequestedApprovalsReviewerRuntimeState,
+  setRequestedModelRuntimeState,
+  setRequestedReasoningEffortRuntimeState,
+  setRequestedServiceTierRuntimeState,
+  setSelectedCollaborationModeRuntimeState,
+  type ChatRuntimeState,
+} from "../../runtime/chat-runtime-state";
 import type { PendingApproval } from "./requests/approval";
 import type { ComposerSuggestion } from "./composer/suggestions";
 import { upsertDisplayItem } from "./display/stream-updates";
@@ -67,20 +72,7 @@ export interface ChatActiveThreadState {
   tokenUsage: ThreadTokenUsage | null;
 }
 
-export interface ChatRuntimeState {
-  activeModel: string | null;
-  activeReasoningEffort: ReasoningEffort | null;
-  activeCollaborationMode: PanelCollaborationMode;
-  activeServiceTier: ServiceTier | null;
-  activeApprovalPolicy: AskForApproval | null;
-  activeApprovalsReviewer: ApprovalsReviewer | null;
-  activePermissionProfile: ActivePermissionProfile | null;
-  requestedModel: PendingRuntimeSetting<string>;
-  requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
-  requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
-  selectedCollaborationMode: PanelCollaborationMode;
-  requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
-}
+export type { ChatRuntimeState } from "../../runtime/chat-runtime-state";
 
 export interface ChatTurnState {
   lifecycle: ChatTurnLifecycleState;
@@ -483,7 +475,7 @@ function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, actio
       },
       runtime: {
         ...state.runtime,
-        ...initialActiveRuntimeState(),
+        ...initialActiveChatRuntimeState(),
       },
       transcript: {
         ...initialTranscriptState(),
@@ -652,26 +644,17 @@ function reduceActiveThreadSlice(state: ChatActiveThreadState, action: ChatSlice
 function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): ChatRuntimeState {
   switch (action.type) {
     case "runtime/requested-model-set":
-      return patchObject(state, {
-        requestedModel: action.model === null ? resetRuntimeSettingToConfig() : setPendingRuntimeSetting(action.model),
-      });
+      return patchObject(state, setRequestedModelRuntimeState(state, action.model));
     case "runtime/requested-effort-set":
-      return patchObject(state, {
-        requestedReasoningEffort: action.effort === null ? resetRuntimeSettingToConfig() : setPendingRuntimeSetting(action.effort),
-      });
+      return patchObject(state, setRequestedReasoningEffortRuntimeState(state, action.effort));
     case "runtime/requested-service-tier-set":
-      return patchObject(state, {
-        requestedServiceTier: action.serviceTier === null ? unchangedRuntimeSetting() : setPendingRuntimeSetting(action.serviceTier),
-      });
+      return patchObject(state, setRequestedServiceTierRuntimeState(state, action.serviceTier));
     case "runtime/requested-approvals-reviewer-set":
-      return patchObject(state, {
-        requestedApprovalsReviewer:
-          action.approvalsReviewer === null ? unchangedRuntimeSetting() : setPendingRuntimeSetting(action.approvalsReviewer),
-      });
+      return patchObject(state, setRequestedApprovalsReviewerRuntimeState(state, action.approvalsReviewer));
     case "runtime/requested-collaboration-mode-set":
-      return patchObject(state, { selectedCollaborationMode: action.collaborationMode });
+      return patchObject(state, setSelectedCollaborationModeRuntimeState(state, action.collaborationMode));
     case "runtime/pending-thread-settings-committed":
-      return commitPendingThreadSettings(state, action.update);
+      return patchObject(state, commitPendingThreadSettingsRuntimeState(state, action.update));
     default:
       return state;
   }
@@ -772,7 +755,7 @@ function clearActiveThreadState(state: ChatState): ChatState {
       activeThread: initialActiveThreadState(),
       runtime: {
         ...state.runtime,
-        ...initialActiveRuntimeState(),
+        ...initialActiveChatRuntimeState(),
       },
       transcript: initialTranscriptState(),
       composer: initialComposerState(),
@@ -786,7 +769,7 @@ function clearConnectionScopedState(state: ChatState): ChatState {
     activeThread: initialActiveThreadState(),
     runtime: {
       ...state.runtime,
-      ...initialActiveRuntimeState(),
+      ...initialActiveChatRuntimeState(),
     },
     connection: {
       ...state.connection,
@@ -827,36 +810,8 @@ function initialActiveThreadState(): ChatActiveThreadState {
   };
 }
 
-function initialActiveRuntimeState(): Pick<
-  ChatRuntimeState,
-  | "activeModel"
-  | "activeReasoningEffort"
-  | "activeCollaborationMode"
-  | "activeServiceTier"
-  | "activeApprovalPolicy"
-  | "activeApprovalsReviewer"
-  | "activePermissionProfile"
-> {
-  return {
-    activeModel: null,
-    activeReasoningEffort: null,
-    activeCollaborationMode: "default",
-    activeServiceTier: null,
-    activeApprovalPolicy: null,
-    activeApprovalsReviewer: null,
-    activePermissionProfile: null,
-  };
-}
-
 function initialRuntimeState(): ChatRuntimeState {
-  return {
-    ...initialActiveRuntimeState(),
-    requestedModel: unchangedRuntimeSetting(),
-    requestedReasoningEffort: unchangedRuntimeSetting(),
-    requestedApprovalsReviewer: unchangedRuntimeSetting(),
-    selectedCollaborationMode: "default",
-    requestedServiceTier: unchangedRuntimeSetting(),
-  };
+  return initialChatRuntimeState();
 }
 
 function initialTurnState(): ChatTurnState {
@@ -1014,25 +969,6 @@ function setDetailOpenSlice(state: ChatUiState, key: string, open: boolean): Cha
 function setUserInputDraftSlice(state: ChatRequestState, key: string, value: string): ChatRequestState {
   if (state.userInputDrafts.get(key) === value) return state;
   return patchObject(state, { userInputDrafts: new Map([...state.userInputDrafts, [key, value]]) });
-}
-
-function commitPendingThreadSettings(state: ChatRuntimeState, update: Omit<ThreadSettingsUpdateParams, "threadId">): ChatRuntimeState {
-  return patchObject(state, {
-    ...("model" in update ? { activeModel: update.model ?? null, requestedModel: unchangedRuntimeSetting<string>() } : {}),
-    ...("effort" in update
-      ? { activeReasoningEffort: update.effort ?? null, requestedReasoningEffort: unchangedRuntimeSetting<ReasoningEffort>() }
-      : {}),
-    ...("serviceTier" in update
-      ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedServiceTier: unchangedRuntimeSetting<RequestedServiceTier>() }
-      : {}),
-    ...("approvalsReviewer" in update
-      ? {
-          activeApprovalsReviewer: update.approvalsReviewer ?? null,
-          requestedApprovalsReviewer: unchangedRuntimeSetting<ApprovalsReviewer>(),
-        }
-      : {}),
-    ...(update.collaborationMode ? { activeCollaborationMode: update.collaborationMode.mode } : {}),
-  });
 }
 
 function setComposerSuggestionsSlice(

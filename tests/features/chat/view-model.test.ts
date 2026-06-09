@@ -11,10 +11,11 @@ import {
   effortStatusLines,
   runtimeComposerChoices,
   modelStatusLines,
-  runtimeSnapshotForChatState,
+  runtimeSnapshotForChatSlices,
   statusSummaryLines,
   toolbarViewModel,
 } from "../../../src/features/chat/panel/model";
+import type { ChatState } from "../../../src/features/chat/chat-state";
 import type { PanelModelOption } from "../../../src/domain/catalog/model";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/ConfigReadResponse";
@@ -31,7 +32,7 @@ describe("chat view model", () => {
 
     const model = toolbarViewModel({
       state,
-      snapshot: runtimeSnapshotForChatState({ state }),
+      snapshot: runtimeSnapshotFixture(state),
       connected: true,
       turnBusy: true,
       vaultPath: "/vault",
@@ -65,7 +66,7 @@ describe("chat view model", () => {
       modelContextWindow: 100,
     };
 
-    expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
+    expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toEqual({
       fatal: null,
       context: {
         cells: [
@@ -101,7 +102,7 @@ describe("chat view model", () => {
     ];
     state.connection.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5" });
 
-    expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toMatchObject({
+    expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toMatchObject({
       fatal: null,
       context: {
         cells: [
@@ -127,7 +128,7 @@ describe("chat view model", () => {
       modelContextWindow: 100,
     };
 
-    expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toMatchObject({
+    expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toMatchObject({
       context: {
         cells: [
           { text: "⣀", placeholder: true },
@@ -145,7 +146,7 @@ describe("chat view model", () => {
     const state = createChatState();
     state.connection.status = "Connection failed.";
 
-    expect(composerMetaViewModel(state, runtimeSnapshotForChatState({ state }))).toEqual({
+    expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toEqual({
       fatal: "Codex app-server disconnected",
       context: {
         cells: [
@@ -175,12 +176,32 @@ describe("chat view model", () => {
       service_tier: "fast",
     });
     state.connection.availableModels = [modelFixture("gpt-5.5")];
-    const snapshot = runtimeSnapshotForChatState({ state });
+    const snapshot = runtimeSnapshotFixture(state);
 
-    expect(statusSummaryLines(state, snapshot)[1]).toBe("Thread: thread-1");
-    expect(modelStatusLines(state, snapshot, "Default")).toContain("Model: gpt-5.5");
-    expect(modelStatusLines(state, snapshot, "Default")).toContain("Mode: Default");
-    expect(effortStatusLines(state, snapshot)).toContain("Supported: high");
+    expect(statusSummaryLines({ activeThreadId: state.activeThread.id, snapshot })[1]).toBe("Thread: thread-1");
+    expect(
+      modelStatusLines({
+        effectiveConfig: state.connection.effectiveConfig,
+        requestedModel: state.runtime.requestedModel,
+        snapshot,
+        collaborationModeLabel: "Default",
+      }),
+    ).toContain("Model: gpt-5.5");
+    expect(
+      modelStatusLines({
+        effectiveConfig: state.connection.effectiveConfig,
+        requestedModel: state.runtime.requestedModel,
+        snapshot,
+        collaborationModeLabel: "Default",
+      }),
+    ).toContain("Mode: Default");
+    expect(
+      effortStatusLines({
+        effectiveConfig: state.connection.effectiveConfig,
+        requestedReasoningEffort: state.runtime.requestedReasoningEffort,
+        snapshot,
+      }),
+    ).toContain("Supported: high");
   });
 
   it("builds runtime composer choices from immutable chat state snapshots", () => {
@@ -192,7 +213,7 @@ describe("chat view model", () => {
 
     const choices = runtimeComposerChoices({
       state,
-      snapshot: runtimeSnapshotForChatState({ state }),
+      snapshot: runtimeSnapshotFixture(state),
       setRequestedModel: (model) => {
         selectedModels.push(model);
       },
@@ -235,6 +256,17 @@ function effectiveConfigFixture(config: Record<string, unknown>): ConfigReadResp
     origins: {},
     layers: null,
   };
+}
+
+function runtimeSnapshotFixture(state: ChatState) {
+  return runtimeSnapshotForChatSlices({
+    effectiveConfig: state.connection.effectiveConfig,
+    activeThread: state.activeThread,
+    runtime: state.runtime,
+    rateLimit: state.connection.rateLimit,
+    displayItems: state.transcript.displayItems,
+    availableModels: state.connection.availableModels,
+  });
 }
 
 function threadFixture(id: string, name: string | null): Thread & { archived: boolean } {

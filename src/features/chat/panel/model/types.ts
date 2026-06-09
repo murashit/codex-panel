@@ -4,7 +4,12 @@ import type { EffectiveConfigSection, RateLimitSummary } from "../../../../runti
 import type { ChatState } from "../../chat-state";
 
 export interface RuntimeSnapshotInput {
-  state: ChatState;
+  effectiveConfig: ChatState["connection"]["effectiveConfig"];
+  activeThread: Pick<ChatState["activeThread"], "id" | "tokenUsage">;
+  runtime: ChatState["runtime"];
+  rateLimit: ChatState["connection"]["rateLimit"];
+  displayItems: ChatState["transcript"]["displayItems"];
+  availableModels: ChatState["connection"]["availableModels"];
 }
 
 export interface ComposerMetaViewModel {
@@ -98,6 +103,24 @@ export interface RuntimeComposerChoicesInput {
   snapshot: RuntimeSnapshot;
   setRequestedModel: (model: string | null) => void;
   setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void;
+}
+
+export interface StatusSummaryLinesInput {
+  activeThreadId: ChatState["activeThread"]["id"];
+  snapshot: RuntimeSnapshot;
+}
+
+export interface ModelStatusLinesInput {
+  effectiveConfig: ChatState["connection"]["effectiveConfig"];
+  requestedModel: ChatState["runtime"]["requestedModel"];
+  snapshot: RuntimeSnapshot;
+  collaborationModeLabel: string;
+}
+
+export interface EffortStatusLinesInput {
+  effectiveConfig: ChatState["connection"]["effectiveConfig"];
+  requestedReasoningEffort: ChatState["runtime"]["requestedReasoningEffort"];
+  snapshot: RuntimeSnapshot;
 }
 
 export interface RestoredThreadTitleSnapshot {

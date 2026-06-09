@@ -8,29 +8,35 @@ import {
 } from "../../../../runtime/effective-settings";
 import { sortedModelOptions } from "../../../../runtime/models";
 import { contextSummary, rateLimitSummary, type RateLimitSummary } from "../../../../runtime/status-summary";
-import type { ChatState } from "../../chat-state";
-import type { RuntimeChoice, RuntimeComposerChoicesInput, RuntimeSnapshotInput } from "./types";
+import type {
+  EffortStatusLinesInput,
+  ModelStatusLinesInput,
+  RuntimeChoice,
+  RuntimeComposerChoicesInput,
+  RuntimeSnapshotInput,
+  StatusSummaryLinesInput,
+} from "./types";
 
-export function runtimeSnapshotForChatState({ state }: RuntimeSnapshotInput) {
+export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput) {
   return {
-    effectiveConfig: state.connection.effectiveConfig,
-    activeThreadId: state.activeThread.id,
-    activeModel: state.runtime.activeModel,
-    activeReasoningEffort: state.runtime.activeReasoningEffort,
-    activeCollaborationMode: state.runtime.activeCollaborationMode,
-    activeServiceTier: state.runtime.activeServiceTier,
-    activeApprovalPolicy: state.runtime.activeApprovalPolicy,
-    activeApprovalsReviewer: state.runtime.activeApprovalsReviewer,
-    activePermissionProfile: state.runtime.activePermissionProfile,
-    requestedModel: state.runtime.requestedModel,
-    requestedReasoningEffort: state.runtime.requestedReasoningEffort,
-    requestedApprovalsReviewer: state.runtime.requestedApprovalsReviewer,
-    selectedCollaborationMode: state.runtime.selectedCollaborationMode,
-    requestedServiceTier: state.runtime.requestedServiceTier,
-    tokenUsage: state.activeThread.tokenUsage,
-    rateLimit: state.connection.rateLimit,
-    hasThreadTurns: state.transcript.displayItems.some((item) => item.turnId),
-    availableModels: state.connection.availableModels,
+    effectiveConfig: input.effectiveConfig,
+    activeThreadId: input.activeThread.id,
+    activeModel: input.runtime.activeModel,
+    activeReasoningEffort: input.runtime.activeReasoningEffort,
+    activeCollaborationMode: input.runtime.activeCollaborationMode,
+    activeServiceTier: input.runtime.activeServiceTier,
+    activeApprovalPolicy: input.runtime.activeApprovalPolicy,
+    activeApprovalsReviewer: input.runtime.activeApprovalsReviewer,
+    activePermissionProfile: input.runtime.activePermissionProfile,
+    requestedModel: input.runtime.requestedModel,
+    requestedReasoningEffort: input.runtime.requestedReasoningEffort,
+    requestedApprovalsReviewer: input.runtime.requestedApprovalsReviewer,
+    selectedCollaborationMode: input.runtime.selectedCollaborationMode,
+    requestedServiceTier: input.runtime.requestedServiceTier,
+    tokenUsage: input.activeThread.tokenUsage,
+    rateLimit: input.rateLimit,
+    hasThreadTurns: input.displayItems.some((item) => item.turnId),
+    availableModels: input.availableModels,
   };
 }
 
@@ -68,39 +74,35 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   return { modelChoices, effortChoices };
 }
 
-export function statusSummaryLines(state: ChatState, snapshot: ReturnType<typeof runtimeSnapshotForChatState>): string[] {
-  const context = contextSummary(snapshot);
-  const limit = rateLimitSummary(snapshot);
+export function statusSummaryLines(input: StatusSummaryLinesInput): string[] {
+  const context = contextSummary(input.snapshot);
+  const limit = rateLimitSummary(input.snapshot);
   return [
     "Thread status",
-    `Thread: ${state.activeThread.id ?? "(none)"}`,
+    `Thread: ${input.activeThreadId ?? "(none)"}`,
     context ? context.title : "Context: not available",
     ...(limit ? usageLimitStatusLines(limit) : ["Usage limits: not available"]),
   ];
 }
 
-export function modelStatusLines(
-  state: ChatState,
-  snapshot: ReturnType<typeof runtimeSnapshotForChatState>,
-  collaborationModeLabel: string,
-): string[] {
-  const config = readRuntimeConfig(state.connection.effectiveConfig);
+export function modelStatusLines(input: ModelStatusLinesInput): string[] {
+  const config = readRuntimeConfig(input.effectiveConfig);
   return [
-    `Model: ${currentModel(snapshot, config) ?? "(Codex default)"}`,
-    `Override: ${pendingRuntimeSettingLabel(state.runtime.requestedModel)}`,
+    `Model: ${currentModel(input.snapshot, config) ?? "(Codex default)"}`,
+    `Override: ${pendingRuntimeSettingLabel(input.requestedModel)}`,
     `Provider: ${statusValue(config.modelProvider, "(Codex default)")}`,
-    `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
-    `Mode: ${collaborationModeLabel}`,
-    `Service tier: ${serviceTierLabel(snapshot, config)}`,
+    `Effort: ${currentReasoningEffort(input.snapshot, config) ?? "(Codex default)"}`,
+    `Mode: ${input.collaborationModeLabel}`,
+    `Service tier: ${serviceTierLabel(input.snapshot, config)}`,
   ];
 }
 
-export function effortStatusLines(state: ChatState, snapshot: ReturnType<typeof runtimeSnapshotForChatState>): string[] {
-  const config = readRuntimeConfig(state.connection.effectiveConfig);
+export function effortStatusLines(input: EffortStatusLinesInput): string[] {
+  const config = readRuntimeConfig(input.effectiveConfig);
   return [
-    `Effort: ${currentReasoningEffort(snapshot, config) ?? "(Codex default)"}`,
-    `Override: ${pendingRuntimeSettingLabel(state.runtime.requestedReasoningEffort)}`,
-    `Supported: ${supportedReasoningEfforts(snapshot).join(", ")}`,
+    `Effort: ${currentReasoningEffort(input.snapshot, config) ?? "(Codex default)"}`,
+    `Override: ${pendingRuntimeSettingLabel(input.requestedReasoningEffort)}`,
+    `Supported: ${supportedReasoningEfforts(input.snapshot).join(", ")}`,
   ];
 }
 

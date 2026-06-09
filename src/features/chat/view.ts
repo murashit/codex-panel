@@ -19,7 +19,7 @@ import {
   connectionDiagnosticsModel,
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
-  runtimeSnapshotForChatState,
+  runtimeSnapshotForChatSlices,
   statusSummaryLines as buildStatusSummaryLines,
 } from "./panel/model";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
@@ -602,15 +602,27 @@ export class CodexChatView extends ItemView {
   }
 
   private statusSummaryLines(): string[] {
-    return buildStatusSummaryLines(this.state, this.runtimeSnapshot());
+    return buildStatusSummaryLines({
+      activeThreadId: this.state.activeThread.id,
+      snapshot: this.runtimeSnapshot(),
+    });
   }
 
   private modelStatusLines(): string[] {
-    return buildModelStatusLines(this.state, this.runtimeSnapshot(), this.collaborationModeLabel());
+    return buildModelStatusLines({
+      effectiveConfig: this.state.connection.effectiveConfig,
+      requestedModel: this.state.runtime.requestedModel,
+      snapshot: this.runtimeSnapshot(),
+      collaborationModeLabel: this.collaborationModeLabel(),
+    });
   }
 
   private effortStatusLines(): string[] {
-    return buildEffortStatusLines(this.state, this.runtimeSnapshot());
+    return buildEffortStatusLines({
+      effectiveConfig: this.state.connection.effectiveConfig,
+      requestedReasoningEffort: this.state.runtime.requestedReasoningEffort,
+      snapshot: this.runtimeSnapshot(),
+    });
   }
 
   private connectionDiagnosticSections() {
@@ -637,6 +649,13 @@ export class CodexChatView extends ItemView {
   }
 
   private runtimeSnapshotForState(state: ChatState): RuntimeSnapshot {
-    return runtimeSnapshotForChatState({ state });
+    return runtimeSnapshotForChatSlices({
+      effectiveConfig: state.connection.effectiveConfig,
+      activeThread: state.activeThread,
+      runtime: state.runtime,
+      rateLimit: state.connection.rateLimit,
+      displayItems: state.transcript.displayItems,
+      availableModels: state.connection.availableModels,
+    });
   }
 }

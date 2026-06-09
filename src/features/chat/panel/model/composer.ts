@@ -4,13 +4,13 @@ import { compactReasoningEffortLabel } from "../../../../runtime/override-comman
 import { contextSummary } from "../../../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
 import type { ComposerContextMeterCellViewModel, ComposerContextMeterViewModel, ComposerMetaViewModel } from "./types";
-import type { runtimeSnapshotForChatState } from "./runtime";
+import type { runtimeSnapshotForChatSlices } from "./runtime";
 
 export function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
 }
 
-export function composerMetaViewModel(state: ChatState, snapshot: ReturnType<typeof runtimeSnapshotForChatState>): ComposerMetaViewModel {
+export function composerMetaViewModel(state: ChatState, snapshot: ReturnType<typeof runtimeSnapshotForChatSlices>): ComposerMetaViewModel {
   if (state.connection.status === "Connection failed.") {
     return {
       fatal: "Codex app-server disconnected",
