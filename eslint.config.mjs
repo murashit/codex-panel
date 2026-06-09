@@ -9,22 +9,6 @@ const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
 const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs"];
 const typeScriptConfigFiles = ["*.config.ts"];
 const lintedTypeScriptFiles = [...typeScriptFiles, ...typeScriptConfigFiles];
-const imperativeDomRestrictions = [
-  {
-    selector:
-      "CallExpression[callee.property.name=/^(createEl|createDiv|createSpan|appendChild|replaceChildren|insertBefore|removeChild|append|prepend|before|after|replaceWith|remove|insertAdjacentHTML|insertAdjacentElement|insertAdjacentText|setAttr|empty)$/]",
-    message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
-  },
-  {
-    selector:
-      "AssignmentExpression[left.type='MemberExpression'][left.property.name=/^(innerHTML|outerHTML|textContent|value|checked|onclick|ondblclick|oninput|onchange|onkeydown|onkeyup|onmousedown|onmouseup|onmousemove|onpointerdown|onpointerup|onblur|onfocus|onselect|onscroll)$/]",
-    message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
-  },
-  {
-    selector: "CallExpression[callee.property.name=/^(addEventListener|removeEventListener)$/]",
-    message: "Keep imperative DOM event wiring in an explicit bridge module or Obsidian-owned UI boundary.",
-  },
-];
 const preactFormRestrictions = [
   {
     selector: "JSXAttribute[name.name=/^(defaultValue|defaultChecked)$/]",
@@ -43,6 +27,25 @@ const unsafeIteratorRestrictions = [
     message: "Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.",
   },
 ];
+const imperativeDomWriteRestrictions = [
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(createEl|createDiv|createSpan|appendChild|replaceChildren|insertBefore|removeChild|append|prepend|before|after|replaceWith|remove|insertAdjacentHTML|insertAdjacentElement|insertAdjacentText|setAttr|empty)$/]",
+    message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
+  },
+  {
+    selector:
+      "AssignmentExpression[left.type='MemberExpression'][left.property.name=/^(innerHTML|outerHTML|textContent|value|checked|onclick|ondblclick|oninput|onchange|onkeydown|onkeyup|onmousedown|onmouseup|onmousemove|onpointerdown|onpointerup|onblur|onfocus|onselect|onscroll)$/]",
+    message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
+  },
+];
+const imperativeDomEventRestrictions = [
+  {
+    selector: "CallExpression[callee.property.name=/^(addEventListener|removeEventListener)$/]",
+    message: "Keep imperative DOM event wiring in an explicit bridge module or Obsidian-owned UI boundary.",
+  },
+];
+const imperativeDomRestrictions = [...imperativeDomWriteRestrictions, ...imperativeDomEventRestrictions];
 const pureChatModelRestrictions = [
   {
     selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
@@ -79,7 +82,6 @@ const chatImperativeDomBridgeFiles = [
   "src/features/chat/ui/turn-diff.tsx",
 ];
 const nonChatImperativeDomBridgeFiles = [
-  "src/app-server/structured-ephemeral-turn.ts",
   "src/features/selection-rewrite/popover.tsx",
   "src/features/selection-rewrite/runner.ts",
   "src/features/thread-picker/modal.ts",
@@ -92,6 +94,7 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/textarea-caret.ts",
   "src/shared/ui/ui-root.tsx",
 ];
+const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts"];
 const codexPanelEslintPlugin = {
   rules: {
     "no-self-referential-initializer-callback": {
@@ -259,9 +262,11 @@ export default defineConfig([
         HTMLTextAreaElement: "readonly",
         KeyboardEvent: "readonly",
         NodeJS: "readonly",
+        clearTimeout: "readonly",
         console: "readonly",
         document: "readonly",
         requestAnimationFrame: "readonly",
+        setTimeout: "readonly",
       },
     },
     rules: {
@@ -314,7 +319,7 @@ export default defineConfig([
   },
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles],
+    ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles, ...nonUiEventListenerFiles],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -363,6 +368,18 @@ export default defineConfig([
     },
   },
   {
+    files: nonUiEventListenerFiles,
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...removedChatStateEscapeHatchRestrictions,
+        ...unsafeIteratorRestrictions,
+        ...imperativeDomWriteRestrictions,
+        ...preactFormRestrictions,
+      ],
+    },
+  },
+  {
     files: ["src/features/chat/chat-state.ts", "src/features/chat/display/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": [
@@ -402,6 +419,12 @@ export default defineConfig([
           ],
         },
       ],
+    },
+  },
+  {
+    files: ["src/app-server/**/*.{ts,tsx}"],
+    rules: {
+      "obsidianmd/prefer-window-timers": "off",
     },
   },
   eslintConfigPrettier,

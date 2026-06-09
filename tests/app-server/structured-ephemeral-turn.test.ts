@@ -76,6 +76,24 @@ describe("runStructuredEphemeralTurn", () => {
     expect(remove).toHaveBeenCalledTimes(add.mock.calls.length);
   });
 
+  it("uses injected timers for structured turn timeout cleanup", async () => {
+    const timers = {
+      setTimeout: vi.fn((_callback: () => void, _delayMs: number) => 123),
+      clearTimeout: vi.fn(),
+    };
+    const { clientFactory } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await runStructuredEphemeralTurn({
+      ...runOptions(clientFactory),
+      timers,
+    });
+
+    expect(timers.setTimeout).toHaveBeenCalledWith(expect.any(Function), 10_000);
+    expect(timers.clearTimeout).toHaveBeenCalledWith(123);
+  });
+
   it("rejects server requests with the configured message", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.connectImpl = async () => {
