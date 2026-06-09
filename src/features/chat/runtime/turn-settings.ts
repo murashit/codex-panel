@@ -1,5 +1,5 @@
-import type { CollaborationMode } from "../generated/app-server/CollaborationMode";
-import type { ThreadSettingsUpdateParams } from "../generated/app-server/v2/ThreadSettingsUpdateParams";
+import type { CollaborationMode } from "../../../generated/app-server/CollaborationMode";
+import type { ThreadSettingsUpdateParams } from "../../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
   currentModel,
@@ -8,7 +8,7 @@ import {
   pendingRuntimeSettingPayload,
   type RuntimeSnapshot,
 } from "./effective-settings";
-import { requestedServiceTierRequestValue } from "./service-tier";
+import { requestedServiceTierRequestValue } from "../../../runtime/service-tier";
 
 export type ThreadSettingsUpdate = Omit<ThreadSettingsUpdateParams, "threadId">;
 export type TurnCollaborationModeWarning = "missing-model";

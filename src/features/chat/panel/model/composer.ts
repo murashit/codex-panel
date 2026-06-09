@@ -1,7 +1,7 @@
-import { readRuntimeConfig } from "../../../../runtime/config";
-import { autoReviewActive, currentModel, currentReasoningEffort, fastModeActive } from "../../../../runtime/effective-settings";
-import { compactReasoningEffortLabel } from "../../../../runtime/override-commands";
-import { contextSummary } from "../../../../runtime/status-summary";
+import { readRuntimeConfig } from "../../runtime/config";
+import { autoReviewActive, currentModel, currentReasoningEffort, fastModeActive } from "../../runtime/effective-settings";
+import { compactReasoningEffortLabel } from "../../runtime/override-commands";
+import { contextSummary } from "../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
 import type { ComposerContextMeterCellViewModel, ComposerContextMeterViewModel, ComposerMetaViewModel } from "./types";
 import type { runtimeSnapshotForChatSlices } from "./runtime";

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { collaborationModeLabel, collaborationModeToggleMessage, nextCollaborationMode } from "../../src/runtime/override-commands";
+import {
+  collaborationModeLabel,
+  collaborationModeToggleMessage,
+  nextCollaborationMode,
+} from "../../src/features/chat/runtime/override-commands";
 
 describe("runtime override commands", () => {
   it("toggles between Default and Plan mode", () => {

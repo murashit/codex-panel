@@ -2,16 +2,16 @@ import type { AppServerClient } from "../../../app-server/client";
 import type { ReasoningEffort } from "../../../runtime/models";
 import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "../../../runtime/approvals";
 import type { PanelCollaborationMode } from "../../../runtime/collaboration";
-import { collaborationModeToggleMessage, nextCollaborationMode } from "../../../runtime/override-commands";
-import { readRuntimeConfig } from "../../../runtime/config";
-import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "../../../runtime/effective-settings";
+import { collaborationModeToggleMessage, nextCollaborationMode } from "./override-commands";
+import { readRuntimeConfig } from "./config";
+import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "./effective-settings";
 import {
   pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate,
   type ThreadSettingsUpdate,
   type TurnCollaborationModeWarning,
-} from "../../../runtime/turn-settings";
+} from "./turn-settings";
 import type { RequestedServiceTier } from "../../../runtime/service-tier";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../../runtime/override-commands";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "./override-commands";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 
 const COLLABORATION_MODE_WARNING_MESSAGES: Record<TurnCollaborationModeWarning, string> = {

@@ -1,6 +1,6 @@
 import { panelThreadsFromAppServerThreads } from "../../../app-server/thread-model";
 import type { PanelThread } from "../../../domain/threads/model";
-import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../../runtime/effective-settings";
+import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../runtime/effective-settings";
 import { resumedThreadActionFromAppServerResponse } from "../threads/thread-resume";
 import type { ChatAppServerBaseHost } from "./shared";
 

@@ -6,7 +6,7 @@ import type { AskForApproval } from "../../../generated/app-server/v2/AskForAppr
 import type { PanelThread } from "../../../domain/threads/model";
 import type { ThreadStartResponse } from "../../../generated/app-server/v2/ThreadStartResponse";
 import type { ThreadResumeResponse } from "../../../generated/app-server/v2/ThreadResumeResponse";
-import type { ChatRuntimeState } from "../../../runtime/chat-runtime-state";
+import type { ChatRuntimeState } from "../runtime/state";
 import type { DisplayItem } from "../display/types";
 import type { ActiveThreadResumedAction } from "../chat-state-actions";
 

@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, TargetedKeyboardEvent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import type { EffectiveConfigSection, RateLimitSummary } from "../../../runtime/status-summary";
+import type { EffectiveConfigSection, RateLimitSummary } from "../runtime/status-summary";
 import { IconButton } from "../../../shared/ui/components";
 import { renderUiRoot } from "../../../shared/ui/ui-root";
 import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/model/types";

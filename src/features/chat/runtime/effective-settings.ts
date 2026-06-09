@@ -1,9 +1,9 @@
-import type { ActivePermissionProfile } from "../generated/app-server/v2/ActivePermissionProfile";
-import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
-import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
-import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
-import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
-import type { PanelModelOption } from "../domain/catalog/model";
+import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
+import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
+import type { ConfigReadResponse } from "../../../generated/app-server/v2/ConfigReadResponse";
+import type { RateLimitSnapshot } from "../../../generated/app-server/v2/RateLimitSnapshot";
+import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
+import type { PanelModelOption } from "../../../domain/catalog/model";
 import {
   configuredServiceTierRequestValue,
   isFastServiceTier,
@@ -11,11 +11,11 @@ import {
   type RequestedServiceTier,
   type ServiceTier,
   type ServiceTierRequest,
-} from "./service-tier";
-import { findModelOptionByIdOrName, supportedEffortsForModelOption, type ReasoningEffort } from "./models";
+} from "../../../runtime/service-tier";
+import { findModelOptionByIdOrName, supportedEffortsForModelOption, type ReasoningEffort } from "../../../runtime/models";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
-import type { PanelCollaborationMode } from "./collaboration";
-import { isAutoReviewReviewer, type ApprovalsReviewer } from "./approvals";
+import type { PanelCollaborationMode } from "../../../runtime/collaboration";
+import { isAutoReviewReviewer, type ApprovalsReviewer } from "../../../runtime/approvals";
 
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
 

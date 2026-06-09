@@ -1,6 +1,6 @@
 import type { PanelThread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import { effectiveConfigSections, rateLimitSummary } from "../../../../runtime/status-summary";
+import { effectiveConfigSections, rateLimitSummary } from "../../runtime/status-summary";
 import { connectionDiagnosticSections } from "../../diagnostics";
 import type { ConnectionDiagnosticsModelInput, ToolbarThreadRow, ToolbarViewModel, ToolbarViewModelInput } from "./types";
 

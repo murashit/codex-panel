@@ -1,8 +1,8 @@
-import type { RateLimitWindow } from "../generated/app-server/v2/RateLimitWindow";
-import type { SpendControlLimitSnapshot } from "../generated/app-server/v2/SpendControlLimitSnapshot";
-import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
-import { jsonPreview } from "../utils";
-import { defaultEffortForModelOption, sortedModelOptions } from "./models";
+import type { RateLimitWindow } from "../../../generated/app-server/v2/RateLimitWindow";
+import type { SpendControlLimitSnapshot } from "../../../generated/app-server/v2/SpendControlLimitSnapshot";
+import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
+import { jsonPreview } from "../../../utils";
+import { defaultEffortForModelOption, sortedModelOptions } from "../../../runtime/models";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
   currentApprovalsReviewer,

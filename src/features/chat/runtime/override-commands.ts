@@ -1,5 +1,5 @@
-import { isReasoningEffort, type ReasoningEffort } from "./models";
-export { collaborationModeLabel, collaborationModeToggleMessage, nextCollaborationMode } from "./collaboration";
+import { isReasoningEffort, type ReasoningEffort } from "../../../runtime/models";
+export { collaborationModeLabel, collaborationModeToggleMessage, nextCollaborationMode } from "../../../runtime/collaboration";
 
 const DEFAULT_ALIASES = new Set(["default", "reset", "clear", "off"]);
 

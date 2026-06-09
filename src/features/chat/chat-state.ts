@@ -22,7 +22,7 @@ import {
   setRequestedServiceTierRuntimeState,
   setSelectedCollaborationModeRuntimeState,
   type ChatRuntimeState,
-} from "../../runtime/chat-runtime-state";
+} from "./runtime/state";
 import type { PendingApproval } from "./requests/approval";
 import type { ComposerSuggestion } from "./composer/suggestions";
 import { upsertDisplayItem } from "./display/stream-updates";
@@ -71,7 +71,7 @@ export interface ChatActiveThreadState {
   tokenUsage: ThreadTokenUsage | null;
 }
 
-export type { ChatRuntimeState } from "../../runtime/chat-runtime-state";
+export type { ChatRuntimeState } from "./runtime/state";
 
 interface ChatComposerState {
   draft: string;

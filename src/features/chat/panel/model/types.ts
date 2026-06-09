@@ -1,6 +1,6 @@
 import type { ReasoningEffort } from "../../../../runtime/models";
-import type { RuntimeSnapshot } from "../../../../runtime/effective-settings";
-import type { EffectiveConfigSection, RateLimitSummary } from "../../../../runtime/status-summary";
+import type { RuntimeSnapshot } from "../../runtime/effective-settings";
+import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
 
 export interface RuntimeSnapshotInput {

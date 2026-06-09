@@ -1,16 +1,16 @@
-import type { ReasoningSummary } from "../generated/app-server/ReasoningSummary";
-import type { Verbosity } from "../generated/app-server/Verbosity";
-import type { WebSearchMode } from "../generated/app-server/WebSearchMode";
-import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
-import type { AppsConfig } from "../generated/app-server/v2/AppsConfig";
-import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
-import type { Config } from "../generated/app-server/v2/Config";
-import type { SandboxMode } from "../generated/app-server/v2/SandboxMode";
-import type { SandboxWorkspaceWrite } from "../generated/app-server/v2/SandboxWorkspaceWrite";
-import type { ToolsV2 } from "../generated/app-server/v2/ToolsV2";
-import { parseServiceTier, type ServiceTier } from "./service-tier";
-import { isReasoningEffort, type ReasoningEffort } from "./models";
-import { approvalsReviewerOrNull, type ApprovalsReviewer } from "./approvals";
+import type { ReasoningSummary } from "../../../generated/app-server/ReasoningSummary";
+import type { Verbosity } from "../../../generated/app-server/Verbosity";
+import type { WebSearchMode } from "../../../generated/app-server/WebSearchMode";
+import type { ConfigReadResponse } from "../../../generated/app-server/v2/ConfigReadResponse";
+import type { AppsConfig } from "../../../generated/app-server/v2/AppsConfig";
+import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
+import type { Config } from "../../../generated/app-server/v2/Config";
+import type { SandboxMode } from "../../../generated/app-server/v2/SandboxMode";
+import type { SandboxWorkspaceWrite } from "../../../generated/app-server/v2/SandboxWorkspaceWrite";
+import type { ToolsV2 } from "../../../generated/app-server/v2/ToolsV2";
+import { parseServiceTier, type ServiceTier } from "../../../runtime/service-tier";
+import { isReasoningEffort, type ReasoningEffort } from "../../../runtime/models";
+import { approvalsReviewerOrNull, type ApprovalsReviewer } from "../../../runtime/approvals";
 
 export interface RuntimeConfigProjection {
   profile: string | null;

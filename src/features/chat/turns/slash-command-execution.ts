@@ -19,7 +19,7 @@ import {
   parseModelOverride,
   parseReasoningEffortOverride,
   reasoningEffortOverrideMessage,
-} from "../../../runtime/override-commands";
+} from "../runtime/override-commands";
 
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;

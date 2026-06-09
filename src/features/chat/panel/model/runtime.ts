@@ -1,13 +1,13 @@
-import { readRuntimeConfig } from "../../../../runtime/config";
+import { readRuntimeConfig } from "../../runtime/config";
 import {
   currentModel,
   currentReasoningEffort,
   pendingRuntimeSettingLabel,
   serviceTierLabel,
   supportedReasoningEfforts,
-} from "../../../../runtime/effective-settings";
+} from "../../runtime/effective-settings";
 import { sortedModelOptions } from "../../../../runtime/models";
-import { contextSummary, rateLimitSummary, type RateLimitSummary } from "../../../../runtime/status-summary";
+import { contextSummary, rateLimitSummary, type RateLimitSummary } from "../../runtime/status-summary";
 import type {
   EffortStatusLinesInput,
   ModelStatusLinesInput,
