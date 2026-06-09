@@ -1,4 +1,4 @@
-import { parseServiceTier } from "../../../app-server/service-tier";
+import { parseServiceTier } from "../../../runtime/service-tier";
 import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
 import type { FileUpdateChange } from "../../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";

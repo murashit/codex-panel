@@ -1,8 +1,4 @@
-import type { CollaborationMode } from "../generated/app-server/CollaborationMode";
-import type { ModeKind } from "../generated/app-server/ModeKind";
-import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ActivePermissionProfile } from "../generated/app-server/v2/ActivePermissionProfile";
-import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
@@ -15,9 +11,11 @@ import {
   type RequestedServiceTier,
   type ServiceTier,
   type ServiceTierRequest,
-} from "../app-server/service-tier";
-import { findModelOptionByIdOrName, supportedEffortsForModelOption } from "./models";
+} from "./service-tier";
+import { findModelOptionByIdOrName, supportedEffortsForModelOption, type ReasoningEffort } from "./models";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
+import type { PanelCollaborationMode } from "./collaboration";
+import { isAutoReviewReviewer, type ApprovalsReviewer } from "./approvals";
 
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
 
@@ -26,7 +24,7 @@ export interface RuntimeSnapshot {
   activeThreadId: string | null;
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
-  activeCollaborationMode: ModeKind;
+  activeCollaborationMode: PanelCollaborationMode;
   activeServiceTier: ServiceTier | null;
   activeApprovalPolicy: AskForApproval | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
@@ -34,17 +32,12 @@ export interface RuntimeSnapshot {
   requestedModel: PendingRuntimeSetting<string>;
   requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
   requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
-  selectedCollaborationMode: ModeKind;
+  selectedCollaborationMode: PanelCollaborationMode;
   requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   hasThreadTurns: boolean;
   availableModels: readonly PanelModelOption[];
-}
-
-export interface TurnRuntimeSettings {
-  collaborationMode: CollaborationMode | null;
-  warning: string | null;
 }
 
 export function currentServiceTier(
@@ -112,16 +105,6 @@ export function autoReviewActive(
   return isAutoReviewReviewer(currentApprovalsReviewer(snapshot, config));
 }
 
-export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRuntimeSettings {
-  const model = currentModel(snapshot);
-  const effort = currentReasoningEffort(snapshot);
-  const collaborationMode = model ? turnCollaborationMode(snapshot.selectedCollaborationMode, model, effort) : null;
-  return {
-    collaborationMode,
-    warning: model ? null : "No effective model is available. Sending without a mode override.",
-  };
-}
-
 export function supportedReasoningEfforts(snapshot: RuntimeSnapshot): ReasoningEffort[] {
   const model = currentModel(snapshot);
   return supportedEffortsForModelOption(findModelOptionByIdOrName(snapshot.availableModels, model));
@@ -180,21 +163,6 @@ export function pendingRuntimeSettingLabel<T>(setting: PendingRuntimeSetting<T>)
   if (setting.kind === "set") return String(setting.value);
   if (setting.kind === "resetToConfig") return "(reset to config)";
   return "(none)";
-}
-
-function isAutoReviewReviewer(value: ApprovalsReviewer | null): boolean {
-  return value === "auto_review" || value === "guardian_subagent";
-}
-
-function turnCollaborationMode(mode: ModeKind, model: string, reasoningEffort: ReasoningEffort | null): CollaborationMode {
-  return {
-    mode,
-    settings: {
-      model,
-      reasoning_effort: reasoningEffort,
-      developer_instructions: null,
-    },
-  };
 }
 
 function currentModelServiceTiers(

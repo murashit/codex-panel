@@ -90,6 +90,22 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual(["Fast mode on for subsequent turns.", "Fast mode off for subsequent turns."]);
   });
 
+  it("warns without reporting collaboration mode as applied when no effective model is available", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    const store = createChatStateStore(state);
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
+
+    expect(client.updateThreadSettings).not.toHaveBeenCalled();
+    expect(store.getState().runtime.selectedCollaborationMode).toBe("plan");
+    expect(store.getState().runtime.activeCollaborationMode).toBe("default");
+    expect(messages).toEqual(["Plan mode is selected, but No effective model is available. Sending without a mode override."]);
+  });
+
   it("leaves pending override in place when the app-server update fails", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";

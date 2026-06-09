@@ -1,23 +1,32 @@
 import type { AppServerClient } from "../../../app-server/client";
-import { requestedServiceTierRequestValue, type RequestedServiceTier } from "../../../app-server/service-tier";
-import type { ModeKind } from "../../../generated/app-server/ModeKind";
 import type { ReasoningEffort } from "../../../runtime/models";
-import type { ApprovalsReviewer } from "../../../generated/app-server/v2/ApprovalsReviewer";
-import type { ThreadSettingsUpdateParams } from "../../../generated/app-server/v2/ThreadSettingsUpdateParams";
+import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "../../../runtime/approvals";
+import type { PanelCollaborationMode } from "../../../runtime/collaboration";
 import { collaborationModeToggleMessage, nextCollaborationMode } from "../../../runtime/override-commands";
 import { readRuntimeConfig } from "../../../runtime/config";
+import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "../../../runtime/effective-settings";
 import {
-  autoReviewActive,
-  fastModeActive,
-  fastServiceTierRequestValue,
-  pendingRuntimeSettingPayload,
-  requestedTurnRuntimeSettings,
-  type RuntimeSnapshot,
-} from "../../../runtime/effective-settings";
+  pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate,
+  type ThreadSettingsUpdate,
+  type TurnCollaborationModeWarning,
+} from "../../../runtime/turn-settings";
+import type { RequestedServiceTier } from "../../../runtime/service-tier";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../../runtime/override-commands";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 
-type ThreadSettingsUpdate = Omit<ThreadSettingsUpdateParams, "threadId">;
+const COLLABORATION_MODE_WARNING_MESSAGES: Record<TurnCollaborationModeWarning, string> = {
+  "missing-model": "No effective model is available. Sending without a mode override.",
+};
+
+interface ApplyPendingThreadSettingsResult {
+  ok: boolean;
+  collaborationModeApplied: boolean;
+}
+
+interface PendingThreadSettingsUpdateResult {
+  update: ThreadSettingsUpdate;
+  collaborationModeWarning: TurnCollaborationModeWarning | null;
+}
 
 export interface RuntimeSettingsActionsHost {
   stateStore: ChatStateStore;
@@ -35,7 +44,7 @@ export interface ChatRuntimeSettingsActions {
   setRequestedReasoningEffortFromUi: (effort: ReasoningEffort | null) => Promise<void>;
   toggleFastMode: () => Promise<void>;
   toggleCollaborationMode: () => Promise<void>;
-  setCollaborationMode: (collaborationMode: ModeKind) => Promise<boolean>;
+  setCollaborationMode: (collaborationMode: PanelCollaborationMode) => Promise<boolean>;
   toggleAutoReview: () => Promise<void>;
 }
 
@@ -54,20 +63,25 @@ export function createChatRuntimeSettingsActions(host: RuntimeSettingsActionsHos
 }
 
 async function applyPendingThreadSettings(host: RuntimeSettingsActionsHost): Promise<boolean> {
+  return (await applyPendingThreadSettingsResult(host)).ok;
+}
+
+async function applyPendingThreadSettingsResult(host: RuntimeSettingsActionsHost): Promise<ApplyPendingThreadSettingsResult> {
   const client = host.currentClient();
   const threadId = state(host).activeThread.id;
-  if (!client || !threadId) return true;
+  if (!client || !threadId) return { ok: true, collaborationModeApplied: true };
 
-  const update = pendingThreadSettingsUpdate(host);
-  if (Object.keys(update).length === 0) return true;
+  const { update, collaborationModeWarning } = pendingThreadSettingsUpdate(host);
+  const collaborationModeApplied = !collaborationModeWarning && "collaborationMode" in update;
+  if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
 
   try {
     await client.updateThreadSettings(threadId, update);
     dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
-    return true;
+    return { ok: true, collaborationModeApplied };
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    return false;
+    return { ok: false, collaborationModeApplied: false };
   }
 }
 
@@ -108,59 +122,37 @@ async function toggleCollaborationMode(host: RuntimeSettingsActionsHost): Promis
   await setCollaborationMode(host, next);
 }
 
-async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborationMode: ModeKind): Promise<boolean> {
+async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborationMode: PanelCollaborationMode): Promise<boolean> {
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode });
   dispatch(host, { type: "ui/panel-set", panel: null });
-  const applied = await applyPendingThreadSettings(host);
-  if (applied) host.addSystemMessage(collaborationModeToggleMessage(collaborationMode));
-  return applied;
+  const result = await applyPendingThreadSettingsResult(host);
+  if (result.ok && result.collaborationModeApplied) host.addSystemMessage(collaborationModeToggleMessage(collaborationMode));
+  return result.ok;
 }
 
 async function toggleAutoReview(host: RuntimeSettingsActionsHost): Promise<void> {
-  const next: ApprovalsReviewer = autoReviewActive(host.runtimeSnapshot(), readRuntimeConfig(state(host).connection.effectiveConfig))
-    ? "user"
-    : "auto_review";
-  dispatch(host, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: next });
+  const nextState = nextAutoReviewState(
+    autoReviewActive(host.runtimeSnapshot(), readRuntimeConfig(state(host).connection.effectiveConfig)),
+  );
+  dispatch(host, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: autoReviewReviewerForState(nextState) });
   dispatch(host, { type: "ui/panel-set", panel: null });
   if (!(await applyPendingThreadSettings(host))) return;
-  host.addSystemMessage(next === "auto_review" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.");
+  host.addSystemMessage(autoReviewToggleMessage(nextState));
 }
 
-function pendingThreadSettingsUpdate(host: RuntimeSettingsActionsHost): ThreadSettingsUpdate {
-  const update: ThreadSettingsUpdate = {};
-  const currentState = state(host);
+function pendingThreadSettingsUpdate(host: RuntimeSettingsActionsHost): PendingThreadSettingsUpdateResult {
   const snapshot = host.runtimeSnapshot();
-  const turnSettings = requestedTurnRuntimeSettings(snapshot);
-
-  if (currentState.runtime.requestedModel.kind !== "unchanged") {
-    const model = pendingRuntimeSettingPayload(currentState.runtime.requestedModel);
-    if (model !== undefined) update.model = model;
-  }
-  if (currentState.runtime.requestedReasoningEffort.kind !== "unchanged") {
-    const effort = pendingRuntimeSettingPayload(currentState.runtime.requestedReasoningEffort);
-    if (effort !== undefined) update.effort = effort;
-  }
-  if (currentState.runtime.requestedServiceTier.kind === "set") {
-    const serviceTier = requestedServiceTierRequestValue(
-      currentState.runtime.requestedServiceTier.value,
-      fastServiceTierRequestValue(snapshot, readRuntimeConfig(currentState.connection.effectiveConfig)),
+  const { update, collaborationModeWarning } = buildPendingThreadSettingsUpdate(snapshot);
+  if (collaborationModeWarning) {
+    host.addSystemMessage(
+      `${host.collaborationModeLabel()} mode is selected, but ${collaborationModeWarningMessage(collaborationModeWarning)}`,
     );
-    if (serviceTier !== undefined) update.serviceTier = serviceTier;
-  } else if (currentState.runtime.requestedServiceTier.kind === "resetToConfig") {
-    update.serviceTier = null;
   }
-  if (currentState.runtime.requestedApprovalsReviewer.kind !== "unchanged") {
-    const approvalsReviewer = pendingRuntimeSettingPayload(currentState.runtime.requestedApprovalsReviewer);
-    if (approvalsReviewer !== undefined) update.approvalsReviewer = approvalsReviewer;
-  }
-  if (currentState.runtime.selectedCollaborationMode !== currentState.runtime.activeCollaborationMode) {
-    if (turnSettings.warning) {
-      host.addSystemMessage(`${host.collaborationModeLabel()} mode is selected, but ${turnSettings.warning}`);
-    } else if (turnSettings.collaborationMode) {
-      update.collaborationMode = turnSettings.collaborationMode;
-    }
-  }
-  return update;
+  return { update, collaborationModeWarning };
+}
+
+function collaborationModeWarningMessage(warning: TurnCollaborationModeWarning): string {
+  return COLLABORATION_MODE_WARNING_MESSAGES[warning];
 }
 
 function state(host: RuntimeSettingsActionsHost): ChatState {

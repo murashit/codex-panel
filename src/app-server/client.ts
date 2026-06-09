@@ -45,10 +45,11 @@ import type { ClientRequestMethod, ClientRequestParams, PendingRequest, RpcError
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
-import type { ServiceTierRequest } from "./service-tier";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const MAX_SUPPRESSED_ORPHAN_RESPONSES = 256;
+
+type ServiceTierRequest = string | null | undefined;
 
 export interface AppServerClientHandlers {
   onNotification: (notification: ServerNotification) => void;

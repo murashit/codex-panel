@@ -1,8 +1,8 @@
-import { parseServiceTier } from "../../../app-server/service-tier";
+import { parseServiceTier } from "../../../runtime/service-tier";
 import { upsertThread } from "../../../domain/threads/model";
 import type { ReasoningEffort } from "../../../runtime/models";
 import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
-import type { ApprovalsReviewer } from "../../../generated/app-server/v2/ApprovalsReviewer";
+import type { ApprovalsReviewer } from "../../../runtime/approvals";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
 import type { PanelThread } from "../../../domain/threads/model";
 import type { ActiveThreadResumedAction } from "../chat-state";

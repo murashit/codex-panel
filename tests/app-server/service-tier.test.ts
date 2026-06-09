@@ -5,7 +5,7 @@ import {
   isFastServiceTier,
   parseServiceTier,
   requestedServiceTierRequestValue,
-} from "../../src/app-server/service-tier";
+} from "../../src/runtime/service-tier";
 
 describe("service tier", () => {
   it("accepts non-empty service tier ids from config and app-server reports", () => {

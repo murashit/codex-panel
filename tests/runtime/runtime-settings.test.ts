@@ -20,13 +20,13 @@ import {
   fastServiceTierRequestValue,
   fastModeLabel,
   requestedOrConfiguredServiceTier,
-  requestedTurnRuntimeSettings,
   resetRuntimeSettingToConfig,
   pendingRuntimeSettingPayload,
   setPendingRuntimeSetting,
   serviceTierLabel,
   type RuntimeSnapshot,
 } from "../../src/runtime/effective-settings";
+import { requestedTurnCollaborationModeSettings } from "../../src/runtime/turn-settings";
 import { readRuntimeConfig } from "../../src/runtime/config";
 import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../src/runtime/status-summary";
 
@@ -67,7 +67,7 @@ describe("runtime settings", () => {
 
     expect(currentModel(snapshot)).toBe("gpt-5.5");
     expect(currentReasoningEffort(snapshot)).toBe("high");
-    expect(requestedTurnRuntimeSettings(snapshot)).toMatchObject({
+    expect(requestedTurnCollaborationModeSettings(snapshot)).toMatchObject({
       collaborationMode: {
         mode: "default",
         settings: { model: "gpt-5.5", reasoning_effort: "high" },
@@ -91,7 +91,7 @@ describe("runtime settings", () => {
 
   it("builds the Plan collaboration mode payload from selected runtime settings", () => {
     expect(
-      requestedTurnRuntimeSettings(
+      requestedTurnCollaborationModeSettings(
         runtimeSnapshot({
           selectedCollaborationMode: "plan",
           requestedModel: setPendingRuntimeSetting("gpt-5.5"),
@@ -265,7 +265,7 @@ describe("runtime settings", () => {
 
     expect(autoReviewActive(snapshot)).toBe(true);
     expect(currentApprovalsReviewer(snapshot)).toBe("auto_review");
-    expect(requestedTurnRuntimeSettings(snapshot)).not.toHaveProperty("approvalsReviewer");
+    expect(requestedTurnCollaborationModeSettings(snapshot)).not.toHaveProperty("approvalsReviewer");
   });
 
   it("treats active thread runtime as display state without persisting it into turn overrides", () => {
@@ -277,14 +277,14 @@ describe("runtime settings", () => {
 
     expect(currentModel(snapshot)).toBe("gpt-5-active");
     expect(currentServiceTier(snapshot)).toBe("fast");
-    expect(requestedTurnRuntimeSettings(snapshot)).toMatchObject({
+    expect(requestedTurnCollaborationModeSettings(snapshot)).toMatchObject({
       collaborationMode: {
         mode: "default",
         settings: { model: "gpt-5-active" },
       },
     });
-    expect(requestedTurnRuntimeSettings(snapshot)).not.toHaveProperty("model");
-    expect(requestedTurnRuntimeSettings(snapshot)).not.toHaveProperty("effort");
+    expect(requestedTurnCollaborationModeSettings(snapshot)).not.toHaveProperty("model");
+    expect(requestedTurnCollaborationModeSettings(snapshot)).not.toHaveProperty("effort");
   });
 
   it("separates effective runtime, config defaults, and pending changes in status details", () => {

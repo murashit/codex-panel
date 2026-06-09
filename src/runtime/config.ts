@@ -1,17 +1,16 @@
-import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ReasoningSummary } from "../generated/app-server/ReasoningSummary";
 import type { Verbosity } from "../generated/app-server/Verbosity";
 import type { WebSearchMode } from "../generated/app-server/WebSearchMode";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { AppsConfig } from "../generated/app-server/v2/AppsConfig";
 import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
-import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { Config } from "../generated/app-server/v2/Config";
 import type { SandboxMode } from "../generated/app-server/v2/SandboxMode";
 import type { SandboxWorkspaceWrite } from "../generated/app-server/v2/SandboxWorkspaceWrite";
 import type { ToolsV2 } from "../generated/app-server/v2/ToolsV2";
-import { parseServiceTier, type ServiceTier } from "../app-server/service-tier";
-import { isReasoningEffort } from "./models";
+import { parseServiceTier, type ServiceTier } from "./service-tier";
+import { isReasoningEffort, type ReasoningEffort } from "./models";
+import { approvalsReviewerOrNull, type ApprovalsReviewer } from "./approvals";
 
 export interface RuntimeConfigProjection {
   profile: string | null;
@@ -62,10 +61,6 @@ export function readRuntimeConfig(effectiveConfig: ConfigReadResponse | null): R
 }
 
 type ConfigProjectionRecord = Partial<Config> & Record<string, unknown>;
-
-function approvalsReviewerOrNull(value: unknown): ApprovalsReviewer | null {
-  return value === "user" || value === "auto_review" || value === "guardian_subagent" ? value : null;
-}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};

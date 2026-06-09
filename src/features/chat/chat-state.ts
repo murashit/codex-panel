@@ -1,8 +1,6 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
-import type { ModeKind } from "../../generated/app-server/ModeKind";
 import type { ReasoningEffort } from "../../runtime/models";
 import type { ActivePermissionProfile } from "../../generated/app-server/v2/ActivePermissionProfile";
-import type { ApprovalsReviewer } from "../../generated/app-server/v2/ApprovalsReviewer";
 import type { AskForApproval } from "../../generated/app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
@@ -13,7 +11,9 @@ import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/T
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { AppServerDiagnostics } from "../../app-server/compatibility";
 import { createAppServerDiagnostics } from "../../app-server/compatibility";
-import { parseServiceTier, type RequestedServiceTier, type ServiceTier } from "../../app-server/service-tier";
+import { parseServiceTier, type RequestedServiceTier, type ServiceTier } from "../../runtime/service-tier";
+import type { ApprovalsReviewer } from "../../runtime/approvals";
+import type { PanelCollaborationMode } from "../../runtime/collaboration";
 import {
   resetRuntimeSettingToConfig,
   setPendingRuntimeSetting,
@@ -70,7 +70,7 @@ export interface ChatActiveThreadState {
 export interface ChatRuntimeState {
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
-  activeCollaborationMode: ModeKind;
+  activeCollaborationMode: PanelCollaborationMode;
   activeServiceTier: ServiceTier | null;
   activeApprovalPolicy: AskForApproval | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
@@ -78,7 +78,7 @@ export interface ChatRuntimeState {
   requestedModel: PendingRuntimeSetting<string>;
   requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
   requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
-  selectedCollaborationMode: ModeKind;
+  selectedCollaborationMode: PanelCollaborationMode;
   requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
 }
 
@@ -169,7 +169,7 @@ export interface ActiveThreadSettingsAppliedAction {
   cwd: string;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
-  collaborationMode: ModeKind;
+  collaborationMode: PanelCollaborationMode;
   serviceTier: ServiceTier | null;
   approvalPolicy: AskForApproval | null;
   approvalsReviewer: ApprovalsReviewer | null;
@@ -186,7 +186,7 @@ type RuntimeAction =
   | { type: "runtime/requested-effort-set"; effort: ReasoningEffort | null }
   | { type: "runtime/requested-service-tier-set"; serviceTier: RequestedServiceTier | null }
   | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null }
-  | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: ModeKind }
+  | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: PanelCollaborationMode }
   | { type: "runtime/pending-thread-settings-committed"; update: Omit<ThreadSettingsUpdateParams, "threadId"> };
 
 interface TurnStartedAction {
