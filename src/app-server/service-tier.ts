@@ -1,5 +1,4 @@
 export type ServiceTier = string;
-export type RequestedServiceTier = "fast" | "off";
 export type ServiceTierRequest = string | null | undefined;
 
 export interface ServiceTierMetadata {
@@ -12,10 +11,7 @@ export function parseServiceTier(value: unknown): ServiceTier | null {
   return null;
 }
 
-export function requestedServiceTierRequestValue(
-  value: RequestedServiceTier | null,
-  fastServiceTierId = "fast",
-): string | null | undefined {
+export function requestedServiceTierRequestValue(value: "fast" | "off" | null, fastServiceTierId = "fast"): string | null | undefined {
   if (value === "fast") return fastServiceTierId;
   if (value === "off") return null;
   return undefined;

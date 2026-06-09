@@ -1,4 +1,4 @@
-import type { ApprovalsReviewer as AppServerApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
+import type { ApprovalsReviewer as AppServerApprovalsReviewer } from "../../../generated/app-server/v2/ApprovalsReviewer";
 
 export type ApprovalsReviewer = AppServerApprovalsReviewer;
 export type AutoReviewState = "enabled" | "disabled";

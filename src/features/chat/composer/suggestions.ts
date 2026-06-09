@@ -1,13 +1,8 @@
 import type { PanelThread } from "../../../domain/threads/model";
 import type { PanelModelOption, PanelSkillOption } from "../../../domain/catalog/model";
 import { prepareFuzzySearch, sortSearchResults, type SearchResult } from "obsidian";
-import {
-  findModelOptionByIdOrName,
-  isReasoningEffort,
-  REASONING_EFFORTS,
-  sortedModelOptions,
-  supportedEffortsForModelOption,
-} from "../../../runtime/models";
+import { findModelOptionByIdOrName, sortedModelOptions } from "../../../domain/catalog/model";
+import { isReasoningEffort, REASONING_EFFORTS, supportedEffortsForModelOption } from "../../../domain/catalog/reasoning-effort";
 import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
 import { getThreadTitle } from "../../../domain/threads/model";
 import { shortThreadId } from "../../../utils";

@@ -18,18 +18,18 @@ CSS is authored in `src/styles/` and generated into the ignored root `styles.css
 The source tree is organized by responsibility rather than by the original single Obsidian plugin entrypoint:
 
 - `src/main.ts` registers Obsidian views, commands, settings, and lifecycle hooks.
-- `src/app-server/` owns app-server transport, connection lifecycle, compatibility helpers, and RPC facades.
-- `src/features/chat/` owns the main Codex chat surface: Obsidian `ItemView` classes, panel orchestration, request/app-server controllers, composer behavior, display models, chat-only UI renderers, approvals, user input, thread actions, and panel-specific state.
+- `src/app-server/` owns app-server transport, connection lifecycle, compatibility helpers, runtime payload helpers, and RPC facades.
+- `src/features/chat/` owns the main Codex chat surface: Obsidian `ItemView` classes, panel orchestration, request/app-server controllers, composer behavior, display models, chat-only UI renderers, runtime state and status projection, approvals, user input, thread actions, and panel-specific state.
 - `src/features/threads-view/` owns the dedicated Obsidian thread list view, including app-server thread list rendering and live open-panel snapshot aggregation.
 - `src/features/selection-rewrite/` owns the Markdown editor selection rewrite command, popover, prompt/output handling, and ephemeral rewrite thread runner.
-- `src/runtime/` owns Codex runtime config projection, model metadata, effective runtime setting resolution, override-command parsing/labels, and status summaries shared by views.
 - `src/workspace/` owns Obsidian workspace coordination across Codex surfaces, including panel discovery/opening, open-panel snapshots, and thread surface broadcasts.
 - `src/shared/` contains feature-neutral helpers, including reusable DOM pieces and unified diff display helpers shared by chat and selection rewrite.
 - `src/settings/` contains Obsidian settings models, settings-tab rendering, and app-server-backed dynamic settings data.
+- `src/domain/catalog/` contains generated-independent model catalog and reasoning effort helpers shared outside app-server transport.
 - `src/domain/threads/` contains thread title, reference, and archive export helpers shared outside the chat feature.
 - `src/styles/` contains the authored CSS modules and `order.json` concatenation order. `scripts/build-styles.mjs` concatenates them into the ignored root `styles.css`, which remains the Obsidian release asset.
 
-Keep new code near the state or API it owns. Feature code should not import from another feature directly; move shared behavior to `src/shared/`, `src/domain/`, `src/app-server/`, or `src/runtime/` when more than one feature needs it.
+Keep new code near the state or API it owns. Feature code should not import from another feature directly; move shared behavior to `src/shared/`, `src/domain/`, or `src/app-server/` when more than one feature needs it.
 
 Codex Panel's runtime UI is Preact-owned through the direct Preact APIs. Keep chat panel UI, the Threads view, and the selection rewrite popover in Preact components. Use `preact/hooks` for hooks, `preact` for component types and fragments, and the shared root adapter for mounting and unmounting Preact subtrees. Imperative DOM writes are limited to explicit bridge modules or Obsidian-owned API boundaries such as `MarkdownRenderer`, diff rendering, icon rendering, `SuggestModal`, and the Obsidian `Setting`-based settings tab. ESLint enforces this boundary with allowlisted bridge files; add a new allowlist entry only when the code is genuinely bridging an external DOM API.
 

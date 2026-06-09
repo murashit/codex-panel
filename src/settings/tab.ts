@@ -3,10 +3,11 @@ import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } fro
 import type { AppServerClient } from "../app-server/client";
 import { withShortLivedAppServerClient } from "../app-server/short-lived-client";
 import { DEFAULT_CODEX_PATH } from "../constants";
-import type { ReasoningEffort } from "../runtime/models";
+import type { ReasoningEffort } from "../domain/catalog/reasoning-effort";
 import type { PanelHookItem, PanelModelOption } from "../domain/catalog/model";
 import type { PanelThread } from "../domain/threads/model";
-import { findModelOptionByIdOrName, REASONING_EFFORTS, sortedModelOptions, supportedEffortsForModelOption } from "../runtime/models";
+import { REASONING_EFFORTS, supportedEffortsForModelOption } from "../domain/catalog/reasoning-effort";
+import { findModelOptionByIdOrName, sortedModelOptions } from "../domain/catalog/model";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 import {
@@ -511,7 +512,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private effortOptions(modelIdOrName: string | null): ReasoningEffort[] {
     const model = this.selectedModel(modelIdOrName);
-    return model ? supportedEffortsForModelOption(model) : REASONING_EFFORTS;
+    return model ? supportedEffortsForModelOption(model) : [...REASONING_EFFORTS];
   }
 
   private namingEffortSupported(effort: ReasoningEffort | null): boolean {

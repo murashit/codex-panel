@@ -2,7 +2,8 @@ import type { RateLimitWindow } from "../../../generated/app-server/v2/RateLimit
 import type { SpendControlLimitSnapshot } from "../../../generated/app-server/v2/SpendControlLimitSnapshot";
 import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
 import { jsonPreview } from "../../../utils";
-import { defaultEffortForModelOption, sortedModelOptions } from "../../../runtime/models";
+import { sortedModelOptions } from "../../../domain/catalog/model";
+import { defaultEffortForModelOption } from "../../../domain/catalog/reasoning-effort";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
   currentApprovalsReviewer,

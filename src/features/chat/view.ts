@@ -3,7 +3,7 @@ import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import type { AppServerClient } from "../../app-server/client";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
-import type { ReasoningEffort } from "../../runtime/models";
+import type { ReasoningEffort } from "../../domain/catalog/reasoning-effort";
 import type { PanelModelOption } from "../../domain/catalog/model";
 import type { PanelThread } from "../../domain/threads/model";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/override-commands";

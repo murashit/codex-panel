@@ -1,4 +1,4 @@
-import type { ReasoningEffort } from "../../../runtime/models";
+import type { ReasoningEffort } from "../../../domain/catalog/reasoning-effort";
 import type { PanelThread } from "../../../domain/threads/model";
 import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";

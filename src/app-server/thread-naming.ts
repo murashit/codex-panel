@@ -11,7 +11,7 @@ import type { Turn } from "../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
 import { panelModelOptionsFromAppServerModels } from "./catalog-model";
 import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
-import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../runtime/models";
+import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "./runtime-overrides";
 import type { PanelModelOption } from "../domain/catalog/model";
 import {
   createStructuredTurnRunLifecycle,

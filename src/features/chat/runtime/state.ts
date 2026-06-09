@@ -1,10 +1,11 @@
 import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
 import type { ThreadSettingsUpdateParams } from "../../../generated/app-server/v2/ThreadSettingsUpdateParams";
-import { parseServiceTier, type RequestedServiceTier, type ServiceTier } from "../../../runtime/service-tier";
-import type { PanelCollaborationMode } from "../../../runtime/collaboration";
-import type { ReasoningEffort } from "../../../runtime/models";
-import type { ApprovalsReviewer } from "../../../runtime/approvals";
+import { parseServiceTier, type ServiceTier } from "../../../app-server/service-tier";
+import type { PanelCollaborationMode } from "./collaboration";
+import type { ReasoningEffort } from "../../../domain/catalog/reasoning-effort";
+import type { ApprovalsReviewer } from "./approvals";
+import type { RequestedServiceTier } from "./service-tier-state";
 import {
   resetRuntimeSettingToConfig,
   setPendingRuntimeSetting,

@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../app-server/client";
-import type { ReasoningEffort } from "../../../runtime/models";
-import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "../../../runtime/approvals";
-import type { PanelCollaborationMode } from "../../../runtime/collaboration";
+import type { ReasoningEffort } from "../../../domain/catalog/reasoning-effort";
+import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "./approvals";
+import type { PanelCollaborationMode } from "./collaboration";
 import { collaborationModeToggleMessage, nextCollaborationMode } from "./override-commands";
 import { readRuntimeConfig } from "./config";
 import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "./effective-settings";
@@ -10,7 +10,7 @@ import {
   type ThreadSettingsUpdate,
   type TurnCollaborationModeWarning,
 } from "./turn-settings";
-import type { RequestedServiceTier } from "../../../runtime/service-tier";
+import type { RequestedServiceTier } from "./service-tier-state";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "./override-commands";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 

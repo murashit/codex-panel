@@ -8,7 +8,7 @@ import {
   pendingRuntimeSettingPayload,
   type RuntimeSnapshot,
 } from "./effective-settings";
-import { requestedServiceTierRequestValue } from "../../../runtime/service-tier";
+import { requestedServiceTierRequestValue } from "../../../app-server/service-tier";
 
 export type ThreadSettingsUpdate = Omit<ThreadSettingsUpdateParams, "threadId">;
 export type TurnCollaborationModeWarning = "missing-model";
