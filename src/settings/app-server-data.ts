@@ -1,6 +1,9 @@
 import type { AppServerClient } from "../app-server/client";
-import { loadPanelHooksForCwd, loadPanelModelOptions } from "../app-server/catalog-data";
-import { appServerHookOperationFromPanelHookItem } from "../app-server/catalog-model";
+import {
+  appServerHookOperationFromPanelHookItem,
+  panelHookItemsFromAppServerHooks,
+  panelModelOptionsFromAppServerModels,
+} from "../app-server/catalog-model";
 import { panelThreadFromAppServerThread, panelThreadsFromAppServerThreads } from "../app-server/thread-model";
 import type { PanelHookItem, PanelModelOption } from "../domain/catalog/metadata";
 import type { PanelThread } from "../domain/threads/model";
@@ -32,8 +35,8 @@ type SettledSettingsData<T> =
 
 export async function loadSettingsData(client: AppServerClient, cwd: string): Promise<SettingsDataLoad> {
   const [modelsResult, hooksResult, archivedThreadsResult] = await Promise.allSettled([
-    loadPanelModelOptions(client, false),
-    loadPanelHooksForCwd(client, cwd),
+    readSettingsModelOptions(client),
+    readSettingsHooks(client, cwd),
     client.listThreads(cwd, true),
   ] as const);
 
@@ -62,7 +65,7 @@ export async function loadSettingsData(client: AppServerClient, cwd: string): Pr
 }
 
 export async function loadHookData(client: AppServerClient, cwd: string): Promise<LoadedHooks> {
-  const hooks = await loadPanelHooksForCwd(client, cwd);
+  const hooks = await readSettingsHooks(client, cwd);
   return {
     ...hooks,
     status: hooksStatus(hooks.hooks.length),
@@ -84,6 +87,22 @@ export async function restoreArchivedPanelThread(client: AppServerClient, thread
 
 function hooksStatus(count: number): string {
   return `Loaded ${String(count)} hook${count === 1 ? "" : "s"}.`;
+}
+
+async function readSettingsModelOptions(client: AppServerClient): Promise<PanelModelOption[]> {
+  const response = await client.listModels(false);
+  return panelModelOptionsFromAppServerModels(response.data);
+}
+
+async function readSettingsHooks(client: AppServerClient, cwd: string): Promise<Omit<LoadedHooks, "status">> {
+  const response = await client.listHooks(cwd);
+  const entry = response.data.find((item) => item.cwd === cwd);
+  if (!entry) return { hooks: [], warnings: [], errors: [] };
+  return {
+    hooks: panelHookItemsFromAppServerHooks(entry.hooks),
+    warnings: entry.warnings,
+    errors: entry.errors.map((error) => JSON.stringify(error)),
+  };
 }
 
 function settledHooks(hooks: Omit<LoadedHooks, "status">): SettledSettingsData<LoadedHooks> {

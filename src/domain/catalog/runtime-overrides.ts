@@ -1,22 +1,20 @@
-import type { PanelModelOption } from "../domain/catalog/metadata";
-import { findModelOptionByIdOrName } from "../domain/catalog/metadata";
-import type { ReasoningEffort as AppServerReasoningEffort } from "../generated/app-server/ReasoningEffort";
-import { supportedEffortsForModelOption, type ReasoningEffort as DomainReasoningEffort } from "../domain/catalog/metadata";
+import type { PanelModelOption, ReasoningEffort } from "./metadata";
+import { findModelOptionByIdOrName, supportedEffortsForModelOption } from "./metadata";
 
 export interface RuntimeOverrideSettings {
   model: string | null;
-  effort: DomainReasoningEffort | null;
+  effort: ReasoningEffort | null;
 }
 
 export interface RuntimeOverride {
   model?: string;
-  effort?: AppServerReasoningEffort;
+  effort?: ReasoningEffort;
 }
 
 export function runtimeOverride(settings: RuntimeOverrideSettings): RuntimeOverride {
   return {
     ...(settings.model ? { model: settings.model } : {}),
-    ...(settings.effort ? { effort: appServerReasoningEffort(settings.effort) } : {}),
+    ...(settings.effort ? { effort: settings.effort } : {}),
   };
 }
 
@@ -32,8 +30,4 @@ export function validatedRuntimeOverrideForModelOptions(
 
   const supportedEfforts = new Set(supportedEffortsForModelOption(model));
   return supportedEfforts.has(runtime.effort) ? runtime : { model: runtime.model };
-}
-
-function appServerReasoningEffort(effort: DomainReasoningEffort): AppServerReasoningEffort {
-  return effort;
 }

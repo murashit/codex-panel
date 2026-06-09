@@ -1,5 +1,4 @@
 import type { AppServerClient } from "../../../app-server/client";
-import { generateThreadTitleWithCodex } from "../../../app-server/thread-naming";
 import { getThreadTitle } from "../../../domain/threads/model";
 import {
   findThreadNamingContext,
@@ -11,6 +10,7 @@ import type { PanelThread } from "../../../domain/threads/model";
 import type { Turn } from "../../../generated/app-server/v2/Turn";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
+import { generateThreadTitleWithCodex } from "../../../workspace/thread-title-generator";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";
 
 export interface ThreadRenameEditState {

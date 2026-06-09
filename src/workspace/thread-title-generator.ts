@@ -1,7 +1,15 @@
-import { AppServerClient, type AppServerClientHandlers } from "./client";
+import { AppServerClient, type AppServerClientHandlers } from "../app-server/client";
+import { panelModelOptionsFromAppServerModels } from "../app-server/catalog-model";
+import {
+  createStructuredTurnRunLifecycle,
+  structuredTurnRunMatches,
+  transitionStructuredTurnRunLifecycle,
+} from "../app-server/structured-turn-run-lifecycle";
+import type { PanelModelOption, ReasoningEffort } from "../domain/catalog/metadata";
+import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../domain/catalog/runtime-overrides";
+import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
 import type { InitializeResponse } from "../generated/app-server/InitializeResponse";
 import type { RequestId } from "../generated/app-server/RequestId";
-import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
 import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
@@ -9,15 +17,6 @@ import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
-import { panelModelOptionsFromAppServerModels } from "./catalog-model";
-import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
-import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "./runtime-overrides";
-import type { PanelModelOption } from "../domain/catalog/metadata";
-import {
-  createStructuredTurnRunLifecycle,
-  structuredTurnRunMatches,
-  transitionStructuredTurnRunLifecycle,
-} from "./structured-turn-run-lifecycle";
 
 const NAMING_SERVICE_NAME = "codex-panel-naming";
 const NAMING_TIMEOUT_MS = 60_000;
@@ -87,7 +86,7 @@ export async function generateThreadTitleWithCodex(
       reject(new Error("Timed out while generating a Codex thread title."));
     }, NAMING_TIMEOUT_MS);
 
-    const resolveIfNamingTurn = (notification: ServerNotification): void => {
+    handleNamingNotification = (notification: ServerNotification): void => {
       if (lifecycle.kind === "completed") return;
       if (notification.method === "item/completed") {
         if (!structuredTurnRunMatches(lifecycle, notification.params.threadId, notification.params.turnId)) return;
@@ -100,8 +99,6 @@ export async function generateThreadTitleWithCodex(
         resolve(turnWithCollectedItems(notification.params.turn, completedItems));
       }
     };
-
-    handleNamingNotification = resolveIfNamingTurn;
   });
 
   let client!: ThreadNamingClient;

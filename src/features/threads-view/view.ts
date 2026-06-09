@@ -9,7 +9,7 @@ import type { CodexPanelSettings } from "../../settings/model";
 import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import { findThreadNamingContext, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/naming";
-import { generateThreadTitleWithCodex } from "../../app-server/thread-naming";
+import { generateThreadTitleWithCodex } from "../../workspace/thread-title-generator";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
   completedThreadAutoNameState,

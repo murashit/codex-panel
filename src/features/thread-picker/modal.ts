@@ -1,10 +1,10 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
-import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
 import { panelThreadsFromAppServerThreads } from "../../app-server/thread-model";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { PanelThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
+import { withAppServerClient } from "../../workspace/app-server-client-policy";
 import { shortThreadId } from "../../utils";
 
 export interface ThreadPickerHost {
@@ -37,7 +37,6 @@ export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
     }
     new ThreadPickerModal(host, threads).open();
   } catch (error) {
-    if (error instanceof StaleConnectionError) return;
     new Notice(error instanceof Error ? error.message : String(error));
   }
 }
@@ -83,28 +82,18 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly
   const cached = host.cachedThreadList();
   if (cached) return cached;
 
-  let connection: ConnectionManager | null = null;
-  connection = new ConnectionManager(() => host.settings.codexPath, host.vaultPath);
-  connection.setHandlers({
-    onNotification: () => undefined,
-    onServerRequest: (request) => {
-      connection.currentClient()?.rejectServerRequest(request.id, -32601, "Codex thread picker does not handle server requests.");
+  return withAppServerClient(
+    {
+      codexPath: host.settings.codexPath,
+      cwd: host.vaultPath,
+      unhandledServerRequestMessage: "Codex thread picker does not handle server requests.",
     },
-    onLog: () => undefined,
-    onExit: () => undefined,
-  });
-
-  try {
-    await connection.connect();
-    const client = connection.currentClient();
-    if (!client) throw new Error("Codex app-server is not connected.");
-    return await host.refreshThreadList(async () => {
-      const response = await client.listThreads(host.vaultPath);
-      return panelThreadsFromAppServerThreads(response.data);
-    });
-  } finally {
-    connection.disconnect();
-  }
+    async (client) =>
+      host.refreshThreadList(async () => {
+        const response = await client.listThreads(host.vaultPath);
+        return panelThreadsFromAppServerThreads(response.data);
+      }),
+  );
 }
 
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {

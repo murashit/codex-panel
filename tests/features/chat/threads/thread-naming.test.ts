@@ -15,7 +15,7 @@ import {
   validatedThreadNamingRuntimeOverride,
   type ThreadNamingClient,
   type ThreadNamingClientFactory,
-} from "../../../../src/app-server/thread-naming";
+} from "../../../../src/workspace/thread-title-generator";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../../src/features/chat/threads/thread-naming";
 import type { AppServerClientHandlers } from "../../../../src/app-server/client";
 import type { InitializeResponse } from "../../../../src/generated/app-server/InitializeResponse";

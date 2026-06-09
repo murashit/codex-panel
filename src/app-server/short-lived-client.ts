@@ -1,15 +1,24 @@
 import { AppServerClient } from "./client";
 
+export interface ShortLivedAppServerClientOptions {
+  unhandledServerRequestMessage?: string;
+}
+
 export async function withShortLivedAppServerClient<T>(
   codexPath: string,
   cwd: string,
   operation: (client: AppServerClient) => Promise<T>,
+  options: ShortLivedAppServerClientOptions = {},
 ): Promise<T> {
   let client!: AppServerClient;
   client = new AppServerClient(codexPath, cwd, {
     onNotification: () => undefined,
     onServerRequest: (request) => {
-      client.rejectServerRequest(request.id, -32601, "This Codex Panel view does not handle server requests.");
+      client.rejectServerRequest(
+        request.id,
+        -32601,
+        options.unhandledServerRequestMessage ?? "This Codex Panel view does not handle server requests.",
+      );
     },
     onLog: () => undefined,
     onExit: () => undefined,

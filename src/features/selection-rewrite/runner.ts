@@ -13,9 +13,9 @@ import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
-import { loadPanelModelOptions } from "../../app-server/catalog-data";
+import { panelModelOptionsFromAppServerModels } from "../../app-server/catalog-model";
 import type { PanelModelOption } from "../../domain/catalog/metadata";
-import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../../app-server/runtime-overrides";
+import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../../domain/catalog/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromTurn, type SelectionRewriteOutput } from "./output";
@@ -275,7 +275,7 @@ function selectionRewriteClientFromAppServerClient(client: AppServerClient): Sel
     disconnect: () => {
       client.disconnect();
     },
-    listPanelModelOptions: () => loadPanelModelOptions(client, false),
+    listPanelModelOptions: async () => panelModelOptionsFromAppServerModels((await client.listModels(false)).data),
     rejectServerRequest: (requestId, code, message) => {
       client.rejectServerRequest(requestId, code, message);
     },
