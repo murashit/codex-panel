@@ -1,8 +1,7 @@
-import type { Turn } from "../../generated/app-server/v2/Turn";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { shortThreadId } from "../../utils";
 import { getThreadTitle, type Thread } from "./model";
-import { chronologicalTurnConversationSummaries } from "./transcript";
+import type { ThreadConversationSummary } from "./transcript";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
 
@@ -30,8 +29,8 @@ export interface ReferencedThreadInput {
   status: string;
 }
 
-export function referencedThreadTurns(turns: Turn[]): ReferencedThreadTurn[] {
-  return chronologicalTurnConversationSummaries(turns);
+export function referencedThreadTurns(summaries: readonly ThreadConversationSummary[]): ReferencedThreadTurn[] {
+  return [...summaries];
 }
 
 export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTurn[], userRequest: string): string {

@@ -1,97 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  chronologicalTurnConversationSummaries,
-  completedTurnConversationSummary,
-  turnTranscriptEntries,
-} from "../../../src/domain/threads/transcript";
-import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../../src/generated/app-server/v2/Turn";
+import { conversationSummaryFromTranscriptEntries, nonEmptyConversationSummaries } from "../../../src/domain/threads/transcript";
 
-describe("turn transcript projection", () => {
-  it("projects readable transcript entries without command log items", () => {
+describe("thread transcript model", () => {
+  it("builds conversation summaries from the first user entry and last assistant-like entry", () => {
     expect(
-      turnTranscriptEntries(
-        turn([userMessage("u1", "  依頼です  "), commandItem("cmd"), assistantMessage("a1", "回答です"), planItem("p1", "計画です")]),
-      ),
-    ).toEqual([
-      { kind: "user", text: "依頼です", timestamp: 10 },
-      { kind: "assistant", text: "回答です", timestamp: 12 },
-      { kind: "plan", text: "計画です", timestamp: 12 },
-    ]);
-  });
-
-  it("builds completed turn summaries from the first user message and last assistant-like item", () => {
-    expect(
-      completedTurnConversationSummary(
-        turn([
-          assistantMessage("draft", "途中経過"),
-          userMessage("u1", "最初の依頼"),
-          userMessage("u2", "補足"),
-          assistantMessage("a1", "最終回答"),
-        ]),
-      ),
-    ).toEqual({ userText: "最初の依頼", assistantText: "最終回答" });
-  });
-
-  it("does not build completed summaries for failed turns", () => {
-    expect(
-      completedTurnConversationSummary(turn([userMessage("u1", "依頼"), assistantMessage("a1", "回答")], { status: "failed" })),
-    ).toBeNull();
-  });
-
-  it("returns chronological summaries and drops turns without conversation text", () => {
-    expect(
-      chronologicalTurnConversationSummaries([
-        turn([userMessage("u2", "後の依頼"), assistantMessage("a2", "後の回答")], { id: "turn-2", startedAt: 20 }),
-        turn([commandItem("cmd")], { id: "turn-empty", startedAt: 15 }),
-        turn([userMessage("u1", "先の依頼"), assistantMessage("a1", "先の回答")], { id: "turn-1", startedAt: 10 }),
+      conversationSummaryFromTranscriptEntries([
+        { kind: "assistant", text: "途中経過", timestamp: 1 },
+        { kind: "user", text: "最初の依頼", timestamp: 2 },
+        { kind: "user", text: "補足", timestamp: 3 },
+        { kind: "plan", text: "最終計画", timestamp: 4 },
       ]),
-    ).toEqual([
-      { userText: "先の依頼", assistantText: "先の回答" },
-      { userText: "後の依頼", assistantText: "後の回答" },
-    ]);
+    ).toEqual({ userText: "最初の依頼", assistantText: "最終計画" });
+  });
+
+  it("drops empty summaries", () => {
+    expect(
+      nonEmptyConversationSummaries([
+        { userText: null, assistantText: null },
+        { userText: "依頼", assistantText: null },
+      ]),
+    ).toEqual([{ userText: "依頼", assistantText: null }]);
   });
 });
-
-function turn(items: ThreadItem[], overrides: Partial<Turn> = {}): Turn {
-  return {
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    error: null,
-    startedAt: 10,
-    completedAt: 12,
-    durationMs: 2,
-    ...overrides,
-  };
-}
-
-function userMessage(id: string, text: string): ThreadItem {
-  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
-}
-
-function assistantMessage(id: string, text: string): ThreadItem {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
-}
-
-function planItem(id: string, text: string): ThreadItem {
-  return { type: "plan", id, text };
-}
-
-function commandItem(id: string): ThreadItem {
-  return {
-    type: "commandExecution",
-    id,
-    command: "npm test",
-    cwd: "/vault",
-    processId: null,
-    source: "agent",
-    status: "completed",
-    commandActions: [],
-    aggregatedOutput: "ignored",
-    exitCode: 0,
-    durationMs: 1,
-  };
-}

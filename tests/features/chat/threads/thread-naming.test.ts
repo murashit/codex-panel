@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   findThreadNamingContext,
+  namingContextFromConversationSummary,
   namingPrompt,
-  namingContextFromTurn,
   normalizeGeneratedTitle,
   titleFromGeneratedText,
 } from "../../../../src/domain/threads/naming";
@@ -34,33 +34,20 @@ import type { TurnStartResponse } from "../../../../src/generated/app-server/v2/
 import { modelMetadataFromAppServerModels } from "../../../../src/app-server/catalog-model";
 
 describe("thread naming", () => {
-  it("extracts the first user request and final assistant response from a completed turn", () => {
+  it("builds naming context from a conversation summary", () => {
     expect(
-      namingContextFromTurn(
-        turn([
-          {
-            type: "userMessage",
-            id: "u1",
-            clientId: null,
-            content: [{ type: "text", text: "Codex Panelに自動命名を付けたい", text_elements: [] }],
-          },
-          { type: "agentMessage", id: "a1", text: "実装方針をまとめました。", phase: "final_answer", memoryCitation: null },
-        ]),
-      ),
+      namingContextFromConversationSummary({
+        userText: "Codex Panelに自動命名を付けたい",
+        assistantText: "実装方針をまとめました。",
+      }),
     ).toEqual({
       userRequest: "Codex Panelに自動命名を付けたい",
       assistantResponse: "実装方針をまとめました。",
     });
   });
 
-  it("does not build naming context for failed or incomplete turns", () => {
-    expect(
-      namingContextFromTurn(
-        turn([{ type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] }], {
-          status: "failed",
-        }),
-      ),
-    ).toBeNull();
+  it("does not build naming context for incomplete summaries", () => {
+    expect(namingContextFromConversationSummary({ userText: "hello", assistantText: null })).toBeNull();
   });
 
   it("extracts naming context from streamed display items when completed turn items are not loaded", () => {
@@ -150,29 +137,12 @@ describe("thread naming", () => {
         calls.push({ cursor, limit, sortDirection });
         if (cursor === null) {
           return {
-            data: [
-              turn([{ type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "本文だけ", text_elements: [] }] }], {
-                id: "turn-1",
-              }),
-            ],
+            data: [{ userText: "本文だけ", assistantText: null }],
             nextCursor: "cursor-2",
           };
         }
         return {
-          data: [
-            turn(
-              [
-                {
-                  type: "userMessage",
-                  id: "u2",
-                  clientId: null,
-                  content: [{ type: "text", text: "古い履歴から命名したい", text_elements: [] }],
-                },
-                { type: "agentMessage", id: "a2", text: "古いturnを使って候補を作ります。", phase: "final_answer", memoryCitation: null },
-              ],
-              { id: "turn-2" },
-            ),
-          ],
+          data: [{ userText: "古い履歴から命名したい", assistantText: "古いturnを使って候補を作ります。" }],
           nextCursor: null,
         };
       },

@@ -1,7 +1,5 @@
-import type { SortDirection } from "../../generated/app-server/v2/SortDirection";
-import type { Turn } from "../../generated/app-server/v2/Turn";
 import { truncate } from "../../utils";
-import { completedTurnConversationSummary } from "./transcript";
+import type { ThreadConversationSummary } from "./transcript";
 
 const MAX_CONTEXT_CHARS = 4_000;
 const MAX_TITLE_CHARS = 40;
@@ -17,7 +15,7 @@ export interface ThreadNamingContext {
 }
 
 interface ThreadNamingContextPage {
-  data: Turn[];
+  data: ThreadConversationSummary[];
   nextCursor: string | null;
 }
 
@@ -25,12 +23,11 @@ export type ThreadNamingContextPageReader = (
   threadId: string,
   cursor: string | null,
   limit: number,
-  sortDirection: SortDirection,
+  sortDirection: "asc" | "desc",
 ) => Promise<ThreadNamingContextPage>;
 
-export function namingContextFromTurn(turn: Turn): ThreadNamingContext | null {
-  const summary = completedTurnConversationSummary(turn);
-  if (!summary?.userText || !summary.assistantText) return null;
+export function namingContextFromConversationSummary(summary: ThreadConversationSummary): ThreadNamingContext | null {
+  if (!summary.userText || !summary.assistantText) return null;
 
   return {
     userRequest: truncateForPrompt(summary.userText),
@@ -50,8 +47,8 @@ export async function findThreadNamingContext(options: {
 
   for (let page = 0; page < maxPages; page += 1) {
     const response = await options.readTurns(options.threadId, cursor, pageLimit, "asc");
-    for (const turn of response.data) {
-      const context = namingContextFromTurn(turn);
+    for (const summary of response.data) {
+      const context = namingContextFromConversationSummary(summary);
       if (context) return context;
     }
     if (!response.nextCursor) break;

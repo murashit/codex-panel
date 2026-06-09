@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../../src/generated/app-server/v2/Turn";
 import {
   exportArchivedThreadMarkdown,
   markdownFromThread,
@@ -10,7 +7,9 @@ import {
   normalizedArchiveTags,
   type ArchiveExportAdapter,
 } from "../../../src/domain/threads/export";
+import type { Thread } from "../../../src/domain/threads/model";
 import { referencedThreadPrompt } from "../../../src/domain/threads/reference";
+import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";
 
 describe("thread archive export", () => {
   it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
@@ -19,19 +18,10 @@ describe("thread archive export", () => {
         id: "thread-12345678",
         name: "Exported thread",
         archived: false,
-        turns: [
-          turn(
-            [
-              userMessage("user-1", "依頼です"),
-              commandItem("cmd-1"),
-              assistantMessage("assistant-1", "回答です"),
-              planItem("plan-1", "<proposed_plan>\n計画\n</proposed_plan>"),
-            ],
-            {
-              startedAt: timestamp(2026, 5, 18, 9, 8),
-              completedAt: timestamp(2026, 5, 18, 9, 11),
-            },
-          ),
+        transcriptEntries: [
+          transcriptEntry("user", "依頼です", timestamp(2026, 5, 18, 9, 8)),
+          transcriptEntry("assistant", "回答です", timestamp(2026, 5, 18, 9, 11)),
+          transcriptEntry("plan", "<proposed_plan>\n計画\n</proposed_plan>", timestamp(2026, 5, 18, 9, 11)),
         ],
       }),
       new Date(2026, 4, 18, 9, 8, 7),
@@ -69,15 +59,11 @@ describe("thread archive export", () => {
   it("falls back when turn timestamps are missing and uses start time for incomplete agent output", () => {
     const output = markdownFromThread(
       thread({
-        turns: [
-          turn([userMessage("user-1", "古い依頼"), assistantMessage("assistant-1", "古い回答")], {
-            startedAt: null,
-            completedAt: null,
-          }),
-          turn([userMessage("user-2", "途中の依頼"), assistantMessage("assistant-2", "途中の回答")], {
-            startedAt: timestamp(2026, 5, 18, 10, 1),
-            completedAt: null,
-          }),
+        transcriptEntries: [
+          transcriptEntry("user", "古い依頼", null),
+          transcriptEntry("assistant", "古い回答", null),
+          transcriptEntry("user", "途中の依頼", timestamp(2026, 5, 18, 10, 1)),
+          transcriptEntry("assistant", "途中の回答", timestamp(2026, 5, 18, 10, 1)),
         ],
       }),
       new Date(2026, 4, 18),
@@ -92,24 +78,24 @@ describe("thread archive export", () => {
   it("exports only the thread history remaining after rollback", () => {
     const rolledBackUserText = "rollbackされた依頼";
     const rolledBackAssistantText = "rollbackされた回答";
-    const remainingTurn = turn([userMessage("user-1", "残る依頼"), assistantMessage("assistant-1", "残る回答")], {
-      startedAt: timestamp(2026, 5, 18, 9, 0),
-      completedAt: timestamp(2026, 5, 18, 9, 2),
-    });
-    const rolledBackTurn = turn([userMessage("user-2", rolledBackUserText), assistantMessage("assistant-2", rolledBackAssistantText)], {
-      startedAt: timestamp(2026, 5, 18, 10, 0),
-      completedAt: timestamp(2026, 5, 18, 10, 3),
-    });
+    const remainingEntries = [
+      transcriptEntry("user", "残る依頼", timestamp(2026, 5, 18, 9, 0)),
+      transcriptEntry("assistant", "残る回答", timestamp(2026, 5, 18, 9, 2)),
+    ];
+    const rolledBackEntries = [
+      transcriptEntry("user", rolledBackUserText, timestamp(2026, 5, 18, 10, 0)),
+      transcriptEntry("assistant", rolledBackAssistantText, timestamp(2026, 5, 18, 10, 3)),
+    ];
     const output = markdownFromThread(
       thread({
-        turns: [remainingTurn],
+        transcriptEntries: remainingEntries,
       }),
       new Date(2026, 4, 18),
     );
 
     expect(output).toContain("残る依頼");
     expect(output).toContain("残る回答");
-    expect(rolledBackTurn.items).toHaveLength(2);
+    expect(rolledBackEntries).toHaveLength(2);
     expect(output).not.toContain(rolledBackUserText);
     expect(output).not.toContain(rolledBackAssistantText);
   });
@@ -121,7 +107,7 @@ describe("thread archive export", () => {
       "続きです",
     );
 
-    const output = markdownFromThread(thread({ turns: [turn([userMessage("user-1", prompt)])] }), new Date(2026, 4, 18));
+    const output = markdownFromThread(thread({ transcriptEntries: [transcriptEntry("user", prompt, 1)] }), new Date(2026, 4, 18));
 
     expect(output).toContain("続きです");
     expect(output).toContain("> Referenced: 参照元 (1/20 turns, thread-ref)");
@@ -188,13 +174,12 @@ describe("thread archive export", () => {
   it("normalizes exported thread markdown links when vault path is provided", () => {
     const output = markdownFromThread(
       thread({
-        turns: [
-          turn([
-            assistantMessage(
-              "assistant-1",
-              "[Vault](</Users/showhey/Vault/topics/Alpha.md>)\n[External](/Users/showhey/Repos/project/README.md)",
-            ),
-          ]),
+        transcriptEntries: [
+          transcriptEntry(
+            "assistant",
+            "[Vault](</Users/showhey/Vault/topics/Alpha.md>)\n[External](/Users/showhey/Repos/project/README.md)",
+            1,
+          ),
         ],
       }),
       new Date(2026, 4, 18),
@@ -268,43 +253,17 @@ class MemoryAdapter implements ArchiveExportAdapter {
   }
 }
 
-function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
+function thread(
+  overrides: Partial<Thread & { transcriptEntries: ThreadTranscriptEntry[] }> = {},
+): Thread & { transcriptEntries: ThreadTranscriptEntry[] } {
   return {
     id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
-    sessionId: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "Preview",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/tmp",
-    cliVersion: "codex-cli 0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
-    ...overrides,
-  };
-}
-
-function turn(items: ThreadItem[], overrides: Partial<Turn> = {}): Turn {
-  return {
-    id: "turn-1",
-    items,
-    itemsView: "full",
-    status: "completed",
-    error: null,
-    startedAt: 1,
-    completedAt: 2,
-    durationMs: 1000,
+    transcriptEntries: [],
     ...overrides,
   };
 }
@@ -313,30 +272,6 @@ function timestamp(year: number, month: number, day: number, hour: number, minut
   return Math.floor(new Date(year, month - 1, day, hour, minute).getTime() / 1000);
 }
 
-function userMessage(id: string, text: string): ThreadItem {
-  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
-}
-
-function assistantMessage(id: string, text: string): ThreadItem {
-  return { type: "agentMessage", id, text, phase: null, memoryCitation: null };
-}
-
-function planItem(id: string, text: string): ThreadItem {
-  return { type: "plan", id, text };
-}
-
-function commandItem(id: string): ThreadItem {
-  return {
-    type: "commandExecution",
-    id,
-    command: "npm test",
-    cwd: "/tmp",
-    processId: null,
-    source: "agent",
-    status: "completed",
-    commandActions: [],
-    aggregatedOutput: "ok",
-    exitCode: 0,
-    durationMs: 100,
-  };
+function transcriptEntry(kind: ThreadTranscriptEntry["kind"], text: string, timestampValue: number | null): ThreadTranscriptEntry {
+  return { kind, text, timestamp: timestampValue };
 }

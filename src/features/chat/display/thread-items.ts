@@ -5,7 +5,7 @@ import type { Turn } from "../../../generated/app-server/v2/Turn";
 import type { UserInput } from "../../../generated/app-server/v2/UserInput";
 import { definedProp, truncate } from "../../../utils";
 import { referencedThreadDisplayFromPrompt } from "../../../domain/threads/reference";
-import { userItemText } from "../../../domain/threads/transcript";
+import { appServerUserItemText } from "../../../app-server/turn-model";
 import { agentDisplayItem } from "./agent";
 import { pathRelativeToRoot } from "./paths";
 import { normalizeProposedPlanMarkdown } from "./plan";
@@ -94,7 +94,7 @@ export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): Di
 }
 
 function userMessageDisplayItem(item: UserMessageItem, turnId?: string): DisplayItem {
-  const text = userItemText(item);
+  const text = appServerUserItemText(item);
   const displayText = userMessageDisplayText(text, item.content);
   const mentionedFiles = fileMentionsFromInput(item.content);
   const referencedThread = referencedThreadDisplayFromPrompt(text);

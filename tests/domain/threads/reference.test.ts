@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import type { Turn } from "../../../src/generated/app-server/v2/Turn";
+import type { Thread } from "../../../src/domain/threads/model";
 import {
   referencedThreadDisplayFromPrompt,
   referencedThreadInput,
@@ -9,71 +8,23 @@ import {
   referencedThreadTurns,
 } from "../../../src/domain/threads/reference";
 
-function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
+function thread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "019abcde-0000-7000-8000-000000000001",
-    sessionId: "session-1",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "Preview",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: "idle",
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.130.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: "参照元",
     archived: false,
-    turns: [],
     ...overrides,
-  } as Thread & { archived: boolean };
-}
-
-function turn(id: string, startedAt: number, items: Turn["items"]): Turn {
-  return {
-    id,
-    items,
-    itemsView: "full",
-    status: "completed",
-    error: null,
-    startedAt,
-    completedAt: startedAt + 1,
-    durationMs: 1,
   };
 }
 
 describe("thread reference context", () => {
-  it("extracts user messages and final Codex responses in chronological order", () => {
+  it("uses supplied conversation summaries as referenced turns", () => {
     const turns = referencedThreadTurns([
-      turn("turn-2", 2, [
-        { type: "userMessage", id: "u2", clientId: null, content: [{ type: "text", text: "次の依頼", text_elements: [] }] },
-        {
-          type: "commandExecution",
-          id: "cmd",
-          command: "npm test",
-          cwd: "/vault",
-          processId: null,
-          source: "agent",
-          status: "completed",
-          commandActions: [],
-          aggregatedOutput: "ignored",
-          exitCode: 0,
-          durationMs: 1,
-        },
-        { type: "agentMessage", id: "a2", text: "次の回答", phase: "final_answer", memoryCitation: null },
-      ]),
-      turn("turn-1", 1, [
-        { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "最初の依頼", text_elements: [] }] },
-        { type: "agentMessage", id: "draft", text: "途中経過", phase: null, memoryCitation: null },
-        { type: "agentMessage", id: "a1", text: "最終回答", phase: "final_answer", memoryCitation: null },
-      ]),
+      { userText: "最初の依頼", assistantText: "最終回答" },
+      { userText: "次の依頼", assistantText: "次の回答" },
     ]);
 
     expect(turns).toEqual([

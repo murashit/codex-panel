@@ -11,6 +11,7 @@ import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import { findThreadNamingContext, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/naming";
 import { generateThreadTitleWithCodex } from "../../app-server/thread-title-generation";
+import { completedConversationSummaryFromAppServerTurn, transcriptEntriesFromAppServerTurn } from "../../app-server/turn-model";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
   completedThreadAutoNameState,
@@ -324,7 +325,16 @@ export class CodexThreadsView extends ItemView {
       const client = this.client;
       const context = await findThreadNamingContext({
         threadId,
-        readTurns: (id, cursor, limit, sortDirection) => client.threadTurnsList(id, cursor, limit, sortDirection),
+        readTurns: async (id, cursor, limit, sortDirection) => {
+          const response = await client.threadTurnsList(id, cursor, limit, sortDirection);
+          return {
+            data: response.data.flatMap((turn) => {
+              const summary = completedConversationSummaryFromAppServerTurn(turn);
+              return summary ? [summary] : [];
+            }),
+            nextCursor: response.nextCursor,
+          };
+        },
       });
       if (!context) throw new Error(THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE);
       const title = await generateThreadTitleWithCodex(this.plugin.settings.codexPath, this.plugin.vaultPath, context, {
@@ -367,7 +377,10 @@ export class CodexThreadsView extends ItemView {
       if (saveMarkdown) {
         const response = await this.client.readThread(threadId, true);
         const result = await exportArchivedThreadMarkdown(
-          { ...threadFromAppServerThread(response.thread, { archived: true }), turns: response.thread.turns },
+          {
+            ...threadFromAppServerThread(response.thread, { archived: true }),
+            transcriptEntries: response.thread.turns.flatMap(transcriptEntriesFromAppServerTurn),
+          },
           { ...this.plugin.settings, vaultPath: this.plugin.vaultPath },
           this.app.vault.adapter,
         );

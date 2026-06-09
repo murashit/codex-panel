@@ -1,8 +1,7 @@
-import type { Turn } from "../../generated/app-server/v2/Turn";
 import { shortThreadId } from "../../utils";
 import { getThreadTitle, type Thread } from "./model";
 import { referencedThreadDisplayFromPrompt } from "./reference";
-import { turnTranscriptEntries, type TurnTranscriptEntry } from "./transcript";
+import type { ThreadTranscriptEntry } from "./transcript";
 
 export interface ArchiveExportAdapter {
   exists(path: string): Promise<boolean>;
@@ -37,7 +36,7 @@ export interface ArchiveExportSettings {
 }
 
 export interface ArchiveThreadInput extends Thread {
-  turns: Turn[];
+  transcriptEntries: readonly ThreadTranscriptEntry[];
 }
 
 export async function exportArchivedThreadMarkdown(
@@ -69,7 +68,7 @@ export function markdownFromThread(thread: ArchiveThreadInput, exportedAt = new 
     "",
     `# ${title}`,
     "",
-    ...turnMarkdownLines(thread.turns),
+    ...transcriptMarkdownLines(thread.transcriptEntries),
   ];
   const markdown = `${trimTrailingBlankLines(lines).join("\n")}\n`;
   return settings?.vaultPath ? normalizeExportedMarkdownLinks(markdown, settings.vaultPath) : markdown;
@@ -118,13 +117,11 @@ export function normalizedArchiveTags(value: string): string[] {
   return tags;
 }
 
-function turnMarkdownLines(turns: Turn[]): string[] {
-  return [...turns]
-    .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))
-    .flatMap((turn) => turnTranscriptEntries(turn).flatMap(markdownLinesFromTranscriptEntry));
+function transcriptMarkdownLines(entries: readonly ThreadTranscriptEntry[]): string[] {
+  return [...entries].sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0)).flatMap(markdownLinesFromTranscriptEntry);
 }
 
-function markdownLinesFromTranscriptEntry(entry: TurnTranscriptEntry): string[] {
+function markdownLinesFromTranscriptEntry(entry: ThreadTranscriptEntry): string[] {
   switch (entry.kind) {
     case "user": {
       const heading = timestampedHeading("User", entry.timestamp);

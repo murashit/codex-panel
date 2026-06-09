@@ -10,7 +10,7 @@ import type { Turn } from "../generated/app-server/v2/Turn";
 import type { ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../domain/catalog/runtime-overrides";
 import { namingPrompt, titleFromGeneratedText, type ThreadNamingContext } from "../domain/threads/naming";
-import { turnConversationSummary } from "../domain/threads/transcript";
+import { conversationSummaryFromAppServerTurn } from "./turn-model";
 
 const NAMING_SERVICE_NAME = "codex-panel-naming";
 const NAMING_TIMEOUT_MS = 60_000;
@@ -74,7 +74,7 @@ export interface ThreadNamingRuntimeOverride {
 }
 
 export function titleFromNamingTurn(turn: Turn): string | null {
-  const response = turnConversationSummary(turn).assistantText;
+  const response = conversationSummaryFromAppServerTurn(turn).assistantText;
   return response ? titleFromGeneratedText(response) : null;
 }
 

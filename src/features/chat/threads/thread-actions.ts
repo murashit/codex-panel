@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../../app-server/client";
 import { threadFromAppServerThread } from "../../../app-server/thread-model";
+import { transcriptEntriesFromAppServerTurn } from "../../../app-server/turn-model";
 import { exportArchivedThreadMarkdown } from "../../../domain/threads/export";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import { inheritedForkThreadName } from "../../../domain/threads/model";
@@ -88,7 +89,10 @@ async function archiveThreadOnServer(
     if (saveMarkdown) {
       const response = await client.readThread(threadId, true);
       const result = await exportArchivedThreadMarkdown(
-        { ...threadFromAppServerThread(response.thread, { archived: true }), turns: response.thread.turns },
+        {
+          ...threadFromAppServerThread(response.thread, { archived: true }),
+          transcriptEntries: response.thread.turns.flatMap(transcriptEntriesFromAppServerTurn),
+        },
         { ...settings, vaultPath: host.vaultPath },
         host.archiveAdapter(),
       );

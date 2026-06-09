@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../app-server/client";
 import { getThreadTitle } from "../../../domain/threads/model";
 import {
   findThreadNamingContext,
-  namingContextFromTurn,
+  namingContextFromConversationSummary,
   THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE,
   type ThreadNamingContext,
 } from "../../../domain/threads/naming";
@@ -11,6 +11,7 @@ import type { Turn } from "../../../generated/app-server/v2/Turn";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 import { generateThreadTitleWithCodex } from "../../../app-server/thread-title-generation";
+import { completedConversationSummaryFromAppServerTurn } from "../../../app-server/turn-model";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";
 
 export interface ThreadRenameEditState {
@@ -192,7 +193,10 @@ export class ThreadRenameController {
     if (hadTurnsBeforeThisCompletion || turn.status !== "completed") return;
     if (this.threadHasName(threadId)) return;
     if (this.autoNameAttemptedThreadIds.has(threadId) || this.autoNameInFlightThreadIds.has(threadId)) return;
-    const context = namingContextFromTurn(turn) ?? namingContextFromDisplayItems(turn.id, this.state.transcript.displayItems);
+    const summary = completedConversationSummaryFromAppServerTurn(turn);
+    const context =
+      (summary ? namingContextFromConversationSummary(summary) : null) ??
+      namingContextFromDisplayItems(turn.id, this.state.transcript.displayItems);
     if (!context) return;
 
     this.autoNameAttemptedThreadIds.add(threadId);
@@ -226,7 +230,16 @@ export class ThreadRenameController {
     if (!client) return null;
     const context = await findThreadNamingContext({
       threadId,
-      readTurns: (id, cursor, limit, sortDirection) => client.threadTurnsList(id, cursor, limit, sortDirection),
+      readTurns: async (id, cursor, limit, sortDirection) => {
+        const response = await client.threadTurnsList(id, cursor, limit, sortDirection);
+        return {
+          data: response.data.flatMap((turn) => {
+            const summary = completedConversationSummaryFromAppServerTurn(turn);
+            return summary ? [summary] : [];
+          }),
+          nextCursor: response.nextCursor,
+        };
+      },
     });
     return (
       context ?? (this.state.activeThread.id === threadId ? firstNamingContextFromDisplayItems(this.state.transcript.displayItems) : null)
