@@ -1,5 +1,3 @@
-import type { Turn } from "../../generated/app-server/v2/Turn";
-
 export interface SelectionRewriteOutput {
   replacementText: string;
 }
@@ -31,23 +29,11 @@ export function parseSelectionRewriteOutput(text: string): SelectionRewriteOutpu
   }
 }
 
-export function selectionRewriteOutputFromTurn(turn: Turn): SelectionRewriteOutput | null {
-  return selectionRewriteOutputParseResultFromTurn(turn).output;
+export function selectionRewriteOutputFromText(text: string | null): SelectionRewriteOutput | null {
+  return selectionRewriteOutputParseResultFromText(text).output;
 }
 
-export function selectionRewriteOutputParseResultFromTurn(turn: Turn): SelectionRewriteOutputParseResult {
-  const text = lastAgentMessageText(turn);
+export function selectionRewriteOutputParseResultFromText(text: string | null): SelectionRewriteOutputParseResult {
   if (!text) return { output: null, rawText: null };
   return { output: parseSelectionRewriteOutput(text), rawText: text };
-}
-
-function lastAgentMessageText(turn: Turn): string | null {
-  for (let index = turn.items.length - 1; index >= 0; index -= 1) {
-    const item = turn.items[index];
-    if (item === undefined) continue;
-    if (item.type !== "agentMessage") continue;
-    const text = item.text.trim();
-    if (text) return text;
-  }
-  return null;
 }

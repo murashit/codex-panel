@@ -12,8 +12,8 @@ import {
 } from "../../../src/features/selection-rewrite/model";
 import {
   parseSelectionRewriteOutput,
-  selectionRewriteOutputFromTurn,
-  selectionRewriteOutputParseResultFromTurn,
+  selectionRewriteOutputFromText,
+  selectionRewriteOutputParseResultFromText,
 } from "../../../src/features/selection-rewrite/output";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
@@ -66,23 +66,15 @@ describe("selection selection rewrite output", () => {
     expect(parseSelectionRewriteOutput('{"text":"rewritten"}')).toBeNull();
   });
 
-  it("extracts the final selection rewrite JSON from a completed turn", () => {
-    expect(
-      selectionRewriteOutputFromTurn(
-        turn([
-          { type: "agentMessage", id: "a1", text: '{"replacementText":"first"}', phase: "final_answer", memoryCitation: null },
-          { type: "agentMessage", id: "a2", text: '{"replacementText":"final"}', phase: "final_answer", memoryCitation: null },
-        ]),
-      ),
-    ).toEqual({ replacementText: "final" });
+  it("parses selection rewrite output text", () => {
+    expect(selectionRewriteOutputFromText('{"replacementText":"final"}')).toEqual({ replacementText: "final" });
   });
 
   it("keeps raw model text when selection rewrite output parsing fails", () => {
-    expect(
-      selectionRewriteOutputParseResultFromTurn(
-        turn([{ type: "agentMessage", id: "a1", text: "replacementText: final", phase: "final_answer", memoryCitation: null }]),
-      ),
-    ).toEqual({ output: null, rawText: "replacementText: final" });
+    expect(selectionRewriteOutputParseResultFromText("replacementText: final")).toEqual({
+      output: null,
+      rawText: "replacementText: final",
+    });
   });
 });
 

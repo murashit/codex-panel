@@ -5,13 +5,14 @@ import {
   type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "../../app-server/ephemeral-structured-turn";
+import { lastAgentMessageTextFromAppServerTurn } from "../../app-server/turn-model";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import { modelMetadataFromAppServerModels } from "../../app-server/catalog-model";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/catalog/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
-import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromTurn, type SelectionRewriteOutput } from "./output";
+import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText, type SelectionRewriteOutput } from "./output";
 
 const SELECTION_REWRITE_TIMEOUT_MS = 120_000;
 
@@ -70,7 +71,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       options.onPreview?.(preview);
     },
   });
-  const { output, rawText } = selectionRewriteOutputParseResultFromTurn(turn);
+  const { output, rawText } = selectionRewriteOutputParseResultFromText(lastAgentMessageTextFromAppServerTurn(turn));
   if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
   return output;
 }
