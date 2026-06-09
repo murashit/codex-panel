@@ -18,7 +18,7 @@ CSS is authored in `src/styles/` and generated into the ignored root `styles.css
 The source tree is organized by responsibility rather than by the original single Obsidian plugin entrypoint:
 
 - `src/main.ts` registers Obsidian views, commands, settings, and lifecycle hooks.
-- `src/app-server/` owns app-server transport, connection lifecycle, compatibility helpers, runtime payload helpers, and RPC facades.
+- `src/app-server/` owns the app-server boundary: transport, connection lifecycle, compatibility helpers, runtime payload helpers, RPC facades, protocol-to-panel adapters, and shared app-server-backed cache state.
 - `src/features/chat/` owns the main Codex chat surface: Obsidian `ItemView` classes, panel orchestration, request/app-server controllers, composer behavior, display models, chat-only UI renderers, runtime state and status projection, approvals, user input, thread actions, and panel-specific state.
 - `src/features/threads-view/` owns the dedicated Obsidian thread list view, including app-server thread list rendering and live open-panel snapshot aggregation.
 - `src/features/selection-rewrite/` owns the Markdown editor selection rewrite command, popover, prompt/output handling, and ephemeral rewrite thread runner.
@@ -26,7 +26,7 @@ The source tree is organized by responsibility rather than by the original singl
 - `src/shared/` contains feature-neutral helpers, including reusable DOM pieces and unified diff display helpers shared by chat and selection rewrite.
 - `src/settings/` contains Obsidian settings models, settings-tab rendering, and app-server-backed dynamic settings data.
 - `src/domain/catalog/` contains generated-independent model catalog and reasoning effort helpers shared outside app-server transport.
-- `src/domain/threads/` contains thread title, reference, and archive export helpers shared outside the chat feature.
+- `src/domain/threads/` contains thread title, reference, transcript, naming, and archive export helpers shared outside the chat feature. Some helpers still read app-server turn/item types directly when they are pure protocol interpreters, but new shared UI/workspace/settings-facing behavior should prefer panel-owned models or small adapters at the app-server boundary.
 - `src/styles/` contains the authored CSS modules and `order.json` concatenation order. `scripts/build-styles.mjs` concatenates them into the ignored root `styles.css`, which remains the Obsidian release asset.
 
 Keep new code near the state or API it owns. Feature code should not import from another feature directly; move shared behavior to `src/shared/`, `src/domain/`, or `src/app-server/` when more than one feature needs it.
