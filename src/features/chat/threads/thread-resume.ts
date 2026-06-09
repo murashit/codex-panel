@@ -4,12 +4,12 @@ import type { ReasoningEffort } from "../../../generated/app-server/ReasoningEff
 import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
 import type { ApprovalsReviewer } from "../../../generated/app-server/v2/ApprovalsReviewer";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
-import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../../domain/threads/model";
 import type { ActiveThreadResumedAction } from "../chat-state";
 import type { DisplayItem } from "../display/types";
 
 export interface ThreadActivationResponse {
-  thread: Thread;
+  thread: PanelThread;
   cwd: string;
   model: string;
   serviceTier: string | null;
@@ -21,7 +21,7 @@ export interface ThreadActivationResponse {
 
 export interface ResumedThreadActionParams {
   response: ThreadActivationResponse;
-  listedThreads?: readonly Thread[];
+  listedThreads?: readonly PanelThread[];
   displayItems?: readonly DisplayItem[];
 }
 

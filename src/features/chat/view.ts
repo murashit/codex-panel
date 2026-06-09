@@ -5,7 +5,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { Model } from "../../generated/app-server/v2/Model";
-import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../domain/threads/model";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/override-commands";
 import type { RuntimeSnapshot } from "../../runtime/effective-settings";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
@@ -347,7 +347,7 @@ export class CodexChatView extends ItemView {
       try {
         await this.controllers.connection.controller.ensureConnected();
         const response = await this.controllers.appServer.threads.startThread(objective, { syncGoal: false });
-        threadId = response?.thread.id ?? null;
+        threadId = response?.threadId ?? null;
       } catch (error) {
         this.controllers.inbound.controller.addSystemMessage(error instanceof Error ? error.message : String(error));
         this.controllers.render.controller.render();
@@ -411,7 +411,7 @@ export class CodexChatView extends ItemView {
     return this.loadSharedThreadList();
   }
 
-  applyThreadListSnapshot(threads: readonly Thread[]): void {
+  applyThreadListSnapshot(threads: readonly PanelThread[]): void {
     this.controllers.appServer.threads.applyThreadList(threads);
     this.refreshTabHeader();
     this.controllers.render.controller.render();

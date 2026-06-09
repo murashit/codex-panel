@@ -45,7 +45,7 @@ function openPanelSnapshot(
   };
 }
 
-function threadFixture(overrides: Partial<Thread> = {}): Thread {
+function threadFixture(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
   return {
     id: "thread",
     sessionId: "session",
@@ -66,6 +66,7 @@ function threadFixture(overrides: Partial<Thread> = {}): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
     ...overrides,
   };

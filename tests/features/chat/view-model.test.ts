@@ -237,7 +237,7 @@ function effectiveConfigFixture(config: Record<string, unknown>): ConfigReadResp
   };
 }
 
-function threadFixture(id: string, name: string | null): Thread {
+function threadFixture(id: string, name: string | null): Thread & { archived: boolean } {
   return {
     id,
     sessionId: "session",
@@ -258,6 +258,7 @@ function threadFixture(id: string, name: string | null): Thread {
     agentRole: null,
     gitInfo: null,
     name,
+    archived: false,
     turns: [],
   };
 }

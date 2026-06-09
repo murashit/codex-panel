@@ -19,7 +19,7 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-function thread(overrides: Partial<Thread> = {}): Thread {
+function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
   return {
     id: "019abcde-0000-7000-8000-000000000001",
     sessionId: "session-1",
@@ -40,9 +40,10 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
     ...overrides,
-  } as Thread;
+  } as Thread & { archived: boolean };
 }
 
 function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Model> = {}): Model {

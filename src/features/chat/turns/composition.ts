@@ -101,7 +101,7 @@ export function createConversationSurfaceControllerGroup(
       startNewThread: thread.startNewThread,
       startThreadForGoal: async (objective) => {
         const response = await refs.appServerThreads.startThread(objective, { syncGoal: false });
-        return response?.thread.id ?? null;
+        return response?.threadId ?? null;
       },
       resumeThread: thread.selectThread,
       forkThread: (threadId) => refs.threadActions.forkThread(threadId),

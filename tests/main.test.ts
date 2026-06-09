@@ -407,10 +407,10 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
   it("single-flights shared thread list refreshes and caches successful results", async () => {
     const plugin = await pluginWithLeaves([]);
-    let resolveThreads!: (threads: Thread[]) => void;
+    let resolveThreads!: (threads: (Thread & { archived: boolean })[]) => void;
     const fetchThreads = vi.fn(
       () =>
-        new Promise<Thread[]>((resolve) => {
+        new Promise<(Thread & { archived: boolean })[]>((resolve) => {
           resolveThreads = resolve;
         }),
     );
@@ -570,7 +570,7 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
   );
 }
 
-function thread(id: string): Thread {
+function thread(id: string): Thread & { archived: boolean } {
   return {
     id,
     sessionId: "session",
@@ -591,8 +591,9 @@ function thread(id: string): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
-  } as Thread;
+  } as Thread & { archived: boolean };
 }
 
 function panelSnapshot(

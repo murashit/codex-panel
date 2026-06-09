@@ -953,7 +953,6 @@ describe("ChatInboundController", () => {
       state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
       state.runtime.activeModel = "gpt-5.5";
       state.runtime.activeServiceTier = "fast";
-      state.activeThread.creationCliVersion = "codex-cli 1.0.0";
       state.activeThread.tokenUsage = {
         last: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
         total: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
@@ -1001,7 +1000,6 @@ describe("ChatInboundController", () => {
       expect(activeTurnId(state)).toBeNull();
       expect(state.runtime.activeModel).toBeNull();
       expect(state.runtime.activeServiceTier).toBeNull();
-      expect(state.activeThread.creationCliVersion).toBeNull();
       expect(state.activeThread.tokenUsage).toBeNull();
       expect(state.transcript.historyCursor).toBeNull();
       expect(state.transcript.loadingHistory).toBe(false);
@@ -1712,7 +1710,7 @@ function userInputRequest(id: number): ServerRequest {
   };
 }
 
-function thread(id: string, cwd: string): Thread {
+function thread(id: string, cwd: string): Thread & { archived: boolean } {
   return {
     id,
     sessionId: id,
@@ -1733,6 +1731,7 @@ function thread(id: string, cwd: string): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
   };
 }

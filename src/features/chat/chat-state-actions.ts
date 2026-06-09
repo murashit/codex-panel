@@ -1,5 +1,5 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
-import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../domain/threads/model";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { ChatAction, PendingTurnStart } from "./chat-state";
 import type { DisplayItem } from "./display/types";
@@ -24,7 +24,7 @@ export function clearActiveThreadAction(): ChatAction {
   return { type: "active-thread/cleared" };
 }
 
-export function applyThreadListAction(threads: readonly Thread[], threadsLoaded?: boolean): ChatAction {
+export function applyThreadListAction(threads: readonly PanelThread[], threadsLoaded?: boolean): ChatAction {
   return { type: "thread-list/applied", threads, ...(threadsLoaded === undefined ? {} : { threadsLoaded }) };
 }
 

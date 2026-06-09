@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../../app-server/client";
+import { panelThreadFromAppServerThread } from "../../../app-server/thread-model";
 import { exportArchivedThreadMarkdown } from "../../../domain/threads/export";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import { inheritedForkThreadName, upsertThread } from "../../../domain/threads/model";
@@ -85,7 +86,11 @@ async function archiveThreadOnServer(
     const settings = host.settings();
     if (saveMarkdown) {
       const response = await client.readThread(threadId, true);
-      const result = await exportArchivedThreadMarkdown(response.thread, { ...settings, vaultPath: host.vaultPath }, host.archiveAdapter());
+      const result = await exportArchivedThreadMarkdown(
+        { ...panelThreadFromAppServerThread(response.thread, { archived: true }), turns: response.thread.turns },
+        { ...settings, vaultPath: host.vaultPath },
+        host.archiveAdapter(),
+      );
       new Notice(`Saved archived thread to ${result.path}.`);
     }
     await client.archiveThread(threadId);
@@ -176,9 +181,10 @@ async function rollbackThread(host: ChatThreadActionsHost, threadId: string): Pr
   try {
     host.setStatus("Rolling back latest turn...");
     const response = await client.rollbackThread(threadId);
+    const thread = panelThreadFromAppServerThread(response.thread);
     dispatch(host, {
       type: "active-thread/resumed",
-      thread: response.thread,
+      thread,
       cwd: response.thread.cwd,
       model: state(host).runtime.activeModel,
       reasoningEffort: state(host).runtime.activeReasoningEffort,
@@ -186,7 +192,7 @@ async function rollbackThread(host: ChatThreadActionsHost, threadId: string): Pr
       approvalPolicy: state(host).runtime.activeApprovalPolicy,
       approvalsReviewer: state(host).runtime.activeApprovalsReviewer,
       activePermissionProfile: state(host).runtime.activePermissionProfile,
-      listedThreads: upsertThread(state(host).threadList.listedThreads, response.thread),
+      listedThreads: upsertThread(state(host).threadList.listedThreads, thread),
     });
     dispatch(host, {
       type: "transcript/items-replaced",

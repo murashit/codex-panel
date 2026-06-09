@@ -18,6 +18,7 @@ describe("thread archive export", () => {
       thread({
         id: "thread-12345678",
         name: "Exported thread",
+        archived: false,
         turns: [
           turn(
             [
@@ -267,7 +268,7 @@ class MemoryAdapter implements ArchiveExportAdapter {
   }
 }
 
-function thread(overrides: Partial<Thread> = {}): Thread {
+function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
   return {
     id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
     sessionId: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
@@ -288,6 +289,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
     ...overrides,
   };

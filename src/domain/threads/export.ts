@@ -1,7 +1,6 @@
-import type { Thread } from "../../generated/app-server/v2/Thread";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import { shortThreadId } from "../../utils";
-import { getThreadTitle } from "./model";
+import { getThreadTitle, type PanelThread } from "./model";
 import { referencedThreadDisplayFromPrompt } from "./reference";
 import { turnTranscriptEntries, type TurnTranscriptEntry } from "./transcript";
 
@@ -37,8 +36,12 @@ export interface ArchiveExportSettings {
   vaultPath?: string;
 }
 
+export interface ArchiveThreadInput extends PanelThread {
+  turns: Turn[];
+}
+
 export async function exportArchivedThreadMarkdown(
-  thread: Thread,
+  thread: ArchiveThreadInput,
   settings: ArchiveExportSettings,
   adapter: ArchiveExportAdapter,
   now = new Date(),
@@ -53,7 +56,7 @@ export async function exportArchivedThreadMarkdown(
   return { path };
 }
 
-export function markdownFromThread(thread: Thread, exportedAt = new Date(), settings?: Partial<ArchiveExportSettings>): string {
+export function markdownFromThread(thread: ArchiveThreadInput, exportedAt = new Date(), settings?: Partial<ArchiveExportSettings>): string {
   const title = exportThreadTitle(thread);
   const tags = normalizedArchiveTags(settings?.archiveExportTags ?? "");
   const lines = [
@@ -172,7 +175,7 @@ function stripMatchingQuotes(value: string): string {
   return (first === `"` || first === `'`) && first === last ? value.slice(1, -1) : value;
 }
 
-function templateContext(thread: Thread, now: Date): TemplateContext {
+function templateContext(thread: ArchiveThreadInput, now: Date): TemplateContext {
   const title = sanitizePathSegment(exportThreadTitle(thread));
   return {
     date: formatDate(now),
@@ -239,7 +242,7 @@ async function uniqueMarkdownPath(adapter: ArchiveExportAdapter, folder: string,
   return candidate;
 }
 
-function exportThreadTitle(thread: Thread): string {
+function exportThreadTitle(thread: ArchiveThreadInput): string {
   return getThreadTitle(thread) || "Untitled thread";
 }
 

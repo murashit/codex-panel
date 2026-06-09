@@ -147,7 +147,7 @@ function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}):
   } as unknown as AppServerClient;
 }
 
-function threadFixture(id: string): Thread {
+function threadFixture(id: string): Thread & { archived: boolean } {
   return {
     id,
     sessionId: "session",
@@ -168,6 +168,7 @@ function threadFixture(id: string): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
   };
 }

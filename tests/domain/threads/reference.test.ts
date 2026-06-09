@@ -9,7 +9,7 @@ import {
   referencedThreadTurns,
 } from "../../../src/domain/threads/reference";
 
-function thread(overrides: Partial<Thread> = {}): Thread {
+function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
   return {
     id: "019abcde-0000-7000-8000-000000000001",
     sessionId: "session-1",
@@ -30,9 +30,10 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     agentRole: null,
     gitInfo: null,
     name: "参照元",
+    archived: false,
     turns: [],
     ...overrides,
-  } as Thread;
+  } as Thread & { archived: boolean };
 }
 
 function turn(id: string, startedAt: number, items: Turn["items"]): Turn {

@@ -1,7 +1,7 @@
 import { Setting } from "obsidian";
 
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
-import type { Thread } from "../generated/app-server/v2/Thread";
+import type { PanelThread } from "../domain/threads/model";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { shortThreadId } from "../utils";
 
@@ -10,7 +10,7 @@ export interface ArchivedThreadSectionState {
   exportFolderTemplate: string;
   exportFilenameTemplate: string;
   exportTags: string;
-  threads: Thread[];
+  threads: PanelThread[];
   loaded: boolean;
   loading: boolean;
   status: string;

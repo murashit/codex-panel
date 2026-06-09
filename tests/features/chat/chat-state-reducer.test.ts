@@ -554,7 +554,7 @@ function goal(threadId: string): ThreadGoal {
   };
 }
 
-export function thread(id: string): Thread {
+export function thread(id: string): Thread & { archived: boolean } {
   return {
     id,
     sessionId: "session",
@@ -575,6 +575,7 @@ export function thread(id: string): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
   };
 }

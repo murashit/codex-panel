@@ -1,7 +1,8 @@
 import type { AppServerClient } from "../app-server/client";
+import { panelThreadsFromAppServerThreads } from "../app-server/thread-model";
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
 import type { Model } from "../generated/app-server/v2/Model";
-import type { Thread } from "../generated/app-server/v2/Thread";
+import type { PanelThread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 
 export interface LoadedHooks {
@@ -14,7 +15,7 @@ export interface LoadedHooks {
 export interface SettingsDataLoad {
   models: SettledSettingsData<Model[]>;
   hooks: SettledSettingsData<LoadedHooks>;
-  archivedThreads: SettledSettingsData<Thread[]>;
+  archivedThreads: SettledSettingsData<PanelThread[]>;
 }
 
 type SettledSettingsData<T> =
@@ -106,7 +107,7 @@ export async function loadSettingsData(client: AppServerClient, cwd: string): Pr
       archivedThreadsResult.status === "fulfilled"
         ? {
             ok: true,
-            data: archivedThreadsResult.value.data,
+            data: panelThreadsFromAppServerThreads(archivedThreadsResult.value.data, { archived: true }),
             status: `Loaded ${String(archivedThreadsResult.value.data.length)} archived thread${archivedThreadsResult.value.data.length === 1 ? "" : "s"}.`,
           }
         : { ok: false, status: `Could not load archived threads: ${errorMessage(archivedThreadsResult.reason)}` },

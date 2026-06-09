@@ -1,5 +1,5 @@
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../domain/threads/model";
 import { getThreadTitle } from "../../domain/threads/model";
 
 type ThreadsLiveStatus = "needs-input" | "approval" | "running" | "draft" | "offline" | "open";
@@ -12,7 +12,7 @@ export interface ThreadsLiveState {
 }
 
 export interface ThreadsRowModel {
-  thread: Thread;
+  thread: PanelThread;
   title: string;
   live: ThreadsLiveState | null;
   selected: boolean;
@@ -33,7 +33,7 @@ const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
 };
 
 export function threadRows(
-  threads: readonly Thread[],
+  threads: readonly PanelThread[],
   snapshots: OpenCodexPanelSnapshot[],
   renameStates: ReadonlyMap<string, ThreadsRenameState>,
   archiveConfirmThreadId: string | null = null,

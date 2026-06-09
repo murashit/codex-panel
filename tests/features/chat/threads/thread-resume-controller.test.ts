@@ -3,16 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/client";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import type { RestoredThreadController } from "../../../../src/features/chat/threads/restored-thread-controller";
-import type { ThreadActivationResponse } from "../../../../src/features/chat/threads/thread-resume";
 import { ThreadResumeController } from "../../../../src/features/chat/threads/thread-resume-controller";
 import type { ThreadHistoryController } from "../../../../src/features/chat/threads/thread-history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/panel/lifecycle";
+import type { ThreadResumeResponse } from "../../../../src/generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
 import type { ThreadTokenUsage } from "../../../../src/generated/app-server/v2/ThreadTokenUsage";
 import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
 
-function thread(id: string): Thread {
+function thread(id: string): Thread & { archived: boolean } {
   return {
     id,
     sessionId: id,
@@ -33,25 +33,31 @@ function thread(id: string): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
   };
 }
 
-function activation(threadId: string): ThreadActivationResponse {
+function activation(threadId: string): ThreadResumeResponse {
   return {
     thread: thread(threadId),
     cwd: "/vault",
     model: "gpt-test",
+    modelProvider: "openai",
     serviceTier: null,
-    approvalPolicy: null,
-    approvalsReviewer: null,
+    runtimeWorkspaceRoots: [],
+    instructionSources: [],
+    approvalPolicy: "on-request",
+    approvalsReviewer: "user",
+    sandbox: { type: "readOnly", networkAccess: false },
     activePermissionProfile: null,
     reasoningEffort: null,
+    initialTurnsPage: null,
   };
 }
 
 function createController(
-  response: ThreadActivationResponse = activation("thread"),
+  response: ThreadResumeResponse = activation("thread"),
   overrides: Partial<ConstructorParameters<typeof ThreadResumeController>[0]> = {},
 ) {
   const stateStore = createChatStateStore(createChatState());
@@ -176,7 +182,7 @@ describe("ThreadResumeController", () => {
     await controller.resumeThread("thread");
     stateStore.dispatch({
       type: "active-thread/resumed",
-      thread: second.thread,
+      thread: { ...second.thread, archived: false },
       cwd: "/vault",
       model: null,
       reasoningEffort: null,

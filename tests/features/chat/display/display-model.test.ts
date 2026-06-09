@@ -108,7 +108,7 @@ describe("thread item conversion preserves app-server semantics", () => {
 
   it("hides persisted /refer context in displayed user messages", () => {
     const text = referencedThreadPrompt(
-      { id: "thread-reference", name: "参照元", preview: "", turns: [] } as unknown as Thread,
+      { id: "thread-reference", name: "参照元", preview: "", archived: false } as Thread & { archived: boolean },
       [
         { userText: "元の依頼", assistantText: "元の回答" },
         { userText: "次の依頼", assistantText: "次の回答" },

@@ -5,9 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/view";
 import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
+import { panelThreadFromAppServerThread } from "../../../src/app-server/thread-model";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
 import { composerSlotSnapshot } from "../../../src/features/chat/panel/snapshot";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
+import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
@@ -156,7 +158,9 @@ describe("CodexChatView connection lifecycle", () => {
     await view.connect();
 
     expect(refreshThreadList).toHaveBeenCalledOnce();
-    expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual(threads);
+    expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual(
+      threads.map((thread) => panelThreadFromAppServerThread(thread)),
+    );
   });
 
   it("publishes app-server metadata after connecting", async () => {
@@ -386,7 +390,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledWith("/vault");
     expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual([
-      threadFixture("thread-1"),
+      panelThreadFromAppServerThread(threadFixture("thread-1")),
     ]);
   });
 
@@ -1062,7 +1066,7 @@ function resumedThread(threadId: string) {
   };
 }
 
-function threadFixture(threadId: string) {
+function threadFixture(threadId: string): Thread {
   return {
     id: threadId,
     sessionId: "session",

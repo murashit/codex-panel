@@ -1,20 +1,24 @@
-import type { AppServerClient } from "../../../app-server/client";
+import { panelThreadFromAppServerThread, panelThreadsFromAppServerThreads } from "../../../app-server/thread-model";
 import { upsertThread } from "../../../domain/threads/model";
-import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../../domain/threads/model";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../../../runtime/effective-settings";
 import { resumedThreadAction } from "../threads/thread-resume";
 import type { ChatAppServerBaseHost } from "./shared";
 
+interface StartedThreadSummary {
+  threadId: string;
+}
+
 export interface ChatAppServerThreadActionsHost extends ChatAppServerBaseHost {
   runtimeSnapshot: () => RuntimeSnapshot;
-  publishThreadList: (threads: readonly Thread[]) => void;
+  publishThreadList: (threads: readonly PanelThread[]) => void;
   syncThreadGoal: (threadId: string) => void;
 }
 
 export interface ChatAppServerThreadActions {
-  applyThreadList: (threads: readonly Thread[]) => void;
-  loadThreadList: () => Promise<readonly Thread[]>;
-  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<Awaited<ReturnType<AppServerClient["startThread"]>> | null>;
+  applyThreadList: (threads: readonly PanelThread[]) => void;
+  loadThreadList: () => Promise<readonly PanelThread[]>;
+  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<StartedThreadSummary | null>;
 }
 
 export function createChatAppServerThreadActions(host: ChatAppServerThreadActionsHost): ChatAppServerThreadActions {
@@ -27,34 +31,34 @@ export function createChatAppServerThreadActions(host: ChatAppServerThreadAction
   };
 }
 
-function applyThreadList(host: ChatAppServerThreadActionsHost, threads: readonly Thread[]): void {
+function applyThreadList(host: ChatAppServerThreadActionsHost, threads: readonly PanelThread[]): void {
   host.stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
 }
 
-async function loadThreadList(host: ChatAppServerThreadActionsHost): Promise<readonly Thread[]> {
+async function loadThreadList(host: ChatAppServerThreadActionsHost): Promise<readonly PanelThread[]> {
   const client = host.currentClient();
   if (!client) throw new Error("Codex app-server is not connected.");
   const response = await client.listThreads(host.vaultPath);
-  return response.data;
+  return panelThreadsFromAppServerThreads(response.data);
 }
 
 async function startThread(
   host: ChatAppServerThreadActionsHost,
   preview?: string,
   options: { syncGoal?: boolean } = {},
-): Promise<Awaited<ReturnType<AppServerClient["startThread"]>> | null> {
+): Promise<StartedThreadSummary | null> {
   const client = host.currentClient();
   if (!client) return null;
   const serviceTier = requestedOrConfiguredServiceTier(host.runtimeSnapshot());
   const response = await client.startThread(host.vaultPath, serviceTier);
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();
-  const thread =
+  const appServerThread =
     response.thread.preview.trim().length > 0 || !fallbackPreview ? response.thread : { ...response.thread, preview: fallbackPreview };
+  const thread = panelThreadFromAppServerThread(appServerThread);
   const listedThreads = upsertThread(state.threadList.listedThreads, thread);
-  const resumedResponse = thread === response.thread ? response : { ...response, thread };
-  host.stateStore.dispatch(resumedThreadAction({ response: resumedResponse, listedThreads }));
+  host.stateStore.dispatch(resumedThreadAction({ response: { ...response, thread }, listedThreads }));
   host.publishThreadList(listedThreads);
   if (options.syncGoal ?? true) host.syncThreadGoal(response.thread.id);
-  return response;
+  return { threadId: response.thread.id };
 }

@@ -6,7 +6,7 @@ import type { RestoredThreadController } from "../../../../src/features/chat/thr
 import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/panel/lifecycle";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
 
-function thread(id: string, name: string | null = null): Thread {
+function thread(id: string, name: string | null = null): Thread & { archived: boolean } {
   return {
     id,
     sessionId: id,
@@ -27,6 +27,7 @@ function thread(id: string, name: string | null = null): Thread {
     agentRole: null,
     gitInfo: null,
     name,
+    archived: false,
     turns: [],
   };
 }

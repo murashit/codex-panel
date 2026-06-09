@@ -8,7 +8,7 @@ import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigRea
 import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata";
-import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../domain/threads/model";
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
@@ -57,14 +57,13 @@ interface ChatConnectionState {
 }
 
 interface ChatThreadListState {
-  listedThreads: readonly Thread[];
+  listedThreads: readonly PanelThread[];
   threadsLoaded: boolean;
 }
 
 export interface ChatActiveThreadState {
   id: string | null;
   cwd: string | null;
-  creationCliVersion: string | null;
   goal: ThreadGoal | null;
   tokenUsage: ThreadTokenUsage | null;
 }
@@ -145,7 +144,7 @@ type ConnectionAction =
 
 interface ThreadListAppliedAction {
   type: "thread-list/applied";
-  threads?: readonly Thread[];
+  threads?: readonly PanelThread[];
   threadsLoaded?: boolean;
 }
 
@@ -153,7 +152,7 @@ type ThreadListAction = ThreadListAppliedAction;
 
 export interface ActiveThreadResumedAction {
   type: "active-thread/resumed";
-  thread: Thread;
+  thread: PanelThread;
   cwd: string;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
@@ -163,7 +162,7 @@ export interface ActiveThreadResumedAction {
   activePermissionProfile: ActivePermissionProfile | null;
   displayItems?: readonly DisplayItem[];
   status?: string;
-  listedThreads?: readonly Thread[];
+  listedThreads?: readonly PanelThread[];
 }
 
 export interface ActiveThreadSettingsAppliedAction {
@@ -431,7 +430,6 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
     activeThread: {
       id: action.thread.id,
       cwd: action.cwd,
-      creationCliVersion: action.thread.cliVersion,
       goal: null,
       tokenUsage: null,
     },
@@ -481,7 +479,6 @@ function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, actio
       activeThread: {
         id: action.threadId,
         cwd: null,
-        creationCliVersion: null,
         goal: null,
         tokenUsage: null,
       },
@@ -826,7 +823,6 @@ function initialActiveThreadState(): ChatActiveThreadState {
   return {
     id: null,
     cwd: null,
-    creationCliVersion: null,
     goal: null,
     tokenUsage: null,
   };

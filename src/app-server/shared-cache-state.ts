@@ -3,7 +3,7 @@ import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadRe
 import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../generated/app-server/v2/SkillMetadata";
-import type { Thread } from "../generated/app-server/v2/Thread";
+import type { PanelThread } from "../domain/threads/model";
 
 export interface SharedAppServerMetadata {
   effectiveConfig: ConfigReadResponse | null;
@@ -16,7 +16,7 @@ export interface SharedAppServerMetadata {
 type SharedCache<T> = { kind: "unloaded" } | { kind: "loaded"; data: T };
 
 export interface SharedAppServerState {
-  threads: SharedCache<readonly Thread[]>;
+  threads: SharedCache<readonly PanelThread[]>;
   appServerMetadata: SharedCache<SharedAppServerMetadata>;
   availableModels: readonly Model[];
 }
@@ -29,7 +29,7 @@ export function createSharedAppServerState(): SharedAppServerState {
   };
 }
 
-export function applySharedThreadList(state: SharedAppServerState, threads: readonly Thread[]): SharedAppServerState {
+export function applySharedThreadList(state: SharedAppServerState, threads: readonly PanelThread[]): SharedAppServerState {
   return {
     ...state,
     threads: { kind: "loaded", data: cloneThreads(threads) },
@@ -57,7 +57,7 @@ export function applySharedModels(state: SharedAppServerState, models: readonly 
   };
 }
 
-export function cachedSharedThreadList(state: SharedAppServerState): readonly Thread[] | null {
+export function cachedSharedThreadList(state: SharedAppServerState): readonly PanelThread[] | null {
   return state.threads.kind === "loaded" ? cloneThreads(state.threads.data) : null;
 }
 
@@ -82,8 +82,8 @@ function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): Shared
   };
 }
 
-function cloneThreads(threads: readonly Thread[]): Thread[] {
-  return threads.map((thread) => ({ ...thread, turns: [...thread.turns] }));
+function cloneThreads(threads: readonly PanelThread[]): PanelThread[] {
+  return threads.map((thread) => ({ ...thread }));
 }
 
 function cloneModels(models: readonly Model[]): Model[] {

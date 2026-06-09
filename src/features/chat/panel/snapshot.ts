@@ -1,5 +1,5 @@
 import type { Model } from "../../../generated/app-server/v2/Model";
-import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import { readRuntimeConfig } from "../../../runtime/config";
 import { currentModel } from "../../../runtime/effective-settings";
@@ -145,11 +145,9 @@ function displayItemsSignature(items: readonly DisplayItem[]): string {
   return stableSignature(items);
 }
 
-function threadListSignature(threads: readonly Thread[]): string {
+function threadListSignature(threads: readonly PanelThread[]): string {
   return threads
-    .map((thread) =>
-      signatureParts(thread.id, thread.name, thread.preview, thread.updatedAt, thread.cliVersion, thread.status, thread.gitInfo),
-    )
+    .map((thread) => signatureParts(thread.id, thread.name, thread.preview, thread.updatedAt, thread.archived))
     .join("\n");
 }
 

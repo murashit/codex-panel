@@ -38,7 +38,7 @@ describe("threadOpenModeFromEvent", () => {
   });
 });
 
-function thread(options: Partial<Thread> & { id: string }): Thread {
+function thread(options: Partial<Thread & { archived: boolean }> & { id: string }): Thread & { archived: boolean } {
   return {
     id: options.id,
     sessionId: "session",
@@ -59,6 +59,7 @@ function thread(options: Partial<Thread> & { id: string }): Thread {
     agentRole: null,
     gitInfo: null,
     name: options.name ?? null,
+    archived: false,
     turns: [],
-  } as Thread;
+  } as Thread & { archived: boolean };
 }

@@ -1,4 +1,5 @@
 import type { AppServerClient } from "../../../app-server/client";
+import { panelThreadFromAppServerThread } from "../../../app-server/thread-model";
 import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
 import { setActiveThreadTokenUsageAction } from "../chat-state-actions";
 import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../chat-state-selectors";
@@ -46,7 +47,7 @@ export class ThreadResumeController {
     try {
       const response = await client.resumeThread(threadId, this.host.vaultPath);
       if (this.isStale(resume)) return;
-      this.applyResumedThread(response);
+      this.applyResumedThread(this.panelThreadActivationResponse(response));
       this.recoverResumedThreadTokenUsage(response.thread.id, response.thread.path, resume);
       if (response.initialTurnsPage) {
         this.host.history.applyLatestPage(response.thread.id, response.initialTurnsPage);
@@ -83,6 +84,10 @@ export class ThreadResumeController {
     this.host.notifyActiveThreadIdentityChanged();
     this.host.render();
     this.host.refreshLiveState();
+  }
+
+  private panelThreadActivationResponse(response: Awaited<ReturnType<AppServerClient["resumeThread"]>>): ThreadActivationResponse {
+    return { ...response, thread: panelThreadFromAppServerThread(response.thread) };
   }
 
   private recoverResumedThreadTokenUsage(threadId: string, path: string | null, resume: ActiveChatResume): void {

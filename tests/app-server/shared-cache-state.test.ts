@@ -10,6 +10,7 @@ import {
   cachedSharedThreadList,
   createSharedAppServerState,
 } from "../../src/app-server/shared-cache-state";
+import type { PanelThread } from "../../src/domain/threads/model";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 
@@ -22,7 +23,7 @@ describe("shared app-server cache state", () => {
     const cachedThreads = cachedSharedThreadList(threadState);
     expect(cachedThreads?.map((thread) => thread.id)).toEqual(["thread-1"]);
 
-    const mutableCachedThreads = cachedThreads as Thread[];
+    const mutableCachedThreads = cachedThreads as PanelThread[];
     mutableCachedThreads.push(threadFixture("thread-3"));
     expect(cachedSharedThreadList(threadState)?.map((thread) => thread.id)).toEqual(["thread-1"]);
 
@@ -50,7 +51,7 @@ describe("shared app-server cache state", () => {
   });
 });
 
-function threadFixture(id: string): Thread {
+function threadFixture(id: string): Thread & { archived: boolean } {
   return {
     id,
     sessionId: "session",
@@ -71,6 +72,7 @@ function threadFixture(id: string): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
   };
 }

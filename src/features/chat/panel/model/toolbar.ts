@@ -1,4 +1,4 @@
-import type { Thread } from "../../../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import { effectiveConfigSections, rateLimitSummary } from "../../../../runtime/status-summary";
 import { connectionDiagnosticSections } from "../../diagnostics";
@@ -36,7 +36,7 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
 }
 
 function toolbarThreadRows(input: {
-  threads: readonly Thread[];
+  threads: readonly PanelThread[];
   activeThreadId: string | null;
   turnBusy: boolean;
   archiveConfirmThreadId: string | null;
@@ -65,7 +65,6 @@ export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInpu
     connected: input.connected,
     configuredCommand: input.configuredCommand,
     initializeResponse: input.state.connection.initializeResponse,
-    activeThreadCreationCliVersion: input.state.activeThread.creationCliVersion,
     diagnostics: input.state.connection.appServerDiagnostics,
   });
 }

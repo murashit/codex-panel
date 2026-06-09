@@ -37,7 +37,6 @@ describe("connection diagnostics", () => {
         platformFamily: "unix",
         platformOs: "macos",
       },
-      activeThreadCreationCliVersion: "0.130.0",
       diagnostics,
     });
 
@@ -46,7 +45,6 @@ describe("connection diagnostics", () => {
     expect(rows.map((row) => `${row.label}: ${row.value}`)).toEqual(
       expect.arrayContaining([
         "connection: connected",
-        "thread created by CLI: 0.130.0",
         "model/list: ok (12 models)",
         "skills/list: failed - unknown method skills/list",
         "mcp docs: ready - auth notLoggedIn",

@@ -2,11 +2,12 @@ import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } fro
 
 import type { AppServerClient } from "../app-server/client";
 import { withShortLivedAppServerClient } from "../app-server/short-lived-client";
+import { panelThreadFromAppServerThread } from "../app-server/thread-model";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
 import type { Model } from "../generated/app-server/v2/Model";
-import type { Thread } from "../generated/app-server/v2/Thread";
+import type { PanelThread } from "../domain/threads/model";
 import { findModelByIdOrName, REASONING_EFFORTS, sortedAvailableModels, supportedEffortsForModel } from "../runtime/models";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
@@ -37,7 +38,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private settingsDataAutoLoadStarted = false;
   private settingsDynamicOperationId = 0;
   private settingsDataRefreshLifecycle: SettingsDataRefreshLifecycleState = { kind: "idle" };
-  private archivedThreads: Thread[] = [];
+  private archivedThreads: PanelThread[] = [];
   private archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
   private hooks: HookMetadata[] = [];
   private hookWarnings: string[] = [];
@@ -480,9 +481,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     try {
       const response = await this.withSettingsConnection((client) => client.unarchiveThread(threadId));
       this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
+      const restoredThread = panelThreadFromAppServerThread(response.thread);
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
         type: "loaded",
-        status: `Restored "${archivedThreadDisplayTitle(response.thread)}".`,
+        status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
         operationId,
       });
       this.plugin.refreshSharedThreadListFromOpenSurface();

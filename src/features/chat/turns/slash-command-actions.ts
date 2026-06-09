@@ -4,7 +4,7 @@ import {
   referencedThreadTurns,
   REFERENCED_THREAD_TURN_LIMIT,
 } from "../../../domain/threads/reference";
-import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../../domain/threads/model";
 import {
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionResult,
@@ -128,7 +128,7 @@ async function executeSlashCommand(
 async function referencedThreadInput(
   host: SlashCommandActionsHost,
   client: AppServerClient,
-  thread: Thread,
+  thread: PanelThread,
   message: string,
 ): Promise<ThreadReferenceInput | null> {
   try {

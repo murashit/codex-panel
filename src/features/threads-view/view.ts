@@ -2,8 +2,9 @@ import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
+import { panelThreadFromAppServerThread, panelThreadsFromAppServerThreads } from "../../app-server/thread-model";
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
-import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
@@ -38,8 +39,8 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
   notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
   notifyThreadRenamed(threadId: string, name: string | null): void;
-  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-  cachedThreadList(): readonly Thread[] | null;
+  refreshThreadList(fetchThreads: () => Promise<readonly PanelThread[]>): Promise<readonly PanelThread[]>;
+  cachedThreadList(): readonly PanelThread[] | null;
 }
 
 type ThreadsViewStatus =
@@ -56,7 +57,7 @@ export class CodexThreadsView extends ItemView {
   private connectionLifecycle: ThreadsViewConnectionLifecycleState = { kind: "idle" };
   private refreshLifecycle: ThreadsViewRefreshLifecycleState = { kind: "idle" };
   private status: ThreadsViewStatus = { kind: "idle" };
-  private threads: readonly Thread[] = [];
+  private threads: readonly PanelThread[] = [];
   private readonly renameStates = new Map<string, ThreadsRenameState>();
   private archiveConfirmThreadId: string | null = null;
 
@@ -131,7 +132,7 @@ export class CodexThreadsView extends ItemView {
       const threads = await this.plugin.refreshThreadList(async () => {
         if (!this.client) return [];
         const response = await this.client.listThreads(this.plugin.vaultPath);
-        return response.data;
+        return panelThreadsFromAppServerThreads(response.data);
       });
       if (this.isStaleRefresh(refresh)) return;
       this.threads = threads;
@@ -252,7 +253,7 @@ export class CodexThreadsView extends ItemView {
     this.scheduleRender();
   }
 
-  applyThreadListSnapshot(threads: readonly Thread[]): void {
+  applyThreadListSnapshot(threads: readonly PanelThread[]): void {
     this.threads = threads;
     this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     this.render();
@@ -366,7 +367,7 @@ export class CodexThreadsView extends ItemView {
       if (saveMarkdown) {
         const response = await this.client.readThread(threadId, true);
         const result = await exportArchivedThreadMarkdown(
-          response.thread,
+          { ...panelThreadFromAppServerThread(response.thread, { archived: true }), turns: response.thread.turns },
           { ...this.plugin.settings, vaultPath: this.plugin.vaultPath },
           this.app.vault.adapter,
         );

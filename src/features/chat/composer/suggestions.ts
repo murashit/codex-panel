@@ -1,6 +1,6 @@
 import type { Model } from "../../../generated/app-server/v2/Model";
 import type { SkillMetadata } from "../../../generated/app-server/v2/SkillMetadata";
-import type { Thread } from "../../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../../domain/threads/model";
 import { prepareFuzzySearch, sortSearchResults, type SearchResult } from "obsidian";
 import {
   findModelByIdOrName,
@@ -59,7 +59,7 @@ export function activeComposerSuggestions(
   beforeCursor: string,
   notes: NoteCandidate[],
   skills: readonly SkillMetadata[],
-  threads: readonly Thread[] = [],
+  threads: readonly PanelThread[] = [],
   models: readonly Model[] = [],
   currentModel: string | null = null,
 ): ComposerSuggestion[] {
@@ -275,7 +275,7 @@ function activeSlashSubcommandSuggestions(beforeCursor: string): ComposerSuggest
     }));
 }
 
-function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
+function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly PanelThread[]): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/(?:resume|refer|archive|rename)\s+([^\s\n]{0,120})$/);
   if (!completion) return null;
 

@@ -1,8 +1,9 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
+import { panelThreadsFromAppServerThreads } from "../../app-server/thread-model";
 import { getThreadTitle } from "../../domain/threads/model";
-import type { Thread } from "../../generated/app-server/v2/Thread";
+import type { PanelThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import { shortThreadId } from "../../utils";
 
@@ -10,14 +11,14 @@ export interface ThreadPickerHost {
   readonly app: App;
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
-  cachedThreadList(): readonly Thread[] | null;
-  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+  cachedThreadList(): readonly PanelThread[] | null;
+  refreshThreadList(fetchThreads: () => Promise<readonly PanelThread[]>): Promise<readonly PanelThread[]>;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
 
 interface ThreadSuggestion {
-  thread: Thread;
+  thread: PanelThread;
   title: string;
 }
 
@@ -41,7 +42,7 @@ export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
   }
 }
 
-export function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {
+export function threadPickerSuggestions(threads: readonly PanelThread[], queryText: string): ThreadSuggestion[] {
   const query = queryText.trim().toLowerCase();
   return [...threads]
     .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -78,7 +79,7 @@ export function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): Thread
   return "current";
 }
 
-async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly Thread[]> {
+async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly PanelThread[]> {
   const cached = host.cachedThreadList();
   if (cached) return cached;
 
@@ -99,7 +100,7 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly
     if (!client) throw new Error("Codex app-server is not connected.");
     return await host.refreshThreadList(async () => {
       const response = await client.listThreads(host.vaultPath);
-      return response.data;
+      return panelThreadsFromAppServerThreads(response.data);
     });
   } finally {
     connection.disconnect();
@@ -109,7 +110,7 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   constructor(
     private readonly host: ThreadPickerHost,
-    private readonly threads: readonly Thread[],
+    private readonly threads: readonly PanelThread[],
   ) {
     super(host.app);
     this.limit = MAX_THREAD_PICKER_SUGGESTIONS;

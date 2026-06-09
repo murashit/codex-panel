@@ -5,7 +5,7 @@ import { createChatState, createChatStateStore } from "../../../../src/features/
 import { createComposerSubmissionActions } from "../../../../src/features/chat/turns/composer-submission-actions";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
 
-function thread(id: string): Thread {
+function thread(id: string): Thread & { archived: boolean } {
   return {
     id,
     sessionId: id,
@@ -26,6 +26,7 @@ function thread(id: string): Thread {
     agentRole: null,
     gitInfo: null,
     name: null,
+    archived: false,
     turns: [],
   };
 }

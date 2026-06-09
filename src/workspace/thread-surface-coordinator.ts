@@ -3,7 +3,7 @@ import type { App } from "obsidian";
 import { VIEW_TYPE_CODEX_THREADS } from "../constants";
 import { CodexThreadsView } from "../features/threads-view/view";
 import type { Model } from "../generated/app-server/v2/Model";
-import type { Thread } from "../generated/app-server/v2/Thread";
+import type { PanelThread } from "../domain/threads/model";
 import type { SharedAppServerMetadata } from "../app-server/shared-cache-state";
 import type { WorkspacePanelCoordinator } from "./panel-coordinator";
 
@@ -33,7 +33,7 @@ export class ThreadSurfaceCoordinator {
     if (threadsView) void threadsView.refresh();
   }
 
-  applyThreadListSnapshot(threads: readonly Thread[]): void {
+  applyThreadListSnapshot(threads: readonly PanelThread[]): void {
     for (const view of this.options.panels.panelViews()) {
       view.applyThreadListSnapshot(threads);
     }

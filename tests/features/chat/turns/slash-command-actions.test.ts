@@ -15,7 +15,7 @@ import type { UserInput } from "../../../../src/generated/app-server/v2/UserInpu
 
 const textInput = (text: string): UserInput[] => [{ type: "text", text, text_elements: [] }];
 
-function thread(id: string, name: string | null = null): Thread {
+function thread(id: string, name: string | null = null): Thread & { archived: boolean } {
   return {
     id,
     sessionId: id,
@@ -36,6 +36,7 @@ function thread(id: string, name: string | null = null): Thread {
     agentRole: null,
     gitInfo: null,
     name,
+    archived: false,
     turns: [],
   };
 }

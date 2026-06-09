@@ -46,7 +46,7 @@ describe("chat thread resume helpers", () => {
   });
 });
 
-function responseFixture(thread: Thread): ThreadResumeResponse {
+function responseFixture(thread: Thread & { archived: boolean }): ThreadResumeResponse & { thread: Thread & { archived: boolean } } {
   return {
     thread,
     model: "gpt-5.5",
@@ -64,7 +64,7 @@ function responseFixture(thread: Thread): ThreadResumeResponse {
   };
 }
 
-function threadFixture(id: string, name: string): Thread {
+function threadFixture(id: string, name: string): Thread & { archived: boolean } {
   return {
     id,
     sessionId: "session",
@@ -85,6 +85,7 @@ function threadFixture(id: string, name: string): Thread {
     agentRole: null,
     gitInfo: null,
     name,
+    archived: false,
     turns: [],
   };
 }
