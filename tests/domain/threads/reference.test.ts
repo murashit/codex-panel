@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
 import {
   referencedThreadDisplayFromPrompt,
-  referencedThreadInput,
+  referencedThreadPromptBundle,
   referencedThreadPrompt,
   referencedThreadTurns,
 } from "../../../src/domain/threads/reference";
@@ -117,16 +117,12 @@ describe("thread reference context", () => {
     ).toBeNull();
   });
 
-  it("builds slash command input while preserving non-text attachments", () => {
+  it("builds a prompt bundle for slash command references", () => {
     const source = thread();
-    const input = referencedThreadInput(source, [{ userText: "元の依頼", assistantText: "回答" }], "この続きです", [
-      { type: "text", text: "この続きです", text_elements: [] },
-      { type: "mention", name: "Note", path: "Note.md" },
-    ]);
+    const input = referencedThreadPromptBundle(source, [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
 
     expect(input.status).toBe("Referencing 019abcde (1/20 turns).");
     expect(input.referencedThread).toMatchObject({ threadId: source.id, title: "参照元", includedTurns: 1 });
-    expect(input.input[0]).toMatchObject({ type: "text" });
-    expect(input.input[1]).toEqual({ type: "mention", name: "Note", path: "Note.md" });
+    expect(input.prompt).toContain("Current user request:\nこの続きです");
   });
 });

@@ -1,4 +1,4 @@
-import type { UserInput } from "../../../generated/app-server/v2/UserInput";
+import { appServerTextInputWithMentions, type AppServerRequestMention } from "../../../app-server/request-input";
 import type { SkillMetadata } from "../../../domain/catalog/metadata";
 import { parseObsidianWikiLink } from "../../../shared/obsidian/wikilinks";
 
@@ -31,7 +31,7 @@ export function parsedWikiLinks(text: string): ParsedWikiLink[] {
   return links;
 }
 
-export function userInputWithWikiLinkMentions(text: string, resolveMention: WikiLinkMentionResolver): UserInput[] {
+export function userInputWithWikiLinkMentions(text: string, resolveMention: WikiLinkMentionResolver) {
   return userInputWithWikiLinkMentionsAndSkills(text, resolveMention, []);
 }
 
@@ -39,27 +39,28 @@ export function userInputWithWikiLinkMentionsAndSkills(
   text: string,
   resolveMention: WikiLinkMentionResolver,
   skills: readonly SkillMetadata[],
-): UserInput[] {
-  const input: UserInput[] = [{ type: "text", text, text_elements: [] }];
+) {
+  const mentions: AppServerRequestMention[] = [];
   const seenPaths = new Set<string>();
 
   for (const link of parsedWikiLinks(text)) {
     const mention = resolveMention(link.target);
     if (!mention || seenPaths.has(mention.path)) continue;
     seenPaths.add(mention.path);
-    input.push({ type: "mention", name: mention.name, path: mention.path });
+    mentions.push(mention);
   }
 
   const skillByName = firstEnabledSkillByName(skills);
+  const resolvedSkills: AppServerRequestMention[] = [];
   const seenSkillPaths = new Set<string>();
   for (const reference of parsedSkillReferences(text)) {
     const skill = skillByName.get(reference.toLowerCase());
     if (!skill || seenSkillPaths.has(skill.path)) continue;
     seenSkillPaths.add(skill.path);
-    input.push({ type: "skill", name: skill.name, path: skill.path });
+    resolvedSkills.push({ name: skill.name, path: skill.path });
   }
 
-  return input;
+  return appServerTextInputWithMentions(text, mentions, resolvedSkills);
 }
 
 export function parsedSkillReferences(text: string): string[] {

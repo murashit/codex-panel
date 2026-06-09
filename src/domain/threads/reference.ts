@@ -1,4 +1,3 @@
-import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { shortThreadId } from "../../utils";
 import { getThreadTitle, type Thread } from "./model";
 import type { ThreadConversationSummary } from "./transcript";
@@ -23,8 +22,8 @@ export interface ReferencedThreadTurn {
   assistantText: string | null;
 }
 
-export interface ReferencedThreadInput {
-  input: UserInput[];
+export interface ReferencedThreadPromptBundle {
+  prompt: string;
   referencedThread: ReferencedThreadDisplay;
   status: string;
 }
@@ -69,15 +68,14 @@ function referencedThreadDisplay(thread: Thread, count: number): ReferencedThrea
   };
 }
 
-export function referencedThreadInput(
+export function referencedThreadPromptBundle(
   thread: Thread,
   turns: readonly ReferencedThreadTurn[],
   userRequest: string,
-  messageInput: UserInput[],
-): ReferencedThreadInput {
+): ReferencedThreadPromptBundle {
   const prompt = referencedThreadPrompt(thread, [...turns], userRequest);
   return {
-    input: [{ type: "text", text: prompt, text_elements: [] }, ...messageInput.filter((item) => item.type !== "text")],
+    prompt,
     referencedThread: referencedThreadDisplay(thread, turns.length),
     status: referencedThreadStatus(thread, turns.length),
   };
