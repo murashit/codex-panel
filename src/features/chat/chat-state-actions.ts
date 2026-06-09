@@ -4,7 +4,7 @@ import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadToken
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "./runtime/state";
 import type { PanelCollaborationMode } from "./runtime/collaboration";
-import { parseServiceTier, type ServiceTier } from "../../app-server/service-tier";
+import { parseServiceTier, type ServiceTier } from "../../app-server/thread-settings";
 import type { ChatAction, PendingTurnStart } from "./chat-state";
 import type { DisplayItem } from "./display/types";
 

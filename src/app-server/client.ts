@@ -27,7 +27,6 @@ import type { ThreadReadResponse } from "../generated/app-server/v2/ThreadReadRe
 import type { ThreadResumeResponse } from "../generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadRollbackResponse } from "../generated/app-server/v2/ThreadRollbackResponse";
 import type { ThreadSetNameResponse } from "../generated/app-server/v2/ThreadSetNameResponse";
-import type { ThreadSettingsUpdateParams } from "../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { ThreadSettingsUpdateResponse } from "../generated/app-server/v2/ThreadSettingsUpdateResponse";
 import type { ThreadCompactStartResponse } from "../generated/app-server/v2/ThreadCompactStartResponse";
 import type { SortDirection } from "../generated/app-server/v2/SortDirection";
@@ -45,11 +44,10 @@ import type { ClientRequestMethod, ClientRequestParams, PendingRequest, RpcError
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
+import type { ServiceTierRequest, ThreadSettingsUpdate } from "./thread-settings";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const MAX_SUPPRESSED_ORPHAN_RESPONSES = 256;
-
-type ServiceTierRequest = string | null | undefined;
 
 export interface AppServerClientHandlers {
   onNotification: (notification: ServerNotification) => void;
@@ -309,7 +307,7 @@ export class AppServerClient {
     return this.request("thread/inject_items", { threadId, items });
   }
 
-  updateThreadSettings(threadId: string, settings: Omit<ThreadSettingsUpdateParams, "threadId">): Promise<ThreadSettingsUpdateResponse> {
+  updateThreadSettings(threadId: string, settings: ThreadSettingsUpdate): Promise<ThreadSettingsUpdateResponse> {
     return this.request("thread/settings/update", { threadId, ...settings });
   }
 

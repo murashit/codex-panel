@@ -8,7 +8,7 @@ import type { Config } from "../../../generated/app-server/v2/Config";
 import type { SandboxMode } from "../../../generated/app-server/v2/SandboxMode";
 import type { SandboxWorkspaceWrite } from "../../../generated/app-server/v2/SandboxWorkspaceWrite";
 import type { ToolsV2 } from "../../../generated/app-server/v2/ToolsV2";
-import { parseServiceTier, type ServiceTier } from "../../../app-server/service-tier";
+import { parseServiceTier, type ServiceTier } from "../../../app-server/thread-settings";
 import { isReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import { approvalsReviewerOrNull, type ApprovalsReviewer } from "./approvals";
 

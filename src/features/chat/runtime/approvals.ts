@@ -1,10 +1,14 @@
-import type { ApprovalsReviewer as AppServerApprovalsReviewer } from "../../../generated/app-server/v2/ApprovalsReviewer";
+import {
+  appServerApprovalsReviewerOrNull,
+  appServerAutoReviewApprovalsReviewer,
+  type AppServerApprovalsReviewer,
+} from "../../../app-server/thread-settings";
 
 export type ApprovalsReviewer = AppServerApprovalsReviewer;
 export type AutoReviewState = "enabled" | "disabled";
 
 export function approvalsReviewerOrNull(value: unknown): ApprovalsReviewer | null {
-  return value === "user" || value === "auto_review" || value === "guardian_subagent" ? value : null;
+  return appServerApprovalsReviewerOrNull(value);
 }
 
 export function isAutoReviewReviewer(value: ApprovalsReviewer | null): boolean {
@@ -16,7 +20,7 @@ export function nextAutoReviewState(active: boolean): AutoReviewState {
 }
 
 export function autoReviewReviewerForState(state: AutoReviewState): ApprovalsReviewer {
-  return state === "enabled" ? "auto_review" : "user";
+  return appServerAutoReviewApprovalsReviewer(state === "enabled");
 }
 
 export function autoReviewToggleMessage(state: AutoReviewState): string {

@@ -6,16 +6,16 @@ import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTo
 import { findModelOptionByIdOrName, type PanelModelOption } from "../../../domain/catalog/metadata";
 import {
   configuredServiceTierRequestValue,
-  isFastServiceTier,
-  requestedServiceTierRequestValue,
+  clearedServiceTierRequestValue,
+  serviceTierRequestValue,
   type ServiceTier,
   type ServiceTierRequest,
-} from "../../../app-server/service-tier";
+} from "../../../app-server/thread-settings";
 import { supportedEffortsForModelOption, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import type { PanelCollaborationMode } from "./collaboration";
 import { isAutoReviewReviewer, type ApprovalsReviewer } from "./approvals";
-import type { RequestedServiceTier } from "./service-tier-state";
+import { isFastServiceTier, type RequestedServiceTier } from "./service-tier-state";
 
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
 
@@ -55,10 +55,12 @@ export function requestedOrConfiguredServiceTier(
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
 ): ServiceTierRequest {
   if (snapshot.requestedServiceTier.kind === "set") {
-    return requestedServiceTierRequestValue(snapshot.requestedServiceTier.value, fastServiceTierRequestValue(snapshot, config));
+    return snapshot.requestedServiceTier.value === "fast"
+      ? serviceTierRequestValue(fastServiceTierRequestValue(snapshot, config))
+      : clearedServiceTierRequestValue();
   }
   if (snapshot.requestedServiceTier.kind === "resetToConfig") {
-    return null;
+    return clearedServiceTierRequestValue();
   }
   return configuredServiceTierRequestValue(config.serviceTier);
 }

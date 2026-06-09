@@ -1,5 +1,4 @@
-import type { CollaborationMode } from "../../../generated/app-server/CollaborationMode";
-import type { ThreadSettingsUpdateParams } from "../../../generated/app-server/v2/ThreadSettingsUpdateParams";
+import { applyThreadSettingsValue, appServerCollaborationMode, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
   currentModel,
@@ -8,13 +7,12 @@ import {
   pendingRuntimeSettingPayload,
   type RuntimeSnapshot,
 } from "./effective-settings";
-import { requestedServiceTierRequestValue } from "../../../app-server/service-tier";
+import { clearedServiceTierRequestValue, serviceTierRequestValue } from "../../../app-server/thread-settings";
 
-export type ThreadSettingsUpdate = Omit<ThreadSettingsUpdateParams, "threadId">;
 export type TurnCollaborationModeWarning = "missing-model";
 
 export interface TurnCollaborationModeSettings {
-  collaborationMode: CollaborationMode | null;
+  collaborationMode: ThreadSettingsUpdate["collaborationMode"] | null;
   warning: TurnCollaborationModeWarning | null;
 }
 
@@ -41,31 +39,30 @@ export function pendingThreadSettingsUpdate(
   const collaborationModeSettings = requestedTurnCollaborationModeSettings(snapshot);
 
   if (snapshot.requestedModel.kind !== "unchanged") {
-    const model = pendingRuntimeSettingPayload(snapshot.requestedModel);
-    if (model !== undefined) update.model = model;
+    applyThreadSettingsValue(update, "model", pendingRuntimeSettingPayload(snapshot.requestedModel));
   }
   if (snapshot.requestedReasoningEffort.kind !== "unchanged") {
-    const effort = pendingRuntimeSettingPayload(snapshot.requestedReasoningEffort);
-    if (effort !== undefined) update.effort = effort;
+    applyThreadSettingsValue(update, "effort", pendingRuntimeSettingPayload(snapshot.requestedReasoningEffort));
   }
   if (snapshot.requestedServiceTier.kind === "set") {
-    const serviceTier = requestedServiceTierRequestValue(
-      snapshot.requestedServiceTier.value,
-      fastServiceTierRequestValue(snapshot, config),
+    applyThreadSettingsValue(
+      update,
+      "serviceTier",
+      snapshot.requestedServiceTier.value === "fast"
+        ? serviceTierRequestValue(fastServiceTierRequestValue(snapshot, config))
+        : clearedServiceTierRequestValue(),
     );
-    if (serviceTier !== undefined) update.serviceTier = serviceTier;
   } else if (snapshot.requestedServiceTier.kind === "resetToConfig") {
-    update.serviceTier = null;
+    applyThreadSettingsValue(update, "serviceTier", clearedServiceTierRequestValue());
   }
   if (snapshot.requestedApprovalsReviewer.kind !== "unchanged") {
-    const approvalsReviewer = pendingRuntimeSettingPayload(snapshot.requestedApprovalsReviewer);
-    if (approvalsReviewer !== undefined) update.approvalsReviewer = approvalsReviewer;
+    applyThreadSettingsValue(update, "approvalsReviewer", pendingRuntimeSettingPayload(snapshot.requestedApprovalsReviewer));
   }
   if (snapshot.selectedCollaborationMode !== snapshot.activeCollaborationMode) {
     if (collaborationModeSettings.warning) {
       return { update, collaborationModeWarning: collaborationModeSettings.warning };
     }
-    if (collaborationModeSettings.collaborationMode) update.collaborationMode = collaborationModeSettings.collaborationMode;
+    applyThreadSettingsValue(update, "collaborationMode", collaborationModeSettings.collaborationMode ?? undefined);
   }
   return { update, collaborationModeWarning: null };
 }
@@ -74,13 +71,6 @@ function collaborationModePayload(
   mode: RuntimeSnapshot["selectedCollaborationMode"],
   model: string,
   reasoningEffort: ReturnType<typeof currentReasoningEffort>,
-): CollaborationMode {
-  return {
-    mode,
-    settings: {
-      model,
-      reasoning_effort: reasoningEffort,
-      developer_instructions: null,
-    },
-  };
+): NonNullable<ThreadSettingsUpdate["collaborationMode"]> {
+  return appServerCollaborationMode(mode, model, reasoningEffort);
 }

@@ -1,7 +1,6 @@
 import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
-import type { ThreadSettingsUpdateParams } from "../../../generated/app-server/v2/ThreadSettingsUpdateParams";
-import { parseServiceTier, type ServiceTier } from "../../../app-server/service-tier";
+import { parseServiceTier, type ServiceTier, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import type { PanelCollaborationMode } from "./collaboration";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ApprovalsReviewer } from "./approvals";
@@ -101,10 +100,7 @@ export function setSelectedCollaborationModeRuntimeState(
   };
 }
 
-export function commitPendingThreadSettingsRuntimeState(
-  state: ChatRuntimeState,
-  update: Omit<ThreadSettingsUpdateParams, "threadId">,
-): ChatRuntimeState {
+export function commitPendingThreadSettingsRuntimeState(state: ChatRuntimeState, update: ThreadSettingsUpdate): ChatRuntimeState {
   return {
     ...state,
     ...("model" in update ? { activeModel: update.model ?? null, requestedModel: unchangedRuntimeSetting<string>() } : {}),

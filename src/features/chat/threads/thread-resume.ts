@@ -1,4 +1,4 @@
-import { parseServiceTier } from "../../../app-server/service-tier";
+import { parseServiceTier } from "../../../app-server/thread-settings";
 import { upsertThread } from "../../../domain/threads/model";
 import { panelThreadFromAppServerThread } from "../../../app-server/thread-model";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";

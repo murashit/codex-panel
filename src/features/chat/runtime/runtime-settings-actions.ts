@@ -5,11 +5,8 @@ import type { PanelCollaborationMode } from "./collaboration";
 import { collaborationModeToggleMessage, nextCollaborationMode } from "./collaboration";
 import { readRuntimeConfig } from "./config";
 import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "./effective-settings";
-import {
-  pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate,
-  type ThreadSettingsUpdate,
-  type TurnCollaborationModeWarning,
-} from "./turn-settings";
+import { pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate, type TurnCollaborationModeWarning } from "./turn-settings";
+import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import type { RequestedServiceTier } from "./service-tier-state";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "./override-commands";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";

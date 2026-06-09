@@ -5,7 +5,7 @@ import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitS
 import type { PanelThread } from "../../domain/threads/model";
 import type { PanelModelOption, PanelSkillOption } from "../../domain/catalog/metadata";
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
-import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
+import type { ThreadSettingsUpdate } from "../../app-server/thread-settings";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { AppServerDiagnostics } from "../../app-server/compatibility";
 import { createAppServerDiagnostics } from "../../app-server/compatibility";
@@ -133,7 +133,7 @@ type RuntimeAction =
   | { type: "runtime/requested-service-tier-set"; serviceTier: RequestedServiceTier | null }
   | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null }
   | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: PanelCollaborationMode }
-  | { type: "runtime/pending-thread-settings-committed"; update: Omit<ThreadSettingsUpdateParams, "threadId"> };
+  | { type: "runtime/pending-thread-settings-committed"; update: ThreadSettingsUpdate };
 
 interface TurnStartedAction {
   type: "turn/started";
