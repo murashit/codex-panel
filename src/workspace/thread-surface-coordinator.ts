@@ -2,7 +2,7 @@ import type { App } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS } from "../constants";
 import { CodexThreadsView } from "../features/threads-view/view";
-import type { PanelModelOption } from "../domain/catalog/model";
+import type { PanelModelOption } from "../domain/catalog/metadata";
 import type { PanelThread } from "../domain/threads/model";
 import type { SharedAppServerMetadata } from "../app-server/shared-cache-state";
 import type { WorkspacePanelCoordinator } from "./panel-coordinator";

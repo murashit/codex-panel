@@ -1,9 +1,9 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
-import type { ReasoningEffort } from "../../domain/catalog/reasoning-effort";
+import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
 import type { PanelThread } from "../../domain/threads/model";
-import type { PanelModelOption, PanelSkillOption } from "../../domain/catalog/model";
+import type { PanelModelOption, PanelSkillOption } from "../../domain/catalog/metadata";
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";

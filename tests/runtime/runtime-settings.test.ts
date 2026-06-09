@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ConfigReadResponse } from "../../src/generated/app-server/v2/ConfigReadResponse";
-import type { PanelModelOption } from "../../src/domain/catalog/model";
+import type { PanelModelOption } from "../../src/domain/catalog/metadata";
 import {
   compactModelLabel,
   compactReasoningEffortLabel,

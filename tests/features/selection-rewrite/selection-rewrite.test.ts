@@ -26,7 +26,7 @@ import {
   type SelectionRewriteClientFactory,
 } from "../../../src/features/selection-rewrite/runner";
 import type { AppServerClientHandlers } from "../../../src/app-server/client";
-import type { PanelModelOption } from "../../../src/domain/catalog/model";
+import type { PanelModelOption } from "../../../src/domain/catalog/metadata";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import type { JsonValue } from "../../../src/generated/app-server/serde_json/JsonValue";

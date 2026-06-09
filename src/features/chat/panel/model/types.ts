@@ -1,4 +1,4 @@
-import type { ReasoningEffort } from "../../../../domain/catalog/reasoning-effort";
+import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../runtime/effective-settings";
 import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";

@@ -3,11 +3,11 @@ import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } fro
 import type { AppServerClient } from "../app-server/client";
 import { withShortLivedAppServerClient } from "../app-server/short-lived-client";
 import { DEFAULT_CODEX_PATH } from "../constants";
-import type { ReasoningEffort } from "../domain/catalog/reasoning-effort";
-import type { PanelHookItem, PanelModelOption } from "../domain/catalog/model";
+import type { ReasoningEffort } from "../domain/catalog/metadata";
+import type { PanelHookItem, PanelModelOption } from "../domain/catalog/metadata";
 import type { PanelThread } from "../domain/threads/model";
-import { REASONING_EFFORTS, supportedEffortsForModelOption } from "../domain/catalog/reasoning-effort";
-import { findModelOptionByIdOrName, sortedModelOptions } from "../domain/catalog/model";
+import { REASONING_EFFORTS, supportedEffortsForModelOption } from "../domain/catalog/metadata";
+import { findModelOptionByIdOrName, sortedModelOptions } from "../domain/catalog/metadata";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 import {

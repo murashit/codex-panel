@@ -3,7 +3,7 @@ import type { AskForApproval } from "../../../generated/app-server/v2/AskForAppr
 import type { ThreadSettingsUpdateParams } from "../../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import { parseServiceTier, type ServiceTier } from "../../../app-server/service-tier";
 import type { PanelCollaborationMode } from "./collaboration";
-import type { ReasoningEffort } from "../../../domain/catalog/reasoning-effort";
+import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ApprovalsReviewer } from "./approvals";
 import type { RequestedServiceTier } from "./service-tier-state";
 import {

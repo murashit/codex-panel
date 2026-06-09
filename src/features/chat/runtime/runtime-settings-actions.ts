@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../app-server/client";
-import type { ReasoningEffort } from "../../../domain/catalog/reasoning-effort";
+import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "./approvals";
 import type { PanelCollaborationMode } from "./collaboration";
 import { collaborationModeToggleMessage, nextCollaborationMode } from "./override-commands";

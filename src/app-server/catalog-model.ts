@@ -2,7 +2,7 @@ import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
 import type { Model } from "../generated/app-server/v2/Model";
 import type { SkillMetadata } from "../generated/app-server/v2/SkillMetadata";
 import type { AppServerHookOperation } from "./client";
-import type { PanelHookItem, PanelModelOption, PanelSkillOption } from "../domain/catalog/model";
+import type { PanelHookItem, PanelModelOption, PanelSkillOption } from "../domain/catalog/metadata";
 
 function panelModelOptionFromAppServerModel(model: Model): PanelModelOption {
   return {

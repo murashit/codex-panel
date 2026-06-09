@@ -2,7 +2,7 @@ import type { AppServerDiagnostics } from "./compatibility";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
 import type { PanelThread } from "../domain/threads/model";
-import type { PanelModelOption, PanelSkillOption } from "../domain/catalog/model";
+import type { PanelModelOption, PanelSkillOption } from "../domain/catalog/metadata";
 
 export interface SharedAppServerMetadata {
   effectiveConfig: ConfigReadResponse | null;

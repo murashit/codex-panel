@@ -1,6 +1,6 @@
 import type { AppServerClient } from "./client";
 import { panelHookItemsFromAppServerHooks, panelModelOptionsFromAppServerModels } from "./catalog-model";
-import type { PanelHookItem, PanelModelOption } from "../domain/catalog/model";
+import type { PanelHookItem, PanelModelOption } from "../domain/catalog/metadata";
 
 export interface PanelHooksForCwd {
   hooks: PanelHookItem[];

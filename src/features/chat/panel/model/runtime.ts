@@ -6,7 +6,7 @@ import {
   serviceTierLabel,
   supportedReasoningEfforts,
 } from "../../runtime/effective-settings";
-import { sortedModelOptions } from "../../../../domain/catalog/model";
+import { sortedModelOptions } from "../../../../domain/catalog/metadata";
 import { contextSummary, rateLimitSummary, type RateLimitSummary } from "../../runtime/status-summary";
 import type {
   EffortStatusLinesInput,

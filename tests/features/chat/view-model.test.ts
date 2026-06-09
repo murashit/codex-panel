@@ -16,7 +16,7 @@ import {
   toolbarViewModel,
 } from "../../../src/features/chat/panel/model";
 import type { ChatState } from "../../../src/features/chat/chat-state";
-import type { PanelModelOption } from "../../../src/domain/catalog/model";
+import type { PanelModelOption } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/ConfigReadResponse";
 

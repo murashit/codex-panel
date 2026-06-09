@@ -10,7 +10,7 @@ import {
   cachedSharedThreadList,
   createSharedAppServerState,
 } from "../../src/app-server/shared-cache-state";
-import type { PanelModelOption } from "../../src/domain/catalog/model";
+import type { PanelModelOption } from "../../src/domain/catalog/metadata";
 import type { PanelThread } from "../../src/domain/threads/model";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 

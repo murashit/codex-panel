@@ -1,5 +1,5 @@
 import type { PanelThread } from "../domain/threads/model";
-import type { PanelModelOption } from "../domain/catalog/model";
+import type { PanelModelOption } from "../domain/catalog/metadata";
 import {
   applySharedAppServerMetadata,
   applySharedModels,

@@ -1,5 +1,5 @@
 import type { UserInput } from "../../../generated/app-server/v2/UserInput";
-import type { PanelSkillOption } from "../../../domain/catalog/model";
+import type { PanelSkillOption } from "../../../domain/catalog/metadata";
 import { parseObsidianWikiLink } from "../../../shared/obsidian/wikilinks";
 
 export interface ParsedWikiLink {

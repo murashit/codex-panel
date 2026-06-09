@@ -12,7 +12,7 @@ import {
 } from "./slash-command-execution";
 import type { SlashCommandName } from "../composer/slash-commands";
 import type { DisplayDetailSection } from "../display/types";
-import type { ReasoningEffort } from "../../../domain/catalog/reasoning-effort";
+import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
 import type { UserInput } from "../../../generated/app-server/v2/UserInput";

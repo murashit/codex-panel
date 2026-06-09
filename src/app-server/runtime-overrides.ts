@@ -1,7 +1,7 @@
-import type { PanelModelOption } from "../domain/catalog/model";
-import { findModelOptionByIdOrName } from "../domain/catalog/model";
+import type { PanelModelOption } from "../domain/catalog/metadata";
+import { findModelOptionByIdOrName } from "../domain/catalog/metadata";
 import type { ReasoningEffort as AppServerReasoningEffort } from "../generated/app-server/ReasoningEffort";
-import { supportedEffortsForModelOption, type ReasoningEffort as DomainReasoningEffort } from "../domain/catalog/reasoning-effort";
+import { supportedEffortsForModelOption, type ReasoningEffort as DomainReasoningEffort } from "../domain/catalog/metadata";
 
 export interface RuntimeOverrideSettings {
   model: string | null;

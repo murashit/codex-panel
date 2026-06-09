@@ -3,7 +3,7 @@ import type { AskForApproval } from "../../../generated/app-server/v2/AskForAppr
 import type { ConfigReadResponse } from "../../../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../../../generated/app-server/v2/RateLimitSnapshot";
 import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
-import { findModelOptionByIdOrName, type PanelModelOption } from "../../../domain/catalog/model";
+import { findModelOptionByIdOrName, type PanelModelOption } from "../../../domain/catalog/metadata";
 import {
   configuredServiceTierRequestValue,
   isFastServiceTier,
@@ -11,7 +11,7 @@ import {
   type ServiceTier,
   type ServiceTierRequest,
 } from "../../../app-server/service-tier";
-import { supportedEffortsForModelOption, type ReasoningEffort } from "../../../domain/catalog/reasoning-effort";
+import { supportedEffortsForModelOption, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import type { PanelCollaborationMode } from "./collaboration";
 import { isAutoReviewReviewer, type ApprovalsReviewer } from "./approvals";

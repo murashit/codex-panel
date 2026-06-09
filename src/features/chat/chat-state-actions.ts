@@ -1,7 +1,7 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { PanelThread } from "../../domain/threads/model";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
-import type { ReasoningEffort } from "../../domain/catalog/reasoning-effort";
+import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "./runtime/state";
 import type { PanelCollaborationMode } from "./runtime/collaboration";
 import { parseServiceTier, type ServiceTier } from "../../app-server/service-tier";

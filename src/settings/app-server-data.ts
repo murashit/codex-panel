@@ -2,7 +2,7 @@ import type { AppServerClient } from "../app-server/client";
 import { loadPanelHooksForCwd, loadPanelModelOptions } from "../app-server/catalog-data";
 import { appServerHookOperationFromPanelHookItem } from "../app-server/catalog-model";
 import { panelThreadFromAppServerThread, panelThreadsFromAppServerThreads } from "../app-server/thread-model";
-import type { PanelHookItem, PanelModelOption } from "../domain/catalog/model";
+import type { PanelHookItem, PanelModelOption } from "../domain/catalog/metadata";
 import type { PanelThread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 

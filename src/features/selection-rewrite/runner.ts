@@ -8,13 +8,13 @@ import type { InitializeResponse } from "../../generated/app-server/InitializeRe
 import type { RequestId } from "../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
-import type { ReasoningEffort } from "../../domain/catalog/reasoning-effort";
+import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
 import { loadPanelModelOptions } from "../../app-server/catalog-data";
-import type { PanelModelOption } from "../../domain/catalog/model";
+import type { PanelModelOption } from "../../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../../app-server/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";

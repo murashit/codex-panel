@@ -1,6 +1,6 @@
 import { Setting } from "obsidian";
 
-import type { PanelHookItem } from "../domain/catalog/model";
+import type { PanelHookItem } from "../domain/catalog/metadata";
 import type { PanelThread } from "../domain/threads/model";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { shortThreadId } from "../utils";

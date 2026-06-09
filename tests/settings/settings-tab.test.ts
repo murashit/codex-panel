@@ -6,7 +6,7 @@ import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
-import type { PanelModelOption } from "../../src/domain/catalog/model";
+import type { PanelModelOption } from "../../src/domain/catalog/metadata";
 import { panelModelOptionsFromAppServerModels } from "../../src/app-server/catalog-model";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import { archivedThreadDisplayTitle } from "../../src/domain/threads/model";

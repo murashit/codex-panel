@@ -1,7 +1,7 @@
 import { parseServiceTier } from "../../../app-server/service-tier";
 import { upsertThread } from "../../../domain/threads/model";
 import { panelThreadFromAppServerThread } from "../../../app-server/thread-model";
-import type { ReasoningEffort } from "../../../domain/catalog/reasoning-effort";
+import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
 import type { PanelThread } from "../../../domain/threads/model";
 import type { ThreadStartResponse } from "../../../generated/app-server/v2/ThreadStartResponse";
