@@ -4,7 +4,7 @@ import { panelThreadsFromAppServerThreads } from "../../app-server/thread-model"
 import { getThreadTitle } from "../../domain/threads/model";
 import type { PanelThread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
-import { withAppServerClient } from "../../workspace/app-server-client-policy";
+import { withShortLivedFallbackAppServerClient } from "../../workspace/short-lived-app-server-client";
 import { shortThreadId } from "../../utils";
 
 export interface ThreadPickerHost {
@@ -82,7 +82,7 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly
   const cached = host.cachedThreadList();
   if (cached) return cached;
 
-  return withAppServerClient(
+  return withShortLivedFallbackAppServerClient(
     {
       codexPath: host.settings.codexPath,
       cwd: host.vaultPath,

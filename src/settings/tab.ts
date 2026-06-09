@@ -15,7 +15,7 @@ import {
   transitionSettingsDataRefreshLifecycle,
   type SettingsDataRefreshLifecycleState,
 } from "./data";
-import { withAppServerClient } from "../workspace/app-server-client-policy";
+import { withShortLivedFallbackAppServerClient } from "../workspace/short-lived-app-server-client";
 import { loadHookData, loadSettingsData, restoreArchivedPanelThread, setPanelHookEnabled, trustPanelHook } from "./app-server-data";
 import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
 import type { CodexPanelSettings } from "./model";
@@ -498,7 +498,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async withSettingsConnection<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    return withAppServerClient(
+    return withShortLivedFallbackAppServerClient(
       {
         codexPath: this.plugin.settings.codexPath,
         cwd: this.plugin.vaultPath,

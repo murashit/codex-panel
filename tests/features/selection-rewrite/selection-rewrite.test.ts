@@ -28,6 +28,7 @@ import {
 import type { AppServerClientHandlers } from "../../../src/app-server/client";
 import type { PanelModelOption } from "../../../src/domain/catalog/metadata";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
+import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import type { JsonValue } from "../../../src/generated/app-server/serde_json/JsonValue";
 import type { RequestId } from "../../../src/generated/app-server/RequestId";
@@ -664,8 +665,8 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
     this.disconnected = true;
   }
 
-  async listPanelModelOptions(): Promise<PanelModelOption[]> {
-    return [];
+  async listModels(): Promise<ModelListResponse> {
+    return { data: [], nextCursor: null };
   }
 
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {
