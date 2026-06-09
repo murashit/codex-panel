@@ -7,15 +7,16 @@ import {
   namingPrompt,
   namingContextFromTurn,
   normalizeGeneratedTitle,
-  titleFromNamingTurn,
+  titleFromGeneratedText,
 } from "../../../../src/domain/threads/naming";
 import {
   generateThreadTitleWithCodex,
+  titleFromNamingTurn,
   threadNamingRuntimeOverride,
   validatedThreadNamingRuntimeOverride,
   type ThreadNamingClient,
   type ThreadNamingClientFactory,
-} from "../../../../src/workspace/thread-title-generator";
+} from "../../../../src/app-server/thread-title-generation";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../../src/features/chat/threads/thread-naming";
 import type { AppServerClientHandlers } from "../../../../src/app-server/client";
 import type { InitializeResponse } from "../../../../src/generated/app-server/InitializeResponse";
@@ -227,6 +228,10 @@ describe("thread naming", () => {
     expect(normalizeGeneratedTitle('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
     expect(normalizeGeneratedTitle("")).toBeNull();
     expect(normalizeGeneratedTitle("x".repeat(80))).toHaveLength(40);
+  });
+
+  it("parses generated title text", () => {
+    expect(titleFromGeneratedText('```json\n{"title":"Codex Panelの自動命名"}\n```')).toBe("Codex Panelの自動命名");
   });
 
   it("asks the model to infer the title language from the initial request", () => {

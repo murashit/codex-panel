@@ -1,10 +1,10 @@
 import {
-  runStructuredEphemeralTurn,
-  type StructuredEphemeralTurnClient,
-  type StructuredEphemeralTurnClientFactory,
-  type StructuredEphemeralTurnRuntimeClient,
+  runEphemeralStructuredTurn,
+  type EphemeralStructuredTurnClient,
+  type EphemeralStructuredTurnClientFactory,
+  type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
-} from "../../app-server/structured-ephemeral-turn";
+} from "../../app-server/ephemeral-structured-turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import { panelModelOptionsFromAppServerModels } from "../../app-server/catalog-model";
 import type { PanelModelOption } from "../../domain/catalog/metadata";
@@ -39,13 +39,13 @@ export interface RunSelectionRewriteOptions {
 
 export type SelectionRewriteActivity = "reasoning" | "writing";
 
-export type SelectionRewriteClient = StructuredEphemeralTurnClient;
-export type SelectionRewriteClientFactory = StructuredEphemeralTurnClientFactory;
+export type SelectionRewriteClient = EphemeralStructuredTurnClient;
+export type SelectionRewriteClientFactory = EphemeralStructuredTurnClientFactory;
 
 export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
   let preview = "";
   const runtimeSettings = options.runtimeSettings;
-  const turn = await runStructuredEphemeralTurn({
+  const turn = await runEphemeralStructuredTurn({
     codexPath: options.codexPath,
     cwd: options.cwd,
     serviceName: SELECTION_REWRITE_SERVICE_NAME,
@@ -95,7 +95,7 @@ export function validatedSelectionRewriteRuntimeOverride(
 }
 
 async function selectionRewriteRuntimeOverrideForClient(
-  client: StructuredEphemeralTurnRuntimeClient,
+  client: EphemeralStructuredTurnRuntimeClient,
   settings: SelectionRewriteRuntimeSettings,
 ): Promise<SelectionRewriteRuntimeOverride> {
   const runtime = selectionRewriteRuntimeOverride(settings);

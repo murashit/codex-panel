@@ -3,10 +3,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  runStructuredEphemeralTurn,
-  type StructuredEphemeralTurnClient,
-  type StructuredEphemeralTurnClientFactory,
-} from "../../src/app-server/structured-ephemeral-turn";
+  runEphemeralStructuredTurn,
+  type EphemeralStructuredTurnClient,
+  type EphemeralStructuredTurnClientFactory,
+} from "../../src/app-server/ephemeral-structured-turn";
 import type { AppServerClientHandlers } from "../../src/app-server/client";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
 import type { JsonValue } from "../../src/generated/app-server/serde_json/JsonValue";
@@ -21,7 +21,7 @@ import type { ThreadStartResponse } from "../../src/generated/app-server/v2/Thre
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../src/generated/app-server/v2/TurnStartResponse";
 
-describe("runStructuredEphemeralTurn", () => {
+describe("runEphemeralStructuredTurn", () => {
   it("fills completed turn items from item completion notifications", async () => {
     const { clientFactory } = fakeStructuredTurnClientFactory((fake) => {
       fake.startStructuredTurnImpl = async () => {
@@ -31,7 +31,7 @@ describe("runStructuredEphemeralTurn", () => {
       };
     });
 
-    const result = await runStructuredEphemeralTurn(runOptions(clientFactory));
+    const result = await runEphemeralStructuredTurn(runOptions(clientFactory));
 
     expect(result.items).toEqual([agentMessage("answer", '{"ok":true}')]);
     expect(result.itemsView).toBe("full");
@@ -40,7 +40,7 @@ describe("runStructuredEphemeralTurn", () => {
   it("reports matched structured turn progress without exposing raw notifications", async () => {
     const progress: unknown[] = [];
     const { clientFactory, client } = fakeStructuredTurnClientFactory();
-    const running = runStructuredEphemeralTurn({
+    const running = runEphemeralStructuredTurn({
       ...runOptions(clientFactory),
       onProgress: (event) => {
         progress.push(event);
@@ -59,6 +59,20 @@ describe("runStructuredEphemeralTurn", () => {
     expect(progress).toEqual([{ type: "reasoning-activity" }, { type: "agent-message-delta", delta: "draft" }]);
   });
 
+  it("keeps pre-acknowledgement completion when turn notifications arrive before turn/start resolves", async () => {
+    const { clientFactory } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => {
+        fake.emit(completedItemNotification("thread", "early-turn", agentMessage("answer", '{"ok":true}')));
+        fake.emit(turnCompletedNotification("thread", turn([], { id: "early-turn", status: "completed" })));
+        return { turn: turn([], { id: "early-turn", status: "inProgress" }) };
+      };
+    });
+
+    const result = await runEphemeralStructuredTurn(runOptions(clientFactory));
+
+    expect(result.items).toEqual([agentMessage("answer", '{"ok":true}')]);
+  });
+
   it("cleans up abort listeners after an operation settles", async () => {
     const controller = new AbortController();
     const add = vi.spyOn(controller.signal, "addEventListener");
@@ -67,7 +81,7 @@ describe("runStructuredEphemeralTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runStructuredEphemeralTurn({
+    await runEphemeralStructuredTurn({
       ...runOptions(clientFactory),
       signal: controller.signal,
     });
@@ -85,7 +99,7 @@ describe("runStructuredEphemeralTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runStructuredEphemeralTurn({
+    await runEphemeralStructuredTurn({
       ...runOptions(clientFactory),
       timers,
     });
@@ -103,7 +117,7 @@ describe("runStructuredEphemeralTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runStructuredEphemeralTurn(runOptions(clientFactory));
+    await runEphemeralStructuredTurn(runOptions(clientFactory));
 
     expect(expectPresent(client.current).rejectServerRequest).toHaveBeenCalledWith(
       123,
@@ -122,7 +136,7 @@ describe("runStructuredEphemeralTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runStructuredEphemeralTurn({
+    await runEphemeralStructuredTurn({
       ...runOptions(clientFactory),
       resolveRuntime: async (runtimeClient) => {
         callOrder.push("resolve-runtime");
@@ -137,7 +151,7 @@ describe("runStructuredEphemeralTurn", () => {
   });
 });
 
-function runOptions(clientFactory: StructuredEphemeralTurnClientFactory): Parameters<typeof runStructuredEphemeralTurn>[0] {
+function runOptions(clientFactory: EphemeralStructuredTurnClientFactory): Parameters<typeof runEphemeralStructuredTurn>[0] {
   return {
     codexPath: "/bin/codex",
     cwd: "/vault",
@@ -154,7 +168,7 @@ function runOptions(clientFactory: StructuredEphemeralTurnClientFactory): Parame
 }
 
 function fakeStructuredTurnClientFactory(configure?: (client: FakeStructuredTurnClient) => void): {
-  clientFactory: StructuredEphemeralTurnClientFactory;
+  clientFactory: EphemeralStructuredTurnClientFactory;
   client: { current: FakeStructuredTurnClient | null };
 } {
   const client: { current: FakeStructuredTurnClient | null } = { current: null };
@@ -168,7 +182,7 @@ function fakeStructuredTurnClientFactory(configure?: (client: FakeStructuredTurn
   };
 }
 
-class FakeStructuredTurnClient implements StructuredEphemeralTurnClient {
+class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   connectImpl: (() => Promise<InitializeResponse>) | null = null;
   startEphemeralThreadImpl: (() => Promise<ThreadStartResponse>) | null = null;
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;

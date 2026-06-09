@@ -1,14 +1,16 @@
 import {
-  runStructuredEphemeralTurn,
-  type StructuredEphemeralTurnClient,
-  type StructuredEphemeralTurnClientFactory,
-  type StructuredEphemeralTurnRuntimeClient,
+  runEphemeralStructuredTurn,
+  type EphemeralStructuredTurnClient,
+  type EphemeralStructuredTurnClientFactory,
+  type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
-} from "../app-server/structured-ephemeral-turn";
-import { panelModelOptionsFromAppServerModels } from "../app-server/catalog-model";
+} from "./ephemeral-structured-turn";
+import { panelModelOptionsFromAppServerModels } from "./catalog-model";
+import type { Turn } from "../generated/app-server/v2/Turn";
 import type { PanelModelOption, ReasoningEffort } from "../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../domain/catalog/runtime-overrides";
-import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
+import { namingPrompt, titleFromGeneratedText, type ThreadNamingContext } from "../domain/threads/naming";
+import { turnConversationSummary } from "../domain/threads/transcript";
 
 const NAMING_SERVICE_NAME = "codex-panel-naming";
 const NAMING_TIMEOUT_MS = 60_000;
@@ -39,8 +41,8 @@ export interface ThreadNamingRuntimeSettings {
   threadNamingEffort: ReasoningEffort | null;
 }
 
-export type ThreadNamingClient = StructuredEphemeralTurnClient;
-export type ThreadNamingClientFactory = StructuredEphemeralTurnClientFactory;
+export type ThreadNamingClient = EphemeralStructuredTurnClient;
+export type ThreadNamingClientFactory = EphemeralStructuredTurnClientFactory;
 
 export async function generateThreadTitleWithCodex(
   codexPath: string,
@@ -49,7 +51,7 @@ export async function generateThreadTitleWithCodex(
   runtimeSettings: ThreadNamingRuntimeSettings,
   clientFactory?: ThreadNamingClientFactory,
 ): Promise<string | null> {
-  const turn = await runStructuredEphemeralTurn({
+  const turn = await runEphemeralStructuredTurn({
     codexPath,
     cwd,
     serviceName: NAMING_SERVICE_NAME,
@@ -71,6 +73,11 @@ export interface ThreadNamingRuntimeOverride {
   effort?: ReasoningEffort;
 }
 
+export function titleFromNamingTurn(turn: Turn): string | null {
+  const response = turnConversationSummary(turn).assistantText;
+  return response ? titleFromGeneratedText(response) : null;
+}
+
 export function threadNamingRuntimeOverride(settings: ThreadNamingRuntimeSettings): ThreadNamingRuntimeOverride {
   return runtimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }
@@ -83,7 +90,7 @@ export function validatedThreadNamingRuntimeOverride(
 }
 
 async function threadNamingRuntimeOverrideForClient(
-  client: StructuredEphemeralTurnRuntimeClient,
+  client: EphemeralStructuredTurnRuntimeClient,
   settings: ThreadNamingRuntimeSettings,
 ): Promise<ThreadNamingRuntimeOverride> {
   const runtime = threadNamingRuntimeOverride(settings);

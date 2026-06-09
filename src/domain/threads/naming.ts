@@ -1,7 +1,7 @@
 import type { SortDirection } from "../../generated/app-server/v2/SortDirection";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import { truncate } from "../../utils";
-import { completedTurnConversationSummary, turnConversationSummary } from "./transcript";
+import { completedTurnConversationSummary } from "./transcript";
 
 const MAX_CONTEXT_CHARS = 4_000;
 const MAX_TITLE_CHARS = 40;
@@ -61,12 +61,6 @@ export async function findThreadNamingContext(options: {
   return null;
 }
 
-export function titleFromNamingTurn(turn: Turn): string | null {
-  const response = turnConversationSummary(turn).assistantText;
-  if (!response) return null;
-  return normalizeGeneratedTitle(extractTitleFromModelText(response));
-}
-
 export function normalizeGeneratedTitle(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const title = value
@@ -80,6 +74,10 @@ export function normalizeGeneratedTitle(value: unknown): string | null {
     .trim();
   if (!title) return null;
   return title.length > MAX_TITLE_CHARS ? title.slice(0, MAX_TITLE_CHARS).trimEnd() : title;
+}
+
+export function titleFromGeneratedText(text: string): string | null {
+  return normalizeGeneratedTitle(extractTitleFromModelText(text));
 }
 
 export function namingPrompt(context: ThreadNamingContext): string {

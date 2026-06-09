@@ -1,9 +1,4 @@
 import { AppServerClient, type AppServerClientHandlers } from "./client";
-import {
-  createStructuredTurnRunLifecycle,
-  structuredTurnRunMatches,
-  transitionStructuredTurnRunLifecycle,
-} from "./structured-turn-run-lifecycle";
 import { abortablePromise, throwIfAbortSignalAborted } from "../shared/lifecycle/abortable";
 import type { InitializeResponse } from "../generated/app-server/InitializeResponse";
 import type { RequestId } from "../generated/app-server/RequestId";
@@ -25,19 +20,19 @@ interface StructuredTurnRuntimeOverride {
 
 type StructuredTurnProgressEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
 
-interface StructuredEphemeralTurnTimers {
+interface EphemeralStructuredTurnTimers {
   setTimeout(callback: () => void, delayMs: number): unknown;
   clearTimeout(timer: unknown): void;
 }
 
-const DEFAULT_STRUCTURED_EPHEMERAL_TURN_TIMERS: StructuredEphemeralTurnTimers = {
+const DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS: EphemeralStructuredTurnTimers = {
   setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
   clearTimeout: (timer) => {
     clearTimeout(timer as ReturnType<typeof setTimeout>);
   },
 };
 
-export interface StructuredEphemeralTurnClient {
+export interface EphemeralStructuredTurnClient {
   connect(): Promise<InitializeResponse>;
   disconnect(): void;
   rejectServerRequest(requestId: RequestId, code: number, message: string): void;
@@ -52,19 +47,19 @@ export interface StructuredEphemeralTurnClient {
   ): Promise<TurnStartResponse>;
 }
 
-export interface StructuredEphemeralTurnRuntimeClient {
+export interface EphemeralStructuredTurnRuntimeClient {
   listModels(includeHidden?: boolean): Promise<ModelListResponse>;
 }
 
-type StructuredEphemeralTurnRuntimeCapableClient = StructuredEphemeralTurnClient & StructuredEphemeralTurnRuntimeClient;
+type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient & EphemeralStructuredTurnRuntimeClient;
 
-export type StructuredEphemeralTurnClientFactory = (
+export type EphemeralStructuredTurnClientFactory = (
   codexPath: string,
   cwd: string,
   handlers: AppServerClientHandlers,
-) => StructuredEphemeralTurnRuntimeCapableClient;
+) => EphemeralStructuredTurnRuntimeCapableClient;
 
-export interface RunStructuredEphemeralTurnOptions {
+export interface RunEphemeralStructuredTurnOptions {
   codexPath: string;
   cwd: string;
   serviceName: string;
@@ -77,17 +72,17 @@ export interface RunStructuredEphemeralTurnOptions {
   timedOutMessage: string;
   abortMessage?: string;
   runtime?: StructuredTurnRuntimeOverride | undefined;
-  resolveRuntime?: ((client: StructuredEphemeralTurnRuntimeClient) => Promise<StructuredTurnRuntimeOverride>) | undefined;
+  resolveRuntime?: ((client: EphemeralStructuredTurnRuntimeClient) => Promise<StructuredTurnRuntimeOverride>) | undefined;
   signal?: AbortSignal | undefined;
   onProgress?: (event: StructuredTurnProgressEvent) => void;
-  clientFactory?: StructuredEphemeralTurnClientFactory | undefined;
-  timers?: StructuredEphemeralTurnTimers | undefined;
+  clientFactory?: EphemeralStructuredTurnClientFactory | undefined;
+  timers?: EphemeralStructuredTurnTimers | undefined;
 }
 
-export async function runStructuredEphemeralTurn(options: RunStructuredEphemeralTurnOptions): Promise<Turn> {
+export async function runEphemeralStructuredTurn(options: RunEphemeralStructuredTurnOptions): Promise<Turn> {
   throwIfAborted(options.signal, options.abortMessage);
-  let state = createStructuredEphemeralTurnState();
-  const timers = options.timers ?? DEFAULT_STRUCTURED_EPHEMERAL_TURN_TIMERS;
+  let state = createEphemeralStructuredTurnState();
+  const timers = options.timers ?? DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS;
   let timeout: unknown;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
@@ -96,19 +91,19 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
     rejectCompletedTurn = reject;
     timeout = timers.setTimeout(() => {
       if (state.lifecycle.kind === "completed") return;
-      state = completeStructuredEphemeralTurnState(state);
+      state = completeEphemeralStructuredTurnState(state);
       reject(new Error(options.timedOutMessage));
     }, options.timeoutMs);
 
     handleNotification = (notification): void => {
-      const result = transitionStructuredEphemeralTurnNotification(state, notification);
+      const result = transitionEphemeralStructuredTurnNotification(state, notification);
       state = result.state;
       if (result.progress) options.onProgress?.(result.progress);
       if (result.completedTurn) resolve(result.completedTurn);
     };
   });
 
-  let client!: StructuredEphemeralTurnRuntimeCapableClient;
+  let client!: EphemeralStructuredTurnRuntimeCapableClient;
   const clientFactory = options.clientFactory ?? ((codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers));
   client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {
@@ -120,7 +115,7 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
     onLog: () => undefined,
     onExit: () => {
       if (state.lifecycle.kind === "completed") return;
-      state = completeStructuredEphemeralTurnState(state);
+      state = completeEphemeralStructuredTurnState(state);
       rejectCompletedTurn?.(new Error(options.exitedMessage));
     },
   });
@@ -137,7 +132,10 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
     );
     state = {
       ...state,
-      lifecycle: transitionStructuredTurnRunLifecycle(state.lifecycle, { type: "thread-started", threadId: threadResponse.thread.id }),
+      lifecycle: transitionEphemeralStructuredTurnLifecycle(state.lifecycle, {
+        type: "thread-started",
+        threadId: threadResponse.thread.id,
+      }),
     };
     const turnResponse = await abortable(
       client.startStructuredTurn(
@@ -153,7 +151,7 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
     );
     state = {
       ...state,
-      lifecycle: transitionStructuredTurnRunLifecycle(state.lifecycle, {
+      lifecycle: transitionEphemeralStructuredTurnLifecycle(state.lifecycle, {
         type: "turn-started",
         threadId: threadResponse.thread.id,
         turnId: turnResponse.turn.id,
@@ -163,37 +161,48 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
       ? turnWithCollectedItems(turnResponse.turn, state.completedItems)
       : await abortable(completedTurn, options.signal, options.abortMessage);
   } finally {
-    state = completeStructuredEphemeralTurnState(state);
+    state = completeEphemeralStructuredTurnState(state);
     if (timeout !== undefined) timers.clearTimeout(timeout);
     client.disconnect();
   }
 }
 
-interface StructuredEphemeralTurnState {
-  lifecycle: ReturnType<typeof createStructuredTurnRunLifecycle>;
+type EphemeralStructuredTurnLifecycleState =
+  | { kind: "starting" }
+  | { kind: "thread-started"; threadId: string }
+  | { kind: "turn-started"; threadId: string; turnId: string }
+  | { kind: "completed" };
+
+type EphemeralStructuredTurnLifecycleEvent =
+  | { type: "thread-started"; threadId: string }
+  | { type: "turn-started"; threadId: string; turnId: string }
+  | { type: "completed" };
+
+interface EphemeralStructuredTurnState {
+  lifecycle: EphemeralStructuredTurnLifecycleState;
   completedItems: readonly ThreadItem[];
 }
 
-interface StructuredEphemeralTurnNotificationResult {
-  state: StructuredEphemeralTurnState;
+interface EphemeralStructuredTurnNotificationResult {
+  state: EphemeralStructuredTurnState;
   progress?: StructuredTurnProgressEvent;
   completedTurn?: Turn;
 }
 
-function createStructuredEphemeralTurnState(): StructuredEphemeralTurnState {
+function createEphemeralStructuredTurnState(): EphemeralStructuredTurnState {
   return {
-    lifecycle: createStructuredTurnRunLifecycle(),
+    lifecycle: { kind: "starting" },
     completedItems: [],
   };
 }
 
-function transitionStructuredEphemeralTurnNotification(
-  state: StructuredEphemeralTurnState,
+function transitionEphemeralStructuredTurnNotification(
+  state: EphemeralStructuredTurnState,
   notification: ServerNotification,
-): StructuredEphemeralTurnNotificationResult {
+): EphemeralStructuredTurnNotificationResult {
   if (state.lifecycle.kind === "completed") return { state };
   if (notification.method === "item/agentMessage/delta") {
-    if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
+    if (!ephemeralStructuredTurnMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
     return { state, progress: { type: "agent-message-delta", delta: notification.params.delta } };
   }
   if (
@@ -201,28 +210,49 @@ function transitionStructuredEphemeralTurnNotification(
     notification.method === "item/reasoning/textDelta" ||
     notification.method === "item/reasoning/summaryPartAdded"
   ) {
-    if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
+    if (!ephemeralStructuredTurnMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
     return { state, progress: { type: "reasoning-activity" } };
   }
   if (notification.method === "item/completed") {
-    if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
+    if (!ephemeralStructuredTurnMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
     return { state: { ...state, completedItems: [...state.completedItems, notification.params.item] } };
   }
   if (notification.method === "turn/completed") {
-    if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turn.id)) return { state };
+    if (!ephemeralStructuredTurnMatches(state.lifecycle, notification.params.threadId, notification.params.turn.id)) return { state };
     return {
-      state: completeStructuredEphemeralTurnState(state),
+      state: completeEphemeralStructuredTurnState(state),
       completedTurn: turnWithCollectedItems(notification.params.turn, state.completedItems),
     };
   }
   return { state };
 }
 
-function completeStructuredEphemeralTurnState(state: StructuredEphemeralTurnState): StructuredEphemeralTurnState {
+function completeEphemeralStructuredTurnState(state: EphemeralStructuredTurnState): EphemeralStructuredTurnState {
   return {
     ...state,
-    lifecycle: transitionStructuredTurnRunLifecycle(state.lifecycle, { type: "completed" }),
+    lifecycle: transitionEphemeralStructuredTurnLifecycle(state.lifecycle, { type: "completed" }),
   };
+}
+
+function transitionEphemeralStructuredTurnLifecycle(
+  state: EphemeralStructuredTurnLifecycleState,
+  event: EphemeralStructuredTurnLifecycleEvent,
+): EphemeralStructuredTurnLifecycleState {
+  if (state.kind === "completed") return state;
+  switch (event.type) {
+    case "thread-started":
+      return { kind: "thread-started", threadId: event.threadId };
+    case "turn-started":
+      return { kind: "turn-started", threadId: event.threadId, turnId: event.turnId };
+    case "completed":
+      return { kind: "completed" };
+  }
+}
+
+function ephemeralStructuredTurnMatches(state: EphemeralStructuredTurnLifecycleState, threadId: string, turnId: string): boolean {
+  if (state.kind === "thread-started") return state.threadId === threadId;
+  if (state.kind === "turn-started") return state.threadId === threadId && state.turnId === turnId;
+  return false;
 }
 
 function turnWithCollectedItems(turn: Turn, completedItems: readonly ThreadItem[]): Turn {
@@ -231,13 +261,13 @@ function turnWithCollectedItems(turn: Turn, completedItems: readonly ThreadItem[
 }
 
 function throwIfAborted(signal: AbortSignal | undefined, message: string | undefined): void {
-  throwIfAbortSignalAborted(signal, () => structuredEphemeralTurnAbortError(message));
+  throwIfAbortSignalAborted(signal, () => ephemeralStructuredTurnAbortError(message));
 }
 
 function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined, message: string | undefined): Promise<T> {
-  return abortablePromise(promise, signal, () => structuredEphemeralTurnAbortError(message));
+  return abortablePromise(promise, signal, () => ephemeralStructuredTurnAbortError(message));
 }
 
-function structuredEphemeralTurnAbortError(message: string | undefined): Error {
-  return new Error(message ?? "Structured ephemeral turn cancelled.");
+function ephemeralStructuredTurnAbortError(message: string | undefined): Error {
+  return new Error(message ?? "Ephemeral structured turn cancelled.");
 }

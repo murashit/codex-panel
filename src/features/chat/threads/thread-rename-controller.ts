@@ -10,7 +10,7 @@ import type { PanelThread } from "../../../domain/threads/model";
 import type { Turn } from "../../../generated/app-server/v2/Turn";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
-import { generateThreadTitleWithCodex } from "../../../workspace/thread-title-generator";
+import { generateThreadTitleWithCodex } from "../../../app-server/thread-title-generation";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";
 
 export interface ThreadRenameEditState {

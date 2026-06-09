@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { Turn } from "../../../src/generated/app-server/v2/Turn";
-import type * as ThreadTitleGeneratorModule from "../../../src/workspace/thread-title-generator";
+import type * as ThreadTitleGeneratorModule from "../../../src/app-server/thread-title-generation";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
@@ -61,7 +61,7 @@ vi.mock("../../../src/app-server/connection-manager", () => {
   return { ConnectionManager, StaleConnectionError };
 });
 
-vi.mock("../../../src/workspace/thread-title-generator", async (importOriginal) => {
+vi.mock("../../../src/app-server/thread-title-generation", async (importOriginal) => {
   const actual = await importOriginal<typeof ThreadTitleGeneratorModule>();
   return {
     ...actual,
