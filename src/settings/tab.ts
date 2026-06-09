@@ -2,23 +2,20 @@ import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } fro
 
 import type { AppServerClient } from "../app-server/client";
 import { withShortLivedAppServerClient } from "../app-server/short-lived-client";
-import { panelThreadFromAppServerThread } from "../app-server/thread-model";
 import { DEFAULT_CODEX_PATH } from "../constants";
-import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
-import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
-import type { Model } from "../generated/app-server/v2/Model";
+import type { ReasoningEffort } from "../runtime/models";
+import type { PanelHookItem, PanelModelOption } from "../domain/catalog/model";
 import type { PanelThread } from "../domain/threads/model";
-import { findModelByIdOrName, REASONING_EFFORTS, sortedAvailableModels, supportedEffortsForModel } from "../runtime/models";
+import { findModelOptionByIdOrName, REASONING_EFFORTS, sortedModelOptions, supportedEffortsForModelOption } from "../runtime/models";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 import {
   createSettingsDynamicSectionLifecycle,
-  loadHookData,
-  loadSettingsData,
   transitionSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
   type SettingsDataRefreshLifecycleState,
 } from "./data";
+import { loadHookData, loadSettingsData, restoreArchivedPanelThread, setPanelHookEnabled, trustPanelHook } from "./app-server-data";
 import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
 import type { CodexPanelSettings } from "./model";
 
@@ -40,11 +37,11 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private settingsDataRefreshLifecycle: SettingsDataRefreshLifecycleState = { kind: "idle" };
   private archivedThreads: PanelThread[] = [];
   private archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
-  private hooks: HookMetadata[] = [];
+  private hooks: PanelHookItem[] = [];
   private hookWarnings: string[] = [];
   private hookErrors: string[] = [];
   private hooksLifecycle = createSettingsDynamicSectionLifecycle();
-  private models: Model[] = [];
+  private models: PanelModelOption[] = [];
   private modelsLifecycle = createSettingsDynamicSectionLifecycle();
 
   constructor(
@@ -395,7 +392,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     }
   }
 
-  private async trustHook(hook: HookMetadata): Promise<void> {
+  private async trustHook(hook: PanelHookItem): Promise<void> {
     const operationId = this.nextSettingsDynamicOperationId();
     this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
       type: "started",
@@ -404,7 +401,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
     this.display();
     try {
-      await this.withSettingsConnection((client) => client.trustHook(hook));
+      await this.withSettingsConnection((client) => trustPanelHook(client, hook));
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "loaded",
         status: "Trusted hook definition.",
@@ -422,7 +419,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     }
   }
 
-  private async setHookEnabled(hook: HookMetadata, enabled: boolean): Promise<void> {
+  private async setHookEnabled(hook: PanelHookItem, enabled: boolean): Promise<void> {
     const operationId = this.nextSettingsDynamicOperationId();
     this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
       type: "started",
@@ -431,7 +428,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
     this.display();
     try {
-      await this.withSettingsConnection((client) => client.setHookEnabled(hook, enabled));
+      await this.withSettingsConnection((client) => setPanelHookEnabled(client, hook, enabled));
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "loaded",
         status: enabled ? "Enabled hook." : "Disabled hook.",
@@ -479,9 +476,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     });
     this.display();
     try {
-      const response = await this.withSettingsConnection((client) => client.unarchiveThread(threadId));
+      const restoredThread = await this.withSettingsConnection((client) => restoreArchivedPanelThread(client, threadId));
       this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-      const restoredThread = panelThreadFromAppServerThread(response.thread);
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
         type: "loaded",
         status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
@@ -509,13 +505,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     return this.settingsDynamicOperationId;
   }
 
-  private modelOptions(): Model[] {
-    return sortedAvailableModels(this.models);
+  private modelOptions(): PanelModelOption[] {
+    return sortedModelOptions(this.models);
   }
 
   private effortOptions(modelIdOrName: string | null): ReasoningEffort[] {
     const model = this.selectedModel(modelIdOrName);
-    return model ? supportedEffortsForModel(model) : REASONING_EFFORTS;
+    return model ? supportedEffortsForModelOption(model) : REASONING_EFFORTS;
   }
 
   private namingEffortSupported(effort: ReasoningEffort | null): boolean {
@@ -526,8 +522,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     return !effort || this.effortOptions(this.plugin.settings.rewriteSelectionModel).includes(effort);
   }
 
-  private selectedModel(modelIdOrName: string | null): Model | null {
-    return findModelByIdOrName(this.models, modelIdOrName);
+  private selectedModel(modelIdOrName: string | null): PanelModelOption | null {
+    return findModelOptionByIdOrName(this.models, modelIdOrName);
   }
 }
 
@@ -537,6 +533,6 @@ export interface CodexPanelSettingTabHost {
   saveSettings(): Promise<void>;
   refreshOpenViews(): void;
   refreshSharedThreadListFromOpenSurface(): void;
-  cachedModels(): Model[];
-  publishModels(models: Model[]): void;
+  cachedModels(): PanelModelOption[];
+  publishModels(models: PanelModelOption[]): void;
 }

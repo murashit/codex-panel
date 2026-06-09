@@ -2,7 +2,7 @@ import type { App } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS } from "../constants";
 import { CodexThreadsView } from "../features/threads-view/view";
-import type { Model } from "../generated/app-server/v2/Model";
+import type { PanelModelOption } from "../domain/catalog/model";
 import type { PanelThread } from "../domain/threads/model";
 import type { SharedAppServerMetadata } from "../app-server/shared-cache-state";
 import type { WorkspacePanelCoordinator } from "./panel-coordinator";
@@ -48,7 +48,7 @@ export class ThreadSurfaceCoordinator {
     }
   }
 
-  publishModels(models: readonly Model[]): void {
+  publishModels(models: readonly PanelModelOption[]): void {
     for (const view of this.options.panels.panelViews()) {
       view.applyAvailableModelsSnapshot(models);
     }

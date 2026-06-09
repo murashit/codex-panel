@@ -10,8 +10,8 @@ import {
   cachedSharedThreadList,
   createSharedAppServerState,
 } from "../../src/app-server/shared-cache-state";
+import type { PanelModelOption } from "../../src/domain/catalog/model";
 import type { PanelThread } from "../../src/domain/threads/model";
-import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { Thread } from "../../src/generated/app-server/v2/Thread";
 
 describe("shared app-server cache state", () => {
@@ -32,13 +32,13 @@ describe("shared app-server cache state", () => {
     sourceModels.push(modelFixture("gpt-5.6"));
     expect(modelState.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
     const cachedModels = cachedSharedModels(modelState);
-    cachedModels[0]?.supportedReasoningEfforts.push({ reasoningEffort: "high", description: "High" });
+    (cachedModels[0]?.supportedReasoningEfforts as string[] | undefined)?.push("high");
     expect(cachedSharedModels(modelState)[0]?.supportedReasoningEfforts).toEqual([]);
 
     const metadataState = applySharedAppServerMetadata(createSharedAppServerState(), {
       effectiveConfig: null,
       availableModels: sourceModels,
-      availableSkills: [{ name: "skill", description: "", path: "/tmp/skill", scope: "repo", enabled: true }],
+      availableSkills: [{ name: "skill", description: "", path: "/tmp/skill", enabled: true }],
       rateLimit: null,
       appServerDiagnostics: {
         ...createAppServerDiagnostics(),
@@ -77,20 +77,16 @@ function threadFixture(id: string): Thread & { archived: boolean } {
   };
 }
 
-function modelFixture(model: string): Model {
+function modelFixture(model: string): PanelModelOption {
   return {
     id: model,
     model,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
     displayName: model,
     description: "",
     hidden: false,
     supportedReasoningEfforts: [],
     defaultReasoningEffort: "medium",
     inputModalities: [],
-    supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,

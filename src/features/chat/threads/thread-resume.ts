@@ -1,6 +1,6 @@
 import { parseServiceTier } from "../../../app-server/service-tier";
 import { upsertThread } from "../../../domain/threads/model";
-import type { ReasoningEffort } from "../../../generated/app-server/ReasoningEffort";
+import type { ReasoningEffort } from "../../../runtime/models";
 import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
 import type { ApprovalsReviewer } from "../../../generated/app-server/v2/ApprovalsReviewer";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";

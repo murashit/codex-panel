@@ -118,8 +118,8 @@ describe("chat app-server controllers", () => {
     const state = createChatState();
     const stateStore = createChatStateStore(state);
 
-    const listModels = vi.fn().mockResolvedValue({ data: [{ model: "gpt-5.1" } as Model] });
-    const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [{ name: "writer", enabled: true } as SkillMetadata] }] });
+    const listModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-5.1")] });
+    const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("writer")] }] });
     const readAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: {} as RateLimitSnapshot });
     const listHooks = vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", hooks: [] }] });
     const client = {
@@ -275,6 +275,37 @@ function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
     name: null,
     turns: [],
     ...overrides,
+  };
+}
+
+function modelFixture(model: string): Model {
+  return {
+    id: model,
+    model,
+    upgrade: null,
+    upgradeInfo: null,
+    availabilityNux: null,
+    displayName: model,
+    description: "",
+    hidden: false,
+    supportedReasoningEfforts: [],
+    defaultReasoningEffort: "medium",
+    inputModalities: ["text"],
+    supportsPersonality: false,
+    additionalSpeedTiers: [],
+    serviceTiers: [],
+    defaultServiceTier: null,
+    isDefault: false,
+  };
+}
+
+function skillFixture(name: string): SkillMetadata {
+  return {
+    name,
+    description: "",
+    path: `/skills/${name}`,
+    scope: "repo",
+    enabled: true,
   };
 }
 

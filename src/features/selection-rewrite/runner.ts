@@ -8,14 +8,14 @@ import type { InitializeResponse } from "../../generated/app-server/InitializeRe
 import type { RequestId } from "../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
-import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
-import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
-import type { Model } from "../../generated/app-server/v2/Model";
+import type { ReasoningEffort } from "../../runtime/models";
 import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
-import { runtimeOverride, validatedRuntimeOverride } from "../../runtime/models";
+import { loadPanelModelOptions } from "../../app-server/catalog-data";
+import type { PanelModelOption } from "../../domain/catalog/model";
+import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../../runtime/models";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromTurn, type SelectionRewriteOutput } from "./output";
@@ -49,7 +49,7 @@ export type SelectionRewriteActivity = "reasoning" | "writing";
 export interface SelectionRewriteClient {
   connect(): Promise<InitializeResponse>;
   disconnect(): void;
-  listModels(includeHidden?: boolean): Promise<ModelListResponse>;
+  listPanelModelOptions(): Promise<PanelModelOption[]>;
   rejectServerRequest(requestId: RequestId, code: number, message: string): void;
   startEphemeralThread(cwd: string, serviceName: string, developerInstructions: string): Promise<ThreadStartResponse>;
   startStructuredTurn(
@@ -106,7 +106,9 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
   });
 
   let client!: SelectionRewriteClient;
-  const clientFactory = options.clientFactory ?? ((codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers));
+  const clientFactory =
+    options.clientFactory ??
+    ((codexPath, cwd, handlers) => selectionRewriteClientFromAppServerClient(new AppServerClient(codexPath, cwd, handlers)));
   client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {
       handleNotification(notification);
@@ -246,9 +248,12 @@ export function selectionRewriteRuntimeOverride(settings: SelectionRewriteRuntim
 
 export function validatedSelectionRewriteRuntimeOverride(
   settings: SelectionRewriteRuntimeSettings,
-  models: readonly Model[],
+  models: readonly PanelModelOption[],
 ): SelectionRewriteRuntimeOverride {
-  return validatedRuntimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort }, models);
+  return validatedRuntimeOverrideForModelOptions(
+    { model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort },
+    models,
+  );
 }
 
 async function selectionRewriteRuntimeOverrideForClient(
@@ -258,9 +263,24 @@ async function selectionRewriteRuntimeOverrideForClient(
   const runtime = selectionRewriteRuntimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
-    const response = await client.listModels(false);
-    return validatedSelectionRewriteRuntimeOverride(settings, response.data);
+    return validatedSelectionRewriteRuntimeOverride(settings, await client.listPanelModelOptions());
   } catch {
     return runtime;
   }
+}
+
+function selectionRewriteClientFromAppServerClient(client: AppServerClient): SelectionRewriteClient {
+  return {
+    connect: () => client.connect(),
+    disconnect: () => {
+      client.disconnect();
+    },
+    listPanelModelOptions: () => loadPanelModelOptions(client, false),
+    rejectServerRequest: (requestId, code, message) => {
+      client.rejectServerRequest(requestId, code, message);
+    },
+    startEphemeralThread: (cwd, serviceName, developerInstructions) => client.startEphemeralThread(cwd, serviceName, developerInstructions),
+    startStructuredTurn: (threadId, cwd, text, outputSchema, model, effort) =>
+      client.startStructuredTurn(threadId, cwd, text, outputSchema, model, effort),
+  };
 }

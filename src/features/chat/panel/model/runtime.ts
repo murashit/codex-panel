@@ -6,7 +6,7 @@ import {
   serviceTierLabel,
   supportedReasoningEfforts,
 } from "../../../../runtime/effective-settings";
-import { sortedAvailableModels } from "../../../../runtime/models";
+import { sortedModelOptions } from "../../../../runtime/models";
 import { contextSummary, rateLimitSummary, type RateLimitSummary } from "../../../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
 import type { RuntimeChoice, RuntimeComposerChoicesInput, RuntimeSnapshotInput } from "./types";
@@ -40,7 +40,7 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
 } {
   const config = readRuntimeConfig(input.state.connection.effectiveConfig);
   const activeModel = currentModel(input.snapshot, config);
-  const models = sortedAvailableModels(input.state.connection.availableModels);
+  const models = sortedModelOptions(input.state.connection.availableModels);
   const modelChoices: RuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
     selected: activeModel === model.model,

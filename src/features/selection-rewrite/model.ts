@@ -1,5 +1,5 @@
 import type { EditorPosition } from "obsidian";
-import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
+import type { ReasoningEffort } from "../../runtime/models";
 
 type SelectionRewriteStatus = SelectionRewriteState["status"];
 const TERMINAL_SELECTION_REWRITE_STATUSES = new Set<SelectionRewriteStatus>(["applied", "cancelled"]);

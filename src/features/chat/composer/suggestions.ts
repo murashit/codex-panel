@@ -1,13 +1,12 @@
-import type { Model } from "../../../generated/app-server/v2/Model";
-import type { SkillMetadata } from "../../../generated/app-server/v2/SkillMetadata";
 import type { PanelThread } from "../../../domain/threads/model";
+import type { PanelModelOption, PanelSkillOption } from "../../../domain/catalog/model";
 import { prepareFuzzySearch, sortSearchResults, type SearchResult } from "obsidian";
 import {
-  findModelByIdOrName,
+  findModelOptionByIdOrName,
   isReasoningEffort,
   REASONING_EFFORTS,
-  sortedAvailableModels,
-  supportedEffortsForModel,
+  sortedModelOptions,
+  supportedEffortsForModelOption,
 } from "../../../runtime/models";
 import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
 import { getThreadTitle } from "../../../domain/threads/model";
@@ -58,9 +57,9 @@ export function parseSlashCommand(text: string): { command: SlashCommandName; ar
 export function activeComposerSuggestions(
   beforeCursor: string,
   notes: NoteCandidate[],
-  skills: readonly SkillMetadata[],
+  skills: readonly PanelSkillOption[],
   threads: readonly PanelThread[] = [],
-  models: readonly Model[] = [],
+  models: readonly PanelModelOption[] = [],
   currentModel: string | null = null,
 ): ComposerSuggestion[] {
   return (
@@ -301,7 +300,7 @@ function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly 
     }));
 }
 
-function activeModelOverrideSuggestions(beforeCursor: string, models: readonly Model[]): ComposerSuggestion[] | null {
+function activeModelOverrideSuggestions(beforeCursor: string, models: readonly PanelModelOption[]): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/model\s+([^\n]{0,120})$/);
   if (!completion) return null;
 
@@ -316,7 +315,7 @@ function activeModelOverrideSuggestions(beforeCursor: string, models: readonly M
       start,
       appendSpaceOnInsert: true,
     },
-    ...sortedAvailableModels(models)
+    ...sortedModelOptions(models)
       .map((model, index) => {
         const id = model.id.toLowerCase();
         const name = model.model.toLowerCase();
@@ -342,7 +341,7 @@ function activeModelOverrideSuggestions(beforeCursor: string, models: readonly M
 
 function activeReasoningEffortSuggestions(
   beforeCursor: string,
-  models: readonly Model[],
+  models: readonly PanelModelOption[],
   currentModel: string | null,
 ): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/reasoning\s+([^\n]{0,120})$/);
@@ -350,8 +349,8 @@ function activeReasoningEffortSuggestions(
 
   const { query, start } = completion;
   if (query === "default" || isReasoningEffort(query)) return null;
-  const model = findModelByIdOrName(models, currentModel);
-  const efforts = model ? supportedEffortsForModel(model) : REASONING_EFFORTS;
+  const model = findModelOptionByIdOrName(models, currentModel);
+  const efforts = model ? supportedEffortsForModelOption(model) : REASONING_EFFORTS;
   const modelDetail = model ? `Supported by ${model.model}` : "Supported reasoning effort";
   const suggestions = [
     {
@@ -384,7 +383,7 @@ function activeCommandArgumentCompletionQuery(beforeCursor: string, pattern: Reg
   return { query, start: beforeCursor.length - rawQuery.length };
 }
 
-function activeSkillSuggestions(beforeCursor: string, skills: readonly SkillMetadata[]): ComposerSuggestion[] | null {
+function activeSkillSuggestions(beforeCursor: string, skills: readonly PanelSkillOption[]): ComposerSuggestion[] | null {
   const match = /(^|[\s([{])\$([^\s\])}]{0,120})$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
@@ -406,7 +405,7 @@ function activeSkillSuggestions(beforeCursor: string, skills: readonly SkillMeta
     .slice(0, 8)
     .map((skill) => ({
       display: `$${skill.name}`,
-      detail: skill.shortDescription ?? skill.interface?.shortDescription ?? skill.description,
+      detail: skill.shortDescription ?? skill.interfaceShortDescription ?? skill.description,
       replacement: `$${skill.name}`,
       start,
       appendSpaceOnInsert: true,

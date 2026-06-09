@@ -26,13 +26,12 @@ import {
   type SelectionRewriteClientFactory,
 } from "../../../src/features/selection-rewrite/runner";
 import type { AppServerClientHandlers } from "../../../src/app-server/client";
+import type { PanelModelOption } from "../../../src/domain/catalog/model";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import type { JsonValue } from "../../../src/generated/app-server/serde_json/JsonValue";
 import type { RequestId } from "../../../src/generated/app-server/RequestId";
 import type { ReasoningEffort } from "../../../src/generated/app-server/ReasoningEffort";
-import type { Model } from "../../../src/generated/app-server/v2/Model";
-import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { ComposerSendKeyEvent } from "../../../src/shared/ui/keyboard";
 import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
@@ -501,7 +500,7 @@ describe("selection rewrite runtime overrides", () => {
   it("omits an explicit selection rewrite effort when the selected model does not support it", () => {
     expect(
       validatedSelectionRewriteRuntimeOverride({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" }, [
-        model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
+        panelModel("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
       ]),
     ).toEqual({ model: "gpt-5.4-mini" });
   });
@@ -665,8 +664,8 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
     this.disconnected = true;
   }
 
-  async listModels(): Promise<ModelListResponse> {
-    return { data: [], nextCursor: null };
+  async listPanelModelOptions(): Promise<PanelModelOption[]> {
+    return [];
   }
 
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {
@@ -775,20 +774,16 @@ function turnCompletedNotification(threadId: string, completedTurn: Turn): Serve
   };
 }
 
-function model(name: string, efforts: Model["supportedReasoningEfforts"][number]["reasoningEffort"][]): Model {
+function panelModel(name: string, efforts: ReasoningEffort[]): PanelModelOption {
   return {
     id: name,
     model: name,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
     displayName: name,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+    supportedReasoningEfforts: efforts,
     defaultReasoningEffort: efforts[0] ?? "low",
     inputModalities: ["text"],
-    supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,

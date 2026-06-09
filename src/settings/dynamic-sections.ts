@@ -1,6 +1,6 @@
 import { Setting } from "obsidian";
 
-import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
+import type { PanelHookItem } from "../domain/catalog/model";
 import type { PanelThread } from "../domain/threads/model";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { shortThreadId } from "../utils";
@@ -22,14 +22,14 @@ export interface ArchivedThreadSectionState {
 }
 
 export interface HookSectionState {
-  hooks: HookMetadata[];
+  hooks: PanelHookItem[];
   warnings: string[];
   errors: string[];
   loaded: boolean;
   loading: boolean;
   status: string;
-  onTrust(hook: HookMetadata): void;
-  onToggleEnabled(hook: HookMetadata, enabled: boolean): void;
+  onTrust(hook: PanelHookItem): void;
+  onToggleEnabled(hook: PanelHookItem, enabled: boolean): void;
 }
 
 export function renderHookSection(containerEl: HTMLElement, state: HookSectionState): void {
@@ -166,7 +166,7 @@ function renderHooks(containerEl: HTMLElement, state: HookSectionState): void {
   }
 }
 
-function renderHookRow(list: HTMLElement, hook: HookMetadata, state: HookSectionState): void {
+function renderHookRow(list: HTMLElement, hook: PanelHookItem, state: HookSectionState): void {
   const canTrust = !hook.isManaged && (hook.trustStatus === "untrusted" || hook.trustStatus === "modified");
   const hookName = firstNonEmptyString(hook.statusMessage, hook.command, hook.matcher, hook.eventName);
   const setting = new Setting(list)

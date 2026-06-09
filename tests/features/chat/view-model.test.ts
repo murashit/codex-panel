@@ -15,7 +15,7 @@ import {
   statusSummaryLines,
   toolbarViewModel,
 } from "../../../src/features/chat/panel/model";
-import type { Model } from "../../../src/generated/app-server/v2/Model";
+import type { PanelModelOption } from "../../../src/domain/catalog/model";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/ConfigReadResponse";
 
@@ -263,22 +263,18 @@ function threadFixture(id: string, name: string | null): Thread & { archived: bo
   };
 }
 
-function modelFixture(model: string, fastTierId?: string): Model {
+function modelFixture(model: string, fastTierId?: string): PanelModelOption {
   return {
     id: model,
     model,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
     displayName: model,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: [{ reasoningEffort: "high", description: "" }],
+    supportedReasoningEfforts: ["high"],
     defaultReasoningEffort: "high",
     inputModalities: [],
-    supportsPersonality: false,
     additionalSpeedTiers: fastTierId ? ["fast"] : [],
-    serviceTiers: fastTierId ? [{ id: fastTierId, name: "Fast", description: "" }] : [],
+    serviceTiers: fastTierId ? [{ id: fastTierId, name: "Fast" }] : [],
     defaultServiceTier: null,
     isDefault: true,
   };

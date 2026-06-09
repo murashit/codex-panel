@@ -4,14 +4,15 @@ import type { RequestId } from "../generated/app-server/RequestId";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
-import type { Model } from "../generated/app-server/v2/Model";
 import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
+import { panelModelOptionsFromAppServerModels } from "./catalog-model";
 import { namingPrompt, titleFromNamingTurn, type ThreadNamingContext } from "../domain/threads/naming";
-import { runtimeOverride, validatedRuntimeOverride } from "../runtime/models";
+import { runtimeOverride, validatedRuntimeOverrideForModelOptions } from "../runtime/models";
+import type { PanelModelOption } from "../domain/catalog/model";
 import {
   createStructuredTurnRunLifecycle,
   structuredTurnRunMatches,
@@ -155,8 +156,11 @@ export function threadNamingRuntimeOverride(settings: ThreadNamingRuntimeSetting
   return runtimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }
 
-export function validatedThreadNamingRuntimeOverride(settings: ThreadNamingRuntimeSettings, models: Model[]): ThreadNamingRuntimeOverride {
-  return validatedRuntimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort }, models);
+export function validatedThreadNamingRuntimeOverride(
+  settings: ThreadNamingRuntimeSettings,
+  models: readonly PanelModelOption[],
+): ThreadNamingRuntimeOverride {
+  return validatedRuntimeOverrideForModelOptions({ model: settings.threadNamingModel, effort: settings.threadNamingEffort }, models);
 }
 
 function turnWithCollectedItems(turn: Turn, items: ThreadItem[]): Turn {
@@ -172,7 +176,7 @@ async function threadNamingRuntimeOverrideForClient(
   if (!runtime.model || !runtime.effort) return runtime;
   try {
     const response = await client.listModels(false);
-    return validatedThreadNamingRuntimeOverride(settings, response.data);
+    return validatedThreadNamingRuntimeOverride(settings, panelModelOptionsFromAppServerModels(response.data));
   } catch {
     return runtime;
   }

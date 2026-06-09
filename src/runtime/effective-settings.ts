@@ -5,9 +5,9 @@ import type { ActivePermissionProfile } from "../generated/app-server/v2/ActiveP
 import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
 import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
-import type { Model } from "../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
+import type { PanelModelOption } from "../domain/catalog/model";
 import {
   configuredServiceTierRequestValue,
   isFastServiceTier,
@@ -16,7 +16,7 @@ import {
   type ServiceTier,
   type ServiceTierRequest,
 } from "../app-server/service-tier";
-import { findModelByIdOrName, supportedEffortsForModel } from "./models";
+import { findModelOptionByIdOrName, supportedEffortsForModelOption } from "./models";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
@@ -39,7 +39,7 @@ export interface RuntimeSnapshot {
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   hasThreadTurns: boolean;
-  availableModels: readonly Model[];
+  availableModels: readonly PanelModelOption[];
 }
 
 export interface TurnRuntimeSettings {
@@ -124,7 +124,7 @@ export function requestedTurnRuntimeSettings(snapshot: RuntimeSnapshot): TurnRun
 
 export function supportedReasoningEfforts(snapshot: RuntimeSnapshot): ReasoningEffort[] {
   const model = currentModel(snapshot);
-  return supportedEffortsForModel(findModelByIdOrName(snapshot.availableModels, model));
+  return supportedEffortsForModelOption(findModelOptionByIdOrName(snapshot.availableModels, model));
 }
 
 export function serviceTierLabel(
@@ -200,6 +200,6 @@ function turnCollaborationMode(mode: ModeKind, model: string, reasoningEffort: R
 function currentModelServiceTiers(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
-): Model["serviceTiers"] {
-  return findModelByIdOrName(snapshot.availableModels, currentModel(snapshot, config))?.serviceTiers ?? [];
+): PanelModelOption["serviceTiers"] {
+  return findModelOptionByIdOrName(snapshot.availableModels, currentModel(snapshot, config))?.serviceTiers ?? [];
 }

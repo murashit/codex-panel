@@ -3,8 +3,8 @@ import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import type { AppServerClient } from "../../app-server/client";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
-import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
-import type { Model } from "../../generated/app-server/v2/Model";
+import type { ReasoningEffort } from "../../runtime/models";
+import type { PanelModelOption } from "../../domain/catalog/model";
 import type { PanelThread } from "../../domain/threads/model";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../runtime/override-commands";
 import type { RuntimeSnapshot } from "../../runtime/effective-settings";
@@ -422,7 +422,7 @@ export class CodexChatView extends ItemView {
     this.controllers.render.controller.render();
   }
 
-  applyAvailableModelsSnapshot(models: readonly Model[]): void {
+  applyAvailableModelsSnapshot(models: readonly PanelModelOption[]): void {
     this.dispatch({ type: "connection/metadata-applied", availableModels: models });
     this.controllers.render.controller.render();
   }

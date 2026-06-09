@@ -1,4 +1,3 @@
-import type { Model } from "../../../generated/app-server/v2/Model";
 import type { PanelThread } from "../../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import { readRuntimeConfig } from "../../../runtime/config";
@@ -146,12 +145,10 @@ function displayItemsSignature(items: readonly DisplayItem[]): string {
 }
 
 function threadListSignature(threads: readonly PanelThread[]): string {
-  return threads
-    .map((thread) => signatureParts(thread.id, thread.name, thread.preview, thread.updatedAt, thread.archived))
-    .join("\n");
+  return threads.map((thread) => signatureParts(thread.id, thread.name, thread.preview, thread.updatedAt, thread.archived)).join("\n");
 }
 
-function modelsSignature(models: readonly Model[]): string {
+function modelsSignature(models: ChatState["connection"]["availableModels"]): string {
   return models.map((model) => stableSignature(model)).join("\n");
 }
 

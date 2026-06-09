@@ -1,5 +1,9 @@
-import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
-import type { Model } from "../generated/app-server/v2/Model";
+import type { ReasoningEffort as AppServerReasoningEffort } from "../generated/app-server/ReasoningEffort";
+import type { PanelModelOption } from "../domain/catalog/model";
+export { findModelOptionByIdOrName, sortedModelOptions } from "../domain/catalog/model";
+import { findModelOptionByIdOrName } from "../domain/catalog/model";
+
+export type ReasoningEffort = AppServerReasoningEffort;
 
 export const REASONING_EFFORTS: ReasoningEffort[] = ["none", "minimal", "low", "medium", "high", "xhigh"];
 
@@ -11,20 +15,13 @@ export function normalizeReasoningEffort(value: unknown): ReasoningEffort | null
   return isReasoningEffort(value) ? value : null;
 }
 
-export function sortedAvailableModels(models: readonly Model[]): Model[] {
-  return [...models]
-    .filter((model) => !model.hidden)
-    .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.model.localeCompare(b.model));
-}
-
-export function findModelByIdOrName(models: readonly Model[], modelIdOrName: string | null | undefined): Model | null {
-  if (!modelIdOrName) return null;
-  return models.find((model) => !model.hidden && (model.model === modelIdOrName || model.id === modelIdOrName)) ?? null;
-}
-
-export function supportedEffortsForModel(model: Model | null): ReasoningEffort[] {
-  const efforts = model?.supportedReasoningEfforts.map((option) => option.reasoningEffort).filter(isReasoningEffort) ?? [];
+export function supportedEffortsForModelOption(model: PanelModelOption | null): ReasoningEffort[] {
+  const efforts = model?.supportedReasoningEfforts.filter(isReasoningEffort) ?? [];
   return efforts.length > 0 ? efforts : REASONING_EFFORTS;
+}
+
+export function defaultEffortForModelOption(model: PanelModelOption | null): ReasoningEffort | null {
+  return normalizeReasoningEffort(model?.defaultReasoningEffort);
 }
 
 export interface RuntimeOverrideSettings {
@@ -44,13 +41,16 @@ export function runtimeOverride(settings: RuntimeOverrideSettings): RuntimeOverr
   };
 }
 
-export function validatedRuntimeOverride(settings: RuntimeOverrideSettings, models: readonly Model[]): RuntimeOverride {
+export function validatedRuntimeOverrideForModelOptions(
+  settings: RuntimeOverrideSettings,
+  models: readonly PanelModelOption[],
+): RuntimeOverride {
   const runtime = runtimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
 
-  const model = findModelByIdOrName(models, runtime.model);
+  const model = findModelOptionByIdOrName(models, runtime.model);
   if (!model) return runtime;
 
-  const supportedEfforts = new Set(supportedEffortsForModel(model));
+  const supportedEfforts = new Set(supportedEffortsForModelOption(model));
   return supportedEfforts.has(runtime.effort) ? runtime : { model: runtime.model };
 }

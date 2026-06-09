@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ConfigReadResponse } from "../../src/generated/app-server/v2/ConfigReadResponse";
-import type { Model } from "../../src/generated/app-server/v2/Model";
+import type { PanelModelOption } from "../../src/domain/catalog/model";
 import {
   compactModelLabel,
   compactReasoningEffortLabel,
@@ -218,7 +218,7 @@ describe("runtime settings", () => {
   it("treats the catalog Fast service tier id as fast mode while preserving the id", () => {
     const model = modelFixture("gpt-5.5");
     // This mirrors Codex app-server 0.134.0 model/list: Fast is named "Fast" but its id is "priority".
-    model.serviceTiers = [{ id: "priority", name: "Fast", description: "1.5x speed, increased usage" }];
+    model.serviceTiers = [{ id: "priority", name: "Fast" }];
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5.5",
       activeServiceTier: "priority",
@@ -235,7 +235,7 @@ describe("runtime settings", () => {
 
   it("treats the Codex 0.134.0 reported default tier after clearing Fast as fast mode off", () => {
     const model = modelFixture("gpt-5.5");
-    model.serviceTiers = [{ id: "priority", name: "Fast", description: "1.5x speed, increased usage" }];
+    model.serviceTiers = [{ id: "priority", name: "Fast" }];
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5.5",
       activeServiceTier: "default",
@@ -367,6 +367,23 @@ describe("runtime settings", () => {
       sandbox: "(Codex default)",
       "web search": "(Codex default)",
     });
+  });
+
+  it("does not treat unknown catalog default reasoning efforts as runtime settings", () => {
+    const model = { ...modelFixture("gpt-catalog-default"), isDefault: true, defaultReasoningEffort: "extreme" };
+    const sections = effectiveConfigSections(
+      runtimeSnapshot({
+        effectiveConfig: effectiveConfigFixture({}),
+        availableModels: [model],
+      }),
+      "/vault",
+    );
+    const runtimeRows = Object.fromEntries(
+      sections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
+    );
+
+    expect(runtimeRows["configured model"]).toBe("gpt-catalog-default");
+    expect(runtimeRows["configured effort"]).toBe("(not reported)");
   });
 
   it("shows effective profile runtime and policy values in status details", () => {
@@ -504,7 +521,7 @@ describe("runtime settings", () => {
 
   it("serializes requested fast mode using the catalog Fast service tier id", () => {
     const model = modelFixture("gpt-5.5");
-    model.serviceTiers = [{ id: "priority", name: "Fast", description: "1.5x speed, increased usage" }];
+    model.serviceTiers = [{ id: "priority", name: "Fast" }];
     const snapshot = runtimeSnapshot({
       requestedServiceTier: setPendingRuntimeSetting("fast"),
       effectiveConfig: effectiveConfigFixture({ model: "gpt-5.5" }),
@@ -681,20 +698,16 @@ function configLayer(config: Record<string, unknown>, profile: string | null): N
   };
 }
 
-function modelFixture(model: string): Model {
+function modelFixture(model: string): PanelModelOption {
   return {
     id: model,
     model,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
     displayName: model,
     description: "",
     hidden: false,
     supportedReasoningEfforts: [],
     defaultReasoningEffort: "medium",
     inputModalities: [],
-    supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,

@@ -6,7 +6,7 @@ import {
 } from "../../../../src/features/chat/runtime/runtime-settings-actions";
 import { createChatState, createChatStateStore, type ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/chat-state";
 import type { AppServerClient } from "../../../../src/app-server/client";
-import type { Model } from "../../../../src/generated/app-server/v2/Model";
+import type { PanelModelOption } from "../../../../src/domain/catalog/model";
 
 describe("createChatRuntimeSettingsActions", () => {
   it("applies pending runtime overrides through thread settings and commits them", async () => {
@@ -151,22 +151,18 @@ function clientFixture(
   };
 }
 
-function modelFixture(model: string, fastTierId: string): Model {
+function modelFixture(model: string, fastTierId: string): PanelModelOption {
   return {
     id: model,
     model,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
     displayName: model,
     description: "",
     hidden: false,
     supportedReasoningEfforts: [],
     defaultReasoningEffort: "medium",
     inputModalities: [],
-    supportsPersonality: true,
     additionalSpeedTiers: ["fast"],
-    serviceTiers: [{ id: fastTierId, name: "Fast", description: "" }],
+    serviceTiers: [{ id: fastTierId, name: "Fast" }],
     defaultServiceTier: null,
     isDefault: true,
   };

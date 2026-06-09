@@ -1,5 +1,5 @@
-import type { SkillMetadata } from "../../../generated/app-server/v2/SkillMetadata";
 import type { UserInput } from "../../../generated/app-server/v2/UserInput";
+import type { PanelSkillOption } from "../../../domain/catalog/model";
 import { parseObsidianWikiLink } from "../../../shared/obsidian/wikilinks";
 
 export interface ParsedWikiLink {
@@ -38,7 +38,7 @@ export function userInputWithWikiLinkMentions(text: string, resolveMention: Wiki
 export function userInputWithWikiLinkMentionsAndSkills(
   text: string,
   resolveMention: WikiLinkMentionResolver,
-  skills: readonly SkillMetadata[],
+  skills: readonly PanelSkillOption[],
 ): UserInput[] {
   const input: UserInput[] = [{ type: "text", text, text_elements: [] }];
   const seenPaths = new Set<string>();
@@ -81,8 +81,8 @@ function parseWikiLink(raw: string): ParsedWikiLink | null {
   return parsed ? { raw, ...parsed } : null;
 }
 
-function firstEnabledSkillByName(skills: readonly SkillMetadata[]): Map<string, SkillMetadata> {
-  const byName = new Map<string, SkillMetadata>();
+function firstEnabledSkillByName(skills: readonly PanelSkillOption[]): Map<string, PanelSkillOption> {
+  const byName = new Map<string, PanelSkillOption>();
   for (const skill of skills) {
     if (!skill.enabled) continue;
     const key = skill.name.toLowerCase();

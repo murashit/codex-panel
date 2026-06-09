@@ -1,14 +1,13 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { ModeKind } from "../../generated/app-server/ModeKind";
-import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
+import type { ReasoningEffort } from "../../runtime/models";
 import type { ActivePermissionProfile } from "../../generated/app-server/v2/ActivePermissionProfile";
 import type { ApprovalsReviewer } from "../../generated/app-server/v2/ApprovalsReviewer";
 import type { AskForApproval } from "../../generated/app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
-import type { Model } from "../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
-import type { SkillMetadata } from "../../generated/app-server/v2/SkillMetadata";
 import type { PanelThread } from "../../domain/threads/model";
+import type { PanelModelOption, PanelSkillOption } from "../../domain/catalog/model";
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
@@ -52,8 +51,8 @@ interface ChatConnectionState {
   initializeResponse: InitializeResponse | null;
   appServerDiagnostics: AppServerDiagnostics;
   rateLimit: RateLimitSnapshot | null;
-  availableModels: readonly Model[];
-  availableSkills: readonly SkillMetadata[];
+  availableModels: readonly PanelModelOption[];
+  availableSkills: readonly PanelSkillOption[];
 }
 
 interface ChatThreadListState {
@@ -136,8 +135,8 @@ type ConnectionAction =
   | {
       type: "connection/metadata-applied";
       effectiveConfig?: ConfigReadResponse | null;
-      availableModels?: readonly Model[];
-      availableSkills?: readonly SkillMetadata[];
+      availableModels?: readonly PanelModelOption[];
+      availableSkills?: readonly PanelSkillOption[];
       rateLimit?: RateLimitSnapshot | null;
       appServerDiagnostics?: AppServerDiagnostics;
     };

@@ -30,6 +30,7 @@ import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadI
 import type { ThreadStartResponse } from "../../../../src/generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../../../src/generated/app-server/v2/TurnStartResponse";
+import { panelModelOptionsFromAppServerModels } from "../../../../src/app-server/catalog-model";
 
 describe("thread naming", () => {
   it("extracts the first user request and final assistant response from a completed turn", () => {
@@ -256,17 +257,19 @@ describe("thread naming", () => {
 
   it("omits an explicit naming effort when the selected model does not support it", () => {
     expect(
-      validatedThreadNamingRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" }, [
-        model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
-      ]),
+      validatedThreadNamingRuntimeOverride(
+        { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
+        panelModelOptionsFromAppServerModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
+      ),
     ).toEqual({ model: "gpt-5.4-mini" });
   });
 
   it("keeps an explicit naming effort when the selected model supports it", () => {
     expect(
-      validatedThreadNamingRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" }, [
-        model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
-      ]),
+      validatedThreadNamingRuntimeOverride(
+        { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" },
+        panelModelOptionsFromAppServerModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
+      ),
     ).toEqual({ model: "gpt-5.4-mini", effort: "low" });
   });
 

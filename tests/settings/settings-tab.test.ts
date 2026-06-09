@@ -6,7 +6,8 @@ import type { Thread } from "../../src/generated/app-server/v2/Thread";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
-import { findModelByIdOrName, sortedAvailableModels, supportedEffortsForModel } from "../../src/runtime/models";
+import type { PanelModelOption } from "../../src/domain/catalog/model";
+import { panelModelOptionsFromAppServerModels } from "../../src/app-server/catalog-model";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import { archivedThreadDisplayTitle } from "../../src/domain/threads/model";
 import { notices } from "../mocks/obsidian";
@@ -39,22 +40,6 @@ describe("settings tab", () => {
     const title = archivedThreadDisplayTitle(thread({ preview: "x".repeat(120) }));
     expect(title).toHaveLength(96);
     expect(title.endsWith("...")).toBe(true);
-  });
-
-  it("sorts naming model choices by default flag and model id", () => {
-    expect(
-      sortedAvailableModels([model("z-model"), model("a-model"), model("b-default", true), model("hidden", false, true)]).map(
-        (item) => item.model,
-      ),
-    ).toEqual(["b-default", "a-model", "z-model"]);
-  });
-
-  it("finds selected models and falls back to all efforts when none are reported", () => {
-    const selected = model("gpt-5.4", false, false, ["low", "high"]);
-    expect(findModelByIdOrName([selected], "gpt-5.4")).toBe(selected);
-    expect(findModelByIdOrName([selected], selected.id)).toBe(selected);
-    expect(supportedEffortsForModel(selected)).toEqual(["low", "high"]);
-    expect(supportedEffortsForModel(model("custom", false, false, []))).toEqual(["none", "minimal", "low", "medium", "high", "xhigh"]);
   });
 
   it("auto-loads settings data once and keeps one global refresh button", async () => {
@@ -208,7 +193,7 @@ describe("settings tab", () => {
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab({ cachedModels: [model("gpt-cached")], publishModels });
+    const tab = newSettingsTab({ cachedModels: panelModelOptionsFromAppServerModels([model("gpt-cached")]), publishModels });
 
     tab.display();
 
@@ -216,7 +201,7 @@ describe("settings tab", () => {
 
     await flushPromises();
 
-    expect(publishModels).toHaveBeenCalledWith([model("gpt-5.5")]);
+    expect(publishModels).toHaveBeenCalledWith(panelModelOptionsFromAppServerModels([model("gpt-5.5")]));
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
   });
 
@@ -363,8 +348,8 @@ function newSettingsTab(
   options: {
     saveSettings?: () => Promise<void>;
     sendShortcut?: "enter" | "mod-enter";
-    cachedModels?: Model[];
-    publishModels?: (models: Model[]) => void;
+    cachedModels?: PanelModelOption[];
+    publishModels?: (models: PanelModelOption[]) => void;
     refreshOpenViews?: () => void;
   } = {},
 ): CodexPanelSettingTab {

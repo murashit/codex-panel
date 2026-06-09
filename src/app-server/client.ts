@@ -7,7 +7,7 @@ import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadRe
 import type { ConfigWriteResponse } from "../generated/app-server/v2/ConfigWriteResponse";
 import type { FsReadFileResponse } from "../generated/app-server/v2/FsReadFileResponse";
 import type { GetAccountRateLimitsResponse } from "../generated/app-server/v2/GetAccountRateLimitsResponse";
-import type { HookMetadata } from "../generated/app-server/v2/HookMetadata";
+import type { HookTrustStatus } from "../generated/app-server/v2/HookTrustStatus";
 import type { HooksListResponse } from "../generated/app-server/v2/HooksListResponse";
 import type { CollaborationModeListResponse } from "../generated/app-server/v2/CollaborationModeListResponse";
 import type { ListMcpServerStatusParams } from "../generated/app-server/v2/ListMcpServerStatusParams";
@@ -58,6 +58,12 @@ export interface AppServerClientHandlers {
 }
 
 export type AppServerTransportFactory = (handlers: AppServerTransportHandlers) => AppServerTransport;
+
+export interface AppServerHookOperation {
+  key: string;
+  currentHash: string;
+  trustStatus: HookTrustStatus;
+}
 
 export class AppServerRpcError extends Error {
   readonly code?: number;
@@ -200,14 +206,14 @@ export class AppServerClient {
     return this.request("hooks/list", { cwds: [cwd] });
   }
 
-  trustHook(hook: HookMetadata): Promise<ConfigWriteResponse> {
+  trustHook(hook: AppServerHookOperation): Promise<ConfigWriteResponse> {
     return this.writeHookState(hook.key, {
       enabled: true,
       trusted_hash: hook.currentHash,
     });
   }
 
-  setHookEnabled(hook: HookMetadata, enabled: boolean): Promise<ConfigWriteResponse> {
+  setHookEnabled(hook: AppServerHookOperation, enabled: boolean): Promise<ConfigWriteResponse> {
     const state: Record<string, JsonValue> = hook.trustStatus === "trusted" ? { enabled, trusted_hash: hook.currentHash } : { enabled };
     return this.writeHookState(hook.key, state);
   }

@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/client";
+import { loadHookData, loadSettingsData } from "../../src/settings/app-server-data";
 import {
   createSettingsDynamicSectionLifecycle,
-  loadHookData,
-  loadSettingsData,
   transitionSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
 } from "../../src/settings/data";

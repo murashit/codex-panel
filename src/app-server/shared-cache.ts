@@ -1,5 +1,5 @@
-import type { Model } from "../generated/app-server/v2/Model";
 import type { PanelThread } from "../domain/threads/model";
+import type { PanelModelOption } from "../domain/catalog/model";
 import {
   applySharedAppServerMetadata,
   applySharedModels,
@@ -54,11 +54,11 @@ export class SharedAppServerCache {
     return cachedSharedAppServerMetadata(this.state);
   }
 
-  applyModelsSnapshot(models: readonly Model[]): void {
+  applyModelsSnapshot(models: readonly PanelModelOption[]): void {
     this.state = applySharedModels(this.state, models);
   }
 
-  cachedModels(): Model[] {
+  cachedModels(): PanelModelOption[] {
     return cachedSharedModels(this.state);
   }
 }

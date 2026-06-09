@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { ReasoningEffort } from "../../../../src/generated/app-server/ReasoningEffort";
-import type { Model } from "../../../../src/generated/app-server/v2/Model";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { PanelModelOption } from "../../../../src/domain/catalog/model";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -46,20 +46,16 @@ function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread
   } as Thread & { archived: boolean };
 }
 
-function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Model> = {}): Model {
+function model(name: string, efforts: ReasoningEffort[], overrides: Partial<PanelModelOption> = {}): PanelModelOption {
   return {
     id: name,
     model: name,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
     displayName: name,
     description: `${name} description`,
     hidden: false,
-    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+    supportedReasoningEfforts: efforts,
     defaultReasoningEffort: efforts[0] ?? "medium",
     inputModalities: ["text"],
-    supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
@@ -381,9 +377,8 @@ describe("composer suggestions", () => {
           name: "obsidian-dataview-read",
           description: "Read Dataview results",
           path: "/vault/___/skills/obsidian-dataview-read/SKILL.md",
-          scope: "local",
           enabled: true,
-        } as never,
+        },
       ])[0],
     );
     const wikilink = expectPresent(activeComposerSuggestions("[[bet", notes, [])[0]);

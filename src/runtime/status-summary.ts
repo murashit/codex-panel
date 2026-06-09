@@ -2,7 +2,7 @@ import type { RateLimitWindow } from "../generated/app-server/v2/RateLimitWindow
 import type { SpendControlLimitSnapshot } from "../generated/app-server/v2/SpendControlLimitSnapshot";
 import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
 import { jsonPreview } from "../utils";
-import { sortedAvailableModels } from "./models";
+import { defaultEffortForModelOption, sortedModelOptions } from "./models";
 import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
 import {
   currentApprovalsReviewer,
@@ -183,14 +183,14 @@ function contextUsageTokens(usage: ThreadTokenUsage): number {
 
 function configuredModel(snapshot: RuntimeSnapshot, config: RuntimeConfigProjection): string | null {
   if (config.model) return config.model;
-  return sortedAvailableModels(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
+  return sortedModelOptions(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
 }
 
 function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeConfigProjection): string | null {
   if (config.rawReasoningEffort) return config.rawReasoningEffort;
   const model = configuredModel(snapshot, config);
-  return (
-    sortedAvailableModels(snapshot.availableModels).find((availableModel) => availableModel.model === model)?.defaultReasoningEffort ?? null
+  return defaultEffortForModelOption(
+    sortedModelOptions(snapshot.availableModels).find((availableModel) => availableModel.model === model) ?? null,
   );
 }
 

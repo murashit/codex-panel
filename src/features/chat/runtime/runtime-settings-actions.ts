@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../app-server/client";
 import { requestedServiceTierRequestValue, type RequestedServiceTier } from "../../../app-server/service-tier";
 import type { ModeKind } from "../../../generated/app-server/ModeKind";
-import type { ReasoningEffort } from "../../../generated/app-server/ReasoningEffort";
+import type { ReasoningEffort } from "../../../runtime/models";
 import type { ApprovalsReviewer } from "../../../generated/app-server/v2/ApprovalsReviewer";
 import type { ThreadSettingsUpdateParams } from "../../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import { collaborationModeToggleMessage, nextCollaborationMode } from "../../../runtime/override-commands";

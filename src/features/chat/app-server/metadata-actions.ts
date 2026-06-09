@@ -1,8 +1,8 @@
 import { type AppServerDiagnostics, capabilityProbeError, capabilityProbeOk } from "../../../app-server/compatibility";
-import type { Model } from "../../../generated/app-server/v2/Model";
 import type { RateLimitSnapshot } from "../../../generated/app-server/v2/RateLimitSnapshot";
-import type { SkillMetadata } from "../../../generated/app-server/v2/SkillMetadata";
 import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
+import { panelModelOptionsFromAppServerModels, panelSkillOptionsFromAppServerSkills } from "../../../app-server/catalog-model";
+import type { PanelModelOption, PanelSkillOption } from "../../../domain/catalog/model";
 import { cloneAppServerDiagnostics, type ChatAppServerBaseHost } from "./shared";
 
 export interface ChatAppServerMetadataActionsHost extends ChatAppServerBaseHost {
@@ -17,10 +17,10 @@ export interface ChatAppServerMetadataActions {
   refreshPublishedAppServerMetadata: () => Promise<SharedAppServerMetadata | null>;
   publishAppServerMetadataSnapshot: () => void;
   refreshModels: () => Promise<void>;
-  loadModels: () => Promise<{ data: Model[]; probe: AppServerDiagnostics["probes"]["model/list"] }>;
+  loadModels: () => Promise<{ data: PanelModelOption[]; probe: AppServerDiagnostics["probes"]["model/list"] }>;
   refreshSkills: (forceReload?: boolean) => Promise<void>;
   refreshPublishedSkills: (forceReload?: boolean) => Promise<void>;
-  loadSkills: (forceReload?: boolean) => Promise<{ data: SkillMetadata[]; probe: AppServerDiagnostics["probes"]["skills/list"] }>;
+  loadSkills: (forceReload?: boolean) => Promise<{ data: PanelSkillOption[]; probe: AppServerDiagnostics["probes"]["skills/list"] }>;
   refreshRateLimits: () => Promise<void>;
   refreshPublishedRateLimits: () => Promise<void>;
   loadRateLimit: () => Promise<{ data: RateLimitSnapshot | null; probe: AppServerDiagnostics["probes"]["account/rateLimits/read"] }>;
@@ -118,12 +118,15 @@ async function refreshModels(host: ChatAppServerMetadataActionsHost): Promise<vo
 
 async function loadModels(
   host: ChatAppServerMetadataActionsHost,
-): Promise<{ data: Model[]; probe: AppServerDiagnostics["probes"]["model/list"] }> {
+): Promise<{ data: PanelModelOption[]; probe: AppServerDiagnostics["probes"]["model/list"] }> {
   const client = host.currentClient();
   if (!client) return { data: [], probe: capabilityProbeError("model/list", new Error("Codex app-server is not connected.")) };
   try {
     const response = await client.listModels(false);
-    return { data: response.data, probe: capabilityProbeOk("model/list", `${String(response.data.length)} models`) };
+    return {
+      data: panelModelOptionsFromAppServerModels(response.data),
+      probe: capabilityProbeOk("model/list", `${String(response.data.length)} models`),
+    };
   } catch (error) {
     return { data: [], probe: capabilityProbeError("model/list", error) };
   }
@@ -148,12 +151,12 @@ async function refreshPublishedSkills(host: ChatAppServerMetadataActionsHost, fo
 async function loadSkills(
   host: ChatAppServerMetadataActionsHost,
   forceReload = false,
-): Promise<{ data: SkillMetadata[]; probe: AppServerDiagnostics["probes"]["skills/list"] }> {
+): Promise<{ data: PanelSkillOption[]; probe: AppServerDiagnostics["probes"]["skills/list"] }> {
   const client = host.currentClient();
   if (!client) return { data: [], probe: capabilityProbeError("skills/list", new Error("Codex app-server is not connected.")) };
   try {
     const response = await client.listSkills(host.vaultPath, forceReload);
-    const data = response.data.flatMap((entry) => entry.skills).filter((skill) => skill.enabled);
+    const data = panelSkillOptionsFromAppServerSkills(response.data.flatMap((entry) => entry.skills).filter((skill) => skill.enabled));
     const count = response.data.reduce((total, entry) => total + entry.skills.length, 0);
     return { data, probe: capabilityProbeOk("skills/list", `${String(count)} skills`) };
   } catch (error) {
