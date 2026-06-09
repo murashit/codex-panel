@@ -9,7 +9,6 @@ import type { RequestId } from "../generated/app-server/RequestId";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
-import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
 import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../generated/app-server/v2/Turn";
@@ -22,12 +21,11 @@ interface StructuredTurnRuntimeOverride {
   effort?: ReasoningEffort;
 }
 
-type StructuredEphemeralTurnEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
+type StructuredTurnProgressEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
 
 export interface StructuredEphemeralTurnClient {
   connect(): Promise<InitializeResponse>;
   disconnect(): void;
-  listModels(includeHidden?: boolean): Promise<ModelListResponse>;
   rejectServerRequest(requestId: RequestId, code: number, message: string): void;
   startEphemeralThread(cwd: string, serviceName: string, developerInstructions: string): Promise<ThreadStartResponse>;
   startStructuredTurn(
@@ -58,10 +56,9 @@ export interface RunStructuredEphemeralTurnOptions {
   exitedMessage: string;
   timedOutMessage: string;
   abortMessage?: string;
-  runtime?: StructuredTurnRuntimeOverride;
+  runtime?: StructuredTurnRuntimeOverride | undefined;
   signal?: AbortSignal | undefined;
-  onEvent?: (event: StructuredEphemeralTurnEvent) => void;
-  prepare?: ((client: StructuredEphemeralTurnClient) => Promise<StructuredTurnRuntimeOverride>) | undefined;
+  onProgress?: (event: StructuredTurnProgressEvent) => void;
   clientFactory?: StructuredEphemeralTurnClientFactory | undefined;
 }
 
@@ -83,7 +80,7 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
     handleNotification = (notification): void => {
       const result = transitionStructuredEphemeralTurnNotification(state, notification);
       state = result.state;
-      if (result.event) options.onEvent?.(result.event);
+      if (result.progress) options.onProgress?.(result.progress);
       if (result.completedTurn) resolve(result.completedTurn);
     };
   });
@@ -107,9 +104,7 @@ export async function runStructuredEphemeralTurn(options: RunStructuredEphemeral
 
   try {
     await abortable(client.connect(), options.signal, options.abortMessage);
-    const runtime = options.prepare
-      ? await abortable(options.prepare(client), options.signal, options.abortMessage)
-      : (options.runtime ?? {});
+    const runtime = options.runtime ?? {};
     const threadResponse = await abortable(
       client.startEphemeralThread(options.cwd, options.serviceName, options.developerInstructions),
       options.signal,
@@ -156,7 +151,7 @@ interface StructuredEphemeralTurnState {
 
 interface StructuredEphemeralTurnNotificationResult {
   state: StructuredEphemeralTurnState;
-  event?: StructuredEphemeralTurnEvent;
+  progress?: StructuredTurnProgressEvent;
   completedTurn?: Turn;
 }
 
@@ -174,7 +169,7 @@ function transitionStructuredEphemeralTurnNotification(
   if (state.lifecycle.kind === "completed") return { state };
   if (notification.method === "item/agentMessage/delta") {
     if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
-    return { state, event: { type: "agent-message-delta", delta: notification.params.delta } };
+    return { state, progress: { type: "agent-message-delta", delta: notification.params.delta } };
   }
   if (
     notification.method === "item/reasoning/summaryTextDelta" ||
@@ -182,7 +177,7 @@ function transitionStructuredEphemeralTurnNotification(
     notification.method === "item/reasoning/summaryPartAdded"
   ) {
     if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
-    return { state, event: { type: "reasoning-activity" } };
+    return { state, progress: { type: "reasoning-activity" } };
   }
   if (notification.method === "item/completed") {
     if (!structuredTurnRunMatches(state.lifecycle, notification.params.threadId, notification.params.turnId)) return { state };
@@ -218,17 +213,12 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined, mess
   if (!signal) return promise;
   throwIfAborted(signal, message);
   return new Promise<T>((resolve, reject) => {
-    const previousAbortHandler = signal.onabort;
-    const rejectAbort = (): void => {
+    const onAbort = (): void => {
       reject(structuredEphemeralTurnAbortError(message));
     };
-    const abortHandler = (event: Event): void => {
-      if (typeof previousAbortHandler === "function") previousAbortHandler.call(signal, event);
-      rejectAbort();
-    };
-    signal.onabort = abortHandler;
+    signal.addEventListener("abort", onAbort, { once: true });
     promise.then(resolve, reject).finally(() => {
-      if (signal.onabort === abortHandler) signal.onabort = previousAbortHandler;
+      signal.removeEventListener("abort", onAbort);
     });
   });
 }

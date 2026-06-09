@@ -1,0 +1,273 @@
+// @vitest-environment jsdom
+
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  runStructuredEphemeralTurn,
+  type StructuredEphemeralTurnClient,
+  type StructuredEphemeralTurnClientFactory,
+} from "../../src/app-server/structured-ephemeral-turn";
+import type { AppServerClientHandlers } from "../../src/app-server/client";
+import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
+import type { JsonValue } from "../../src/generated/app-server/serde_json/JsonValue";
+import type { RequestId } from "../../src/generated/app-server/RequestId";
+import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
+import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
+import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
+import type { Thread } from "../../src/generated/app-server/v2/Thread";
+import type { ThreadItem } from "../../src/generated/app-server/v2/ThreadItem";
+import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
+import type { Turn } from "../../src/generated/app-server/v2/Turn";
+import type { TurnStartResponse } from "../../src/generated/app-server/v2/TurnStartResponse";
+
+describe("runStructuredEphemeralTurn", () => {
+  it("fills completed turn items from item completion notifications", async () => {
+    const { clientFactory } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => {
+        fake.emit(completedItemNotification("thread", "turn", agentMessage("answer", '{"ok":true}')));
+        fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
+        return { turn: turn([], { id: "turn", status: "inProgress" }) };
+      };
+    });
+
+    const result = await runStructuredEphemeralTurn(runOptions(clientFactory));
+
+    expect(result.items).toEqual([agentMessage("answer", '{"ok":true}')]);
+    expect(result.itemsView).toBe("full");
+  });
+
+  it("reports matched structured turn progress without exposing raw notifications", async () => {
+    const progress: unknown[] = [];
+    const { clientFactory, client } = fakeStructuredTurnClientFactory();
+    const running = runStructuredEphemeralTurn({
+      ...runOptions(clientFactory),
+      onProgress: (event) => {
+        progress.push(event);
+      },
+    });
+
+    await expectPresent(client.current).structuredTurnStarted;
+    const fake = expectPresent(client.current);
+    fake.emit(agentDeltaNotification("other-thread", "turn", "ignored"));
+    fake.emit(reasoningNotification("thread", "turn"));
+    fake.emit(agentDeltaNotification("thread", "turn", "draft"));
+    fake.emit(completedItemNotification("thread", "turn", agentMessage("answer", '{"ok":true}')));
+    fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
+
+    await running;
+    expect(progress).toEqual([{ type: "reasoning-activity" }, { type: "agent-message-delta", delta: "draft" }]);
+  });
+
+  it("cleans up abort listeners after an operation settles", async () => {
+    const controller = new AbortController();
+    const add = vi.spyOn(controller.signal, "addEventListener");
+    const remove = vi.spyOn(controller.signal, "removeEventListener");
+    const { clientFactory } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await runStructuredEphemeralTurn({
+      ...runOptions(clientFactory),
+      signal: controller.signal,
+    });
+
+    expect(add).toHaveBeenCalledWith("abort", expect.any(Function), { once: true });
+    expect(remove).toHaveBeenCalledTimes(add.mock.calls.length);
+  });
+
+  it("rejects server requests with the configured message", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.connectImpl = async () => {
+        fake.request(serverRequest(123));
+        return { codexHome: "/tmp/codex" } as InitializeResponse;
+      };
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await runStructuredEphemeralTurn(runOptions(clientFactory));
+
+    expect(expectPresent(client.current).rejectServerRequest).toHaveBeenCalledWith(
+      123,
+      -32601,
+      "Structured test does not handle server requests.",
+    );
+  });
+});
+
+function runOptions(clientFactory: StructuredEphemeralTurnClientFactory): Parameters<typeof runStructuredEphemeralTurn>[0] {
+  return {
+    codexPath: "/bin/codex",
+    cwd: "/vault",
+    serviceName: "structured-test",
+    developerInstructions: "Return JSON.",
+    prompt: "Run.",
+    outputSchema: { type: "object" },
+    timeoutMs: 10_000,
+    unhandledServerRequestMessage: "Structured test does not handle server requests.",
+    exitedMessage: "Structured test app-server exited.",
+    timedOutMessage: "Structured test timed out.",
+    clientFactory,
+  };
+}
+
+function fakeStructuredTurnClientFactory(configure?: (client: FakeStructuredTurnClient) => void): {
+  clientFactory: StructuredEphemeralTurnClientFactory;
+  client: { current: FakeStructuredTurnClient | null };
+} {
+  const client: { current: FakeStructuredTurnClient | null } = { current: null };
+  return {
+    client,
+    clientFactory: (_codexPath, _cwd, handlers) => {
+      client.current = new FakeStructuredTurnClient(handlers);
+      configure?.(client.current);
+      return client.current;
+    },
+  };
+}
+
+class FakeStructuredTurnClient implements StructuredEphemeralTurnClient {
+  connectImpl: (() => Promise<InitializeResponse>) | null = null;
+  startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
+  readonly rejectServerRequest = vi.fn();
+  readonly structuredTurnStarted: Promise<void>;
+  private resolveStructuredTurnStarted!: () => void;
+
+  constructor(private readonly handlers: AppServerClientHandlers) {
+    this.structuredTurnStarted = new Promise((resolve) => {
+      this.resolveStructuredTurnStarted = resolve;
+    });
+  }
+
+  async connect(): Promise<InitializeResponse> {
+    return this.connectImpl ? this.connectImpl() : ({ codexHome: "/tmp/codex" } as InitializeResponse);
+  }
+
+  disconnect(): void {
+    return undefined;
+  }
+
+  async startEphemeralThread(): Promise<ThreadStartResponse> {
+    return threadStartResponse("thread");
+  }
+
+  async startStructuredTurn(
+    _threadId: string,
+    _cwd: string,
+    _text: string,
+    _outputSchema: JsonValue,
+    _model?: string,
+    _effort?: ReasoningEffort,
+  ): Promise<TurnStartResponse> {
+    this.resolveStructuredTurnStarted();
+    return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
+  }
+
+  emit(notification: ServerNotification): void {
+    this.handlers.onNotification(notification);
+  }
+
+  request(request: ServerRequest): void {
+    this.handlers.onServerRequest(request);
+  }
+}
+
+function threadStartResponse(threadId: string): ThreadStartResponse {
+  return {
+    thread: thread(threadId),
+    model: "gpt-5.1",
+    modelProvider: "openai",
+    serviceTier: null,
+    cwd: "/vault",
+    runtimeWorkspaceRoots: [],
+    instructionSources: [],
+    approvalPolicy: "never",
+    approvalsReviewer: "auto_review",
+    sandbox: { type: "readOnly", networkAccess: false },
+    activePermissionProfile: null,
+    reasoningEffort: null,
+  };
+}
+
+function thread(id: string): Thread {
+  return {
+    id,
+    sessionId: "session",
+    forkedFromId: null,
+    parentThreadId: null,
+    preview: "",
+    ephemeral: true,
+    modelProvider: "openai",
+    createdAt: 1,
+    updatedAt: 1,
+    status: { type: "idle" },
+    path: null,
+    cwd: "/vault",
+    cliVersion: "0.0.0",
+    source: "appServer",
+    threadSource: null,
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: null,
+    turns: [],
+  };
+}
+
+function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
+  return {
+    id: "turn",
+    items,
+    itemsView: "full",
+    status: "completed",
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    durationMs: null,
+    ...overrides,
+  };
+}
+
+function agentMessage(id: string, text: string): ThreadItem {
+  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
+}
+
+function completedItemNotification(threadId: string, turnId: string, item: ThreadItem): ServerNotification {
+  return {
+    method: "item/completed",
+    params: { threadId, turnId, item, completedAtMs: 1 },
+  };
+}
+
+function turnCompletedNotification(threadId: string, completedTurn: Turn): ServerNotification {
+  return {
+    method: "turn/completed",
+    params: { threadId, turn: completedTurn },
+  };
+}
+
+function agentDeltaNotification(threadId: string, turnId: string, delta: string): ServerNotification {
+  return {
+    method: "item/agentMessage/delta",
+    params: { threadId, turnId, itemId: "agent", delta },
+  };
+}
+
+function reasoningNotification(threadId: string, turnId: string): ServerNotification {
+  return {
+    method: "item/reasoning/textDelta",
+    params: { threadId, turnId, itemId: "reasoning", contentIndex: 0, delta: "thinking" },
+  };
+}
+
+function serverRequest(id: RequestId): ServerRequest {
+  return {
+    id,
+    method: "item/tool/requestUserInput",
+    params: {},
+  } as ServerRequest;
+}
+
+function expectPresent<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error("Expected value to be present.");
+  return value;
+}

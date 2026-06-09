@@ -79,6 +79,7 @@ const chatImperativeDomBridgeFiles = [
   "src/features/chat/ui/turn-diff.tsx",
 ];
 const nonChatImperativeDomBridgeFiles = [
+  "src/app-server/structured-ephemeral-turn.ts",
   "src/features/selection-rewrite/popover.tsx",
   "src/features/selection-rewrite/runner.ts",
   "src/features/thread-picker/modal.ts",
