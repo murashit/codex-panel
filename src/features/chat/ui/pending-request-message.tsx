@@ -9,10 +9,11 @@ import {
   type ApprovalAction,
   type PendingApproval,
 } from "../requests/approval";
-import type { RequestId } from "../../../generated/app-server/RequestId";
 import type { PendingUserInput } from "../requests/user-input";
 import { questionDefaultAnswer } from "../requests/user-input";
 import { createWorkMessageClassName } from "./work-message";
+
+type PendingUserInputRequestId = PendingUserInput["requestId"];
 
 export interface PendingRequestMessageActions {
   resolveApproval: (approval: PendingApproval, action: ApprovalAction) => void;
@@ -24,8 +25,8 @@ export interface PendingRequestMessageActions {
 
 export interface PendingRequestMessageDrafts {
   values: ReadonlyMap<string, string>;
-  draftKey: (requestId: RequestId, questionId: string) => string;
-  otherDraftKey: (requestId: RequestId, questionId: string) => string;
+  draftKey: (requestId: PendingUserInputRequestId, questionId: string) => string;
+  otherDraftKey: (requestId: PendingUserInputRequestId, questionId: string) => string;
 }
 
 export function pendingRequestMessageNode(

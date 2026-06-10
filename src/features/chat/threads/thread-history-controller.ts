@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../app-server/client";
-import type { TurnsPage } from "../../../generated/app-server/v2/TurnsPage";
+import type { ThreadTurnsPage } from "../../../app-server/turn-history";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 import { displayItemsFromTurns } from "../display/thread-items";
 
@@ -53,7 +53,7 @@ export class ThreadHistoryController {
     }
   }
 
-  applyLatestPage(threadId: string, response: TurnsPage): boolean {
+  applyLatestPage(threadId: string, response: ThreadTurnsPage): boolean {
     if (this.state.activeThread.id !== threadId) return false;
     this.host.setThreadTurnPresence(response.data.length > 0);
     this.dispatch({ type: "transcript/items-replaced", items: displayItemsFromTurns(response.data), historyCursor: response.nextCursor });

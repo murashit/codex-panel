@@ -1,4 +1,5 @@
 import type { McpServerStatus as AppServerMcpServerStatus } from "../generated/app-server/v2/McpServerStatus";
+import type { AppServerInitialization } from "./initialization";
 
 export const DIAGNOSTIC_PROBE_METHODS = [
   "model/list",
@@ -44,12 +45,7 @@ export interface Diagnostics {
   mcpServers: McpServerDiagnostic[];
 }
 
-export interface InitializeDiagnostics {
-  userAgent: string;
-  codexHome: string;
-  platformFamily: string;
-  platformOs: string;
-}
+export type InitializeDiagnostics = AppServerInitialization;
 
 export function createAppServerDiagnostics(): Diagnostics {
   return {

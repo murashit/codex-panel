@@ -1,12 +1,12 @@
 import { StaleConnectionError } from "../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../app-server/client";
-import type { InitializeResponse } from "../../../generated/app-server/InitializeResponse";
+import type { AppServerInitialization } from "../../../app-server/initialization";
 import { clearDisconnectedConnectionStateAction, connectionInitializedAction } from "../chat-state-actions";
 import type { ChatStateStore } from "../chat-state";
 import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../panel/lifecycle";
 
 export interface ChatConnectionAdapter {
-  connect(): Promise<InitializeResponse>;
+  connect(): Promise<AppServerInitialization>;
   currentClient(): AppServerClient | null;
   isConnected(): boolean;
 }

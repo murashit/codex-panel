@@ -1,7 +1,7 @@
-import type { InitializeResponse } from "../generated/app-server/InitializeResponse";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
 import { AppServerClient, type AppServerClientHandlers } from "./client";
+import { appServerInitializationFromResponse, type AppServerInitialization } from "./initialization";
 
 export interface ConnectionManagerHandlers {
   onNotification: (notification: ServerNotification) => void;
@@ -14,7 +14,7 @@ export type AppServerClientFactory = (codexPath: string, cwd: string, handlers: 
 
 type ConnectionLifecycleState =
   | { kind: "idle"; generation: number }
-  | { kind: "connecting"; generation: number; client: AppServerClient; promise: Promise<InitializeResponse> }
+  | { kind: "connecting"; generation: number; client: AppServerClient; promise: Promise<AppServerInitialization> }
   | { kind: "connected"; generation: number; client: AppServerClient }
   | { kind: "disconnected"; generation: number };
 
@@ -47,10 +47,10 @@ export class ConnectionManager {
     return Boolean(this.currentClient());
   }
 
-  async connect(): Promise<InitializeResponse> {
+  async connect(): Promise<AppServerInitialization> {
     const currentClient = this.currentClient();
     if (currentClient) {
-      return currentClient.initializeResponse;
+      return appServerInitializationFromResponse(currentClient.initializeResponse);
     }
     if (this.state.kind === "connecting") return this.state.promise;
 
@@ -82,7 +82,7 @@ export class ConnectionManager {
           throw new StaleConnectionError();
         }
         this.state = { kind: "connected", generation, client };
-        return response;
+        return appServerInitializationFromResponse(response);
       })
       .catch((error: unknown) => {
         if (this.isStale(generation)) {

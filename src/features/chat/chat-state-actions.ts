@@ -1,4 +1,4 @@
-import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
+import type { AppServerInitialization } from "../../app-server/initialization";
 import type { Thread } from "../../domain/threads/model";
 import type { ThreadTokenUsage } from "../../app-server/runtime-metrics";
 import { parseServiceTier, type ServiceTier } from "../../app-server/runtime-policy";
@@ -48,7 +48,7 @@ export interface ActiveThreadSettingsAppliedActionSettings {
 
 export interface ConnectionInitializedAction {
   type: "connection/initialized";
-  initializeResponse: InitializeResponse;
+  initializeResponse: AppServerInitialization;
 }
 
 export interface ClearDisconnectedConnectionStateAction {
@@ -125,7 +125,7 @@ export interface TranscriptItemAddedAction {
   item: DisplayItem;
 }
 
-export function connectionInitializedAction(initializeResponse: InitializeResponse): ConnectionInitializedAction {
+export function connectionInitializedAction(initializeResponse: AppServerInitialization): ConnectionInitializedAction {
   return { type: "connection/initialized", initializeResponse };
 }
 

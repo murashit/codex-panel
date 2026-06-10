@@ -1,4 +1,4 @@
-import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
+import type { AppServerInitialization } from "../../app-server/initialization";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
@@ -69,7 +69,7 @@ export type { ChatTranscriptState } from "./transcript-state";
 interface ChatConnectionState {
   status: string;
   runtimeConfig: RuntimeConfigSnapshot | null;
-  initializeResponse: InitializeResponse | null;
+  initializeResponse: AppServerInitialization | null;
   rateLimit: RateLimitSnapshot | null;
   appServerDiagnostics: Diagnostics;
   availableModels: readonly ModelMetadata[];

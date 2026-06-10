@@ -1,8 +1,9 @@
-import type { TurnPlanStep } from "../../../generated/app-server/v2/TurnPlanStep";
 import { truncate } from "../../../utils";
 import type { AgentRunSummary } from "./types";
 
-export function taskStatusMarker(status: TurnPlanStep["status"]): string {
+export type TaskStepStatus = "pending" | "inProgress" | "completed";
+
+export function taskStatusMarker(status: TaskStepStatus): string {
   if (status === "completed") return "[x]";
   if (status === "inProgress") return "[>]";
   return "[ ]";

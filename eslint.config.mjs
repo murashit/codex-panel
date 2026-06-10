@@ -96,13 +96,9 @@ const nonChatImperativeDomBridgeFiles = [
 ];
 const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts"];
 const generatedAppServerImportLegacyFiles = [
-  "src/features/chat/chat-state-actions.ts",
-  "src/features/chat/chat-state.ts",
   "src/features/chat/display/agent.ts",
   "src/features/chat/display/hooks.ts",
-  "src/features/chat/display/labels.ts",
   "src/features/chat/display/permission-details.ts",
-  "src/features/chat/display/plan.ts",
   "src/features/chat/display/review.ts",
   "src/features/chat/display/thread-items.ts",
   "src/features/chat/inbound/controller.ts",
@@ -110,12 +106,9 @@ const generatedAppServerImportLegacyFiles = [
   "src/features/chat/inbound/routing.ts",
   "src/features/chat/requests/approval.ts",
   "src/features/chat/requests/user-input.ts",
-  "src/features/chat/session/connection-controller.ts",
   "src/features/chat/threads/thread-goal-actions.ts",
-  "src/features/chat/threads/thread-history-controller.ts",
   "src/features/chat/threads/thread-rename-controller.ts",
   "src/features/chat/threads/thread-resume.ts",
-  "src/features/chat/ui/pending-request-message.tsx",
 ];
 const codexPanelEslintPlugin = {
   rules: {

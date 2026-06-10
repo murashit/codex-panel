@@ -1,7 +1,11 @@
 import type { DisplayItem } from "./types";
-import type { TurnPlanStep } from "../../../generated/app-server/v2/TurnPlanStep";
-import { taskStatusMarker } from "./labels";
+import { taskStatusMarker, type TaskStepStatus } from "./labels";
 import { taskProgressExecutionState } from "./state";
+
+export interface TaskPlanStep {
+  step: string;
+  status: TaskStepStatus;
+}
 
 export function normalizeProposedPlanMarkdown(text: string): string {
   return text
@@ -10,7 +14,7 @@ export function normalizeProposedPlanMarkdown(text: string): string {
     .trim();
 }
 
-export function planProgressDisplayItem(turnId: string, explanation: string | null, plan: TurnPlanStep[]): DisplayItem {
+export function planProgressDisplayItem(turnId: string, explanation: string | null, plan: readonly TaskPlanStep[]): DisplayItem {
   const trimmedExplanation = explanation?.trim();
   const lines = plan.map((step) => `${taskStatusMarker(step.status)} ${step.step}`);
   const body = [trimmedExplanation, ...lines].filter((line): line is string => Boolean(line && line.length > 0)).join("\n");
