@@ -1,8 +1,8 @@
-import { runtimeConfigOrDefault } from "../../runtime/config";
 import {
   currentModel,
   currentReasoningEffort,
   pendingRuntimeSettingLabel,
+  runtimeConfigOrDefault,
   serviceTierLabel,
   supportedReasoningEfforts,
 } from "../../runtime/effective-settings";

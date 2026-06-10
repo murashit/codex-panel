@@ -5,7 +5,7 @@ import type { ChatServerThreadActions } from "../server-actions/thread-actions";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatInboundController } from "../inbound/controller";
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
-import type { ChatRuntimeSettingsActions } from "../runtime/runtime-settings-actions";
+import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "../runtime/runtime-settings-actions";
 import type { ChatThreadActions } from "../threads/thread-actions";
 import type { ThreadHistoryController } from "../threads/thread-history-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
@@ -31,7 +31,6 @@ import {
   createChatInboundController,
   createChatReconnectControllerGroup,
 } from "../session/composition";
-import { createChatRuntimeControllerGroup } from "../runtime/composition";
 import { createThreadControllerGroup, createThreadSelectionControllerGroup } from "../threads/composition";
 import { createConversationSurfaceControllerGroup } from "../turns/composition";
 import { createConnectionLifecycleControllerGroup, createPanelUiControllerGroup, createViewRenderControllerGroup } from "./ui-composition";
@@ -85,7 +84,13 @@ export interface ChatViewControllers {
 export function createChatViewControllers(ports: ChatPanelContext): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
   const { renderController } = createViewRenderControllerGroup(ports, { connection });
-  const { runtimeSettings } = createChatRuntimeControllerGroup(ports);
+  const runtimeSettings = createChatRuntimeSettingsActions({
+    stateStore: ports.state.stateStore,
+    currentClient: ports.client.getClient,
+    runtimeSnapshot: ports.runtime.runtimeSnapshot,
+    collaborationModeLabel: ports.runtime.collaborationModeLabel,
+    addSystemMessage: ports.status.addSystemMessage,
+  });
   const { history, threadActions, goals, restoredThread, threadResume, threadIdentity, threadRename } = createThreadControllerGroup(ports, {
     connection,
   });

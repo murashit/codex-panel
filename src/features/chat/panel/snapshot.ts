@@ -1,7 +1,6 @@
 import type { Thread } from "../../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
-import { runtimeConfigOrDefault } from "../runtime/config";
-import { currentModel } from "../runtime/effective-settings";
+import { currentModel, runtimeConfigOrDefault } from "../runtime/effective-settings";
 import { activeTurnId, chatTurnBusy, type ChatState } from "../chat-state";
 import type { DisplayItem } from "../display/types";
 import type { RestoredThreadState } from "./lifecycle";

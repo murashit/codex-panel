@@ -9,8 +9,7 @@ import type { Diagnostics } from "../../app-server/diagnostics";
 import { createAppServerDiagnostics } from "../../app-server/diagnostics";
 import type { RuntimeConfigSnapshot } from "../../app-server/runtime-config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../app-server/runtime-metrics";
-import type { CollaborationMode } from "./runtime/collaboration";
-import type { RequestedServiceTier } from "./runtime/service-tier-state";
+import type { CollaborationMode } from "./runtime/turn-settings";
 import {
   commitPendingThreadSettingsRuntimeState,
   initialActiveChatRuntimeState,
@@ -22,6 +21,7 @@ import {
   setSelectedCollaborationModeRuntimeState,
   type ChatRuntimeState,
 } from "./runtime/state";
+import type { RequestedServiceTier } from "./runtime/effective-settings";
 import type { PendingApproval } from "./requests/approval";
 import type { ComposerSuggestion } from "./composer/suggestions";
 import { upsertDisplayItem } from "./display/stream-updates";

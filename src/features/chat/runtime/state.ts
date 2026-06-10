@@ -6,14 +6,14 @@ import {
   type ServiceTier,
 } from "../../../app-server/runtime-policy";
 import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import type { CollaborationMode } from "./collaboration";
+import type { CollaborationMode } from "./turn-settings";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { RequestedServiceTier } from "./service-tier-state";
 import {
   resetRuntimeSettingToConfig,
   setPendingRuntimeSetting,
   unchangedRuntimeSetting,
   type PendingRuntimeSetting,
+  type RequestedServiceTier,
 } from "./effective-settings";
 
 export interface ChatRuntimeState {

@@ -1,6 +1,11 @@
-import { runtimeConfigOrDefault } from "../../runtime/config";
-import { autoReviewActive, currentModel, currentReasoningEffort, fastModeActive } from "../../runtime/effective-settings";
-import { compactReasoningEffortLabel } from "../../runtime/override-commands";
+import {
+  autoReviewActive,
+  currentModel,
+  currentReasoningEffort,
+  fastModeActive,
+  runtimeConfigOrDefault,
+} from "../../runtime/effective-settings";
+import { compactReasoningEffortLabel } from "../../turns/runtime-overrides";
 import { contextSummary } from "../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
 import type { ComposerContextMeterCellViewModel, ComposerContextMeterViewModel, ComposerMetaViewModel } from "./types";

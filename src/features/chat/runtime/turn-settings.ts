@@ -1,15 +1,17 @@
 import { applyThreadSettingsValue, appServerCollaborationMode, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import { runtimeConfigOrDefault, type RuntimeConfigProjection } from "./config";
 import type { ServiceTierRequest } from "../../../app-server/thread-settings";
 import {
   currentModel,
   currentReasoningEffort,
   fastServiceTierRequestValue,
   pendingRuntimeSettingPayload,
+  runtimeConfigOrDefault,
+  type RuntimeConfigProjection,
   type RuntimeSnapshot,
 } from "./effective-settings";
 import { clearedServiceTierRequestValue, serviceTierRequestValue } from "../../../app-server/thread-settings";
 
+export type CollaborationMode = "default" | "plan";
 export type TurnCollaborationModeWarning = "missing-model";
 
 export interface TurnCollaborationModeSettings {
@@ -20,6 +22,18 @@ export interface TurnCollaborationModeSettings {
 export interface PendingThreadSettingsUpdate {
   update: ThreadSettingsUpdate;
   collaborationModeWarning: TurnCollaborationModeWarning | null;
+}
+
+export function nextCollaborationMode(mode: CollaborationMode): CollaborationMode {
+  return mode === "plan" ? "default" : "plan";
+}
+
+export function collaborationModeLabel(mode: CollaborationMode): string {
+  return mode === "plan" ? "Plan" : "Default";
+}
+
+export function collaborationModeToggleMessage(mode: CollaborationMode): string {
+  return mode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.";
 }
 
 export function serviceTierRequestForThreadStart(

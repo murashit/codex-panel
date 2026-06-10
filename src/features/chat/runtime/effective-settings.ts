@@ -1,14 +1,18 @@
-import type { ActivePermissionProfile, RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
+import {
+  cloneRuntimeConfigSnapshot,
+  emptyRuntimeConfigSnapshot,
+  type ActivePermissionProfile,
+  type RuntimeConfigSnapshot,
+} from "../../../app-server/runtime-config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
 import { findModelMetadataByIdOrName, type ModelMetadata } from "../../../domain/catalog/metadata";
 import type { ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../app-server/runtime-policy";
 import { supportedEffortsForModelMetadata, type ReasoningEffort } from "../../../domain/catalog/metadata";
-import { runtimeConfigOrDefault, type RuntimeConfigProjection } from "./config";
-import type { CollaborationMode } from "./collaboration";
-import { isAutoReviewReviewer } from "./approvals";
-import { isFastServiceTier, type RequestedServiceTier } from "./service-tier-state";
+import type { CollaborationMode } from "./turn-settings";
 
+export type RuntimeConfigProjection = RuntimeConfigSnapshot;
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
+export type RequestedServiceTier = "fast" | "off";
 
 export interface RuntimeSnapshot {
   runtimeConfig: RuntimeConfigSnapshot | null;
@@ -29,6 +33,10 @@ export interface RuntimeSnapshot {
   rateLimit: RateLimitSnapshot | null;
   hasThreadTurns: boolean;
   availableModels: readonly ModelMetadata[];
+}
+
+export function runtimeConfigOrDefault(runtimeConfig: RuntimeConfigSnapshot | null): RuntimeConfigProjection {
+  return runtimeConfig ? cloneRuntimeConfigSnapshot(runtimeConfig) : emptyRuntimeConfigSnapshot();
 }
 
 export function currentServiceTier(
@@ -83,6 +91,10 @@ export function autoReviewActive(
   return isAutoReviewReviewer(currentApprovalsReviewer(snapshot, config));
 }
 
+function isAutoReviewReviewer(value: ApprovalsReviewer | null): boolean {
+  return value === "auto_review" || value === "guardian_subagent";
+}
+
 export function supportedReasoningEfforts(snapshot: RuntimeSnapshot): ReasoningEffort[] {
   const model = currentModel(snapshot);
   return supportedEffortsForModelMetadata(findModelMetadataByIdOrName(snapshot.availableModels, model));
@@ -100,6 +112,13 @@ export function fastModeActive(
   config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): boolean {
   return isFastServiceTier(currentServiceTier(snapshot, config), currentModelServiceTiers(snapshot, config));
+}
+
+export function isFastServiceTier(value: string | null | undefined, serviceTiers: ModelMetadata["serviceTiers"] = []): boolean {
+  if (!value) return false;
+  if (value === "fast") return true;
+  if (serviceTiers.length === 0) return value === "priority";
+  return serviceTiers.some((tier) => tier.id === value && tier.name.trim().toLowerCase() === "fast");
 }
 
 export function fastModeLabel(

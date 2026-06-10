@@ -4,7 +4,7 @@ import type { ThreadTokenUsage } from "../../app-server/runtime-metrics";
 import { parseServiceTier, type ServiceTier } from "../../app-server/runtime-policy";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "./runtime/state";
-import type { CollaborationMode } from "./runtime/collaboration";
+import type { CollaborationMode } from "./runtime/turn-settings";
 import type { DisplayItem } from "./display/types";
 import type { PendingTurnStart } from "./turns/turn-state";
 

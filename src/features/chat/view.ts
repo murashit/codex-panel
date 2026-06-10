@@ -6,7 +6,7 @@ import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/collaboration";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/turn-settings";
 import type { RuntimeSnapshot } from "./runtime/effective-settings";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";

@@ -4,7 +4,7 @@ import {
   collaborationModeLabel,
   collaborationModeToggleMessage,
   nextCollaborationMode,
-} from "../../src/features/chat/runtime/collaboration";
+} from "../../src/features/chat/runtime/turn-settings";
 
 describe("runtime collaboration mode", () => {
   it("toggles between Default and Plan mode", () => {

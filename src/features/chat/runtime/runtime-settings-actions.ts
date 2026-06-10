@@ -1,14 +1,17 @@
 import type { AppServerClient } from "../../../app-server/client";
+import type { ApprovalsReviewer } from "../../../app-server/runtime-policy";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "./approvals";
-import type { CollaborationMode } from "./collaboration";
-import { collaborationModeToggleMessage, nextCollaborationMode } from "./collaboration";
-import { runtimeConfigOrDefault } from "./config";
-import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "./effective-settings";
-import { pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate, type TurnCollaborationModeWarning } from "./turn-settings";
+import { autoReviewActive, fastModeActive, runtimeConfigOrDefault, type RuntimeSnapshot } from "./effective-settings";
+import {
+  collaborationModeToggleMessage,
+  nextCollaborationMode,
+  pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate,
+  type CollaborationMode,
+  type TurnCollaborationModeWarning,
+} from "./turn-settings";
 import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import type { RequestedServiceTier } from "./service-tier-state";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "./override-commands";
+import type { RequestedServiceTier } from "./effective-settings";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../turns/runtime-overrides";
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 
 const COLLABORATION_MODE_WARNING_MESSAGES: Record<TurnCollaborationModeWarning, string> = {
@@ -24,6 +27,8 @@ interface PendingThreadSettingsUpdateResult {
   update: ThreadSettingsUpdate;
   collaborationModeWarning: TurnCollaborationModeWarning | null;
 }
+
+type AutoReviewState = "enabled" | "disabled";
 
 export interface RuntimeSettingsActionsHost {
   stateStore: ChatStateStore;
@@ -135,6 +140,18 @@ async function toggleAutoReview(host: RuntimeSettingsActionsHost): Promise<void>
   dispatch(host, { type: "ui/panel-set", panel: null });
   if (!(await applyPendingThreadSettings(host))) return;
   host.addSystemMessage(autoReviewToggleMessage(nextState));
+}
+
+function nextAutoReviewState(active: boolean): AutoReviewState {
+  return active ? "disabled" : "enabled";
+}
+
+function autoReviewReviewerForState(state: AutoReviewState): ApprovalsReviewer {
+  return state === "enabled" ? "auto_review" : "user";
+}
+
+function autoReviewToggleMessage(state: AutoReviewState): string {
+  return state === "enabled" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.";
 }
 
 function pendingThreadSettingsUpdate(host: RuntimeSettingsActionsHost): PendingThreadSettingsUpdateResult {

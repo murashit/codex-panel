@@ -2,7 +2,6 @@ import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } fro
 import { jsonPreview } from "../../../utils";
 import { sortedModelMetadata } from "../../../domain/catalog/metadata";
 import { defaultEffortForModelMetadata } from "../../../domain/catalog/metadata";
-import { runtimeConfigOrDefault, type RuntimeConfigProjection } from "./config";
 import {
   currentApprovalsReviewer,
   currentApprovalPolicy,
@@ -11,6 +10,8 @@ import {
   autoReviewActive,
   fastModeLabel,
   pendingRuntimeSettingLabel,
+  runtimeConfigOrDefault,
+  type RuntimeConfigProjection,
   serviceTierLabel,
   type RuntimeSnapshot,
 } from "./effective-settings";
