@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatViewStateActions, type ChatViewStateControllerHost } from "../../../../src/features/chat/panel/view-state-controller";
+import { applyChatViewState, type ChatViewStateControllerHost } from "../../../../src/features/chat/panel/view-state-controller";
 
 function createController(overrides: Partial<ChatViewStateControllerHost> = {}) {
   const host: ChatViewStateControllerHost = {
@@ -11,14 +11,14 @@ function createController(overrides: Partial<ChatViewStateControllerHost> = {}) 
     restoreThreadPlaceholder: vi.fn(),
     ...overrides,
   };
-  return { controller: createChatViewStateActions(host), host };
+  return { host };
 }
 
 describe("ChatViewStateController", () => {
   it("restores a thread placeholder from persisted view state", () => {
-    const { controller, host } = createController();
+    const { host } = createController();
 
-    controller.applyState({ threadId: "thread", threadTitle: "Title" });
+    applyChatViewState(host, { threadId: "thread", threadTitle: "Title" });
 
     expect(host.restoreThreadPlaceholder).toHaveBeenCalledWith({
       threadId: "thread",
@@ -30,9 +30,9 @@ describe("ChatViewStateController", () => {
   });
 
   it("clears restored lifecycle and schedules warmup when no thread is restored", () => {
-    const { controller, host } = createController();
+    const { host } = createController();
 
-    controller.applyState({ version: 1 });
+    applyChatViewState(host, { version: 1 });
 
     expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
     expect(host.clearRestoredThreadLifecycle).toHaveBeenCalledOnce();

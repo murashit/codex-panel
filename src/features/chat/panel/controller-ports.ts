@@ -16,7 +16,7 @@ import type {
 } from "./lifecycle";
 import type { ComposerMetaViewModel } from "./model";
 
-export interface ChatPanelContext {
+export interface ChatControllerCompositionPorts {
   obsidian: ChatPanelObsidianContext;
   plugin: CodexChatHost;
   state: ChatPanelStateContext;

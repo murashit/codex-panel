@@ -2,7 +2,7 @@ import type { EventRef, WorkspaceLeaf } from "obsidian";
 
 import { unmountChatPanelShell } from "../ui/shell";
 
-export interface ChatViewOpenCloseActionsHost {
+export interface ChatViewLifecycleHost {
   setOpened: (opened: boolean) => void;
   setClosing: (closing: boolean) => void;
   registerEvent: (eventRef: EventRef) => void;
@@ -27,23 +27,7 @@ export interface ChatViewOpenCloseActionsHost {
   deferRefreshLiveState: () => void;
 }
 
-export interface ChatViewOpenCloseActions {
-  open: () => void;
-  close: () => void;
-}
-
-export function createChatViewOpenCloseActions(host: ChatViewOpenCloseActionsHost): ChatViewOpenCloseActions {
-  return {
-    open: () => {
-      openChatView(host);
-    },
-    close: () => {
-      closeChatView(host);
-    },
-  };
-}
-
-function openChatView(host: ChatViewOpenCloseActionsHost): void {
+export function openChatView(host: ChatViewLifecycleHost): void {
   host.setOpened(true);
   host.setClosing(false);
   host.registerComposerNoteIndexInvalidation((eventRef) => {
@@ -59,7 +43,7 @@ function openChatView(host: ChatViewOpenCloseActionsHost): void {
   host.scheduleDeferredRestoredThreadHydration();
 }
 
-function closeChatView(host: ChatViewOpenCloseActionsHost): void {
+export function closeChatView(host: ChatViewLifecycleHost): void {
   host.setOpened(false);
   host.setClosing(true);
   host.invalidateConnectionWork();

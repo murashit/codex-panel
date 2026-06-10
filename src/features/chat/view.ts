@@ -30,7 +30,7 @@ import {
   type ChatViewRenderScheduleOptions,
 } from "./panel/lifecycle";
 import { ChatMessageScrollIntentController } from "./panel/message-scroll-intent-controller";
-import type { ChatPanelContext } from "./panel/context";
+import type { ChatControllerCompositionPorts } from "./panel/controller-ports";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/composition";
 import { activeComposerThreadName, composerMetaViewModel, composerPlaceholder, renderComposerSlot } from "./panel/slots/composer";
 import { renderGoalSlot } from "./panel/slots/goal";
@@ -65,7 +65,7 @@ export class CodexChatView extends ItemView {
     this.slotPorts = this.createSlotRendererPorts();
   }
 
-  private createControllerPorts(): ChatPanelContext {
+  private createControllerPorts(): ChatControllerCompositionPorts {
     // Some callbacks are late-bound to controllers assigned immediately after this object is created.
     // Controller constructors must not invoke those callbacks synchronously during composition.
     return {
@@ -398,7 +398,7 @@ export class CodexChatView extends ItemView {
 
   override async setState(state: unknown, result: ViewStateResult): Promise<void> {
     await super.setState(state, result);
-    this.controllers.render.viewState.applyState(state);
+    this.controllers.render.applyViewState(state);
   }
 
   refreshSettings(): void {
@@ -464,11 +464,11 @@ export class CodexChatView extends ItemView {
   }
 
   override async onOpen(): Promise<void> {
-    this.controllers.render.openClose.open();
+    this.controllers.render.openView();
   }
 
   override async onClose(): Promise<void> {
-    this.controllers.render.openClose.close();
+    this.controllers.render.closeView();
   }
 
   setComposerText(text: string): void {
@@ -549,7 +549,7 @@ export class CodexChatView extends ItemView {
   }
 
   private scheduleDeferredAppServerWarmup(): void {
-    this.controllers.connection.warmup.schedule();
+    this.controllers.connection.scheduleWarmup();
   }
 
   private activeThreadTitle(): string | null {

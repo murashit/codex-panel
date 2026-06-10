@@ -8,20 +8,13 @@ export interface AppServerWarmupControllerHost {
   ensureConnected: () => Promise<void>;
 }
 
-export interface AppServerWarmupActions {
-  schedule(): void;
-}
-
-export function createAppServerWarmupActions(host: AppServerWarmupControllerHost): AppServerWarmupActions {
+export function scheduleAppServerWarmup(host: AppServerWarmupControllerHost): void {
   const shouldWarmup = (): boolean => host.opened() && !host.connected();
-  return {
-    schedule() {
-      if (!shouldWarmup()) return;
 
-      host.deferredTasks.scheduleAppServerWarmup(() => {
-        if (!shouldWarmup() || host.closing()) return;
-        void host.ensureConnected();
-      });
-    },
-  };
+  if (!shouldWarmup()) return;
+
+  host.deferredTasks.scheduleAppServerWarmup(() => {
+    if (!shouldWarmup() || host.closing()) return;
+    void host.ensureConnected();
+  });
 }

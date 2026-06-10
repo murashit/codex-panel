@@ -10,10 +10,12 @@ import type { ServerRequestActions } from "../requests/server-request-actions";
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import { ChatInboundController } from "../inbound/controller";
-import type { ChatPanelContext } from "../panel/context";
+import type { ChatControllerCompositionPorts } from "../panel/controller-ports";
+
+type ChatServerActionControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "runtime" | "state">;
 
 export function createChatServerActionControllers(
-  context: ChatPanelContext,
+  context: ChatServerActionControllerPorts,
   refs: {
     connection: ConnectionManager;
     goals: ChatThreadGoalActions;
@@ -53,8 +55,10 @@ export function createChatServerActionControllers(
   return { serverThreads, serverMetadata, serverDiagnostics };
 }
 
+type ChatInboundControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "render" | "state" | "thread">;
+
 export function createChatInboundController(
-  context: ChatPanelContext,
+  context: ChatInboundControllerPorts,
   refs: {
     serverMetadata: ChatServerMetadataActions;
     serverDiagnostics: ChatServerDiagnosticsActions;
@@ -87,8 +91,13 @@ export function createChatInboundController(
   });
 }
 
+type ChatConnectionControllerPorts = Pick<
+  ChatControllerCompositionPorts,
+  "client" | "lifecycle" | "liveState" | "plugin" | "render" | "state" | "status" | "thread"
+>;
+
 export function createChatConnectionControllers(
-  context: ChatPanelContext,
+  context: ChatConnectionControllerPorts,
   refs: {
     connection: ConnectionManager;
     serverMetadata: ChatServerMetadataActions;
@@ -130,8 +139,13 @@ export function createChatConnectionControllers(
   };
 }
 
+type ChatReconnectControllerGroupPorts = Pick<
+  ChatControllerCompositionPorts,
+  "client" | "lifecycle" | "render" | "state" | "status" | "thread"
+>;
+
 export function createChatReconnectControllerGroup(
-  context: ChatPanelContext,
+  context: ChatReconnectControllerGroupPorts,
   refs: {
     connection: ConnectionManager;
   },

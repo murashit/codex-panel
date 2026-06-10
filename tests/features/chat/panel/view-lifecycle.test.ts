@@ -3,16 +3,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EventRef } from "obsidian";
 
-import { createChatViewOpenCloseActions, type ChatViewOpenCloseActionsHost } from "../../../../src/features/chat/panel/open-close-actions";
+import { closeChatView, openChatView, type ChatViewLifecycleHost } from "../../../../src/features/chat/panel/view-lifecycle";
 import { unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
 
 vi.mock("../../../../src/features/chat/ui/shell", () => ({
   unmountChatPanelShell: vi.fn(),
 }));
 
-function createHost(overrides: Partial<ChatViewOpenCloseActionsHost> = {}) {
+function createHost(overrides: Partial<ChatViewLifecycleHost> = {}) {
   const root = document.createElement("div");
-  const host: ChatViewOpenCloseActionsHost = {
+  const host: ChatViewLifecycleHost = {
     setOpened: vi.fn(),
     setClosing: vi.fn(),
     registerEvent: vi.fn(),
@@ -39,18 +39,18 @@ function createHost(overrides: Partial<ChatViewOpenCloseActionsHost> = {}) {
     deferRefreshLiveState: vi.fn(),
     ...overrides,
   };
-  return { controller: createChatViewOpenCloseActions(host), host, root };
+  return { host, root };
 }
 
-describe("createChatViewOpenCloseActions", () => {
+describe("chat view lifecycle", () => {
   beforeEach(() => {
     vi.mocked(unmountChatPanelShell).mockClear();
   });
 
   it("registers open events and schedules startup work", () => {
-    const { controller, host } = createHost();
+    const { host } = createHost();
 
-    controller.open();
+    openChatView(host);
 
     expect(host.setOpened).toHaveBeenCalledWith(true);
     expect(host.setClosing).toHaveBeenCalledWith(false);
@@ -64,9 +64,9 @@ describe("createChatViewOpenCloseActions", () => {
   });
 
   it("disposes mounted resources and refreshes live state on close", () => {
-    const { controller, host, root } = createHost();
+    const { host, root } = createHost();
 
-    controller.close();
+    closeChatView(host);
 
     expect(host.setOpened).toHaveBeenCalledWith(false);
     expect(host.setClosing).toHaveBeenCalledWith(true);

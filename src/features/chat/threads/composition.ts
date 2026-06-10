@@ -9,10 +9,15 @@ import { ThreadResumeController } from "./thread-resume-controller";
 import { createThreadSelectionActions } from "./thread-selection-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
 import type { ToolbarPanelController } from "../panel/toolbar-controller";
-import type { ChatPanelContext } from "../panel/context";
+import type { ChatControllerCompositionPorts } from "../panel/controller-ports";
+
+type ThreadControllerGroupPorts = Pick<
+  ChatControllerCompositionPorts,
+  "client" | "composer" | "lifecycle" | "liveState" | "obsidian" | "plugin" | "render" | "scroll" | "state" | "status" | "thread"
+>;
 
 export function createThreadControllerGroup(
-  context: ChatPanelContext,
+  context: ThreadControllerGroupPorts,
   refs: {
     connection: ConnectionManager;
   },
@@ -132,8 +137,10 @@ export function createThreadControllerGroup(
   };
 }
 
+type ThreadSelectionControllerGroupPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state" | "status" | "thread">;
+
 export function createThreadSelectionControllerGroup(
-  context: ChatPanelContext,
+  context: ThreadSelectionControllerGroupPorts,
   refs: {
     toolbarPanels: ToolbarPanelController;
   },

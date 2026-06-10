@@ -10,7 +10,6 @@ import type { ChatThreadActions } from "../threads/thread-actions";
 import type { ThreadHistoryController } from "../threads/thread-history-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import type { ToolbarPanelController } from "./toolbar-controller";
-import type { AppServerWarmupActions } from "../session/app-server-warmup-controller";
 import type { ChatConnectionController } from "../session/connection-controller";
 import type { ChatReconnectActions } from "../session/reconnect-actions";
 import type { PendingRequestController } from "../requests/pending-request-controller";
@@ -20,11 +19,9 @@ import type { RestoredThreadController } from "../threads/restored-thread-contro
 import type { ThreadIdentityActions } from "../threads/thread-identity-actions";
 import type { ThreadResumeController } from "../threads/thread-resume-controller";
 import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
-import type { ChatViewOpenCloseActions } from "./open-close-actions";
 import type { ChatViewRenderController } from "./view-render-controller";
-import type { ChatViewStateActions } from "./view-state-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
-import type { ChatPanelContext } from "./context";
+import type { ChatControllerCompositionPorts } from "./controller-ports";
 import {
   createChatServerActionControllers,
   createChatConnectionControllers,
@@ -40,7 +37,7 @@ export interface ChatViewControllers {
     manager: ConnectionManager;
     controller: ChatConnectionController;
     reconnect: ChatReconnectActions;
-    warmup: AppServerWarmupActions;
+    scheduleWarmup: () => void;
   };
   inbound: {
     controller: ChatInboundController;
@@ -76,12 +73,13 @@ export interface ChatViewControllers {
   render: {
     controller: ChatViewRenderController;
     messages: ChatMessageRenderer;
-    openClose: ChatViewOpenCloseActions;
-    viewState: ChatViewStateActions;
+    openView: () => void;
+    closeView: () => void;
+    applyViewState: (state: unknown) => void;
   };
 }
 
-export function createChatViewControllers(ports: ChatPanelContext): ChatViewControllers {
+export function createChatViewControllers(ports: ChatControllerCompositionPorts): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
   const { renderController } = createViewRenderControllerGroup(ports, { connection });
   const runtimeSettings = createChatRuntimeSettingsActions({
@@ -94,7 +92,7 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
   const { history, threadActions, goals, restoredThread, threadResume, threadIdentity, threadRename } = createThreadControllerGroup(ports, {
     connection,
   });
-  const { toolbarPanels, viewStateController } = createPanelUiControllerGroup(ports, {
+  const { toolbarPanels, applyViewState } = createPanelUiControllerGroup(ports, {
     threadActions,
   });
   const { threadSelection } = createThreadSelectionControllerGroup(ports, {
@@ -152,7 +150,7 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
     goals,
     history,
   });
-  const { appServerWarmup, openCloseController } = createConnectionLifecycleControllerGroup(ports, {
+  const { scheduleAppServerWarmup, openView, closeView } = createConnectionLifecycleControllerGroup(ports, {
     connection,
     composerController,
     messageRenderer,
@@ -165,7 +163,7 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
       manager: connection,
       controller: connectionController,
       reconnect: reconnectActions,
-      warmup: appServerWarmup,
+      scheduleWarmup: scheduleAppServerWarmup,
     },
     inbound: {
       controller,
@@ -201,8 +199,9 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
     render: {
       controller: renderController,
       messages: messageRenderer,
-      openClose: openCloseController,
-      viewState: viewStateController,
+      openView,
+      closeView,
+      applyViewState,
     },
   };
 }

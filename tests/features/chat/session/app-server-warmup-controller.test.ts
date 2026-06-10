@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createAppServerWarmupActions } from "../../../../src/features/chat/session/app-server-warmup-controller";
+import { scheduleAppServerWarmup } from "../../../../src/features/chat/session/app-server-warmup-controller";
 import { ChatViewDeferredTasks } from "../../../../src/features/chat/panel/lifecycle";
 
 function createController({
@@ -11,14 +11,14 @@ function createController({
   connected = false,
 }: { opened?: boolean; closing?: boolean; connected?: boolean } = {}) {
   const ensureConnected = vi.fn().mockResolvedValue(undefined);
-  const controller = createAppServerWarmupActions({
+  const host = {
     deferredTasks: new ChatViewDeferredTasks(() => window),
     opened: () => opened,
     closing: () => closing,
     connected: () => connected,
     ensureConnected,
-  });
-  return { controller, ensureConnected };
+  };
+  return { host, ensureConnected };
 }
 
 describe("AppServerWarmupController", () => {
@@ -27,9 +27,9 @@ describe("AppServerWarmupController", () => {
   });
 
   it("connects on the next tick when the opened view is disconnected", async () => {
-    const { controller, ensureConnected } = createController();
+    const { host, ensureConnected } = createController();
 
-    controller.schedule();
+    scheduleAppServerWarmup(host);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
@@ -39,8 +39,8 @@ describe("AppServerWarmupController", () => {
     const closed = createController({ opened: false });
     const connected = createController({ connected: true });
 
-    closed.controller.schedule();
-    connected.controller.schedule();
+    scheduleAppServerWarmup(closed.host);
+    scheduleAppServerWarmup(connected.host);
 
     await vi.advanceTimersByTimeAsync(0);
 
@@ -49,9 +49,9 @@ describe("AppServerWarmupController", () => {
   });
 
   it("skips a scheduled warmup if the view is closing", async () => {
-    const { controller, ensureConnected } = createController({ closing: true });
+    const { host, ensureConnected } = createController({ closing: true });
 
-    controller.schedule();
+    scheduleAppServerWarmup(host);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(ensureConnected).not.toHaveBeenCalled();

@@ -15,10 +15,15 @@ import type { ThreadRenameController } from "../threads/thread-rename-controller
 import type { ChatInboundController } from "../inbound/controller";
 import { currentModel } from "../runtime/effective-settings";
 import { ChatMessageRenderer } from "../ui/message-stream";
-import type { ChatPanelContext } from "../panel/context";
+import type { ChatControllerCompositionPorts } from "../panel/controller-ports";
+
+type ConversationSurfaceControllerGroupPorts = Pick<
+  ChatControllerCompositionPorts,
+  "client" | "lifecycle" | "liveState" | "obsidian" | "plugin" | "render" | "runtime" | "scroll" | "state" | "status" | "thread"
+>;
 
 export function createConversationSurfaceControllerGroup(
-  context: ChatPanelContext,
+  context: ConversationSurfaceControllerGroupPorts,
   refs: {
     controller: ChatInboundController;
     serverThreads: ChatServerThreadActions;
