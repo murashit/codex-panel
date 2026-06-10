@@ -13,7 +13,16 @@ import {
 import { normalizeProposedPlanMarkdown, planProgressDisplayItem } from "../../../../src/features/chat/display/plan";
 import { pathRelativeToRoot } from "../../../../src/features/chat/display/paths";
 import { createAutoReviewResultItem, createReviewResultItem } from "../../../../src/features/chat/display/review";
-import { commandExecutionState, executionState } from "../../../../src/features/chat/display/state";
+import {
+  autoReviewExecutionState,
+  collabAgentStateExecutionState,
+  commandExecutionState,
+  dynamicToolCallExecutionState,
+  executionState,
+  mcpToolCallExecutionState,
+  patchApplyExecutionState,
+  taskProgressExecutionState,
+} from "../../../../src/features/chat/display/state";
 import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/display/thread-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
@@ -1496,7 +1505,28 @@ describe("execution state uses typed status adapters before rendered text", () =
     expect(commandExecutionState("inProgress")).toBe("running");
   });
 
+  it("keeps command exit code precedence as a Panel display rule", () => {
+    expect(commandExecutionState("completed", 1)).toBe("failed");
+    expect(commandExecutionState("unknown", 0)).toBe("completed");
+  });
+
+  it("maps app-server status strings into Panel execution states", () => {
+    expect(patchApplyExecutionState("declined")).toBe("failed");
+    expect(mcpToolCallExecutionState("completed")).toBe("completed");
+    expect(taskProgressExecutionState("pending")).toBe("running");
+    expect(autoReviewExecutionState("approved")).toBe("completed");
+    expect(autoReviewExecutionState("timedOut")).toBe("failed");
+    expect(collabAgentStateExecutionState("inProgress")).toBe("running");
+    expect(collabAgentStateExecutionState("failed")).toBe("failed");
+  });
+
+  it("uses dynamic tool success as a display fallback", () => {
+    expect(dynamicToolCallExecutionState("unknown", true)).toBe("completed");
+    expect(dynamicToolCallExecutionState("completed", false)).toBe("failed");
+  });
+
   it("does not infer unknown status strings with broad matching", () => {
+    expect(patchApplyExecutionState("done_with_errors")).toBeNull();
     expect(
       executionState({
         id: "c1",

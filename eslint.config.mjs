@@ -107,7 +107,6 @@ const generatedAppServerImportLegacyFiles = [
   "src/features/chat/display/permission-details.ts",
   "src/features/chat/display/plan.ts",
   "src/features/chat/display/review.ts",
-  "src/features/chat/display/state.ts",
   "src/features/chat/display/thread-items.ts",
   "src/features/chat/inbound/controller.ts",
   "src/features/chat/inbound/notification-plan.ts",
