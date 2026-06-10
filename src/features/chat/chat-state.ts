@@ -27,7 +27,25 @@ import type { PendingApproval } from "./requests/approval";
 import type { ComposerSuggestion } from "./composer/suggestions";
 import { upsertDisplayItem } from "./display/stream-updates";
 import type { DisplayItem } from "./display/types";
-import type { ActiveThreadResumedAction, ActiveThreadSettingsAppliedAction } from "./chat-state-actions";
+import type {
+  ActiveThreadResumedAction,
+  ActiveThreadRestoredPlaceholderAction,
+  ActiveThreadSettingsAppliedAction,
+  ActiveThreadTokenUsageSetAction,
+  ClearActiveThreadAction,
+  ClearConnectionScopeAction,
+  ClearLocalTurnAction,
+  ClosePanelsAction,
+  ConnectionInitializedAction,
+  DetailOpenSetAction,
+  SetRequestedCollaborationModeDefaultAction,
+  ThreadListAppliedAction,
+  TranscriptItemAddedAction,
+  TurnOptimisticStartedAction,
+  TurnStartAcknowledgedAction,
+  TurnStartFailedAction,
+  UserInputDraftSetAction,
+} from "./chat-state-actions";
 import { initialChatTranscriptState, reduceTranscriptSlice, type ChatTranscriptState, type TranscriptAction } from "./transcript-state";
 import {
   initialChatRequestState,
@@ -104,7 +122,7 @@ export interface ChatStateStore {
 
 type ConnectionAction =
   | { type: "connection/status-set"; status: string }
-  | { type: "connection/initialized"; initializeResponse: InitializeResponse }
+  | ConnectionInitializedAction
   | {
       type: "connection/metadata-applied";
       effectiveConfig?: ConfigReadResponse | null;
@@ -114,18 +132,13 @@ type ConnectionAction =
       appServerDiagnostics?: AppServerDiagnostics;
     };
 
-interface ThreadListAppliedAction {
-  type: "thread-list/applied";
-  threads?: readonly Thread[];
-  threadsLoaded?: boolean;
-}
-
 type ThreadListAction = ThreadListAppliedAction;
 
 type ActiveThreadAction =
   | { type: "active-thread/cwd-set"; cwd: string | null }
   | { type: "active-thread/goal-set"; goal: ThreadGoal | null }
-  | { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
+  | { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null }
+  | ActiveThreadTokenUsageSetAction;
 
 type RuntimeAction =
   | { type: "runtime/requested-model-set"; model: string | null }
@@ -133,6 +146,7 @@ type RuntimeAction =
   | { type: "runtime/requested-service-tier-set"; serviceTier: RequestedServiceTier | null }
   | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null }
   | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: CollaborationMode }
+  | SetRequestedCollaborationModeDefaultAction
   | { type: "runtime/pending-thread-settings-committed"; update: ThreadSettingsUpdate };
 
 interface TurnStartedAction {
@@ -149,31 +163,10 @@ interface TurnCompletedAction {
   displayItems: readonly DisplayItem[];
 }
 
-interface TurnScopedClearedAction {
-  type: "turn/scoped-cleared";
-}
-
-interface TurnOptimisticStartedAction {
-  type: "turn/optimistic-started";
-  item: DisplayItem;
-  pendingTurnStart: PendingTurnStart;
-}
-
-interface TurnStartAcknowledgedAction {
-  type: "turn/start-acknowledged";
-  turnId: string;
-  displayItems: readonly DisplayItem[];
-}
-
-interface TurnStartFailedAction {
-  type: "turn/start-failed";
-  displayItems: readonly DisplayItem[];
-}
-
 type TurnAction =
   | TurnStartedAction
   | TurnCompletedAction
-  | TurnScopedClearedAction
+  | ClearLocalTurnAction
   | TurnOptimisticStartedAction
   | TurnStartAcknowledgedAction
   | TurnStartFailedAction;
@@ -198,23 +191,10 @@ type UiAction =
       panel: "history" | "chat-actions" | "status-panel" | null;
       toggle?: boolean;
     }
-  | { type: "ui/detail-open-set"; key: string; open: boolean };
+  | ClosePanelsAction
+  | DetailOpenSetAction;
 
 export type ChatAction = ChatTransitionAction | ChatSliceAction;
-
-interface ConnectionScopedClearedAction {
-  type: "connection/scoped-cleared";
-}
-
-interface ActiveThreadClearedAction {
-  type: "active-thread/cleared";
-}
-
-interface ActiveThreadRestoredPlaceholderAction {
-  type: "active-thread/restored-placeholder";
-  threadId: string;
-  item: DisplayItem;
-}
 
 interface RequestResolvedAction {
   type: "request/resolved";
@@ -229,8 +209,8 @@ interface PendingStartHookUpsertedAction {
 }
 
 type ChatTransitionAction =
-  | ConnectionScopedClearedAction
-  | ActiveThreadClearedAction
+  | ClearConnectionScopeAction
+  | ClearActiveThreadAction
   | ActiveThreadResumedAction
   | ActiveThreadSettingsAppliedAction
   | ActiveThreadRestoredPlaceholderAction
@@ -244,7 +224,9 @@ type ChatSliceAction =
   | ActiveThreadAction
   | RuntimeAction
   | RequestAction
+  | UserInputDraftSetAction
   | TranscriptAction
+  | TranscriptItemAddedAction
   | ComposerAction
   | UiAction;
 
