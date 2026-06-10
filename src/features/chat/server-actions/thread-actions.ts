@@ -2,25 +2,25 @@ import { listThreads } from "../../../app-server/resource-operations";
 import type { Thread } from "../../../domain/threads/model";
 import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../runtime/effective-settings";
 import { resumedThreadActionFromAppServerResponse } from "../threads/thread-resume";
-import type { ChatAppServerBaseHost } from "./shared";
+import type { ChatServerActionHost } from "./shared";
 
 interface StartedThreadSummary {
   threadId: string;
 }
 
-export interface ChatAppServerThreadActionsHost extends ChatAppServerBaseHost {
+export interface ChatServerThreadActionsHost extends ChatServerActionHost {
   runtimeSnapshot: () => RuntimeSnapshot;
   publishThreadList: (threads: readonly Thread[]) => void;
   syncThreadGoal: (threadId: string) => void;
 }
 
-export interface ChatAppServerThreadActions {
+export interface ChatServerThreadActions {
   applyThreadList: (threads: readonly Thread[]) => void;
   loadThreadList: () => Promise<readonly Thread[]>;
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<StartedThreadSummary | null>;
 }
 
-export function createChatAppServerThreadActions(host: ChatAppServerThreadActionsHost): ChatAppServerThreadActions {
+export function createChatServerThreadActions(host: ChatServerThreadActionsHost): ChatServerThreadActions {
   return {
     applyThreadList: (threads) => {
       applyThreadList(host, threads);
@@ -30,18 +30,18 @@ export function createChatAppServerThreadActions(host: ChatAppServerThreadAction
   };
 }
 
-function applyThreadList(host: ChatAppServerThreadActionsHost, threads: readonly Thread[]): void {
+function applyThreadList(host: ChatServerThreadActionsHost, threads: readonly Thread[]): void {
   host.stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
 }
 
-async function loadThreadList(host: ChatAppServerThreadActionsHost): Promise<readonly Thread[]> {
+async function loadThreadList(host: ChatServerThreadActionsHost): Promise<readonly Thread[]> {
   const client = host.currentClient();
   if (!client) throw new Error("Codex app-server is not connected.");
   return listThreads(client, host.vaultPath);
 }
 
 async function startThread(
-  host: ChatAppServerThreadActionsHost,
+  host: ChatServerThreadActionsHost,
   preview?: string,
   options: { syncGoal?: boolean } = {},
 ): Promise<StartedThreadSummary | null> {

@@ -158,7 +158,7 @@ describe("toolbar renderer decisions", () => {
         openPanel: "status",
         diagnostics: [
           { title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/1.2.3" }] },
-          { title: "Capabilities", rows: [{ label: "compatibility", value: "model/list failed", level: "error" }] },
+          { title: "App Server Checks", rows: [{ label: "diagnostics", value: "model/list failed", level: "error" }] },
         ],
       }),
       toolbarActions({ refreshStatus }),
@@ -166,7 +166,7 @@ describe("toolbar renderer decisions", () => {
 
     expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection");
     expect(parent.textContent).toContain("Process");
-    expect(parent.textContent).toContain("Capabilities");
+    expect(parent.textContent).toContain("App Server Checks");
     expect(parent.textContent).toContain("Effective Codex config");
     expect(parent.textContent).toContain("Refresh status");
     expect(parent.textContent).not.toContain("Refresh diagnostics");

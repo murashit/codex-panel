@@ -1,6 +1,6 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
-import type { ChatAppServerMetadataActions } from "../app-server/metadata-actions";
-import type { ChatAppServerThreadActions } from "../app-server/thread-actions";
+import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
+import type { ChatServerThreadActions } from "../server-actions/thread-actions";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatThreadActions } from "../threads/thread-actions";
 import { createAppServerWarmupActions } from "../session/app-server-warmup-controller";
@@ -48,8 +48,8 @@ export function createConnectionLifecycleControllerGroup(
     connection: ConnectionManager;
     composerController: ChatComposerController;
     messageRenderer: ChatMessageRenderer;
-    appServerThreads: ChatAppServerThreadActions;
-    appServerMetadata: ChatAppServerMetadataActions;
+    serverThreads: ChatServerThreadActions;
+    serverMetadata: ChatServerMetadataActions;
   },
 ) {
   const { obsidian, lifecycle, render, liveState, client } = context;
@@ -74,7 +74,7 @@ export function createConnectionLifecycleControllerGroup(
       registerActiveLeafChange: obsidian.registerActiveLeafChange,
       handleActiveLeafChange: obsidian.handleActiveLeafChange,
       applyCachedSharedAppServerState: () => {
-        applyCachedSharedAppServerState(context, refs.appServerThreads, refs.appServerMetadata);
+        applyCachedSharedAppServerState(context, refs.serverThreads, refs.serverMetadata);
       },
       render: render.now,
       scheduleDeferredAppServerWarmup: lifecycle.scheduleDeferredAppServerWarmup,

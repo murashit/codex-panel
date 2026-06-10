@@ -1,7 +1,7 @@
 import { ConnectionManager } from "../../../app-server/connection-manager";
-import type { ChatAppServerDiagnosticsActions } from "../app-server/diagnostics-actions";
-import type { ChatAppServerMetadataActions } from "../app-server/metadata-actions";
-import type { ChatAppServerThreadActions } from "../app-server/thread-actions";
+import type { ChatServerDiagnosticsActions } from "../server-actions/diagnostics-actions";
+import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
+import type { ChatServerThreadActions } from "../server-actions/thread-actions";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatInboundController } from "../inbound/controller";
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
@@ -26,7 +26,7 @@ import type { ChatViewStateActions } from "./view-state-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatPanelContext } from "./context";
 import {
-  createChatAppServerControllers,
+  createChatServerActionControllers,
   createChatConnectionControllers,
   createChatInboundController,
   createChatReconnectControllerGroup,
@@ -46,10 +46,10 @@ export interface ChatViewControllers {
   inbound: {
     controller: ChatInboundController;
   };
-  appServer: {
-    threads: ChatAppServerThreadActions;
-    metadata: ChatAppServerMetadataActions;
-    diagnostics: ChatAppServerDiagnosticsActions;
+  serverActions: {
+    threads: ChatServerThreadActions;
+    metadata: ChatServerMetadataActions;
+    diagnostics: ChatServerDiagnosticsActions;
   };
   thread: {
     history: ThreadHistoryController;
@@ -98,7 +98,7 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
   const { reconnectActions } = createChatReconnectControllerGroup(ports, {
     connection,
   });
-  const { appServerThreads, appServerMetadata, appServerDiagnostics } = createChatAppServerControllers(ports, {
+  const { serverThreads, serverMetadata, serverDiagnostics } = createChatServerActionControllers(ports, {
     connection,
     goals,
   });
@@ -106,15 +106,15 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
     currentClient: ports.client.getClient,
   });
   const controller = createChatInboundController(ports, {
-    appServerMetadata,
-    appServerDiagnostics,
+    serverMetadata,
+    serverDiagnostics,
     threadRename,
     serverRequestResponder,
   });
   const { connectionController } = createChatConnectionControllers(ports, {
     connection,
-    appServerMetadata,
-    appServerDiagnostics,
+    serverMetadata,
+    serverDiagnostics,
   });
 
   connection.setHandlers({
@@ -139,7 +139,7 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
 
   const { pendingRequests, messageRenderer, composerController, composerSubmission } = createConversationSurfaceControllerGroup(ports, {
     controller,
-    appServerThreads,
+    serverThreads,
     runtimeSettings,
     threadActions,
     threadRename,
@@ -151,8 +151,8 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
     connection,
     composerController,
     messageRenderer,
-    appServerThreads,
-    appServerMetadata,
+    serverThreads,
+    serverMetadata,
   });
 
   return {
@@ -165,10 +165,10 @@ export function createChatViewControllers(ports: ChatPanelContext): ChatViewCont
     inbound: {
       controller,
     },
-    appServer: {
-      threads: appServerThreads,
-      metadata: appServerMetadata,
-      diagnostics: appServerDiagnostics,
+    serverActions: {
+      threads: serverThreads,
+      metadata: serverMetadata,
+      diagnostics: serverDiagnostics,
     },
     thread: {
       history,

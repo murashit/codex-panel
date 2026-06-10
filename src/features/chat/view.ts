@@ -173,7 +173,7 @@ export class CodexChatView extends ItemView {
         runtimeSnapshot: () => this.runtimeSnapshot(),
         collaborationModeLabel: () => this.collaborationModeLabel(),
         connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
-        mcpStatusLines: () => this.controllers.appServer.diagnostics.mcpStatusLines(),
+        mcpStatusLines: () => this.controllers.serverActions.diagnostics.mcpStatusLines(),
         modelStatusLines: () => this.modelStatusLines(),
         effortStatusLines: () => this.effortStatusLines(),
         statusSummaryLines: () => this.statusSummaryLines(),
@@ -186,7 +186,7 @@ export class CodexChatView extends ItemView {
         refreshThreads: () => this.controllers.connection.controller.refreshThreads(),
         refreshSkills: (forceReload) => this.controllers.connection.controller.refreshSkills(forceReload),
         publishAppServerMetadataSnapshot: () => {
-          this.controllers.appServer.metadata.publishAppServerMetadataSnapshot();
+          this.controllers.serverActions.metadata.publishAppServerMetadataSnapshot();
         },
         loadSharedThreadList: () => this.loadSharedThreadList(),
         notifyIdentityChanged: () => {
@@ -344,7 +344,7 @@ export class CodexChatView extends ItemView {
     if (!threadId) {
       try {
         await this.controllers.connection.controller.ensureConnected();
-        const response = await this.controllers.appServer.threads.startThread(objective, { syncGoal: false });
+        const response = await this.controllers.serverActions.threads.startThread(objective, { syncGoal: false });
         threadId = response?.threadId ?? null;
       } catch (error) {
         this.controllers.inbound.controller.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -410,13 +410,13 @@ export class CodexChatView extends ItemView {
   }
 
   applyThreadListSnapshot(threads: readonly Thread[]): void {
-    this.controllers.appServer.threads.applyThreadList(threads);
+    this.controllers.serverActions.threads.applyThreadList(threads);
     this.refreshTabHeader();
     this.controllers.render.controller.render();
   }
 
   applyAppServerMetadataSnapshot(metadata: SharedAppServerMetadata): void {
-    this.controllers.appServer.metadata.applyAppServerMetadata(metadata);
+    this.controllers.serverActions.metadata.applyAppServerMetadata(metadata);
     this.controllers.render.controller.render();
   }
 
@@ -507,8 +507,8 @@ export class CodexChatView extends ItemView {
   }
 
   private async loadSharedThreadList(): Promise<void> {
-    const threads = await this.plugin.refreshThreadList(() => this.controllers.appServer.threads.loadThreadList());
-    this.controllers.appServer.threads.applyThreadList(threads);
+    const threads = await this.plugin.refreshThreadList(() => this.controllers.serverActions.threads.loadThreadList());
+    this.controllers.serverActions.threads.applyThreadList(threads);
   }
 
   private requestWorkspaceLayoutSave(): void {
@@ -591,7 +591,7 @@ export class CodexChatView extends ItemView {
 
   private async refreshDeferredDiagnostics(): Promise<void> {
     if (!this.controllers.connection.manager.isConnected()) return;
-    await this.controllers.appServer.diagnostics.refreshPublishedCapabilityDiagnostics({ cachedAppServerMetadata: true });
+    await this.controllers.serverActions.diagnostics.refreshPublishedDiagnosticProbes({ cachedAppServerMetadata: true });
     this.controllers.render.controller.render();
   }
 

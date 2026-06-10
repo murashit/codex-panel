@@ -1,9 +1,9 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection-manager";
-import { createChatAppServerDiagnosticsActions, type ChatAppServerDiagnosticsActions } from "../app-server/diagnostics-actions";
-import { createChatAppServerMetadataActions, type ChatAppServerMetadataActions } from "../app-server/metadata-actions";
-import { createChatAppServerThreadActions } from "../app-server/thread-actions";
+import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../server-actions/diagnostics-actions";
+import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../server-actions/metadata-actions";
+import { createChatServerThreadActions } from "../server-actions/thread-actions";
 import { ChatConnectionController } from "./connection-controller";
 import { createChatReconnectActions } from "./reconnect-actions";
 import type { ServerRequestActions } from "../requests/server-request-actions";
@@ -12,7 +12,7 @@ import type { ThreadRenameController } from "../threads/thread-rename-controller
 import { ChatInboundController } from "../inbound/controller";
 import type { ChatPanelContext } from "../panel/context";
 
-export function createChatAppServerControllers(
+export function createChatServerActionControllers(
   context: ChatPanelContext,
   refs: {
     connection: ConnectionManager;
@@ -21,26 +21,26 @@ export function createChatAppServerControllers(
 ) {
   const { plugin, runtime } = context;
   const stateStore = context.state.stateStore;
-  const appServerBaseHost = {
+  const serverActionHost = {
     stateStore,
     vaultPath: plugin.vaultPath,
     currentClient: () => refs.connection.currentClient(),
   };
-  const appServerMetadata = createChatAppServerMetadataActions({
-    ...appServerBaseHost,
+  const serverMetadata = createChatServerMetadataActions({
+    ...serverActionHost,
     publishAppServerMetadata: (metadata) => {
       plugin.publishAppServerMetadata(metadata);
     },
   });
-  const appServerDiagnostics = createChatAppServerDiagnosticsActions({
-    ...appServerBaseHost,
+  const serverDiagnostics = createChatServerDiagnosticsActions({
+    ...serverActionHost,
     publishAppServerMetadata: (metadata) => {
       plugin.publishAppServerMetadata(metadata);
     },
-    appServerMetadataSnapshot: () => appServerMetadata.appServerMetadataSnapshot(),
+    serverMetadataSnapshot: () => serverMetadata.serverMetadataSnapshot(),
   });
-  const appServerThreads = createChatAppServerThreadActions({
-    ...appServerBaseHost,
+  const serverThreads = createChatServerThreadActions({
+    ...serverActionHost,
     runtimeSnapshot: runtime.runtimeSnapshot,
     publishThreadList: (threads) => {
       plugin.applyThreadListSnapshot(threads);
@@ -50,14 +50,14 @@ export function createChatAppServerControllers(
     },
   });
 
-  return { appServerThreads, appServerMetadata, appServerDiagnostics };
+  return { serverThreads, serverMetadata, serverDiagnostics };
 }
 
 export function createChatInboundController(
   context: ChatPanelContext,
   refs: {
-    appServerMetadata: ChatAppServerMetadataActions;
-    appServerDiagnostics: ChatAppServerDiagnosticsActions;
+    serverMetadata: ChatServerMetadataActions;
+    serverDiagnostics: ChatServerDiagnosticsActions;
     threadRename: ThreadRenameController;
     serverRequestResponder: ServerRequestActions;
   },
@@ -69,7 +69,7 @@ export function createChatInboundController(
       void thread.refreshThreads();
     },
     refreshRateLimits: () => {
-      void refs.appServerMetadata.refreshPublishedRateLimits();
+      void refs.serverMetadata.refreshPublishedRateLimits();
     },
     refreshSkills: (forceReload) => void thread.refreshSkills(forceReload),
     publishAppServerMetadata: thread.publishAppServerMetadataSnapshot,
@@ -79,7 +79,7 @@ export function createChatInboundController(
     notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
     recordMcpStartupStatus: (name, status, message) => {
-      refs.appServerDiagnostics.recordMcpStartupStatus(name, status, message);
+      refs.serverDiagnostics.recordMcpStartupStatus(name, status, message);
       render.schedule();
     },
     respondToServerRequest: (requestId, result) => refs.serverRequestResponder.respond(requestId, result),
@@ -91,8 +91,8 @@ export function createChatConnectionControllers(
   context: ChatPanelContext,
   refs: {
     connection: ConnectionManager;
-    appServerMetadata: ChatAppServerMetadataActions;
-    appServerDiagnostics: ChatAppServerDiagnosticsActions;
+    serverMetadata: ChatServerMetadataActions;
+    serverDiagnostics: ChatServerDiagnosticsActions;
   },
 ) {
   const { plugin, client, thread, status, liveState, render, lifecycle } = context;
@@ -104,11 +104,11 @@ export function createChatConnectionControllers(
       connection: refs.connection,
       connectionWork,
       metadata: {
-        refreshPublishedAppServerMetadata: () => refs.appServerMetadata.refreshPublishedAppServerMetadata(),
-        refreshPublishedSkills: (forceReload) => refs.appServerMetadata.refreshPublishedSkills(forceReload),
+        refreshPublishedAppServerMetadata: () => refs.serverMetadata.refreshPublishedAppServerMetadata(),
+        refreshPublishedSkills: (forceReload) => refs.serverMetadata.refreshPublishedSkills(forceReload),
       },
       diagnostics: {
-        refreshPublishedCapabilityDiagnostics: () => refs.appServerDiagnostics.refreshPublishedCapabilityDiagnostics(),
+        refreshPublishedDiagnosticProbes: () => refs.serverDiagnostics.refreshPublishedDiagnosticProbes(),
       },
       setClient: client.setClient,
       invalidateResumeWork: lifecycle.invalidateResumeWork,

@@ -17,7 +17,7 @@ export interface ChatConnectionMetadataPort {
 }
 
 export interface ChatConnectionDiagnosticsPort {
-  refreshPublishedCapabilityDiagnostics: () => Promise<void>;
+  refreshPublishedDiagnosticProbes: () => Promise<void>;
 }
 
 export interface ChatConnectionControllerHost {
@@ -97,7 +97,7 @@ export class ChatConnectionController {
     await this.ensureConnected();
     if (!this.host.connection.currentClient()) return;
     this.host.clearDeferredDiagnostics();
-    await this.host.diagnostics.refreshPublishedCapabilityDiagnostics();
+    await this.host.diagnostics.refreshPublishedDiagnosticProbes();
     this.host.render();
   }
 

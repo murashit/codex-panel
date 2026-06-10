@@ -1,7 +1,6 @@
-import type { McpServerStatus } from "../../generated/app-server/v2/McpServerStatus";
-import type { McpServerDiagnostic } from "../../app-server/compatibility";
+import type { McpServerDiagnostic, McpServerStatusSummary } from "../../app-server/diagnostics";
 
-export function mcpStatusLines(servers: McpServerStatus[], diagnostics: McpServerDiagnostic[] = []): string[] {
+export function mcpStatusLines(servers: McpServerStatusSummary[], diagnostics: McpServerDiagnostic[] = []): string[] {
   if (servers.length === 0 && diagnostics.length === 0) {
     return ["MCP servers", "Codex App Server reports no MCP servers."];
   }
@@ -20,11 +19,11 @@ export function mcpStatusLines(servers: McpServerStatus[], diagnostics: McpServe
   return ["MCP servers", ...rows];
 }
 
-function mcpServerStatusLine(server: McpServerStatus, diagnostic: McpServerDiagnostic | undefined): string {
+function mcpServerStatusLine(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): string {
   const startup = diagnostic?.startupStatus && diagnostic.startupStatus !== "unknown" ? diagnostic.startupStatus : "available";
-  const tools = Object.keys(server.tools).length;
-  const resources = server.resources.length;
-  const templates = server.resourceTemplates.length;
+  const tools = server.toolCount;
+  const resources = server.resourceCount;
+  const templates = server.resourceTemplateCount;
   const parts = [startup, `auth ${server.authStatus}`, countLabel(tools, "tool"), countLabel(resources, "resource")];
   if (templates > 0) parts.push(countLabel(templates, "resource template"));
   if (diagnostic?.message) parts.push(diagnostic.message);

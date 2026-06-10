@@ -1,14 +1,14 @@
-import type { ChatAppServerMetadataActions } from "../app-server/metadata-actions";
-import type { ChatAppServerThreadActions } from "../app-server/thread-actions";
+import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
+import type { ChatServerThreadActions } from "../server-actions/thread-actions";
 import type { ChatPanelContext } from "./context";
 
 export function applyCachedSharedAppServerState(
   context: ChatPanelContext,
-  appServerThreads: ChatAppServerThreadActions,
-  appServerMetadata: ChatAppServerMetadataActions,
+  serverThreads: ChatServerThreadActions,
+  serverMetadata: ChatServerMetadataActions,
 ): void {
   const threads = context.plugin.cachedThreadList();
-  if (threads) appServerThreads.applyThreadList(threads);
+  if (threads) serverThreads.applyThreadList(threads);
   const metadata = context.plugin.cachedAppServerMetadata();
-  if (metadata) appServerMetadata.applyAppServerMetadata(metadata);
+  if (metadata) serverMetadata.applyAppServerMetadata(metadata);
 }

@@ -1,25 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CAPABILITY_PROBE_METHODS,
+  DIAGNOSTIC_PROBE_METHODS,
   appServerIdentity,
   appServerPlatform,
-  capabilityProbeError,
-  capabilityProbeOk,
+  diagnosticProbeError,
+  diagnosticProbeOk,
   createAppServerDiagnostics,
   shortErrorMessage,
   upsertMcpServerDiagnostic,
-} from "../../src/app-server/compatibility";
-import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
+} from "../../src/app-server/diagnostics";
+import type { InitializeDiagnostics } from "../../src/app-server/diagnostics";
 
-describe("app-server compatibility", () => {
+describe("app-server diagnostics", () => {
   it("formats initialize metadata", () => {
     const response = {
       userAgent: "codex-cli/0.128.0",
       codexHome: "/tmp/codex",
       platformFamily: "unix",
       platformOs: "macos",
-    } satisfies InitializeResponse;
+    } satisfies InitializeDiagnostics;
 
     expect(appServerIdentity(response)).toBe("codex-cli/0.128.0");
     expect(appServerPlatform(response)).toBe("macos/unix");
@@ -28,7 +28,7 @@ describe("app-server compatibility", () => {
   it("creates generic capability probe defaults", () => {
     const diagnostics = createAppServerDiagnostics();
 
-    expect(Object.keys(diagnostics.probes)).toEqual([...CAPABILITY_PROBE_METHODS]);
+    expect(Object.keys(diagnostics.probes)).toEqual([...DIAGNOSTIC_PROBE_METHODS]);
     expect(diagnostics.probes["model/list"]).toMatchObject({
       method: "model/list",
       status: "unknown",
@@ -39,22 +39,22 @@ describe("app-server compatibility", () => {
   });
 
   it("classifies ok and failed capability probes", () => {
-    expect(capabilityProbeOk("skills/list", "3 skills", 123)).toEqual({
+    expect(diagnosticProbeOk("skills/list", "3 skills", 123)).toEqual({
       method: "skills/list",
       status: "ok",
       message: null,
       summary: "3 skills",
       checkedAt: 123,
     });
-    expect(capabilityProbeError("hooks/list", new Error("boom"), 456)).toMatchObject({
+    expect(diagnosticProbeError("hooks/list", new Error("boom"), 456)).toMatchObject({
       method: "hooks/list",
       status: "failed",
       message: "boom",
       checkedAt: 456,
     });
-    expect(capabilityProbeError("modelProvider/capabilities/read", new Error("unknown method"), 790).status).toBe("failed");
-    expect(capabilityProbeError("modelProvider/capabilities/read", new Error("unsupported RPC method"), 791).status).toBe("failed");
-    expect(capabilityProbeError("model/list", new Error("unknown provider failure"), 792).status).toBe("failed");
+    expect(diagnosticProbeError("modelProvider/capabilities/read", new Error("unknown method"), 790).status).toBe("failed");
+    expect(diagnosticProbeError("modelProvider/capabilities/read", new Error("unsupported RPC method"), 791).status).toBe("failed");
+    expect(diagnosticProbeError("model/list", new Error("unknown provider failure"), 792).status).toBe("failed");
   });
 
   it("shortens error messages and tracks MCP server diagnostics", () => {

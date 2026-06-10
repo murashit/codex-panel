@@ -1,21 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import type { McpServerStatus } from "../../../src/generated/app-server/v2/McpServerStatus";
+import type { McpServerStatusSummary } from "../../../src/app-server/diagnostics";
 import { mcpStatusLines } from "../../../src/features/chat/mcp-status";
 
-function mcpServer(overrides: Partial<McpServerStatus> = {}): McpServerStatus {
+function mcpServer(overrides: Partial<McpServerStatusSummary> = {}): McpServerStatusSummary {
   return {
     name: "github",
-    serverInfo: null,
-    tools: {
-      search_issues: { name: "search_issues", description: null, inputSchema: {} },
-      fetch_pr: { name: "fetch_pr", description: null, inputSchema: {} },
-    },
-    resources: [],
-    resourceTemplates: [],
     authStatus: "oAuth",
+    toolCount: 2,
+    resourceCount: 0,
+    resourceTemplateCount: 0,
     ...overrides,
-  } as McpServerStatus;
+  };
 }
 
 describe("mcpStatusLines", () => {

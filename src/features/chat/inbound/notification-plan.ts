@@ -1,4 +1,5 @@
 import { activeThreadSettingsAppliedAction } from "../chat-state-actions";
+import type { McpServerStartupStatus } from "../../../app-server/diagnostics";
 import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
 import type { FileUpdateChange } from "../../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";
@@ -39,7 +40,7 @@ export type ChatNotificationEffect =
   | {
       type: "record-mcp-startup-status";
       name: string;
-      status: "starting" | "ready" | "failed" | "cancelled";
+      status: McpServerStartupStatus;
       message: string | null;
     };
 

@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  capabilityProbeError,
-  capabilityProbeOk,
+  diagnosticProbeError,
+  diagnosticProbeOk,
   createAppServerDiagnostics,
   upsertMcpServerDiagnostic,
-} from "../../../src/app-server/compatibility";
+  upsertMcpServerStatusDiagnostics,
+} from "../../../src/app-server/diagnostics";
 import { connectionDiagnosticSections, hasDiagnosticIssue } from "../../../src/features/chat/diagnostics";
 
 describe("connection diagnostics", () => {
   it("formats base rows, capability probes, and MCP issues for /doctor", () => {
     let diagnostics = createAppServerDiagnostics();
-    diagnostics.probes["model/list"] = capabilityProbeOk("model/list", "12 models", 1);
-    diagnostics.probes["skills/list"] = capabilityProbeError("skills/list", new Error("unknown method skills/list"), 2);
+    diagnostics.probes["model/list"] = diagnosticProbeOk("model/list", "12 models", 1);
+    diagnostics.probes["skills/list"] = diagnosticProbeError("skills/list", new Error("unknown method skills/list"), 2);
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "github",
       startupStatus: "failed",
@@ -41,7 +42,7 @@ describe("connection diagnostics", () => {
     });
 
     const rows = sections.flatMap((section) => section.rows);
-    expect(sections.map((section) => section.title)).toEqual(["Process", "Capabilities", "MCP issues"]);
+    expect(sections.map((section) => section.title)).toEqual(["Process", "App Server Checks", "MCP issues"]);
     expect(rows.map((row) => `${row.label}: ${row.value}`)).toEqual(
       expect.arrayContaining([
         "connection: connected",
@@ -62,7 +63,7 @@ describe("connection diagnostics", () => {
     expect(hasDiagnosticIssue(createAppServerDiagnostics())).toBe(false);
 
     const failed = createAppServerDiagnostics();
-    failed.probes["model/list"] = capabilityProbeError("model/list", new Error("network down"), 1);
+    failed.probes["model/list"] = diagnosticProbeError("model/list", new Error("network down"), 1);
     expect(hasDiagnosticIssue(failed)).toBe(true);
   });
 
@@ -84,5 +85,35 @@ describe("connection diagnostics", () => {
       message: "missing token",
     });
     expect(hasDiagnosticIssue(authIssue)).toBe(true);
+  });
+
+  it("maps app-server MCP status snapshots into diagnostics", () => {
+    const diagnostics = upsertMcpServerDiagnostic(createAppServerDiagnostics(), {
+      name: "github",
+      startupStatus: "starting",
+      authStatus: null,
+      toolCount: null,
+      message: "launching",
+    });
+
+    const next = upsertMcpServerStatusDiagnostics(diagnostics, [
+      {
+        name: "github",
+        authStatus: "oAuth",
+        toolCount: 2,
+        resourceCount: 0,
+        resourceTemplateCount: 0,
+      },
+    ]);
+
+    expect(next.mcpServers).toEqual([
+      {
+        name: "github",
+        startupStatus: "starting",
+        authStatus: "oAuth",
+        toolCount: 2,
+        message: "launching",
+      },
+    ]);
   });
 });

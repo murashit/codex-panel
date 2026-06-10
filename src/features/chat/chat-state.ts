@@ -7,8 +7,8 @@ import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadSettingsUpdate } from "../../app-server/thread-settings";
 import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
-import type { AppServerDiagnostics } from "../../app-server/compatibility";
-import { createAppServerDiagnostics } from "../../app-server/compatibility";
+import type { Diagnostics } from "../../app-server/diagnostics";
+import { createAppServerDiagnostics } from "../../app-server/diagnostics";
 import type { ApprovalsReviewer } from "./runtime/approvals";
 import type { CollaborationMode } from "./runtime/collaboration";
 import type { RequestedServiceTier } from "./runtime/service-tier-state";
@@ -71,8 +71,8 @@ interface ChatConnectionState {
   status: string;
   effectiveConfig: ConfigReadResponse | null;
   initializeResponse: InitializeResponse | null;
-  appServerDiagnostics: AppServerDiagnostics;
   rateLimit: RateLimitSnapshot | null;
+  appServerDiagnostics: Diagnostics;
   availableModels: readonly ModelMetadata[];
   availableSkills: readonly SkillMetadata[];
 }
@@ -130,7 +130,7 @@ type ConnectionAction =
       availableModels?: readonly ModelMetadata[];
       availableSkills?: readonly SkillMetadata[];
       rateLimit?: RateLimitSnapshot | null;
-      appServerDiagnostics?: AppServerDiagnostics;
+      appServerDiagnostics?: Diagnostics;
     };
 
 type ThreadListAction = ThreadListAppliedAction;

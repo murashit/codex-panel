@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/chat-host";
-import { createAppServerDiagnostics } from "../../../src/app-server/compatibility";
+import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
 import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
 import { composerSlotSnapshot } from "../../../src/features/chat/panel/snapshot";

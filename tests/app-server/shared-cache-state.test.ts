@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createAppServerDiagnostics } from "../../src/app-server/compatibility";
+import { createAppServerDiagnostics } from "../../src/app-server/diagnostics";
 import {
   applySharedAppServerMetadata,
   applySharedModels,

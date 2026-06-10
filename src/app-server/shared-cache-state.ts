@@ -1,4 +1,4 @@
-import type { AppServerDiagnostics } from "./compatibility";
+import type { Diagnostics } from "./diagnostics";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
 import type { Thread } from "../domain/threads/model";
@@ -9,7 +9,7 @@ export interface SharedAppServerMetadata {
   availableModels: readonly ModelMetadata[];
   availableSkills: readonly SkillMetadata[];
   rateLimit: RateLimitSnapshot | null;
-  appServerDiagnostics: AppServerDiagnostics;
+  appServerDiagnostics: Diagnostics;
 }
 
 type SharedCache<T> = { kind: "unloaded" } | { kind: "loaded"; data: T };

@@ -1,4 +1,4 @@
-import type { ChatAppServerThreadActions } from "../app-server/thread-actions";
+import type { ChatServerThreadActions } from "../server-actions/thread-actions";
 import { ChatComposerController } from "../composer/controller";
 import { activeTurnId } from "../chat-state";
 import type { ChatReconnectActions } from "../session/reconnect-actions";
@@ -21,7 +21,7 @@ export function createConversationSurfaceControllerGroup(
   context: ChatPanelContext,
   refs: {
     controller: ChatInboundController;
-    appServerThreads: ChatAppServerThreadActions;
+    serverThreads: ChatServerThreadActions;
     runtimeSettings: ChatRuntimeSettingsActions;
     threadActions: ChatThreadActions;
     threadRename: ThreadRenameController;
@@ -71,7 +71,7 @@ export function createConversationSurfaceControllerGroup(
       ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     },
     thread: {
-      startThread: (preview) => refs.appServerThreads.startThread(preview),
+      startThread: (preview) => refs.serverThreads.startThread(preview),
       notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
       resetThreadTurnPresence: thread.resetTurnPresence,
     },
@@ -100,7 +100,7 @@ export function createConversationSurfaceControllerGroup(
     threads: {
       startNewThread: thread.startNewThread,
       startThreadForGoal: async (objective) => {
-        const response = await refs.appServerThreads.startThread(objective, { syncGoal: false });
+        const response = await refs.serverThreads.startThread(objective, { syncGoal: false });
         return response?.threadId ?? null;
       },
       resumeThread: thread.selectThread,

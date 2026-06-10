@@ -99,7 +99,6 @@ const generatedAppServerImportLegacyFiles = [
   "src/features/chat/chat-state-actions.ts",
   "src/features/chat/chat-state.ts",
   "src/features/chat/composer/controller.ts",
-  "src/features/chat/diagnostics.ts",
   "src/features/chat/display/agent.ts",
   "src/features/chat/display/goal-messages.ts",
   "src/features/chat/display/hooks.ts",
@@ -111,7 +110,6 @@ const generatedAppServerImportLegacyFiles = [
   "src/features/chat/inbound/controller.ts",
   "src/features/chat/inbound/notification-plan.ts",
   "src/features/chat/inbound/routing.ts",
-  "src/features/chat/mcp-status.ts",
   "src/features/chat/requests/approval.ts",
   "src/features/chat/requests/user-input.ts",
   "src/features/chat/runtime/config.ts",
@@ -460,7 +458,7 @@ export default defineConfig([
   },
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/app-server/**/*.{ts,tsx}", "src/features/chat/app-server/**/*.{ts,tsx}", ...generatedAppServerImportLegacyFiles],
+    ignores: ["src/app-server/**/*.{ts,tsx}", ...generatedAppServerImportLegacyFiles],
     rules: {
       "no-restricted-imports": [
         "error",

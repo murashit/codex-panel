@@ -2,6 +2,7 @@ import type { RequestId } from "../../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../../generated/app-server/ServerRequest";
 import type { Turn } from "../../../generated/app-server/v2/Turn";
+import type { McpServerStartupStatus } from "../../../app-server/diagnostics";
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
 import { createStructuredSystemItem, createSystemItem } from "../display/system";
@@ -20,7 +21,7 @@ export interface ChatInboundControllerActions {
   maybeNameThread: (threadId: string, turn: Turn) => void;
   notifyThreadArchived: (threadId: string) => void;
   notifyThreadRenamed: (threadId: string, name: string | null) => void;
-  recordMcpStartupStatus: (name: string, status: "starting" | "ready" | "failed" | "cancelled", message: string | null) => void;
+  recordMcpStartupStatus: (name: string, status: McpServerStartupStatus, message: string | null) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
 }

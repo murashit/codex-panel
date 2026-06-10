@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../src/app-server/client";
 import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
-import { createChatAppServerDiagnosticsActions } from "../../../src/features/chat/app-server/diagnostics-actions";
-import { createChatAppServerMetadataActions } from "../../../src/features/chat/app-server/metadata-actions";
-import { createChatAppServerThreadActions } from "../../../src/features/chat/app-server/thread-actions";
+import { createChatServerDiagnosticsActions } from "../../../src/features/chat/server-actions/diagnostics-actions";
+import { createChatServerMetadataActions } from "../../../src/features/chat/server-actions/metadata-actions";
+import { createChatServerThreadActions } from "../../../src/features/chat/server-actions/thread-actions";
 import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { McpServerStatus } from "../../../src/generated/app-server/v2/McpServerStatus";
@@ -12,7 +12,7 @@ import type { RateLimitSnapshot } from "../../../src/generated/app-server/v2/Rat
 import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 
-describe("chat app-server controllers", () => {
+describe("chat server actions", () => {
   it("publishes newly started threads before the first turn completes", async () => {
     const state = createChatState();
     const existing = threadFixture("existing");
@@ -36,7 +36,7 @@ describe("chat app-server controllers", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = createChatAppServerThreadActions({
+    const controller = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -69,7 +69,7 @@ describe("chat app-server controllers", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = createChatAppServerThreadActions({
+    const controller = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -100,7 +100,7 @@ describe("chat app-server controllers", () => {
       }),
     } as unknown as AppServerClient;
 
-    const controller = createChatAppServerThreadActions({
+    const controller = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -133,18 +133,18 @@ describe("chat app-server controllers", () => {
       readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
     } as unknown as AppServerClient;
 
-    const metadata = createChatAppServerMetadataActions({
+    const metadata = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       publishAppServerMetadata: () => undefined,
     });
-    const diagnostics = createChatAppServerDiagnosticsActions({
+    const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       publishAppServerMetadata: () => undefined,
-      appServerMetadataSnapshot: () => metadata.appServerMetadataSnapshot(),
+      serverMetadataSnapshot: () => metadata.serverMetadataSnapshot(),
     });
 
     await metadata.refreshAppServerMetadata();
@@ -152,7 +152,7 @@ describe("chat app-server controllers", () => {
     listSkills.mockClear();
     readAccountRateLimits.mockClear();
 
-    await diagnostics.refreshCapabilityDiagnostics({ cachedAppServerMetadata: true });
+    await diagnostics.refreshDiagnosticProbes({ cachedAppServerMetadata: true });
 
     expect(listModels).not.toHaveBeenCalled();
     expect(listSkills).not.toHaveBeenCalled();
@@ -180,7 +180,7 @@ describe("chat app-server controllers", () => {
     const client = {
       readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
     } as unknown as AppServerClient;
-    const controller = createChatAppServerMetadataActions({
+    const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -205,7 +205,7 @@ describe("chat app-server controllers", () => {
     const client = {
       readAccountRateLimits: vi.fn().mockRejectedValue(new Error("offline")),
     } as unknown as AppServerClient;
-    const controller = createChatAppServerMetadataActions({
+    const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -227,18 +227,18 @@ describe("chat app-server controllers", () => {
     const client = {
       listMcpServerStatus,
     } as unknown as AppServerClient;
-    const metadata = createChatAppServerMetadataActions({
+    const metadata = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       publishAppServerMetadata: () => undefined,
     });
-    const controller = createChatAppServerDiagnosticsActions({
+    const controller = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       publishAppServerMetadata: () => undefined,
-      appServerMetadataSnapshot: () => metadata.appServerMetadataSnapshot(),
+      serverMetadataSnapshot: () => metadata.serverMetadataSnapshot(),
     });
 
     controller.recordMcpStartupStatus("github", "ready", null);

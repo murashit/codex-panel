@@ -23,14 +23,14 @@ function createController({ connected = false, client = {} as AppServerClient } 
     isConnected: () => Boolean(currentClient),
   };
   const refreshPublishedAppServerMetadata = vi.fn().mockResolvedValue(null);
-  const refreshPublishedCapabilityDiagnostics = vi.fn().mockResolvedValue(undefined);
+  const refreshPublishedDiagnosticProbes = vi.fn().mockResolvedValue(undefined);
   const refreshPublishedSkills = vi.fn().mockResolvedValue(undefined);
   const metadata = {
     refreshPublishedAppServerMetadata,
     refreshPublishedSkills,
   } satisfies ChatConnectionMetadataPort;
   const diagnostics = {
-    refreshPublishedCapabilityDiagnostics,
+    refreshPublishedDiagnosticProbes,
   } satisfies ChatConnectionDiagnosticsPort;
   const setClient = vi.fn((next: AppServerClient | null) => {
     currentClient = next;
@@ -61,7 +61,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
     controller: new ChatConnectionController(host),
     host,
     refreshPublishedAppServerMetadata,
-    refreshPublishedCapabilityDiagnostics,
+    refreshPublishedDiagnosticProbes,
     stateStore,
   };
 }
@@ -87,12 +87,12 @@ describe("ChatConnectionController", () => {
   });
 
   it("refreshes diagnostics after clearing deferred diagnostics", async () => {
-    const { controller, host, refreshPublishedCapabilityDiagnostics } = createController({ connected: true });
+    const { controller, host, refreshPublishedDiagnosticProbes } = createController({ connected: true });
 
     await controller.refreshDiagnostics();
 
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
-    expect(refreshPublishedCapabilityDiagnostics).toHaveBeenCalledOnce();
+    expect(refreshPublishedDiagnosticProbes).toHaveBeenCalledOnce();
     expect(host.render).toHaveBeenCalledOnce();
   });
 
