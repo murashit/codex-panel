@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
+import { runtimeConfigSnapshotFromAppServerConfig, type RuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
 import { createChatState } from "../../../src/features/chat/chat-state";
 import {
   activeComposerThreadName,
@@ -27,7 +28,7 @@ describe("chat view model", () => {
     state.threadList.listedThreads = [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")];
     state.turn.lifecycle = { kind: "running", turnId: "turn" };
     state.ui.toolbarPanel = "history";
-    state.connection.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.appServerDiagnostics = createAppServerDiagnostics();
 
     const model = toolbarViewModel({
@@ -54,7 +55,7 @@ describe("chat view model", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";
     state.runtime.selectedCollaborationMode = "plan";
-    state.connection.effectiveConfig = effectiveConfigFixture({
+    state.connection.runtimeConfig = runtimeConfigFixture({
       model: "gpt-5.5",
       model_reasoning_effort: "high",
       approvals_reviewer: "auto_review",
@@ -100,7 +101,7 @@ describe("chat view model", () => {
         role: "assistant",
       },
     ];
-    state.connection.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5" });
+    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5" });
 
     expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toMatchObject({
       fatal: null,
@@ -169,7 +170,7 @@ describe("chat view model", () => {
   it("builds slash-command status lines from chat state", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";
-    state.connection.effectiveConfig = effectiveConfigFixture({
+    state.connection.runtimeConfig = runtimeConfigFixture({
       model: "gpt-5.5",
       model_provider: "openai",
       model_reasoning_effort: "high",
@@ -181,7 +182,7 @@ describe("chat view model", () => {
     expect(statusSummaryLines({ activeThreadId: state.activeThread.id, snapshot })[1]).toBe("Thread: thread-1");
     expect(
       modelStatusLines({
-        effectiveConfig: state.connection.effectiveConfig,
+        runtimeConfig: state.connection.runtimeConfig,
         requestedModel: state.runtime.requestedModel,
         snapshot,
         collaborationModeLabel: "Default",
@@ -189,7 +190,7 @@ describe("chat view model", () => {
     ).toContain("Model: gpt-5.5");
     expect(
       modelStatusLines({
-        effectiveConfig: state.connection.effectiveConfig,
+        runtimeConfig: state.connection.runtimeConfig,
         requestedModel: state.runtime.requestedModel,
         snapshot,
         collaborationModeLabel: "Default",
@@ -197,7 +198,7 @@ describe("chat view model", () => {
     ).toContain("Mode: Default");
     expect(
       effortStatusLines({
-        effectiveConfig: state.connection.effectiveConfig,
+        runtimeConfig: state.connection.runtimeConfig,
         requestedReasoningEffort: state.runtime.requestedReasoningEffort,
         snapshot,
       }),
@@ -206,7 +207,7 @@ describe("chat view model", () => {
 
   it("builds runtime composer choices from immutable chat state snapshots", () => {
     const state = createChatState();
-    state.connection.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
     const selectedModels: (string | null)[] = [];
     const selectedEfforts: string[] = [];
@@ -250,17 +251,17 @@ describe("chat view model", () => {
   });
 });
 
-function effectiveConfigFixture(config: Record<string, unknown>): ConfigReadResponse {
-  return {
+function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {
+  return runtimeConfigSnapshotFromAppServerConfig({
     config: config as ConfigReadResponse["config"],
     origins: {},
     layers: null,
-  };
+  });
 }
 
 function runtimeSnapshotFixture(state: ChatState) {
   return runtimeSnapshotForChatSlices({
-    effectiveConfig: state.connection.effectiveConfig,
+    runtimeConfig: state.connection.runtimeConfig,
     activeThread: state.activeThread,
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,

@@ -2,7 +2,7 @@ import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } fro
 import { jsonPreview } from "../../../utils";
 import { sortedModelMetadata } from "../../../domain/catalog/metadata";
 import { defaultEffortForModelMetadata } from "../../../domain/catalog/metadata";
-import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
+import { runtimeConfigOrDefault, type RuntimeConfigProjection } from "./config";
 import {
   currentApprovalsReviewer,
   currentApprovalPolicy,
@@ -38,7 +38,7 @@ interface RateLimitSummaryRow {
   level: "ok" | "warn" | "danger";
 }
 
-export interface EffectiveConfigSection {
+export interface RuntimeConfigSection {
   title: string;
   rows: { key: string; value: string }[];
 }
@@ -48,7 +48,7 @@ const NOT_REPORTED_LABEL = "(not reported)";
 
 export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null {
   const usage = snapshot.tokenUsage;
-  const config = readRuntimeConfig(snapshot.effectiveConfig);
+  const config = runtimeConfigOrDefault(snapshot.runtimeConfig);
   const contextWindow = usage?.modelContextWindow ?? config.modelContextWindow;
   if (!usage) {
     if (!snapshot.activeThreadId) return null;
@@ -107,8 +107,8 @@ export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs = Date.now()):
   };
 }
 
-export function effectiveConfigSections(snapshot: RuntimeSnapshot, vaultPath: string): EffectiveConfigSection[] {
-  const config = readRuntimeConfig(snapshot.effectiveConfig);
+export function runtimeConfigSections(snapshot: RuntimeSnapshot, vaultPath: string): RuntimeConfigSection[] {
+  const config = runtimeConfigOrDefault(snapshot.runtimeConfig);
   return [
     {
       title: "Scope",

@@ -1,5 +1,5 @@
 import { applyThreadSettingsValue, appServerCollaborationMode, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
+import { runtimeConfigOrDefault, type RuntimeConfigProjection } from "./config";
 import {
   currentModel,
   currentReasoningEffort,
@@ -33,7 +33,7 @@ export function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot
 
 export function pendingThreadSettingsUpdate(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): PendingThreadSettingsUpdate {
   const update: ThreadSettingsUpdate = {};
   const collaborationModeSettings = requestedTurnCollaborationModeSettings(snapshot);

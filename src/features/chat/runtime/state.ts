@@ -1,6 +1,5 @@
-import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
-import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
-import { parseServiceTier, type ServiceTier, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
+import type { ActivePermissionProfile } from "../../../app-server/runtime-config";
+import { parseServiceTier, type ApprovalPolicy, type ServiceTier, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import type { CollaborationMode } from "./collaboration";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ApprovalsReviewer } from "./approvals";
@@ -17,7 +16,7 @@ export interface ChatRuntimeState {
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: CollaborationMode;
   activeServiceTier: ServiceTier | null;
-  activeApprovalPolicy: AskForApproval | null;
+  activeApprovalPolicy: ApprovalPolicy | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   activePermissionProfile: ActivePermissionProfile | null;
   requestedModel: PendingRuntimeSetting<string>;

@@ -1,4 +1,4 @@
-import { readRuntimeConfig } from "../../runtime/config";
+import { runtimeConfigOrDefault } from "../../runtime/config";
 import { autoReviewActive, currentModel, currentReasoningEffort, fastModeActive } from "../../runtime/effective-settings";
 import { compactReasoningEffortLabel } from "../../runtime/override-commands";
 import { contextSummary } from "../../runtime/status-summary";
@@ -24,7 +24,7 @@ export function composerMetaViewModel(state: ChatState, snapshot: ReturnType<typ
     };
   }
 
-  const config = readRuntimeConfig(state.connection.effectiveConfig);
+  const config = runtimeConfigOrDefault(state.connection.runtimeConfig);
   const context = contextSummary(snapshot);
   const model = currentModel(snapshot, config);
   const effort = currentReasoningEffort(snapshot, config);

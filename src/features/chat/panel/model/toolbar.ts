@@ -1,6 +1,6 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import { effectiveConfigSections, rateLimitSummary } from "../../runtime/status-summary";
+import { runtimeConfigSections, rateLimitSummary } from "../../runtime/status-summary";
 import { connectionDiagnosticSections } from "../../diagnostics";
 import type { ConnectionDiagnosticsModelInput, ToolbarThreadRow, ToolbarViewModel, ToolbarViewModelInput } from "./types";
 
@@ -16,7 +16,7 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
     historyOpen,
     statusPanelOpen,
     rateLimit: limit,
-    configSections: effectiveConfigSections(snapshot, input.vaultPath),
+    configSections: runtimeConfigSections(snapshot, input.vaultPath),
     openPanel: historyOpen ? "history" : chatActionsOpen ? "chat-actions" : statusPanelOpen ? "status" : null,
     threads: toolbarThreadRows({
       threads: state.threadList.listedThreads,

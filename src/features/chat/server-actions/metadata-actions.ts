@@ -1,5 +1,6 @@
 import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../../app-server/diagnostics";
 import { listModelMetadata, listSkillCatalog } from "../../../app-server/resource-operations";
+import { runtimeConfigSnapshotFromAppServerConfig } from "../../../app-server/runtime-config";
 import { rateLimitSnapshotFromAppServerSnapshot } from "../../../app-server/runtime-metrics";
 import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
 import type { ModelMetadata, SkillMetadata } from "../../../domain/catalog/metadata";
@@ -57,7 +58,7 @@ export function createChatServerMetadataActions(host: ChatServerMetadataActionsH
 function serverMetadataSnapshot(host: ChatServerMetadataActionsHost): SharedAppServerMetadata {
   const state = host.stateStore.getState();
   return {
-    effectiveConfig: state.connection.effectiveConfig,
+    runtimeConfig: state.connection.runtimeConfig,
     availableModels: state.connection.availableModels,
     availableSkills: state.connection.availableSkills,
     rateLimit: state.connection.rateLimit,
@@ -68,7 +69,7 @@ function serverMetadataSnapshot(host: ChatServerMetadataActionsHost): SharedAppS
 function applyAppServerMetadata(host: ChatServerMetadataActionsHost, metadata: SharedAppServerMetadata): void {
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
-    effectiveConfig: metadata.effectiveConfig,
+    runtimeConfig: metadata.runtimeConfig,
     availableModels: metadata.availableModels,
     availableSkills: metadata.availableSkills,
     rateLimit: metadata.rateLimit,
@@ -79,14 +80,14 @@ function applyAppServerMetadata(host: ChatServerMetadataActionsHost, metadata: S
 async function loadAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedAppServerMetadata | null> {
   const client = host.currentClient();
   if (!client) return null;
-  const effectiveConfig = await client.readEffectiveConfig(host.vaultPath);
+  const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await client.readEffectiveConfig(host.vaultPath));
   const [models, skills, rateLimit] = await Promise.all([loadModels(host), loadSkills(host), loadRateLimit(host)]);
   const diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
   diagnostics.probes["model/list"] = models.probe;
   diagnostics.probes["skills/list"] = skills.probe;
   diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
   return {
-    effectiveConfig,
+    runtimeConfig,
     availableModels: models.data,
     availableSkills: skills.data,
     rateLimit: rateLimit.data,

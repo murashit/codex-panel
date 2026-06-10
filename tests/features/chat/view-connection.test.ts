@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/chat-host";
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
+import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
 import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
 import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
 import { composerSlotSnapshot } from "../../../src/features/chat/panel/snapshot";
@@ -174,7 +175,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(publishAppServerMetadata).toHaveBeenCalledWith(
       expect.objectContaining({
-        effectiveConfig: {},
+        runtimeConfig: expect.any(Object),
         availableModels: [],
         availableSkills: [],
       }),
@@ -405,7 +406,7 @@ describe("CodexChatView connection lifecycle", () => {
         cachedAppServerMetadata: vi.fn(
           () =>
             ({
-              effectiveConfig: { config: { model: "gpt-cached" }, origins: {}, layers: [] },
+              runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-cached" },
               availableModels: [],
               availableSkills: [{ name: "writer", enabled: true }],
               rateLimit: null,
@@ -421,12 +422,12 @@ describe("CodexChatView connection lifecycle", () => {
       view as unknown as {
         state: {
           threadList: { listedThreads: unknown[] };
-          connection: { effectiveConfig: unknown; availableModels: unknown[]; availableSkills: unknown[] };
+          connection: { runtimeConfig: unknown; availableModels: unknown[]; availableSkills: unknown[] };
         };
       }
     ).state;
     expect(state.threadList.listedThreads).toEqual([cachedThread]);
-    expect(state.connection.effectiveConfig).toEqual({ config: { model: "gpt-cached" }, origins: {}, layers: [] });
+    expect(state.connection.runtimeConfig).toEqual({ ...emptyRuntimeConfigSnapshot(), model: "gpt-cached" });
     expect(state.connection.availableModels).toEqual([]);
     expect(state.connection.availableSkills).toEqual([{ name: "writer", enabled: true }]);
   });
@@ -434,13 +435,13 @@ describe("CodexChatView connection lifecycle", () => {
   it("tracks composer slot dependencies for model and skill suggestions", async () => {
     await chatView();
     const state = createChatState();
-    state.connection.effectiveConfig = effectiveConfig("gpt-configured");
+    state.connection.runtimeConfig = runtimeConfig("gpt-configured");
     state.connection.availableSkills = [skillFixture("writer")];
 
     const base = composerSlotSnapshot(state, null);
 
     expect(
-      composerSlotSnapshot({ ...state, connection: { ...state.connection, effectiveConfig: effectiveConfig("gpt-updated") } }, null),
+      composerSlotSnapshot({ ...state, connection: { ...state.connection, runtimeConfig: runtimeConfig("gpt-updated") } }, null),
     ).not.toBe(base);
     expect(
       composerSlotSnapshot({ ...state, runtime: { ...state.runtime, requestedModel: { kind: "set", value: "gpt-requested" } } }, null),
@@ -1094,8 +1095,8 @@ function threadFixture(threadId: string): Thread {
   };
 }
 
-function effectiveConfig(model: string): ChatState["connection"]["effectiveConfig"] {
-  return { config: { model }, origins: {}, layers: [] } as never;
+function runtimeConfig(model: string): ChatState["connection"]["runtimeConfig"] {
+  return { ...emptyRuntimeConfigSnapshot(), model };
 }
 
 function skillFixture(name: string): ChatState["connection"]["availableSkills"][number] {

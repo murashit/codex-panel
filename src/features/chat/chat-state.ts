@@ -1,12 +1,12 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { Thread } from "../../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadSettingsUpdate } from "../../app-server/thread-settings";
 import type { Diagnostics } from "../../app-server/diagnostics";
 import { createAppServerDiagnostics } from "../../app-server/diagnostics";
+import type { RuntimeConfigSnapshot } from "../../app-server/runtime-config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../app-server/runtime-metrics";
 import type { ApprovalsReviewer } from "./runtime/approvals";
 import type { CollaborationMode } from "./runtime/collaboration";
@@ -68,7 +68,7 @@ export type { ChatTranscriptState } from "./transcript-state";
 
 interface ChatConnectionState {
   status: string;
-  effectiveConfig: ConfigReadResponse | null;
+  runtimeConfig: RuntimeConfigSnapshot | null;
   initializeResponse: InitializeResponse | null;
   rateLimit: RateLimitSnapshot | null;
   appServerDiagnostics: Diagnostics;
@@ -125,7 +125,7 @@ type ConnectionAction =
   | ConnectionInitializedAction
   | {
       type: "connection/metadata-applied";
-      effectiveConfig?: ConfigReadResponse | null;
+      runtimeConfig?: RuntimeConfigSnapshot | null;
       availableModels?: readonly ModelMetadata[];
       availableSkills?: readonly SkillMetadata[];
       rateLimit?: RateLimitSnapshot | null;
@@ -512,7 +512,7 @@ function reduceConnectionSlice(state: ChatConnectionState, action: ChatSliceActi
       return patchObject(state, { initializeResponse: action.initializeResponse });
     case "connection/metadata-applied":
       return patchObject(state, {
-        ...definedPatch("effectiveConfig", action.effectiveConfig),
+        ...definedPatch("runtimeConfig", action.runtimeConfig),
         ...definedPatch("availableModels", action.availableModels),
         ...definedPatch("availableSkills", action.availableSkills),
         ...definedPatch("rateLimit", action.rateLimit),
@@ -643,7 +643,7 @@ function clearDisconnectedConnectionState(state: ChatState): ChatState {
 function initialConnectionState(): ChatConnectionState {
   return {
     status: "Idle",
-    effectiveConfig: null,
+    runtimeConfig: null,
     initializeResponse: null,
     appServerDiagnostics: createAppServerDiagnostics(),
     rateLimit: null,

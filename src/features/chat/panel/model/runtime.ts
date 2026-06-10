@@ -1,4 +1,4 @@
-import { readRuntimeConfig } from "../../runtime/config";
+import { runtimeConfigOrDefault } from "../../runtime/config";
 import {
   currentModel,
   currentReasoningEffort,
@@ -19,7 +19,7 @@ import type {
 
 export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput) {
   return {
-    effectiveConfig: input.effectiveConfig,
+    runtimeConfig: input.runtimeConfig,
     activeThreadId: input.activeThread.id,
     activeModel: input.runtime.activeModel,
     activeReasoningEffort: input.runtime.activeReasoningEffort,
@@ -44,7 +44,7 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   modelChoices: RuntimeChoice[];
   effortChoices: RuntimeChoice[];
 } {
-  const config = readRuntimeConfig(input.state.connection.effectiveConfig);
+  const config = runtimeConfigOrDefault(input.state.connection.runtimeConfig);
   const activeModel = currentModel(input.snapshot, config);
   const models = sortedModelMetadata(input.state.connection.availableModels);
   const modelChoices: RuntimeChoice[] = models.slice(0, 12).map((model) => ({
@@ -86,7 +86,7 @@ export function statusSummaryLines(input: StatusSummaryLinesInput): string[] {
 }
 
 export function modelStatusLines(input: ModelStatusLinesInput): string[] {
-  const config = readRuntimeConfig(input.effectiveConfig);
+  const config = runtimeConfigOrDefault(input.runtimeConfig);
   return [
     `Model: ${currentModel(input.snapshot, config) ?? "(Codex default)"}`,
     `Override: ${pendingRuntimeSettingLabel(input.requestedModel)}`,
@@ -98,7 +98,7 @@ export function modelStatusLines(input: ModelStatusLinesInput): string[] {
 }
 
 export function effortStatusLines(input: EffortStatusLinesInput): string[] {
-  const config = readRuntimeConfig(input.effectiveConfig);
+  const config = runtimeConfigOrDefault(input.runtimeConfig);
   return [
     `Effort: ${currentReasoningEffort(input.snapshot, config) ?? "(Codex default)"}`,
     `Override: ${pendingRuntimeSettingLabel(input.requestedReasoningEffort)}`,

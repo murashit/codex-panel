@@ -1,6 +1,4 @@
-import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
-import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
-import type { ConfigReadResponse } from "../../../generated/app-server/v2/ConfigReadResponse";
+import type { ActivePermissionProfile, RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
 import { findModelMetadataByIdOrName, type ModelMetadata } from "../../../domain/catalog/metadata";
 import {
@@ -9,9 +7,10 @@ import {
   serviceTierRequestValue,
   type ServiceTier,
   type ServiceTierRequest,
+  type ApprovalPolicy,
 } from "../../../app-server/thread-settings";
 import { supportedEffortsForModelMetadata, type ReasoningEffort } from "../../../domain/catalog/metadata";
-import { readRuntimeConfig, type RuntimeConfigProjection } from "./config";
+import { runtimeConfigOrDefault, type RuntimeConfigProjection } from "./config";
 import type { CollaborationMode } from "./collaboration";
 import { isAutoReviewReviewer, type ApprovalsReviewer } from "./approvals";
 import { isFastServiceTier, type RequestedServiceTier } from "./service-tier-state";
@@ -19,13 +18,13 @@ import { isFastServiceTier, type RequestedServiceTier } from "./service-tier-sta
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
 
 export interface RuntimeSnapshot {
-  effectiveConfig: ConfigReadResponse | null;
+  runtimeConfig: RuntimeConfigSnapshot | null;
   activeThreadId: string | null;
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: CollaborationMode;
   activeServiceTier: ServiceTier | null;
-  activeApprovalPolicy: AskForApproval | null;
+  activeApprovalPolicy: ApprovalPolicy | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
   activePermissionProfile: ActivePermissionProfile | null;
   requestedModel: PendingRuntimeSetting<string>;
@@ -41,7 +40,7 @@ export interface RuntimeSnapshot {
 
 export function currentServiceTier(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): string | null {
   if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "fast") return "fast";
   if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off") return null;
@@ -51,7 +50,7 @@ export function currentServiceTier(
 
 export function requestedOrConfiguredServiceTier(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): ServiceTierRequest {
   if (snapshot.requestedServiceTier.kind === "set") {
     return snapshot.requestedServiceTier.value === "fast"
@@ -66,7 +65,7 @@ export function requestedOrConfiguredServiceTier(
 
 export function currentModel(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): string | null {
   const configModel = config.model;
   if (snapshot.requestedModel.kind === "set") return snapshot.requestedModel.value;
@@ -76,7 +75,7 @@ export function currentModel(
 
 export function currentReasoningEffort(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): ReasoningEffort | null {
   if (snapshot.requestedReasoningEffort.kind === "set") return snapshot.requestedReasoningEffort.value;
   if (snapshot.requestedReasoningEffort.kind === "resetToConfig") return config.reasoningEffort;
@@ -85,7 +84,7 @@ export function currentReasoningEffort(
 
 export function currentApprovalsReviewer(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): ApprovalsReviewer | null {
   if (snapshot.requestedApprovalsReviewer.kind === "set") return snapshot.requestedApprovalsReviewer.value;
   if (snapshot.requestedApprovalsReviewer.kind === "resetToConfig") return config.approvalsReviewer;
@@ -94,14 +93,14 @@ export function currentApprovalsReviewer(
 
 export function currentApprovalPolicy(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
-): AskForApproval | null {
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
+): ApprovalPolicy | null {
   return snapshot.activeApprovalPolicy ?? config.approvalPolicy;
 }
 
 export function autoReviewActive(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): boolean {
   return isAutoReviewReviewer(currentApprovalsReviewer(snapshot, config));
 }
@@ -113,21 +112,21 @@ export function supportedReasoningEfforts(snapshot: RuntimeSnapshot): ReasoningE
 
 export function serviceTierLabel(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): string {
   return currentServiceTier(snapshot, config) ?? "(Codex default)";
 }
 
 export function fastModeActive(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): boolean {
   return isFastServiceTier(currentServiceTier(snapshot, config), currentModelServiceTiers(snapshot, config));
 }
 
 export function fastModeLabel(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): string {
   if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off") return "off";
   if (fastModeActive(snapshot, config)) return "on";
@@ -137,7 +136,7 @@ export function fastModeLabel(
 
 export function fastServiceTierRequestValue(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): string {
   return currentModelServiceTiers(snapshot, config).find((tier) => tier.name.trim().toLowerCase() === "fast")?.id ?? "fast";
 }
@@ -168,7 +167,7 @@ export function pendingRuntimeSettingLabel<T>(setting: PendingRuntimeSetting<T>)
 
 function currentModelServiceTiers(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = readRuntimeConfig(snapshot.effectiveConfig),
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): ModelMetadata["serviceTiers"] {
   return findModelMetadataByIdOrName(snapshot.availableModels, currentModel(snapshot, config))?.serviceTiers ?? [];
 }

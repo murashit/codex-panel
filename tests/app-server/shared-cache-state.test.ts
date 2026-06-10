@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createAppServerDiagnostics } from "../../src/app-server/diagnostics";
+import { emptyRuntimeConfigSnapshot } from "../../src/app-server/runtime-config";
 import {
   applySharedAppServerMetadata,
   applySharedModels,
@@ -35,7 +36,7 @@ describe("shared app-server cache state", () => {
     expect(cachedSharedModels(modelState)[0]?.supportedReasoningEfforts).toEqual([]);
 
     const metadataState = applySharedAppServerMetadata(createSharedAppServerState(), {
-      effectiveConfig: null,
+      runtimeConfig: emptyRuntimeConfigSnapshot(),
       availableModels: sourceModels,
       availableSkills: [{ name: "skill", description: "", path: "/tmp/skill", enabled: true }],
       rateLimit: null,

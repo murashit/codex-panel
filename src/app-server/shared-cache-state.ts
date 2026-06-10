@@ -1,11 +1,11 @@
 import type { Diagnostics } from "./diagnostics";
-import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { RateLimitSnapshot } from "./runtime-metrics";
+import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "./runtime-config";
 import type { Thread } from "../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
 
 export interface SharedAppServerMetadata {
-  effectiveConfig: ConfigReadResponse | null;
+  runtimeConfig: RuntimeConfigSnapshot | null;
   availableModels: readonly ModelMetadata[];
   availableSkills: readonly SkillMetadata[];
   rateLimit: RateLimitSnapshot | null;
@@ -72,6 +72,7 @@ export function cachedSharedModels(state: SharedAppServerState): ModelMetadata[]
 function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): SharedAppServerMetadata {
   return {
     ...metadata,
+    runtimeConfig: metadata.runtimeConfig ? cloneRuntimeConfigSnapshot(metadata.runtimeConfig) : null,
     availableModels: cloneModelMetadata(metadata.availableModels),
     availableSkills: cloneSkillMetadata(metadata.availableSkills),
     appServerDiagnostics: {

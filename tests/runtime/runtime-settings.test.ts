@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { runtimeConfigSnapshotFromAppServerConfig, type RuntimeConfigSnapshot } from "../../src/app-server/runtime-config";
 import type { ConfigReadResponse } from "../../src/generated/app-server/v2/ConfigReadResponse";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import {
@@ -27,8 +28,8 @@ import {
   type RuntimeSnapshot,
 } from "../../src/features/chat/runtime/effective-settings";
 import { requestedTurnCollaborationModeSettings } from "../../src/features/chat/runtime/turn-settings";
-import { readRuntimeConfig } from "../../src/features/chat/runtime/config";
-import { contextSummary, effectiveConfigSections, rateLimitSummary } from "../../src/features/chat/runtime/status-summary";
+import { runtimeConfigOrDefault } from "../../src/features/chat/runtime/config";
+import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/runtime/status-summary";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {
@@ -117,7 +118,7 @@ describe("runtime settings", () => {
         runtimeSnapshot({
           requestedApprovalsReviewer: setPendingRuntimeSetting("user"),
           activeApprovalsReviewer: "auto_review",
-          effectiveConfig: effectiveConfigFixture({ approvals_reviewer: "guardian_subagent" }),
+          runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
         }),
       ),
     ).toBe("user");
@@ -125,14 +126,14 @@ describe("runtime settings", () => {
       currentApprovalsReviewer(
         runtimeSnapshot({
           activeApprovalsReviewer: "auto_review",
-          effectiveConfig: effectiveConfigFixture({ approvals_reviewer: "guardian_subagent" }),
+          runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
         }),
       ),
     ).toBe("auto_review");
     expect(
       currentApprovalsReviewer(
         runtimeSnapshot({
-          effectiveConfig: effectiveConfigFixture({ approvals_reviewer: "guardian_subagent" }),
+          runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
         }),
       ),
     ).toBe("guardian_subagent");
@@ -141,7 +142,7 @@ describe("runtime settings", () => {
   it("uses the active reviewer before configured reviewer", () => {
     const snapshot = runtimeSnapshot({
       activeApprovalsReviewer: "user",
-      effectiveConfig: effectiveConfigFixture({ approvals_reviewer: "auto_review" }),
+      runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
     });
 
     expect(currentApprovalsReviewer(snapshot)).toBe("user");
@@ -161,7 +162,7 @@ describe("runtime settings", () => {
     const snapshot = runtimeSnapshot({
       requestedApprovalsReviewer: setPendingRuntimeSetting("user"),
       activeApprovalsReviewer: "user",
-      effectiveConfig: effectiveConfigFixture({ approvals_reviewer: "auto_review" }),
+      runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
     });
 
     expect(currentApprovalsReviewer(snapshot)).toBe("user");
@@ -169,22 +170,22 @@ describe("runtime settings", () => {
   });
 
   it("uses effective approval reviewer values and reports selected profile metadata", () => {
-    const effectiveConfig = effectiveConfigFixture({ approvals_reviewer: "auto_review" }, [
+    const runtimeConfig = runtimeConfigFixture({ approvals_reviewer: "auto_review" }, [
       configLayer({}, null),
       configLayer({ approvals_reviewer: "auto_review" }, "auto"),
     ]);
     const snapshot = runtimeSnapshot({
-      effectiveConfig,
+      runtimeConfig,
     });
 
-    expect(readRuntimeConfig(effectiveConfig).profile).toBe("auto");
+    expect(runtimeConfigOrDefault(runtimeConfig).profile).toBe("auto");
     expect(currentApprovalsReviewer(snapshot)).toBe("auto_review");
     expect(autoReviewActive(snapshot)).toBe(true);
   });
 
   it("uses effective model, effort, and fast mode config values", () => {
     const snapshot = runtimeSnapshot({
-      effectiveConfig: effectiveConfigFixture(
+      runtimeConfig: runtimeConfigFixture(
         {
           model: "gpt-profile",
           model_reasoning_effort: "high",
@@ -208,7 +209,7 @@ describe("runtime settings", () => {
   it("uses active service tier before configured service tier", () => {
     const snapshot = runtimeSnapshot({
       activeServiceTier: "flex",
-      effectiveConfig: effectiveConfigFixture({ service_tier: "fast" }),
+      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
     });
 
     expect(currentServiceTier(snapshot)).toBe("flex");
@@ -222,7 +223,7 @@ describe("runtime settings", () => {
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5.5",
       activeServiceTier: "priority",
-      effectiveConfig: effectiveConfigFixture({ model: "gpt-5.5" }),
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
 
@@ -239,7 +240,7 @@ describe("runtime settings", () => {
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5.5",
       activeServiceTier: "default",
-      effectiveConfig: effectiveConfigFixture({ model: "gpt-5.5" }),
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
 
@@ -253,7 +254,7 @@ describe("runtime settings", () => {
     const snapshot = runtimeSnapshot({
       requestedServiceTier: setPendingRuntimeSetting("off"),
       activeServiceTier: "flex",
-      effectiveConfig: effectiveConfigFixture({ service_tier: "fast" }),
+      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
     });
 
     expect(currentServiceTier(snapshot)).toBeNull();
@@ -272,7 +273,7 @@ describe("runtime settings", () => {
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5-active",
       activeServiceTier: "fast",
-      effectiveConfig: effectiveConfigFixture({}),
+      runtimeConfig: runtimeConfigFixture({}),
     });
 
     expect(currentModel(snapshot)).toBe("gpt-5-active");
@@ -288,7 +289,7 @@ describe("runtime settings", () => {
   });
 
   it("separates effective runtime, config defaults, and pending changes in status details", () => {
-    const sections = effectiveConfigSections(
+    const sections = runtimeConfigSections(
       runtimeSnapshot({
         activeModel: "gpt-5-active",
         activeReasoningEffort: "low",
@@ -318,7 +319,7 @@ describe("runtime settings", () => {
       "requested service tier": "(none)",
     });
 
-    const resetSections = effectiveConfigSections(
+    const resetSections = runtimeConfigSections(
       runtimeSnapshot({
         requestedReasoningEffort: resetRuntimeSettingToConfig(),
       }),
@@ -331,9 +332,9 @@ describe("runtime settings", () => {
   });
 
   it("labels unset config values as Codex defaults when no concrete value is reported", () => {
-    const sections = effectiveConfigSections(
+    const sections = runtimeConfigSections(
       runtimeSnapshot({
-        effectiveConfig: effectiveConfigFixture({}),
+        runtimeConfig: runtimeConfigFixture({}),
       }),
       "/vault",
     );
@@ -371,9 +372,9 @@ describe("runtime settings", () => {
 
   it("does not treat unknown catalog default reasoning efforts as runtime settings", () => {
     const model = { ...modelFixture("gpt-catalog-default"), isDefault: true, defaultReasoningEffort: "extreme" };
-    const sections = effectiveConfigSections(
+    const sections = runtimeConfigSections(
       runtimeSnapshot({
-        effectiveConfig: effectiveConfigFixture({}),
+        runtimeConfig: runtimeConfigFixture({}),
         availableModels: [model],
       }),
       "/vault",
@@ -398,9 +399,9 @@ describe("runtime settings", () => {
       web_search: "live",
       service_tier: "fast",
     };
-    const sections = effectiveConfigSections(
+    const sections = runtimeConfigSections(
       runtimeSnapshot({
-        effectiveConfig: effectiveConfigFixture(profileConfig, [configLayer({}, null), configLayer(profileConfig, "auto")]),
+        runtimeConfig: runtimeConfigFixture(profileConfig, [configLayer({}, null), configLayer(profileConfig, "auto")]),
       }),
       "/vault",
     );
@@ -446,12 +447,12 @@ describe("runtime settings", () => {
   });
 
   it("shows active and configured reviewer inputs in status details", () => {
-    const sections = effectiveConfigSections(
+    const sections = runtimeConfigSections(
       runtimeSnapshot({
         activeApprovalsReviewer: "guardian_subagent",
         activeApprovalPolicy: "never",
         activePermissionProfile: { id: ":workspace", extends: ":default" },
-        effectiveConfig: effectiveConfigFixture({ approvals_reviewer: "auto_review" }),
+        runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
       }),
       "/vault",
     );
@@ -510,7 +511,7 @@ describe("runtime settings", () => {
 
   it("serializes explicit fast off as a null service tier request", () => {
     const snapshot = runtimeSnapshot({
-      effectiveConfig: effectiveConfigFixture({ service_tier: "fast" }),
+      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
       requestedServiceTier: setPendingRuntimeSetting("off"),
     });
 
@@ -524,7 +525,7 @@ describe("runtime settings", () => {
     model.serviceTiers = [{ id: "priority", name: "Fast" }];
     const snapshot = runtimeSnapshot({
       requestedServiceTier: setPendingRuntimeSetting("fast"),
-      effectiveConfig: effectiveConfigFixture({ model: "gpt-5.5" }),
+      runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
 
@@ -533,11 +534,11 @@ describe("runtime settings", () => {
   });
 
   it("omits service tier when neither config nor override selects one", () => {
-    expect(requestedOrConfiguredServiceTier(runtimeSnapshot({ effectiveConfig: effectiveConfigFixture({}) }))).toBeUndefined();
+    expect(requestedOrConfiguredServiceTier(runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({}) }))).toBeUndefined();
   });
 
   it("passes through configured non-fast service tier ids", () => {
-    const snapshot = runtimeSnapshot({ effectiveConfig: effectiveConfigFixture({ service_tier: "flex" }) });
+    const snapshot = runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({ service_tier: "flex" }) });
 
     expect(serviceTierLabel(snapshot)).toBe("flex");
     expect(fastModeLabel(snapshot)).toBe("off");
@@ -644,7 +645,7 @@ describe("runtime settings", () => {
 
 function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnapshot {
   return {
-    effectiveConfig: effectiveConfigFixture({
+    runtimeConfig: runtimeConfigFixture({
       model: "gpt-5.5",
       model_reasoning_effort: "high",
       service_tier: "flex",
@@ -671,12 +672,12 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
   };
 }
 
-function effectiveConfigFixture(config: Record<string, unknown>, layers: ConfigReadResponse["layers"] = null): ConfigReadResponse {
-  return {
+function runtimeConfigFixture(config: Record<string, unknown>, layers: ConfigReadResponse["layers"] = null): RuntimeConfigSnapshot {
+  return runtimeConfigSnapshotFromAppServerConfig({
     config: config as ConfigReadResponse["config"],
     origins: {},
     layers,
-  };
+  });
 }
 
 function configLayer(config: Record<string, unknown>, profile: string | null): NonNullable<ConfigReadResponse["layers"]>[number] {

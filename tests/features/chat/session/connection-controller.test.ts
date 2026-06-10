@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/client";
+import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/runtime-config";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import {
   ChatConnectionController,
@@ -99,7 +100,7 @@ describe("ChatConnectionController", () => {
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {
     const { controller, host, stateStore } = createController({ connected: true });
     const initializeResponse = { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" } as const;
-    const effectiveConfig = { config: { model: "gpt-5.1" }, layers: [] } as never;
+    const runtimeConfig = { ...emptyRuntimeConfigSnapshot(), model: "gpt-5.1" };
     stateStore.dispatch({ type: "connection/initialized", initializeResponse });
     stateStore.dispatch({
       type: "thread-list/applied",
@@ -110,7 +111,7 @@ describe("ChatConnectionController", () => {
       type: "connection/metadata-applied",
       availableModels: [{ id: "model-1" } as never],
       availableSkills: [{ name: "skill-1" } as never],
-      effectiveConfig,
+      runtimeConfig,
     });
 
     controller.handleExit();
@@ -129,7 +130,7 @@ describe("ChatConnectionController", () => {
       connection: {
         availableModels: [],
         availableSkills: [],
-        effectiveConfig,
+        runtimeConfig,
         initializeResponse,
       },
     });

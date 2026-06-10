@@ -3,7 +3,7 @@ import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { autoReviewReviewerForState, autoReviewToggleMessage, nextAutoReviewState } from "./approvals";
 import type { CollaborationMode } from "./collaboration";
 import { collaborationModeToggleMessage, nextCollaborationMode } from "./collaboration";
-import { readRuntimeConfig } from "./config";
+import { runtimeConfigOrDefault } from "./config";
 import { autoReviewActive, fastModeActive, type RuntimeSnapshot } from "./effective-settings";
 import { pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate, type TurnCollaborationModeWarning } from "./turn-settings";
 import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
@@ -106,7 +106,7 @@ async function setRequestedReasoningEffortFromUi(host: RuntimeSettingsActionsHos
 
 async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {
   const snapshot = host.runtimeSnapshot();
-  const config = readRuntimeConfig(state(host).connection.effectiveConfig);
+  const config = runtimeConfigOrDefault(state(host).connection.runtimeConfig);
   const next: RequestedServiceTier = fastModeActive(snapshot, config) ? "off" : "fast";
   dispatch(host, { type: "runtime/requested-service-tier-set", serviceTier: next });
   dispatch(host, { type: "ui/panel-set", panel: null });
@@ -129,7 +129,7 @@ async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborat
 
 async function toggleAutoReview(host: RuntimeSettingsActionsHost): Promise<void> {
   const nextState = nextAutoReviewState(
-    autoReviewActive(host.runtimeSnapshot(), readRuntimeConfig(state(host).connection.effectiveConfig)),
+    autoReviewActive(host.runtimeSnapshot(), runtimeConfigOrDefault(state(host).connection.runtimeConfig)),
   );
   dispatch(host, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: autoReviewReviewerForState(nextState) });
   dispatch(host, { type: "ui/panel-set", panel: null });

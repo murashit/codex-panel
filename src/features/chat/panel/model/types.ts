@@ -1,10 +1,10 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../runtime/effective-settings";
-import type { EffectiveConfigSection, RateLimitSummary } from "../../runtime/status-summary";
+import type { RuntimeConfigSection, RateLimitSummary } from "../../runtime/status-summary";
 import type { ChatState } from "../../chat-state";
 
 export interface RuntimeSnapshotInput {
-  effectiveConfig: ChatState["connection"]["effectiveConfig"];
+  runtimeConfig: ChatState["connection"]["runtimeConfig"];
   activeThread: Pick<ChatState["activeThread"], "id" | "tokenUsage">;
   runtime: ChatState["runtime"];
   rateLimit: ChatState["connection"]["rateLimit"];
@@ -73,7 +73,7 @@ export interface ToolbarViewModel {
   historyOpen: boolean;
   statusPanelOpen: boolean;
   rateLimit: RateLimitSummary | null;
-  configSections: EffectiveConfigSection[];
+  configSections: RuntimeConfigSection[];
   openPanel: "history" | "chat-actions" | "status" | null;
   threads: ToolbarThreadRow[];
   connectLabel: string;
@@ -111,14 +111,14 @@ export interface StatusSummaryLinesInput {
 }
 
 export interface ModelStatusLinesInput {
-  effectiveConfig: ChatState["connection"]["effectiveConfig"];
+  runtimeConfig: ChatState["connection"]["runtimeConfig"];
   requestedModel: ChatState["runtime"]["requestedModel"];
   snapshot: RuntimeSnapshot;
   collaborationModeLabel: string;
 }
 
 export interface EffortStatusLinesInput {
-  effectiveConfig: ChatState["connection"]["effectiveConfig"];
+  runtimeConfig: ChatState["connection"]["runtimeConfig"];
   requestedReasoningEffort: ChatState["runtime"]["requestedReasoningEffort"];
   snapshot: RuntimeSnapshot;
 }

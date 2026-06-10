@@ -608,7 +608,7 @@ export class CodexChatView extends ItemView {
 
   private modelStatusLines(): string[] {
     return buildModelStatusLines({
-      effectiveConfig: this.state.connection.effectiveConfig,
+      runtimeConfig: this.state.connection.runtimeConfig,
       requestedModel: this.state.runtime.requestedModel,
       snapshot: this.runtimeSnapshot(),
       collaborationModeLabel: this.collaborationModeLabel(),
@@ -617,7 +617,7 @@ export class CodexChatView extends ItemView {
 
   private effortStatusLines(): string[] {
     return buildEffortStatusLines({
-      effectiveConfig: this.state.connection.effectiveConfig,
+      runtimeConfig: this.state.connection.runtimeConfig,
       requestedReasoningEffort: this.state.runtime.requestedReasoningEffort,
       snapshot: this.runtimeSnapshot(),
     });
@@ -648,7 +648,7 @@ export class CodexChatView extends ItemView {
 
   private runtimeSnapshotForState(state: ChatState): RuntimeSnapshot {
     return runtimeSnapshotForChatSlices({
-      effectiveConfig: state.connection.effectiveConfig,
+      runtimeConfig: state.connection.runtimeConfig,
       activeThread: state.activeThread,
       runtime: state.runtime,
       rateLimit: state.connection.rateLimit,

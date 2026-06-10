@@ -130,7 +130,7 @@ function clientFixture(
 
 function runtimeSnapshotFixture(state: ChatState) {
   return runtimeSnapshotForChatSlices({
-    effectiveConfig: state.connection.effectiveConfig,
+    runtimeConfig: state.connection.runtimeConfig,
     activeThread: state.activeThread,
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,

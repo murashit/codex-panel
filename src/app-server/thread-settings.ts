@@ -3,16 +3,29 @@ import type { ModeKind } from "../generated/app-server/ModeKind";
 import type { Personality } from "../generated/app-server/Personality";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ReasoningSummary } from "../generated/app-server/ReasoningSummary";
-import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
 import type { SandboxPolicy } from "../generated/app-server/v2/SandboxPolicy";
 
 export type ApprovalsReviewer = "user" | "auto_review" | "guardian_subagent";
+export type ApprovalPolicy =
+  | "untrusted"
+  | "on-failure"
+  | "on-request"
+  | {
+      granular: {
+        sandbox_approval: boolean;
+        rules: boolean;
+        skill_approval: boolean;
+        request_permissions: boolean;
+        mcp_elicitations: boolean;
+      };
+    }
+  | "never";
 export type ServiceTier = string;
 export type ServiceTierRequest = string | null | undefined;
 
 export interface ThreadSettingsUpdate {
   cwd?: string | null;
-  approvalPolicy?: AskForApproval | null;
+  approvalPolicy?: ApprovalPolicy | null;
   approvalsReviewer?: ApprovalsReviewer | null;
   sandboxPolicy?: SandboxPolicy | null;
   permissions?: string | null;

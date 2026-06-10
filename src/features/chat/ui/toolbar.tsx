@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, TargetedKeyboardEvent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import type { EffectiveConfigSection, RateLimitSummary } from "../runtime/status-summary";
+import type { RuntimeConfigSection, RateLimitSummary } from "../runtime/status-summary";
 import { IconButton } from "../../../shared/ui/components";
 import { renderUiRoot } from "../../../shared/ui/ui-root";
 import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/model/types";
@@ -139,7 +139,7 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
       </div>
       <RateLimitPanel rateLimit={model.rateLimit} />
       <ConnectionDiagnostics sections={model.diagnostics} />
-      <EffectiveConfigPanel sections={model.configSections} />
+      <RuntimeConfigPanel sections={model.configSections} />
     </>
   );
 }
@@ -208,7 +208,7 @@ function DiagnosticSection({ section }: { section: ToolbarDiagnosticSection }): 
   );
 }
 
-function EffectiveConfigPanel({ sections }: { sections: EffectiveConfigSection[] }): UiNode {
+function RuntimeConfigPanel({ sections }: { sections: RuntimeConfigSection[] }): UiNode {
   return (
     <div className="codex-panel__config">
       <div className="codex-panel__config-title">Effective Codex config</div>
@@ -221,7 +221,7 @@ function EffectiveConfigPanel({ sections }: { sections: EffectiveConfigSection[]
   );
 }
 
-function FragmentedConfigSection({ section }: { section: EffectiveConfigSection }): UiNode {
+function FragmentedConfigSection({ section }: { section: RuntimeConfigSection }): UiNode {
   return (
     <>
       <div className="codex-panel__config-section">{section.title}</div>

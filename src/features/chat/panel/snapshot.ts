@@ -1,6 +1,6 @@
 import type { Thread } from "../../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
-import { readRuntimeConfig } from "../runtime/config";
+import { runtimeConfigOrDefault } from "../runtime/config";
 import { currentModel } from "../runtime/effective-settings";
 import { activeTurnId, chatTurnBusy, type ChatState } from "../chat-state";
 import type { DisplayItem } from "../display/types";
@@ -41,7 +41,7 @@ export function toolbarSlotSnapshot(state: ChatState, connected: boolean): ChatP
     state.threadList.threadsLoaded,
     threadListSignature(state.threadList.listedThreads),
     modelsSignature(state.connection.availableModels),
-    state.connection.effectiveConfig,
+    state.connection.runtimeConfig,
     state.connection.rateLimit,
     state.activeThread.tokenUsage,
     state.connection.appServerDiagnostics,
@@ -87,17 +87,17 @@ export function composerSlotSnapshot(state: ChatState, activeComposerThreadName:
     state.runtime.requestedModel,
     state.runtime.requestedReasoningEffort,
     state.activeThread.tokenUsage,
-    state.connection.effectiveConfig,
+    state.connection.runtimeConfig,
     currentModel(
       runtimeSnapshotForChatSlices({
-        effectiveConfig: state.connection.effectiveConfig,
+        runtimeConfig: state.connection.runtimeConfig,
         activeThread: state.activeThread,
         runtime: state.runtime,
         rateLimit: state.connection.rateLimit,
         displayItems: state.transcript.displayItems,
         availableModels: state.connection.availableModels,
       }),
-      readRuntimeConfig(state.connection.effectiveConfig),
+      runtimeConfigOrDefault(state.connection.runtimeConfig),
     ),
     state.connection.availableSkills.length,
     skillsSignature(state.connection.availableSkills),

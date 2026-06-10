@@ -1,8 +1,7 @@
-import { parseServiceTier } from "../../../app-server/thread-settings";
+import { parseServiceTier, type ApprovalPolicy } from "../../../app-server/thread-settings";
 import { upsertThread } from "../../../domain/threads/model";
 import { threadFromAppServerThread } from "../../../app-server/thread-model";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
 import type { Thread } from "../../../domain/threads/model";
 import type { ThreadStartResponse } from "../../../generated/app-server/v2/ThreadStartResponse";
 import type { ThreadResumeResponse } from "../../../generated/app-server/v2/ThreadResumeResponse";
@@ -15,7 +14,7 @@ interface ThreadActivationResponse {
   cwd: string;
   model: string | null;
   serviceTier: string | null;
-  approvalPolicy: AskForApproval | null;
+  approvalPolicy: ApprovalPolicy | null;
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
   activePermissionProfile: ChatRuntimeState["activePermissionProfile"];
   reasoningEffort: ReasoningEffort | null;

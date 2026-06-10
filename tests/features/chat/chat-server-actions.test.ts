@@ -40,7 +40,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
+      runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, runtimeConfig: null }) as never,
       publishThreadList,
       syncThreadGoal,
     });
@@ -73,7 +73,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
+      runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, runtimeConfig: null }) as never,
       publishThreadList: vi.fn(),
       syncThreadGoal,
     });
@@ -104,7 +104,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, effectiveConfig: null }) as never,
+      runtimeSnapshot: () => ({ requestedServiceTier: { kind: "unchanged" }, runtimeConfig: null }) as never,
       publishThreadList,
       syncThreadGoal: () => undefined,
     });
