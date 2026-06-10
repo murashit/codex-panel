@@ -339,7 +339,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
     expect(connectionMock.state.connectCalls).toBe(0);
     expect(client.resumeThread).not.toHaveBeenCalled();
-    expect(view.containerEl.textContent).toContain("Thread restored. Send a message to resume it.");
+    expect(view.containerEl.textContent).not.toContain("Thread restored. Send a message to resume it.");
 
     await vi.advanceTimersByTimeAsync(0);
 
@@ -819,7 +819,7 @@ describe("CodexChatView connection lifecycle", () => {
     restoreMessagesLayout();
   });
 
-  it("pins focused thread messages to the bottom", async () => {
+  it("leaves focused thread scroll position to the message stream", async () => {
     const client = connectedClient({
       threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
     });
@@ -836,11 +836,11 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.focusThread("thread-1");
 
-    expect(messages.scrollTop).toBe(900);
+    expect(messages.scrollTop).toBe(0);
     restoreMessagesLayout();
   });
 
-  it("pins messages to the bottom when its leaf is focused", async () => {
+  it("leaves scroll position to the message stream when its leaf is focused", async () => {
     const activeLeafChangeListeners: ((leaf: unknown) => void)[] = [];
     const client = connectedClient({
       threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
@@ -860,7 +860,7 @@ describe("CodexChatView connection lifecycle", () => {
       listener((view as unknown as { leaf: unknown }).leaf);
     });
 
-    expect(messages.scrollTop).toBe(900);
+    expect(messages.scrollTop).toBe(0);
     restoreMessagesLayout();
   });
 
@@ -878,7 +878,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
-    expect(view.containerEl.textContent).toContain("Loading thread...");
+    expect(view.containerEl.textContent).not.toContain("Loading thread...");
 
     history.resolve({ data: [], nextCursor: null });
     await opening;

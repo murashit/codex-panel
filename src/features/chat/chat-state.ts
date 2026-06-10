@@ -396,7 +396,7 @@ function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, actio
       },
       transcript: {
         ...initialTranscriptState(),
-        displayItems: [action.item],
+        displayItems: [],
       },
       ui: initialUiState(),
     }),

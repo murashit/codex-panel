@@ -77,7 +77,6 @@ export interface ThreadListAppliedAction {
 export interface ActiveThreadRestoredPlaceholderAction {
   type: "active-thread/restored-placeholder";
   threadId: string;
-  item: DisplayItem;
 }
 
 export interface ActiveThreadTokenUsageSetAction {
@@ -149,8 +148,8 @@ export function applyThreadListAction(threads: readonly Thread[], threadsLoaded?
   return { type: "thread-list/applied", threads, ...(threadsLoaded === undefined ? {} : { threadsLoaded }) };
 }
 
-export function restoreThreadPlaceholderAction(threadId: string, item: DisplayItem): ActiveThreadRestoredPlaceholderAction {
-  return { type: "active-thread/restored-placeholder", threadId, item };
+export function restoreThreadPlaceholderAction(threadId: string): ActiveThreadRestoredPlaceholderAction {
+  return { type: "active-thread/restored-placeholder", threadId };
 }
 
 export function setActiveThreadTokenUsageAction(tokenUsage: ThreadTokenUsage): ActiveThreadTokenUsageSetAction {

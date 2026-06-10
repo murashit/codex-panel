@@ -3,7 +3,6 @@ import type { ThreadTokenUsage } from "../../../app-server/runtime-metrics";
 import { setActiveThreadTokenUsageAction } from "../chat-state-actions";
 import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../chat-state-selectors";
 import type { ChatStateStore } from "../chat-state";
-import type { DisplayItem } from "../display/types";
 import type { RestoredThreadController } from "./restored-thread-controller";
 import { resumedThreadActionFromAppServerResponse } from "./thread-resume";
 import type { ThreadHistoryController } from "./thread-history-controller";
@@ -18,7 +17,6 @@ export interface ThreadResumeControllerHost {
   currentClient: () => AppServerClient | null;
   ensureConnected: () => Promise<void>;
   closing: () => boolean;
-  systemItem: (text: string) => DisplayItem;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   clearDeferredRestoredThreadHydration: () => void;
   notifyActiveThreadIdentityChanged: () => void;
@@ -75,7 +73,6 @@ export class ThreadResumeController {
       resumedThreadActionFromAppServerResponse({
         response,
         listedThreads: listedThreads(this.host.stateStore.getState()),
-        displayItems: [this.host.systemItem("Loading thread...")],
       }),
     );
     this.host.restoredThread.clear();

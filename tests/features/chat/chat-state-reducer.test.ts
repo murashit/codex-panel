@@ -135,12 +135,10 @@ describe("chatReducer", () => {
     state.requests.approvals = [approval(1)];
     state.requests.pendingUserInputs = [userInput(2)];
     state.requests.userInputDrafts = new Map([["2:note", "answer"]]);
-    const placeholder = message("placeholder");
 
     const next = chatReducer(state, {
       type: "active-thread/restored-placeholder",
       threadId: "restored-thread",
-      item: placeholder,
     });
 
     expect(next.activeThread.id).toBe("restored-thread");
@@ -149,7 +147,7 @@ describe("chatReducer", () => {
     expect(next.activeThread.goal).toBeNull();
     expect(next.transcript.historyCursor).toBeNull();
     expect(next.transcript.loadingHistory).toBe(false);
-    expect(next.transcript.displayItems).toEqual([placeholder]);
+    expect(next.transcript.displayItems).toEqual([]);
     expect(next.transcript.turnDiffs.size).toBe(0);
     expect(next.requests.approvals).toEqual([]);
     expect(next.requests.pendingUserInputs).toEqual([]);

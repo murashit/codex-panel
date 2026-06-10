@@ -13,7 +13,6 @@ import { RestoredThreadController } from "./restored-thread-controller";
 import type { ToolbarPanelController } from "../panel/toolbar-controller";
 import type { ChatStateStore } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
-import type { DisplayItem } from "../display/types";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../panel/lifecycle";
 
 interface ThreadControllerGroupPorts {
@@ -31,7 +30,6 @@ interface ThreadControllerGroupPorts {
   >;
   state: {
     stateStore: ChatStateStore;
-    systemItem: (text: string) => DisplayItem;
   };
   client: {
     getClient: () => AppServerClient | null;
@@ -148,7 +146,6 @@ export function createThreadControllerGroup(
     resumeThread: (threadId) => requireThreadController(threadResume, "thread resume controller").resumeThread(threadId),
     invalidateResumeWork,
     stateStore,
-    systemItem: state.systemItem,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
   });
@@ -161,7 +158,6 @@ export function createThreadControllerGroup(
     currentClient,
     ensureConnected: client.ensureConnected,
     closing: lifecycle.getClosing,
-    systemItem: state.systemItem,
     resetThreadTurnPresence,
     clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,

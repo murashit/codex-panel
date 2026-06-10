@@ -1,4 +1,3 @@
-import type { DisplayItem } from "../display/types";
 import { restoreThreadPlaceholderAction } from "../chat-state-actions";
 import type { ChatStateStore } from "../chat-state";
 import {
@@ -15,7 +14,6 @@ export interface RestoredThreadControllerHost {
   resumeThread: (threadId: string) => Promise<void>;
   invalidateResumeWork: () => void;
   stateStore: ChatStateStore;
-  systemItem: (text: string) => DisplayItem;
   setStatus: (status: string) => void;
   refreshTabHeader: () => void;
 }
@@ -49,9 +47,7 @@ export class RestoredThreadController {
       type: "placeholder-restored",
       restoredThread,
     });
-    this.host.stateStore.dispatch(
-      restoreThreadPlaceholderAction(restoredThread.threadId, this.host.systemItem("Thread restored. Send a message to resume it.")),
-    );
+    this.host.stateStore.dispatch(restoreThreadPlaceholderAction(restoredThread.threadId));
     this.host.setStatus("Thread ready to resume.");
     this.host.refreshTabHeader();
     this.scheduleHydration();

@@ -18,7 +18,6 @@ describe("RestoredThreadController", () => {
       resumeThread,
       invalidateResumeWork: vi.fn(),
       stateStore,
-      systemItem: (text) => ({ id: "system", kind: "system", role: "system", text }),
       setStatus: vi.fn(),
       refreshTabHeader: vi.fn(),
     });
@@ -65,7 +64,6 @@ function restoredThreadControllerFixture(overrides: Partial<ConstructorParameter
     resumeThread: vi.fn().mockResolvedValue(undefined),
     invalidateResumeWork: vi.fn(),
     stateStore: createChatStateStore(createChatState()),
-    systemItem: (text) => ({ id: "system", kind: "system", role: "system", text }),
     setStatus: vi.fn(),
     refreshTabHeader: vi.fn(),
     ...overrides,
