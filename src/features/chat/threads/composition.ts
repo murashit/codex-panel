@@ -46,10 +46,8 @@ interface ThreadControllerGroupPorts {
   };
   thread: {
     selectThread: (threadId: string) => Promise<void>;
-    resumeThread: (threadId: string) => Promise<void>;
     refreshThreads: () => Promise<void>;
     notifyIdentityChanged: () => void;
-    resetTurnPresence: (hadTurns: boolean) => void;
     refreshTabHeader: () => void;
   };
   status: {
@@ -83,13 +81,27 @@ export function createThreadControllerGroup(
   const currentClient = client.getClient;
   const { deferredTasks, resumeWork } = lifecycle;
 
+  const threadRename = new ThreadRenameController({
+    stateStore,
+    vaultPath: plugin.vaultPath,
+    settings: () => plugin.settings,
+    ensureConnected: client.ensureConnected,
+    currentClient: () => refs.connection.currentClient(),
+    refreshThreads: thread.refreshThreads,
+    render: render.shellSlots,
+    addSystemMessage: status.addSystemMessage,
+    notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
+  });
+  const resetThreadTurnPresence = (hadTurns: boolean) => {
+    threadRename.resetThreadTurnPresence(hadTurns);
+  };
   const history = new ThreadHistoryController({
     stateStore,
     currentClient,
     render: render.now,
     addSystemMessage: status.addSystemMessage,
     keepCurrentScrollPosition: scroll.preservePosition,
-    setThreadTurnPresence: thread.resetTurnPresence,
+    setThreadTurnPresence: resetThreadTurnPresence,
   });
   const invalidateResumeWork = () => {
     resumeWork.invalidate();
@@ -129,17 +141,18 @@ export function createThreadControllerGroup(
     render: render.now,
     refreshLiveState: liveState.refresh,
   });
+  let threadResume: ThreadResumeController | null = null;
   const restoredThread = new RestoredThreadController({
     deferredTasks,
     opened: lifecycle.getOpened,
-    resumeThread: thread.resumeThread,
+    resumeThread: (threadId) => requireThreadController(threadResume, "thread resume controller").resumeThread(threadId),
     invalidateResumeWork,
     stateStore,
     systemItem: state.systemItem,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
   });
-  const threadResume = new ThreadResumeController({
+  threadResume = new ThreadResumeController({
     stateStore,
     vaultPath: plugin.vaultPath,
     resumeWork,
@@ -149,7 +162,7 @@ export function createThreadControllerGroup(
     ensureConnected: client.ensureConnected,
     closing: lifecycle.getClosing,
     systemItem: state.systemItem,
-    resetThreadTurnPresence: thread.resetTurnPresence,
+    resetThreadTurnPresence,
     clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     addSystemMessage: status.addSystemMessage,
@@ -168,22 +181,11 @@ export function createThreadControllerGroup(
     restoredThread,
     invalidateResumeWork,
     clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
-    resetThreadTurnPresence: thread.resetTurnPresence,
+    resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     refreshTabHeader: thread.refreshTabHeader,
     refreshLiveState: liveState.refresh,
     render: render.now,
-  });
-  const threadRename = new ThreadRenameController({
-    stateStore,
-    vaultPath: plugin.vaultPath,
-    settings: () => plugin.settings,
-    ensureConnected: client.ensureConnected,
-    currentClient: () => refs.connection.currentClient(),
-    refreshThreads: thread.refreshThreads,
-    render: render.shellSlots,
-    addSystemMessage: status.addSystemMessage,
-    notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
   });
 
   return {
@@ -191,11 +193,16 @@ export function createThreadControllerGroup(
     threadActions,
     goals,
     restoredThread,
-    threadResume,
+    threadResume: requireThreadController(threadResume, "thread resume controller"),
     threadIdentity,
     threadRename,
     invalidateResumeWork,
   };
+}
+
+function requireThreadController<T>(controller: T | null, name: string): T {
+  if (!controller) throw new Error(`Chat thread controller composition did not initialize ${name}.`);
+  return controller;
 }
 
 interface ThreadSelectionControllerGroupPorts {

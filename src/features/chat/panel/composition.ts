@@ -22,7 +22,7 @@ import type { ThreadSelectionActions } from "../threads/thread-selection-control
 import type { ChatViewRenderController, ChatViewSlotRenderers } from "./view-render-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatControllerCompositionPorts } from "./controller-ports";
-import { createChatControllerCompositionActions, requireCompositionRef, type ChatControllerCompositionRefs } from "./controller-wiring";
+import { createChatControllerCompositionActions, type ChatControllerCompositionBridges } from "./controller-wiring";
 import {
   createChatServerActionControllers,
   createChatConnectionControllers,
@@ -84,20 +84,14 @@ export interface ChatViewControllers {
 export function createChatViewControllers(ports: ChatControllerCompositionPorts): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
   const { renderController } = createViewRenderControllerGroup(ports, { connection });
-  const refs: ChatControllerCompositionRefs = {
-    renderController,
-    controller: null,
-    connectionController: null,
-    threadSelection: null,
-    threadRename: null,
-    threadResume: null,
-    restoredThread: null,
-    serverMetadata: null,
-    serverDiagnostics: null,
-    messageRenderer: null,
-    composerController: null,
+  const bridges: ChatControllerCompositionBridges = {
+    systemMessages: { controller: null },
+    connection: { controller: null },
+    threadSelection: { actions: null },
+    messageViewport: { renderer: null },
+    composerDraft: { controller: null },
   };
-  const actions = createChatControllerCompositionActions(ports, refs);
+  const actions = createChatControllerCompositionActions(ports, { renderController, bridges });
   const runtimeSettings = createChatRuntimeSettingsActions({
     stateStore: ports.state.stateStore,
     currentClient: ports.client.getClient,
@@ -120,10 +114,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     },
   );
   const { history, threadActions, goals, threadIdentity } = threadControllers;
-  refs.restoredThread = threadControllers.restoredThread;
-  refs.threadResume = threadControllers.threadResume;
-  refs.threadRename = threadControllers.threadRename;
-  const threadRename = requireCompositionRef(refs.threadRename, "thread rename controller");
+  const { restoredThread, threadResume, threadRename } = threadControllers;
   const lifecycleActions = {
     ...ports.lifecycle,
     invalidateResumeWork: threadControllers.invalidateResumeWork,
@@ -133,22 +124,32 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       ...ports,
       lifecycle: lifecycleActions,
       render: actions.render,
-      thread: actions.thread,
+      thread: {
+        restorePlaceholder: (restoredThreadState) => {
+          restoredThread.restore(restoredThreadState);
+        },
+        clearRestoredLifecycle: () => {
+          restoredThread.clear();
+        },
+      },
     },
     {
       threadActions,
     },
   );
-  refs.threadSelection = createThreadSelectionControllerGroup(
+  const threadSelection = createThreadSelectionControllerGroup(
     {
       ...ports,
-      thread: actions.thread,
+      thread: {
+        resumeThread: (threadId) => threadResume.resumeThread(threadId),
+      },
       status: actions.status,
     },
     {
       toolbarPanels,
     },
   ).threadSelection;
+  bridges.threadSelection.actions = threadSelection;
   const { reconnectActions } = createChatReconnectControllerGroup(
     {
       ...ports,
@@ -156,7 +157,9 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       lifecycle: lifecycleActions,
       render: actions.render,
       status: actions.status,
-      thread: actions.thread,
+      thread: {
+        resumeThread: (threadId) => threadResume.resumeThread(threadId),
+      },
     },
     {
       connection,
@@ -167,16 +170,20 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     goals,
   });
   const { serverThreads, serverMetadata, serverDiagnostics } = serverActionControllers;
-  refs.serverMetadata = serverMetadata;
-  refs.serverDiagnostics = serverDiagnostics;
   const serverRequestHost = {
     currentClient: ports.client.getClient,
   };
-  refs.controller = createChatInboundController(
+  const inboundController = createChatInboundController(
     {
       ...ports,
       render: actions.render,
-      thread: actions.thread,
+      thread: {
+        refreshThreads: actions.thread.refreshThreads,
+        refreshSkills: actions.thread.refreshSkills,
+        publishAppServerMetadataSnapshot: () => {
+          serverMetadata.publishAppServerMetadataSnapshot();
+        },
+      },
     },
     {
       serverMetadata,
@@ -186,12 +193,19 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
     },
   );
-  refs.connectionController = createChatConnectionControllers(
+  bridges.systemMessages.controller = inboundController;
+  const connectionController = createChatConnectionControllers(
     {
       ...ports,
       client: actions.client,
       lifecycle: lifecycleActions,
-      thread: actions.thread,
+      thread: {
+        loadSharedThreadList: ports.thread.loadSharedThreadList,
+        refreshTabHeader: ports.thread.refreshTabHeader,
+        resetTurnPresence: (hadTurns) => {
+          threadRename.resetThreadTurnPresence(hadTurns);
+        },
+      },
       status: actions.status,
       liveState: ports.liveState,
       render: actions.render,
@@ -202,8 +216,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       serverDiagnostics,
     },
   ).connectionController;
-  const inboundController = requireCompositionRef(refs.controller, "inbound controller");
-  const connectionController = requireCompositionRef(refs.connectionController, "connection controller");
+  bridges.connection.controller = connectionController;
 
   connection.setHandlers({
     onNotification: (notification) => {
@@ -230,8 +243,19 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       ...ports,
       client: actions.client,
       render: actions.render,
-      runtime: actions.runtime,
-      thread: actions.thread,
+      runtime: {
+        ...actions.runtime,
+        mcpStatusLines: () => serverDiagnostics.mcpStatusLines(),
+      },
+      thread: {
+        ensureRestoredThreadLoaded: ports.thread.ensureRestoredThreadLoaded,
+        startNewThread: ports.thread.startNewThread,
+        selectThread: actions.thread.selectThread,
+        notifyIdentityChanged: ports.thread.notifyIdentityChanged,
+        resetTurnPresence: (hadTurns) => {
+          threadRename.resetThreadTurnPresence(hadTurns);
+        },
+      },
       status: actions.status,
       scroll: actions.scroll,
     },
@@ -247,10 +271,9 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     },
   );
   const { pendingRequests, composerSubmission } = conversationControllers;
-  refs.messageRenderer = conversationControllers.messageRenderer;
-  refs.composerController = conversationControllers.composerController;
-  const messageRenderer = requireCompositionRef(refs.messageRenderer, "message renderer");
-  const composerController = requireCompositionRef(refs.composerController, "composer controller");
+  const { messageRenderer, composerController } = conversationControllers;
+  bridges.messageViewport.renderer = messageRenderer;
+  bridges.composerDraft.controller = composerController;
   const { scheduleAppServerWarmup, openView, closeView } = createConnectionLifecycleControllerGroup(
     {
       ...ports,
@@ -266,9 +289,6 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       serverMetadata,
     },
   );
-  const threadResume = requireCompositionRef(refs.threadResume, "thread resume controller");
-  const restoredThread = requireCompositionRef(refs.restoredThread, "restored thread controller");
-  const threadSelection = requireCompositionRef(refs.threadSelection, "thread selection controller");
 
   return {
     connection: {

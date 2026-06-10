@@ -1,28 +1,27 @@
-import type { ChatServerDiagnosticsActions } from "../server-actions/diagnostics-actions";
-import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
 import type { ChatComposerController } from "../composer/controller";
 import type { ChatInboundController } from "../inbound/controller";
-import type { RestoredThreadController } from "../threads/restored-thread-controller";
 import type { ChatConnectionController } from "../session/connection-controller";
-import type { ThreadRenameController } from "../threads/thread-rename-controller";
-import type { ThreadResumeController } from "../threads/thread-resume-controller";
 import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatControllerCompositionPorts } from "./controller-ports";
 import type { ChatViewRenderController } from "./view-render-controller";
 
-export interface ChatControllerCompositionRefs {
-  renderController: ChatViewRenderController;
-  controller: ChatInboundController | null;
-  connectionController: ChatConnectionController | null;
-  threadSelection: ThreadSelectionActions | null;
-  threadRename: ThreadRenameController | null;
-  threadResume: ThreadResumeController | null;
-  restoredThread: RestoredThreadController | null;
-  serverMetadata: ChatServerMetadataActions | null;
-  serverDiagnostics: ChatServerDiagnosticsActions | null;
-  messageRenderer: ChatMessageRenderer | null;
-  composerController: ChatComposerController | null;
+export interface ChatControllerCompositionBridges {
+  systemMessages: {
+    controller: Pick<ChatInboundController, "addSystemMessage" | "addStructuredSystemMessage"> | null;
+  };
+  connection: {
+    controller: Pick<ChatConnectionController, "ensureConnected" | "refreshThreads" | "refreshSkills"> | null;
+  };
+  threadSelection: {
+    actions: Pick<ThreadSelectionActions, "selectThread"> | null;
+  };
+  messageViewport: {
+    renderer: Pick<ChatMessageRenderer, "forceMessagesToBottom"> | null;
+  };
+  composerDraft: {
+    controller: Pick<ChatComposerController, "setDraft"> | null;
+  };
 }
 
 export interface ChatControllerCompositionActions {
@@ -40,17 +39,10 @@ export interface ChatControllerCompositionActions {
   scroll: ChatControllerCompositionPorts["scroll"];
   thread: ChatControllerCompositionPorts["thread"] & {
     selectThread: (threadId: string) => Promise<void>;
-    resumeThread: (threadId: string) => Promise<void>;
     refreshThreads: () => Promise<void>;
     refreshSkills: (forceReload?: boolean) => Promise<void>;
-    publishAppServerMetadataSnapshot: () => void;
-    resetTurnPresence: (hadTurns: boolean) => void;
-    restorePlaceholder: (restoredThreadState: Parameters<RestoredThreadController["restore"]>[0]) => void;
-    clearRestoredLifecycle: () => void;
   };
-  runtime: ChatControllerCompositionPorts["runtime"] & {
-    mcpStatusLines: () => Promise<string[]>;
-  };
+  runtime: ChatControllerCompositionPorts["runtime"];
   composer: {
     setText: (text: string) => void;
   };
@@ -58,57 +50,47 @@ export interface ChatControllerCompositionActions {
 
 export function createChatControllerCompositionActions(
   ports: ChatControllerCompositionPorts,
-  refs: ChatControllerCompositionRefs,
+  deps: {
+    renderController: ChatViewRenderController;
+    bridges: ChatControllerCompositionBridges;
+  },
 ): ChatControllerCompositionActions {
+  const { bridges, renderController } = deps;
   const render = {
     ...ports.render,
     now: () => {
-      refs.renderController.render();
+      renderController.render();
     },
     shellSlots: () => {
-      refs.renderController.renderShellSlots();
+      renderController.renderShellSlots();
     },
   };
   const status = {
     ...ports.status,
     addSystemMessage: (text: string) => {
-      requireCompositionRef(refs.controller, "inbound controller").addSystemMessage(text);
+      requireCompositionBridge(bridges.systemMessages.controller, "system message bridge").addSystemMessage(text);
       render.now();
     },
     addStructuredSystemMessage: (text: string, details: Parameters<ChatInboundController["addStructuredSystemMessage"]>[1]) => {
-      requireCompositionRef(refs.controller, "inbound controller").addStructuredSystemMessage(text, details);
+      requireCompositionBridge(bridges.systemMessages.controller, "system message bridge").addStructuredSystemMessage(text, details);
       render.now();
     },
   };
 
   const threadNavigation = {
-    selectThread: (threadId: string) => requireCompositionRef(refs.threadSelection, "thread selection controller").selectThread(threadId),
-    resumeThread: (threadId: string) => requireCompositionRef(refs.threadResume, "thread resume controller").resumeThread(threadId),
+    selectThread: (threadId: string) =>
+      requireCompositionBridge(bridges.threadSelection.actions, "thread selection bridge").selectThread(threadId),
   };
   const threadRefresh = {
-    refreshThreads: () => requireCompositionRef(refs.connectionController, "connection controller").refreshThreads(),
+    refreshThreads: () => requireCompositionBridge(bridges.connection.controller, "connection bridge").refreshThreads(),
     refreshSkills: (forceReload?: boolean) =>
-      requireCompositionRef(refs.connectionController, "connection controller").refreshSkills(forceReload),
-    publishAppServerMetadataSnapshot: () => {
-      requireCompositionRef(refs.serverMetadata, "server metadata actions").publishAppServerMetadataSnapshot();
-    },
-  };
-  const threadLifecycle = {
-    resetTurnPresence: (hadTurns: boolean) => {
-      requireCompositionRef(refs.threadRename, "thread rename controller").resetThreadTurnPresence(hadTurns);
-    },
-    restorePlaceholder: (restoredThreadState: Parameters<RestoredThreadController["restore"]>[0]) => {
-      requireCompositionRef(refs.restoredThread, "restored thread controller").restore(restoredThreadState);
-    },
-    clearRestoredLifecycle: () => {
-      requireCompositionRef(refs.restoredThread, "restored thread controller").clear();
-    },
+      requireCompositionBridge(bridges.connection.controller, "connection bridge").refreshSkills(forceReload),
   };
 
   return {
     client: {
       ...ports.client,
-      ensureConnected: () => requireCompositionRef(refs.connectionController, "connection controller").ensureConnected(),
+      ensureConnected: () => requireCompositionBridge(bridges.connection.controller, "connection bridge").ensureConnected(),
     },
     render,
     status,
@@ -116,28 +98,27 @@ export function createChatControllerCompositionActions(
       ...ports.scroll,
       forceBottom: () => {
         ports.scroll.forceBottom();
-        requireCompositionRef(refs.messageRenderer, "message renderer").forceMessagesToBottom();
+        requireCompositionBridge(bridges.messageViewport.renderer, "message viewport bridge").forceMessagesToBottom();
       },
     },
     thread: {
       ...ports.thread,
       ...threadNavigation,
       ...threadRefresh,
-      ...threadLifecycle,
     },
-    runtime: {
-      ...ports.runtime,
-      mcpStatusLines: () => requireCompositionRef(refs.serverDiagnostics, "server diagnostics actions").mcpStatusLines(),
-    },
+    runtime: ports.runtime,
     composer: {
       setText: (text) => {
-        requireCompositionRef(refs.composerController, "composer controller").setDraft(text, { focus: true, renderIfDetached: true });
+        requireCompositionBridge(bridges.composerDraft.controller, "composer draft bridge").setDraft(text, {
+          focus: true,
+          renderIfDetached: true,
+        });
       },
     },
   };
 }
 
-export function requireCompositionRef<T>(value: T | null, name: string): T {
+function requireCompositionBridge<T>(value: T | null, name: string): T {
   if (!value) throw new Error(`Chat controller composition did not initialize ${name}.`);
   return value;
 }
