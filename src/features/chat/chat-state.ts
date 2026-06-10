@@ -4,11 +4,11 @@ import type { Thread } from "../../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadSettingsUpdate } from "../../app-server/thread-settings";
+import type { ApprovalsReviewer } from "../../app-server/runtime-policy";
 import type { Diagnostics } from "../../app-server/diagnostics";
 import { createAppServerDiagnostics } from "../../app-server/diagnostics";
 import type { RuntimeConfigSnapshot } from "../../app-server/runtime-config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../app-server/runtime-metrics";
-import type { ApprovalsReviewer } from "./runtime/approvals";
 import type { CollaborationMode } from "./runtime/collaboration";
 import type { RequestedServiceTier } from "./runtime/service-tier-state";
 import {

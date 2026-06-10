@@ -1,12 +1,14 @@
 import type { ConfigReadResponse as AppServerConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
 import type { Config as AppServerConfig } from "../generated/app-server/v2/Config";
 import {
+  approvalPolicyOrNull,
   appServerApprovalsReviewerOrNull,
+  cloneApprovalPolicy,
   parseServiceTier,
   type ApprovalPolicy,
   type ApprovalsReviewer,
   type ServiceTier,
-} from "./thread-settings";
+} from "./runtime-policy";
 import { isReasoningEffort, type ReasoningEffort } from "../domain/catalog/metadata";
 
 type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
@@ -14,10 +16,7 @@ type Verbosity = "low" | "medium" | "high";
 type WebSearchMode = "disabled" | "cached" | "live";
 type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 
-export interface ActivePermissionProfile {
-  id: string;
-  extends: string | null;
-}
+export type { ActivePermissionProfile } from "./runtime-policy";
 
 export interface RuntimeConfigSnapshot {
   profile: string | null;
@@ -36,8 +35,8 @@ export interface RuntimeConfigSnapshot {
   sandboxMode: SandboxMode | null;
   workspaceNetworkAccess: boolean | null;
   writableRoots: readonly string[] | null;
-  toolWebSearch: unknown;
-  apps: unknown;
+  rawToolWebSearch: unknown;
+  rawApps: unknown;
 }
 
 export function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
@@ -58,8 +57,8 @@ export function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
     sandboxMode: null,
     workspaceNetworkAccess: null,
     writableRoots: null,
-    toolWebSearch: null,
-    apps: null,
+    rawToolWebSearch: null,
+    rawApps: null,
   };
 }
 
@@ -85,8 +84,8 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: AppServerConf
     sandboxMode: sandboxModeOrNull(config.sandbox_mode),
     workspaceNetworkAccess: booleanOrNull(workspaceWrite?.["network_access"]),
     writableRoots: stringArrayOrNull(workspaceWrite?.["writable_roots"]),
-    toolWebSearch: cloneJsonLike(asRecordOrNull(tools?.["web_search"])),
-    apps: cloneJsonLike(asRecordOrNull(config.apps)),
+    rawToolWebSearch: cloneJsonLike(asRecordOrNull(tools?.["web_search"])),
+    rawApps: cloneJsonLike(asRecordOrNull(config.apps)),
   };
 }
 
@@ -95,8 +94,8 @@ export function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): Runti
     ...config,
     approvalPolicy: cloneApprovalPolicy(config.approvalPolicy),
     writableRoots: config.writableRoots ? [...config.writableRoots] : null,
-    toolWebSearch: cloneJsonLike(config.toolWebSearch),
-    apps: cloneJsonLike(config.apps),
+    rawToolWebSearch: cloneJsonLike(config.rawToolWebSearch),
+    rawApps: cloneJsonLike(config.rawApps),
   };
 }
 
@@ -158,39 +157,6 @@ function webSearchModeOrNull(value: unknown): WebSearchMode | null {
 
 function sandboxModeOrNull(value: unknown): SandboxMode | null {
   return value === "read-only" || value === "workspace-write" || value === "danger-full-access" ? value : null;
-}
-
-function approvalPolicyOrNull(value: unknown): ApprovalPolicy | null {
-  if (value === "untrusted" || value === "on-failure" || value === "on-request" || value === "never") return value;
-  const granular = asRecordOrNull(asRecordOrNull(value)?.["granular"]);
-  if (!granular) return null;
-  const sandboxApproval = granular["sandbox_approval"];
-  const rules = granular["rules"];
-  const skillApproval = granular["skill_approval"];
-  const requestPermissions = granular["request_permissions"];
-  const mcpElicitations = granular["mcp_elicitations"];
-  if (
-    typeof sandboxApproval !== "boolean" ||
-    typeof rules !== "boolean" ||
-    typeof skillApproval !== "boolean" ||
-    typeof requestPermissions !== "boolean" ||
-    typeof mcpElicitations !== "boolean"
-  ) {
-    return null;
-  }
-  return {
-    granular: {
-      sandbox_approval: sandboxApproval,
-      rules,
-      skill_approval: skillApproval,
-      request_permissions: requestPermissions,
-      mcp_elicitations: mcpElicitations,
-    },
-  };
-}
-
-function cloneApprovalPolicy(value: ApprovalPolicy | null): ApprovalPolicy | null {
-  return value && typeof value === "object" ? { granular: { ...value.granular } } : value;
 }
 
 function cloneJsonLike(value: unknown): unknown {

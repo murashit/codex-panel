@@ -1,16 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  appServerApprovalsReviewerOrNull,
-  appServerAutoReviewApprovalsReviewer,
   appServerCollaborationMode,
   applyThreadSettingsValue,
   clearedServiceTierRequestValue,
-  configuredServiceTierRequestValue,
-  parseServiceTier,
   serviceTierRequestValue,
   type ThreadSettingsUpdate,
 } from "../../src/app-server/thread-settings";
+import { appServerApprovalsReviewerOrNull, parseServiceTier } from "../../src/app-server/runtime-policy";
 
 describe("app-server thread settings", () => {
   it("applies defined thread setting values and omits undefined values", () => {
@@ -28,11 +25,6 @@ describe("app-server thread settings", () => {
     expect(appServerApprovalsReviewerOrNull("auto_review")).toBe("auto_review");
     expect(appServerApprovalsReviewerOrNull("guardian_subagent")).toBe("guardian_subagent");
     expect(appServerApprovalsReviewerOrNull("unknown")).toBeNull();
-  });
-
-  it("maps panel auto-review state to app-server reviewer values", () => {
-    expect(appServerAutoReviewApprovalsReviewer(true)).toBe("auto_review");
-    expect(appServerAutoReviewApprovalsReviewer(false)).toBe("user");
   });
 
   it("builds collaboration mode payloads with built-in instructions", () => {
@@ -65,11 +57,5 @@ describe("app-server thread settings", () => {
     expect(serviceTierRequestValue("fast")).toBe("fast");
     expect(serviceTierRequestValue("priority")).toBe("priority");
     expect(clearedServiceTierRequestValue()).toBeNull();
-  });
-
-  it("passes configured service tier ids through to new turns", () => {
-    expect(configuredServiceTierRequestValue("flex")).toBe("flex");
-    expect(configuredServiceTierRequestValue("catalog-tier")).toBe("catalog-tier");
-    expect(configuredServiceTierRequestValue(null)).toBeUndefined();
   });
 });

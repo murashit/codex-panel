@@ -1,6 +1,7 @@
 import { listThreads } from "../../../app-server/resource-operations";
 import type { Thread } from "../../../domain/threads/model";
-import { requestedOrConfiguredServiceTier, type RuntimeSnapshot } from "../runtime/effective-settings";
+import type { RuntimeSnapshot } from "../runtime/effective-settings";
+import { serviceTierRequestForThreadStart } from "../runtime/turn-settings";
 import { resumedThreadActionFromAppServerResponse } from "../threads/thread-resume";
 import type { ChatServerActionHost } from "./shared";
 
@@ -47,7 +48,7 @@ async function startThread(
 ): Promise<StartedThreadSummary | null> {
   const client = host.currentClient();
   if (!client) return null;
-  const serviceTier = requestedOrConfiguredServiceTier(host.runtimeSnapshot());
+  const serviceTier = serviceTierRequestForThreadStart(host.runtimeSnapshot());
   const response = await client.startThread(host.vaultPath, serviceTier);
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();

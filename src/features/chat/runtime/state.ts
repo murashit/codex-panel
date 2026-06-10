@@ -1,8 +1,13 @@
-import type { ActivePermissionProfile } from "../../../app-server/runtime-config";
-import { parseServiceTier, type ApprovalPolicy, type ServiceTier, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
+import {
+  parseServiceTier,
+  type ActivePermissionProfile,
+  type ApprovalPolicy,
+  type ApprovalsReviewer,
+  type ServiceTier,
+} from "../../../app-server/runtime-policy";
+import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import type { CollaborationMode } from "./collaboration";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { ApprovalsReviewer } from "./approvals";
 import type { RequestedServiceTier } from "./service-tier-state";
 import {
   resetRuntimeSettingToConfig,

@@ -1,18 +1,11 @@
 import type { ActivePermissionProfile, RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
 import { findModelMetadataByIdOrName, type ModelMetadata } from "../../../domain/catalog/metadata";
-import {
-  configuredServiceTierRequestValue,
-  clearedServiceTierRequestValue,
-  serviceTierRequestValue,
-  type ServiceTier,
-  type ServiceTierRequest,
-  type ApprovalPolicy,
-} from "../../../app-server/thread-settings";
+import type { ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../app-server/runtime-policy";
 import { supportedEffortsForModelMetadata, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import { runtimeConfigOrDefault, type RuntimeConfigProjection } from "./config";
 import type { CollaborationMode } from "./collaboration";
-import { isAutoReviewReviewer, type ApprovalsReviewer } from "./approvals";
+import { isAutoReviewReviewer } from "./approvals";
 import { isFastServiceTier, type RequestedServiceTier } from "./service-tier-state";
 
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
@@ -46,21 +39,6 @@ export function currentServiceTier(
   if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off") return null;
   if (snapshot.requestedServiceTier.kind === "resetToConfig") return config.serviceTier;
   return snapshot.activeServiceTier ?? config.serviceTier;
-}
-
-export function requestedOrConfiguredServiceTier(
-  snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
-): ServiceTierRequest {
-  if (snapshot.requestedServiceTier.kind === "set") {
-    return snapshot.requestedServiceTier.value === "fast"
-      ? serviceTierRequestValue(fastServiceTierRequestValue(snapshot, config))
-      : clearedServiceTierRequestValue();
-  }
-  if (snapshot.requestedServiceTier.kind === "resetToConfig") {
-    return clearedServiceTierRequestValue();
-  }
-  return configuredServiceTierRequestValue(config.serviceTier);
 }
 
 export function currentModel(

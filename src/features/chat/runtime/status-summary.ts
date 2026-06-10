@@ -169,8 +169,8 @@ export function runtimeConfigSections(snapshot: RuntimeSnapshot, vaultPath: stri
     {
       title: "Features",
       rows: [
-        { key: "tool web search", value: stringValue(config.toolWebSearch, CODEX_DEFAULT_LABEL) },
-        { key: "apps", value: enabledAppsLabel(config.apps) },
+        { key: "tool web search", value: stringValue(config.rawToolWebSearch, CODEX_DEFAULT_LABEL) },
+        { key: "apps", value: enabledAppsLabel(config.rawApps) },
       ],
     },
   ];

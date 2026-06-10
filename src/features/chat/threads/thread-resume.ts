@@ -1,4 +1,4 @@
-import { parseServiceTier, type ApprovalPolicy } from "../../../app-server/thread-settings";
+import { parseServiceTier, type ApprovalPolicy } from "../../../app-server/runtime-policy";
 import { upsertThread } from "../../../domain/threads/model";
 import { threadFromAppServerThread } from "../../../app-server/thread-model";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";

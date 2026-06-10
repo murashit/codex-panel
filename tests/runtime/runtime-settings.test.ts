@@ -20,14 +20,13 @@ import {
   fastModeActive,
   fastServiceTierRequestValue,
   fastModeLabel,
-  requestedOrConfiguredServiceTier,
   resetRuntimeSettingToConfig,
   pendingRuntimeSettingPayload,
   setPendingRuntimeSetting,
   serviceTierLabel,
   type RuntimeSnapshot,
 } from "../../src/features/chat/runtime/effective-settings";
-import { requestedTurnCollaborationModeSettings } from "../../src/features/chat/runtime/turn-settings";
+import { requestedTurnCollaborationModeSettings, serviceTierRequestForThreadStart } from "../../src/features/chat/runtime/turn-settings";
 import { runtimeConfigOrDefault } from "../../src/features/chat/runtime/config";
 import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/runtime/status-summary";
 
@@ -203,7 +202,7 @@ describe("runtime settings", () => {
     expect(currentServiceTier(snapshot)).toBe("fast");
     expect(serviceTierLabel(snapshot)).toBe("fast");
     expect(fastModeLabel(snapshot)).toBe("on");
-    expect(requestedOrConfiguredServiceTier(snapshot)).toBe("fast");
+    expect(serviceTierRequestForThreadStart(snapshot)).toBe("fast");
   });
 
   it("uses active service tier before configured service tier", () => {
@@ -517,7 +516,7 @@ describe("runtime settings", () => {
 
     expect(serviceTierLabel(snapshot)).toBe("(Codex default)");
     expect(fastModeLabel(snapshot)).toBe("off");
-    expect(requestedOrConfiguredServiceTier(snapshot)).toBeNull();
+    expect(serviceTierRequestForThreadStart(snapshot)).toBeNull();
   });
 
   it("serializes requested fast mode using the catalog Fast service tier id", () => {
@@ -530,11 +529,11 @@ describe("runtime settings", () => {
     });
 
     expect(fastModeLabel(snapshot)).toBe("on");
-    expect(requestedOrConfiguredServiceTier(snapshot)).toBe("priority");
+    expect(serviceTierRequestForThreadStart(snapshot)).toBe("priority");
   });
 
   it("omits service tier when neither config nor override selects one", () => {
-    expect(requestedOrConfiguredServiceTier(runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({}) }))).toBeUndefined();
+    expect(serviceTierRequestForThreadStart(runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({}) }))).toBeUndefined();
   });
 
   it("passes through configured non-fast service tier ids", () => {
@@ -542,7 +541,7 @@ describe("runtime settings", () => {
 
     expect(serviceTierLabel(snapshot)).toBe("flex");
     expect(fastModeLabel(snapshot)).toBe("off");
-    expect(requestedOrConfiguredServiceTier(snapshot)).toBe("flex");
+    expect(serviceTierRequestForThreadStart(snapshot)).toBe("flex");
   });
 
   it("summarizes Codex usage limits independently from context usage", () => {

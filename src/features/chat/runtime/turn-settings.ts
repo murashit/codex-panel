@@ -1,5 +1,6 @@
 import { applyThreadSettingsValue, appServerCollaborationMode, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import { runtimeConfigOrDefault, type RuntimeConfigProjection } from "./config";
+import type { ServiceTierRequest } from "../../../app-server/thread-settings";
 import {
   currentModel,
   currentReasoningEffort,
@@ -19,6 +20,21 @@ export interface TurnCollaborationModeSettings {
 export interface PendingThreadSettingsUpdate {
   update: ThreadSettingsUpdate;
   collaborationModeWarning: TurnCollaborationModeWarning | null;
+}
+
+export function serviceTierRequestForThreadStart(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
+): ServiceTierRequest {
+  if (snapshot.requestedServiceTier.kind === "set") {
+    return snapshot.requestedServiceTier.value === "fast"
+      ? serviceTierRequestValue(fastServiceTierRequestValue(snapshot, config))
+      : clearedServiceTierRequestValue();
+  }
+  if (snapshot.requestedServiceTier.kind === "resetToConfig") {
+    return clearedServiceTierRequestValue();
+  }
+  return config.serviceTier ?? undefined;
 }
 
 export function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot): TurnCollaborationModeSettings {

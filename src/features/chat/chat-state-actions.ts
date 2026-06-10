@@ -1,10 +1,10 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { Thread } from "../../domain/threads/model";
 import type { ThreadTokenUsage } from "../../app-server/runtime-metrics";
+import { parseServiceTier, type ServiceTier } from "../../app-server/runtime-policy";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "./runtime/state";
 import type { CollaborationMode } from "./runtime/collaboration";
-import { parseServiceTier, type ServiceTier } from "../../app-server/thread-settings";
 import type { DisplayItem } from "./display/types";
 import type { PendingTurnStart } from "./turns/turn-state";
 
