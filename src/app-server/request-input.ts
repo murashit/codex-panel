@@ -1,14 +1,14 @@
 import type { UserInput } from "../generated/app-server/v2/UserInput";
 
-export interface AppServerRequestMention {
+export interface RequestMention {
   name: string;
   path: string;
 }
 
 export function appServerTextInputWithMentions(
   text: string,
-  mentions: readonly AppServerRequestMention[],
-  skills: readonly AppServerRequestMention[] = [],
+  mentions: readonly RequestMention[],
+  skills: readonly RequestMention[] = [],
 ): UserInput[] {
   return [
     ...appServerTextInput(text),

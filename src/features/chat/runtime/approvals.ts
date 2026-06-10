@@ -1,10 +1,10 @@
 import {
   appServerApprovalsReviewerOrNull,
   appServerAutoReviewApprovalsReviewer,
-  type AppServerApprovalsReviewer,
+  type ApprovalsReviewer,
 } from "../../../app-server/thread-settings";
 
-export type ApprovalsReviewer = AppServerApprovalsReviewer;
+export type { ApprovalsReviewer } from "../../../app-server/thread-settings";
 export type AutoReviewState = "enabled" | "disabled";
 
 export function approvalsReviewerOrNull(value: unknown): ApprovalsReviewer | null {

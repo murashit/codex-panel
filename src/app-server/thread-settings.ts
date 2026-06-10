@@ -1,13 +1,28 @@
 import type { CollaborationMode } from "../generated/app-server/CollaborationMode";
 import type { ModeKind } from "../generated/app-server/ModeKind";
+import type { Personality } from "../generated/app-server/Personality";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
-import type { ThreadSettingsUpdateParams } from "../generated/app-server/v2/ThreadSettingsUpdateParams";
-import type { ApprovalsReviewer } from "../generated/app-server/v2/ApprovalsReviewer";
+import type { ReasoningSummary } from "../generated/app-server/ReasoningSummary";
+import type { AskForApproval } from "../generated/app-server/v2/AskForApproval";
+import type { SandboxPolicy } from "../generated/app-server/v2/SandboxPolicy";
 
-export type ThreadSettingsUpdate = Omit<ThreadSettingsUpdateParams, "threadId">;
-export type AppServerApprovalsReviewer = ApprovalsReviewer;
+export type ApprovalsReviewer = "user" | "auto_review" | "guardian_subagent";
 export type ServiceTier = string;
 export type ServiceTierRequest = string | null | undefined;
+
+export interface ThreadSettingsUpdate {
+  cwd?: string | null;
+  approvalPolicy?: AskForApproval | null;
+  approvalsReviewer?: ApprovalsReviewer | null;
+  sandboxPolicy?: SandboxPolicy | null;
+  permissions?: string | null;
+  model?: string | null;
+  serviceTier?: string | null;
+  effort?: ReasoningEffort | null;
+  summary?: ReasoningSummary | null;
+  collaborationMode?: CollaborationMode | null;
+  personality?: Personality | null;
+}
 
 export function applyThreadSettingsValue<K extends keyof ThreadSettingsUpdate>(
   update: ThreadSettingsUpdate,
@@ -17,11 +32,11 @@ export function applyThreadSettingsValue<K extends keyof ThreadSettingsUpdate>(
   if (value !== undefined) update[key] = value;
 }
 
-export function appServerApprovalsReviewerOrNull(value: unknown): AppServerApprovalsReviewer | null {
+export function appServerApprovalsReviewerOrNull(value: unknown): ApprovalsReviewer | null {
   return value === "user" || value === "auto_review" || value === "guardian_subagent" ? value : null;
 }
 
-export function appServerAutoReviewApprovalsReviewer(enabled: boolean): AppServerApprovalsReviewer {
+export function appServerAutoReviewApprovalsReviewer(enabled: boolean): ApprovalsReviewer {
   return enabled ? "auto_review" : "user";
 }
 

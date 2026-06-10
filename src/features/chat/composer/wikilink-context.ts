@@ -1,4 +1,4 @@
-import { appServerTextInputWithMentions, type AppServerRequestMention } from "../../../app-server/request-input";
+import { appServerTextInputWithMentions, type RequestMention } from "../../../app-server/request-input";
 import type { SkillMetadata } from "../../../domain/catalog/metadata";
 import { parseObsidianWikiLink } from "../../../shared/obsidian/wikilinks";
 
@@ -40,7 +40,7 @@ export function userInputWithWikiLinkMentionsAndSkills(
   resolveMention: WikiLinkMentionResolver,
   skills: readonly SkillMetadata[],
 ) {
-  const mentions: AppServerRequestMention[] = [];
+  const mentions: RequestMention[] = [];
   const seenPaths = new Set<string>();
 
   for (const link of parsedWikiLinks(text)) {
@@ -51,7 +51,7 @@ export function userInputWithWikiLinkMentionsAndSkills(
   }
 
   const skillByName = firstEnabledSkillByName(skills);
-  const resolvedSkills: AppServerRequestMention[] = [];
+  const resolvedSkills: RequestMention[] = [];
   const seenSkillPaths = new Set<string>();
   for (const reference of parsedSkillReferences(text)) {
     const skill = skillByName.get(reference.toLowerCase());
