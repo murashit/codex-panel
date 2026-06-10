@@ -1,7 +1,7 @@
 import { StaleConnectionError } from "../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../app-server/client";
 import type { InitializeResponse } from "../../../generated/app-server/InitializeResponse";
-import { clearConnectionScopeAction, connectionInitializedAction } from "../chat-state-actions";
+import { clearDisconnectedConnectionStateAction, connectionInitializedAction } from "../chat-state-actions";
 import type { ChatStateStore } from "../chat-state";
 import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../panel/lifecycle";
 
@@ -72,7 +72,7 @@ export class ChatConnectionController {
     this.invalidate();
     this.host.invalidateResumeWork();
     this.host.setStatus("Codex app-server stopped.");
-    this.host.stateStore.dispatch(clearConnectionScopeAction());
+    this.host.stateStore.dispatch(clearDisconnectedConnectionStateAction());
     this.host.resetThreadTurnPresence(false);
     this.host.setClient(null);
     this.host.refreshLiveState();

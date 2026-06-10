@@ -51,7 +51,7 @@ export interface ConnectionInitializedAction {
   initializeResponse: InitializeResponse;
 }
 
-export interface ClearConnectionScopeAction {
+export interface ClearDisconnectedConnectionStateAction {
   type: "connection/scoped-cleared";
 }
 
@@ -129,7 +129,7 @@ export function connectionInitializedAction(initializeResponse: InitializeRespon
   return { type: "connection/initialized", initializeResponse };
 }
 
-export function clearConnectionScopeAction(): ClearConnectionScopeAction {
+export function clearDisconnectedConnectionStateAction(): ClearDisconnectedConnectionStateAction {
   return { type: "connection/scoped-cleared" };
 }
 

@@ -33,7 +33,7 @@ import type {
   ActiveThreadSettingsAppliedAction,
   ActiveThreadTokenUsageSetAction,
   ClearActiveThreadAction,
-  ClearConnectionScopeAction,
+  ClearDisconnectedConnectionStateAction,
   ClearLocalTurnAction,
   ClosePanelsAction,
   ConnectionInitializedAction,
@@ -210,7 +210,7 @@ interface PendingStartHookUpsertedAction {
 }
 
 type ChatTransitionAction =
-  | ClearConnectionScopeAction
+  | ClearDisconnectedConnectionStateAction
   | ClearActiveThreadAction
   | ActiveThreadResumedAction
   | ActiveThreadSettingsAppliedAction
@@ -290,7 +290,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 function reduceChatTransition(state: ChatState, action: ChatTransitionAction): ChatState {
   switch (action.type) {
     case "connection/scoped-cleared":
-      return reduceConnectionScopedClearedTransition(state);
+      return reduceDisconnectedConnectionStateClearedTransition(state);
     case "active-thread/cleared":
       return reduceActiveThreadClearedTransition(state);
     case "active-thread/resumed":
@@ -318,8 +318,8 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
   }
 }
 
-function reduceConnectionScopedClearedTransition(state: ChatState): ChatState {
-  return clearConnectionScopedState(state);
+function reduceDisconnectedConnectionStateClearedTransition(state: ChatState): ChatState {
+  return clearDisconnectedConnectionState(state);
 }
 
 function reduceActiveThreadClearedTransition(state: ChatState): ChatState {
@@ -623,7 +623,7 @@ function clearActiveThreadState(state: ChatState): ChatState {
   );
 }
 
-function clearConnectionScopedState(state: ChatState): ChatState {
+function clearDisconnectedConnectionState(state: ChatState): ChatState {
   return patchChatState(clearActiveTurnState(state), {
     activeThread: initialActiveThreadState(),
     runtime: {

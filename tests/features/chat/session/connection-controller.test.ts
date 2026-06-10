@@ -96,8 +96,11 @@ describe("ChatConnectionController", () => {
     expect(host.render).toHaveBeenCalledOnce();
   });
 
-  it("clears connection-scoped state on server exit", () => {
+  it("clears disconnected connection state on server exit while keeping last startup metadata", () => {
     const { controller, host, stateStore } = createController({ connected: true });
+    const initializeResponse = { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" } as const;
+    const effectiveConfig = { config: { model: "gpt-5.1" }, layers: [] } as never;
+    stateStore.dispatch({ type: "connection/initialized", initializeResponse });
     stateStore.dispatch({
       type: "thread-list/applied",
       threads: [{ id: "thread-1", title: "Thread 1" } as never],
@@ -107,6 +110,7 @@ describe("ChatConnectionController", () => {
       type: "connection/metadata-applied",
       availableModels: [{ id: "model-1" } as never],
       availableSkills: [{ name: "skill-1" } as never],
+      effectiveConfig,
     });
 
     controller.handleExit();
@@ -125,6 +129,8 @@ describe("ChatConnectionController", () => {
       connection: {
         availableModels: [],
         availableSkills: [],
+        effectiveConfig,
+        initializeResponse,
       },
     });
   });
