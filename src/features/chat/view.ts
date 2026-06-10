@@ -38,6 +38,9 @@ import { pendingRequestsSignature, renderMessagesSlot } from "./panel/slots/mess
 import { renderToolbarSlot } from "./panel/slots/toolbar";
 import type { ChatViewSlotRendererPorts } from "./panel/slots/types";
 
+type ChatViewToolbarSlotActions = ChatViewSlotRendererPorts["actions"]["toolbar"];
+type ChatViewGoalSlotActions = ChatViewSlotRendererPorts["actions"]["goal"];
+
 export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;
   private readonly controllers: ChatViewControllers;
@@ -224,50 +227,8 @@ export class CodexChatView extends ItemView {
         setRequestedReasoningEffort: (effort) => this.setRequestedReasoningEffortFromUi(effort),
       },
       actions: {
-        toolbar: {
-          archiveConfirmId: () => controllers.toolbar.panels.archiveConfirmId(),
-          renameState: (threadId) => controllers.thread.rename.editState(threadId),
-          startNewThread: () => this.startNewThread(),
-          toggleChatActions: () => {
-            controllers.toolbar.panels.toggleChatActions();
-          },
-          compactConversation: () => this.compactConversation(),
-          showGoalEditor: () => {
-            this.setGoalEditingOpen(true, { closeToolbarPanel: true });
-          },
-          toggleHistory: () => {
-            controllers.toolbar.panels.toggleHistory();
-          },
-          toggleStatusPanel: () => {
-            controllers.toolbar.panels.toggleStatus();
-          },
-          reconnectPanel: () => controllers.connection.reconnect.reconnectPanel(),
-          refreshStatusPanel: () => controllers.connection.controller.refreshStatusPanel(),
-          selectThreadFromToolbar: (threadId) => controllers.thread.selection.selectThreadFromToolbar(threadId),
-          startArchive: (threadId) => {
-            controllers.toolbar.panels.startArchive(threadId);
-          },
-          archiveThread: (threadId, saveMarkdown) => controllers.toolbar.panels.archiveThread(threadId, saveMarkdown),
-          startRename: (threadId) => {
-            controllers.thread.rename.start(threadId);
-          },
-          updateRenameDraft: (threadId, value) => {
-            controllers.thread.rename.updateDraft(threadId, value);
-          },
-          saveRename: (threadId, value) => controllers.thread.rename.save(threadId, value),
-          cancelRename: (threadId) => {
-            controllers.thread.rename.cancel(threadId);
-          },
-          autoNameDraft: (threadId) => controllers.thread.rename.autoNameDraft(threadId),
-        },
-        goal: {
-          saveObjective: (objective, tokenBudget) => this.saveGoalObjective(objective, tokenBudget),
-          setStatus: (threadId, status) => controllers.runtime.goals.setStatus(threadId, status),
-          clear: (threadId) => controllers.runtime.goals.clear(threadId),
-          setEditingOpen: (open) => {
-            this.setGoalEditingOpen(open);
-          },
-        },
+        toolbar: this.createToolbarSlotActions(controllers),
+        goal: this.createGoalSlotActions(controllers),
       },
       slots: {
         renderMessages: (parent) => {
@@ -276,6 +237,72 @@ export class CodexChatView extends ItemView {
         renderComposer: (parent) => {
           controllers.composer.controller.render(parent);
         },
+      },
+    };
+  }
+
+  private createToolbarSlotActions(controllers: ChatViewControllers): ChatViewToolbarSlotActions {
+    return {
+      archiveConfirmId: () => controllers.toolbar.panels.archiveConfirmId(),
+      renameState: (threadId) => controllers.thread.rename.editState(threadId),
+      startNewThread: () => {
+        void this.startNewThread();
+      },
+      toggleChatActions: () => {
+        controllers.toolbar.panels.toggleChatActions();
+      },
+      compactConversation: () => {
+        void this.compactConversation();
+      },
+      setGoal: () => {
+        this.setGoalEditingOpen(true, { closeToolbarPanel: true });
+      },
+      toggleHistory: () => {
+        controllers.toolbar.panels.toggleHistory();
+      },
+      toggleStatusPanel: () => {
+        controllers.toolbar.panels.toggleStatus();
+      },
+      connect: () => {
+        void controllers.connection.reconnect.reconnectPanel();
+      },
+      refreshStatus: () => {
+        void controllers.connection.controller.refreshStatusPanel();
+      },
+      resumeThread: (threadId) => {
+        void controllers.thread.selection.selectThreadFromToolbar(threadId);
+      },
+      startArchiveThread: (threadId) => {
+        controllers.toolbar.panels.startArchive(threadId);
+      },
+      archiveThread: (threadId, saveMarkdown) => {
+        void controllers.toolbar.panels.archiveThread(threadId, saveMarkdown);
+      },
+      startRenameThread: (threadId) => {
+        controllers.thread.rename.start(threadId);
+      },
+      updateRenameDraft: (threadId, value) => {
+        controllers.thread.rename.updateDraft(threadId, value);
+      },
+      saveRenameThread: (threadId, value) => {
+        void controllers.thread.rename.save(threadId, value);
+      },
+      cancelRenameThread: (threadId) => {
+        controllers.thread.rename.cancel(threadId);
+      },
+      autoNameThread: (threadId) => {
+        void controllers.thread.rename.autoNameDraft(threadId);
+      },
+    };
+  }
+
+  private createGoalSlotActions(controllers: ChatViewControllers): ChatViewGoalSlotActions {
+    return {
+      saveObjective: (objective, tokenBudget) => this.saveGoalObjective(objective, tokenBudget),
+      setStatus: (threadId, status) => controllers.runtime.goals.setStatus(threadId, status),
+      clear: (threadId) => controllers.runtime.goals.clear(threadId),
+      setEditingOpen: (open) => {
+        this.setGoalEditingOpen(open);
       },
     };
   }

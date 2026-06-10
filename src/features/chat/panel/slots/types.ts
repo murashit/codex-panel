@@ -2,28 +2,13 @@ import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../runtime/effective-settings";
 import type { SendShortcut } from "../../../../shared/ui/keyboard";
 import type { ChatState } from "../../chat-state";
+import type { ToolbarActions } from "../../ui/toolbar";
 import type { ToolbarThreadRow } from "../model/types";
 import type { RestoredThreadTitleSnapshot } from "../model";
 
-interface ChatViewToolbarActions {
+interface ChatViewToolbarActions extends ToolbarActions {
   archiveConfirmId: () => string | null;
   renameState: (threadId: string) => ToolbarThreadRow["rename"];
-  startNewThread: () => Promise<void>;
-  toggleChatActions: () => void;
-  compactConversation: () => Promise<void>;
-  showGoalEditor: () => void;
-  toggleHistory: () => void;
-  toggleStatusPanel: () => void;
-  reconnectPanel: () => Promise<void>;
-  refreshStatusPanel: () => Promise<void>;
-  selectThreadFromToolbar: (threadId: string) => Promise<void>;
-  startArchive: (threadId: string) => void;
-  archiveThread: (threadId: string, saveMarkdown: boolean) => Promise<void>;
-  startRename: (threadId: string) => void;
-  updateRenameDraft: (threadId: string, value: string) => void;
-  saveRename: (threadId: string, value: string) => Promise<void>;
-  cancelRename: (threadId: string) => void;
-  autoNameDraft: (threadId: string) => Promise<void>;
 }
 
 interface ChatViewGoalActions {
