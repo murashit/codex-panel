@@ -95,6 +95,44 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/ui-root.tsx",
 ];
 const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts"];
+const generatedAppServerImportLegacyFiles = [
+  "src/features/chat/chat-state-actions.ts",
+  "src/features/chat/chat-state.ts",
+  "src/features/chat/composer/controller.ts",
+  "src/features/chat/diagnostics.ts",
+  "src/features/chat/display/agent.ts",
+  "src/features/chat/display/goal-messages.ts",
+  "src/features/chat/display/hooks.ts",
+  "src/features/chat/display/labels.ts",
+  "src/features/chat/display/permission-details.ts",
+  "src/features/chat/display/plan.ts",
+  "src/features/chat/display/review.ts",
+  "src/features/chat/display/state.ts",
+  "src/features/chat/display/thread-items.ts",
+  "src/features/chat/inbound/controller.ts",
+  "src/features/chat/inbound/notification-plan.ts",
+  "src/features/chat/inbound/routing.ts",
+  "src/features/chat/mcp-status.ts",
+  "src/features/chat/requests/approval.ts",
+  "src/features/chat/requests/user-input.ts",
+  "src/features/chat/runtime/config.ts",
+  "src/features/chat/runtime/effective-settings.ts",
+  "src/features/chat/runtime/state.ts",
+  "src/features/chat/runtime/status-summary.ts",
+  "src/features/chat/session/connection-controller.ts",
+  "src/features/chat/threads/thread-goal-actions.ts",
+  "src/features/chat/threads/thread-history-controller.ts",
+  "src/features/chat/threads/thread-rename-controller.ts",
+  "src/features/chat/threads/thread-resume-controller.ts",
+  "src/features/chat/threads/thread-resume.ts",
+  "src/features/chat/turns/composer-submission-actions.ts",
+  "src/features/chat/turns/slash-command-actions.ts",
+  "src/features/chat/turns/slash-command-execution.ts",
+  "src/features/chat/turns/turn-submission-controller.ts",
+  "src/features/chat/turns/turn-submission.ts",
+  "src/features/chat/ui/goal-banner.tsx",
+  "src/features/chat/ui/pending-request-message.tsx",
+];
 const codexPanelEslintPlugin = {
   rules: {
     "no-self-referential-initializer-callback": {
@@ -415,6 +453,32 @@ export default defineConfig([
               ],
               message:
                 "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, runtime, or app-server.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/app-server/**/*.{ts,tsx}", "src/features/chat/app-server/**/*.{ts,tsx}", ...generatedAppServerImportLegacyFiles],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "src/generated/app-server/**",
+                "../generated/app-server/**",
+                "../../generated/app-server/**",
+                "../../../generated/app-server/**",
+                "../../../../generated/app-server/**",
+                "../../../../../generated/app-server/**",
+                "../../../../../../generated/app-server/**",
+              ],
+              message:
+                "Keep generated app-server types behind src/app-server or the chat app-server adapter; expose Panel-owned models to feature, UI, and reducer code.",
             },
           ],
         },
