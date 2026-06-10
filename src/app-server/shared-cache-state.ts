@@ -1,6 +1,6 @@
 import type { Diagnostics } from "./diagnostics";
 import type { ConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
-import type { RateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
+import type { RateLimitSnapshot } from "./runtime-metrics";
 import type { Thread } from "../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
 

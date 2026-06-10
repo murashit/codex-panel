@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../app-server/client";
-import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
+import type { ThreadTokenUsage } from "../../../app-server/runtime-metrics";
 import { setActiveThreadTokenUsageAction } from "../chat-state-actions";
 import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../chat-state-selectors";
 import type { ChatStateStore } from "../chat-state";

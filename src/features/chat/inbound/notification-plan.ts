@@ -1,5 +1,6 @@
 import { activeThreadSettingsAppliedAction } from "../chat-state-actions";
 import type { McpServerStartupStatus } from "../../../app-server/diagnostics";
+import { threadTokenUsageFromAppServerUsage } from "../../../app-server/runtime-metrics";
 import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
 import type { FileUpdateChange } from "../../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";
@@ -260,7 +261,7 @@ function planThreadLifecycle(state: ChatState, notification: ServerNotification,
 function planDiagnosticStatus(notification: ServerNotification): ChatNotificationPlan {
   const { method, params } = notification;
   if (method === "thread/tokenUsage/updated") {
-    return actionPlan({ type: "active-thread/token-usage-set", tokenUsage: params.tokenUsage });
+    return actionPlan({ type: "active-thread/token-usage-set", tokenUsage: threadTokenUsageFromAppServerUsage(params.tokenUsage) });
   }
   if (method === "account/rateLimits/updated") {
     return {

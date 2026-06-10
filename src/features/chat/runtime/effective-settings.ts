@@ -1,8 +1,7 @@
 import type { ActivePermissionProfile } from "../../../generated/app-server/v2/ActivePermissionProfile";
 import type { AskForApproval } from "../../../generated/app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../../../generated/app-server/v2/ConfigReadResponse";
-import type { RateLimitSnapshot } from "../../../generated/app-server/v2/RateLimitSnapshot";
-import type { ThreadTokenUsage } from "../../../generated/app-server/v2/ThreadTokenUsage";
+import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
 import { findModelMetadataByIdOrName, type ModelMetadata } from "../../../domain/catalog/metadata";
 import {
   configuredServiceTierRequestValue,

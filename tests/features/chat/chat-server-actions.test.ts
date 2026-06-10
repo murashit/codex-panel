@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../src/app-server/client";
+import type { RateLimitSnapshot } from "../../../src/app-server/runtime-metrics";
 import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
 import { createChatServerDiagnosticsActions } from "../../../src/features/chat/server-actions/diagnostics-actions";
 import { createChatServerMetadataActions } from "../../../src/features/chat/server-actions/metadata-actions";
@@ -8,7 +9,6 @@ import { createChatServerThreadActions } from "../../../src/features/chat/server
 import { createChatState, createChatStateStore } from "../../../src/features/chat/chat-state";
 import type { Model } from "../../../src/generated/app-server/v2/Model";
 import type { McpServerStatus } from "../../../src/generated/app-server/v2/McpServerStatus";
-import type { RateLimitSnapshot } from "../../../src/generated/app-server/v2/RateLimitSnapshot";
 import type { SkillMetadata } from "../../../src/generated/app-server/v2/SkillMetadata";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 
@@ -315,9 +315,7 @@ function rateLimitFixture(overrides: Partial<RateLimitSnapshot> = {}): RateLimit
     limitName: "Codex",
     primary: null,
     secondary: null,
-    credits: null,
     individualLimit: null,
-    planType: null,
     rateLimitReachedType: null,
     ...overrides,
   };

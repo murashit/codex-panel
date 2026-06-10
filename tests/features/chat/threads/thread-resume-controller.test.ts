@@ -9,7 +9,7 @@ import { ChatResumeWorkTracker } from "../../../../src/features/chat/panel/lifec
 import type { ThreadResumeResponse } from "../../../../src/generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
-import type { ThreadTokenUsage } from "../../../../src/generated/app-server/v2/ThreadTokenUsage";
+import type { ThreadTokenUsage } from "../../../../src/app-server/runtime-metrics";
 import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
 
 function thread(id: string): Thread & { archived: boolean } {

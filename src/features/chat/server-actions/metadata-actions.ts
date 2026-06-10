@@ -1,5 +1,6 @@
 import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../../app-server/diagnostics";
 import { listModelMetadata, listSkillCatalog } from "../../../app-server/resource-operations";
+import { rateLimitSnapshotFromAppServerSnapshot } from "../../../app-server/runtime-metrics";
 import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
 import type { ModelMetadata, SkillMetadata } from "../../../domain/catalog/metadata";
 import { cloneAppServerDiagnostics, type ChatServerActionHost } from "./shared";
@@ -205,8 +206,9 @@ async function loadRateLimit(host: ChatServerMetadataActionsHost): Promise<RateL
     const response = await client.readAccountRateLimits();
     const rateLimitsByLimitId = response.rateLimitsByLimitId;
     const codexRateLimit = rateLimitsByLimitId && Object.hasOwn(rateLimitsByLimitId, "codex") ? rateLimitsByLimitId["codex"] : undefined;
+    const rateLimit = codexRateLimit ?? response.rateLimits;
     return {
-      data: codexRateLimit ?? response.rateLimits,
+      data: rateLimitSnapshotFromAppServerSnapshot(rateLimit),
       probe: diagnosticProbeOk(
         "account/rateLimits/read",
         response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available",

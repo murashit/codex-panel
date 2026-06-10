@@ -1,6 +1,6 @@
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { Thread } from "../../domain/threads/model";
-import type { ThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
+import type { ThreadTokenUsage } from "../../app-server/runtime-metrics";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "./runtime/state";
 import type { CollaborationMode } from "./runtime/collaboration";

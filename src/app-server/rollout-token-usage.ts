@@ -1,5 +1,4 @@
-import type { ThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
-import type { TokenUsageBreakdown } from "../generated/app-server/v2/TokenUsageBreakdown";
+import type { ThreadTokenUsage, TokenUsageBreakdown } from "./runtime-metrics";
 
 export const ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS = 2_000;
 export const ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES = 12 * 1024 * 1024;
