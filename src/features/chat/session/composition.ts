@@ -6,7 +6,7 @@ import { createChatServerMetadataActions, type ChatServerMetadataActions } from 
 import { createChatServerThreadActions } from "../server-actions/thread-actions";
 import { ChatConnectionController } from "./connection-controller";
 import { createChatReconnectActions } from "./reconnect-actions";
-import type { ServerRequestActions } from "../requests/server-request-actions";
+import type { rejectServerRequest, respondToServerRequest } from "../requests/server-request-responder";
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import { ChatInboundController } from "../inbound/controller";
@@ -63,7 +63,8 @@ export function createChatInboundController(
     serverMetadata: ChatServerMetadataActions;
     serverDiagnostics: ChatServerDiagnosticsActions;
     threadRename: ThreadRenameController;
-    serverRequestResponder: ServerRequestActions;
+    respondToServerRequest: (requestId: Parameters<typeof respondToServerRequest>[1], result: unknown) => boolean;
+    rejectServerRequest: (requestId: Parameters<typeof rejectServerRequest>[1], code: number, message: string) => boolean;
   },
 ): ChatInboundController {
   const { plugin, thread, render } = context;
@@ -86,8 +87,8 @@ export function createChatInboundController(
       refs.serverDiagnostics.recordMcpStartupStatus(name, status, message);
       render.schedule();
     },
-    respondToServerRequest: (requestId, result) => refs.serverRequestResponder.respond(requestId, result),
-    rejectServerRequest: (requestId, code, message) => refs.serverRequestResponder.reject(requestId, code, message),
+    respondToServerRequest: refs.respondToServerRequest,
+    rejectServerRequest: refs.rejectServerRequest,
   });
 }
 

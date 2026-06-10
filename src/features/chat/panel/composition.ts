@@ -13,7 +13,7 @@ import type { ToolbarPanelController } from "./toolbar-controller";
 import type { ChatConnectionController } from "../session/connection-controller";
 import type { ChatReconnectActions } from "../session/reconnect-actions";
 import type { PendingRequestController } from "../requests/pending-request-controller";
-import { createServerRequestActions } from "../requests/server-request-actions";
+import { rejectServerRequest, respondToServerRequest } from "../requests/server-request-responder";
 import type { ComposerSubmissionActions } from "../turns/composer-submission-actions";
 import type { RestoredThreadController } from "../threads/restored-thread-controller";
 import type { ThreadIdentityActions } from "../threads/thread-identity-actions";
@@ -105,14 +105,15 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     connection,
     goals,
   });
-  const serverRequestResponder = createServerRequestActions({
+  const serverRequestHost = {
     currentClient: ports.client.getClient,
-  });
+  };
   const controller = createChatInboundController(ports, {
     serverMetadata,
     serverDiagnostics,
     threadRename,
-    serverRequestResponder,
+    respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
+    rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
   });
   const { connectionController } = createChatConnectionControllers(ports, {
     connection,
