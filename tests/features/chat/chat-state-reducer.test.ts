@@ -419,6 +419,24 @@ describe("chatReducer", () => {
     expect(state.runtime.activeApprovalsReviewer).toBe("user");
   });
 
+  it("keeps null runtime request semantics explicit", () => {
+    let state = createChatState();
+    state = chatReducer(state, { type: "runtime/requested-model-set", model: "gpt-5.1" });
+    state = chatReducer(state, { type: "runtime/requested-effort-set", effort: "high" });
+    state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: "auto_review" });
+
+    state = chatReducer(state, { type: "runtime/requested-model-set", model: null });
+    state = chatReducer(state, { type: "runtime/requested-effort-set", effort: null });
+    state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: null });
+    state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: null });
+
+    expect(state.runtime.requestedModel).toEqual({ kind: "resetToConfig" });
+    expect(state.runtime.requestedReasoningEffort).toEqual({ kind: "resetToConfig" });
+    expect(state.runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
+    expect(state.runtime.requestedApprovalsReviewer).toEqual({ kind: "unchanged" });
+  });
+
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {
     const initial = createChatState();
     initial.transcript.displayItems = [message("initial")];
