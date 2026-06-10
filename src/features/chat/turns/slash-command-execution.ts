@@ -1,8 +1,8 @@
+import type { CodexInput } from "../../../app-server/request-input";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
-import type { UserInput } from "../../../generated/app-server/v2/UserInput";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { ReferencedThreadDisplay } from "../../../domain/threads/reference";
 import {
@@ -55,13 +55,13 @@ export interface SlashCommandExecutionContext {
 
 export interface SlashCommandExecutionResult {
   sendText?: string;
-  sendInput?: UserInput[];
+  sendInput?: CodexInput;
   referencedThread?: ReferencedThreadDisplay;
   composerDraft?: string;
 }
 
 export interface ThreadReferenceInput {
-  input: UserInput[];
+  input: CodexInput;
   referencedThread: ReferencedThreadDisplay;
 }
 

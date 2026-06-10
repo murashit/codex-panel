@@ -44,6 +44,7 @@ import type { ClientRequestMethod, ClientRequestParams, PendingRequest, RpcError
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
+import { toAppServerUserInput, type CodexInput } from "./request-input";
 import type { ServiceTierRequest, ThreadSettingsUpdate } from "./thread-settings";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
@@ -122,9 +123,9 @@ type AppServerClientLifecycleState =
   | { kind: "starting"; transport: AppServerTransport }
   | { kind: "initialized"; transport: AppServerTransport; initializeResponse: InitializeResponse };
 
-function toUserInput(input: string | UserInput[]): UserInput[] {
-  if (typeof input !== "string") return input;
-  return [{ type: "text", text: input, text_elements: [] }];
+function toUserInput(input: string | CodexInput): UserInput[] {
+  if (typeof input !== "string") return toAppServerUserInput(input);
+  return toAppServerUserInput([{ type: "text", text: input }]);
 }
 
 export class AppServerClient {
@@ -366,7 +367,7 @@ export class AppServerClient {
   startTurn(
     threadId: string,
     cwd: string,
-    input: string | UserInput[],
+    input: string | CodexInput,
     clientUserMessageId?: string | null,
     serviceTier?: ServiceTierRequest,
     collaborationMode?: CollaborationMode | null,
@@ -416,7 +417,7 @@ export class AppServerClient {
   steerTurn(
     threadId: string,
     expectedTurnId: string,
-    input: string | UserInput[],
+    input: string | CodexInput,
     clientUserMessageId?: string | null,
   ): Promise<TurnSteerResponse> {
     return this.request("turn/steer", {

@@ -1,6 +1,6 @@
 import type { App, EventRef } from "obsidian";
 
-import type { UserInput } from "../../../generated/app-server/v2/UserInput";
+import type { CodexInput } from "../../../app-server/request-input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
@@ -172,7 +172,7 @@ export class ChatComposerController {
     this.render(parent, options);
   }
 
-  codexInput(text: string): UserInput[] {
+  codexInput(text: string): CodexInput {
     return userInputWithWikiLinkMentionsAndSkills(
       text,
       (target) => resolveAppWikiLinkMention(this.options.app, target),

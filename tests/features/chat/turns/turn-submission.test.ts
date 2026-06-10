@@ -23,7 +23,7 @@ describe("chat turn submission helpers", () => {
 
   it("builds optimistic turn starts from immutable input snapshots", () => {
     const input = [
-      { type: "text" as const, text: "hello [[Note]]", text_elements: [] },
+      { type: "text" as const, text: "hello [[Note]]" },
       { type: "mention" as const, name: "Note", path: "Note.md" },
     ];
 
@@ -49,7 +49,7 @@ describe("chat turn submission helpers", () => {
   it("formats resolved skill references in optimistic user messages only for display", () => {
     const text = "Use $obsidian-codex-panel-maintain and $missing.";
     const input = [
-      { type: "text" as const, text, text_elements: [] },
+      { type: "text" as const, text },
       {
         type: "skill" as const,
         name: "obsidian-codex-panel-maintain",

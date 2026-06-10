@@ -1,11 +1,11 @@
 import type { AppServerClient } from "../../../app-server/client";
+import type { CodexInput } from "../../../app-server/request-input";
 import { submissionStateSnapshot } from "../chat-state-selectors";
 import type { ChatStateStore } from "../chat-state";
 import { parseSlashCommand } from "../composer/suggestions";
 import type { SlashCommandExecutionResult } from "./slash-command-execution";
 import type { SlashCommandName } from "../composer/slash-commands";
 import type { ReferencedThreadDisplay } from "../../../domain/threads/reference";
-import type { UserInput } from "../../../generated/app-server/v2/UserInput";
 
 interface ComposerDraftPort {
   readonly trimmedDraft: string;
@@ -17,7 +17,7 @@ interface ComposerSlashCommandPort {
 }
 
 interface ComposerTurnSubmissionPort {
-  sendTurnText(text: string, codexInputOverride?: UserInput[], referencedThread?: ReferencedThreadDisplay): Promise<void>;
+  sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadDisplay): Promise<void>;
 }
 
 interface ComposerConnectionPort {
@@ -91,13 +91,13 @@ function sendComposerTurn(host: ComposerSubmissionActionsHost, text: string): Pr
 function sendComposerTurn(
   host: ComposerSubmissionActionsHost,
   text: string,
-  codexInputOverride: UserInput[] | undefined,
+  codexInputOverride: CodexInput | undefined,
   referencedThread: ReferencedThreadDisplay | undefined,
 ): Promise<void>;
 async function sendComposerTurn(
   host: ComposerSubmissionActionsHost,
   text: string,
-  codexInputOverride?: UserInput[],
+  codexInputOverride?: CodexInput,
   referencedThread?: ReferencedThreadDisplay,
 ): Promise<void> {
   host.scroll.forceBottom();

@@ -2,7 +2,7 @@ import type { PendingTurnStart } from "../chat-state";
 import type { DisplayFileMention, DisplayItem, MessageDisplayItem } from "../display/types";
 import { fileMentionsFromInput, userMessageDisplayText } from "../display/thread-items";
 import { attachHookRunsToTurn } from "../display/hooks";
-import type { UserInput } from "../../../generated/app-server/v2/UserInput";
+import type { CodexInput } from "../../../app-server/request-input";
 
 export interface LocalUserMessageParams {
   id: string;
@@ -21,7 +21,7 @@ export interface OptimisticTurnStartAckParams {
 }
 
 export interface LocalUserMessageFromInputParams extends Omit<LocalUserMessageParams, "mentionedFiles"> {
-  codexInput: readonly UserInput[];
+  codexInput: CodexInput;
 }
 
 export type OptimisticTurnStartParams = LocalUserMessageFromInputParams;

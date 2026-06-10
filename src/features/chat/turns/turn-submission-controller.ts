@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../app-server/client";
-import type { UserInput } from "../../../generated/app-server/v2/UserInput";
+import type { CodexInput } from "../../../app-server/request-input";
 import type { ReferencedThreadDisplay } from "../../../domain/threads/reference";
 import {
   addTranscriptItemAction,
@@ -37,7 +37,7 @@ export interface TurnSubmissionRuntimePort {
 }
 
 export interface TurnSubmissionComposerPort {
-  codexInput: (text: string) => UserInput[];
+  codexInput: (text: string) => CodexInput;
   setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
 }
 
@@ -65,7 +65,7 @@ export interface TurnSubmissionControllerHost {
 export class TurnSubmissionController {
   constructor(private readonly host: TurnSubmissionControllerHost) {}
 
-  async sendTurnText(text: string, codexInputOverride?: UserInput[], referencedThread?: ReferencedThreadDisplay): Promise<void> {
+  async sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadDisplay): Promise<void> {
     if (!(await this.host.restoredThread.ensureRestoredThreadLoaded())) return;
     const client = this.host.connection.currentClient();
     if (!client) return;
@@ -137,7 +137,7 @@ export class TurnSubmissionController {
   private async steerCurrentTurn(
     client: AppServerClient,
     text: string,
-    codexInputOverride?: UserInput[],
+    codexInputOverride?: CodexInput,
     referencedThread?: ReferencedThreadDisplay,
   ): Promise<void> {
     const state = submissionStateSnapshot(this.host.stateStore.getState());

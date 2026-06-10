@@ -1,8 +1,8 @@
 import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem } from "./types";
+import type { CodexInput, CodexInputItem } from "../../../app-server/request-input";
 import type { FileUpdateChange } from "../../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../../generated/app-server/v2/Turn";
-import type { UserInput } from "../../../generated/app-server/v2/UserInput";
 import { definedProp, truncate } from "../../../utils";
 import { referencedThreadDisplayFromPrompt } from "../../../domain/threads/reference";
 import { appServerUserItemText } from "../../../app-server/turn-model";
@@ -127,7 +127,7 @@ function userMessageDisplayItem(item: UserMessageItem, turnId?: string): Display
   };
 }
 
-export function fileMentionsFromInput(input: UserInput[]): DisplayFileMention[] {
+export function fileMentionsFromInput(input: readonly CodexInputItem[]): DisplayFileMention[] {
   const seen = new Set<string>();
   const mentions: DisplayFileMention[] = [];
   for (const item of input) {
@@ -138,7 +138,7 @@ export function fileMentionsFromInput(input: UserInput[]): DisplayFileMention[] 
   return mentions;
 }
 
-export function userMessageDisplayText(text: string, input: readonly UserInput[]): string {
+export function userMessageDisplayText(text: string, input: CodexInput): string {
   const names = resolvedSkillNames(input);
   if (names.length === 0) return text;
 
@@ -150,7 +150,7 @@ export function userMessageDisplayText(text: string, input: readonly UserInput[]
   });
 }
 
-function resolvedSkillNames(input: readonly UserInput[]): string[] {
+function resolvedSkillNames(input: readonly CodexInputItem[]): string[] {
   const seen = new Set<string>();
   const names: string[] = [];
   for (const item of input) {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/client";
+import type { CodexInput } from "../../../../src/app-server/request-input";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import {
   createSlashCommandActions,
@@ -11,9 +12,8 @@ import {
   type SlashCommandThreadPort,
 } from "../../../../src/features/chat/turns/slash-command-actions";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
-import type { UserInput } from "../../../../src/generated/app-server/v2/UserInput";
 
-const textInput = (text: string): UserInput[] => [{ type: "text", text, text_elements: [] }];
+const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 function thread(id: string, name: string | null = null): Thread & { archived: boolean } {
   return {

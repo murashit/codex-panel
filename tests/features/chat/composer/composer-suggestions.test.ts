@@ -190,7 +190,7 @@ describe("composer suggestions", () => {
       replacement: "[[Assets/Diagram.png]]",
     });
     expect(input).toEqual([
-      { type: "text", text, text_elements: [] },
+      { type: "text", text },
       { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
     ]);
   });

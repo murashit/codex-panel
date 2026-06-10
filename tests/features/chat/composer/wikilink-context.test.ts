@@ -23,7 +23,7 @@ describe("wikilink context", () => {
     );
 
     expect(input).toEqual([
-      { type: "text", text, text_elements: [] },
+      { type: "text", text },
       { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
     ]);
     expect(input).toHaveLength(2);
@@ -46,7 +46,7 @@ describe("wikilink context", () => {
       { raw: "Assets/Diagram.png#crop|Diagram", target: "Assets/Diagram.png", subpath: "#crop", display: "Diagram" },
     ]);
     expect(input).toEqual([
-      { type: "text", text, text_elements: [] },
+      { type: "text", text },
       { type: "mention", name: "Projects", path: "Bases/Projects.base" },
       { type: "mention", name: "Paper", path: "References/Paper.pdf" },
       { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
@@ -60,7 +60,7 @@ describe("wikilink context", () => {
     );
 
     expect(input).toEqual([
-      { type: "text", text, text_elements: [] },
+      { type: "text", text },
       { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
     ]);
   });
@@ -90,7 +90,7 @@ describe("wikilink context", () => {
     );
 
     expect(input).toEqual([
-      { type: "text", text, text_elements: [] },
+      { type: "text", text },
       { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
       {
         type: "skill",
@@ -134,7 +134,7 @@ describe("wikilink context", () => {
     ]);
 
     expect(input).toEqual([
-      { type: "text", text, text_elements: [] },
+      { type: "text", text },
       { type: "skill", name: "First", path: "/skills/first/SKILL.md" },
     ]);
   });

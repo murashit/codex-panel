@@ -491,7 +491,7 @@ describe("CodexChatView connection lifecycle", () => {
       expect(client.startTurn).toHaveBeenCalledWith(
         "thread-1",
         "/vault",
-        [{ type: "text", text: "hello", text_elements: [] }],
+        [{ type: "text", text: "hello" }],
         expect.stringMatching(/^local-user-\d+$/),
       );
     });

@@ -14,7 +14,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     referThread: vi.fn().mockResolvedValue({
-      input: [{ type: "text", text: "referenced", text_elements: [] }],
+      input: [{ type: "text", text: "referenced" }],
       referencedThread: { threadId: "thread-2", title: "Referenced", includedTurns: 1, turnLimit: 20 },
     }),
     forkThread: vi.fn().mockResolvedValue(undefined),
@@ -143,7 +143,7 @@ describe("slash commands", () => {
 
   it("returns referenced input for /refer", async () => {
     const target = thread({ id: "thread-alpha", name: "Alpha" });
-    const input = [{ type: "text" as const, text: "context\n質問です", text_elements: [] }];
+    const input = [{ type: "text" as const, text: "context\n質問です" }];
     const referencedThread = { threadId: "thread-alpha", title: "Alpha", includedTurns: 2, turnLimit: 20 };
     const ctx = context({
       listedThreads: [thread({ id: "thread-current", name: "Current" }), target],

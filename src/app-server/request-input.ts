@@ -5,22 +5,39 @@ export interface RequestMention {
   path: string;
 }
 
-export function appServerTextInputWithMentions(
+export type CodexInputItem =
+  | { type: "text"; text: string }
+  | { type: "image"; url: string; detail?: UserInputImageDetail }
+  | { type: "localImage"; path: string; detail?: UserInputImageDetail }
+  | { type: "skill"; name: string; path: string }
+  | { type: "mention"; name: string; path: string };
+
+export type CodexInput = CodexInputItem[];
+type UserInputImageDetail = "auto" | "low" | "high" | "original";
+
+export function codexTextInputWithMentions(
   text: string,
   mentions: readonly RequestMention[],
   skills: readonly RequestMention[] = [],
-): UserInput[] {
+): CodexInput {
   return [
-    ...appServerTextInput(text),
+    ...codexTextInput(text),
     ...mentions.map((mention) => ({ type: "mention" as const, name: mention.name, path: mention.path })),
     ...skills.map((skill) => ({ type: "skill" as const, name: skill.name, path: skill.path })),
   ];
 }
 
-export function appServerTextInputWithAttachments(text: string, input: readonly UserInput[]): UserInput[] {
-  return [...appServerTextInput(text), ...input.filter((item) => item.type !== "text")];
+export function codexTextInputWithAttachments(text: string, input: readonly CodexInputItem[]): CodexInput {
+  return [...codexTextInput(text), ...input.filter((item) => item.type !== "text")];
 }
 
-function appServerTextInput(text: string): UserInput[] {
-  return [{ type: "text", text, text_elements: [] }];
+export function toAppServerUserInput(input: readonly CodexInputItem[]): UserInput[] {
+  return input.map((item) => {
+    if (item.type === "text") return { type: "text", text: item.text, text_elements: [] };
+    return { ...item };
+  });
+}
+
+function codexTextInput(text: string): CodexInput {
+  return [{ type: "text", text }];
 }

@@ -1,4 +1,4 @@
-import { appServerTextInputWithMentions, type RequestMention } from "../../../app-server/request-input";
+import { codexTextInputWithMentions, type RequestMention } from "../../../app-server/request-input";
 import type { SkillMetadata } from "../../../domain/catalog/metadata";
 import { parseObsidianWikiLink } from "../../../shared/obsidian/wikilinks";
 
@@ -60,7 +60,7 @@ export function userInputWithWikiLinkMentionsAndSkills(
     resolvedSkills.push({ name: skill.name, path: skill.path });
   }
 
-  return appServerTextInputWithMentions(text, mentions, resolvedSkills);
+  return codexTextInputWithMentions(text, mentions, resolvedSkills);
 }
 
 export function parsedSkillReferences(text: string): string[] {

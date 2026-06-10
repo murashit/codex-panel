@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../app-server/client";
-import { appServerTextInputWithAttachments } from "../../../app-server/request-input";
+import { codexTextInputWithAttachments, type CodexInput } from "../../../app-server/request-input";
 import { chronologicalConversationSummariesFromAppServerTurns } from "../../../app-server/turn-model";
 import { referencedThreadPromptBundle, referencedThreadTurns, REFERENCED_THREAD_TURN_LIMIT } from "../../../domain/threads/reference";
 import type { Thread } from "../../../domain/threads/model";
@@ -13,7 +13,6 @@ import type { DisplayDetailSection } from "../display/types";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
-import type { UserInput } from "../../../generated/app-server/v2/UserInput";
 import { submissionStateSnapshot } from "../chat-state-selectors";
 import type { ChatStateStore } from "../chat-state";
 
@@ -58,7 +57,7 @@ export interface SlashCommandGoalPort {
 export interface SlashCommandActionsHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
-  codexInput: (text: string) => UserInput[];
+  codexInput: (text: string) => CodexInput;
   threads: SlashCommandThreadPort;
   runtime: SlashCommandRuntimePort;
   goals: SlashCommandGoalPort;
@@ -140,7 +139,7 @@ async function referencedThreadInput(
     const messageInput = host.codexInput(message);
     host.status.setStatus(reference.status);
     return {
-      input: appServerTextInputWithAttachments(reference.prompt, messageInput),
+      input: codexTextInputWithAttachments(reference.prompt, messageInput),
       referencedThread: reference.referencedThread,
     };
   } catch (error) {

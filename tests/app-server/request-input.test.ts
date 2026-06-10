@@ -1,31 +1,42 @@
 import { describe, expect, it } from "vitest";
 
-import { appServerTextInputWithAttachments, appServerTextInputWithMentions } from "../../src/app-server/request-input";
-import type { UserInput } from "../../src/generated/app-server/v2/UserInput";
+import {
+  codexTextInputWithAttachments,
+  codexTextInputWithMentions,
+  toAppServerUserInput,
+  type CodexInput,
+} from "../../src/app-server/request-input";
 
 describe("app-server request input", () => {
   it("builds text input with mentions and skills", () => {
     expect(
-      appServerTextInputWithMentions(
+      codexTextInputWithMentions(
         "Use [[Note]] and $Skill",
         [{ name: "Note", path: "Note.md" }],
         [{ name: "Skill", path: ".codex/skills/skill/SKILL.md" }],
       ),
     ).toEqual([
-      { type: "text", text: "Use [[Note]] and $Skill", text_elements: [] },
+      { type: "text", text: "Use [[Note]] and $Skill" },
       { type: "mention", name: "Note", path: "Note.md" },
       { type: "skill", name: "Skill", path: ".codex/skills/skill/SKILL.md" },
     ]);
   });
 
   it("replaces text input while preserving non-text attachments", () => {
-    const input: UserInput[] = [
-      { type: "text", text: "visible request", text_elements: [] },
+    const input: CodexInput = [
+      { type: "text", text: "visible request" },
       { type: "mention", name: "Note", path: "Note.md" },
     ];
 
-    expect(appServerTextInputWithAttachments("rewritten prompt", input)).toEqual([
-      { type: "text", text: "rewritten prompt", text_elements: [] },
+    expect(codexTextInputWithAttachments("rewritten prompt", input)).toEqual([
+      { type: "text", text: "rewritten prompt" },
+      { type: "mention", name: "Note", path: "Note.md" },
+    ]);
+  });
+
+  it("serializes text input for app-server requests", () => {
+    expect(toAppServerUserInput(codexTextInputWithMentions("Use [[Note]]", [{ name: "Note", path: "Note.md" }]))).toEqual([
+      { type: "text", text: "Use [[Note]]", text_elements: [] },
       { type: "mention", name: "Note", path: "Note.md" },
     ]);
   });
