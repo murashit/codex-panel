@@ -1,8 +1,9 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useCallback, useLayoutEffect, useState } from "preact/hooks";
+import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { renderUiRoot } from "../../../../shared/ui/ui-root";
 import { MESSAGE_VIRTUAL_ITEM_INDEX_ATTRIBUTE, type MessageStreamVirtualizer } from "../message-virtualizer";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "../message-content-events";
 import type { MessageStreamBlock } from "./context";
 
 export function renderMessageStreamBlocks(parent: HTMLElement, blocks: MessageStreamBlock[], virtualizer: MessageStreamVirtualizer): void {
@@ -52,11 +53,41 @@ function MessageStreamBlockHost({
   measureBlock: (element: HTMLElement | null) => void;
   virtualItem: { index: number; start: number };
 }): UiNode {
+  const blockRef = useRef<HTMLDivElement | null>(null);
+  const cleanupContentRenderedListener = useRef<(() => void) | null>(null);
+  const setBlock = useCallback(
+    (element: HTMLDivElement | null) => {
+      cleanupContentRenderedListener.current?.();
+      cleanupContentRenderedListener.current = null;
+      blockRef.current = element;
+      measureBlock(element);
+      if (!element) return;
+      const remeasure = () => {
+        if (blockRef.current === element && element.isConnected) measureBlock(element);
+        element.win.requestAnimationFrame(() => {
+          if (blockRef.current === element && element.isConnected) measureBlock(element);
+        });
+      };
+      element.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, remeasure);
+      cleanupContentRenderedListener.current = () => {
+        element.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, remeasure);
+      };
+    },
+    [measureBlock],
+  );
+
+  useLayoutEffect(() => {
+    return () => {
+      cleanupContentRenderedListener.current?.();
+      cleanupContentRenderedListener.current = null;
+    };
+  }, []);
+
   if (!block) return null;
 
   return (
     <div
-      ref={measureBlock}
+      ref={setBlock}
       className="codex-panel__message-block"
       data-codex-panel-block-key={block.key}
       {...{ [MESSAGE_VIRTUAL_ITEM_INDEX_ATTRIBUTE]: String(virtualItem.index) }}
