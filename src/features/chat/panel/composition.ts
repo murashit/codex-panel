@@ -19,9 +19,10 @@ import type { RestoredThreadController } from "../threads/restored-thread-contro
 import type { ThreadIdentityActions } from "../threads/thread-identity-actions";
 import type { ThreadResumeController } from "../threads/thread-resume-controller";
 import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
-import type { ChatViewRenderController } from "./view-render-controller";
+import type { ChatViewRenderController, ChatViewSlotRenderers } from "./view-render-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatControllerCompositionPorts } from "./controller-ports";
+import { createChatControllerCompositionActions, requireCompositionRef, type ChatControllerCompositionRefs } from "./controller-wiring";
 import {
   createChatServerActionControllers,
   createChatConnectionControllers,
@@ -73,6 +74,7 @@ export interface ChatViewControllers {
   render: {
     controller: ChatViewRenderController;
     messages: ChatMessageRenderer;
+    attachSlotRenderers: (slotRenderers: ChatViewSlotRenderers) => void;
     openView: () => void;
     closeView: () => void;
     applyViewState: (state: unknown) => void;
@@ -82,82 +84,191 @@ export interface ChatViewControllers {
 export function createChatViewControllers(ports: ChatControllerCompositionPorts): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
   const { renderController } = createViewRenderControllerGroup(ports, { connection });
+  const refs: ChatControllerCompositionRefs = {
+    renderController,
+    controller: null,
+    connectionController: null,
+    threadSelection: null,
+    threadRename: null,
+    threadResume: null,
+    restoredThread: null,
+    serverMetadata: null,
+    serverDiagnostics: null,
+    messageRenderer: null,
+    composerController: null,
+  };
+  const actions = createChatControllerCompositionActions(ports, refs);
   const runtimeSettings = createChatRuntimeSettingsActions({
     stateStore: ports.state.stateStore,
     currentClient: ports.client.getClient,
     runtimeSnapshot: ports.runtime.runtimeSnapshot,
     collaborationModeLabel: ports.runtime.collaborationModeLabel,
-    addSystemMessage: ports.status.addSystemMessage,
+    addSystemMessage: actions.status.addSystemMessage,
   });
-  const { history, threadActions, goals, restoredThread, threadResume, threadIdentity, threadRename } = createThreadControllerGroup(ports, {
-    connection,
-  });
-  const { toolbarPanels, applyViewState } = createPanelUiControllerGroup(ports, {
-    threadActions,
-  });
-  const { threadSelection } = createThreadSelectionControllerGroup(ports, {
-    toolbarPanels,
-  });
-  const { reconnectActions } = createChatReconnectControllerGroup(ports, {
-    connection,
-  });
-  const { serverThreads, serverMetadata, serverDiagnostics } = createChatServerActionControllers(ports, {
+  const threadControllers = createThreadControllerGroup(
+    {
+      ...ports,
+      client: actions.client,
+      render: actions.render,
+      status: actions.status,
+      thread: actions.thread,
+      scroll: actions.scroll,
+      composer: actions.composer,
+    },
+    {
+      connection,
+    },
+  );
+  const { history, threadActions, goals, threadIdentity } = threadControllers;
+  refs.restoredThread = threadControllers.restoredThread;
+  refs.threadResume = threadControllers.threadResume;
+  refs.threadRename = threadControllers.threadRename;
+  const threadRename = requireCompositionRef(refs.threadRename, "thread rename controller");
+  const lifecycleActions = {
+    ...ports.lifecycle,
+    invalidateResumeWork: threadControllers.invalidateResumeWork,
+  };
+  const { toolbarPanels, applyViewState } = createPanelUiControllerGroup(
+    {
+      ...ports,
+      lifecycle: lifecycleActions,
+      render: actions.render,
+      thread: actions.thread,
+    },
+    {
+      threadActions,
+    },
+  );
+  refs.threadSelection = createThreadSelectionControllerGroup(
+    {
+      ...ports,
+      thread: actions.thread,
+      status: actions.status,
+    },
+    {
+      toolbarPanels,
+    },
+  ).threadSelection;
+  const { reconnectActions } = createChatReconnectControllerGroup(
+    {
+      ...ports,
+      client: actions.client,
+      lifecycle: lifecycleActions,
+      render: actions.render,
+      status: actions.status,
+      thread: actions.thread,
+    },
+    {
+      connection,
+    },
+  );
+  const serverActionControllers = createChatServerActionControllers(ports, {
     connection,
     goals,
   });
+  const { serverThreads, serverMetadata, serverDiagnostics } = serverActionControllers;
+  refs.serverMetadata = serverMetadata;
+  refs.serverDiagnostics = serverDiagnostics;
   const serverRequestHost = {
     currentClient: ports.client.getClient,
   };
-  const controller = createChatInboundController(ports, {
-    serverMetadata,
-    serverDiagnostics,
-    threadRename,
-    respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
-    rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
-  });
-  const { connectionController } = createChatConnectionControllers(ports, {
-    connection,
-    serverMetadata,
-    serverDiagnostics,
-  });
+  refs.controller = createChatInboundController(
+    {
+      ...ports,
+      render: actions.render,
+      thread: actions.thread,
+    },
+    {
+      serverMetadata,
+      serverDiagnostics,
+      threadRename,
+      respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
+      rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
+    },
+  );
+  refs.connectionController = createChatConnectionControllers(
+    {
+      ...ports,
+      client: actions.client,
+      lifecycle: lifecycleActions,
+      thread: actions.thread,
+      status: actions.status,
+      liveState: ports.liveState,
+      render: actions.render,
+    },
+    {
+      connection,
+      serverMetadata,
+      serverDiagnostics,
+    },
+  ).connectionController;
+  const inboundController = requireCompositionRef(refs.controller, "inbound controller");
+  const connectionController = requireCompositionRef(refs.connectionController, "connection controller");
 
   connection.setHandlers({
     onNotification: (notification) => {
-      controller.handleNotification(notification);
+      inboundController.handleNotification(notification);
       ports.liveState.refresh();
-      ports.render.schedule();
+      actions.render.schedule();
     },
     onServerRequest: (request) => {
-      controller.handleServerRequest(request);
+      inboundController.handleServerRequest(request);
       ports.liveState.refresh();
-      ports.render.now();
+      actions.render.now();
     },
     onLog: (message) => {
-      controller.handleAppServerLog(message);
-      ports.render.now();
+      inboundController.handleAppServerLog(message);
+      actions.render.now();
     },
     onExit: () => {
       connectionController.handleExit();
     },
   });
 
-  const { pendingRequests, messageRenderer, composerController, composerSubmission } = createConversationSurfaceControllerGroup(ports, {
-    controller,
-    serverThreads,
-    runtimeSettings,
-    threadActions,
-    threadRename,
-    reconnectActions,
-    goals,
-    history,
-  });
-  const { scheduleAppServerWarmup, openView, closeView } = createConnectionLifecycleControllerGroup(ports, {
-    connection,
-    composerController,
-    messageRenderer,
-    serverThreads,
-    serverMetadata,
-  });
+  const conversationControllers = createConversationSurfaceControllerGroup(
+    {
+      ...ports,
+      client: actions.client,
+      render: actions.render,
+      runtime: actions.runtime,
+      thread: actions.thread,
+      status: actions.status,
+      scroll: actions.scroll,
+    },
+    {
+      controller: inboundController,
+      serverThreads,
+      runtimeSettings,
+      threadActions,
+      threadRename,
+      reconnectActions,
+      goals,
+      history,
+    },
+  );
+  const { pendingRequests, composerSubmission } = conversationControllers;
+  refs.messageRenderer = conversationControllers.messageRenderer;
+  refs.composerController = conversationControllers.composerController;
+  const messageRenderer = requireCompositionRef(refs.messageRenderer, "message renderer");
+  const composerController = requireCompositionRef(refs.composerController, "composer controller");
+  const { scheduleAppServerWarmup, openView, closeView } = createConnectionLifecycleControllerGroup(
+    {
+      ...ports,
+      client: actions.client,
+      lifecycle: lifecycleActions,
+      render: actions.render,
+    },
+    {
+      connection,
+      composerController,
+      messageRenderer,
+      serverThreads,
+      serverMetadata,
+    },
+  );
+  const threadResume = requireCompositionRef(refs.threadResume, "thread resume controller");
+  const restoredThread = requireCompositionRef(refs.restoredThread, "restored thread controller");
+  const threadSelection = requireCompositionRef(refs.threadSelection, "thread selection controller");
 
   return {
     connection: {
@@ -167,7 +278,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       scheduleWarmup: scheduleAppServerWarmup,
     },
     inbound: {
-      controller,
+      controller: inboundController,
     },
     serverActions: {
       threads: serverThreads,
@@ -200,6 +311,9 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     render: {
       controller: renderController,
       messages: messageRenderer,
+      attachSlotRenderers: (slotRenderers) => {
+        renderController.setSlotRenderers(slotRenderers);
+      },
       openView,
       closeView,
       applyViewState,

@@ -124,18 +124,14 @@ export class ChatConnectionWorkTracker {
 export class ChatResumeWorkTracker {
   private state: ChatResumeLifecycleState = { kind: "idle" };
 
-  constructor(private readonly onInvalidate: () => void) {}
-
   begin(threadId: string): ActiveChatResume {
     const resume: ActiveChatResume = { kind: "resuming", threadId };
     this.state = transitionChatResumeLifecycle(this.state, { type: "started", resume });
-    this.onInvalidate();
     return resume;
   }
 
   invalidate(): void {
     this.state = transitionChatResumeLifecycle(this.state, { type: "invalidated" });
-    this.onInvalidate();
   }
 
   isStale(resume: ActiveChatResume): boolean {

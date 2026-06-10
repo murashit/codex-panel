@@ -39,6 +39,7 @@ export class ThreadResumeController {
       return;
     }
     const resume = this.host.resumeWork.begin(threadId);
+    this.host.history.invalidate();
     await this.host.ensureConnected();
     const client = this.host.currentClient();
     if (!client || this.isStale(resume)) return;

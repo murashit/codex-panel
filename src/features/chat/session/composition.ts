@@ -1,6 +1,9 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection-manager";
+import type { RuntimeSnapshot } from "../runtime/effective-settings";
+import type { ChatStateStore } from "../chat-state";
+import type { CodexChatHost } from "../chat-host";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../server-actions/diagnostics-actions";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../server-actions/metadata-actions";
 import { createChatServerThreadActions } from "../server-actions/thread-actions";
@@ -10,9 +13,17 @@ import type { rejectServerRequest, respondToServerRequest } from "../requests/se
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import { ChatInboundController } from "../inbound/controller";
-import type { ChatControllerCompositionPorts } from "../panel/controller-ports";
+import type { ChatConnectionWorkTracker, ChatViewRenderScheduleOptions } from "../panel/lifecycle";
 
-type ChatServerActionControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "runtime" | "state">;
+interface ChatServerActionControllerPorts {
+  plugin: Pick<CodexChatHost, "applyThreadListSnapshot" | "publishAppServerMetadata" | "vaultPath">;
+  state: {
+    stateStore: ChatStateStore;
+  };
+  runtime: {
+    runtimeSnapshot: () => RuntimeSnapshot;
+  };
+}
 
 export function createChatServerActionControllers(
   context: ChatServerActionControllerPorts,
@@ -55,7 +66,20 @@ export function createChatServerActionControllers(
   return { serverThreads, serverMetadata, serverDiagnostics };
 }
 
-type ChatInboundControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "render" | "state" | "thread">;
+interface ChatInboundControllerPorts {
+  plugin: Pick<CodexChatHost, "notifyThreadArchived" | "notifyThreadRenamed">;
+  state: {
+    stateStore: ChatStateStore;
+  };
+  render: {
+    schedule: (options?: ChatViewRenderScheduleOptions) => void;
+  };
+  thread: {
+    refreshThreads: () => Promise<void>;
+    refreshSkills: (forceReload?: boolean) => Promise<void>;
+    publishAppServerMetadataSnapshot: () => void;
+  };
+}
 
 export function createChatInboundController(
   context: ChatInboundControllerPorts,
@@ -92,10 +116,37 @@ export function createChatInboundController(
   });
 }
 
-type ChatConnectionControllerPorts = Pick<
-  ChatControllerCompositionPorts,
-  "client" | "lifecycle" | "liveState" | "plugin" | "render" | "state" | "status" | "thread"
->;
+interface ChatConnectionControllerPorts {
+  plugin: Pick<CodexChatHost, "settings">;
+  state: {
+    stateStore: ChatStateStore;
+  };
+  client: {
+    setClient: (client: ReturnType<ConnectionManager["currentClient"]>) => void;
+  };
+  lifecycle: {
+    connectionWork: ChatConnectionWorkTracker;
+    invalidateResumeWork: () => void;
+    scheduleDeferredDiagnostics: () => void;
+    clearDeferredDiagnostics: () => void;
+  };
+  thread: {
+    loadSharedThreadList: () => Promise<void>;
+    refreshTabHeader: () => void;
+    resetTurnPresence: (hadTurns: boolean) => void;
+  };
+  status: {
+    set: (status: string) => void;
+    addSystemMessage: (text: string) => void;
+  };
+  liveState: {
+    refresh: () => void;
+  };
+  render: {
+    now: () => void;
+    schedule: (options?: ChatViewRenderScheduleOptions) => void;
+  };
+}
 
 export function createChatConnectionControllers(
   context: ChatConnectionControllerPorts,
@@ -140,10 +191,30 @@ export function createChatConnectionControllers(
   };
 }
 
-type ChatReconnectControllerGroupPorts = Pick<
-  ChatControllerCompositionPorts,
-  "client" | "lifecycle" | "render" | "state" | "status" | "thread"
->;
+interface ChatReconnectControllerGroupPorts {
+  state: {
+    stateStore: ChatStateStore;
+  };
+  client: {
+    clear: () => void;
+    ensureConnected: () => Promise<void>;
+  };
+  lifecycle: {
+    invalidateConnectionWork: () => void;
+    invalidateResumeWork: () => void;
+    clearDeferredDiagnostics: () => void;
+  };
+  render: {
+    now: () => void;
+  };
+  status: {
+    set: (status: string) => void;
+    addSystemMessage: (text: string) => void;
+  };
+  thread: {
+    resumeThread: (threadId: string) => Promise<void>;
+  };
+}
 
 export function createChatReconnectControllerGroup(
   context: ChatReconnectControllerGroupPorts,

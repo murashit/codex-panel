@@ -12,14 +12,21 @@ describe("ChatViewRenderController", () => {
     const messages = document.createElement("div");
     const composer = document.createElement("div");
     const host = renderHost(root, { toolbar, goal, messages, composer });
+    const slotRenderers = {
+      renderToolbar: vi.fn(),
+      renderGoal: vi.fn(),
+      renderMessages: vi.fn(),
+      renderComposer: vi.fn(),
+    };
     const controller = new ChatViewRenderController(host);
+    controller.setSlotRenderers(slotRenderers);
 
     controller.render();
 
-    expect(host.renderToolbar).toHaveBeenCalledWith(toolbar);
-    expect(host.renderGoal).toHaveBeenCalledWith(goal);
-    expect(host.renderMessages).toHaveBeenCalledWith(messages);
-    expect(host.renderComposer).toHaveBeenCalledWith(composer);
+    expect(slotRenderers.renderToolbar).toHaveBeenCalledWith(toolbar);
+    expect(slotRenderers.renderGoal).toHaveBeenCalledWith(goal);
+    expect(slotRenderers.renderMessages).toHaveBeenCalledWith(messages);
+    expect(slotRenderers.renderComposer).toHaveBeenCalledWith(composer);
   });
 });
 
@@ -42,10 +49,6 @@ function renderHost(
       },
     },
     panelRoot: () => root,
-    renderToolbar: vi.fn(),
-    renderGoal: vi.fn(),
-    renderMessages: vi.fn(),
-    renderComposer: vi.fn(),
     clearScheduledRender: vi.fn(),
   };
 }

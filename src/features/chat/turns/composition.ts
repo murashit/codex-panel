@@ -1,6 +1,9 @@
+import type { App, Component } from "obsidian";
+
+import type { AppServerClient } from "../../../app-server/client";
 import type { ChatServerThreadActions } from "../server-actions/thread-actions";
 import { ChatComposerController } from "../composer/controller";
-import { activeTurnId } from "../chat-state";
+import { activeTurnId, type ChatState, type ChatStateStore } from "../chat-state";
 import type { ChatReconnectActions } from "../session/reconnect-actions";
 import { PendingRequestController } from "../requests/pending-request-controller";
 import type { ChatRuntimeSettingsActions } from "../runtime/runtime-settings-actions";
@@ -13,14 +16,66 @@ import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadHistoryController } from "../threads/thread-history-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import type { ChatInboundController } from "../inbound/controller";
-import { currentModel } from "../runtime/effective-settings";
+import { currentModel, type RuntimeSnapshot } from "../runtime/effective-settings";
 import { ChatMessageRenderer } from "../ui/message-stream";
-import type { ChatControllerCompositionPorts } from "../panel/controller-ports";
+import type { CodexChatHost } from "../chat-host";
+import type { DisplayDetailSection } from "../display/types";
+import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
+import type { ComposerMetaViewModel } from "../panel/model";
+import type { ChatViewRenderScheduleOptions } from "../panel/lifecycle";
 
-type ConversationSurfaceControllerGroupPorts = Pick<
-  ChatControllerCompositionPorts,
-  "client" | "lifecycle" | "liveState" | "obsidian" | "plugin" | "render" | "runtime" | "scroll" | "state" | "status" | "thread"
->;
+interface ConversationSurfaceControllerGroupPorts {
+  obsidian: {
+    app: App;
+    owner: Component;
+    viewId: string;
+  };
+  plugin: Pick<CodexChatHost, "openTurnDiff" | "settings" | "vaultPath">;
+  state: {
+    stateStore: ChatStateStore;
+    getState: () => ChatState;
+  };
+  client: {
+    getClient: () => AppServerClient | null;
+    ensureConnected: () => Promise<void>;
+  };
+  lifecycle: {
+    messageScrollIntent: ChatMessageScrollIntentController;
+  };
+  render: {
+    now: () => void;
+    schedule: (options?: ChatViewRenderScheduleOptions) => void;
+    pendingRequestsSignature: () => string;
+    composerPlaceholder: () => string;
+    composerMetaViewModel: () => ComposerMetaViewModel;
+  };
+  runtime: {
+    runtimeSnapshot: () => RuntimeSnapshot;
+    statusSummaryLines: () => string[];
+    connectionDiagnosticDetails: () => DisplayDetailSection[];
+    mcpStatusLines: () => Promise<string[]>;
+    modelStatusLines: () => string[];
+    effortStatusLines: () => string[];
+  };
+  thread: {
+    ensureRestoredThreadLoaded: () => Promise<boolean>;
+    startNewThread: () => Promise<void>;
+    selectThread: (threadId: string) => Promise<void>;
+    notifyIdentityChanged: () => void;
+    resetTurnPresence: (hadTurns: boolean) => void;
+  };
+  liveState: {
+    refresh: () => void;
+  };
+  status: {
+    set: (status: string) => void;
+    addSystemMessage: (text: string) => void;
+    addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
+  };
+  scroll: {
+    forceBottom: () => void;
+  };
+}
 
 export function createConversationSurfaceControllerGroup(
   context: ConversationSurfaceControllerGroupPorts,

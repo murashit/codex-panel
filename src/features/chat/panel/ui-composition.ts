@@ -1,4 +1,6 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
+import type { ChatStateStore } from "../chat-state";
+import type { CodexChatHost } from "../chat-host";
 import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
 import type { ChatServerThreadActions } from "../server-actions/thread-actions";
 import type { ChatComposerController } from "../composer/controller";
@@ -9,11 +11,24 @@ import { ToolbarPanelController } from "./toolbar-controller";
 import { ChatViewRenderController } from "./view-render-controller";
 import { applyChatViewState } from "./view-state-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
-import { applyCachedSharedAppServerState } from "./cached-app-server-state";
-import type { ChatControllerCompositionPorts } from "./controller-ports";
+import { applyCachedSharedAppServerState, type CachedSharedAppServerStateSource } from "./cached-app-server-state";
+import type { ChatViewDeferredTasks, ChatViewRenderScheduleOptions, RestoredThreadState } from "./lifecycle";
 import { createChatShellRenderPort } from "./shell-render";
 
-type ViewRenderControllerGroupPorts = Pick<ChatControllerCompositionPorts, "lifecycle" | "plugin" | "render" | "state">;
+interface ViewRenderControllerGroupPorts {
+  plugin: Pick<CodexChatHost, "settings">;
+  state: {
+    stateStore: ChatStateStore;
+  };
+  lifecycle: {
+    deferredTasks: ChatViewDeferredTasks;
+  };
+  render: {
+    panelRoot: () => HTMLElement | null;
+    pendingRequestsSignature: () => string;
+    activeComposerThreadName: () => string | null;
+  };
+}
 
 export function createViewRenderControllerGroup(
   context: ViewRenderControllerGroupPorts,
@@ -33,10 +48,6 @@ export function createViewRenderControllerGroup(
         activeComposerThreadName: render.activeComposerThreadName,
       }),
       panelRoot: render.panelRoot,
-      renderToolbar: render.renderToolbar,
-      renderGoal: render.renderGoal,
-      renderMessages: render.renderMessages,
-      renderComposer: render.renderComposer,
       clearScheduledRender: () => {
         deferredTasks.clearRender();
       },
@@ -44,10 +55,34 @@ export function createViewRenderControllerGroup(
   };
 }
 
-type ConnectionLifecycleControllerGroupPorts = Pick<
-  ChatControllerCompositionPorts,
-  "client" | "lifecycle" | "liveState" | "obsidian" | "plugin" | "render"
->;
+interface ConnectionLifecycleControllerGroupPorts {
+  obsidian: Pick<ChatViewLifecycleHost, "handleActiveLeafChange" | "registerActiveLeafChange" | "registerEvent" | "registerPointerDown">;
+  plugin: CachedSharedAppServerStateSource;
+  client: {
+    clear: () => void;
+    ensureConnected: () => Promise<void>;
+  };
+  lifecycle: {
+    deferredTasks: ChatViewDeferredTasks;
+    getOpened: () => boolean;
+    setOpened: (opened: boolean) => void;
+    getClosing: () => boolean;
+    setClosing: (closing: boolean) => void;
+    invalidateConnectionWork: () => void;
+    invalidateResumeWork: () => void;
+    scheduleDeferredRestoredThreadHydration: () => void;
+    scheduleDeferredAppServerWarmup: () => void;
+  };
+  render: {
+    panelRoot: () => HTMLElement | null;
+    closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
+    now: () => void;
+  };
+  liveState: {
+    refresh: () => void;
+    deferRefresh: () => void;
+  };
+}
 
 export function createConnectionLifecycleControllerGroup(
   context: ConnectionLifecycleControllerGroupPorts,
@@ -120,7 +155,23 @@ export function createConnectionLifecycleControllerGroup(
   };
 }
 
-type PanelUiControllerGroupPorts = Pick<ChatControllerCompositionPorts, "lifecycle" | "render" | "state" | "thread">;
+interface PanelUiControllerGroupPorts {
+  state: {
+    stateStore: ChatStateStore;
+  };
+  lifecycle: {
+    invalidateResumeWork: () => void;
+    clearDeferredRestoredThreadHydration: () => void;
+    scheduleDeferredAppServerWarmup: () => void;
+  };
+  render: {
+    schedule: (options?: ChatViewRenderScheduleOptions) => void;
+  };
+  thread: {
+    clearRestoredLifecycle: () => void;
+    restorePlaceholder: (restoredThread: RestoredThreadState) => void;
+  };
+}
 
 export function createPanelUiControllerGroup(
   context: PanelUiControllerGroupPorts,

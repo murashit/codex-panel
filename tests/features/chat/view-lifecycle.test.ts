@@ -70,15 +70,12 @@ describe("chat view lifecycle transitions", () => {
     expect(tracker.active()).toBeNull();
   });
 
-  it("tracks resume work and calls the invalidation hook", () => {
-    const invalidate = vi.fn();
-    const tracker = new ChatResumeWorkTracker(invalidate);
+  it("tracks resume work by identity", () => {
+    const tracker = new ChatResumeWorkTracker();
     const resume = tracker.begin("thread");
 
-    expect(invalidate).toHaveBeenCalledOnce();
     expect(tracker.isStale(resume)).toBe(false);
     tracker.invalidate();
-    expect(invalidate).toHaveBeenCalledTimes(2);
     expect(tracker.isStale(resume)).toBe(true);
   });
 

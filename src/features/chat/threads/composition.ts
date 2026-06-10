@@ -1,5 +1,7 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
+import type { AppServerClient } from "../../../app-server/client";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
+import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import { createChatThreadActions } from "./thread-actions";
 import { createChatThreadGoalActions } from "./thread-goal-actions";
 import { ThreadHistoryController } from "./thread-history-controller";
@@ -9,12 +11,66 @@ import { ThreadResumeController } from "./thread-resume-controller";
 import { createThreadSelectionActions } from "./thread-selection-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
 import type { ToolbarPanelController } from "../panel/toolbar-controller";
-import type { ChatControllerCompositionPorts } from "../panel/controller-ports";
+import type { ChatStateStore } from "../chat-state";
+import type { CodexChatHost } from "../chat-host";
+import type { DisplayItem } from "../display/types";
+import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../panel/lifecycle";
 
-type ThreadControllerGroupPorts = Pick<
-  ChatControllerCompositionPorts,
-  "client" | "composer" | "lifecycle" | "liveState" | "obsidian" | "plugin" | "render" | "scroll" | "state" | "status" | "thread"
->;
+interface ThreadControllerGroupPorts {
+  obsidian: {
+    archiveAdapter: () => ArchiveExportAdapter;
+  };
+  plugin: Pick<
+    CodexChatHost,
+    | "notifyThreadArchived"
+    | "notifyThreadRenamed"
+    | "openThreadInNewView"
+    | "refreshSharedThreadListFromOpenSurface"
+    | "settings"
+    | "vaultPath"
+  >;
+  state: {
+    stateStore: ChatStateStore;
+    systemItem: (text: string) => DisplayItem;
+  };
+  client: {
+    getClient: () => AppServerClient | null;
+    ensureConnected: () => Promise<void>;
+  };
+  lifecycle: {
+    deferredTasks: ChatViewDeferredTasks;
+    resumeWork: ChatResumeWorkTracker;
+    getOpened: () => boolean;
+    getClosing: () => boolean;
+    clearDeferredRestoredThreadHydration: () => void;
+  };
+  thread: {
+    selectThread: (threadId: string) => Promise<void>;
+    resumeThread: (threadId: string) => Promise<void>;
+    refreshThreads: () => Promise<void>;
+    notifyIdentityChanged: () => void;
+    resetTurnPresence: (hadTurns: boolean) => void;
+    refreshTabHeader: () => void;
+  };
+  status: {
+    set: (status: string) => void;
+    addSystemMessage: (text: string) => void;
+  };
+  liveState: {
+    refresh: () => void;
+  };
+  scroll: {
+    preservePosition: () => void;
+    forceBottom: () => void;
+  };
+  render: {
+    now: () => void;
+    shellSlots: () => void;
+  };
+  composer: {
+    setText: (text: string) => void;
+  };
+}
 
 export function createThreadControllerGroup(
   context: ThreadControllerGroupPorts,
@@ -35,6 +91,10 @@ export function createThreadControllerGroup(
     keepCurrentScrollPosition: scroll.preservePosition,
     setThreadTurnPresence: thread.resetTurnPresence,
   });
+  const invalidateResumeWork = () => {
+    resumeWork.invalidate();
+    history.invalidate();
+  };
   const threadActions = createChatThreadActions({
     stateStore,
     vaultPath: plugin.vaultPath,
@@ -73,7 +133,7 @@ export function createThreadControllerGroup(
     deferredTasks,
     opened: lifecycle.getOpened,
     resumeThread: thread.resumeThread,
-    invalidateResumeWork: lifecycle.invalidateResumeWork,
+    invalidateResumeWork,
     stateStore,
     systemItem: state.systemItem,
     setStatus: status.set,
@@ -106,7 +166,7 @@ export function createThreadControllerGroup(
   const threadIdentity = createThreadIdentityActions({
     stateStore,
     restoredThread,
-    invalidateResumeWork: lifecycle.invalidateResumeWork,
+    invalidateResumeWork,
     clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
     resetThreadTurnPresence: thread.resetTurnPresence,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
@@ -134,10 +194,22 @@ export function createThreadControllerGroup(
     threadResume,
     threadIdentity,
     threadRename,
+    invalidateResumeWork,
   };
 }
 
-type ThreadSelectionControllerGroupPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state" | "status" | "thread">;
+interface ThreadSelectionControllerGroupPorts {
+  plugin: Pick<CodexChatHost, "focusThreadInOpenView">;
+  state: {
+    stateStore: ChatStateStore;
+  };
+  status: {
+    addSystemMessage: (text: string) => void;
+  };
+  thread: {
+    resumeThread: (threadId: string) => Promise<void>;
+  };
+}
 
 export function createThreadSelectionControllerGroup(
   context: ThreadSelectionControllerGroupPorts,

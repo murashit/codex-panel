@@ -65,12 +65,13 @@ function createController(
   const client = { resumeThread } as unknown as AppServerClient;
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyLatestPage = vi.fn();
+  const invalidateHistory = vi.fn();
   const restoredClear = vi.fn();
   const host = {
     stateStore,
     vaultPath: "/vault",
-    resumeWork: new ChatResumeWorkTracker(() => undefined),
-    history: { loadLatest, applyLatestPage } as unknown as ThreadHistoryController,
+    resumeWork: new ChatResumeWorkTracker(),
+    history: { loadLatest, applyLatestPage, invalidate: invalidateHistory } as unknown as ThreadHistoryController,
     restoredThread: { clear: restoredClear } as unknown as RestoredThreadController,
     currentClient: () => client,
     ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -86,7 +87,16 @@ function createController(
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
-  return { controller: new ThreadResumeController(host), host, applyLatestPage, loadLatest, restoredClear, resumeThread, stateStore };
+  return {
+    controller: new ThreadResumeController(host),
+    host,
+    applyLatestPage,
+    invalidateHistory,
+    loadLatest,
+    restoredClear,
+    resumeThread,
+    stateStore,
+  };
 }
 
 describe("ThreadResumeController", () => {
