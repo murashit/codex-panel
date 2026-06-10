@@ -99,7 +99,6 @@ const generatedAppServerImportLegacyFiles = [
   "src/features/chat/chat-state-actions.ts",
   "src/features/chat/chat-state.ts",
   "src/features/chat/display/agent.ts",
-  "src/features/chat/display/goal-messages.ts",
   "src/features/chat/display/hooks.ts",
   "src/features/chat/display/labels.ts",
   "src/features/chat/display/permission-details.ts",
@@ -116,9 +115,6 @@ const generatedAppServerImportLegacyFiles = [
   "src/features/chat/threads/thread-history-controller.ts",
   "src/features/chat/threads/thread-rename-controller.ts",
   "src/features/chat/threads/thread-resume.ts",
-  "src/features/chat/turns/slash-command-actions.ts",
-  "src/features/chat/turns/slash-command-execution.ts",
-  "src/features/chat/ui/goal-banner.tsx",
   "src/features/chat/ui/pending-request-message.tsx",
 ];
 const codexPanelEslintPlugin = {

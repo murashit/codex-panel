@@ -1,8 +1,7 @@
 import type { CodexInput } from "../../../app-server/request-input";
+import type { ThreadGoal, ThreadGoalStatus } from "../../../app-server/thread-goal";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
-import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
-import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { ReferencedThreadDisplay } from "../../../domain/threads/reference";
 import {

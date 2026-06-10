@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ThreadGoal } from "../../../../src/app-server/thread-goal";
 import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../src/features/chat/composer/slash-commands";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
-import type { ThreadGoal } from "../../../../src/generated/app-server/v2/ThreadGoal";
 import { executeSlashCommand, type SlashCommandExecutionContext } from "../../../../src/features/chat/turns/slash-command-execution";
 
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {

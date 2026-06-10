@@ -1,7 +1,11 @@
 import type { AppServerClient } from "../../../app-server/client";
+import {
+  threadGoalFromAppServerGoal,
+  type ThreadGoal,
+  type ThreadGoalStatus,
+  type ThreadGoalUpdate,
+} from "../../../app-server/thread-goal";
 import type { JsonValue } from "../../../generated/app-server/serde_json/JsonValue";
-import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
-import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
 import type { ChatStateStore } from "../chat-state";
 import type { GoalDisplayItem } from "../display/types";
 import { goalChangeItem } from "../display/goal-messages";
@@ -39,7 +43,7 @@ async function syncThreadGoal(host: ChatThreadGoalActionsHost, threadId: string)
   if (!client) return;
   try {
     const response = await client.getThreadGoal(threadId);
-    applyGoalIfActive(host, threadId, response.goal, { reportChange: false });
+    applyGoalIfActive(host, threadId, threadGoalFromAppServerGoal(response.goal), { reportChange: false });
   } catch (error) {
     if (host.stateStore.getState().activeThread.id !== threadId) return;
     host.addSystemMessage(`Could not load thread goal: ${errorMessage(error)}`);
@@ -88,17 +92,13 @@ async function clearGoal(host: ChatThreadGoalActionsHost, threadId: string): Pro
   }
 }
 
-async function setGoal(
-  host: ChatThreadGoalActionsHost,
-  threadId: string,
-  params: { objective?: string | null; status?: ThreadGoalStatus | null; tokenBudget?: number | null },
-): Promise<boolean> {
+async function setGoal(host: ChatThreadGoalActionsHost, threadId: string, params: ThreadGoalUpdate): Promise<boolean> {
   await host.ensureConnected();
   const client = host.currentClient();
   if (!client) return false;
   try {
     const response = await client.setThreadGoal(threadId, params);
-    return applyGoalIfActive(host, threadId, response.goal, { reportChange: true });
+    return applyGoalIfActive(host, threadId, threadGoalFromAppServerGoal(response.goal), { reportChange: true });
   } catch (error) {
     host.addSystemMessage(errorMessage(error));
     return false;

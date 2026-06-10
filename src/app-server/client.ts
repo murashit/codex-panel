@@ -20,7 +20,6 @@ import type { ThreadForkResponse } from "../generated/app-server/v2/ThreadForkRe
 import type { ThreadGoalClearResponse } from "../generated/app-server/v2/ThreadGoalClearResponse";
 import type { ThreadGoalGetResponse } from "../generated/app-server/v2/ThreadGoalGetResponse";
 import type { ThreadGoalSetResponse } from "../generated/app-server/v2/ThreadGoalSetResponse";
-import type { ThreadGoalStatus } from "../generated/app-server/v2/ThreadGoalStatus";
 import type { ThreadInjectItemsResponse } from "../generated/app-server/v2/ThreadInjectItemsResponse";
 import type { ThreadListResponse } from "../generated/app-server/v2/ThreadListResponse";
 import type { ThreadReadResponse } from "../generated/app-server/v2/ThreadReadResponse";
@@ -45,6 +44,7 @@ import type { ServerNotification } from "../generated/app-server/ServerNotificat
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
 import { toAppServerUserInput, type CodexInput } from "./request-input";
+import { appServerThreadGoalUpdate, type ThreadGoalUpdate } from "./thread-goal";
 import type { ServiceTierRequest, ThreadSettingsUpdate } from "./thread-settings";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
@@ -293,11 +293,8 @@ export class AppServerClient {
     return this.request("thread/goal/get", { threadId });
   }
 
-  setThreadGoal(
-    threadId: string,
-    params: { objective?: string | null; status?: ThreadGoalStatus | null; tokenBudget?: number | null },
-  ): Promise<ThreadGoalSetResponse> {
-    return this.request("thread/goal/set", { threadId, ...params });
+  setThreadGoal(threadId: string, params: ThreadGoalUpdate): Promise<ThreadGoalSetResponse> {
+    return this.request("thread/goal/set", { threadId, ...appServerThreadGoalUpdate(params) });
   }
 
   clearThreadGoal(threadId: string): Promise<ThreadGoalClearResponse> {

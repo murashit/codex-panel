@@ -2,7 +2,7 @@ import type { InitializeResponse } from "../../generated/app-server/InitializeRe
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
-import type { ThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
+import type { ThreadGoal } from "../../app-server/thread-goal";
 import type { ThreadSettingsUpdate } from "../../app-server/thread-settings";
 import type { ApprovalsReviewer } from "../../app-server/runtime-policy";
 import type { Diagnostics } from "../../app-server/diagnostics";

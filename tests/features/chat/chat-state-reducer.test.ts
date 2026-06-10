@@ -10,9 +10,9 @@ import {
   transitionChatTurnLifecycleState,
   type ChatState,
 } from "../../../src/features/chat/chat-state";
+import type { ThreadGoal } from "../../../src/app-server/thread-goal";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
-import type { ThreadGoal } from "../../../src/generated/app-server/v2/ThreadGoal";
 
 describe("chatReducer", () => {
   it("clears active turn and thread-scoped state", () => {

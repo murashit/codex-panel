@@ -11,8 +11,7 @@ import {
 import type { SlashCommandName } from "../composer/slash-commands";
 import type { DisplayDetailSection } from "../display/types";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { ThreadGoal } from "../../../generated/app-server/v2/ThreadGoal";
-import type { ThreadGoalStatus } from "../../../generated/app-server/v2/ThreadGoalStatus";
+import type { ThreadGoal, ThreadGoalStatus } from "../../../app-server/thread-goal";
 import { submissionStateSnapshot } from "../chat-state-selectors";
 import type { ChatStateStore } from "../chat-state";
 

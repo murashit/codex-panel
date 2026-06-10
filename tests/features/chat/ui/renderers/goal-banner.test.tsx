@@ -3,8 +3,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 
+import type { ThreadGoal } from "../../../../../src/app-server/thread-goal";
 import { renderGoalBanner } from "../../../../../src/features/chat/ui/goal-banner";
-import type { ThreadGoal } from "../../../../../src/generated/app-server/v2/ThreadGoal";
 import type { SendShortcut } from "../../../../../src/shared/ui/keyboard";
 import { installObsidianDomShims } from "../../../../support/dom";
 
