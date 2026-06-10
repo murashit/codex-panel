@@ -75,7 +75,7 @@ describe("createPlanImplementationActions", () => {
 
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(stateStore.getState().runtime.selectedCollaborationMode).toBe("default");
-    expect(stateStore.getState().ui.openDetails.has("status-panel")).toBe(false);
+    expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(sendTurnText).toHaveBeenCalledWith("Please implement this plan.");
   });
 

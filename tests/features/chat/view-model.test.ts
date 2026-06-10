@@ -26,7 +26,7 @@ describe("chat view model", () => {
     state.activeThread.id = "thread-1";
     state.threadList.listedThreads = [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")];
     state.turn.lifecycle = { kind: "running", turnId: "turn" };
-    state.ui.openDetails = new Set(["history"]);
+    state.ui.toolbarPanel = "history";
     state.connection.effectiveConfig = effectiveConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.appServerDiagnostics = createAppServerDiagnostics();
 

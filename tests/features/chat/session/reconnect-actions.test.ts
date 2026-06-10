@@ -41,7 +41,7 @@ describe("createChatReconnectActions", () => {
 
     await controller.reconnectPanel();
 
-    expect(stateStore.getState().ui.openDetails.size).toBe(0);
+    expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.invalidateConnectionWork).toHaveBeenCalledOnce();
     expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledOnce();

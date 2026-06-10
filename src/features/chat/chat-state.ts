@@ -100,6 +100,7 @@ interface ChatComposerState {
 
 interface ChatUiState {
   openDetails: ReadonlySet<string>;
+  toolbarPanel: "history" | "chat-actions" | "status-panel" | null;
 }
 
 export interface ChatState {
@@ -696,6 +697,7 @@ function initialComposerState(): ChatComposerState {
 function initialUiState(): ChatUiState {
   return {
     openDetails: new Set(),
+    toolbarPanel: null,
   };
 }
 
@@ -731,6 +733,7 @@ function cloneChatState(state: ChatState): ChatState {
     },
     ui: {
       openDetails: new Set(state.ui.openDetails),
+      toolbarPanel: state.ui.toolbarPanel,
     },
   };
 }
@@ -740,18 +743,8 @@ function isTranscriptAction(action: ChatSliceAction): action is TranscriptAction
 }
 
 function setPanelSlice(state: ChatUiState, panel: "history" | "chat-actions" | "status-panel" | null, toggle: boolean): ChatUiState {
-  const currentPanel = state.openDetails.has("history")
-    ? "history"
-    : state.openDetails.has("chat-actions")
-      ? "chat-actions"
-      : state.openDetails.has("status-panel")
-        ? "status-panel"
-        : null;
-  const nextPanel = toggle && currentPanel === panel ? null : panel;
-  const toolbarPanelKeys = new Set(["history", "chat-actions", "status-panel"]);
-  return patchObject(state, {
-    openDetails: nextPanel ? new Set([nextPanel]) : new Set([...state.openDetails].filter((key) => !toolbarPanelKeys.has(key))),
-  });
+  const nextPanel = toggle && state.toolbarPanel === panel ? null : panel;
+  return patchObject(state, { toolbarPanel: nextPanel });
 }
 
 function setDetailOpenSlice(state: ChatUiState, key: string, open: boolean): ChatUiState {

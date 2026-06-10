@@ -163,16 +163,16 @@ describe("chatReducer", () => {
   it("clones map and set backed state when updating turn diffs and open panels", () => {
     const state = createChatState();
     state.transcript.turnDiffs = new Map([["turn", "old"]]);
-    state.ui.openDetails = new Set(["status-panel"]);
+    state.ui.toolbarPanel = "status-panel";
 
     const withDiff = chatReducer(state, { type: "transcript/turn-diff-updated", turnId: "turn", diff: "new" });
     const withHistoryPanel = chatReducer(withDiff, { type: "ui/panel-set", panel: "history" });
 
     expect(withDiff.transcript.turnDiffs).not.toBe(state.transcript.turnDiffs);
     expect(withDiff.transcript.turnDiffs.get("turn")).toBe("new");
-    expect(withHistoryPanel.ui.openDetails).not.toBe(withDiff.ui.openDetails);
-    expect(withHistoryPanel.ui.openDetails.has("history")).toBe(true);
-    expect(withHistoryPanel.ui.openDetails.has("status-panel")).toBe(false);
+    expect(withHistoryPanel.ui).not.toBe(withDiff.ui);
+    expect(withHistoryPanel.ui.toolbarPanel).toBe("history");
+    expect(withHistoryPanel.ui.openDetails).toBe(withDiff.ui.openDetails);
   });
 
   it("returns the same state reference for no-op actions", () => {
@@ -352,15 +352,13 @@ describe("chatReducer", () => {
     let state = createChatState();
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "history" });
-    expect(state.ui.openDetails.has("history")).toBe(true);
+    expect(state.ui.toolbarPanel).toBe("history");
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "chat-actions" });
-    expect(state.ui.openDetails.has("history")).toBe(false);
-    expect(state.ui.openDetails.has("chat-actions")).toBe(true);
+    expect(state.ui.toolbarPanel).toBe("chat-actions");
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "status-panel" });
-    expect(state.ui.openDetails.has("chat-actions")).toBe(false);
-    expect(state.ui.openDetails.has("status-panel")).toBe(true);
+    expect(state.ui.toolbarPanel).toBe("status-panel");
   });
 
   it("updates remembered details and user input drafts through typed UI actions", () => {

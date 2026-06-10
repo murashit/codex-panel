@@ -37,7 +37,7 @@ export function toolbarSlotSnapshot(state: ChatState, connected: boolean): ChatP
     state.runtime.requestedApprovalsReviewer,
     state.runtime.requestedModel,
     state.runtime.requestedReasoningEffort,
-    openDetailsSignature(state.ui.openDetails),
+    state.ui.toolbarPanel,
     state.threadList.threadsLoaded,
     threadListSignature(state.threadList.listedThreads),
     modelsSignature(state.connection.availableModels),
@@ -129,10 +129,6 @@ function stableSignature(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);
-}
-
-function openDetailsSignature(openDetails: ReadonlySet<string>): string {
-  return [...openDetails].sort().join("\n");
 }
 
 function messageStreamOpenDetailsSignature(openDetails: ReadonlySet<string>): string {

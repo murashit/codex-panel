@@ -31,7 +31,8 @@ describe("chat view snapshots", () => {
     const state = createChatState();
     const base = messagesSlotSnapshot(state, "");
 
-    state.ui.openDetails = new Set(["history", "chat-actions", "status-panel", "goal:editor"]);
+    state.ui.toolbarPanel = "history";
+    state.ui.openDetails = new Set(["goal:editor"]);
     expect(messagesSlotSnapshot(state, "")).toBe(base);
 
     state.ui.openDetails = new Set(["message:item:expanded"]);

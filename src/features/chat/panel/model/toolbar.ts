@@ -7,9 +7,9 @@ import type { ConnectionDiagnosticsModelInput, ToolbarThreadRow, ToolbarViewMode
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
   const limit = rateLimitSummary(snapshot);
-  const historyOpen = state.ui.openDetails.has("history");
-  const chatActionsOpen = state.ui.openDetails.has("chat-actions");
-  const statusPanelOpen = state.ui.openDetails.has("status-panel");
+  const historyOpen = state.ui.toolbarPanel === "history";
+  const chatActionsOpen = state.ui.toolbarPanel === "chat-actions";
+  const statusPanelOpen = state.ui.toolbarPanel === "status-panel";
   return {
     newChatDisabled: input.turnBusy,
     chatActionsOpen,

@@ -74,7 +74,7 @@ describe("ThreadSelectionController", () => {
 
     await controller.selectThreadFromToolbar("thread");
 
-    expect(stateStore.getState().ui.openDetails.size).toBe(0);
+    expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
   });
@@ -87,7 +87,7 @@ describe("ThreadSelectionController", () => {
 
     await controller.selectThreadFromToolbar("other");
 
-    expect(stateStore.getState().ui.openDetails.has("history")).toBe(true);
+    expect(stateStore.getState().ui.toolbarPanel).toBe("history");
     expect(host.addSystemMessage).not.toHaveBeenCalled();
     expect(host.closeForThreadSelection).not.toHaveBeenCalled();
     expect(host.resumeThread).not.toHaveBeenCalled();
