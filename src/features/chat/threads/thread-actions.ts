@@ -22,7 +22,7 @@ export interface ChatThreadActionsHost {
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
-  forceRenderSlots: () => void;
+  render: () => void;
   openThreadInNewView: (threadId: string) => Promise<unknown>;
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyThreadArchived: (threadId: string) => void;
@@ -204,7 +204,7 @@ async function rollbackThread(host: ChatThreadActionsHost, threadId: string): Pr
     });
     host.setComposerText(candidate.text);
     host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
-    host.forceRenderSlots();
+    host.render();
     host.setStatus("Rolled back latest turn.");
     host.notifyActiveThreadIdentityChanged();
     await host.refreshThreads();

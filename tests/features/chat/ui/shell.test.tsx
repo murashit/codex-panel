@@ -6,14 +6,13 @@ import { useEffect } from "preact/hooks";
 
 import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/chat-state";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
-import { renderUiRoot } from "../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("ChatPanelShell", () => {
-  it("renders the panel slots on the existing view content element", async () => {
+  it("renders the panel regions on the existing view content element", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -28,8 +27,8 @@ describe("ChatPanelShell", () => {
     expect(container.textContent).toContain("no goal");
     expect(container.textContent).toContain("0");
     expect(container.textContent).toContain("ready");
-    expect(container.querySelector(".codex-panel__slot--config")).toBeNull();
-    expect(container.querySelector(".codex-panel__body > .codex-panel__slot--messages")).toBe(
+    expect(container.querySelector(".codex-panel__region--config")).toBeNull();
+    expect(container.querySelector(".codex-panel__body > .codex-panel__region--messages")).toBe(
       container.querySelector(".codex-panel__body > .codex-panel__messages"),
     );
 
@@ -38,7 +37,7 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("updates rendered slot content when the store changes", async () => {
+  it("updates rendered panel content when the store changes", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -61,7 +60,7 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("keeps nested root content mounted in its owning slot after shell rerenders", async () => {
+  it("keeps panel content in its owning region after shell rerenders", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -83,18 +82,75 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar .test-toolbar")?.textContent).toBe("Working");
-    expect(container.querySelector(".codex-panel__slot--goal .test-goal")?.textContent).toBe("no goal");
-    expect(container.querySelector(".codex-panel__slot--messages .test-messages")?.textContent).toBe("1");
-    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__slot--composer .test-composer textarea")?.value).toBe("ready");
-    expect(container.querySelector(".codex-panel__slot--composer .test-toolbar")).toBeNull();
-    expect(container.querySelector(".codex-panel__slot--composer .test-messages")).toBeNull();
+    expect(container.querySelector(".codex-panel__region--goal .test-goal")?.textContent).toBe("no goal");
+    expect(container.querySelector(".codex-panel__region--messages .test-messages")?.textContent).toBe("1");
+    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer .test-composer textarea")?.value).toBe("ready");
+    expect(container.querySelector(".codex-panel__region--composer .test-toolbar")).toBeNull();
+    expect(container.querySelector(".codex-panel__region--composer .test-messages")).toBeNull();
 
     await act(async () => {
       unmountChatPanelShell(container);
     });
   });
 
-  it("removes and restores the toolbar slot from shell props", async () => {
+  it("renders region nodes inside the single shell root", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const cleanup = vi.fn();
+    const renderers = nodeShellRenderers(store, cleanup);
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+
+    expect(container.querySelector(".codex-panel__toolbar .test-toolbar")?.textContent).toBe("Idle");
+    expect(container.querySelector(".codex-panel__region--messages .test-messages")?.textContent).toBe("0");
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+      await settleShellEffects();
+    });
+
+    expect(cleanup).toHaveBeenCalledWith("toolbar");
+    expect(cleanup).toHaveBeenCalledWith("goal");
+    expect(cleanup).toHaveBeenCalledWith("messages");
+    expect(cleanup).toHaveBeenCalledWith("composer");
+  });
+
+  it("rerenders shell regions when the state store updates", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const cleanup = vi.fn();
+    const renderers = nodeShellRenderers(store, cleanup);
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+    renderers.toolbarNode.mockClear();
+    renderers.goalNode.mockClear();
+    renderers.messagesNode.mockClear();
+    renderers.composerNode.mockClear();
+
+    await act(async () => {
+      store.dispatch({ type: "connection/status-set", status: "Working" });
+      await settleShellEffects();
+    });
+
+    expect(renderers.toolbarNode).toHaveBeenCalledTimes(1);
+    expect(renderers.goalNode).toHaveBeenCalledTimes(1);
+    expect(renderers.messagesNode).toHaveBeenCalledTimes(1);
+    expect(renderers.composerNode).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
+  it("removes and restores the toolbar region from shell props", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -106,8 +162,8 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
-    expect(container.querySelector(".codex-panel__slot--messages")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__slot--composer")).not.toBeNull();
+    expect(container.querySelector(".codex-panel__region--messages")).not.toBeNull();
+    expect(container.querySelector(".codex-panel__region--composer")).not.toBeNull();
 
     await act(async () => {
       renderChatPanelShell(container, { ...renderers, showToolbar: true });
@@ -162,7 +218,7 @@ describe("ChatPanelShell", () => {
     statusBar.remove();
   });
 
-  it("unmounts existing slot roots before rebuilding a damaged shell scaffold", async () => {
+  it("repairs a removed ui root without inspecting shell children", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -174,7 +230,7 @@ describe("ChatPanelShell", () => {
       await settleShellEffects();
     });
 
-    container.querySelector<HTMLElement>(":scope > .codex-panel__body")?.remove();
+    container.replaceChildren();
 
     await act(async () => {
       renderChatPanelShell(container, renderers);
@@ -192,7 +248,34 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("unmounts every slot root when the shell unmounts", async () => {
+  it("repairs damaged shell regions through the single root", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const cleanup = vi.fn();
+    const renderers = nodeShellRenderers(store, cleanup);
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+
+    container.querySelector<HTMLElement>(":scope .codex-panel__messages")?.remove();
+
+    await act(async () => {
+      renderChatPanelShell(container, renderers);
+      await settleShellEffects();
+    });
+
+    expect(cleanup).toHaveBeenCalledWith("messages");
+    expect(container.querySelector(".codex-panel__messages .test-messages")?.textContent).toBe("0");
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
+  it("unmounts every shell region when the shell unmounts", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -215,7 +298,7 @@ describe("ChatPanelShell", () => {
     expect(cleanup).toHaveBeenCalledWith("composer");
   });
 
-  it("stops subscribed slot rendering after unmount", async () => {
+  it("stops subscribed region rendering after unmount", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -225,7 +308,7 @@ describe("ChatPanelShell", () => {
       renderChatPanelShell(container, renderers);
       await settleShellEffects();
     });
-    vi.mocked(renderers.toolbar.render).mockClear();
+    renderers.toolbarNode.mockClear();
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -233,125 +316,125 @@ describe("ChatPanelShell", () => {
     store.dispatch({ type: "connection/status-set", status: "Closed" });
     await settleShellEffects();
 
-    expect(renderers.toolbar.render).not.toHaveBeenCalled();
+    expect(renderers.toolbarNode).not.toHaveBeenCalled();
   });
 });
 
 function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
   return {
     stateStore: store,
-    renderVersion: 0,
     showToolbar: true,
-    toolbar: {
-      render: vi.fn((toolbar: HTMLElement) => {
-        toolbar.textContent = store.getState().connection.status;
-      }),
-      snapshot: () => store.getState().connection.status,
-    },
-    goal: {
-      render: vi.fn((goal: HTMLElement) => {
-        goal.textContent = store.getState().activeThread.goal?.objective ?? "no goal";
-      }),
-      snapshot: () => store.getState().activeThread.goal?.objective ?? "",
-    },
-    messages: {
-      render: vi.fn((messages: HTMLElement) => {
-        messages.textContent = String(store.getState().transcript.displayItems.length);
-      }),
-      snapshot: () => store.getState().transcript.displayItems.length,
-    },
-    composer: {
-      render: vi.fn((composer: HTMLElement) => {
-        composer.textContent = chatTurnBusy(store.getState()) ? "busy" : "ready";
-      }),
-      snapshot: () => chatTurnBusy(store.getState()),
-    },
+    toolbarNode: vi.fn(() => <div>{store.getState().connection.status}</div>),
+
+    goalNode: vi.fn(() => <div>{store.getState().activeThread.goal?.objective ?? "no goal"}</div>),
+
+    messagesNode: vi.fn(() => (
+      <div className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+        {String(store.getState().transcript.displayItems.length)}
+      </div>
+    )),
+
+    composerNode: vi.fn(() => <div>{chatTurnBusy(store.getState()) ? "busy" : "ready"}</div>),
   };
 }
 
 function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>) {
   return {
     stateStore: store,
-    renderVersion: 0,
     showToolbar: true,
-    toolbar: {
-      render: vi.fn((toolbar: HTMLElement) => {
-        renderUiRoot(
-          toolbar,
-          <>
-            <div className="test-toolbar">{store.getState().connection.status}</div>
-            <div className="test-toolbar-panel">panel</div>
-          </>,
-        );
-      }),
-      snapshot: () => store.getState().connection.status,
-    },
-    goal: {
-      render: vi.fn((goal: HTMLElement) => {
-        renderUiRoot(goal, <div className="test-goal">{store.getState().activeThread.goal?.objective ?? "no goal"}</div>);
-      }),
-      snapshot: () => store.getState().activeThread.goal?.objective ?? "",
-    },
-    messages: {
-      render: vi.fn((messages: HTMLElement) => {
-        renderUiRoot(messages, <div className="test-messages">{String(store.getState().transcript.displayItems.length)}</div>);
-      }),
-      snapshot: () => store.getState().transcript.displayItems.length,
-    },
-    composer: {
-      render: vi.fn((composer: HTMLElement) => {
-        renderUiRoot(
-          composer,
-          <div className="test-composer">
-            <textarea value={chatTurnBusy(store.getState()) ? "busy" : "ready"} readOnly />
-            <button type="button">Send</button>
-          </div>,
-        );
-      }),
-      snapshot: () => chatTurnBusy(store.getState()),
-    },
+    toolbarNode: vi.fn(() => (
+      <>
+        <div className="test-toolbar">{store.getState().connection.status}</div>
+        <div className="test-toolbar-panel">panel</div>
+      </>
+    )),
+
+    goalNode: vi.fn(() => <div className="test-goal">{store.getState().activeThread.goal?.objective ?? "no goal"}</div>),
+
+    messagesNode: vi.fn(() => (
+      <div className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+        <div className="test-messages">{String(store.getState().transcript.displayItems.length)}</div>
+      </div>
+    )),
+
+    composerNode: vi.fn(() => (
+      <div className="test-composer">
+        <textarea value={chatTurnBusy(store.getState()) ? "busy" : "ready"} readOnly />
+        <button type="button">Send</button>
+      </div>
+    )),
   };
 }
 
-function trackedRootShellRenderers(store: ReturnType<typeof createChatStateStore>, cleanup: (slot: string) => void) {
+function trackedRootShellRenderers(store: ReturnType<typeof createChatStateStore>, cleanup: (region: string) => void) {
   return {
     stateStore: store,
-    renderVersion: 0,
     showToolbar: true,
-    toolbar: {
-      render: vi.fn((toolbar: HTMLElement) => {
-        renderUiRoot(toolbar, <TrackedSlot slot="toolbar" cleanup={cleanup} />);
-      }),
-      snapshot: () => store.getState().connection.status,
-    },
-    goal: {
-      render: vi.fn((goal: HTMLElement) => {
-        renderUiRoot(goal, <TrackedSlot slot="goal" cleanup={cleanup} />);
-      }),
-      snapshot: () => store.getState().activeThread.goal?.objective ?? "",
-    },
-    messages: {
-      render: vi.fn((messages: HTMLElement) => {
-        renderUiRoot(messages, <TrackedSlot slot="messages" cleanup={cleanup} />);
-      }),
-      snapshot: () => store.getState().transcript.displayItems.length,
-    },
-    composer: {
-      render: vi.fn((composer: HTMLElement) => {
-        renderUiRoot(composer, <TrackedSlot slot="composer" cleanup={cleanup} />);
-      }),
-      snapshot: () => chatTurnBusy(store.getState()),
-    },
+    toolbarNode: vi.fn(() => <TrackedSlot region="toolbar" cleanup={cleanup} />),
+
+    goalNode: vi.fn(() => <TrackedSlot region="goal" cleanup={cleanup} />),
+
+    messagesNode: vi.fn(() => (
+      <div className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+        <TrackedSlot region="messages" cleanup={cleanup} />
+      </div>
+    )),
+
+    composerNode: vi.fn(() => <TrackedSlot region="composer" cleanup={cleanup} />),
   };
 }
 
-function TrackedSlot({ slot, cleanup }: { slot: string; cleanup: (slot: string) => void }) {
+function nodeShellRenderers(store: ReturnType<typeof createChatStateStore>, cleanup: (region: string) => void) {
+  return {
+    stateStore: store,
+    showToolbar: true,
+    toolbarNode: vi.fn(() => (
+      <TrackedSlot region="toolbar" cleanup={cleanup} className="test-toolbar" text={store.getState().connection.status} />
+    )),
+
+    goalNode: vi.fn(() => (
+      <TrackedSlot
+        region="goal"
+        cleanup={cleanup}
+        className="test-goal"
+        text={store.getState().activeThread.goal?.objective ?? "no goal"}
+      />
+    )),
+
+    messagesNode: vi.fn(() => (
+      <div className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+        <TrackedSlot
+          region="messages"
+          cleanup={cleanup}
+          className="test-messages"
+          text={String(store.getState().transcript.displayItems.length)}
+        />
+      </div>
+    )),
+
+    composerNode: vi.fn(() => (
+      <TrackedSlot region="composer" cleanup={cleanup} className="test-composer" text={chatTurnBusy(store.getState()) ? "busy" : "ready"} />
+    )),
+  };
+}
+
+function TrackedSlot({
+  region,
+  cleanup,
+  className,
+  text = region,
+}: {
+  region: string;
+  cleanup: (region: string) => void;
+  className?: string;
+  text?: string;
+}) {
   useEffect(() => {
     return () => {
-      cleanup(slot);
+      cleanup(region);
     };
-  }, [cleanup, slot]);
-  return <div>{slot}</div>;
+  }, [cleanup, region]);
+  return <div className={className}>{text}</div>;
 }
 
 async function settleShellEffects(): Promise<void> {

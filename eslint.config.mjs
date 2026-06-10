@@ -72,23 +72,28 @@ const pureChatModelRestrictions = [
     message: "Keep browser globals out of chat state and display model transforms.",
   },
 ];
-const chatImperativeDomBridgeFiles = [
-  "src/features/chat/ui/message-stream/**/*.{ts,tsx}",
+const chatExternalDomBridgeFiles = [
+  "src/features/chat/ui/message-stream/markdown-renderer.ts",
+  "src/features/chat/ui/message-stream/rendered-markdown-links.ts",
+  "src/features/chat/ui/message-virtualizer.ts",
+];
+const chatPreactDomBridgeFiles = [
+  "src/features/chat/ui/message-stream/message-actions.tsx",
+  "src/features/chat/ui/message-stream/message-item.tsx",
+  "src/features/chat/ui/message-stream/render.tsx",
   "src/features/chat/ui/composer.tsx",
   "src/features/chat/ui/goal-banner.tsx",
-  "src/features/chat/ui/scroll.ts",
   "src/features/chat/ui/shell.tsx",
   "src/features/chat/ui/tool-result.tsx",
   "src/features/chat/ui/turn-diff.tsx",
 ];
+const chatImperativeDomBridgeFiles = [...chatExternalDomBridgeFiles, ...chatPreactDomBridgeFiles];
 const nonChatImperativeDomBridgeFiles = [
   "src/features/selection-rewrite/popover.tsx",
-  "src/features/selection-rewrite/runner.ts",
   "src/features/thread-picker/modal.ts",
   "src/settings/dynamic-sections.ts",
   "src/settings/tab.ts",
   "src/shared/diff/render.ts",
-  "src/shared/ui/dom.ts",
   "src/shared/ui/components.tsx",
   "src/shared/ui/textarea-autogrow.ts",
   "src/shared/ui/textarea-caret.ts",

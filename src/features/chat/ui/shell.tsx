@@ -1,15 +1,14 @@
-import { unmountUiRoot } from "../../../shared/ui/ui-root";
-import type { ChatState, ChatStateStore } from "../chat-state";
-import type { ChatPanelSlotSnapshot } from "../panel/snapshot";
+import type { ComponentChild as UiNode } from "preact";
+import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
+import type { ChatStateStore } from "../chat-state";
 
 export interface ChatPanelShellProps {
   stateStore: ChatStateStore;
-  renderVersion: number;
   showToolbar: boolean;
-  toolbar: ChatPanelSlotProps;
-  goal: ChatPanelSlotProps;
-  messages: ChatPanelSlotProps;
-  composer: ChatPanelSlotProps;
+  toolbarNode: () => UiNode;
+  goalNode: () => UiNode;
+  messagesNode: () => UiNode;
+  composerNode: () => UiNode;
 }
 
 interface ChatPanelShellMount {
@@ -17,76 +16,17 @@ interface ChatPanelShellMount {
   stateStore: ChatStateStore;
   unsubscribe: () => void;
   stopStatusBarClearanceSync: () => void;
+  stateVersion: number;
 }
 
 const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
 
-const shellSlots = {
-  toolbar: {
-    selector: ":scope > .codex-panel__toolbar",
-    create(container: HTMLElement): HTMLElement {
-      const toolbar = container.createDiv({ cls: "codex-panel__toolbar" });
-      const body = container.querySelector<HTMLElement>(":scope > .codex-panel__body");
-      if (body) container.insertBefore(toolbar, body);
-      return toolbar;
-    },
-    props(props: ChatPanelShellProps): ChatPanelSlotProps {
-      return props.toolbar;
-    },
-  },
-  goal: {
-    selector: ":scope > .codex-panel__body > .codex-panel__slot--goal",
-    create(container: HTMLElement): HTMLElement {
-      return ensureBody(container).createDiv({ cls: "codex-panel__slot codex-panel__slot--goal" });
-    },
-    props(props: ChatPanelShellProps): ChatPanelSlotProps {
-      return props.goal;
-    },
-  },
-  messages: {
-    selector: ":scope > .codex-panel__body > .codex-panel__messages",
-    create(container: HTMLElement): HTMLElement {
-      return ensureBody(container).createDiv({ cls: "codex-panel__slot codex-panel__slot--messages codex-panel__messages" });
-    },
-    props(props: ChatPanelShellProps): ChatPanelSlotProps {
-      return props.messages;
-    },
-  },
-  composer: {
-    selector: ":scope > .codex-panel__body > .codex-panel__slot--composer",
-    create(container: HTMLElement): HTMLElement {
-      return ensureBody(container).createDiv({ cls: "codex-panel__slot codex-panel__slot--composer" });
-    },
-    props(props: ChatPanelShellProps): ChatPanelSlotProps {
-      return props.composer;
-    },
-  },
-};
-
-const shellSlotDefinitions = Object.values(shellSlots);
-
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
   container.addClass("codex-panel");
-  ensureShellDom(container, props.showToolbar);
   const existing = shellMounts.get(container);
-  if (existing?.stateStore === props.stateStore) {
-    existing.props = props;
-    syncStatusBarClearance(container);
-  } else {
-    existing?.unsubscribe();
-    existing?.stopStatusBarClearanceSync();
-    shellMounts.set(container, {
-      props,
-      stateStore: props.stateStore,
-      unsubscribe: props.stateStore.subscribe(() => {
-        const mount = shellMounts.get(container);
-        if (!mount) return;
-        renderMountedSlots(container, mount.props);
-      }),
-      stopStatusBarClearanceSync: startStatusBarClearanceSync(container),
-    });
-  }
-  renderMountedSlots(container, props);
+  const mount = existing?.stateStore === props.stateStore ? existing : createShellMount(container, props);
+  mount.props = props;
+  renderMountedShell(container, mount);
 }
 
 export function unmountChatPanelShell(container: HTMLElement | null): void {
@@ -95,66 +35,67 @@ export function unmountChatPanelShell(container: HTMLElement | null): void {
   mount?.unsubscribe();
   mount?.stopStatusBarClearanceSync();
   shellMounts.delete(container);
-  unmountSlotRoots(container);
+  unmountUiRoot(container);
   container.replaceChildren();
 }
 
-interface ChatPanelSlotProps {
-  render: (slot: HTMLElement) => void;
-  snapshot: (state: ChatState) => ChatPanelSlotSnapshot;
+function createShellMount(container: HTMLElement, props: ChatPanelShellProps): ChatPanelShellMount {
+  const existing = shellMounts.get(container);
+  existing?.unsubscribe();
+  existing?.stopStatusBarClearanceSync();
+  const mount: ChatPanelShellMount = {
+    props,
+    stateStore: props.stateStore,
+    stateVersion: 0,
+    unsubscribe: props.stateStore.subscribe(() => {
+      const current = shellMounts.get(container);
+      if (!current) return;
+      current.stateVersion += 1;
+      renderMountedShell(container, current);
+    }),
+    stopStatusBarClearanceSync: startStatusBarClearanceSync(container),
+  };
+  shellMounts.set(container, mount);
+  return mount;
 }
 
-function ensureShellDom(container: HTMLElement, showToolbar: boolean): void {
-  if (!showToolbar) {
-    const toolbar = container.querySelector<HTMLElement>(shellSlots.toolbar.selector);
-    unmountUiRoot(toolbar);
-    toolbar?.remove();
+function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount): void {
+  if (!uiRootIntact(container)) {
+    unmountUiRoot(container);
+    container.replaceChildren();
   }
-  const requiredSlots = activeShellSlotDefinitions(showToolbar);
-  if (requiredSlots.every((slot) => container.querySelector(slot.selector))) {
-    return;
-  }
-  // The shell owns the fixed Obsidian DOM scaffold; toolbar, messages, and
-  // composer each own their own Preact root inside that scaffold.
-  unmountSlotRoots(container);
-  container.replaceChildren();
-  for (const slot of requiredSlots) {
-    slot.create(container);
-  }
+  syncStatusBarClearance(container);
+  renderUiRoot(container, <ChatPanelShell {...mount.props} stateVersion={mount.stateVersion} />);
 }
 
-function renderSlotIfNeeded(element: HTMLElement, slot: ChatPanelSlotProps, renderKey: string): void {
-  if (element.dataset["codexPanelSlotRenderKey"] === renderKey) return;
-  slot.render(element);
-  element.dataset["codexPanelSlotRenderKey"] = renderKey;
+function uiRootIntact(container: HTMLElement): boolean {
+  const body = container.querySelector<HTMLElement>(":scope > .codex-panel__body");
+  if (!body) return false;
+  return Boolean(
+    body.querySelector<HTMLElement>(":scope > .codex-panel__region--goal") &&
+    body.querySelector<HTMLElement>(":scope > .codex-panel__messages") &&
+    body.querySelector<HTMLElement>(":scope > .codex-panel__region--composer"),
+  );
 }
 
-function renderMountedSlots(container: HTMLElement, props: ChatPanelShellProps): void {
-  const state = props.stateStore.getState();
-  for (const slotDefinition of activeShellSlotDefinitions(props.showToolbar)) {
-    const element = container.querySelector<HTMLElement>(slotDefinition.selector);
-    if (!element) continue;
-    const slot = slotDefinition.props(props);
-    renderSlotIfNeeded(element, slot, renderKey(props.renderVersion, slot.snapshot(state)));
-  }
-}
-
-function activeShellSlotDefinitions(showToolbar: boolean): typeof shellSlotDefinitions {
-  return showToolbar ? shellSlotDefinitions : shellSlotDefinitions.filter((slot) => slot !== shellSlots.toolbar);
-}
-
-function unmountSlotRoots(container: HTMLElement): void {
-  for (const slotDefinition of shellSlotDefinitions) {
-    unmountUiRoot(container.querySelector<HTMLElement>(slotDefinition.selector));
-  }
-}
-
-function renderKey(renderVersion: number, snapshot: ChatPanelSlotSnapshot): string {
-  return `${String(renderVersion)}\u001f${String(snapshot)}`;
-}
-
-function ensureBody(container: HTMLElement): HTMLElement {
-  return container.querySelector<HTMLElement>(":scope > .codex-panel__body") ?? container.createDiv({ cls: "codex-panel__body" });
+function ChatPanelShell({
+  showToolbar,
+  toolbarNode,
+  goalNode,
+  messagesNode,
+  composerNode,
+  stateVersion,
+}: ChatPanelShellProps & { stateVersion: number }): UiNode {
+  return (
+    <>
+      {showToolbar ? <div className="codex-panel__toolbar">{toolbarNode()}</div> : null}
+      <div className="codex-panel__body" data-codex-panel-state-version={String(stateVersion)}>
+        <div className="codex-panel__region codex-panel__region--goal">{goalNode()}</div>
+        {messagesNode()}
+        <div className="codex-panel__region codex-panel__region--composer">{composerNode()}</div>
+      </div>
+    </>
+  );
 }
 
 function startStatusBarClearanceSync(container: HTMLElement): () => void {

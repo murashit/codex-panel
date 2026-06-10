@@ -17,17 +17,16 @@ describe("ChatViewDeferredTasks", () => {
     vi.useFakeTimers();
   });
 
-  it("coalesces scheduled renders and preserves forced slot rendering", async () => {
+  it("coalesces scheduled renders", async () => {
     const tasks = new ChatViewDeferredTasks(() => window);
     const render = vi.fn();
 
     tasks.scheduleRender(render);
-    tasks.scheduleRender(render, { forceSlots: true });
+    tasks.scheduleRender(render);
 
     await vi.advanceTimersByTimeAsync(50);
 
     expect(render).toHaveBeenCalledOnce();
-    expect(render).toHaveBeenCalledWith({ forceSlots: true });
   });
 
   it("clears scheduled deferred work", async () => {
@@ -37,7 +36,7 @@ describe("ChatViewDeferredTasks", () => {
     const hydration = vi.fn();
     const warmup = vi.fn();
 
-    tasks.scheduleRender(render, { forceSlots: true });
+    tasks.scheduleRender(render);
     tasks.scheduleDiagnostics(diagnostics);
     tasks.scheduleRestoredThreadHydration(hydration);
     tasks.scheduleAppServerWarmup(warmup);

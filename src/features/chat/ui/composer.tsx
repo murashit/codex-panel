@@ -5,18 +5,14 @@ import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { ComposerSuggestion } from "../composer/suggestions";
 import type { ComposerMetaViewModel, RuntimeChoice } from "../panel/model";
 import { IconButton } from "../../../shared/ui/components";
-import { renderUiRoot } from "../../../shared/ui/ui-root";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
-
-export interface ComposerElements {
-  composer: HTMLTextAreaElement;
-}
 
 export interface ComposerCallbacks {
   onInput: (value: string) => void;
   onUpdateSuggestions: () => void;
   onKeydown: (event: KeyboardEvent) => void;
   onSendOrInterrupt: () => void;
+  onHeightChange: () => void;
   onTogglePlan?: () => void;
   onToggleAutoReview?: () => void;
   onToggleFast?: () => void;
@@ -49,8 +45,7 @@ const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
   effortChoices: [],
 };
 
-export function renderComposerShell(
-  parent: HTMLElement,
+export function composerShellNode(
   viewId: string,
   draft: string,
   busy: boolean,
@@ -60,10 +55,9 @@ export function renderComposerShell(
   selectedSuggestionIndex: number,
   callbacks: ComposerCallbacks,
   meta: ComposerMetaViewModel = DEFAULT_COMPOSER_META,
-): ComposerElements {
-  const elements: Partial<ComposerElements> = {};
-  renderUiRoot(
-    parent,
+  onComposer: (composer: HTMLTextAreaElement | null) => void,
+): UiNode {
+  return (
     <ComposerShell
       viewId={viewId}
       draft={draft}
@@ -74,13 +68,9 @@ export function renderComposerShell(
       suggestions={suggestions}
       selectedSuggestionIndex={selectedSuggestionIndex}
       callbacks={callbacks}
-      onComposer={(composer) => {
-        elements.composer = composer;
-      }}
-    />,
+      onComposer={onComposer}
+    />
   );
-  if (!elements.composer) throw new Error("Expected composer shell elements to mount.");
-  return { composer: elements.composer };
 }
 
 function ComposerShell({
@@ -104,7 +94,7 @@ function ComposerShell({
   suggestions: readonly ComposerSuggestion[];
   selectedSuggestionIndex: number;
   callbacks: ComposerCallbacks;
-  onComposer: (composer: HTMLTextAreaElement) => void;
+  onComposer: (composer: HTMLTextAreaElement | null) => void;
 }): UiNode {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
@@ -114,7 +104,10 @@ function ComposerShell({
     if (!composer) return;
     onComposer(composer);
     syncComposerHeight(composer);
-  }, [callbacks, onComposer]);
+    return () => {
+      onComposer(null);
+    };
+  }, [onComposer]);
   useLayoutEffect(() => {
     const container = suggestionsRef.current;
     const selected = selectedSuggestionRef.current;
@@ -140,7 +133,7 @@ function ComposerShell({
           aria-activedescendant={selectedSuggestionId}
           value={draft}
           onInput={(event) => {
-            syncComposerHeight(event.currentTarget);
+            if (syncComposerHeight(event.currentTarget)) callbacks.onHeightChange();
             callbacks.onInput(event.currentTarget.value);
           }}
           onKeyUp={callbacks.onUpdateSuggestions}

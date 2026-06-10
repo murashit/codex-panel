@@ -199,10 +199,10 @@ describe("createChatThreadActions", () => {
       { kind: "message", role: "user", text: "kept prompt", turnId: "kept-turn" },
       { kind: "message", role: "assistant", text: "kept answer", turnId: "kept-turn" },
     ]);
-    expect(host.forceRenderSlots).toHaveBeenCalledOnce();
+    expect(host.render).toHaveBeenCalledOnce();
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
-    expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.forceRenderSlots));
-    expect(callOrder(host.forceRenderSlots)).toBeLessThan(callOrder(vi.mocked(host.refreshThreads)));
+    expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.render));
+    expect(callOrder(host.render)).toBeLessThan(callOrder(vi.mocked(host.refreshThreads)));
     expect(callOrder(vi.mocked(host.refreshThreads))).toBeLessThan(callOrder(host.refreshSharedThreadListFromOpenSurface));
   });
 });
@@ -276,7 +276,7 @@ function hostMock({
     addSystemMessage: vi.fn(),
     setStatus: vi.fn(),
     setComposerText: vi.fn(),
-    forceRenderSlots: vi.fn(),
+    render: vi.fn(),
     openThreadInNewView: vi.fn().mockResolvedValue(undefined),
     openThreadInCurrentPanel: vi.fn().mockResolvedValue(undefined),
     notifyThreadArchived: vi.fn(),

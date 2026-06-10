@@ -4,14 +4,15 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 
 import type { ThreadGoal } from "../../../../../src/app-server/thread-goal";
-import { renderGoalBanner } from "../../../../../src/features/chat/ui/goal-banner";
+import { goalBannerNode, type GoalBannerActions } from "../../../../../src/features/chat/ui/goal-banner";
 import type { SendShortcut } from "../../../../../src/shared/ui/keyboard";
+import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-describe("renderGoalBanner", () => {
+describe("goalBannerNode", () => {
   it("renders nothing when there is no goal", async () => {
     const parent = document.createElement("div");
 
@@ -29,7 +30,7 @@ describe("renderGoalBanner", () => {
     const onEditingChange = vi.fn();
 
     await act(async () => {
-      renderGoalBanner(parent, null, callbacks, { sendShortcut: "enter", editingRequested: true, onEditingChange });
+      renderUiRoot(parent, goalBannerNode(null, callbacks, { sendShortcut: "enter", editingRequested: true, onEditingChange }));
     });
 
     expect(parent.textContent).toContain("Goal");
@@ -232,10 +233,10 @@ describe("renderGoalBanner", () => {
 function renderGoal(
   parent: HTMLElement,
   currentGoal: ThreadGoal | null,
-  callbacks = actions(),
+  callbacks: GoalBannerActions = actions(),
   sendShortcut: SendShortcut = "enter",
 ): void {
-  renderGoalBanner(parent, currentGoal, callbacks, { sendShortcut });
+  renderUiRoot(parent, goalBannerNode(currentGoal, callbacks, { sendShortcut }));
 }
 
 function actions() {

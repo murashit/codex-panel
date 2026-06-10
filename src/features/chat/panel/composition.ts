@@ -19,7 +19,7 @@ import type { RestoredThreadController } from "../threads/restored-thread-contro
 import type { ThreadIdentityActions } from "../threads/thread-identity-actions";
 import type { ThreadResumeController } from "../threads/thread-resume-controller";
 import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
-import type { ChatViewRenderController, ChatViewSlotRenderers } from "./view-render-controller";
+import type { ChatViewRenderController } from "./view-render-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatControllerCompositionPorts } from "./controller-ports";
 import { createChatControllerCompositionActions, type ChatControllerCompositionBridges } from "./controller-wiring";
@@ -74,7 +74,6 @@ export interface ChatViewControllers {
   render: {
     controller: ChatViewRenderController;
     messages: ChatMessageRenderer;
-    attachSlotRenderers: (slotRenderers: ChatViewSlotRenderers) => void;
     openView: () => void;
     closeView: () => void;
     applyViewState: (state: unknown) => void;
@@ -83,9 +82,8 @@ export interface ChatViewControllers {
 
 export function createChatViewControllers(ports: ChatControllerCompositionPorts): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
-  const { renderController } = createViewRenderControllerGroup(ports, { connection });
+  const { renderController } = createViewRenderControllerGroup(ports);
   const bridges: ChatControllerCompositionBridges = {
-    systemMessages: { controller: null },
     connection: { controller: null },
     threadSelection: { actions: null },
     messageViewport: { renderer: null },
@@ -193,7 +191,6 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
     },
   );
-  bridges.systemMessages.controller = inboundController;
   const connectionController = createChatConnectionControllers(
     {
       ...ports,
@@ -331,9 +328,6 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     render: {
       controller: renderController,
       messages: messageRenderer,
-      attachSlotRenderers: (slotRenderers) => {
-        renderController.setSlotRenderers(slotRenderers);
-      },
       openView,
       closeView,
       applyViewState,

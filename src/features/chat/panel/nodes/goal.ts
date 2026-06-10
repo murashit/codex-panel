@@ -1,12 +1,20 @@
-import { renderGoalBanner } from "../../ui/goal-banner";
-import type { ChatViewSlotRendererPorts } from "./types";
+import { goalBannerNode, type GoalBannerActions, type GoalBannerOptions } from "../../ui/goal-banner";
+import type { ChatPanelGoalPorts } from "./types";
 
-export function renderGoalSlot(goal: HTMLElement, ports: ChatViewSlotRendererPorts): void {
+export function goalPanelNode(ports: ChatPanelGoalPorts) {
+  const { goal, actions, options } = goalPanelProps(ports);
+  return goalBannerNode(goal, actions, options);
+}
+
+function goalPanelProps(ports: ChatPanelGoalPorts): {
+  goal: ReturnType<ChatPanelGoalPorts["state"]["chat"]>["activeThread"]["goal"];
+  actions: GoalBannerActions;
+  options: GoalBannerOptions;
+} {
   const state = ports.state.chat();
-  renderGoalBanner(
-    goal,
-    state.activeThread.goal,
-    {
+  return {
+    goal: state.activeThread.goal,
+    actions: {
       onSave: (objective, tokenBudget) => {
         void ports.actions.goal.saveObjective(objective, tokenBudget);
       },
@@ -26,12 +34,12 @@ export function renderGoalSlot(goal: HTMLElement, ports: ChatViewSlotRendererPor
         void ports.actions.goal.clear(threadId);
       },
     },
-    {
+    options: {
       sendShortcut: ports.settings.sendShortcut(),
       editingRequested: state.ui.openDetails.has("goal:editor"),
       onEditingChange: (editing) => {
         ports.actions.goal.setEditingOpen(editing);
       },
     },
-  );
+  };
 }

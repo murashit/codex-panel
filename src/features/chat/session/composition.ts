@@ -13,7 +13,7 @@ import type { rejectServerRequest, respondToServerRequest } from "../requests/se
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import { ChatInboundController } from "../inbound/controller";
-import type { ChatConnectionWorkTracker, ChatViewRenderScheduleOptions } from "../panel/lifecycle";
+import type { ChatConnectionWorkTracker } from "../panel/lifecycle";
 
 interface ChatServerActionControllerPorts {
   plugin: Pick<CodexChatHost, "applyThreadListSnapshot" | "publishAppServerMetadata" | "vaultPath">;
@@ -72,7 +72,7 @@ interface ChatInboundControllerPorts {
     stateStore: ChatStateStore;
   };
   render: {
-    schedule: (options?: ChatViewRenderScheduleOptions) => void;
+    schedule: () => void;
   };
   thread: {
     refreshThreads: () => Promise<void>;
@@ -144,7 +144,7 @@ interface ChatConnectionControllerPorts {
   };
   render: {
     now: () => void;
-    schedule: (options?: ChatViewRenderScheduleOptions) => void;
+    schedule: () => void;
   };
 }
 

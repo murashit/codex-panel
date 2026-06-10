@@ -3,7 +3,6 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { RuntimeConfigSection, RateLimitSummary } from "../runtime/status-summary";
 import { IconButton } from "../../../shared/ui/components";
-import { renderUiRoot } from "../../../shared/ui/ui-root";
 import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/model/types";
 
 type ButtonProps = ButtonHTMLAttributes & {
@@ -29,8 +28,8 @@ export interface ToolbarActions {
   autoNameThread: (threadId: string) => void;
 }
 
-export function renderToolbar(toolbar: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
-  renderUiRoot(toolbar, <Toolbar model={model} actions={actions} />);
+export function toolbarNode(model: ToolbarViewModel, actions: ToolbarActions): UiNode {
+  return <Toolbar model={model} actions={actions} />;
 }
 
 function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {

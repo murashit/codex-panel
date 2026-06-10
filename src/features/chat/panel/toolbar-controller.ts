@@ -1,11 +1,10 @@
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 import type { ChatThreadActions } from "../threads/thread-actions";
-import type { ChatViewRenderScheduleOptions } from "./lifecycle";
 
 export interface ToolbarPanelControllerHost {
   stateStore: ChatStateStore;
   threadActions: ChatThreadActions;
-  scheduleRender: (options?: ChatViewRenderScheduleOptions) => void;
+  scheduleRender: () => void;
 }
 
 export interface ToolbarOutsidePointerContext {
@@ -59,13 +58,13 @@ export class ToolbarPanelController {
 
   startArchive(threadId: string): void {
     this.archiveConfirmThreadId = threadId;
-    this.host.scheduleRender({ forceSlots: true });
+    this.host.scheduleRender();
   }
 
   async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
     if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
     await this.host.threadActions.archiveThread(threadId, saveMarkdown);
-    this.host.scheduleRender({ forceSlots: true });
+    this.host.scheduleRender();
   }
 
   closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void {
@@ -77,7 +76,7 @@ export class ToolbarPanelController {
       if (insideToolbarPanel && context.contains(insideToolbarPanel)) {
         if (this.archiveConfirmThreadId && !target.closest(".codex-panel__archive-confirm")) {
           this.archiveConfirmThreadId = null;
-          this.host.scheduleRender({ forceSlots: true });
+          this.host.scheduleRender();
         }
         return;
       }
@@ -85,7 +84,7 @@ export class ToolbarPanelController {
 
     if (this.archiveConfirmThreadId) {
       this.archiveConfirmThreadId = null;
-      this.host.scheduleRender({ forceSlots: true });
+      this.host.scheduleRender();
     }
 
     if (context.renameEditing) return;
@@ -102,7 +101,7 @@ export class ToolbarPanelController {
 
     this.dispatch({ type: "ui/panel-set", panel: null });
     this.archiveConfirmThreadId = null;
-    this.host.scheduleRender({ forceSlots: true });
+    this.host.scheduleRender();
   }
 }
 

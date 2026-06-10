@@ -1,11 +1,12 @@
 import type { App, EventRef } from "obsidian";
+import type { ComponentChild as UiNode } from "preact";
 
 import type { CodexInput } from "../../../app-server/request-input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
 import type { ComposerMetaViewModel } from "../panel/model";
-import { renderComposerShell, syncComposerHeight } from "../ui/composer";
+import { composerShellNode, syncComposerHeight, type ComposerCallbacks } from "../ui/composer";
 import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "./boundary-scroll";
 import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./obsidian-context";
 import {
@@ -32,8 +33,8 @@ export interface ChatComposerControllerOptions {
   togglePlan: () => void;
   toggleAutoReview: () => void;
   toggleFast: () => void;
-  renderIfDetached: () => void;
   onDraftChange: () => void;
+  onHeightChange: () => void;
 }
 
 export interface ChatComposerActionHandlers {
@@ -43,7 +44,6 @@ export interface ChatComposerActionHandlers {
 
 export class ChatComposerController {
   private composer: HTMLTextAreaElement | null = null;
-  private parent: HTMLElement | null = null;
   private noteCandidatesCache: { sourcePath: string; notes: NoteCandidate[] } | null = null;
   private noteEventsRegistered = false;
   private actionHandlers: ChatComposerActionHandlers | null = null;
@@ -78,11 +78,9 @@ export class ChatComposerController {
     registerEvent(this.options.app.vault.on("modify", invalidate));
   }
 
-  render(parent: HTMLElement, options: { updateSuggestions?: boolean } = {}): void {
-    this.parent = parent;
+  renderNode(): UiNode {
     const state = this.state;
-    const elements = renderComposerShell(
-      parent,
+    return composerShellNode(
       this.options.viewId,
       state.composer.draft,
       chatTurnBusy(state),
@@ -90,68 +88,29 @@ export class ChatComposerController {
       this.options.composerPlaceholder(),
       state.composer.suggestions,
       state.composer.suggestSelected,
-      {
-        onInput: (value) => {
-          this.dispatch({ type: "composer/draft-set", draft: value, resetDismissedSignature: true });
-          this.options.onDraftChange();
-          this.updateSuggestions({ renderOnChange: false });
-          this.refreshControls();
-        },
-        onUpdateSuggestions: () => {
-          this.updateSuggestions();
-        },
-        onKeydown: (event) => {
-          if (this.handleSuggestionKeydown(event)) {
-            return;
-          }
-          if (this.handleBoundaryScrollKeydown(event)) {
-            return;
-          }
-          if (isComposerSendKey(event, this.options.sendShortcut())) {
-            event.preventDefault();
-            this.currentActionHandlers().submit();
-          }
-        },
-        onSendOrInterrupt: () => {
-          this.currentActionHandlers().submit();
-        },
-        onTogglePlan: () => {
-          this.options.togglePlan();
-        },
-        onToggleAutoReview: () => {
-          this.options.toggleAutoReview();
-        },
-        onToggleFast: () => {
-          this.options.toggleFast();
-        },
-        onSuggestionHover: (index) => {
-          this.selectSuggestion(index);
-        },
-        onSuggestionInsert: (suggestion) => {
-          this.insertSuggestion(suggestion);
-        },
-      },
+      this.composerCallbacks(),
       this.options.composerMeta(),
+      this.setComposerElement,
     );
-    this.composer = elements.composer;
-    syncComposerHeight(this.composer);
-    if (options.updateSuggestions !== false) this.updateSuggestions({ renderOnChange: true });
   }
 
-  setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean; renderIfDetached?: boolean } = {}): void {
+  private readonly setComposerElement = (composer: HTMLTextAreaElement | null): void => {
+    if (!composer) {
+      this.composer = null;
+      return;
+    }
+    this.composer = composer;
+    syncComposerHeight(composer);
+  };
+
+  setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean } = {}): void {
     this.dispatch({
       type: "composer/draft-set",
       draft: text,
       ...(options.clearSuggestions === undefined ? {} : { clearSuggestions: options.clearSuggestions }),
     });
     this.options.onDraftChange();
-    if (!this.composer) {
-      if (options.renderIfDetached) this.options.renderIfDetached();
-      return;
-    }
-
-    this.refreshControls();
-    if (options.focus) this.composer.focus();
+    if (options.focus) this.composer?.focus();
   }
 
   focus(): void {
@@ -164,12 +123,10 @@ export class ChatComposerController {
 
   dispose(): void {
     this.composer = null;
-    this.parent = null;
   }
 
-  refreshControls(parent: HTMLElement | null = this.parent, options: { updateSuggestions?: boolean } = {}): void {
-    if (!parent) return;
-    this.render(parent, options);
+  refreshSuggestions(): void {
+    this.updateSuggestions();
   }
 
   codexInput(text: string): CodexInput {
@@ -188,14 +145,11 @@ export class ChatComposerController {
     const direction = composerSuggestionNavigationDirection(event);
     if (direction) {
       event.preventDefault();
-      this.dispatchSuggestions(
-        {
-          type: "composer/suggestions-set",
-          suggestions: state.composer.suggestions,
-          selected: nextComposerSuggestionIndex(state.composer.suggestSelected, state.composer.suggestions.length, direction),
-        },
-        true,
-      );
+      this.dispatchSuggestions({
+        type: "composer/suggestions-set",
+        suggestions: state.composer.suggestions,
+        selected: nextComposerSuggestionIndex(state.composer.suggestSelected, state.composer.suggestions.length, direction),
+      });
       return true;
     }
     if (event.metaKey || event.ctrlKey) return false;
@@ -229,7 +183,7 @@ export class ChatComposerController {
     return true;
   }
 
-  private updateSuggestions({ renderOnChange }: { renderOnChange: boolean } = { renderOnChange: true }): void {
+  private updateSuggestions(): void {
     if (!this.composer) {
       this.clearSuggestions();
       return;
@@ -239,7 +193,7 @@ export class ChatComposerController {
     const signature = this.suggestionSignature();
     const state = this.state;
     if (state.composer.suggestionsDismissedSignature === signature) {
-      this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [] }, renderOnChange);
+      this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [] });
       return;
     }
     const beforeCursor = this.composer.value.slice(0, cursor);
@@ -252,19 +206,55 @@ export class ChatComposerController {
       this.options.currentModelForSuggestions(),
     );
 
-    this.dispatchSuggestions(
-      {
-        type: "composer/suggestions-set",
-        suggestions,
-        selected: state.composer.suggestSelected >= suggestions.length ? 0 : state.composer.suggestSelected,
-      },
-      renderOnChange,
+    this.dispatchSuggestions({
+      type: "composer/suggestions-set",
+      suggestions,
+      selected: state.composer.suggestSelected >= suggestions.length ? 0 : state.composer.suggestSelected,
+    });
+  }
+
+  private handleInput(value: string): void {
+    const suggestionState = this.inputSuggestionState();
+    this.dispatch({
+      type: "composer/input-set",
+      draft: value,
+      suggestions: suggestionState.suggestions,
+      selected: suggestionState.selected,
+      dismissedSignature: suggestionState.dismissedSignature,
+    });
+    this.options.onDraftChange();
+  }
+
+  private inputSuggestionState(): {
+    suggestions: readonly ComposerSuggestion[];
+    selected: number;
+    dismissedSignature: string | null;
+  } {
+    if (!this.composer) return { suggestions: [], selected: 0, dismissedSignature: null };
+    const signature = this.suggestionSignature();
+    const state = this.state;
+    if (state.composer.suggestionsDismissedSignature === signature) {
+      return { suggestions: [], selected: 0, dismissedSignature: signature };
+    }
+    const beforeCursor = this.composer.value.slice(0, this.composer.selectionStart);
+    const suggestions = activeComposerSuggestions(
+      beforeCursor,
+      this.noteCandidates(),
+      state.connection.availableSkills,
+      state.threadList.listedThreads,
+      state.connection.availableModels,
+      this.options.currentModelForSuggestions(),
     );
+    return {
+      suggestions,
+      selected: state.composer.suggestSelected >= suggestions.length ? 0 : state.composer.suggestSelected,
+      dismissedSignature: null,
+    };
   }
 
   private selectSuggestion(index: number): void {
     if (this.state.composer.suggestSelected === index) return;
-    this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: this.state.composer.suggestions, selected: index }, true);
+    this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: this.state.composer.suggestions, selected: index });
   }
 
   private insertSuggestion(suggestion: ComposerSuggestion | undefined, activation: "enter" | "tab" = "enter"): void {
@@ -276,32 +266,26 @@ export class ChatComposerController {
 
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
     this.options.onDraftChange();
-    this.refreshControls(this.parent, { updateSuggestions: false });
     syncComposerHeight(this.composer);
     this.composer.focus();
     this.composer.setSelectionRange(insertion.cursor, insertion.cursor);
   }
 
   private clearSuggestions(): void {
-    this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [], selected: 0 }, true);
+    this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [], selected: 0 });
   }
 
   private dismissSuggestions(): void {
-    this.dispatchSuggestions(
-      {
-        type: "composer/suggestions-set",
-        suggestions: [],
-        selected: 0,
-        dismissedSignature: this.suggestionSignature(),
-      },
-      true,
-    );
+    this.dispatchSuggestions({
+      type: "composer/suggestions-set",
+      suggestions: [],
+      selected: 0,
+      dismissedSignature: this.suggestionSignature(),
+    });
   }
 
-  private dispatchSuggestions(action: ChatAction, renderOnChange: boolean): void {
-    const previous = this.state;
-    const next = this.options.stateStore.dispatch(action);
-    if (renderOnChange && next !== previous) this.refreshControls();
+  private dispatchSuggestions(action: ChatAction): void {
+    this.options.stateStore.dispatch(action);
   }
 
   private suggestionSignature(): string | null {
@@ -320,5 +304,49 @@ export class ChatComposerController {
   private currentActionHandlers(): ChatComposerActionHandlers {
     if (!this.actionHandlers) throw new Error("ChatComposerController action handlers have not been attached.");
     return this.actionHandlers;
+  }
+
+  private composerCallbacks(): ComposerCallbacks {
+    return {
+      onInput: (value) => {
+        this.handleInput(value);
+      },
+      onUpdateSuggestions: () => {
+        this.updateSuggestions();
+      },
+      onKeydown: (event) => {
+        if (this.handleSuggestionKeydown(event)) {
+          return;
+        }
+        if (this.handleBoundaryScrollKeydown(event)) {
+          return;
+        }
+        if (isComposerSendKey(event, this.options.sendShortcut())) {
+          event.preventDefault();
+          this.currentActionHandlers().submit();
+        }
+      },
+      onSendOrInterrupt: () => {
+        this.currentActionHandlers().submit();
+      },
+      onHeightChange: () => {
+        this.options.onHeightChange();
+      },
+      onTogglePlan: () => {
+        this.options.togglePlan();
+      },
+      onToggleAutoReview: () => {
+        this.options.toggleAutoReview();
+      },
+      onToggleFast: () => {
+        this.options.toggleFast();
+      },
+      onSuggestionHover: (index) => {
+        this.selectSuggestion(index);
+      },
+      onSuggestionInsert: (suggestion) => {
+        this.insertSuggestion(suggestion);
+      },
+    };
   }
 }

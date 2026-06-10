@@ -61,7 +61,6 @@ interface ThreadControllerGroupPorts {
   };
   render: {
     now: () => void;
-    shellSlots: () => void;
   };
   composer: {
     setText: (text: string) => void;
@@ -86,7 +85,7 @@ export function createThreadControllerGroup(
     ensureConnected: client.ensureConnected,
     currentClient: () => refs.connection.currentClient(),
     refreshThreads: thread.refreshThreads,
-    render: render.shellSlots,
+    render: render.now,
     addSystemMessage: status.addSystemMessage,
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
   });
@@ -99,6 +98,7 @@ export function createThreadControllerGroup(
     render: render.now,
     addSystemMessage: status.addSystemMessage,
     keepCurrentScrollPosition: scroll.preservePosition,
+    showLatestPageAtBottom: scroll.forceBottom,
     setThreadTurnPresence: resetThreadTurnPresence,
   });
   const invalidateResumeWork = () => {
@@ -115,7 +115,7 @@ export function createThreadControllerGroup(
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
     setComposerText: composer.setText,
-    forceRenderSlots: render.shellSlots,
+    render: render.now,
     openThreadInNewView: (threadId) => plugin.openThreadInNewView(threadId),
     openThreadInCurrentPanel: thread.selectThread,
     notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
@@ -162,7 +162,6 @@ export function createThreadControllerGroup(
     clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     addSystemMessage: status.addSystemMessage,
-    forceMessagesToBottom: scroll.forceBottom,
     render: render.now,
     refreshLiveState: liveState.refresh,
     syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),

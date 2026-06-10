@@ -22,7 +22,6 @@ import type { CodexChatHost } from "../chat-host";
 import type { DisplayDetailSection } from "../display/types";
 import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
 import type { ComposerMetaViewModel } from "../panel/model";
-import type { ChatViewRenderScheduleOptions } from "../panel/lifecycle";
 
 interface ConversationSurfaceControllerGroupPorts {
   obsidian: {
@@ -44,8 +43,12 @@ interface ConversationSurfaceControllerGroupPorts {
   };
   render: {
     now: () => void;
-    schedule: (options?: ChatViewRenderScheduleOptions) => void;
+    schedule: () => void;
+  };
+  messages: {
     pendingRequestsSignature: () => string;
+  };
+  composerView: {
     composerPlaceholder: () => string;
     composerMetaViewModel: () => ComposerMetaViewModel;
   };
@@ -74,6 +77,7 @@ interface ConversationSurfaceControllerGroupPorts {
   };
   scroll: {
     forceBottom: () => void;
+    followBottom: () => void;
   };
 }
 
@@ -90,7 +94,7 @@ export function createConversationSurfaceControllerGroup(
     history: ThreadHistoryController;
   },
 ) {
-  const { plugin, state, render, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
+  const { plugin, state, render, messages, composerView, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
   const { app, owner, viewId } = context.obsidian;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
@@ -104,14 +108,16 @@ export function createConversationSurfaceControllerGroup(
     scrollThreadFromComposerEdges: () => plugin.settings.scrollThreadFromComposerEdges,
     canInterrupt: () =>
       state.getState().turn.lifecycle.kind !== "idle" && Boolean(state.getState().activeThread.id && activeTurnId(state.getState())),
-    composerPlaceholder: render.composerPlaceholder,
-    composerMeta: render.composerMetaViewModel,
+    composerPlaceholder: composerView.composerPlaceholder,
+    composerMeta: composerView.composerMetaViewModel,
     currentModelForSuggestions: () => currentModel(runtime.runtimeSnapshot()),
     togglePlan: () => void refs.runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
     toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
-    renderIfDetached: render.now,
     onDraftChange: liveState.refresh,
+    onHeightChange: () => {
+      messageRenderer.repinMessagesToBottomIfPinned();
+    },
   });
   const pendingRequests = new PendingRequestController({
     stateStore,
@@ -230,8 +236,10 @@ export function createConversationSurfaceControllerGroup(
       openTurnDiff: (state) => void plugin.openTurnDiff(state),
     },
     requests: {
-      pendingSignature: render.pendingRequestsSignature,
-      renderPending: () => pendingRequests.renderNode(),
+      pendingSignature: messages.pendingRequestsSignature,
+      pendingSnapshot: () => pendingRequests.snapshot(),
+      pendingActions: () => pendingRequests.actions(),
+      consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
     },
   });
   const composerSubmission = createComposerSubmissionActions({
@@ -249,6 +257,7 @@ export function createConversationSurfaceControllerGroup(
     },
     scroll: {
       forceBottom: scroll.forceBottom,
+      followBottom: scroll.followBottom,
     },
   });
   composerController.setActionHandlers({

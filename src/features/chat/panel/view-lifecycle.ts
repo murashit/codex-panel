@@ -1,4 +1,4 @@
-import type { EventRef, WorkspaceLeaf } from "obsidian";
+import type { EventRef } from "obsidian";
 
 import { unmountChatPanelShell } from "../ui/shell";
 
@@ -8,8 +8,6 @@ export interface ChatViewLifecycleHost {
   registerEvent: (eventRef: EventRef) => void;
   registerComposerNoteIndexInvalidation: (register: (eventRef: EventRef) => void) => void;
   registerPointerDown: (handler: (event: PointerEvent) => void) => void;
-  registerActiveLeafChange: (handler: (leaf: WorkspaceLeaf | null) => void) => void;
-  handleActiveLeafChange: (leaf: WorkspaceLeaf | null) => void;
   applyCachedSharedAppServerState: () => void;
   render: () => void;
   scheduleDeferredAppServerWarmup: () => void;
@@ -36,7 +34,6 @@ export function openChatView(host: ChatViewLifecycleHost): void {
   host.registerPointerDown((event) => {
     host.closeToolbarPanelOnOutsidePointer(event);
   });
-  host.registerActiveLeafChange(host.handleActiveLeafChange);
   host.applyCachedSharedAppServerState();
   host.render();
   host.scheduleDeferredAppServerWarmup();

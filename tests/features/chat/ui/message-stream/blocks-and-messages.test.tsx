@@ -443,7 +443,7 @@ describe("message stream rendering and message actions", () => {
     expect(copyText).toHaveBeenNthCalledWith(2, "# Answer");
   });
 
-  it("expands assistant fork actions in the copy slot and defaults repeat clicks to plain fork", () => {
+  it("expands assistant fork actions in the copy action region and defaults repeat clicks to plain fork", () => {
     const onDetailsToggle = vi.fn();
     const onForkItem = vi.fn();
     const item: DisplayItem = {
@@ -806,6 +806,41 @@ describe("message stream rendering and message actions", () => {
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("fresh:new");
     renderMarkdown.mockRestore();
     unmountUiRootInAct(parent);
+  });
+
+  it("ignores stale async markdown renders targeting the same connected content element", async () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+    const firstRender = deferred<undefined>();
+    const renderMarkdown = vi.spyOn(MarkdownRenderer, "render");
+    renderMarkdown
+      .mockImplementationOnce((_app, text: string, element: HTMLElement) =>
+        firstRender.promise.then(() => {
+          element.textContent = `stale:${text}`;
+        }),
+      )
+      .mockImplementation((_app, text: string, element: HTMLElement) => {
+        element.textContent = `fresh:${text}`;
+        return Promise.resolve();
+      });
+    const markdownRenderer = new MarkdownMessageRenderer({
+      app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
+      owner: {} as never,
+      vaultPath: "/vault",
+    });
+
+    markdownRenderer.renderMarkdown(parent, "old");
+    markdownRenderer.renderMarkdown(parent, "new");
+    await Promise.resolve();
+    expect(parent.textContent).toBe("fresh:new");
+
+    firstRender.resolve(undefined);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(parent.textContent).toBe("fresh:new");
+    renderMarkdown.mockRestore();
+    parent.remove();
   });
 
   it("hides copy action for the active assistant message while a turn is running", () => {

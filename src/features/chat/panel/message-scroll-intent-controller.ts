@@ -13,6 +13,10 @@ export class ChatMessageScrollIntentController {
     this.nextIntent = "force-bottom";
   }
 
+  followBottom(): void {
+    this.nextIntent = "follow-bottom";
+  }
+
   preservePosition(): void {
     this.nextIntent = "preserve";
   }

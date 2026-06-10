@@ -9,6 +9,7 @@ export interface ThreadHistoryControllerHost {
   render: () => void;
   addSystemMessage: (text: string) => void;
   keepCurrentScrollPosition: () => void;
+  showLatestPageAtBottom: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
 }
 
@@ -56,6 +57,7 @@ export class ThreadHistoryController {
   applyLatestPage(threadId: string, response: ThreadTurnsPage): boolean {
     if (this.state.activeThread.id !== threadId) return false;
     this.host.setThreadTurnPresence(response.data.length > 0);
+    this.host.showLatestPageAtBottom();
     this.dispatch({ type: "transcript/items-replaced", items: displayItemsFromTurns(response.data), historyCursor: response.nextCursor });
     this.host.render();
     return true;

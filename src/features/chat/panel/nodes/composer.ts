@@ -4,17 +4,13 @@ import {
   composerPlaceholder as buildComposerPlaceholder,
   runtimeComposerChoices,
 } from "../model";
-import type { ChatViewSlotRendererPorts } from "./types";
+import type { ChatPanelComposerPorts } from "./types";
 
-export function renderComposerSlot(parent: HTMLElement, ports: ChatViewSlotRendererPorts): void {
-  ports.slots.renderComposer(parent);
-}
-
-export function composerPlaceholder(ports: ChatViewSlotRendererPorts): string {
+export function composerPlaceholder(ports: ChatPanelComposerPorts): string {
   return buildComposerPlaceholder(activeComposerThreadName(ports));
 }
 
-export function composerMetaViewModel(ports: ChatViewSlotRendererPorts) {
+export function composerMetaViewModel(ports: ChatPanelComposerPorts) {
   return {
     ...buildComposerMetaViewModel(ports.state.chat(), ports.runtime.snapshot()),
     ...runtimeComposerChoices({
@@ -26,6 +22,6 @@ export function composerMetaViewModel(ports: ChatViewSlotRendererPorts) {
   };
 }
 
-export function activeComposerThreadName(ports: ChatViewSlotRendererPorts): string | null {
+function activeComposerThreadName(ports: ChatPanelComposerPorts): string | null {
   return buildActiveComposerThreadName(ports.state.chat(), ports.thread.restoredPlaceholder());
 }

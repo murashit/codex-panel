@@ -24,9 +24,12 @@
   right: 0;
   left: 0;
   display: flow-root;
+  min-width: 0;
 }
 
 .codex-panel__message {
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: var(--codex-panel-edge-padding-x);
   padding-left: var(--codex-panel-message-indent);
   border-left: var(--codex-panel-rail-transparent);
@@ -129,6 +132,8 @@
 }
 
 .codex-panel__activity-group {
+  min-width: 0;
+  max-width: 100%;
   margin: 0 0 var(--codex-panel-edge-padding-x);
   padding-left: var(--codex-panel-message-indent);
   border-left: var(--codex-panel-rail);
@@ -158,6 +163,8 @@
 }
 
 .codex-panel__message-content {
+  min-width: 0;
+  max-width: 100%;
   font-family: var(--codex-panel-content-font);
   font-size: var(--codex-panel-content-font-size);
   overflow-wrap: anywhere;
@@ -178,6 +185,8 @@
 }
 
 .codex-panel__message-content.markdown-rendered pre {
+  max-width: 100%;
+  overflow-x: auto;
   white-space: pre-wrap;
 }
 
@@ -298,6 +307,8 @@
 }
 
 .codex-panel__reasoning {
+  min-width: 0;
+  max-width: 100%;
   margin: 0 0 var(--codex-panel-section-gap);
   padding-left: var(--codex-panel-message-indent);
   border-left: var(--codex-panel-rail);
@@ -342,6 +353,8 @@
 }
 
 .codex-panel__work-message {
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: var(--codex-panel-section-gap);
   padding-left: var(--codex-panel-message-indent);
   border: 0;
@@ -427,6 +440,8 @@
 
 .codex-panel__tool-item,
 .codex-panel__file-change {
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: var(--codex-panel-section-gap);
   padding-left: var(--codex-panel-message-indent);
   border: 0;

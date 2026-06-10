@@ -1,4 +1,4 @@
-.codex-panel__slot--goal:not(:empty) {
+.codex-panel__region--goal:not(:empty) {
   padding-bottom: var(--codex-panel-edge-padding-x);
 }
 

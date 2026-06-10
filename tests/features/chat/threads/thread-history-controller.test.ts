@@ -48,7 +48,7 @@ describe("ThreadHistoryController", () => {
 
   it("applies an already returned latest turns page without requesting history", () => {
     const threadTurnsList = vi.fn();
-    const { loader, stateStore } = historyFixture({ threadTurnsList });
+    const { loader, stateStore, showLatestPageAtBottom } = historyFixture({ threadTurnsList });
 
     const applied = loader.applyLatestPage("thread", threadTurnsResponse([turnFixture([assistantMessage("assistant", "Ready")])], "older"));
 
@@ -58,6 +58,7 @@ describe("ThreadHistoryController", () => {
       expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" }),
     ]);
     expect(stateStore.getState().transcript.historyCursor).toBe("older");
+    expect(showLatestPageAtBottom).toHaveBeenCalledOnce();
   });
 
   it("ignores already returned latest turns pages for stale threads", () => {
@@ -72,7 +73,7 @@ describe("ThreadHistoryController", () => {
 
   it("loads older history without coupling transcript replacement to bottom pin state", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue(threadTurnsResponse([turnFixture([assistantMessage("older", "Older")])], "next"));
-    const { loader, stateStore, dispatch, keepCurrentScrollPosition } = historyFixture({ threadTurnsList });
+    const { loader, stateStore, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom } = historyFixture({ threadTurnsList });
     stateStore.dispatch({ type: "transcript/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
 
     await loader.loadOlder();
@@ -81,6 +82,7 @@ describe("ThreadHistoryController", () => {
     expect(stateStore.getState().transcript.displayItems.map((item) => item.id)).toEqual(["older", "current"]);
     expect(stateStore.getState().transcript.historyCursor).toBe("next");
     expect(keepCurrentScrollPosition).toHaveBeenCalledOnce();
+    expect(showLatestPageAtBottom).not.toHaveBeenCalled();
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "transcript/items-replaced" }));
   });
 });
@@ -94,6 +96,7 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
   const dispatch = vi.spyOn(stateStore, "dispatch");
   const addSystemMessage = vi.fn();
   const keepCurrentScrollPosition = vi.fn();
+  const showLatestPageAtBottom = vi.fn();
   const loader = new ThreadHistoryController({
     stateStore,
     currentClient: () =>
@@ -103,9 +106,10 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
     render: vi.fn(),
     addSystemMessage,
     keepCurrentScrollPosition,
+    showLatestPageAtBottom,
     setThreadTurnPresence: vi.fn(),
   });
-  return { loader, stateStore, addSystemMessage, dispatch, keepCurrentScrollPosition };
+  return { loader, stateStore, addSystemMessage, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom };
 }
 
 function threadTurnsResponse(data: Turn[], nextCursor: string | null): ThreadTurnsListResponse {

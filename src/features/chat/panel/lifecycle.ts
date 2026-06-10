@@ -6,10 +6,6 @@ import {
 } from "../../../shared/lifecycle/connection-work";
 import { DeferredTask, type DeferredTaskWindow } from "../../../shared/lifecycle/deferred-task";
 
-export interface ChatViewRenderScheduleOptions {
-  forceSlots?: boolean;
-}
-
 export interface RestoredThreadState {
   threadId: string;
   title: string | null;
@@ -40,7 +36,6 @@ export class ChatViewDeferredTasks {
   private readonly renderTask: DeferredTask;
   private readonly diagnosticsTask: DeferredTask;
   private readonly appServerWarmupTask: DeferredTask;
-  private renderForceSlots = false;
 
   constructor(getWindow: () => DeferredTaskWindow) {
     this.renderTask = new DeferredTask(getWindow, 50);
@@ -49,18 +44,14 @@ export class ChatViewDeferredTasks {
     this.appServerWarmupTask = new DeferredTask(getWindow, 0);
   }
 
-  scheduleRender(callback: (options: ChatViewRenderScheduleOptions) => void, options: ChatViewRenderScheduleOptions = {}): void {
-    this.renderForceSlots ||= options.forceSlots ?? false;
+  scheduleRender(callback: () => void): void {
     this.renderTask.schedule(() => {
-      const forceSlots = this.renderForceSlots;
-      this.renderForceSlots = false;
-      callback({ forceSlots });
+      callback();
     });
   }
 
   clearRender(): void {
     this.renderTask.clear();
-    this.renderForceSlots = false;
   }
 
   scheduleDiagnostics(callback: () => void): void {

@@ -179,6 +179,13 @@ type ComposerAction =
       resetDismissedSignature?: boolean;
     }
   | {
+      type: "composer/input-set";
+      draft: string;
+      suggestions: readonly ComposerSuggestion[];
+      selected?: number;
+      dismissedSignature?: string | null;
+    }
+  | {
       type: "composer/suggestions-set";
       suggestions: readonly ComposerSuggestion[];
       selected?: number;
@@ -575,6 +582,16 @@ function reduceComposerSlice(state: ChatComposerState, action: ChatSliceAction):
         ...(action.clearSuggestions ? { suggestions: [], suggestSelected: 0 } : {}),
         ...(action.resetDismissedSignature ? { suggestionsDismissedSignature: null } : {}),
       });
+    case "composer/input-set":
+      return setComposerSuggestionsSlice(
+        patchObject(state, {
+          draft: action.draft,
+          suggestionsDismissedSignature: action.dismissedSignature ?? null,
+        }),
+        action.suggestions,
+        action.selected ?? state.suggestSelected,
+        action.dismissedSignature ?? null,
+      );
     case "composer/suggestions-set":
       return setComposerSuggestionsSlice(
         state,

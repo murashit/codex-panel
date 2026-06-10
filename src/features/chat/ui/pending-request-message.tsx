@@ -35,7 +35,9 @@ export function pendingRequestMessageNode(
   drafts: PendingRequestMessageDrafts,
   openDetails: ReadonlySet<string>,
   actions: PendingRequestMessageActions,
-  autoFocus = false,
+  autoFocusRequested = false,
+  consumeAutoFocus?: () => boolean,
+  autoFocusSignature = "",
 ): UiNode {
   return (
     <PendingRequestMessage
@@ -44,7 +46,9 @@ export function pendingRequestMessageNode(
       drafts={drafts}
       openDetails={openDetails}
       actions={actions}
-      autoFocus={autoFocus}
+      autoFocusRequested={autoFocusRequested}
+      consumeAutoFocus={consumeAutoFocus}
+      autoFocusSignature={autoFocusSignature}
     />
   );
 }
@@ -55,20 +59,26 @@ function PendingRequestMessage({
   drafts,
   openDetails,
   actions,
-  autoFocus,
+  autoFocusRequested,
+  consumeAutoFocus,
+  autoFocusSignature,
 }: {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
   drafts: PendingRequestMessageDrafts;
   openDetails: ReadonlySet<string>;
   actions: PendingRequestMessageActions;
-  autoFocus: boolean;
+  autoFocusRequested: boolean;
+  consumeAutoFocus: (() => boolean) | undefined;
+  autoFocusSignature: string;
 }): UiNode {
   const requestRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
-    if (!autoFocus) return;
+    const autoFocusConsumed = consumeAutoFocus?.() ?? false;
+    const shouldFocus = autoFocusRequested || autoFocusConsumed;
+    if (!shouldFocus) return;
     focusPendingRequestControl(requestRef.current);
-  }, [autoFocus]);
+  }, [autoFocusRequested, consumeAutoFocus, autoFocusSignature]);
   if (approvals.length === 0 && pendingUserInputs.length === 0) return null;
   return (
     <div ref={requestRef} className={createWorkMessageClassName("codex-panel__pending-request-message", "warning")}>

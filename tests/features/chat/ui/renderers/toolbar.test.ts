@@ -3,7 +3,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ToolbarViewModel } from "../../../../../src/features/chat/panel/model/types";
-import { renderToolbar } from "../../../../../src/features/chat/ui/toolbar";
+import { toolbarNode } from "../../../../../src/features/chat/ui/toolbar";
+import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { changeInputValue, installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
@@ -11,6 +12,12 @@ installObsidianDomShims();
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
+}
+
+type ToolbarActions = Parameters<typeof toolbarNode>[1];
+
+function mountToolbarNode(parent: HTMLElement, model: ToolbarViewModel, actions: ToolbarActions): void {
+  renderUiRoot(parent, toolbarNode(model, actions));
 }
 
 describe("toolbar renderer decisions", () => {
@@ -21,7 +28,7 @@ describe("toolbar renderer decisions", () => {
     const toggleHistory = vi.fn();
     const baseModel = toolbarModel();
 
-    renderToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleChatActions, toggleHistory }));
+    mountToolbarNode(parent, baseModel, toolbarActions({ startNewThread, toggleChatActions, toggleHistory }));
 
     const navHeader = parent.querySelector(".codex-panel__toolbar-primary");
     expect(navHeader?.classList.contains("nav-header")).toBe(true);
@@ -61,11 +68,11 @@ describe("toolbar renderer decisions", () => {
     historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
     parent.empty();
-    renderToolbar(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
+    mountToolbarNode(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat")?.disabled).toBe(true);
 
     parent.empty();
-    renderToolbar(parent, toolbarModel({ chatActionsOpen: true, historyOpen: true, statusPanelOpen: true }), toolbarActions());
+    mountToolbarNode(parent, toolbarModel({ chatActionsOpen: true, historyOpen: true, statusPanelOpen: true }), toolbarActions());
     expect(parent.querySelector(".codex-panel__history-toggle")?.getAttribute("aria-label")).toBe("Hide thread list");
     expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(true);
     expect(parent.querySelector(".codex-panel__new-chat")?.getAttribute("aria-label")).toBe("Hide chat actions");
@@ -80,7 +87,7 @@ describe("toolbar renderer decisions", () => {
     const compactConversation = vi.fn();
     const setGoal = vi.fn();
 
-    renderToolbar(
+    mountToolbarNode(
       parent,
       toolbarModel({ chatActionsOpen: true, openPanel: "chat-actions" }),
       toolbarActions({ startNewThread, compactConversation, setGoal }),
@@ -100,7 +107,7 @@ describe("toolbar renderer decisions", () => {
   it("keeps context out of the toolbar and Codex limits inside the status menu", () => {
     const parent = document.createElement("div");
 
-    renderToolbar(
+    mountToolbarNode(
       parent,
       toolbarModel({
         statusPanelOpen: true,
@@ -151,7 +158,7 @@ describe("toolbar renderer decisions", () => {
     const parent = document.createElement("div");
     const refreshStatus = vi.fn();
 
-    renderToolbar(
+    mountToolbarNode(
       parent,
       toolbarModel({
         statusPanelOpen: true,
@@ -183,7 +190,7 @@ describe("toolbar renderer decisions", () => {
   it("renders effective config inside the status menu without a separate toggle", () => {
     const parent = document.createElement("div");
 
-    renderToolbar(
+    mountToolbarNode(
       parent,
       toolbarModel({
         statusPanelOpen: true,
@@ -193,7 +200,7 @@ describe("toolbar renderer decisions", () => {
       toolbarActions(),
     );
 
-    expect(parent.querySelector(".codex-panel__slot--config")).toBeNull();
+    expect(parent.querySelector(".codex-panel__region--config")).toBeNull();
     expect(parent.querySelector(".codex-panel__toolbar-panel .codex-panel__config")?.textContent).toContain("Effective Codex config");
     expect(parent.textContent).not.toContain("Show effective config");
     expect(parent.textContent).not.toContain("Hide effective config");
@@ -209,7 +216,7 @@ describe("toolbar renderer decisions", () => {
     const autoNameThread = vi.fn();
     const actions = toolbarActions({ startRenameThread, updateRenameDraft, saveRenameThread, cancelRenameThread, autoNameThread });
 
-    renderToolbar(
+    mountToolbarNode(
       parent,
       toolbarModel({
         historyOpen: true,
@@ -248,7 +255,7 @@ describe("toolbar renderer decisions", () => {
     changeInputValue(input, "New title");
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
 
-    renderToolbar(
+    mountToolbarNode(
       parent,
       toolbarModel({
         historyOpen: true,
@@ -283,7 +290,7 @@ describe("toolbar renderer decisions", () => {
   it("renders auto-name loading without disabling the rename draft field", () => {
     const parent = document.createElement("div");
 
-    renderToolbar(
+    mountToolbarNode(
       parent,
       toolbarModel({
         historyOpen: true,
@@ -313,7 +320,7 @@ describe("toolbar renderer decisions", () => {
     const startArchiveThread = vi.fn();
     const archiveThread = vi.fn();
 
-    renderToolbar(
+    mountToolbarNode(
       parent,
       toolbarModel({
         historyOpen: true,
@@ -367,7 +374,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
   };
 }
 
-function toolbarActions(overrides: Partial<Parameters<typeof renderToolbar>[2]> = {}): Parameters<typeof renderToolbar>[2] {
+function toolbarActions(overrides: Partial<ToolbarActions> = {}): ToolbarActions {
   return {
     toggleHistory: vi.fn(),
     startNewThread: vi.fn(),

@@ -5,6 +5,8 @@ import { activeTurnId } from "../../chat-state";
 import { displayBlocksForItems } from "../../display/blocks";
 import type { ToolResultDisplayItem } from "../../display/tool-view";
 import type { DisplayBlock, DisplayItem } from "../../display/types";
+import { userInputDraftKey, userInputOtherDraftKey } from "../../requests/user-input";
+import { pendingRequestMessageNode } from "../pending-request-message";
 import { toolResultNode } from "../tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "../work-items";
 import type { MessageStreamBlock, MessageStreamContext, RenderableTextItem } from "./context";
@@ -83,10 +85,24 @@ function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | nu
   const blocks: MessageStreamBlock[] = [];
   if (activeTurn) blocks.push(...activeTurnLiveBlocks(context, activeTurn));
 
-  if (context.renderPendingRequests && context.pendingRequestsSignature) {
+  if (context.pendingRequests?.signature) {
+    const snapshot = context.pendingRequests.snapshot();
     blocks.push({
       key: "pending-requests",
-      node: context.renderPendingRequests(),
+      node: pendingRequestMessageNode(
+        snapshot.approvals,
+        snapshot.pendingUserInputs,
+        {
+          values: snapshot.userInputDrafts,
+          draftKey: userInputDraftKey,
+          otherDraftKey: userInputOtherDraftKey,
+        },
+        snapshot.openDetails,
+        context.pendingRequests.actions(),
+        false,
+        context.pendingRequests.consumeAutoFocus,
+        context.pendingRequests.signature,
+      ),
     });
   }
   return blocks;

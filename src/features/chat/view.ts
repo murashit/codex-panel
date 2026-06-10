@@ -12,7 +12,7 @@ import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } f
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
 import type { CodexChatHost } from "./chat-host";
-import { createSystemItem } from "./display/system";
+import { createStructuredSystemItem, createSystemItem } from "./display/system";
 import {
   activeThreadTitle as buildActiveThreadTitle,
   chatViewDisplayTitle,
@@ -23,23 +23,19 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
 } from "./panel/model";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
-import {
-  ChatConnectionWorkTracker,
-  ChatResumeWorkTracker,
-  ChatViewDeferredTasks,
-  type ChatViewRenderScheduleOptions,
-} from "./panel/lifecycle";
+import { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./panel/lifecycle";
 import { ChatMessageScrollIntentController } from "./panel/message-scroll-intent-controller";
 import type { ChatControllerCompositionPorts } from "./panel/controller-ports";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/composition";
-import { activeComposerThreadName, composerMetaViewModel, composerPlaceholder, renderComposerSlot } from "./panel/slots/composer";
-import { renderGoalSlot } from "./panel/slots/goal";
-import { pendingRequestsSignature, renderMessagesSlot } from "./panel/slots/messages";
-import { renderToolbarSlot } from "./panel/slots/toolbar";
-import type { ChatViewSlotRendererPorts } from "./panel/slots/types";
+import { composerMetaViewModel, composerPlaceholder } from "./panel/nodes/composer";
+import { goalPanelNode } from "./panel/nodes/goal";
+import { pendingRequestsSignature } from "./panel/nodes/messages";
+import { toolbarPanelNode } from "./panel/nodes/toolbar";
+import type { ChatPanelUiPorts } from "./panel/nodes/types";
 
-type ChatViewToolbarSlotActions = ChatViewSlotRendererPorts["actions"]["toolbar"];
-type ChatViewGoalSlotActions = ChatViewSlotRendererPorts["actions"]["goal"];
+type ChatPanelToolbarActions = ChatPanelUiPorts["actions"]["toolbar"];
+type ChatPanelToolbarState = ChatPanelUiPorts["view"]["toolbar"];
+type ChatPanelGoalActions = ChatPanelUiPorts["actions"]["goal"];
 
 export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;
@@ -48,7 +44,7 @@ export class CodexChatView extends ItemView {
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly messageScrollIntent: ChatMessageScrollIntentController;
-  private readonly slotPorts: ChatViewSlotRendererPorts;
+  private readonly panelUiPorts: ChatPanelUiPorts;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
@@ -63,21 +59,7 @@ export class CodexChatView extends ItemView {
     this.resumeWork = new ChatResumeWorkTracker();
     this.messageScrollIntent = new ChatMessageScrollIntentController();
     this.controllers = createChatViewControllers(this.createControllerPorts());
-    this.slotPorts = this.createSlotRendererPorts(this.controllers);
-    this.controllers.render.attachSlotRenderers({
-      renderToolbar: (toolbar) => {
-        renderToolbarSlot(toolbar, this.slotPorts);
-      },
-      renderGoal: (goal) => {
-        renderGoalSlot(goal, this.slotPorts);
-      },
-      renderMessages: (parent) => {
-        renderMessagesSlot(parent, this.slotPorts);
-      },
-      renderComposer: (parent) => {
-        renderComposerSlot(parent, this.slotPorts);
-      },
-    });
+    this.panelUiPorts = this.createPanelUiPorts(this.controllers);
   }
 
   private createControllerPorts(): ChatControllerCompositionPorts {
@@ -92,12 +74,6 @@ export class CodexChatView extends ItemView {
         registerPointerDown: (handler) => {
           this.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
         },
-        registerActiveLeafChange: (handler) => {
-          this.registerEvent(this.app.workspace.on("active-leaf-change", handler));
-        },
-        handleActiveLeafChange: (leaf) => {
-          if (leaf === this.leaf) this.forceMessagesToBottomOnFocus();
-        },
         archiveAdapter: () => this.app.vault.adapter,
       },
       plugin: this.plugin,
@@ -105,6 +81,7 @@ export class CodexChatView extends ItemView {
         stateStore: this.chatState,
         getState: () => this.state,
         systemItem: (text) => this.systemItem(text),
+        structuredSystemItem: (text, details) => this.structuredSystemItem(text, details),
       },
       client: {
         getClient: () => this.client,
@@ -149,16 +126,23 @@ export class CodexChatView extends ItemView {
       },
       render: {
         panelRoot: () => this.panelRoot(),
-        pendingRequestsSignature: () => pendingRequestsSignature(this.slotPorts),
-        activeComposerThreadName: () => activeComposerThreadName(this.slotPorts),
-        composerPlaceholder: () => composerPlaceholder(this.slotPorts),
-        composerMetaViewModel: () => composerMetaViewModel(this.slotPorts),
+        toolbarNode: () => toolbarPanelNode(this.panelUiPorts),
+        goalNode: () => goalPanelNode(this.panelUiPorts),
+        messagesNode: () => this.controllers.render.messages.renderNode(),
+        composerNode: () => this.controllers.composer.controller.renderNode(),
         closeToolbarPanelOnOutsidePointer: (event) => {
           this.closeToolbarPanelOnOutsidePointer(event);
         },
-        schedule: (options) => {
-          this.scheduleRender(options);
+        schedule: () => {
+          this.scheduleRender();
         },
+      },
+      messages: {
+        pendingRequestsSignature: () => pendingRequestsSignature(this.panelUiPorts),
+      },
+      composerView: {
+        composerPlaceholder: () => composerPlaceholder(this.panelUiPorts),
+        composerMetaViewModel: () => composerMetaViewModel(this.panelUiPorts),
       },
       runtime: {
         runtimeSnapshot: () => this.runtimeSnapshot(),
@@ -193,6 +177,9 @@ export class CodexChatView extends ItemView {
         forceBottom: () => {
           this.messageScrollIntent.forceBottom();
         },
+        followBottom: () => {
+          this.messageScrollIntent.followBottom();
+        },
         preservePosition: () => {
           this.messageScrollIntent.preservePosition();
         },
@@ -205,7 +192,7 @@ export class CodexChatView extends ItemView {
     };
   }
 
-  private createSlotRendererPorts(controllers: ChatViewControllers): ChatViewSlotRendererPorts {
+  private createPanelUiPorts(controllers: ChatViewControllers): ChatPanelUiPorts {
     return {
       state: {
         chat: () => this.state,
@@ -226,25 +213,25 @@ export class CodexChatView extends ItemView {
         setRequestedModel: (model) => this.setRequestedModelFromUi(model),
         setRequestedReasoningEffort: (effort) => this.setRequestedReasoningEffortFromUi(effort),
       },
-      actions: {
-        toolbar: this.createToolbarSlotActions(controllers),
-        goal: this.createGoalSlotActions(controllers),
+      view: {
+        toolbar: this.createToolbarPanelState(controllers),
       },
-      slots: {
-        renderMessages: (parent) => {
-          controllers.render.messages.render(parent);
-        },
-        renderComposer: (parent) => {
-          controllers.composer.controller.render(parent);
-        },
+      actions: {
+        toolbar: this.createToolbarPanelActions(controllers),
+        goal: this.createGoalPanelActions(controllers),
       },
     };
   }
 
-  private createToolbarSlotActions(controllers: ChatViewControllers): ChatViewToolbarSlotActions {
+  private createToolbarPanelState(controllers: ChatViewControllers): ChatPanelToolbarState {
     return {
       archiveConfirmId: () => controllers.toolbar.panels.archiveConfirmId(),
       renameState: (threadId) => controllers.thread.rename.editState(threadId),
+    };
+  }
+
+  private createToolbarPanelActions(controllers: ChatViewControllers): ChatPanelToolbarActions {
+    return {
       startNewThread: () => {
         void this.startNewThread();
       },
@@ -296,7 +283,7 @@ export class CodexChatView extends ItemView {
     };
   }
 
-  private createGoalSlotActions(controllers: ChatViewControllers): ChatViewGoalSlotActions {
+  private createGoalPanelActions(controllers: ChatViewControllers): ChatPanelGoalActions {
     return {
       saveObjective: (objective, tokenBudget) => this.saveGoalObjective(objective, tokenBudget),
       setStatus: (threadId, status) => controllers.runtime.goals.setStatus(threadId, status),
@@ -320,7 +307,7 @@ export class CodexChatView extends ItemView {
   private setGoalEditingOpen(open: boolean, { closeToolbarPanel = false }: { closeToolbarPanel?: boolean } = {}): void {
     if (closeToolbarPanel) this.dispatch({ type: "ui/panel-set", panel: null });
     this.dispatch({ type: "ui/detail-open-set", key: "goal:editor", open });
-    this.controllers.render.controller.render({ forceSlots: true });
+    this.controllers.render.controller.render();
   }
 
   private async saveGoalObjective(objective: string, tokenBudget: number | null): Promise<void> {
@@ -354,6 +341,10 @@ export class CodexChatView extends ItemView {
 
   private systemItem(text: string): DisplayItem {
     return createSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text);
+  }
+
+  private structuredSystemItem(text: string, details: DisplayDetailSection[]): DisplayItem {
+    return createStructuredSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text, details);
   }
 
   override getViewType(): string {
@@ -431,7 +422,6 @@ export class CodexChatView extends ItemView {
     if (threadId && this.isRestoredThreadPending(threadId)) {
       await this.ensureRestoredThreadLoaded();
     }
-    this.forceMessagesToBottomOnFocus();
     this.focusComposer();
   }
 
@@ -456,7 +446,8 @@ export class CodexChatView extends ItemView {
   }
 
   setComposerText(text: string): void {
-    this.controllers.composer.controller.setDraft(text, { focus: true, renderIfDetached: true });
+    this.controllers.composer.controller.setDraft(text, { focus: true });
+    this.controllers.render.controller.render();
   }
 
   async connect(): Promise<void> {
@@ -523,11 +514,6 @@ export class CodexChatView extends ItemView {
     this.controllers.thread.restored.clearHydration();
   }
 
-  private forceMessagesToBottomOnFocus(): void {
-    this.messageScrollIntent.forceBottom();
-    this.controllers.render.messages.forceMessagesToBottom();
-  }
-
   private scheduleDeferredAppServerWarmup(): void {
     this.controllers.connection.scheduleWarmup();
   }
@@ -553,10 +539,10 @@ export class CodexChatView extends ItemView {
     });
   }
 
-  private scheduleRender(options: ChatViewRenderScheduleOptions = {}): void {
-    this.deferredTasks.scheduleRender((renderOptions) => {
-      this.controllers.render.controller.render(renderOptions);
-    }, options);
+  private scheduleRender(): void {
+    this.deferredTasks.scheduleRender(() => {
+      this.controllers.render.controller.render();
+    });
   }
 
   private scheduleDeferredDiagnostics(): void {
@@ -576,7 +562,7 @@ export class CodexChatView extends ItemView {
   }
 
   private panelRoot(): HTMLElement | null {
-    return (this.containerEl.children[1] as HTMLElement | undefined) ?? null;
+    return this.contentEl;
   }
 
   private statusSummaryLines(): string[] {

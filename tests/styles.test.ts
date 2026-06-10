@@ -20,7 +20,7 @@ describe("panel CSS token scope", () => {
 });
 
 describe("chat toolbar CSS", () => {
-  it("lets the message slot size come from its grid row", () => {
+  it("lets the message region size come from its grid row", () => {
     const messages = /\.codex-panel__messages \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(messages).toContain("overflow-y: auto");
@@ -34,7 +34,7 @@ describe("chat toolbar CSS", () => {
   });
 
   it("aligns goal banner spacing with the message rhythm", () => {
-    const goalSlot = /\.codex-panel__slot--goal:not\(:empty\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+    const goalSlot = /\.codex-panel__region--goal:not\(:empty\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const goal = /\.codex-panel__goal \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(goalSlot).toContain("padding-bottom: var(--codex-panel-edge-padding-x)");

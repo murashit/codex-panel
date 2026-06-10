@@ -20,8 +20,6 @@ function createHost(overrides: Partial<ChatViewLifecycleHost> = {}) {
       register({} as EventRef);
     }),
     registerPointerDown: vi.fn(),
-    registerActiveLeafChange: vi.fn(),
-    handleActiveLeafChange: vi.fn(),
     applyCachedSharedAppServerState: vi.fn(),
     render: vi.fn(),
     scheduleDeferredAppServerWarmup: vi.fn(),
@@ -56,7 +54,6 @@ describe("chat view lifecycle", () => {
     expect(host.setClosing).toHaveBeenCalledWith(false);
     expect(host.registerEvent).toHaveBeenCalledOnce();
     expect(host.registerPointerDown).toHaveBeenCalledOnce();
-    expect(host.registerActiveLeafChange).toHaveBeenCalledWith(host.handleActiveLeafChange);
     expect(host.applyCachedSharedAppServerState).toHaveBeenCalledOnce();
     expect(host.render).toHaveBeenCalledOnce();
     expect(host.scheduleDeferredAppServerWarmup).toHaveBeenCalledOnce();

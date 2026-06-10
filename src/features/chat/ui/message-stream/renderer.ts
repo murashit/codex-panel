@@ -1,20 +1,15 @@
 import type { App, Component } from "obsidian";
+import type { ComponentChild as UiNode } from "preact";
 
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
-import { unmountUiRoot } from "../../../../shared/ui/ui-root";
 import type { ChatAction, ChatState, ChatStateStore } from "../../chat-state";
 import type { ComposerBoundaryScrollAction } from "../../composer/boundary-scroll";
-import { MessageStreamVirtualizer, type MessageStreamScrollIntent } from "../message-virtualizer";
-import { messageStreamBlocks } from "./blocks";
-import {
-  createMessageStreamContext,
-  type ChatMessageStreamActionPort,
-  type ChatMessageStreamContextPort,
-  type ChatMessageStreamRequestPort,
-} from "./context-builder";
+import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../message-virtualizer";
+import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./context-builder";
 import { createMessageStreamContextPort } from "./context-port";
 import { MarkdownMessageRenderer } from "./markdown-renderer";
-import { renderMessageStreamBlocks } from "./render";
+import { messageStreamBlocksNode, type MessageStreamRenderState } from "./render";
+import { createMessageStreamRenderState } from "./render-state";
 
 interface ChatMessageRendererObsidianPort {
   app: App;
@@ -48,12 +43,10 @@ export interface ChatMessageRendererOptions {
 }
 
 export class ChatMessageRenderer {
-  private messagesEl: HTMLElement | null = null;
-  private readonly messageVirtualizer: MessageStreamVirtualizer;
+  private messageVirtualizer: MessageStreamVirtualizerHandle | null = null;
   private readonly markdownRenderer: MarkdownMessageRenderer;
 
   constructor(private readonly options: ChatMessageRendererOptions) {
-    this.messageVirtualizer = new MessageStreamVirtualizer();
     this.markdownRenderer = new MarkdownMessageRenderer({
       app: options.obsidian.app,
       owner: options.obsidian.owner,
@@ -69,13 +62,18 @@ export class ChatMessageRenderer {
     this.options.state.store.dispatch(action);
   }
 
-  render(messagesEl: HTMLElement): void {
+  renderNode(): UiNode {
     const state = this.state;
-    this.messagesEl = messagesEl;
-    const blocks = messageStreamBlocks(createMessageStreamContext(state, this.messageStreamPort()));
-    const scrollPlan = this.messageVirtualizer.prepareRender(messagesEl, this.options.scroll.consumeIntent(), blocks);
-    renderMessageStreamBlocks(messagesEl, blocks, this.messageVirtualizer);
-    this.messageVirtualizer.completeRender(scrollPlan);
+    return messageStreamBlocksNode(this.renderStateFor(state));
+  }
+
+  private renderStateFor(state: ChatState): MessageStreamRenderState {
+    return createMessageStreamRenderState({
+      state,
+      contextPort: this.messageStreamPort(),
+      consumeScrollIntent: this.options.scroll.consumeIntent,
+      registerVirtualizer: this.registerVirtualizer,
+    });
   }
 
   private messageStreamPort(): ChatMessageStreamContextPort {
@@ -98,24 +96,31 @@ export class ChatMessageRenderer {
   }
 
   dispose(): void {
-    if (this.messagesEl) {
-      unmountUiRoot(this.messagesEl);
-    }
-    this.messageVirtualizer.dispose();
-    this.messagesEl = null;
+    this.messageVirtualizer = null;
   }
 
   scrollFromComposer(action: ComposerBoundaryScrollAction): void {
     if (action.amount === "page") {
-      this.messageVirtualizer.scrollByPage(action.direction);
+      this.messageVirtualizer?.scrollByPage(action.direction);
     } else {
-      this.messageVirtualizer.scrollByTextLines(action.direction);
+      this.messageVirtualizer?.scrollByTextLines(action.direction);
     }
   }
 
   forceMessagesToBottom(): void {
-    this.messageVirtualizer.pinToBottom(this.messagesEl);
+    this.messageVirtualizer?.pinToBottom();
   }
+
+  repinMessagesToBottomIfPinned(): void {
+    this.messageVirtualizer?.repinToBottomIfPinned();
+  }
+
+  private readonly registerVirtualizer = (virtualizer: MessageStreamVirtualizerHandle): (() => void) => {
+    this.messageVirtualizer = virtualizer;
+    return () => {
+      if (this.messageVirtualizer === virtualizer) this.messageVirtualizer = null;
+    };
+  };
 
   private async copyMessageText(text: string): Promise<void> {
     await copyTextWithNotice(text, "Copied message.", "Could not copy message.");

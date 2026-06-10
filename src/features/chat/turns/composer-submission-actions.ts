@@ -32,6 +32,7 @@ interface ComposerStatusPort {
 
 interface ComposerScrollPort {
   forceBottom: () => void;
+  followBottom: () => void;
 }
 
 export interface ComposerSubmissionActionsHost {
@@ -100,7 +101,7 @@ async function sendComposerTurn(
   codexInputOverride?: CodexInput,
   referencedThread?: ReferencedThreadDisplay,
 ): Promise<void> {
-  host.scroll.forceBottom();
+  host.scroll.followBottom();
   if (arguments.length > 2) {
     await host.turnSubmission.sendTurnText(text, codexInputOverride, referencedThread);
     return;

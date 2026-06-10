@@ -2,11 +2,53 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { renderComposerShell, scrollComposerSuggestionIntoView, syncComposerHeight } from "../../../../../src/features/chat/ui/composer";
+import {
+  composerShellNode,
+  scrollComposerSuggestionIntoView,
+  syncComposerHeight,
+  type ComposerCallbacks,
+} from "../../../../../src/features/chat/ui/composer";
+import type { ComposerSuggestion } from "../../../../../src/features/chat/composer/suggestions";
+import type { ComposerMetaViewModel } from "../../../../../src/features/chat/panel/model";
+import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
+
+function mountComposerShellNode(
+  parent: HTMLElement,
+  viewId: string,
+  draft: string,
+  busy: boolean,
+  canInterrupt: boolean,
+  normalPlaceholder: string,
+  suggestions: readonly ComposerSuggestion[],
+  selectedSuggestionIndex: number,
+  callbacks: ComposerCallbacks,
+  meta?: ComposerMetaViewModel,
+): { composer: HTMLTextAreaElement } {
+  const elements: { composer: HTMLTextAreaElement | null } = { composer: null };
+  renderUiRoot(
+    parent,
+    composerShellNode(
+      viewId,
+      draft,
+      busy,
+      canInterrupt,
+      normalPlaceholder,
+      suggestions,
+      selectedSuggestionIndex,
+      callbacks,
+      meta,
+      (composer) => {
+        if (composer) elements.composer = composer;
+      },
+    ),
+  );
+  if (!elements.composer) throw new Error("Expected composer shell elements to mount.");
+  return { composer: elements.composer };
+}
 
 function composerCallbacks() {
   return {
@@ -14,6 +56,7 @@ function composerCallbacks() {
     onUpdateSuggestions: vi.fn(),
     onKeydown: vi.fn(),
     onSendOrInterrupt: vi.fn(),
+    onHeightChange: vi.fn(),
     onTogglePlan: vi.fn(),
     onToggleAutoReview: vi.fn(),
     onToggleFast: vi.fn(),
@@ -26,7 +69,7 @@ describe("composer renderer decisions", () => {
   it("uses the provided composer placeholder for normal input", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = renderComposerShell(
+    const { composer } = mountComposerShellNode(
       parent,
       "view",
       "",
@@ -40,7 +83,7 @@ describe("composer renderer decisions", () => {
 
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Refactor terminal streaming”...");
 
-    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on “Renamed thread”...", [], 0, callbacks);
+    mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on “Renamed thread”...", [], 0, callbacks);
 
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
   });
@@ -48,7 +91,7 @@ describe("composer renderer decisions", () => {
   it("renders composer meta as interactive context and runtime text without changing normal text", () => {
     const parent = document.createElement("div");
 
-    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+    mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
       fatal: null,
       context: {
         cells: [
@@ -122,7 +165,7 @@ describe("composer renderer decisions", () => {
     const selectModel = vi.fn();
     const selectEffort = vi.fn();
 
-    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks, {
+    mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks, {
       fatal: null,
       context: {
         cells: [
@@ -206,7 +249,7 @@ describe("composer renderer decisions", () => {
   it("hides composer meta fields only after measured overflow", async () => {
     const parent = document.createElement("div");
 
-    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+    mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
       fatal: null,
       context: {
         cells: [
@@ -249,7 +292,7 @@ describe("composer renderer decisions", () => {
   it("replaces composer meta with fatal status text", () => {
     const parent = document.createElement("div");
 
-    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+    mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
       fatal: "Codex app-server disconnected",
       context: {
         cells: [
@@ -276,7 +319,7 @@ describe("composer renderer decisions", () => {
   it("renders composer suggestions inside the composer root", () => {
     const parent = document.createElement("div");
     const onSuggestionInsert = vi.fn();
-    const { composer } = renderComposerShell(
+    const { composer } = mountComposerShellNode(
       parent,
       "view",
       "",
@@ -290,6 +333,7 @@ describe("composer renderer decisions", () => {
         onUpdateSuggestions: vi.fn(),
         onKeydown: vi.fn(),
         onSendOrInterrupt: vi.fn(),
+        onHeightChange: vi.fn(),
         onSuggestionHover: vi.fn(),
         onSuggestionInsert,
       },
@@ -309,7 +353,7 @@ describe("composer renderer decisions", () => {
   it("clears composer suggestion accessibility state on rerender", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = renderComposerShell(
+    const { composer } = mountComposerShellNode(
       parent,
       "view",
       "",
@@ -321,7 +365,7 @@ describe("composer renderer decisions", () => {
       callbacks,
     );
 
-    renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
+    mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
 
     const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
     expect(composer.getAttribute("aria-expanded")).toBe("false");
@@ -332,7 +376,7 @@ describe("composer renderer decisions", () => {
   it("reports composer draft changes from the controlled input", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
+    const { composer } = mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
 
     changeInputValue(composer, "Draft text");
 
@@ -349,7 +393,7 @@ describe("composer renderer decisions", () => {
       configurable: true,
     });
     try {
-      const { composer } = renderComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
+      const { composer } = mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
 
       scrollHeight = 120;
       changeInputValue(composer, "line one\nline two");
@@ -407,7 +451,7 @@ describe("composer renderer decisions", () => {
   it("uses the composer action for interrupt only when a running turn has no steering text", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = renderComposerShell(parent, "view", "", true, true, "Ask Codex to work on this task...", [], 0, callbacks);
+    const { composer } = mountComposerShellNode(parent, "view", "", true, true, "Ask Codex to work on this task...", [], 0, callbacks);
     let sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
 
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
@@ -416,7 +460,7 @@ describe("composer renderer decisions", () => {
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");
 
-    renderComposerShell(parent, "view", "adjust course", true, true, "Ask Codex to work on this task...", [], 0, callbacks);
+    mountComposerShellNode(parent, "view", "adjust course", true, true, "Ask Codex to work on this task...", [], 0, callbacks);
     sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
     expect(composer.getAttribute("placeholder")).toBe("Add steering message...");

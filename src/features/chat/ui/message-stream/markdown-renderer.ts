@@ -10,12 +10,18 @@ export interface MarkdownMessageRendererOptions {
 }
 
 export class MarkdownMessageRenderer {
+  private readonly renderGenerations = new WeakMap<HTMLElement, number>();
+
   constructor(private readonly options: MarkdownMessageRendererOptions) {}
 
   renderMarkdown(parent: HTMLElement, text: string): void {
     const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
-    void MarkdownRenderer.render(this.options.app, text, parent, sourcePath, this.options.owner).then(() => {
-      if (!parent.isConnected) return;
+    const generation = (this.renderGenerations.get(parent) ?? 0) + 1;
+    this.renderGenerations.set(parent, generation);
+    const staging = parent.ownerDocument.createElement("div");
+    void MarkdownRenderer.render(this.options.app, text, staging, sourcePath, this.options.owner).then(() => {
+      if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
+      parent.replaceChildren(...Array.from(staging.childNodes));
       bindRenderedWikiLinks(parent, sourcePath, this.options);
       bindRenderedMarkdownFileLinks(parent, sourcePath, this.options);
       notifyMessageContentRendered(parent);

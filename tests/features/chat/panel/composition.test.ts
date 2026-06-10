@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import type { App, Component, EventRef, WorkspaceLeaf } from "obsidian";
+import type { App, Component, EventRef } from "obsidian";
 
 import type { RuntimeSnapshot } from "../../../../src/features/chat/runtime/effective-settings";
 import { createChatStateStore } from "../../../../src/features/chat/chat-state";
@@ -13,7 +13,7 @@ import type { ComposerMetaViewModel } from "../../../../src/features/chat/panel/
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 
 describe("createChatViewControllers", () => {
-  it("constructs the chat controller graph and exposes slot renderer attachment", () => {
+  it("constructs the chat controller graph with direct shell nodes", () => {
     const controllers = createChatViewControllers(createPorts());
 
     expect(controllers.connection.controller).toBeTruthy();
@@ -21,14 +21,7 @@ describe("createChatViewControllers", () => {
     expect(controllers.thread.resume).toBeTruthy();
     expect(controllers.render.messages).toBeTruthy();
     expect(controllers.composer.controller).toBeTruthy();
-    expect(() => {
-      controllers.render.attachSlotRenderers({
-        renderToolbar: vi.fn(),
-        renderGoal: vi.fn(),
-        renderMessages: vi.fn(),
-        renderComposer: vi.fn(),
-      });
-    }).not.toThrow();
+    expect(controllers.render.controller).toBeTruthy();
   });
 });
 
@@ -44,8 +37,6 @@ function createPorts(): ChatControllerCompositionPorts {
       viewId: "test-view",
       registerEvent: vi.fn(),
       registerPointerDown: vi.fn(),
-      registerActiveLeafChange: vi.fn(),
-      handleActiveLeafChange: vi.fn((_leaf: WorkspaceLeaf | null) => undefined),
       archiveAdapter: () => ({
         exists: vi.fn().mockResolvedValue(false),
         mkdir: vi.fn().mockResolvedValue(undefined),
@@ -72,6 +63,7 @@ function createPorts(): ChatControllerCompositionPorts {
       stateStore,
       getState: () => stateStore.getState(),
       systemItem: (text) => ({ id: "system", kind: "system", role: "system", text }),
+      structuredSystemItem: (text, details) => ({ id: "system", kind: "system", role: "system", text, details }),
     },
     client: {
       getClient: () => null,
@@ -96,12 +88,19 @@ function createPorts(): ChatControllerCompositionPorts {
     },
     render: {
       panelRoot: () => root,
-      pendingRequestsSignature: () => "",
-      activeComposerThreadName: () => null,
-      composerPlaceholder: () => "",
-      composerMetaViewModel: () => composerMeta(),
+      toolbarNode: () => null,
+      goalNode: () => null,
+      messagesNode: () => null,
+      composerNode: () => null,
       closeToolbarPanelOnOutsidePointer: vi.fn(),
       schedule: vi.fn(),
+    },
+    messages: {
+      pendingRequestsSignature: () => "",
+    },
+    composerView: {
+      composerPlaceholder: () => "",
+      composerMetaViewModel: () => composerMeta(),
     },
     runtime: {
       runtimeSnapshot: () => ({}) as RuntimeSnapshot,
@@ -124,6 +123,7 @@ function createPorts(): ChatControllerCompositionPorts {
     },
     scroll: {
       forceBottom: vi.fn(),
+      followBottom: vi.fn(),
       preservePosition: vi.fn(),
     },
     status: {

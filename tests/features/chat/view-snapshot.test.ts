@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createChatState } from "../../../src/features/chat/chat-state";
-import {
-  latestProposedPlanItem,
-  messagesSlotSnapshot,
-  openPanelTurnLifecycle,
-  parseRestoredThreadState,
-} from "../../../src/features/chat/panel/snapshot";
+import { latestProposedPlanItem, openPanelTurnLifecycle, parseRestoredThreadState } from "../../../src/features/chat/panel/snapshot";
 
 describe("chat view snapshots", () => {
   it("projects open panel turn lifecycle without exposing full chat state", () => {
@@ -25,18 +19,6 @@ describe("chat view snapshots", () => {
         { id: "latest", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "plan", messageState: "completed" },
       ])?.id,
     ).toBe("latest");
-  });
-
-  it("scopes message slot detail invalidation to message stream details", () => {
-    const state = createChatState();
-    const base = messagesSlotSnapshot(state, "");
-
-    state.ui.toolbarPanel = "history";
-    state.ui.openDetails = new Set(["goal:editor"]);
-    expect(messagesSlotSnapshot(state, "")).toBe(base);
-
-    state.ui.openDetails = new Set(["message:item:expanded"]);
-    expect(messagesSlotSnapshot(state, "")).not.toBe(base);
   });
 
   it("parses restored thread view state defensively", () => {

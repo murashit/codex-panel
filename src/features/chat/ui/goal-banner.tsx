@@ -5,7 +5,6 @@ import type { ThreadGoal, ThreadGoalStatus } from "../../../app-server/thread-go
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { IconButton } from "../../../shared/ui/components";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
-import { renderUiRoot } from "../../../shared/ui/ui-root";
 
 export interface GoalBannerActions {
   onSave: (objective: string, tokenBudget: number | null) => void;
@@ -20,13 +19,8 @@ export interface GoalBannerOptions {
   onEditingChange?: (editing: boolean) => void;
 }
 
-export function renderGoalBanner(
-  parent: HTMLElement,
-  goal: ThreadGoal | null,
-  actions: GoalBannerActions,
-  options: GoalBannerOptions,
-): void {
-  renderUiRoot(parent, <GoalBanner goal={goal} actions={actions} options={options} />);
+export function goalBannerNode(goal: ThreadGoal | null, actions: GoalBannerActions, options: GoalBannerOptions): UiNode {
+  return <GoalBanner goal={goal} actions={actions} options={options} />;
 }
 
 function GoalBanner({

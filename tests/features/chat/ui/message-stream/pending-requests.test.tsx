@@ -2,9 +2,10 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+import type { PendingRequestSnapshot } from "../../../../../src/features/chat/chat-state-selectors";
 import type { PendingApproval } from "../../../../../src/features/chat/requests/approval";
 import type { PendingUserInput } from "../../../../../src/features/chat/requests/user-input";
-import { pendingRequestMessageNode } from "../../../../../src/features/chat/ui/pending-request-message";
+import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 import { changeInputValue } from "../../../../support/dom";
 import "./setup";
@@ -467,12 +468,97 @@ describe("pending request renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      pendingRequestsSignature: "request:1",
-      renderPendingRequests: () => "Request",
+      pendingRequests: pendingRequestContext({
+        signature: "request:1",
+      }),
     });
 
     expect(blocks.map((block) => block.key)).toEqual(["item:a1", "pending-requests"]);
     expect(expectPresent(blocks[1]).node).not.toBeUndefined();
+  });
+
+  it("does not consume pending request autofocus while building message stream blocks", () => {
+    const consumeAutoFocus = vi.fn(() => true);
+
+    const blocks = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [
+        { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
+      ],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      pendingRequests: pendingRequestContext({
+        signature: "request:1",
+        consumeAutoFocus,
+      }),
+    });
+
+    expect(blocks.map((block) => block.key)).toEqual(["item:a1", "pending-requests"]);
+    expect(consumeAutoFocus).not.toHaveBeenCalled();
+  });
+
+  it("consumes pending request autofocus when the pending block is mounted", () => {
+    const parent = document.createElement("div");
+    document.body.appendChild(parent);
+    const consumeAutoFocus = vi.fn(() => true);
+
+    try {
+      renderMessageStreamBlocksInAct(
+        parent,
+        messageStreamBlocks({
+          activeThreadId: "thread",
+          turnLifecycle: idleTurnLifecycle(),
+          historyCursor: null,
+          loadingHistory: false,
+          displayItems: [
+            { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
+          ],
+          openDetails: new Set(),
+          loadOlderTurns: vi.fn(),
+          renderMarkdown: (element, text) => element.createDiv({ text }),
+          pendingRequests: pendingRequestContext({
+            signature: "approval:1",
+            snapshot: emptyPendingRequestSnapshot({ approvals: [pendingApproval()] }),
+            consumeAutoFocus,
+          }),
+        }),
+      );
+
+      expect(consumeAutoFocus).toHaveBeenCalledOnce();
+      expect(document.activeElement).toBe(parent.querySelector(".codex-panel__pending-request-button.mod-cta"));
+    } finally {
+      unmountUiRootInAct(parent);
+      parent.remove();
+    }
+  });
+
+  it("does not build pending request nodes when no pending block is inserted", () => {
+    const pendingSnapshot = vi.fn(() => emptyPendingRequestSnapshot());
+    const consumeAutoFocus = vi.fn(() => true);
+
+    const blocks = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      displayItems: [],
+      openDetails: new Set(),
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+      pendingRequests: pendingRequestContext({
+        signature: "request:1",
+        snapshot: pendingSnapshot,
+        consumeAutoFocus,
+      }),
+    });
+
+    expect(blocks.map((block) => block.key)).toEqual(["empty"]);
+    expect(pendingSnapshot).not.toHaveBeenCalled();
+    expect(consumeAutoFocus).not.toHaveBeenCalled();
   });
 
   it("keeps pending request Preact events mounted in the message stream host", () => {
@@ -493,19 +579,11 @@ describe("pending request renderer decisions", () => {
         openDetails: new Set(),
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
-        pendingRequestsSignature: "approval:1",
-        renderPendingRequests: () =>
-          pendingRequestMessageNode(
-            [approval],
-            [],
-            {
-              values: new Map(),
-              draftKey: (requestId, questionId) => `${String(requestId)}:${questionId}`,
-              otherDraftKey: (requestId, questionId) => `${String(requestId)}:${questionId}:other`,
-            },
-            new Set(),
-            pendingRequestActions({ resolveApproval }),
-          ),
+        pendingRequests: pendingRequestContext({
+          signature: "approval:1",
+          snapshot: emptyPendingRequestSnapshot({ approvals: [approval] }),
+          actions: pendingRequestActions({ resolveApproval }),
+        }),
       }),
     );
 
@@ -536,8 +614,10 @@ describe("pending request renderer decisions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        pendingRequestsSignature: "request:1",
-        renderPendingRequests: () => <button type="button">Resolve</button>,
+        pendingRequests: pendingRequestContext({
+          signature: "request:1",
+          snapshot: emptyPendingRequestSnapshot({ approvals: [pendingApproval()] }),
+        }),
       }),
     );
     expect(parent.querySelector('[data-codex-panel-block-key="pending-requests"]')).not.toBeNull();
@@ -549,3 +629,30 @@ describe("pending request renderer decisions", () => {
     unmountUiRootInAct(parent);
   });
 });
+
+function pendingRequestContext(options: {
+  signature: string;
+  snapshot?: PendingRequestSnapshot | (() => PendingRequestSnapshot);
+  actions?: ReturnType<typeof pendingRequestActions>;
+  consumeAutoFocus?: () => boolean;
+}): PendingRequestBlockContext {
+  const snapshot = options.snapshot;
+  const snapshotFn =
+    typeof snapshot === "function" ? (snapshot as () => PendingRequestSnapshot) : () => snapshot ?? emptyPendingRequestSnapshot();
+  return {
+    signature: options.signature,
+    snapshot: snapshotFn,
+    actions: () => options.actions ?? pendingRequestActions(),
+    consumeAutoFocus: options.consumeAutoFocus ?? (() => false),
+  };
+}
+
+function emptyPendingRequestSnapshot(overrides: Partial<PendingRequestSnapshot> = {}): PendingRequestSnapshot {
+  return {
+    approvals: [],
+    pendingUserInputs: [],
+    userInputDrafts: new Map(),
+    openDetails: new Set(),
+    ...overrides,
+  };
+}

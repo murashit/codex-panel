@@ -1,5 +1,5 @@
 import type { ChatComposerController } from "../composer/controller";
-import type { ChatInboundController } from "../inbound/controller";
+import type { DisplayDetailSection } from "../display/types";
 import type { ChatConnectionController } from "../session/connection-controller";
 import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
@@ -7,9 +7,6 @@ import type { ChatControllerCompositionPorts } from "./controller-ports";
 import type { ChatViewRenderController } from "./view-render-controller";
 
 export interface ChatControllerCompositionBridges {
-  systemMessages: {
-    controller: Pick<ChatInboundController, "addSystemMessage" | "addStructuredSystemMessage"> | null;
-  };
   connection: {
     controller: Pick<ChatConnectionController, "ensureConnected" | "refreshThreads" | "refreshSkills"> | null;
   };
@@ -30,11 +27,10 @@ export interface ChatControllerCompositionActions {
   };
   render: ChatControllerCompositionPorts["render"] & {
     now: () => void;
-    shellSlots: () => void;
   };
   status: ChatControllerCompositionPorts["status"] & {
     addSystemMessage: (text: string) => void;
-    addStructuredSystemMessage: (text: string, details: Parameters<ChatInboundController["addStructuredSystemMessage"]>[1]) => void;
+    addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   };
   scroll: ChatControllerCompositionPorts["scroll"];
   thread: ChatControllerCompositionPorts["thread"] & {
@@ -61,18 +57,18 @@ export function createChatControllerCompositionActions(
     now: () => {
       renderController.render();
     },
-    shellSlots: () => {
-      renderController.renderShellSlots();
-    },
   };
   const status = {
     ...ports.status,
     addSystemMessage: (text: string) => {
-      requireCompositionBridge(bridges.systemMessages.controller, "system message bridge").addSystemMessage(text);
+      ports.state.stateStore.dispatch({ type: "transcript/system-message-added", item: ports.state.systemItem(text) });
       render.now();
     },
-    addStructuredSystemMessage: (text: string, details: Parameters<ChatInboundController["addStructuredSystemMessage"]>[1]) => {
-      requireCompositionBridge(bridges.systemMessages.controller, "system message bridge").addStructuredSystemMessage(text, details);
+    addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => {
+      ports.state.stateStore.dispatch({
+        type: "transcript/system-message-added",
+        item: ports.state.structuredSystemItem(text, details),
+      });
       render.now();
     },
   };
@@ -98,7 +94,6 @@ export function createChatControllerCompositionActions(
       ...ports.scroll,
       forceBottom: () => {
         ports.scroll.forceBottom();
-        requireCompositionBridge(bridges.messageViewport.renderer, "message viewport bridge").forceMessagesToBottom();
       },
     },
     thread: {
@@ -111,8 +106,8 @@ export function createChatControllerCompositionActions(
       setText: (text) => {
         requireCompositionBridge(bridges.composerDraft.controller, "composer draft bridge").setDraft(text, {
           focus: true,
-          renderIfDetached: true,
         });
+        render.now();
       },
     },
   };

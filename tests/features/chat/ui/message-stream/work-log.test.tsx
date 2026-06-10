@@ -596,8 +596,22 @@ describe("work log renderer decisions", () => {
       openDetails: new Set(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      pendingRequestsSignature: "request:1",
-      renderPendingRequests: () => "Request",
+      pendingRequests: {
+        signature: "request:1",
+        snapshot: () => ({
+          approvals: [],
+          pendingUserInputs: [],
+          userInputDrafts: new Map(),
+          openDetails: new Set(),
+        }),
+        actions: () => ({
+          resolveApproval: vi.fn(),
+          resolveUserInput: vi.fn(),
+          cancelUserInput: vi.fn(),
+          setUserInputDraft: vi.fn(),
+        }),
+        consumeAutoFocus: () => false,
+      },
     });
 
     expect(blocks.map((block) => block.key)).toEqual([

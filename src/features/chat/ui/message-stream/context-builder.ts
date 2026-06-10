@@ -1,6 +1,5 @@
-import type { ComponentChild as UiNode } from "preact";
-
 import type { ChatState } from "../../chat-state";
+import type { PendingRequestSnapshot } from "../../chat-state-selectors";
 import { chatTurnBusy } from "../../chat-state";
 import type { DisplayItem } from "../../display/types";
 import {
@@ -11,6 +10,7 @@ import {
   rollbackCandidateFromItems,
 } from "../../display/action-candidates";
 import type { ChatTurnDiffViewState } from "../turn-diff";
+import type { PendingRequestMessageActions } from "../pending-request-message";
 import type { MessageStreamContext } from "./context";
 
 export interface ChatMessageStreamActionPort {
@@ -22,7 +22,9 @@ export interface ChatMessageStreamActionPort {
 
 export interface ChatMessageStreamRequestPort {
   pendingSignature: () => string;
-  renderPending: () => UiNode;
+  pendingSnapshot: () => PendingRequestSnapshot;
+  pendingActions: () => PendingRequestMessageActions;
+  consumePendingAutoFocus: () => boolean;
 }
 
 export interface ChatMessageStreamContextPort {
@@ -71,7 +73,11 @@ export function createMessageStreamContext(state: ChatState, port: ChatMessageSt
     openTurnDiff: (turnDiffState) => {
       port.actions.openTurnDiff(turnDiffState);
     },
-    pendingRequestsSignature: port.requests.pendingSignature(),
-    renderPendingRequests: () => port.requests.renderPending(),
+    pendingRequests: {
+      signature: port.requests.pendingSignature(),
+      snapshot: port.requests.pendingSnapshot,
+      actions: port.requests.pendingActions,
+      consumeAutoFocus: port.requests.consumePendingAutoFocus,
+    },
   };
 }

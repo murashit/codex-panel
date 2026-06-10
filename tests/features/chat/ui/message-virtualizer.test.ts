@@ -1,22 +1,31 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from "vitest";
+import { h } from "preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
+import { act } from "preact/test-utils";
 
-import { MessageStreamVirtualizer, MESSAGE_VIRTUAL_ITEM_INDEX_ATTRIBUTE } from "../../../../src/features/chat/ui/message-virtualizer";
+import {
+  type MessageStreamVirtualizerHandle,
+  type MessageStreamVirtualizerView,
+  useMessageStreamVirtualizer,
+} from "../../../../src/features/chat/ui/message-virtualizer";
+import type { MessageStreamBlock } from "../../../../src/features/chat/ui/message-stream/context";
+import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
 
-describe("MessageStreamVirtualizer", () => {
+describe("TestMessageStreamVirtualizer", () => {
   afterEach(() => {
     document.body.replaceChildren();
   });
 
   it("pins to the virtualized end when content is appended while pinned", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first"], [180], "force-bottom");
+    renderVirtualItems(controller, container, ["first"], [180], "follow-bottom");
     expect(container.scrollTop).toBe(80);
 
     renderVirtualItems(controller, container, ["first", "second"], [180, 220], "auto");
@@ -25,10 +34,75 @@ describe("MessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
+  it("requests the end before measurements and remains there after measurements resolve", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+    const blocks = [{ key: "first", node: null }];
+    container.dataset["testTotalSize"] = "180";
+
+    controller.render(blocks, "follow-bottom");
+    expect(container.scrollTop).toBe(80);
+
+    measureVirtualItem(controller, "first", 0, 180);
+
+    expect(controller.getTotalSize()).toBe(180);
+    expect(container.scrollTop).toBe(80);
+    controller.dispose();
+  });
+
+  it("settles at the end after the rendered virtualizer height reaches the DOM", () => {
+    withAnimationFrame((flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+      const blocks = [{ key: "first", node: null }];
+      container.dataset["testTotalSize"] = "180";
+      container.dataset["testScrollHeight"] = "100";
+      container.dataset["testClampToScrollHeight"] = "true";
+
+      controller.render(blocks, "follow-bottom");
+      expect(container.scrollTop).toBe(0);
+
+      flushFrames();
+      expect(container.scrollTop).toBe(0);
+
+      delete container.dataset["testScrollHeight"];
+      flushFrames();
+
+      expect(container.scrollTop).toBe(80);
+      controller.dispose();
+    });
+  });
+
+  it("keeps settling for a few frames when the rendered virtualizer height is delayed", () => {
+    withAnimationFrame((flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+      const blocks = [{ key: "first", node: null }];
+      container.dataset["testTotalSize"] = "180";
+      container.dataset["testScrollHeight"] = "100";
+      container.dataset["testClampToScrollHeight"] = "true";
+
+      controller.render(blocks, "follow-bottom");
+      expect(container.scrollTop).toBe(0);
+
+      flushFrames();
+      expect(container.scrollTop).toBe(0);
+
+      flushFrames();
+      expect(container.scrollTop).toBe(0);
+
+      delete container.dataset["testScrollHeight"];
+      flushFrames();
+
+      expect(container.scrollTop).toBe(80);
+      controller.dispose();
+    });
+  });
+
   it("includes message container block padding in the virtualized end", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     container.style.paddingLeft = "12px";
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
     renderVirtualItems(controller, container, ["first"], [180], "force-bottom");
 
@@ -39,13 +113,12 @@ describe("MessageStreamVirtualizer", () => {
 
   it("does not follow appended content after the user scrolls away from the end", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
     renderVirtualItems(controller, container, ["first"], [300], "force-bottom");
     expect(container.scrollTop).toBe(200);
 
-    container.scrollTop = 80;
-    container.dispatchEvent(new Event("scroll"));
+    userScrollTo(container, 80);
 
     renderVirtualItems(controller, container, ["first", "second"], [300, 180], "auto");
 
@@ -55,16 +128,14 @@ describe("MessageStreamVirtualizer", () => {
 
   it("repins when the user scrolls back to the end", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
     renderVirtualItems(controller, container, ["first", "second"], [300, 180], "force-bottom");
     expect(container.scrollTop).toBe(380);
 
-    container.scrollTop = 80;
-    container.dispatchEvent(new Event("scroll"));
+    userScrollTo(container, 80);
 
-    container.scrollTop = 380;
-    container.dispatchEvent(new Event("scroll"));
+    userScrollTo(container, 380);
 
     renderVirtualItems(controller, container, ["first", "second", "third"], [300, 180, 140], "auto");
 
@@ -74,9 +145,9 @@ describe("MessageStreamVirtualizer", () => {
 
   it("keeps forced bottom pinned when the programmatic scroll event sees stale DOM scroll size", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "submitted"], [300, 100], "force-bottom");
+    renderVirtualItems(controller, container, ["first", "submitted"], [300, 100], "follow-bottom");
     expect(container.scrollTop).toBe(300);
 
     container.dataset["testScrollHeight"] = "420";
@@ -89,11 +160,27 @@ describe("MessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
+  it("keeps pinned intent when a programmatic scroll event observes a stale non-bottom offset", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["first"], [300], "follow-bottom");
+    expect(container.scrollTop).toBe(200);
+
+    container.dataset["testTotalSize"] = "450";
+    container.dispatchEvent(new Event("scroll"));
+
+    renderVirtualItems(controller, container, ["first", "second"], [300, 150], "auto");
+
+    expect(container.scrollTop).toBe(350);
+    controller.dispose();
+  });
+
   it("keeps following the end when a pinned item grows after measurement", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "command"], [200, 100], "force-bottom");
+    renderVirtualItems(controller, container, ["first", "command"], [200, 100], "follow-bottom");
     expect(container.scrollTop).toBe(200);
 
     container.dataset["testTotalSize"] = "450";
@@ -103,11 +190,170 @@ describe("MessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
+  it("settles at the end when a pinned item grows before the DOM scroll height catches up", () => {
+    withAnimationFrame((flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+
+      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "follow-bottom");
+      flushFrames();
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      container.dataset["testTotalSize"] = "450";
+      container.dataset["testScrollHeight"] = "300";
+      container.dataset["testClampToScrollHeight"] = "true";
+      measureVirtualItem(controller, "command", 1, 250);
+
+      expect(container.scrollTop).toBe(200);
+
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      delete container.dataset["testScrollHeight"];
+      flushFrames();
+
+      expect(container.scrollTop).toBe(350);
+      controller.dispose();
+    });
+  });
+
+  it("keeps the pending end settle when a stale programmatic scroll event fires during pinned item growth", () => {
+    withAnimationFrame((flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+
+      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "follow-bottom");
+      flushFrames();
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      container.dataset["testTotalSize"] = "450";
+      container.dataset["testScrollHeight"] = "300";
+      container.dataset["testClampToScrollHeight"] = "true";
+      measureVirtualItem(controller, "command", 1, 250);
+      container.dispatchEvent(new Event("scroll"));
+
+      delete container.dataset["testScrollHeight"];
+      flushFrames();
+      flushFrames();
+
+      expect(container.scrollTop).toBe(350);
+      controller.dispose();
+    });
+  });
+
+  it("does not postpone the pending end settle while small pinned growth measurements keep arriving", () => {
+    withAnimationFrame((flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+
+      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "follow-bottom");
+      flushFrames();
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      container.dataset["testScrollHeight"] = "300";
+      container.dataset["testClampToScrollHeight"] = "true";
+
+      container.dataset["testTotalSize"] = "320";
+      measureVirtualItem(controller, "command", 1, 120);
+      flushFrames();
+
+      container.dataset["testTotalSize"] = "340";
+      measureVirtualItem(controller, "command", 1, 140);
+      delete container.dataset["testScrollHeight"];
+      flushFrames();
+
+      expect(container.scrollTop).toBe(240);
+      controller.dispose();
+    });
+  });
+
+  it("settles at the end when ResizeObserver reports pinned item growth before DOM scroll height catches up", () => {
+    withResizeObserverEntries((resizeElement, flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+      const command = measuredElement("command", 1, 100);
+
+      container.dataset["testTotalSize"] = "300";
+      controller.render(
+        [
+          { key: "first", node: null },
+          { key: "command", node: null },
+        ],
+        "follow-bottom",
+      );
+      controller.getTotalSize();
+      measureVirtualItem(controller, "first", 0, 200);
+      controller.measureElement(command);
+      flushFrames();
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      container.dataset["testTotalSize"] = "450";
+      container.dataset["testScrollHeight"] = "300";
+      container.dataset["testClampToScrollHeight"] = "true";
+      resizeElement(command, 250);
+
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      delete container.dataset["testScrollHeight"];
+      flushFrames();
+
+      expect(container.scrollTop).toBe(350);
+      controller.dispose();
+    });
+  });
+
+  it("does not postpone the pending end settle while ResizeObserver keeps reporting small pinned growth", () => {
+    withResizeObserverEntries((resizeElement, flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+      const command = measuredElement("command", 1, 100);
+
+      container.dataset["testTotalSize"] = "300";
+      controller.render(
+        [
+          { key: "first", node: null },
+          { key: "command", node: null },
+        ],
+        "follow-bottom",
+      );
+      controller.getTotalSize();
+      measureVirtualItem(controller, "first", 0, 200);
+      controller.measureElement(command);
+      flushFrames();
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      container.dataset["testScrollHeight"] = "300";
+      container.dataset["testClampToScrollHeight"] = "true";
+
+      container.dataset["testTotalSize"] = "320";
+      resizeElement(command, 120);
+      flushFrames();
+
+      container.dataset["testTotalSize"] = "340";
+      resizeElement(command, 140);
+      delete container.dataset["testScrollHeight"];
+      flushFrames();
+      flushFrames();
+
+      expect(container.scrollTop).toBe(240);
+      controller.dispose();
+    });
+  });
+
   it("uses the pre-render bottom position when appending after an item resize", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 160 });
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "second"], [200, 200], "force-bottom");
+    renderVirtualItems(controller, container, ["first", "second"], [200, 200], "follow-bottom");
     expect(container.scrollTop).toBe(240);
 
     container.dataset["testTotalSize"] = "480";
@@ -121,7 +367,7 @@ describe("MessageStreamVirtualizer", () => {
 
   it("keeps the current reading position when an item below the viewport grows while unpinned", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
     renderVirtualItems(controller, container, ["first", "streaming"], [300, 100], "preserve");
     container.scrollTop = 100;
@@ -134,46 +380,15 @@ describe("MessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("keeps the end pinned when a layout scroll arrives before the viewport resize observer", () => {
-    withResizeObserver((triggerResize) => {
-      const container = messageContainer({ scrollTop: 0, clientHeight: 160 });
-      const controller = new MessageStreamVirtualizer();
-
-      renderVirtualItems(controller, container, ["first", "second"], [240, 260], "force-bottom");
-      expect(container.scrollTop).toBe(340);
-
-      setContainerClientHeight(container, 130);
-      container.scrollTop = 329;
-      container.dispatchEvent(new Event("scroll"));
-
-      expect(container.scrollTop).toBe(370);
-
-      triggerResize();
-      expect(container.scrollTop).toBe(370);
-
-      setContainerClientHeight(container, 100);
-      container.scrollTop = 340;
-      container.dispatchEvent(new Event("scroll"));
-
-      expect(container.scrollTop).toBe(400);
-
-      triggerResize();
-      expect(container.scrollTop).toBe(400);
-
-      controller.dispose();
-    });
-  });
-
   it("keeps the reading position when the message viewport shrinks away from the end", () => {
     withResizeObserver((triggerResize) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 160 });
-      const controller = new MessageStreamVirtualizer();
+      const controller = createMessageStreamVirtualizerDriver(container);
 
       renderVirtualItems(controller, container, ["first", "second"], [240, 260], "force-bottom");
       expect(container.scrollTop).toBe(340);
 
-      container.scrollTop = 120;
-      container.dispatchEvent(new Event("scroll"));
+      userScrollTo(container, 120);
       setContainerClientHeight(container, 100);
       triggerResize();
 
@@ -182,24 +397,57 @@ describe("MessageStreamVirtualizer", () => {
     });
   });
 
-  it("delegates older-content prepends to keyed end anchoring", () => {
-    const container = messageContainer({ scrollTop: 140, clientHeight: 120 });
-    const controller = new MessageStreamVirtualizer();
+  it("resets stale measurements when the message viewport is restored from zero size", () => {
+    withResizeObserver((triggerResize, flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+      container.append(renderedMeasuredElement("first", 0, 300), renderedMeasuredElement("second", 1, 100));
 
-    renderVirtualItems(controller, container, ["first", "second"], [120, 180], "preserve");
-    container.scrollTop = 140;
-    container.dispatchEvent(new Event("scroll"));
+      renderVirtualItems(controller, container, ["first", "second"], [300, 100], "follow-bottom");
+      expect(container.scrollTop).toBe(300);
 
-    renderVirtualItems(controller, container, ["older", "first", "second"], [90, 120, 180], "preserve");
+      userScrollTo(container, 120);
+      setContainerClientSize(container, { width: 0, height: 0 });
+      triggerResize();
+      setContainerClientSize(container, { width: 240, height: 100 });
+      triggerResize();
+      flushFrames();
 
-    expect(container.scrollTop).toBe(116);
-    controller.dispose();
+      expect(controller.getTotalSize()).toBe(400);
+      expect(container.scrollTop).toBe(300);
+      controller.dispose();
+    });
+  });
+
+  it("resets stale measurements when a hidden-at-start message viewport first renders at a usable size", () => {
+    withResizeObserver((_triggerResize, flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 0 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+      container.append(renderedMeasuredElement("first", 0, 300), renderedMeasuredElement("second", 1, 100));
+      setContainerClientSize(container, { width: 0, height: 0 });
+
+      renderVirtualItems(controller, container, ["first", "second"], [300, 100], "preserve");
+
+      setContainerClientSize(container, { width: 240, height: 100 });
+      controller.render(
+        [
+          { key: "first", node: null },
+          { key: "second", node: null },
+        ],
+        "preserve",
+      );
+      flushFrames();
+
+      expect(controller.getTotalSize()).toBe(400);
+      expect(container.scrollTop).toBe(300);
+      controller.dispose();
+    });
   });
 
   it("scrolls by two text lines for composer edge shortcuts", () => {
     const container = messageContainer({ scrollTop: 120, clientHeight: 100 });
     container.style.lineHeight = "18px";
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
     renderVirtualItems(controller, container, ["first", "second"], [240, 240], "preserve");
     container.scrollTop = 120;
@@ -217,7 +465,7 @@ describe("MessageStreamVirtualizer", () => {
 
   it("scrolls by a viewport step for composer PageUp and PageDown shortcuts", () => {
     const container = messageContainer({ scrollTop: 220, clientHeight: 200 });
-    const controller = new MessageStreamVirtualizer();
+    const controller = createMessageStreamVirtualizerDriver(container);
 
     renderVirtualItems(controller, container, ["first", "second", "third"], [240, 240, 240], "preserve");
     container.scrollTop = 220;
@@ -238,49 +486,220 @@ describe("MessageStreamVirtualizer", () => {
     expect(container.scrollTop).toBe(520);
     controller.dispose();
   });
+
+  it("drops stale same-key measurements when force-bottom replaces the transcript", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["same-key"], [360], "force-bottom");
+    expect(controller.getTotalSize()).toBe(360);
+    expect(container.scrollTop).toBe(260);
+
+    renderVirtualItems(controller, container, ["same-key"], [120], "force-bottom");
+
+    expect(controller.getTotalSize()).toBe(120);
+    expect(container.scrollTop).toBe(20);
+    controller.dispose();
+  });
+
+  it("keeps same-key measurements while preserving the current reading position", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["same-key"], [360], "force-bottom");
+    userScrollTo(container, 140);
+
+    renderVirtualItems(controller, container, ["same-key"], [360], "preserve");
+
+    expect(controller.getTotalSize()).toBe(360);
+    expect(container.scrollTop).toBe(140);
+    controller.dispose();
+  });
+
+  it("keeps measured earlier blocks when following appended content", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["first"], [240], "follow-bottom");
+
+    renderVirtualItems(controller, container, ["first", "second"], [240, 160], "auto");
+
+    expect(controller.getTotalSize()).toBe(400);
+    expect(container.scrollTop).toBe(300);
+    controller.dispose();
+  });
+
+  it("renders the new transcript from the end after force-bottom replaces a long reading position", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(
+      controller,
+      container,
+      numberedKeys("old", 80),
+      Array.from({ length: 80 }, () => 40),
+      "force-bottom",
+    );
+    userScrollTo(container, 2400);
+
+    controller.render(
+      numberedKeys("new", 8).map((key) => ({ key, node: null })),
+      "force-bottom",
+    );
+
+    expect(controller.getVirtualItems().map((item) => item.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    controller.dispose();
+  });
 });
 
 function renderVirtualItems(
-  controller: MessageStreamVirtualizer,
+  controller: MessageStreamVirtualizerDriver,
   container: HTMLElement,
   keys: string[],
   heights: number[],
-  intent: "auto" | "force-bottom" | "preserve",
+  intent: "auto" | "force-bottom" | "follow-bottom" | "preserve",
 ): void {
   const blocks = keys.map((key) => ({ key, node: null }));
-  const plan = controller.prepareRender(container, intent, blocks);
   container.dataset["testTotalSize"] = String(heights.reduce((total, height) => total + height, 0) + messageBlockPadding(container) * 2);
+  controller.render(blocks, intent);
   controller.getTotalSize();
   keys.forEach((key, index) => {
     measureVirtualItem(controller, key, index, heights[index] ?? 0);
   });
   controller.getTotalSize();
-  const previousTop = container.scrollTop;
-  controller.completeRender(plan);
-  if (container.scrollTop !== previousTop) {
-    container.dispatchEvent(new Event("scroll"));
-  }
+  container.dispatchEvent(new Event("scroll"));
 }
 
-function measureVirtualItem(controller: MessageStreamVirtualizer, key: string, index: number, height: number): void {
+function userScrollTo(container: HTMLElement, scrollTop: number): void {
+  container.dispatchEvent(new Event("wheel"));
+  container.scrollTop = scrollTop;
+  container.dispatchEvent(new Event("scroll"));
+}
+
+function measureVirtualItem(controller: MessageStreamVirtualizerDriver, key: string, index: number, height: number): void {
+  controller.measureElement(measuredElement(key, index, height));
+}
+
+function measuredElement(key: string, index: number, height: number): HTMLElement {
   const element = document.createElement("div");
   element.setAttribute("data-codex-panel-block-key", key);
-  element.setAttribute(MESSAGE_VIRTUAL_ITEM_INDEX_ATTRIBUTE, String(index));
+  element.setAttribute("data-index", String(index));
   Object.defineProperty(element, "offsetHeight", { value: height, configurable: true });
   Object.defineProperty(element, "isConnected", { value: true, configurable: true });
-  controller.measureElement(element);
+  return element;
+}
+
+function renderedMeasuredElement(key: string, index: number, height: number): HTMLElement {
+  const element = measuredElement(key, index, height);
+  element.classList.add("codex-panel__message-block");
+  return element;
+}
+
+interface MessageStreamVirtualizerDriver extends MessageStreamVirtualizerHandle {
+  render(blocks: readonly MessageStreamBlock[], intent: "auto" | "force-bottom" | "follow-bottom" | "preserve"): void;
+  getTotalSize(): number;
+  getVirtualItems(): ReturnType<MessageStreamVirtualizerView["getVirtualItems"]>;
+  measureElement(element: HTMLElement | null): void;
+  dispose(): void;
+}
+
+function createMessageStreamVirtualizerDriver(container: HTMLElement): MessageStreamVirtualizerDriver {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  let view: MessageStreamVirtualizerView | null = null;
+  let handle: MessageStreamVirtualizerHandle | null = null;
+  return {
+    render(blocks, intent) {
+      const renderBlocks = [...blocks];
+      void act(() => {
+        renderUiRoot(
+          host,
+          h(VirtualizerHarness, {
+            blocks: renderBlocks,
+            container,
+            intent,
+            onHandle: (next) => (handle = next),
+            onView: (next) => (view = next),
+          }),
+        );
+      });
+    },
+    getTotalSize() {
+      return view?.getTotalSize() ?? 0;
+    },
+    getVirtualItems() {
+      return view?.getVirtualItems() ?? [];
+    },
+    measureElement(element) {
+      view?.measureElement(element);
+    },
+    scrollByTextLines(direction) {
+      handle?.scrollByTextLines(direction);
+    },
+    scrollByPage(direction) {
+      handle?.scrollByPage(direction);
+    },
+    pinToBottom() {
+      handle?.pinToBottom();
+    },
+    repinToBottomIfPinned() {
+      handle?.repinToBottomIfPinned();
+    },
+    dispose() {
+      unmountUiRoot(host);
+      host.remove();
+    },
+  };
+}
+
+function VirtualizerHarness({
+  blocks,
+  container,
+  intent,
+  onHandle,
+  onView,
+}: {
+  blocks: readonly MessageStreamBlock[];
+  container: HTMLElement;
+  intent: "auto" | "force-bottom" | "follow-bottom" | "preserve";
+  onHandle: (handle: MessageStreamVirtualizerHandle | null) => void;
+  onView: (view: MessageStreamVirtualizerView) => void;
+}) {
+  const scrollElementRef = useRef<HTMLElement | null>(container);
+  const intentRef = useRef(intent);
+  intentRef.current = intent;
+  const view = useMessageStreamVirtualizer({
+    blocks,
+    scrollElementRef,
+    consumeScrollIntent: () => intentRef.current,
+    registerVirtualizer: (handle) => {
+      onHandle(handle);
+      return () => {
+        onHandle(null);
+      };
+    },
+  });
+  useLayoutEffect(() => {
+    onView(view);
+  }, [onView, view]);
+  return null;
 }
 
 function messageContainer(metrics: { scrollTop: number; clientHeight: number }): HTMLElement {
   const container = document.createElement("div");
   let scrollTop = metrics.scrollTop;
   let clientHeight = metrics.clientHeight;
+  let clientWidth = 240;
   container.dataset["testClientHeight"] = String(metrics.clientHeight);
+  container.dataset["testClientWidth"] = "240";
   Object.defineProperties(container, {
     scrollTop: {
       get: () => scrollTop,
       set: (value: number) => {
-        const scrollSize = Math.max(container.scrollHeight, controllerTotalSize(container));
+        const scrollSize =
+          container.dataset["testClampToScrollHeight"] === "true"
+            ? container.scrollHeight
+            : Math.max(container.scrollHeight, controllerTotalSize(container));
         scrollTop = Math.max(0, Math.min(value, Math.max(0, scrollSize - clientHeight)));
       },
       configurable: true,
@@ -295,7 +714,7 @@ function messageContainer(metrics: { scrollTop: number; clientHeight: number }):
     clientHeight: {
       get: () => {
         const nextClientHeight = Number(container.dataset["testClientHeight"]);
-        clientHeight = Number.isFinite(nextClientHeight) && nextClientHeight > 0 ? nextClientHeight : clientHeight;
+        clientHeight = Number.isFinite(nextClientHeight) && nextClientHeight >= 0 ? nextClientHeight : clientHeight;
         return clientHeight;
       },
       configurable: true,
@@ -304,15 +723,38 @@ function messageContainer(metrics: { scrollTop: number; clientHeight: number }):
       get: () => container.clientHeight,
       configurable: true,
     },
-    clientWidth: { value: 240, configurable: true },
-    offsetWidth: { value: 240, configurable: true },
+    clientWidth: {
+      get: () => {
+        const nextClientWidth = Number(container.dataset["testClientWidth"]);
+        clientWidth = Number.isFinite(nextClientWidth) && nextClientWidth >= 0 ? nextClientWidth : clientWidth;
+        return clientWidth;
+      },
+      configurable: true,
+    },
+    offsetWidth: {
+      get: () => container.clientWidth,
+      configurable: true,
+    },
   });
   document.body.appendChild(container);
+  container.scrollTo = ((optionsOrX?: ScrollToOptions | number, y?: number) => {
+    const top = typeof optionsOrX === "number" ? (y ?? container.scrollTop) : (optionsOrX?.top ?? container.scrollTop);
+    container.scrollTop = top;
+  }) as typeof container.scrollTo;
   return container;
 }
 
 function setContainerClientHeight(container: HTMLElement, clientHeight: number): void {
   container.dataset["testClientHeight"] = String(clientHeight);
+}
+
+function setContainerClientSize(container: HTMLElement, size: { width: number; height: number }): void {
+  container.dataset["testClientWidth"] = String(size.width);
+  container.dataset["testClientHeight"] = String(size.height);
+}
+
+function numberedKeys(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, (_value, index) => `${prefix}-${String(index)}`);
 }
 
 function controllerTotalSize(container: HTMLElement): number {
@@ -325,7 +767,7 @@ function messageBlockPadding(container: HTMLElement): number {
   return Number.isFinite(value) ? value : 0;
 }
 
-function withResizeObserver(run: (triggerResize: () => void) => void): void {
+function withResizeObserver(run: (triggerResize: () => void, flushFrames: () => void) => void): void {
   const previousResizeObserver = window.ResizeObserver;
   const previousRequestAnimationFrame = window.requestAnimationFrame;
   const previousCancelAnimationFrame = window.cancelAnimationFrame;
@@ -355,12 +797,107 @@ function withResizeObserver(run: (triggerResize: () => void) => void): void {
   }) as typeof window.requestAnimationFrame;
   window.cancelAnimationFrame = (() => undefined) as typeof window.cancelAnimationFrame;
   try {
-    run(() => {
-      frames.splice(0);
+    const flushFrames = () => {
       for (const callback of callbacks) callback([], {} as ResizeObserver);
       const pending = frames.splice(0);
       for (const frame of pending) frame(0);
+    };
+    run(
+      () => {
+        frames.splice(0);
+        flushFrames();
+      },
+      () => {
+        const pending = frames.splice(0);
+        for (const frame of pending) frame(0);
+      },
+    );
+  } finally {
+    window.ResizeObserver = previousResizeObserver;
+    window.requestAnimationFrame = previousRequestAnimationFrame;
+    window.cancelAnimationFrame = previousCancelAnimationFrame;
+  }
+}
+
+function withAnimationFrame(run: (flushFrames: () => void) => void): void {
+  const previousRequestAnimationFrame = window.requestAnimationFrame;
+  const previousCancelAnimationFrame = window.cancelAnimationFrame;
+  const frames: { id: number; callback: FrameRequestCallback }[] = [];
+  let nextFrameId = 1;
+  window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+    const id = nextFrameId++;
+    frames.push({ id, callback });
+    return id;
+  }) as typeof window.requestAnimationFrame;
+  window.cancelAnimationFrame = ((id: number) => {
+    const index = frames.findIndex((frame) => frame.id === id);
+    if (index >= 0) frames.splice(index, 1);
+  }) as typeof window.cancelAnimationFrame;
+  try {
+    run(() => {
+      const pending = frames.splice(0);
+      for (const frame of pending) frame.callback(0);
     });
+  } finally {
+    window.requestAnimationFrame = previousRequestAnimationFrame;
+    window.cancelAnimationFrame = previousCancelAnimationFrame;
+  }
+}
+
+function withResizeObserverEntries(
+  run: (resizeElement: (element: HTMLElement, height: number) => void, flushFrames: () => void) => void,
+): void {
+  const previousResizeObserver = window.ResizeObserver;
+  const previousRequestAnimationFrame = window.requestAnimationFrame;
+  const previousCancelAnimationFrame = window.cancelAnimationFrame;
+  const callbacks: ResizeObserverCallback[] = [];
+  const frames: { id: number; callback: FrameRequestCallback }[] = [];
+  let nextFrameId = 1;
+  class TestResizeObserver implements ResizeObserver {
+    constructor(callback: ResizeObserverCallback) {
+      callbacks.push(callback);
+    }
+
+    observe(): void {
+      // Resize entries are triggered explicitly by the test.
+    }
+
+    unobserve(): void {
+      // Resize entries are triggered explicitly by the test.
+    }
+
+    disconnect(): void {
+      // Resize entries are triggered explicitly by the test.
+    }
+  }
+  window.ResizeObserver = TestResizeObserver;
+  window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+    const id = nextFrameId++;
+    frames.push({ id, callback });
+    return id;
+  }) as typeof window.requestAnimationFrame;
+  window.cancelAnimationFrame = ((id: number) => {
+    const index = frames.findIndex((frame) => frame.id === id);
+    if (index >= 0) frames.splice(index, 1);
+  }) as typeof window.cancelAnimationFrame;
+  try {
+    run(
+      (element, height) => {
+        Object.defineProperty(element, "offsetHeight", { value: height, configurable: true });
+        const entry = {
+          target: element,
+          borderBoxSize: [{ blockSize: height }],
+          contentBoxSize: [],
+          contentRect: element.getBoundingClientRect(),
+          devicePixelContentBoxSize: [],
+        } as unknown as ResizeObserverEntry;
+        for (const callback of callbacks) callback([entry], {} as ResizeObserver);
+      },
+      () => {
+        const pending = frames.splice(0);
+        for (const frame of pending) frame.callback(0);
+      },
+    );
   } finally {
     window.ResizeObserver = previousResizeObserver;
     window.requestAnimationFrame = previousRequestAnimationFrame;

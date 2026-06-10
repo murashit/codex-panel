@@ -26,7 +26,14 @@ describe("message stream context port", () => {
       },
       requests: {
         pendingSignature: () => "",
-        renderPending: () => null,
+        pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), openDetails: new Set() }),
+        pendingActions: () => ({
+          resolveApproval: vi.fn(),
+          resolveUserInput: vi.fn(),
+          cancelUserInput: vi.fn(),
+          setUserInputDraft: vi.fn(),
+        }),
+        consumePendingAutoFocus: () => false,
       },
     });
 
@@ -60,7 +67,14 @@ describe("message stream context port", () => {
       },
       requests: {
         pendingSignature: () => "",
-        renderPending: () => null,
+        pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), openDetails: new Set() }),
+        pendingActions: () => ({
+          resolveApproval: vi.fn(),
+          resolveUserInput: vi.fn(),
+          cancelUserInput: vi.fn(),
+          setUserInputDraft: vi.fn(),
+        }),
+        consumePendingAutoFocus: () => false,
       },
     });
 

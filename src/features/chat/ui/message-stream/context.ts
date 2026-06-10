@@ -1,7 +1,9 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import type { ChatTurnLifecycleState } from "../../chat-state";
+import type { PendingRequestSnapshot } from "../../chat-state-selectors";
 import type { DisplayItem } from "../../display/types";
+import type { PendingRequestMessageActions } from "../pending-request-message";
 import type { ChatTurnDiffViewState } from "../turn-diff";
 
 export interface MessageStreamBlock {
@@ -46,10 +48,16 @@ interface MessageStreamLayoutContext {
   turnDiffs?: ReadonlyMap<string, string>;
   workspaceRoot?: string | null;
   loadOlderTurns: () => void;
-  pendingRequestsSignature?: string;
-  renderPendingRequests?: () => UiNode;
+  pendingRequests?: PendingRequestBlockContext;
 }
 
 export interface MessageItemContext extends MessageContentContext, MessageActionContext, MessageMetadataContext {}
 
 export interface MessageStreamContext extends MessageStreamLayoutContext, MessageItemContext {}
+
+export interface PendingRequestBlockContext {
+  signature: string;
+  snapshot: () => PendingRequestSnapshot;
+  actions: () => PendingRequestMessageActions;
+  consumeAutoFocus: () => boolean;
+}

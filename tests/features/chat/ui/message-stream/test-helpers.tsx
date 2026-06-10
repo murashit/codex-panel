@@ -8,10 +8,9 @@ import { pendingRequestMessageNode, type PendingRequestMessageActions } from "..
 import type { ChatTurnLifecycleState } from "../../../../../src/features/chat/chat-state";
 import {
   type MessageStreamBlock,
+  messageStreamBlocksNode,
   messageStreamBlocks as rawMessageStreamBlocks,
-  renderMessageStreamBlocks,
 } from "../../../../../src/features/chat/ui/message-stream";
-import { MessageStreamVirtualizer } from "../../../../../src/features/chat/ui/message-virtualizer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(
@@ -52,23 +51,36 @@ export function actEvent(action: () => void): void {
 }
 
 export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: MessageStreamBlock[]): void {
+  parent.addClass("codex-panel__messages");
   installMessageViewportMetrics(parent);
   if (!parent.isConnected) document.body.appendChild(parent);
-  const virtualizer = new MessageStreamVirtualizer();
   void act(() => {
-    const plan = virtualizer.prepareRender(parent, "auto", blocks);
-    renderMessageStreamBlocks(parent, blocks, virtualizer);
-    virtualizer.completeRender(plan);
+    renderUiRoot(
+      parent,
+      messageStreamBlocksNode({
+        blocks,
+        consumeScrollIntent: () => "auto",
+      }),
+    );
   });
 }
 
-export function installMessageViewportMetrics(element: HTMLElement, metrics: { clientHeight?: number; clientWidth?: number } = {}): void {
+export function installMessageViewportMetrics(
+  element: HTMLElement,
+  metrics: { clientHeight?: number; clientWidth?: number; scrollHeight?: number } = {},
+): void {
   const clientHeight = metrics.clientHeight ?? 320;
   const clientWidth = metrics.clientWidth ?? 240;
+  const scrollHeight = metrics.scrollHeight ?? element.scrollHeight;
+  Object.defineProperty(element, "scrollHeight", { value: scrollHeight, configurable: true });
   Object.defineProperty(element, "clientHeight", { value: clientHeight, configurable: true });
   Object.defineProperty(element, "offsetHeight", { value: clientHeight, configurable: true });
   Object.defineProperty(element, "clientWidth", { value: clientWidth, configurable: true });
   Object.defineProperty(element, "offsetWidth", { value: clientWidth, configurable: true });
+  element.scrollTo = ((optionsOrX?: ScrollToOptions | number, y?: number) => {
+    const top = typeof optionsOrX === "number" ? (y ?? element.scrollTop) : (optionsOrX?.top ?? element.scrollTop);
+    element.scrollTop = Math.max(0, top);
+  }) as typeof element.scrollTo;
 }
 
 export function renderUiRootInAct(parent: HTMLElement, node: UiNode): void {

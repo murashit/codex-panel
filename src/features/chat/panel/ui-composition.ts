@@ -1,4 +1,5 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
+import type { ComponentChild as UiNode } from "preact";
 import type { ChatStateStore } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
 import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
@@ -12,7 +13,7 @@ import { ChatViewRenderController } from "./view-render-controller";
 import { applyChatViewState } from "./view-state-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import { applyCachedSharedAppServerState, type CachedSharedAppServerStateSource } from "./cached-app-server-state";
-import type { ChatViewDeferredTasks, ChatViewRenderScheduleOptions, RestoredThreadState } from "./lifecycle";
+import type { ChatViewDeferredTasks, RestoredThreadState } from "./lifecycle";
 import { createChatShellRenderPort } from "./shell-render";
 
 interface ViewRenderControllerGroupPorts {
@@ -25,27 +26,25 @@ interface ViewRenderControllerGroupPorts {
   };
   render: {
     panelRoot: () => HTMLElement | null;
-    pendingRequestsSignature: () => string;
-    activeComposerThreadName: () => string | null;
+    toolbarNode: () => UiNode;
+    goalNode: () => UiNode;
+    messagesNode: () => UiNode;
+    composerNode: () => UiNode;
   };
 }
 
-export function createViewRenderControllerGroup(
-  context: ViewRenderControllerGroupPorts,
-  refs: {
-    connection: ConnectionManager;
-  },
-) {
+export function createViewRenderControllerGroup(context: ViewRenderControllerGroupPorts) {
   const { plugin, render, lifecycle } = context;
   const { deferredTasks } = lifecycle;
 
   return {
     renderController: new ChatViewRenderController({
       shell: createChatShellRenderPort(context.state.stateStore, {
-        connected: () => refs.connection.isConnected(),
         showToolbar: () => plugin.settings.showToolbar,
-        pendingRequestsSignature: render.pendingRequestsSignature,
-        activeComposerThreadName: render.activeComposerThreadName,
+        toolbarNode: context.render.toolbarNode,
+        goalNode: context.render.goalNode,
+        messagesNode: context.render.messagesNode,
+        composerNode: context.render.composerNode,
       }),
       panelRoot: render.panelRoot,
       clearScheduledRender: () => {
@@ -56,7 +55,7 @@ export function createViewRenderControllerGroup(
 }
 
 interface ConnectionLifecycleControllerGroupPorts {
-  obsidian: Pick<ChatViewLifecycleHost, "handleActiveLeafChange" | "registerActiveLeafChange" | "registerEvent" | "registerPointerDown">;
+  obsidian: Pick<ChatViewLifecycleHost, "registerEvent" | "registerPointerDown">;
   plugin: CachedSharedAppServerStateSource;
   client: {
     clear: () => void;
@@ -113,8 +112,6 @@ export function createConnectionLifecycleControllerGroup(
       refs.composerController.registerNoteIndexInvalidation(register);
     },
     registerPointerDown: obsidian.registerPointerDown,
-    registerActiveLeafChange: obsidian.registerActiveLeafChange,
-    handleActiveLeafChange: obsidian.handleActiveLeafChange,
     applyCachedSharedAppServerState: () => {
       applyCachedSharedAppServerState(plugin, refs.serverThreads, refs.serverMetadata);
     },
@@ -165,7 +162,7 @@ interface PanelUiControllerGroupPorts {
     scheduleDeferredAppServerWarmup: () => void;
   };
   render: {
-    schedule: (options?: ChatViewRenderScheduleOptions) => void;
+    schedule: () => void;
   };
   thread: {
     clearRestoredLifecycle: () => void;

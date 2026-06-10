@@ -6,25 +6,25 @@
   min-height: 0;
 }
 
-.codex-panel__slot {
+.codex-panel__region {
   min-width: 0;
 }
 
-.codex-panel__slot--goal {
+.codex-panel__region--goal {
   grid-row: 1;
 }
 
-.codex-panel__slot--messages {
+.codex-panel__region--messages {
   grid-row: 2;
   min-height: 0;
   overflow: hidden;
 }
 
-.codex-panel__slot--composer {
+.codex-panel__region--composer {
   grid-row: 3;
 }
 
-.codex-panel__slot--goal:empty {
+.codex-panel__region--goal:empty {
   display: none;
 }
 

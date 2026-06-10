@@ -39,6 +39,7 @@ function createController(draft: string) {
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const execute = vi.fn().mockResolvedValue(undefined);
   const forceBottom = vi.fn();
+  const followBottom = vi.fn();
   const controller = createComposerSubmissionActions({
     stateStore,
     composer: {
@@ -57,20 +58,20 @@ function createController(draft: string) {
       setStatus: vi.fn(),
       addSystemMessage: vi.fn(),
     },
-    scroll: { forceBottom },
+    scroll: { forceBottom, followBottom },
   });
-  return { controller, execute, forceBottom, interruptTurn, sendTurnText, setDraft, stateStore };
+  return { controller, execute, followBottom, forceBottom, interruptTurn, sendTurnText, setDraft, stateStore };
 }
 
 describe("createComposerSubmissionActions", () => {
   it("sends plain drafts as turn text", async () => {
-    const { controller, forceBottom, sendTurnText } = createController("hello");
+    const { controller, followBottom, sendTurnText } = createController("hello");
 
     await controller.submit();
 
-    expect(forceBottom).toHaveBeenCalledOnce();
+    expect(followBottom).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith("hello");
-    const [forceBottomOrder] = forceBottom.mock.invocationCallOrder;
+    const [forceBottomOrder] = followBottom.mock.invocationCallOrder;
     const [sendTurnTextOrder] = sendTurnText.mock.invocationCallOrder;
     if (forceBottomOrder === undefined || sendTurnTextOrder === undefined) {
       throw new Error("Expected forceBottom and sendTurnText to be called");
@@ -79,14 +80,14 @@ describe("createComposerSubmissionActions", () => {
   });
 
   it("executes slash commands and forwards command send results", async () => {
-    const { controller, execute, forceBottom, sendTurnText, setDraft } = createController("/clear hello");
+    const { controller, execute, followBottom, sendTurnText, setDraft } = createController("/clear hello");
     execute.mockResolvedValue({ sendText: "hello" });
 
     await controller.submit();
 
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(execute).toHaveBeenCalledWith("clear", "hello");
-    expect(forceBottom).toHaveBeenCalledOnce();
+    expect(followBottom).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
   });
 

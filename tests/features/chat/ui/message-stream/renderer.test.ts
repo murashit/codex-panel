@@ -15,6 +15,8 @@ import {
   bindRenderedWikiLinks,
   type RenderedMarkdownLinkContext,
 } from "../../../../../src/features/chat/ui/message-stream";
+import type { MessageStreamScrollIntent } from "../../../../../src/features/chat/ui/message-virtualizer";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { installMessageViewportMetrics } from "./test-helpers";
@@ -142,14 +144,15 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
-    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    renderUiRoot(parent, renderer.renderNode());
+    const messages = messageViewport(parent);
     Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
     installMessageViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 920;
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
-    renderer.render(messages);
+    renderer.forceMessagesToBottom();
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(0);
@@ -173,11 +176,11 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
-    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    renderUiRoot(parent, renderer.renderNode());
+    const messages = messageViewport(parent);
     Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
     installMessageViewportMetrics(messages, { clientHeight: 160 });
     messages.scrollTop = 1000;
-    renderer.render(messages);
     await settleMessageRender(messages);
 
     installMessageViewportMetrics(messages, { clientHeight: 100 });
@@ -229,7 +232,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
       },
     });
     messages.scrollTop = 1000;
-    renderer.render(messages);
+    renderUiRoot(messages, renderer.renderNode());
     await settleMessageRender(messages);
     expect(messages.scrollTop).toBe(0);
 
@@ -240,6 +243,106 @@ describe("ChatMessageRenderer scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(0);
+  });
+
+  it("treats scroll commands as no-ops when no message stream virtualizer is mounted", () => {
+    const renderer = chatMessageRenderer();
+
+    expect(() => {
+      renderer.forceMessagesToBottom();
+      renderer.repinMessagesToBottomIfPinned();
+      renderer.scrollFromComposer({ direction: 1, amount: "text-lines" });
+      renderer.scrollFromComposer({ direction: -1, amount: "page" });
+      renderer.dispose();
+      renderer.forceMessagesToBottom();
+    }).not.toThrow();
+  });
+
+  it("detaches the active virtualizer when the message stream unmounts", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Rendered message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
+    const parent = document.createElement("div");
+    const renderer = chatMessageRenderer(state);
+    renderUiRoot(parent, renderer.renderNode());
+    const messages = messageViewport(parent);
+    installMessageViewportMetrics(messages);
+    await settleMessageRender(messages);
+
+    unmountUiRoot(parent);
+
+    expect(() => {
+      renderer.forceMessagesToBottom();
+      renderer.scrollFromComposer({ direction: 1, amount: "page" });
+    }).not.toThrow();
+  });
+
+  it("binds scroll commands to the currently mounted message viewport", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Rendered message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
+    const parent = document.createElement("div");
+    const renderer = chatMessageRenderer(state);
+    renderUiRoot(parent, renderer.renderNode());
+    const oldMessages = messageViewport(parent);
+    installMessageViewportMetrics(oldMessages, { clientHeight: 100, scrollHeight: 1000 });
+    await settleMessageRender(oldMessages);
+
+    unmountUiRoot(parent);
+
+    renderUiRoot(parent, renderer.renderNode());
+    const newMessages = messageViewport(parent);
+    installMessageViewportMetrics(newMessages, { clientHeight: 100, scrollHeight: 1000 });
+    await settleMessageRender(newMessages);
+    renderer.forceMessagesToBottom();
+
+    expect(newMessages.scrollTop).toBe(900);
+  });
+
+  it("completes bottom pinning after the message viewport commits", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "Streaming message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
+    const parent = document.createElement("div");
+    const renderer = chatMessageRenderer(state, vi.fn(), "/vault", [], () => "force-bottom");
+
+    renderUiRoot(parent, renderer.renderNode());
+    const messages = messageViewport(parent);
+    installMessageViewportMetrics(messages, { clientHeight: 100, scrollHeight: 1000 });
+    renderer.forceMessagesToBottom();
+    await settleMessageRender(messages);
+
+    expect(messages.scrollTop).toBe(900);
   });
 
   it("does not force the bottom into view when the user is reading older messages", async () => {
@@ -261,7 +364,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     installMessageViewportMetrics(messages);
-    renderer.render(messages);
+    renderUiRoot(messages, renderer.renderNode());
     await settleMessageRender(messages);
 
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
@@ -282,7 +385,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
         messageState: "completed",
       },
     ];
-    renderer.render(messages);
+    renderUiRoot(messages, renderer.renderNode());
     await settleMessageRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
@@ -309,7 +412,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
     installMessageViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 920;
-    renderer.render(messages);
+    renderUiRoot(messages, renderer.renderNode());
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
@@ -320,7 +423,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
-  it("unmounts the Preact message stream root on dispose", () => {
+  it("leaves the mounted message stream content in place on dispose", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
     state.transcript.displayItems = [
@@ -337,14 +440,40 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const parent = document.createElement("div");
     const renderer = chatMessageRenderer(state);
 
-    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    renderUiRoot(parent, renderer.renderNode());
+    let messages = messageViewport(parent);
     installMessageViewportMetrics(messages);
-    renderer.render(messages);
-    expect(messages.querySelector('[data-codex-panel-block-key="item:message"]')).not.toBeNull();
+    renderUiRoot(parent, renderer.renderNode());
+    messages = messageViewport(parent);
+    await settleMessageRender(messages);
+    expect(parent.querySelector(".codex-panel__messages")).not.toBeNull();
 
     renderer.dispose();
 
-    expect(messages.querySelector('[data-codex-panel-block-key="item:message"]')).toBeNull();
+    expect(parent.querySelector(".codex-panel__messages")).not.toBeNull();
+  });
+
+  it("does not mount every block before the virtualizer attaches", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = Array.from({ length: 200 }, (_value, index) => ({
+      id: `message-${String(index)}`,
+      kind: "message",
+      role: "assistant",
+      text: `Message ${String(index)}`,
+      turnId: "turn",
+      messageKind: "assistantResponse",
+      messageState: "completed",
+    }));
+    const parent = document.createElement("div");
+    const renderer = chatMessageRenderer(state);
+
+    renderUiRoot(parent, renderer.renderNode());
+    const messages = messageViewport(parent);
+    installMessageViewportMetrics(messages, { clientHeight: 320, scrollHeight: 19_200 });
+    await settleMessageRender(messages);
+
+    expect(parent.querySelectorAll("[data-codex-panel-block-key]").length).toBeLessThan(state.transcript.displayItems.length);
   });
 });
 
@@ -370,6 +499,7 @@ function chatMessageRenderer(
   openLinkText = vi.fn(),
   vaultPath = "/vault",
   vaultFiles: string[] = [],
+  consumeIntent: () => MessageStreamScrollIntent = () => "auto",
 ): ChatMessageRenderer {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   return new ChatMessageRenderer({
@@ -393,7 +523,7 @@ function chatMessageRenderer(
       vaultPath,
     },
     scroll: {
-      consumeIntent: () => "auto",
+      consumeIntent,
     },
     history: {
       loadOlderTurns: vi.fn(),
@@ -406,7 +536,14 @@ function chatMessageRenderer(
     },
     requests: {
       pendingSignature: () => "",
-      renderPending: () => null,
+      pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), openDetails: new Set() }),
+      pendingActions: () => ({
+        resolveApproval: vi.fn(),
+        resolveUserInput: vi.fn(),
+        cancelUserInput: vi.fn(),
+        setUserInputDraft: vi.fn(),
+      }),
+      consumePendingAutoFocus: () => false,
     },
   });
 }
@@ -426,6 +563,12 @@ function testStoreForState(state: ChatState): ChatStateStore {
 function tFile(path: string): TFile {
   const basename = path.split("/").pop()?.replace(/\.md$/, "") ?? path;
   return Object.assign(new TFile(), { path, basename });
+}
+
+function messageViewport(parent: HTMLElement): HTMLElement {
+  const viewport = parent.querySelector<HTMLElement>(":scope > .codex-panel__messages");
+  if (!viewport) throw new Error("Expected message viewport to be mounted.");
+  return viewport;
 }
 
 async function settleMessageRender(element: HTMLElement): Promise<void> {

@@ -21,7 +21,6 @@ export interface ThreadResumeControllerHost {
   clearDeferredRestoredThreadHydration: () => void;
   notifyActiveThreadIdentityChanged: () => void;
   addSystemMessage: (text: string) => void;
-  forceMessagesToBottom: () => void;
   render: () => void;
   refreshLiveState: () => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
@@ -59,8 +58,7 @@ export class ThreadResumeController {
       if (renderFallbackMessage) {
         this.host.addSystemMessage(`Resumed thread ${response.thread.id}`);
       }
-      this.host.forceMessagesToBottom();
-      if (renderFallbackMessage) this.host.render();
+      this.host.render();
       this.host.refreshLiveState();
     } catch (error) {
       if (this.isStale(resume)) return;

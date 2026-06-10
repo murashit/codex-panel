@@ -1,47 +1,73 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useCallback, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
-import { renderUiRoot } from "../../../../shared/ui/ui-root";
-import { MESSAGE_VIRTUAL_ITEM_INDEX_ATTRIBUTE, type MessageStreamVirtualizer } from "../message-virtualizer";
+import { type MessageStreamScrollIntent, type MessageStreamVirtualizerHandle, useMessageStreamVirtualizer } from "../message-virtualizer";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../message-content-events";
 import type { MessageStreamBlock } from "./context";
 
-export function renderMessageStreamBlocks(parent: HTMLElement, blocks: MessageStreamBlock[], virtualizer: MessageStreamVirtualizer): void {
-  renderUiRoot(parent, <MessageStreamBlocks blocks={blocks} virtualizer={virtualizer} />);
+const MESSAGE_BLOCK_ESTIMATE_SIZE = 96;
+const MESSAGE_STREAM_INITIAL_RENDER_LIMIT = 32;
+
+export interface MessageStreamRenderState {
+  blocks: MessageStreamBlock[];
+  consumeScrollIntent: () => MessageStreamScrollIntent;
+  registerVirtualizer?: (virtualizer: MessageStreamVirtualizerHandle) => () => void;
 }
 
-function MessageStreamBlocks({ blocks, virtualizer }: { blocks: MessageStreamBlock[]; virtualizer: MessageStreamVirtualizer }): UiNode {
-  const [, setVersion] = useState(0);
+export function messageStreamBlocksNode(state: MessageStreamRenderState): UiNode {
+  return <MessageStreamBlocks state={state} />;
+}
 
-  useLayoutEffect(() => {
-    virtualizer.onChange(() => {
-      setVersion((version) => version + 1);
-    });
-    return () => {
-      virtualizer.onChange(null);
-    };
-  }, [virtualizer]);
-
+function MessageStreamBlocks({ state }: { state: MessageStreamRenderState }): UiNode {
+  const { blocks, consumeScrollIntent, registerVirtualizer } = state;
+  const scrollElementRef = useRef<HTMLDivElement | null>(null);
+  const virtualizer = useMessageStreamVirtualizer({ blocks, consumeScrollIntent, registerVirtualizer, scrollElementRef });
+  const virtualItems = messageStreamVirtualItems(virtualizer.getVirtualItems(), blocks, scrollElementRef.current?.scrollTop ?? 0);
   const measureBlock = useCallback(
     (element: HTMLElement | null) => {
       virtualizer.measureElement(element);
     },
     [virtualizer],
   );
-  const virtualItems = virtualizer.getVirtualItems();
 
   return (
-    <div className="codex-panel__message-virtualizer" style={{ height: `${String(virtualizer.getTotalSize())}px` }}>
-      {virtualItems.map((virtualItem) => (
-        <MessageStreamBlockHost
-          key={virtualItem.key}
-          block={blocks[virtualItem.index]}
-          measureBlock={measureBlock}
-          virtualItem={virtualItem}
-        />
-      ))}
+    <div ref={scrollElementRef} className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+      <div className="codex-panel__message-virtualizer" style={{ height: `${String(virtualizer.getTotalSize())}px` }}>
+        {virtualItems.map((virtualItem) => (
+          <MessageStreamBlockHost
+            key={String(virtualItem.key)}
+            block={blocks[virtualItem.index]}
+            measureBlock={measureBlock}
+            virtualItem={virtualItem}
+          />
+        ))}
+      </div>
     </div>
   );
+}
+
+export function messageStreamVirtualItems(
+  virtualItems: { index: number; key: unknown; start: number }[],
+  blocks: readonly MessageStreamBlock[],
+  scrollOffset = 0,
+) {
+  if (virtualItems.length > 0 || blocks.length === 0) return virtualItems;
+  const startIndex = messageStreamFallbackStartIndex(blocks.length, scrollOffset);
+  return blocks.slice(startIndex, startIndex + MESSAGE_STREAM_INITIAL_RENDER_LIMIT).map((block, offset) => {
+    const index = startIndex + offset;
+    return {
+      index,
+      key: block.key,
+      start: index * MESSAGE_BLOCK_ESTIMATE_SIZE,
+    };
+  });
+}
+
+function messageStreamFallbackStartIndex(blockCount: number, scrollOffset: number): number {
+  const maxStartIndex = Math.max(0, blockCount - MESSAGE_STREAM_INITIAL_RENDER_LIMIT);
+  const estimatedFirstVisibleIndex = Math.max(0, Math.floor(scrollOffset / MESSAGE_BLOCK_ESTIMATE_SIZE));
+  const centeredStartIndex = Math.max(0, estimatedFirstVisibleIndex - Math.floor(MESSAGE_STREAM_INITIAL_RENDER_LIMIT / 2));
+  return Math.min(centeredStartIndex, maxStartIndex);
 }
 
 function MessageStreamBlockHost({
@@ -90,7 +116,7 @@ function MessageStreamBlockHost({
       ref={setBlock}
       className="codex-panel__message-block"
       data-codex-panel-block-key={block.key}
-      {...{ [MESSAGE_VIRTUAL_ITEM_INDEX_ATTRIBUTE]: String(virtualItem.index) }}
+      data-index={String(virtualItem.index)}
       style={{ transform: `translateY(${String(virtualItem.start)}px)` }}
     >
       {block.node}

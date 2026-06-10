@@ -19,7 +19,7 @@ describe("ToolbarPanelController", () => {
 
     controller.startArchive("thread");
     expect(controller.archiveConfirmId()).toBe("thread");
-    expect(scheduleRender).toHaveBeenCalledWith({ forceSlots: true });
+    expect(scheduleRender).toHaveBeenCalledWith();
 
     await controller.archiveThread("thread", true);
 
@@ -46,6 +46,6 @@ describe("ToolbarPanelController", () => {
     });
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
-    expect(scheduleRender).toHaveBeenCalledWith({ forceSlots: true });
+    expect(scheduleRender).toHaveBeenCalledWith();
   });
 });

@@ -1,4 +1,5 @@
-import type { App, Component, EventRef, WorkspaceLeaf } from "obsidian";
+import type { App, Component, EventRef } from "obsidian";
+import type { ComponentChild as UiNode } from "preact";
 
 import type { AppServerClient } from "../../../app-server/client";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
@@ -7,7 +8,7 @@ import type { ChatState, ChatStateStore } from "../chat-state";
 import type { CodexChatHost } from "../chat-host";
 import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
-import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks, ChatViewRenderScheduleOptions } from "./lifecycle";
+import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
 import type { ComposerMetaViewModel } from "./model";
 
 export interface ChatControllerCompositionPorts {
@@ -17,6 +18,8 @@ export interface ChatControllerCompositionPorts {
   client: ChatPanelClientContext;
   lifecycle: ChatPanelLifecycleContext;
   render: ChatPanelRenderContext;
+  messages: ChatPanelMessageContext;
+  composerView: ChatPanelComposerContext;
   runtime: ChatPanelRuntimeContext;
   thread: ChatThreadContext;
   liveState: ChatPanelLiveStateContext;
@@ -30,8 +33,6 @@ interface ChatPanelObsidianContext {
   viewId: string;
   registerEvent: (eventRef: EventRef) => void;
   registerPointerDown: (handler: (event: PointerEvent) => void) => void;
-  registerActiveLeafChange: (handler: (leaf: WorkspaceLeaf | null) => void) => void;
-  handleActiveLeafChange: (leaf: WorkspaceLeaf | null) => void;
   archiveAdapter: () => ArchiveExportAdapter;
 }
 
@@ -39,6 +40,7 @@ interface ChatPanelStateContext {
   stateStore: ChatStateStore;
   getState: () => ChatState;
   systemItem: (text: string) => DisplayItem;
+  structuredSystemItem: (text: string, details: DisplayDetailSection[]) => DisplayItem;
 }
 
 interface ChatPanelClientContext {
@@ -66,12 +68,21 @@ interface ChatPanelLifecycleContext {
 
 interface ChatPanelRenderContext {
   panelRoot: () => HTMLElement | null;
+  toolbarNode: () => UiNode;
+  goalNode: () => UiNode;
+  messagesNode: () => UiNode;
+  composerNode: () => UiNode;
+  closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
+  schedule: () => void;
+}
+
+interface ChatPanelMessageContext {
   pendingRequestsSignature: () => string;
-  activeComposerThreadName: () => string | null;
+}
+
+interface ChatPanelComposerContext {
   composerPlaceholder: () => string;
   composerMetaViewModel: () => ComposerMetaViewModel;
-  closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
-  schedule: (options?: ChatViewRenderScheduleOptions) => void;
 }
 
 interface ChatPanelRuntimeContext {
@@ -98,6 +109,7 @@ interface ChatPanelLiveStateContext {
 
 interface ChatPanelScrollContext {
   forceBottom: () => void;
+  followBottom: () => void;
   preservePosition: () => void;
 }
 

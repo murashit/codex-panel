@@ -7,8 +7,7 @@ import type { CodexChatHost } from "../../../src/features/chat/chat-host";
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
 import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
-import { createChatState, type ChatState } from "../../../src/features/chat/chat-state";
-import { composerSlotSnapshot } from "../../../src/features/chat/panel/snapshot";
+import type { ChatState } from "../../../src/features/chat/chat-state";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import { notices } from "../../mocks/obsidian";
@@ -184,18 +183,31 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("renders the chat shell on the view content root", async () => {
     const view = await chatView();
+    const siblingRoots = Array.from(view.containerEl.children).filter((child) => child !== view.contentEl);
 
     await view.onOpen();
 
-    const root = view.containerEl.children[1] as HTMLElement;
+    const root = view.contentEl;
     expect(root.classList.contains("codex-panel")).toBe(true);
     expect(root.querySelector(":scope > .codex-panel__toolbar")).not.toBeNull();
-    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__slot--messages")).not.toBeNull();
-    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__slot--composer")).not.toBeNull();
+    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__region--messages")).not.toBeNull();
+    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__region--composer")).not.toBeNull();
+    expect(siblingRoots.every((sibling) => !sibling.classList.contains("codex-panel") && sibling.childElementCount === 0)).toBe(true);
+  });
+
+  it("unmounts the chat shell from the view content root on close", async () => {
+    const view = await chatView();
+    const siblingRoots = Array.from(view.containerEl.children).filter((child) => child !== view.contentEl);
+
+    await view.onOpen();
+    await view.onClose();
+
+    expect(view.contentEl.classList.contains("codex-panel")).toBe(true);
+    expect(view.contentEl.childElementCount).toBe(0);
+    expect(siblingRoots.every((sibling) => !sibling.classList.contains("codex-panel") && sibling.childElementCount === 0)).toBe(true);
   });
 
   it("wires open lifecycle registrations through the view controller host", async () => {
-    const activeLeafChangeListeners: ((leaf: unknown) => void)[] = [];
     const addEventListener = vi.spyOn(document, "addEventListener");
     const cachedThreadList = vi.fn(() => null);
     const cachedAppServerMetadata = vi.fn(() => null);
@@ -203,12 +215,11 @@ describe("CodexChatView connection lifecycle", () => {
       cachedThreadList,
       cachedAppServerMetadata,
     });
-    const view = await chatView({ activeLeafChangeListeners, host });
+    const view = await chatView({ host });
 
     await view.onOpen();
 
     expect(addEventListener).toHaveBeenCalledWith("pointerdown", expect.any(Function));
-    expect(activeLeafChangeListeners).toHaveLength(1);
     expect(cachedThreadList).toHaveBeenCalledOnce();
     expect(cachedAppServerMetadata).toHaveBeenCalledOnce();
 
@@ -430,35 +441,6 @@ describe("CodexChatView connection lifecycle", () => {
     expect(state.connection.runtimeConfig).toEqual({ ...emptyRuntimeConfigSnapshot(), model: "gpt-cached" });
     expect(state.connection.availableModels).toEqual([]);
     expect(state.connection.availableSkills).toEqual([{ name: "writer", enabled: true }]);
-  });
-
-  it("tracks composer slot dependencies for model and skill suggestions", async () => {
-    await chatView();
-    const state = createChatState();
-    state.connection.runtimeConfig = runtimeConfig("gpt-configured");
-    state.connection.availableSkills = [skillFixture("writer")];
-
-    const base = composerSlotSnapshot(state, null);
-
-    expect(
-      composerSlotSnapshot({ ...state, connection: { ...state.connection, runtimeConfig: runtimeConfig("gpt-updated") } }, null),
-    ).not.toBe(base);
-    expect(
-      composerSlotSnapshot({ ...state, runtime: { ...state.runtime, requestedModel: { kind: "set", value: "gpt-requested" } } }, null),
-    ).not.toBe(base);
-    expect(composerSlotSnapshot({ ...state, runtime: { ...state.runtime, selectedCollaborationMode: "plan" } }, null)).not.toBe(base);
-    expect(
-      composerSlotSnapshot(
-        { ...state, runtime: { ...state.runtime, requestedApprovalsReviewer: { kind: "set", value: "auto_review" } } },
-        null,
-      ),
-    ).not.toBe(base);
-    expect(
-      composerSlotSnapshot({ ...state, runtime: { ...state.runtime, requestedServiceTier: { kind: "set", value: "fast" } } }, null),
-    ).not.toBe(base);
-    expect(
-      composerSlotSnapshot({ ...state, connection: { ...state.connection, availableSkills: [skillFixture("reader")] } }, null),
-    ).not.toBe(base);
   });
 
   it("hydrates a focused restored thread immediately", async () => {
@@ -1093,20 +1075,6 @@ function threadFixture(threadId: string): Thread {
     name: null,
     turns: [],
   };
-}
-
-function runtimeConfig(model: string): ChatState["connection"]["runtimeConfig"] {
-  return { ...emptyRuntimeConfigSnapshot(), model };
-}
-
-function skillFixture(name: string): ChatState["connection"]["availableSkills"][number] {
-  return {
-    name,
-    description: `${name} skill`,
-    path: `/skills/${name}/SKILL.md`,
-    scope: "repo",
-    enabled: true,
-  } as ChatState["connection"]["availableSkills"][number];
 }
 
 function turnWithUserMessage(text: string) {
