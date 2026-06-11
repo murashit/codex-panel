@@ -137,9 +137,11 @@ export class SelectionRewritePopover {
         prompt: buildSelectionRewritePrompt(this.options.state),
         runtimeSettings: this.options.runtimeSettings,
         onActivity: (activity) => {
+          if (generationRun.abortController.signal.aborted || !this.isActiveGenerationRun(generationRun)) return;
           this.updateActivity(activity);
         },
         onPreview: (text) => {
+          if (generationRun.abortController.signal.aborted || !this.isActiveGenerationRun(generationRun)) return;
           this.updatePreview(text);
         },
         signal: generationRun.abortController.signal,

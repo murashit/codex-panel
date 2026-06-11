@@ -283,6 +283,29 @@ describe("selection rewrite popover", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("refuses to apply when the current editor range no longer matches the original selection", async () => {
+    const editor = editorFixture({ currentText: "Changed sentence." });
+    const popover = new SelectionRewritePopover(
+      popoverOptions({
+        editor: editor.editor,
+        state: rewriteState({ status: "preview", replacementText: "Rewritten sentence." }),
+      }),
+    );
+
+    openPopover(popover);
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Apply"]')).click();
+      await Promise.resolve();
+    });
+
+    expect(editor.getRange).toHaveBeenCalledWith({ line: 1, ch: 0 }, { line: 1, ch: 22 });
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+    expect(document.querySelector(".codex-panel-selection-rewrite")).not.toBeNull();
+    expect(document.body.textContent).toContain("Selection changed. Generate the rewrite again before applying.");
+
+    closePopover(popover);
+  });
+
   it("unmounts and removes the Preact popover when closed", () => {
     const onClose = vi.fn();
     const popover = new SelectionRewritePopover(popoverOptions({ onClose }));
@@ -343,6 +366,35 @@ describe("selection rewrite popover", () => {
 
     expect(document.querySelector(".codex-panel-selection-rewrite")).toBeNull();
     expect(document.body.textContent).not.toContain("Late rewrite");
+  });
+
+  it("ignores late generation preview callbacks after close", async () => {
+    const rewrite = deferred<{ replacementText: string }>();
+    const options = popoverOptions();
+    const preview: { current: ((text: string) => void) | null } = { current: null };
+    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockImplementation((runOptions) => {
+      preview.current = runOptions.onPreview ?? null;
+      return rewrite.promise;
+    });
+    const popover = new SelectionRewritePopover(options);
+
+    openPopover(popover);
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+      await Promise.resolve();
+    });
+
+    closePopover(popover);
+    const latePreview = preview.current;
+    if (!latePreview) throw new Error("Expected preview callback to be captured");
+    latePreview("Late partial");
+
+    expect(options.state.streamText).toBe("");
+
+    rewrite.resolve({ replacementText: "Late rewrite" });
+    await act(async () => {
+      await flushPromises();
+    });
   });
 
   it("keeps only one generation run active while a rewrite is pending", async () => {
@@ -579,18 +631,21 @@ function popoverOptions(
   };
 }
 
-function editorFixture(): {
+function editorFixture(options: { currentText?: string } = {}): {
   editor: ConstructorParameters<typeof SelectionRewritePopover>[0]["editor"];
+  getRange: ReturnType<typeof vi.fn>;
   replaceRange: ReturnType<typeof vi.fn>;
 } {
+  const getRange = vi.fn(() => options.currentText ?? "Revise this sentence.");
   const replaceRange = vi.fn();
   return {
     editor: {
       getCursor: () => ({ line: 1, ch: 22 }),
-      getRange: vi.fn(() => "Revise this sentence."),
+      getRange,
       posToOffset: () => 0,
       replaceRange,
     } as unknown as ConstructorParameters<typeof SelectionRewritePopover>[0]["editor"],
+    getRange,
     replaceRange,
   };
 }
