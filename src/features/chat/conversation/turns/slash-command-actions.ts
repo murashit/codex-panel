@@ -11,9 +11,11 @@ import {
 import type { SlashCommandName } from "../composer/slash-commands";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ThreadGoal, ThreadGoalStatus } from "../../../../app-server/thread-goal";
 import { submissionStateSnapshot } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
+import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective-settings";
 
 export interface SlashCommandThreadPort {
   startNewThread: () => Promise<void>;
@@ -109,6 +111,7 @@ async function executeSlashCommand(
     },
     setRequestedModel: (model) => host.runtime.setRequestedModel(model),
     setRequestedReasoningEffort: (effort) => host.runtime.setRequestedReasoningEffort(effort),
+    supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
     activeGoal: () => host.goals.activeGoal(),
     setGoalObjective: (threadId, objective, tokenBudget) => host.goals.setObjective(threadId, objective, tokenBudget),
     setGoalStatus: (threadId, status) => host.goals.setStatus(threadId, status),
@@ -119,6 +122,35 @@ async function executeSlashCommand(
     modelStatusLines: () => host.status.modelStatusLines(),
     effortStatusLines: () => host.status.effortStatusLines(),
   });
+}
+
+function supportedReasoningEfforts(state: ReturnType<ChatStateStore["getState"]>): ReasoningEffort[] {
+  const config = runtimeConfigOrDefault(state.connection.runtimeConfig);
+  const model = findModelMetadataByIdOrName(state.connection.availableModels, currentModel(runtimeSnapshot(state), config));
+  return supportedEffortsForModelMetadata(model);
+}
+
+function runtimeSnapshot(state: ReturnType<ChatStateStore["getState"]>) {
+  return {
+    runtimeConfig: state.connection.runtimeConfig,
+    activeThreadId: state.activeThread.id,
+    activeModel: state.runtime.activeModel,
+    activeReasoningEffort: state.runtime.activeReasoningEffort,
+    activeCollaborationMode: state.runtime.activeCollaborationMode,
+    activeServiceTier: state.runtime.activeServiceTier,
+    activeApprovalPolicy: state.runtime.activeApprovalPolicy,
+    activeApprovalsReviewer: state.runtime.activeApprovalsReviewer,
+    activePermissionProfile: state.runtime.activePermissionProfile,
+    requestedModel: state.runtime.requestedModel,
+    requestedReasoningEffort: state.runtime.requestedReasoningEffort,
+    requestedApprovalsReviewer: state.runtime.requestedApprovalsReviewer,
+    selectedCollaborationMode: state.runtime.selectedCollaborationMode,
+    requestedServiceTier: state.runtime.requestedServiceTier,
+    tokenUsage: state.activeThread.tokenUsage,
+    rateLimit: state.connection.rateLimit,
+    hasThreadTurns: state.transcript.displayItems.some((item) => item.turnId),
+    availableModels: state.connection.availableModels,
+  };
 }
 
 async function referencedThreadInput(

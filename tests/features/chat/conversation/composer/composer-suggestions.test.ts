@@ -369,6 +369,13 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/reasoning high ", notes, [], [], models, "gpt-5.5")).toEqual([]);
   });
 
+  it("does not suggest fixed reasoning effort fallbacks without model support data", () => {
+    expect(activeComposerSuggestions("/reasoning h", notes, [], [], [], null)).toEqual([]);
+    expect(activeComposerSuggestions("/reasoning ", notes, [], [], [model("gpt-5.5", [])], "gpt-5.5")).toEqual([
+      expect.objectContaining({ replacement: "default" }),
+    ]);
+  });
+
   it("adds a trailing space for slash command and skill insertions only", () => {
     const slash = expectPresent(activeComposerSuggestions("/sta", notes, [])[0]);
     const skill = expectPresent(

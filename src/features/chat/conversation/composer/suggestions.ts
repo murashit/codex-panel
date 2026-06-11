@@ -2,7 +2,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
 import { prepareFuzzySearch, sortSearchResults, type SearchResult } from "obsidian";
 import { findModelMetadataByIdOrName, sortedModelMetadata } from "../../../../domain/catalog/metadata";
-import { isReasoningEffort, REASONING_EFFORTS, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
+import { supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import { shortThreadId } from "../../../../utils";
@@ -343,9 +343,9 @@ function activeReasoningEffortSuggestions(
   if (!completion) return null;
 
   const { query, start } = completion;
-  if (query === "default" || isReasoningEffort(query)) return null;
   const model = findModelMetadataByIdOrName(models, currentModel);
-  const efforts = model ? supportedEffortsForModelMetadata(model) : REASONING_EFFORTS;
+  const efforts = model ? supportedEffortsForModelMetadata(model) : [];
+  if (query === "default" || efforts.includes(query)) return null;
   const modelDetail = model ? `Supported by ${model.model}` : "Supported reasoning effort";
   const suggestions = [
     {

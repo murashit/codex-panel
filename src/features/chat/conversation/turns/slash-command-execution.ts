@@ -41,6 +41,7 @@ export interface SlashCommandExecutionContext {
   addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   setRequestedModel: (model: string | null) => boolean | undefined | Promise<boolean | undefined>;
   setRequestedReasoningEffort: (effort: ReasoningEffort | null) => boolean | undefined | Promise<boolean | undefined>;
+  supportedReasoningEfforts: () => readonly ReasoningEffort[];
   activeGoal: () => ThreadGoal | null;
   setGoalObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<boolean>;
   setGoalStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
@@ -226,6 +227,10 @@ export async function executeSlashCommand(
   if (command === "reasoning") {
     const requested = parseReasoningEffortOverride(args);
     if (requested !== undefined) {
+      if (requested !== null && !context.supportedReasoningEfforts().includes(requested)) {
+        context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
+        return;
+      }
       const applied = await context.setRequestedReasoningEffort(requested);
       if (applied === false) return;
       context.addSystemMessage(reasoningEffortOverrideMessage(requested));

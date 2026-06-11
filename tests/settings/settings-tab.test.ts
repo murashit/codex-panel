@@ -205,6 +205,23 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
   });
 
+  it("uses model-provided reasoning efforts in helper settings without fixed fallbacks", async () => {
+    const tab = newSettingsTab({
+      cachedModels: modelMetadataFromAppServerModels([model("gpt-5.5", false, false, ["extreme"])]),
+      settings: {
+        threadNamingModel: "gpt-5.5",
+        threadNamingEffort: "legacy",
+        rewriteSelectionModel: "gpt-5.5",
+        rewriteSelectionEffort: "extreme",
+      },
+    });
+
+    tab.display();
+
+    expect(selectOptions(tab, "Automatic thread naming effort")).toEqual(["Codex default", "legacy (saved)", "extreme"]);
+    expect(selectOptions(tab, "Selection rewrite effort")).toEqual(["Codex default", "extreme"]);
+  });
+
   it("keeps successful sections when one settings data request fails", async () => {
     const client = settingsClient({
       models: [model("gpt-5.4")],
@@ -351,6 +368,12 @@ function newSettingsTab(
     cachedModels?: ModelMetadata[];
     publishModels?: (models: ModelMetadata[]) => void;
     refreshOpenViews?: () => void;
+    settings?: Partial<{
+      threadNamingModel: string | null;
+      threadNamingEffort: string | null;
+      rewriteSelectionModel: string | null;
+      rewriteSelectionEffort: string | null;
+    }>;
   } = {},
 ): CodexPanelSettingTab {
   return new CodexPanelSettingTab(
@@ -359,10 +382,10 @@ function newSettingsTab(
     {
       settings: {
         codexPath: "codex",
-        threadNamingModel: null,
-        threadNamingEffort: null,
-        rewriteSelectionModel: null,
-        rewriteSelectionEffort: null,
+        threadNamingModel: options.settings?.threadNamingModel ?? null,
+        threadNamingEffort: options.settings?.threadNamingEffort ?? null,
+        rewriteSelectionModel: options.settings?.rewriteSelectionModel ?? null,
+        rewriteSelectionEffort: options.settings?.rewriteSelectionEffort ?? null,
         showToolbar: true,
         sendShortcut: options.sendShortcut ?? "enter",
         scrollThreadFromComposerEdges: false,
@@ -429,4 +452,10 @@ function inputForSetting(tab: CodexPanelSettingTab, name: string): HTMLInputElem
     (element) => element.querySelector(".setting-item-name")?.textContent === name,
   );
   return setting?.querySelector("input") ?? null;
+}
+
+function selectOptions(tab: CodexPanelSettingTab, ariaLabel: string): string[] {
+  const select = tab.containerEl.querySelector<HTMLSelectElement>(`select[aria-label="${ariaLabel}"]`);
+  if (!select) throw new Error(`Missing select: ${ariaLabel}`);
+  return Array.from(select.options).map((option) => option.textContent);
 }

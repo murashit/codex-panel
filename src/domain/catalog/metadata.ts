@@ -42,21 +42,20 @@ export interface HookItem {
   trustStatus: HookTrustStatus;
 }
 
-export const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh"] as const;
+export type ReasoningEffort = string;
 
-export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
-
-export function isReasoningEffort(value: unknown): value is ReasoningEffort {
-  return typeof value === "string" && (REASONING_EFFORTS as readonly string[]).includes(value);
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 export function normalizeReasoningEffort(value: unknown): ReasoningEffort | null {
-  return isReasoningEffort(value) ? value : null;
+  return nonEmptyString(value) ? value.trim() : null;
 }
 
 export function supportedEffortsForModelMetadata(model: ModelMetadata | null): ReasoningEffort[] {
-  const efforts = model?.supportedReasoningEfforts.filter(isReasoningEffort) ?? [];
-  return efforts.length > 0 ? efforts : [...REASONING_EFFORTS];
+  return (
+    model?.supportedReasoningEfforts.map(normalizeReasoningEffort).filter((effort): effort is ReasoningEffort => effort !== null) ?? []
+  );
 }
 
 export function defaultEffortForModelMetadata(model: ModelMetadata | null): ReasoningEffort | null {

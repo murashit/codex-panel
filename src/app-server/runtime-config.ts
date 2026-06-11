@@ -9,7 +9,7 @@ import {
   type ApprovalsReviewer,
   type ServiceTier,
 } from "./runtime-policy";
-import { isReasoningEffort, type ReasoningEffort } from "../domain/catalog/metadata";
+import { normalizeReasoningEffort, type ReasoningEffort } from "../domain/catalog/metadata";
 
 type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
 type Verbosity = "low" | "medium" | "high";
@@ -71,7 +71,7 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: AppServerConf
     profile: selectedConfigProfile(response.layers),
     model: nonEmptyStringOrNull(config.model),
     modelProvider: nonEmptyStringOrNull(config.model_provider),
-    reasoningEffort: isReasoningEffort(effort) ? effort : null,
+    reasoningEffort: normalizeReasoningEffort(effort),
     rawReasoningEffort: nonEmptyStringOrNull(effort),
     reasoningSummary: reasoningSummaryOrNull(config.model_reasoning_summary),
     verbosity: verbosityOrNull(config.model_verbosity),

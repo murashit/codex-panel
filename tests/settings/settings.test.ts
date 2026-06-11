@@ -84,7 +84,7 @@ describe("settings", () => {
     });
     expect(normalizeSettings({ threadNamingModel: 1, threadNamingEffort: "invalid" })).toMatchObject({
       threadNamingModel: DEFAULT_SETTINGS.threadNamingModel,
-      threadNamingEffort: DEFAULT_SETTINGS.threadNamingEffort,
+      threadNamingEffort: "invalid",
     });
   });
 
@@ -95,7 +95,7 @@ describe("settings", () => {
     });
     expect(normalizeSettings({ rewriteSelectionModel: 1, rewriteSelectionEffort: "invalid" })).toMatchObject({
       rewriteSelectionModel: DEFAULT_SETTINGS.rewriteSelectionModel,
-      rewriteSelectionEffort: DEFAULT_SETTINGS.rewriteSelectionEffort,
+      rewriteSelectionEffort: "invalid",
     });
   });
 

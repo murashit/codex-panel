@@ -33,6 +33,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     addStructuredSystemMessage: vi.fn(),
     setRequestedModel: vi.fn(),
     setRequestedReasoningEffort: vi.fn(),
+    supportedReasoningEfforts: () => ["low", "medium", "high"],
     activeGoal: vi.fn(() => null),
     setGoalObjective: vi.fn().mockResolvedValue(true),
     setGoalStatus: vi.fn().mockResolvedValue(true),
@@ -643,6 +644,17 @@ describe("slash commands", () => {
     expect(ctx.setRequestedModel).toHaveBeenCalledWith("gpt-5.5");
     expect(ctx.setRequestedReasoningEffort).toHaveBeenCalledWith("high");
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("preserves supported reasoning effort casing", async () => {
+    const ctx = context({
+      supportedReasoningEfforts: () => ["CaseSensitive"],
+    });
+
+    await executeSlashCommand("reasoning", "CaseSensitive", ctx);
+
+    expect(ctx.setRequestedReasoningEffort).toHaveBeenCalledWith("CaseSensitive");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort set to CaseSensitive for subsequent turns.");
   });
 
   it("shows MCP server status", async () => {

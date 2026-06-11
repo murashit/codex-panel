@@ -210,7 +210,7 @@ describe("chat view model", () => {
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
     const selectedModels: (string | null)[] = [];
-    const selectedEfforts: string[] = [];
+    const selectedEfforts: (string | null)[] = [];
 
     const choices = runtimeComposerChoices({
       state,
@@ -219,7 +219,7 @@ describe("chat view model", () => {
         selectedModels.push(model);
       },
       setRequestedReasoningEffort: (effort) => {
-        if (effort) selectedEfforts.push(effort);
+        selectedEfforts.push(effort);
       },
     });
 
@@ -227,12 +227,16 @@ describe("chat view model", () => {
       { label: "gpt-5-mini", selected: false },
       { label: "gpt-5.5", selected: true },
     ]);
-    expect(choices.effortChoices).toMatchObject([{ label: "high", selected: true }]);
+    expect(choices.effortChoices).toMatchObject([
+      { label: "Codex default", selected: false },
+      { label: "high", selected: true },
+    ]);
 
     choices.modelChoices[0]?.onClick();
     choices.effortChoices[0]?.onClick();
+    choices.effortChoices[1]?.onClick();
     expect(selectedModels).toEqual(["gpt-5-mini"]);
-    expect(selectedEfforts).toEqual(["high"]);
+    expect(selectedEfforts).toEqual([null, "high"]);
   });
 
   it("derives active thread titles and composer placeholders", () => {

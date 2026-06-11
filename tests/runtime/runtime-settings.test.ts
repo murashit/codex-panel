@@ -40,7 +40,8 @@ describe("runtime settings", () => {
   it("parses reasoning effort overrides", () => {
     expect(parseReasoningEffortOverride("high")).toBe("high");
     expect(parseReasoningEffortOverride("default")).toBeNull();
-    expect(parseReasoningEffortOverride("extreme")).toBeUndefined();
+    expect(parseReasoningEffortOverride("extreme")).toBe("extreme");
+    expect(parseReasoningEffortOverride("CaseSensitive")).toBe("CaseSensitive");
   });
 
   it("formats runtime override messages", () => {
@@ -369,7 +370,7 @@ describe("runtime settings", () => {
     });
   });
 
-  it("does not treat unknown catalog default reasoning efforts as runtime settings", () => {
+  it("uses catalog default reasoning efforts from model metadata", () => {
     const model = { ...modelFixture("gpt-catalog-default"), isDefault: true, defaultReasoningEffort: "extreme" };
     const sections = runtimeConfigSections(
       runtimeSnapshot({
@@ -383,7 +384,7 @@ describe("runtime settings", () => {
     );
 
     expect(runtimeRows["configured model"]).toBe("gpt-catalog-default");
-    expect(runtimeRows["configured effort"]).toBe("(not reported)");
+    expect(runtimeRows["configured effort"]).toBe("extreme");
   });
 
   it("shows effective profile runtime and policy values in status details", () => {

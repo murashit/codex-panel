@@ -7,7 +7,7 @@ import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
 import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
-import { REASONING_EFFORTS, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
+import { supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata } from "../domain/catalog/metadata";
 import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
@@ -150,11 +150,14 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         const options = this.effortOptions(this.plugin.settings.threadNamingModel);
         dropdown.selectEl.ariaLabel = "Automatic thread naming effort";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
+        if (current && !options.includes(current)) {
+          dropdown.addOption(current, `${current} (saved)`);
+        }
         for (const effort of options) {
           dropdown.addOption(effort, effort);
         }
-        dropdown.setValue(current && options.includes(current) ? current : CODEX_DEFAULT_VALUE).onChange(async (value) => {
-          this.plugin.settings.threadNamingEffort = value === CODEX_DEFAULT_VALUE ? null : (value as ReasoningEffort);
+        dropdown.setValue(current ?? CODEX_DEFAULT_VALUE).onChange(async (value) => {
+          this.plugin.settings.threadNamingEffort = value === CODEX_DEFAULT_VALUE ? null : value;
           await this.plugin.saveSettings();
         });
       });
@@ -187,11 +190,14 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         const options = this.effortOptions(this.plugin.settings.rewriteSelectionModel);
         dropdown.selectEl.ariaLabel = "Selection rewrite effort";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
+        if (current && !options.includes(current)) {
+          dropdown.addOption(current, `${current} (saved)`);
+        }
         for (const effort of options) {
           dropdown.addOption(effort, effort);
         }
-        dropdown.setValue(current && options.includes(current) ? current : CODEX_DEFAULT_VALUE).onChange(async (value) => {
-          this.plugin.settings.rewriteSelectionEffort = value === CODEX_DEFAULT_VALUE ? null : (value as ReasoningEffort);
+        dropdown.setValue(current ?? CODEX_DEFAULT_VALUE).onChange(async (value) => {
+          this.plugin.settings.rewriteSelectionEffort = value === CODEX_DEFAULT_VALUE ? null : value;
           await this.plugin.saveSettings();
         });
       });
@@ -515,7 +521,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private effortOptions(modelIdOrName: string | null): ReasoningEffort[] {
     const model = this.selectedModel(modelIdOrName);
-    return model ? supportedEffortsForModelMetadata(model) : [...REASONING_EFFORTS];
+    return model ? supportedEffortsForModelMetadata(model) : [];
   }
 
   private namingEffortSupported(effort: ReasoningEffort | null): boolean {

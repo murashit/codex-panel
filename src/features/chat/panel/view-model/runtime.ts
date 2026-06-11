@@ -63,13 +63,22 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   }
 
   const activeEffort = currentReasoningEffort(input.snapshot, config);
-  const effortChoices: RuntimeChoice[] = supportedReasoningEfforts(input.snapshot).map((effort) => ({
-    label: effort,
-    selected: activeEffort === effort,
-    onClick: () => {
-      input.setRequestedReasoningEffort(effort);
+  const effortChoices: RuntimeChoice[] = [
+    {
+      label: "Codex default",
+      selected: activeEffort === null,
+      onClick: () => {
+        input.setRequestedReasoningEffort(null);
+      },
     },
-  }));
+    ...supportedReasoningEfforts(input.snapshot).map((effort) => ({
+      label: effort,
+      selected: activeEffort === effort,
+      onClick: () => {
+        input.setRequestedReasoningEffort(effort);
+      },
+    })),
+  ];
 
   return { modelChoices, effortChoices };
 }

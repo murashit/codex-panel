@@ -1,4 +1,4 @@
-import { isReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
 
 const DEFAULT_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
@@ -10,10 +10,10 @@ export function parseModelOverride(args: string): string | null | undefined {
 }
 
 export function parseReasoningEffortOverride(args: string): ReasoningEffort | null | undefined {
-  const effort = args.trim().toLowerCase();
+  const effort = args.trim();
   if (!effort) return undefined;
-  if (DEFAULT_ALIASES.has(effort)) return null;
-  return isReasoningEffort(effort) ? effort : undefined;
+  if (DEFAULT_ALIASES.has(effort.toLowerCase())) return null;
+  return normalizeReasoningEffort(effort) ?? undefined;
 }
 
 export function modelOverrideMessage(model: string | null): string {
