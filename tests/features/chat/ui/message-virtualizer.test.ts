@@ -218,6 +218,51 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
+  it("keeps following the end when pinned content grows in the DOM before measurement", () => {
+    withAnimationFrame((flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+
+      renderVirtualItems(controller, container, ["first", "markdown"], [200, 100], "follow-bottom");
+      flushFrames();
+      flushFrames();
+      expect(container.scrollTop).toBe(200);
+
+      container.dataset["testScrollHeight"] = "461";
+      container.dataset["testClampToScrollHeight"] = "true";
+      container.dataset["testTotalSize"] = "450";
+      measureVirtualItem(controller, "markdown", 1, 250);
+
+      expect(container.scrollTop).toBe(361);
+
+      delete container.dataset["testScrollHeight"];
+      flushFrames();
+
+      expect(container.scrollTop).toBe(350);
+      controller.dispose();
+    });
+  });
+
+  it("keeps following the end when a non-last rendered message grows while pinned", () => {
+    withAnimationFrame((flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+
+      renderVirtualItems(controller, container, ["first", "markdown", "live"], [160, 100, 80], "follow-bottom");
+      flushFrames();
+      flushFrames();
+      expect(container.scrollTop).toBe(240);
+
+      container.dataset["testScrollHeight"] = "500";
+      container.dataset["testClampToScrollHeight"] = "true";
+      container.dataset["testTotalSize"] = "500";
+      measureVirtualItem(controller, "markdown", 1, 260);
+
+      expect(container.scrollTop).toBe(400);
+      controller.dispose();
+    });
+  });
+
   it("keeps the pending end settle when a stale programmatic scroll event fires during pinned item growth", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
@@ -377,6 +422,26 @@ describe("TestMessageStreamVirtualizer", () => {
     measureVirtualItem(controller, "streaming", 1, 250);
 
     expect(container.scrollTop).toBe(100);
+    controller.dispose();
+  });
+
+  it("keeps the current reading offset when an earlier item resizes while unpinned", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["first", "second", "third"], [300, 300, 300], "preserve");
+    container.scrollTop = 360;
+    container.dispatchEvent(new Event("scroll"));
+
+    container.dataset["testTotalSize"] = "1100";
+    measureVirtualItem(controller, "first", 0, 500);
+
+    expect(container.scrollTop).toBe(360);
+
+    container.dataset["testTotalSize"] = "800";
+    measureVirtualItem(controller, "first", 0, 200);
+
+    expect(container.scrollTop).toBe(360);
     controller.dispose();
   });
 
