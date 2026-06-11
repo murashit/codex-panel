@@ -10,11 +10,11 @@ import {
   type ChatState,
   type ChatStateStore,
 } from "../../../../../src/features/chat/state/reducer";
+import { ChatMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/renderer";
 import {
-  ChatMessageRenderer,
   bindRenderedWikiLinks,
   type RenderedMarkdownLinkContext,
-} from "../../../../../src/features/chat/ui/message-stream";
+} from "../../../../../src/features/chat/ui/message-stream/rendered-markdown-links";
 import type { MessageStreamScrollIntent } from "../../../../../src/features/chat/ui/message-virtualizer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { notices } from "../../../../mocks/obsidian";

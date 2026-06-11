@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { appServerThreadGoalUpdate, threadGoalFromAppServerGoal } from "../../src/app-server/thread-goal";
+import {
+  appServerThreadGoalUpdate,
+  appServerThreadGoalUserHistoryItem,
+  threadGoalFromAppServerGoal,
+} from "../../src/app-server/thread-goal";
 
 describe("app-server thread goal model", () => {
   it("maps app-server goals into panel-owned goal snapshots", () => {
@@ -32,6 +36,14 @@ describe("app-server thread goal model", () => {
     expect(appServerThreadGoalUpdate({ objective: "Updated", tokenBudget: null })).toEqual({
       objective: "Updated",
       tokenBudget: null,
+    });
+  });
+
+  it("builds the app-server history item for goal creation messages", () => {
+    expect(appServerThreadGoalUserHistoryItem("Finish this")).toEqual({
+      type: "message",
+      role: "user",
+      content: [{ type: "input_text", text: "Finish this" }],
     });
   });
 });

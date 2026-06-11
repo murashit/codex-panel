@@ -1,4 +1,3 @@
-import { clearLocalTurnAction, closePanelsAction } from "../state/actions";
 import { activeThreadId } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
 
@@ -28,13 +27,13 @@ export function createChatReconnectActions(host: ChatReconnectActionsHost): Chat
 
 async function reconnectPanel(host: ChatReconnectActionsHost): Promise<void> {
   const threadId = activeThreadId(host.stateStore.getState());
-  host.stateStore.dispatch(closePanelsAction());
+  host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   host.invalidateConnectionWork();
   host.invalidateResumeWork();
   host.clearDeferredDiagnostics();
   host.reconnect();
   host.clearClient();
-  host.stateStore.dispatch(clearLocalTurnAction());
+  host.stateStore.dispatch({ type: "turn/scoped-cleared" });
   host.setStatus("Reconnecting...");
   host.render();
 

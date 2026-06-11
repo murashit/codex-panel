@@ -35,6 +35,7 @@ describe("goalBannerNode", () => {
 
     expect(parent.textContent).toContain("Goal");
     expect(document.activeElement).toBe(parent.querySelector("textarea"));
+    expect(parent.querySelector("textarea")?.getAttribute("aria-label")).toBe("Goal objective");
     await input(parent, "textarea", "New objective");
     await click(parent, '[aria-label="Save goal"]');
 

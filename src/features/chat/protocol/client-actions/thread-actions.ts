@@ -49,7 +49,7 @@ async function startThread(
   const client = host.currentClient();
   if (!client) return null;
   const serviceTier = serviceTierRequestForThreadStart(host.runtimeSnapshot());
-  const response = await client.startThread(host.vaultPath, serviceTier);
+  const response = await client.startThread({ cwd: host.vaultPath, serviceTier });
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();
   const activationResponse =

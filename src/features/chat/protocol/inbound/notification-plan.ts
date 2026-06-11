@@ -1,10 +1,12 @@
 import { activeThreadSettingsAppliedAction } from "../../state/actions";
 import type { McpServerStartupStatus } from "../../../../app-server/diagnostics";
 import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/runtime-metrics";
+import { completedConversationSummaryFromAppServerTurn } from "../../../../app-server/turn-model";
 import type { ServerNotification } from "../../../../generated/app-server/ServerNotification";
 import type { FileUpdateChange } from "../../../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem } from "../../../../generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../../../generated/app-server/v2/Turn";
+import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
 import { createAutoReviewResultItem, createReviewResultItem } from "../../display/review";
@@ -23,14 +25,21 @@ import { createSystemItem } from "../../display/system";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../../display/types";
 import { goalChangeItem } from "../../display/goal-messages";
 import { attachHookRunsToTurn, hookRunDisplayItem } from "../../display/hooks";
-import { routeServerNotification } from "./routing";
+import {
+  routeServerNotification,
+  type DiagnosticStatusNotificationMethod,
+  type StreamUpdateNotificationMethod,
+  type ThreadLifecycleNotificationMethod,
+  type TurnLifecycleNotificationMethod,
+  type UserVisibleNoticeNotificationMethod,
+} from "./routing";
 
 export type ChatNotificationEffect =
   | { type: "refresh-threads" }
   | { type: "refresh-rate-limits" }
   | { type: "refresh-skills"; forceReload: boolean }
   | { type: "publish-app-server-metadata" }
-  | { type: "maybe-name-thread"; threadId: string; turn: Turn }
+  | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ThreadConversationSummary | null }
   | { type: "notify-thread-archived"; threadId: string }
   | { type: "notify-thread-renamed"; threadId: string; name: string | null }
   | {
@@ -49,6 +58,231 @@ export type LocalItemIdFactory = (prefix: string) => string;
 
 const EMPTY_PLAN: ChatNotificationPlan = { actions: [], effects: [] };
 
+type ServerNotificationPlanner<M extends ServerNotification["method"]> = (
+  notification: Extract<ServerNotification, { method: M }>,
+) => ChatNotificationPlan;
+type ServerNotificationPlannerMap<M extends ServerNotification["method"]> = { [Method in M]: ServerNotificationPlanner<Method> };
+type ServerNotificationLocalPlanner<M extends ServerNotification["method"]> = (
+  notification: Extract<ServerNotification, { method: M }>,
+  localItemId: LocalItemIdFactory,
+) => ChatNotificationPlan;
+type ServerNotificationLocalPlannerMap<M extends ServerNotification["method"]> = {
+  [Method in M]: ServerNotificationLocalPlanner<Method>;
+};
+type ServerNotificationStatePlanner<M extends ServerNotification["method"]> = (
+  state: ChatState,
+  notification: Extract<ServerNotification, { method: M }>,
+  localItemId: LocalItemIdFactory,
+) => ChatNotificationPlan;
+type ServerNotificationStatePlannerMap<M extends ServerNotification["method"]> = {
+  [Method in M]: ServerNotificationStatePlanner<Method>;
+};
+
+const DIAGNOSTIC_STATUS_PLANNERS = {
+  "thread/tokenUsage/updated": (notification) =>
+    actionPlan({
+      type: "active-thread/token-usage-set",
+      tokenUsage: threadTokenUsageFromAppServerUsage(notification.params.tokenUsage),
+    }),
+  "account/rateLimits/updated": () => ({ actions: [], effects: [{ type: "refresh-rate-limits" }] }),
+  "skills/changed": () => ({ actions: [], effects: [{ type: "refresh-skills", forceReload: true }] }),
+  "mcpServer/startupStatus/updated": (notification) => ({
+    actions: [],
+    effects:
+      notification.params.name.length === 0
+        ? [{ type: "publish-app-server-metadata" }]
+        : [
+            {
+              type: "record-mcp-startup-status",
+              name: notification.params.name,
+              status: notification.params.status,
+              message: notification.params.error,
+            },
+            { type: "publish-app-server-metadata" },
+          ],
+  }),
+} satisfies ServerNotificationPlannerMap<DiagnosticStatusNotificationMethod>;
+
+const USER_VISIBLE_NOTICE_PLANNERS = {
+  "thread/compacted": (_notification, localItemId) => systemMessagePlan({ id: localItemId("system"), text: "Context compacted." }),
+  "model/rerouted": jsonNoticePlan,
+  deprecationNotice: jsonNoticePlan,
+  error: jsonNoticePlan,
+  warning: jsonNoticePlan,
+  configWarning: jsonNoticePlan,
+} satisfies ServerNotificationLocalPlannerMap<UserVisibleNoticeNotificationMethod>;
+
+const STREAM_UPDATE_PLANNERS = {
+  "item/agentMessage/delta": (state, notification) => {
+    const { params } = notification;
+    const displayItems = appendAssistantDelta(
+      completeReasoningItems(state.transcript.displayItems, params.turnId),
+      params.itemId,
+      params.turnId,
+      params.delta,
+    );
+    return actionPlan({ type: "transcript/items-replaced", items: displayItems });
+  },
+  "item/plan/delta": (state, notification) => {
+    const { params } = notification;
+    return actionPlan({
+      type: "transcript/items-replaced",
+      items: appendPlanDelta(state.transcript.displayItems, params.itemId, params.turnId, params.delta),
+    });
+  },
+  "turn/plan/updated": (_state, notification) =>
+    actionPlan({
+      type: "transcript/item-upserted",
+      item: planProgressDisplayItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
+    }),
+  "item/reasoning/summaryTextDelta": (state, notification) =>
+    appendToolTextPlan(state, notification.params.itemId, notification.params.turnId, "reasoning", notification.params.delta, "reasoning"),
+  "item/reasoning/textDelta": (state, notification) =>
+    appendToolTextPlan(state, notification.params.itemId, notification.params.turnId, "reasoning", notification.params.delta, "reasoning"),
+  "item/reasoning/summaryPartAdded": (state, notification) =>
+    appendToolTextPlan(state, notification.params.itemId, notification.params.turnId, "reasoning", "", "reasoning"),
+  "item/started": (_state, notification) => startedItemPlan(notification.params.item, notification.params.turnId),
+  "item/completed": (state, notification) => completedItemPlan(state, notification.params.item, notification.params.turnId),
+  "item/commandExecution/outputDelta": (state, notification) =>
+    actionPlan({
+      type: "transcript/items-replaced",
+      items: appendItemOutput(
+        state.transcript.displayItems,
+        notification.params.itemId,
+        notification.params.turnId,
+        notification.params.delta,
+        "command",
+        "Command running",
+      ),
+    }),
+  "item/fileChange/patchUpdated": (_state, notification) =>
+    fileChangePlan(notification.params.itemId, notification.params.turnId, notification.params.changes, "inProgress"),
+  "item/fileChange/outputDelta": (state, notification) =>
+    actionPlan({
+      type: "transcript/items-replaced",
+      items: appendItemOutput(
+        state.transcript.displayItems,
+        notification.params.itemId,
+        notification.params.turnId,
+        notification.params.delta,
+        "fileChange",
+        "File change inProgress",
+      ),
+    }),
+  "turn/diff/updated": (_state, notification) =>
+    actionPlan({ type: "transcript/turn-diff-updated", turnId: notification.params.turnId, diff: notification.params.diff }),
+  "hook/started": (state, notification) => hookRunPlan(state, notification.params.run, notification.params.turnId, "running"),
+  "hook/completed": (state, notification) =>
+    hookRunPlan(state, notification.params.run, notification.params.turnId, notification.params.run.status),
+  "item/mcpToolCall/progress": (state, notification) =>
+    actionPlan({
+      type: "transcript/items-replaced",
+      items: appendToolOutput(
+        state.transcript.displayItems,
+        notification.params.itemId,
+        notification.params.turnId,
+        notification.params.message,
+        "mcp progress",
+      ),
+    }),
+  "item/autoApprovalReview/started": autoApprovalReviewPlan,
+  "item/autoApprovalReview/completed": autoApprovalReviewPlan,
+  guardianWarning: (state, notification, localItemId) => {
+    const item = createReviewResultItem(localItemId("review"), notification.params.message);
+    if (isUnstructuredAutoReviewWarning(item) && hasStructuredAutoReviewResult(state.transcript.displayItems, activeTurnId(state))) {
+      return EMPTY_PLAN;
+    }
+    return actionPlan({ type: "transcript/item-upserted", item });
+  },
+} satisfies ServerNotificationStatePlannerMap<StreamUpdateNotificationMethod>;
+
+const TURN_LIFECYCLE_PLANNERS = {
+  "turn/started": (state, notification) =>
+    actionPlan({
+      type: "turn/started",
+      threadId: notification.params.threadId,
+      turnId: notification.params.turn.id,
+      displayItems: displayItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
+    }),
+  "turn/completed": (state, notification) => {
+    if (activeTurnId(state) !== notification.params.turn.id) return EMPTY_PLAN;
+    return {
+      actions: [
+        {
+          type: "turn/completed",
+          turnId: notification.params.turn.id,
+          status: notification.params.turn.status,
+          displayItems: completeReasoningItems(reconciledCompletedTurnItems(state, notification.params.turn), notification.params.turn.id),
+        },
+      ],
+      effects: [
+        {
+          type: "maybe-name-thread",
+          threadId: notification.params.threadId,
+          turnId: notification.params.turn.id,
+          completedSummary: completedConversationSummaryFromAppServerTurn(notification.params.turn),
+        },
+        { type: "refresh-threads" },
+      ],
+    };
+  },
+} satisfies ServerNotificationStatePlannerMap<TurnLifecycleNotificationMethod>;
+
+const THREAD_LIFECYCLE_PLANNERS = {
+  "thread/started": (state, notification) => {
+    if (!state.activeThread.id || state.activeThread.id === notification.params.thread.id) {
+      return actionPlan({ type: "active-thread/cwd-set", cwd: notification.params.thread.cwd });
+    }
+    return EMPTY_PLAN;
+  },
+  "thread/archived": (state, notification) => ({
+    actions: [
+      {
+        type: "thread-list/applied",
+        threads: state.threadList.listedThreads.filter((thread) => thread.id !== notification.params.threadId),
+      },
+      ...(state.activeThread.id === notification.params.threadId ? ([{ type: "active-thread/cleared" }] satisfies ChatAction[]) : []),
+    ],
+    effects: [{ type: "notify-thread-archived", threadId: notification.params.threadId }],
+  }),
+  "thread/unarchived": () => ({ actions: [], effects: [{ type: "refresh-threads" }] }),
+  "thread/name/updated": (state, notification) => {
+    const name =
+      typeof notification.params.threadName === "string" && notification.params.threadName.trim()
+        ? notification.params.threadName.trim()
+        : null;
+    return {
+      actions: [
+        {
+          type: "thread-list/applied",
+          threads: state.threadList.listedThreads.map((thread) =>
+            thread.id === notification.params.threadId ? { ...thread, name } : thread,
+          ),
+        },
+      ],
+      effects: [{ type: "notify-thread-renamed", threadId: notification.params.threadId, name }],
+    };
+  },
+  "thread/settings/updated": (state, notification) => {
+    if (state.activeThread.id !== notification.params.threadId) return EMPTY_PLAN;
+    return actionPlan(activeThreadSettingsAppliedAction(notification.params.threadSettings));
+  },
+  "thread/goal/updated": (state, notification, localItemId) => {
+    if (state.activeThread.id !== notification.params.threadId) return EMPTY_PLAN;
+    const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal: notification.params.goal }];
+    const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, notification.params.goal);
+    if (item) actions.push({ type: "transcript/item-upserted", item });
+    return { actions, effects: [] };
+  },
+  "thread/goal/cleared": (state, notification, localItemId) => {
+    if (state.activeThread.id !== notification.params.threadId) return EMPTY_PLAN;
+    const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal: null }];
+    const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, null);
+    if (item) actions.push({ type: "transcript/item-upserted", item });
+    return { actions, effects: [] };
+  },
+} satisfies ServerNotificationStatePlannerMap<ThreadLifecycleNotificationMethod>;
+
 export function planChatNotification(
   state: ChatState,
   notification: ServerNotification,
@@ -65,7 +299,7 @@ export function planChatNotification(
     case "streamUpdate":
       return planStreamUpdate(state, route.notification, localItemId);
     case "turnLifecycle":
-      return planTurnLifecycle(state, route.notification);
+      return planTurnLifecycle(state, route.notification, localItemId);
     case "threadLifecycle":
       return planThreadLifecycle(state, route.notification, localItemId);
     case "requestResolved":
@@ -81,219 +315,81 @@ export function planChatNotification(
 }
 
 function planStreamUpdate(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
-  const { method, params } = notification;
-  if (method === "item/agentMessage/delta") {
-    const displayItems = appendAssistantDelta(
-      completeReasoningItems(state.transcript.displayItems, params.turnId),
-      params.itemId,
-      params.turnId,
-      params.delta,
-    );
-    return actionPlan({ type: "transcript/items-replaced", items: displayItems });
-  }
-  if (method === "item/plan/delta") {
-    return actionPlan({
-      type: "transcript/items-replaced",
-      items: appendPlanDelta(state.transcript.displayItems, params.itemId, params.turnId, params.delta),
-    });
-  }
-  if (method === "turn/plan/updated") {
-    return actionPlan({ type: "transcript/item-upserted", item: planProgressDisplayItem(params.turnId, params.explanation, params.plan) });
-  }
-  if (method === "item/reasoning/summaryTextDelta") {
-    return appendToolTextPlan(state, params.itemId, params.turnId, "reasoning", params.delta, "reasoning");
-  }
-  if (method === "item/reasoning/textDelta") {
-    return appendToolTextPlan(state, params.itemId, params.turnId, "reasoning", params.delta, "reasoning");
-  }
-  if (method === "item/reasoning/summaryPartAdded") {
-    return appendToolTextPlan(state, params.itemId, params.turnId, "reasoning", "", "reasoning");
-  }
-  if (method === "item/started") {
-    return startedItemPlan(params.item, params.turnId);
-  }
-  if (method === "item/completed") {
-    return completedItemPlan(state, params.item, params.turnId);
-  }
-  if (method === "item/commandExecution/outputDelta") {
-    return actionPlan({
-      type: "transcript/items-replaced",
-      items: appendItemOutput(state.transcript.displayItems, params.itemId, params.turnId, params.delta, "command", "Command running"),
-    });
-  }
-  if (method === "item/fileChange/patchUpdated") {
-    return fileChangePlan(params.itemId, params.turnId, params.changes, "inProgress");
-  }
-  if (method === "item/fileChange/outputDelta") {
-    return actionPlan({
-      type: "transcript/items-replaced",
-      items: appendItemOutput(
-        state.transcript.displayItems,
-        params.itemId,
-        params.turnId,
-        params.delta,
-        "fileChange",
-        "File change inProgress",
-      ),
-    });
-  }
-  if (method === "turn/diff/updated") {
-    return actionPlan({ type: "transcript/turn-diff-updated", turnId: params.turnId, diff: params.diff });
-  }
-  if (method === "hook/started") {
-    return hookRunPlan(state, params.run, params.turnId, "running");
-  }
-  if (method === "hook/completed") {
-    return hookRunPlan(state, params.run, params.turnId, params.run.status);
-  }
-  if (method === "item/mcpToolCall/progress") {
-    return actionPlan({
-      type: "transcript/items-replaced",
-      items: appendToolOutput(state.transcript.displayItems, params.itemId, params.turnId, params.message, "mcp progress"),
-    });
-  }
-  if (method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed") {
-    const reviewItem = createAutoReviewResultItem(params);
-    return actionPlan({
-      type: "transcript/items-replaced",
-      items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(state.transcript.displayItems), reviewItem),
-    });
-  }
-  if (method === "guardianWarning") {
-    const item = createReviewResultItem(localItemId("review"), params.message);
-    if (isUnstructuredAutoReviewWarning(item) && hasStructuredAutoReviewResult(state.transcript.displayItems, activeTurnId(state))) {
-      return EMPTY_PLAN;
-    }
-    return actionPlan({ type: "transcript/item-upserted", item });
-  }
-  return EMPTY_PLAN;
+  return planNotificationWithStateByMethod(state, notification, STREAM_UPDATE_PLANNERS, localItemId);
 }
 
-function planTurnLifecycle(state: ChatState, notification: ServerNotification): ChatNotificationPlan {
-  const { method, params } = notification;
-  if (method === "turn/started") {
-    return actionPlan({
-      type: "turn/started",
-      threadId: params.threadId,
-      turnId: params.turn.id,
-      displayItems: displayItemsWithPendingPromptSubmitHooks(state, params.turn.id),
-    });
-  }
-  if (method === "turn/completed") {
-    if (activeTurnId(state) !== params.turn.id) return EMPTY_PLAN;
-    return {
-      actions: [
-        {
-          type: "turn/completed",
-          turnId: params.turn.id,
-          status: params.turn.status,
-          displayItems: completeReasoningItems(reconciledCompletedTurnItems(state, params.turn), params.turn.id),
-        },
-      ],
-      effects: [{ type: "maybe-name-thread", threadId: params.threadId, turn: params.turn }, { type: "refresh-threads" }],
-    };
-  }
-  return EMPTY_PLAN;
+function planTurnLifecycle(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
+  return planNotificationWithStateByMethod(state, notification, TURN_LIFECYCLE_PLANNERS, localItemId);
 }
 
 function planThreadLifecycle(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
-  const { method, params } = notification;
-  if (method === "thread/started") {
-    if (!state.activeThread.id || state.activeThread.id === params.thread.id) {
-      return actionPlan({ type: "active-thread/cwd-set", cwd: params.thread.cwd });
-    }
-    return EMPTY_PLAN;
-  }
-  if (method === "thread/archived") {
-    return {
-      actions: [
-        { type: "thread-list/applied", threads: state.threadList.listedThreads.filter((thread) => thread.id !== params.threadId) },
-        ...(state.activeThread.id === params.threadId ? ([{ type: "active-thread/cleared" }] satisfies ChatAction[]) : []),
-      ],
-      effects: [{ type: "notify-thread-archived", threadId: params.threadId }],
-    };
-  }
-  if (method === "thread/unarchived") {
-    return { actions: [], effects: [{ type: "refresh-threads" }] };
-  }
-  if (method === "thread/name/updated") {
-    const name = typeof params.threadName === "string" && params.threadName.trim() ? params.threadName.trim() : null;
-    return {
-      actions: [
-        {
-          type: "thread-list/applied",
-          threads: state.threadList.listedThreads.map((thread) => (thread.id === params.threadId ? { ...thread, name } : thread)),
-        },
-      ],
-      effects: [{ type: "notify-thread-renamed", threadId: params.threadId, name }],
-    };
-  }
-  if (method === "thread/settings/updated") {
-    if (state.activeThread.id !== params.threadId) return EMPTY_PLAN;
-    return actionPlan(activeThreadSettingsAppliedAction(params.threadSettings));
-  }
-  if (method === "thread/goal/updated") {
-    if (state.activeThread.id !== params.threadId) return EMPTY_PLAN;
-    const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal: params.goal }];
-    const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, params.goal);
-    if (item) {
-      actions.push({ type: "transcript/item-upserted", item });
-    }
-    return { actions, effects: [] };
-  }
-  if (method === "thread/goal/cleared") {
-    if (state.activeThread.id !== params.threadId) return EMPTY_PLAN;
-    const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal: null }];
-    const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, null);
-    if (item) {
-      actions.push({ type: "transcript/item-upserted", item });
-    }
-    return { actions, effects: [] };
-  }
-  return EMPTY_PLAN;
+  return planNotificationWithStateByMethod(state, notification, THREAD_LIFECYCLE_PLANNERS, localItemId);
 }
 
 function planDiagnosticStatus(notification: ServerNotification): ChatNotificationPlan {
-  const { method, params } = notification;
-  if (method === "thread/tokenUsage/updated") {
-    return actionPlan({ type: "active-thread/token-usage-set", tokenUsage: threadTokenUsageFromAppServerUsage(params.tokenUsage) });
-  }
-  if (method === "account/rateLimits/updated") {
-    return {
-      actions: [],
-      effects: [{ type: "refresh-rate-limits" }],
-    };
-  }
-  if (method === "skills/changed") {
-    return { actions: [], effects: [{ type: "refresh-skills", forceReload: true }] };
-  }
-  if (method === "mcpServer/startupStatus/updated") {
-    return {
-      actions: [],
-      effects:
-        params.name.length === 0
-          ? [{ type: "publish-app-server-metadata" }]
-          : [
-              { type: "record-mcp-startup-status", name: params.name, status: params.status, message: params.error },
-              { type: "publish-app-server-metadata" },
-            ],
-    };
-  }
-  return EMPTY_PLAN;
+  return planNotificationByMethod(notification, DIAGNOSTIC_STATUS_PLANNERS);
 }
 
 function planUserVisibleNotice(notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
-  const { method, params } = notification;
-  if (method === "thread/compacted") {
-    return systemMessagePlan({ id: localItemId("system"), text: "Context compacted." });
-  }
-  if (method === "model/rerouted" || method === "deprecationNotice") {
-    return systemMessagePlan({ id: localItemId("system"), text: `${method}: ${jsonPreview(params)}` });
-  }
-  if (method === "error" || method === "warning" || method === "configWarning") {
-    return systemMessagePlan({ id: localItemId("system"), text: `${method}: ${jsonPreview(params)}` });
-  }
-  return EMPTY_PLAN;
+  return planNotificationWithLocalItemIdByMethod(notification, USER_VISIBLE_NOTICE_PLANNERS, localItemId);
+}
+
+function planNotificationByMethod<M extends ServerNotification["method"]>(
+  notification: ServerNotification,
+  planners: ServerNotificationPlannerMap<M>,
+): ChatNotificationPlan {
+  const planner = (planners as Partial<Record<ServerNotification["method"], (notification: ServerNotification) => ChatNotificationPlan>>)[
+    notification.method
+  ];
+  return planner ? planner(notification) : EMPTY_PLAN;
+}
+
+function planNotificationWithLocalItemIdByMethod<M extends ServerNotification["method"]>(
+  notification: ServerNotification,
+  planners: ServerNotificationLocalPlannerMap<M>,
+  localItemId: LocalItemIdFactory,
+): ChatNotificationPlan {
+  const planner = (
+    planners as Partial<
+      Record<ServerNotification["method"], (notification: ServerNotification, localItemId: LocalItemIdFactory) => ChatNotificationPlan>
+    >
+  )[notification.method];
+  return planner ? planner(notification, localItemId) : EMPTY_PLAN;
+}
+
+function planNotificationWithStateByMethod<M extends ServerNotification["method"]>(
+  state: ChatState,
+  notification: ServerNotification,
+  planners: ServerNotificationStatePlannerMap<M>,
+  localItemId: LocalItemIdFactory,
+): ChatNotificationPlan {
+  const planner = (
+    planners as Partial<
+      Record<
+        ServerNotification["method"],
+        (state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory) => ChatNotificationPlan
+      >
+    >
+  )[notification.method];
+  return planner ? planner(state, notification, localItemId) : EMPTY_PLAN;
+}
+
+function jsonNoticePlan(
+  notification: Extract<ServerNotification, { method: Exclude<UserVisibleNoticeNotificationMethod, "thread/compacted"> }>,
+  localItemId: LocalItemIdFactory,
+): ChatNotificationPlan {
+  return systemMessagePlan({ id: localItemId("system"), text: `${notification.method}: ${jsonPreview(notification.params)}` });
+}
+
+function autoApprovalReviewPlan(
+  state: ChatState,
+  notification: Extract<ServerNotification, { method: "item/autoApprovalReview/started" | "item/autoApprovalReview/completed" }>,
+): ChatNotificationPlan {
+  const reviewItem = createAutoReviewResultItem(notification.params);
+  return actionPlan({
+    type: "transcript/items-replaced",
+    items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(state.transcript.displayItems), reviewItem),
+  });
 }
 
 function startedItemPlan(item: ThreadItem, turnId: string): ChatNotificationPlan {

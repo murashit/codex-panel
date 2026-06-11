@@ -1,8 +1,7 @@
-import type { RequestId } from "../../../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../../../generated/app-server/ServerRequest";
-import type { Turn } from "../../../../generated/app-server/v2/Turn";
 import type { McpServerStartupStatus } from "../../../../app-server/diagnostics";
+import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
 import { createStructuredSystemItem, createSystemItem } from "../../display/system";
@@ -13,12 +12,14 @@ import { createApprovalResultItem, createUserInputResultItem } from "../../pendi
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
 
+type RequestId = string | number;
+
 export interface ChatInboundControllerActions {
   refreshThreads: () => void;
   refreshRateLimits: () => void;
   refreshSkills: (forceReload?: boolean) => void;
   publishAppServerMetadata: () => void;
-  maybeNameThread: (threadId: string, turn: Turn) => void;
+  maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
   notifyThreadArchived: (threadId: string) => void;
   notifyThreadRenamed: (threadId: string, name: string | null) => void;
   recordMcpStartupStatus: (name: string, status: McpServerStartupStatus, message: string | null) => void;
@@ -60,6 +61,9 @@ export class ChatInboundController {
         return;
       case "unsupported":
         this.rejectUnsupportedServerRequest(request);
+        return;
+      case "unknown":
+        this.rejectUnknownServerRequest(request);
         return;
     }
   }
@@ -137,6 +141,11 @@ export class ChatInboundController {
     this.rejectServerRequest(request, message);
   }
 
+  private rejectUnknownServerRequest(request: ServerRequest): void {
+    const message = `Rejected unknown app-server request: ${request.method}`;
+    this.actions.rejectServerRequest(request.id, -32601, message);
+  }
+
   private rejectServerRequest(request: ServerRequest, message: string): void {
     this.addSystemMessage(message);
     if (!this.actions.rejectServerRequest(request.id, -32601, message)) {
@@ -163,7 +172,7 @@ export class ChatInboundController {
         this.actions.publishAppServerMetadata();
         return;
       case "maybe-name-thread":
-        this.actions.maybeNameThread(effect.threadId, effect.turn);
+        this.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);
         return;
       case "notify-thread-archived":
         this.actions.notifyThreadArchived(effect.threadId);

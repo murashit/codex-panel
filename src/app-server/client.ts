@@ -65,6 +65,41 @@ export interface AppServerHookOperation {
   trustStatus: HookTrustStatus;
 }
 
+interface AppServerTurnRuntimeOverrides {
+  serviceTier?: ServiceTierRequest;
+  collaborationMode?: CollaborationMode;
+  model?: string | null;
+  effort?: ReasoningEffort | null;
+  approvalsReviewer?: ApprovalsReviewer | null;
+}
+
+export interface AppServerStartThreadOptions {
+  cwd: string;
+  serviceTier?: ServiceTierRequest;
+}
+
+export interface AppServerStartEphemeralThreadOptions {
+  cwd: string;
+  serviceName: string;
+  developerInstructions: string;
+}
+
+export interface AppServerStartTurnOptions {
+  threadId: string;
+  cwd: string;
+  input: string | CodexInput;
+  clientUserMessageId?: string | null;
+  runtime?: AppServerTurnRuntimeOverrides;
+}
+
+export interface AppServerStartStructuredTurnOptions {
+  threadId: string;
+  cwd: string;
+  text: string;
+  outputSchema: JsonValue;
+  runtime?: AppServerTurnRuntimeOverrides;
+}
+
 export class AppServerRpcError extends Error {
   readonly code?: number;
   readonly data?: unknown;
@@ -218,7 +253,8 @@ export class AppServerClient {
     return this.writeHookState(hook.key, state);
   }
 
-  startThread(cwd: string, serviceTier?: ServiceTierRequest): Promise<ThreadStartResponse> {
+  startThread(options: AppServerStartThreadOptions): Promise<ThreadStartResponse> {
+    const { cwd, serviceTier } = options;
     return this.request("thread/start", {
       cwd,
       serviceName: "codex-panel",
@@ -226,7 +262,8 @@ export class AppServerClient {
     });
   }
 
-  startEphemeralThread(cwd: string, serviceName: string, developerInstructions: string): Promise<ThreadStartResponse> {
+  startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<ThreadStartResponse> {
+    const { cwd, serviceName, developerInstructions } = options;
     return this.request("thread/start", {
       cwd,
       serviceName,
@@ -361,39 +398,24 @@ export class AppServerClient {
     return this.request("thread/compact/start", { threadId });
   }
 
-  startTurn(
-    threadId: string,
-    cwd: string,
-    input: string | CodexInput,
-    clientUserMessageId?: string | null,
-    serviceTier?: ServiceTierRequest,
-    collaborationMode?: CollaborationMode | null,
-    model?: string | null,
-    effort?: ReasoningEffort | null,
-    approvalsReviewer?: ApprovalsReviewer,
-  ): Promise<TurnStartResponse> {
-    const params: ClientRequestParams<"turn/start"> & { collaborationMode?: CollaborationMode | null } = {
+  startTurn(options: AppServerStartTurnOptions): Promise<TurnStartResponse> {
+    const { threadId, cwd, input, clientUserMessageId, runtime } = options;
+    const params: ClientRequestParams<"turn/start"> = {
       threadId,
       cwd,
       ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
-      ...(serviceTier !== undefined ? { serviceTier } : {}),
+      ...(runtime?.serviceTier !== undefined ? { serviceTier: runtime.serviceTier } : {}),
       input: toUserInput(input),
     };
-    if (collaborationMode) params.collaborationMode = collaborationMode;
-    if (model !== undefined) params.model = model;
-    if (effort !== undefined) params.effort = effort;
-    if (approvalsReviewer !== undefined) params.approvalsReviewer = approvalsReviewer;
+    if (runtime?.collaborationMode !== undefined) params.collaborationMode = runtime.collaborationMode;
+    if (runtime?.model !== undefined) params.model = runtime.model;
+    if (runtime?.effort !== undefined) params.effort = runtime.effort;
+    if (runtime?.approvalsReviewer !== undefined) params.approvalsReviewer = runtime.approvalsReviewer;
     return this.request("turn/start", params);
   }
 
-  startStructuredTurn(
-    threadId: string,
-    cwd: string,
-    text: string,
-    outputSchema: JsonValue,
-    model?: string,
-    effort?: ReasoningEffort,
-  ): Promise<TurnStartResponse> {
+  startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
+    const { threadId, cwd, text, outputSchema, runtime } = options;
     const params: ClientRequestParams<"turn/start"> = {
       threadId,
       cwd,
@@ -406,8 +428,11 @@ export class AppServerClient {
       ],
       outputSchema,
     };
-    if (model !== undefined) params.model = model;
-    if (effort !== undefined) params.effort = effort;
+    if (runtime?.serviceTier !== undefined) params.serviceTier = runtime.serviceTier;
+    if (runtime?.collaborationMode !== undefined) params.collaborationMode = runtime.collaborationMode;
+    if (runtime?.model !== undefined) params.model = runtime.model;
+    if (runtime?.effort !== undefined) params.effort = runtime.effort;
+    if (runtime?.approvalsReviewer !== undefined) params.approvalsReviewer = runtime.approvalsReviewer;
     return this.request("turn/start", params);
   }
 

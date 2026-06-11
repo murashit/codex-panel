@@ -1,4 +1,3 @@
-import { setDetailOpenAction, setUserInputDraftAction } from "../state/actions";
 import { pendingRequestSnapshot, type PendingRequestSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
 import type { ApprovalAction, PendingApproval } from "../protocol/requests/approval";
@@ -28,10 +27,10 @@ export class PendingRequestController {
       this.cancelUserInput(input);
     },
     setOpenDetail: (key, open) => {
-      this.host.stateStore.dispatch(setDetailOpenAction(key, open));
+      this.host.stateStore.dispatch({ type: "ui/detail-open-set", key, open });
     },
     setUserInputDraft: (key, value) => {
-      this.host.stateStore.dispatch(setUserInputDraftAction(key, value));
+      this.host.stateStore.dispatch({ type: "request/user-input-draft-set", key, value });
     },
   };
 

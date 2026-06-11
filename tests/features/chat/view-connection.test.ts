@@ -9,7 +9,7 @@ import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/runtime-conf
 import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
@@ -165,13 +165,16 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("publishes app-server metadata after connecting", async () => {
     const publishAppServerMetadata = vi.fn();
+    const publishAppServerIdentity = vi.fn();
     connectionMock.state.client = connectedClient();
     const view = await chatView({
-      host: chatHost({ publishAppServerMetadata }),
+      host: chatHost({ publishAppServerMetadata, publishAppServerIdentity }),
     });
 
     await view.connect();
 
+    expect(publishAppServerIdentity).toHaveBeenNthCalledWith(1, null);
+    expect(publishAppServerIdentity).toHaveBeenNthCalledWith(2, "codex-test");
     expect(publishAppServerMetadata).toHaveBeenCalledWith(
       expect.objectContaining({
         runtimeConfig: expect.any(Object),
@@ -236,7 +239,7 @@ describe("CodexChatView connection lifecycle", () => {
     save.click();
 
     await waitForAsyncWork(() => {
-      expect(client.startThread).toHaveBeenCalledWith("/vault", undefined);
+      expect(client.startThread).toHaveBeenCalledWith({ cwd: "/vault", serviceTier: undefined });
       expect(client.setThreadGoal).toHaveBeenCalledWith("thread-new", {
         objective: "Ship the feature",
         status: "active",
@@ -439,12 +442,12 @@ describe("CodexChatView connection lifecycle", () => {
 
     await waitForAsyncWork(() => {
       expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-      expect(client.startTurn).toHaveBeenCalledWith(
-        "thread-1",
-        "/vault",
-        [{ type: "text", text: "hello" }],
-        expect.stringMatching(/^local-user-\d+$/),
-      );
+      expect(client.startTurn).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        cwd: "/vault",
+        input: [{ type: "text", text: "hello" }],
+        clientUserMessageId: expect.stringMatching(/^local-user-\d+$/),
+      });
     });
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
   });
@@ -1021,7 +1024,7 @@ function resumedThread(threadId: string) {
   };
 }
 
-function threadFixture(threadId: string): Thread {
+function threadFixture(threadId: string): AppServerThread {
   return {
     id: threadId,
     sessionId: "session",
@@ -1233,6 +1236,7 @@ function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
     ) as CodexChatHost["refreshThreadList"],
     cachedThreadList: vi.fn(() => null),
     publishAppServerMetadata: vi.fn(),
+    publishAppServerIdentity: vi.fn(),
     cachedAppServerMetadata: vi.fn(() => null),
     ...overrides,
   };

@@ -1,8 +1,12 @@
-import { AppServerClient, type AppServerClientHandlers } from "./client";
+import {
+  AppServerClient,
+  type AppServerClientHandlers,
+  type AppServerStartEphemeralThreadOptions,
+  type AppServerStartStructuredTurnOptions,
+} from "./client";
 import { abortablePromise, throwIfAbortSignalAborted } from "../shared/lifecycle/abortable";
 import type { InitializeResponse } from "../generated/app-server/InitializeResponse";
 import type { RequestId } from "../generated/app-server/RequestId";
-import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
 import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
@@ -13,10 +17,7 @@ import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResp
 
 export type StructuredTurnOutputSchema = JsonValue;
 
-interface StructuredTurnRuntimeOverride {
-  model?: string;
-  effort?: ReasoningEffort;
-}
+type StructuredTurnRuntimeOverride = NonNullable<AppServerStartStructuredTurnOptions["runtime"]>;
 
 type StructuredTurnProgressEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
 
@@ -36,15 +37,8 @@ export interface EphemeralStructuredTurnClient {
   connect(): Promise<InitializeResponse>;
   disconnect(): void;
   rejectServerRequest(requestId: RequestId, code: number, message: string): void;
-  startEphemeralThread(cwd: string, serviceName: string, developerInstructions: string): Promise<ThreadStartResponse>;
-  startStructuredTurn(
-    threadId: string,
-    cwd: string,
-    text: string,
-    outputSchema: JsonValue,
-    model?: string,
-    effort?: ReasoningEffort,
-  ): Promise<TurnStartResponse>;
+  startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<ThreadStartResponse>;
+  startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse>;
 }
 
 export interface EphemeralStructuredTurnRuntimeClient {
@@ -126,7 +120,11 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
       ? await abortable(options.resolveRuntime(client), options.signal, options.abortMessage)
       : (options.runtime ?? {});
     const threadResponse = await abortable(
-      client.startEphemeralThread(options.cwd, options.serviceName, options.developerInstructions),
+      client.startEphemeralThread({
+        cwd: options.cwd,
+        serviceName: options.serviceName,
+        developerInstructions: options.developerInstructions,
+      }),
       options.signal,
       options.abortMessage,
     );
@@ -138,14 +136,13 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
       }),
     };
     const turnResponse = await abortable(
-      client.startStructuredTurn(
-        threadResponse.thread.id,
-        options.cwd,
-        options.prompt,
-        options.outputSchema,
-        runtime.model,
-        runtime.effort,
-      ),
+      client.startStructuredTurn({
+        threadId: threadResponse.thread.id,
+        cwd: options.cwd,
+        text: options.prompt,
+        outputSchema: options.outputSchema,
+        runtime,
+      }),
       options.signal,
       options.abortMessage,
     );

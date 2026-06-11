@@ -12,6 +12,7 @@ import {
 } from "../../../../src/features/chat/display/stream-updates";
 import { normalizeProposedPlanMarkdown, planProgressDisplayItem } from "../../../../src/features/chat/display/plan";
 import { pathRelativeToRoot } from "../../../../src/features/chat/display/paths";
+import { permissionRows } from "../../../../src/features/chat/display/permission-details";
 import { createAutoReviewResultItem, createReviewResultItem } from "../../../../src/features/chat/display/review";
 import {
   autoReviewExecutionState,
@@ -26,7 +27,7 @@ import {
 import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/protocol/display-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
-import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../../src/domain/threads/model";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
 
@@ -117,7 +118,7 @@ describe("thread item conversion preserves app-server semantics", () => {
 
   it("hides persisted /refer context in displayed user messages", () => {
     const text = referencedThreadPrompt(
-      { id: "thread-reference", name: "参照元", preview: "", archived: false } as Thread & { archived: boolean },
+      { id: "thread-reference", name: "参照元", preview: "", archived: false, createdAt: 1, updatedAt: 1 } satisfies Thread,
       [
         { userText: "元の依頼", assistantText: "元の回答" },
         { userText: "次の依頼", assistantText: "次の回答" },
@@ -884,6 +885,34 @@ describe("thread item conversion preserves app-server semantics", () => {
         },
       ],
     });
+  });
+});
+
+describe("permission detail rows", () => {
+  it("formats app-server permission paths without exposing raw payloads", () => {
+    expect(
+      permissionRows({
+        network: { enabled: true },
+        fileSystem: {
+          entries: [
+            { path: { type: "path", path: "/vault/notes.md" }, access: "read" },
+            { path: { type: "glob_pattern", pattern: "/vault/**/*.md" }, access: "write" },
+            { path: { type: "special", value: { kind: "project_roots", subpath: "src" } }, access: "read" },
+            { path: { type: "special", value: { kind: "unknown", path: "custom", subpath: "cache" } }, access: "write" },
+          ],
+          read: [],
+          write: null,
+          globScanMaxDepth: 4,
+        },
+      }),
+    ).toEqual([
+      { key: "network", value: "enabled" },
+      {
+        key: "filesystem",
+        value: "/vault/notes.md (read)\n/vault/**/*.md (write)\nproject_roots/src (read)\ncustom/cache (write)",
+      },
+      { key: "glob depth", value: "4" },
+    ]);
   });
 });
 

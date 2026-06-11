@@ -25,15 +25,13 @@ import {
   type SelectionRewriteClient,
   type SelectionRewriteClientFactory,
 } from "../../../src/features/selection-rewrite/runner";
-import type { AppServerClientHandlers } from "../../../src/app-server/client";
-import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
+import type { AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../src/app-server/client";
+import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
 import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
 import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
-import type { JsonValue } from "../../../src/generated/app-server/serde_json/JsonValue";
 import type { RequestId } from "../../../src/generated/app-server/RequestId";
-import type { ReasoningEffort } from "../../../src/generated/app-server/ReasoningEffort";
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
 import type { ComposerSendKeyEvent } from "../../../src/shared/ui/keyboard";
 import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
@@ -259,6 +257,7 @@ describe("selection rewrite popover", () => {
 
     openPopover(popover);
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    expect(instruction.getAttribute("aria-label")).toBe("Rewrite instruction");
     void act(() => {
       setTextareaValue(instruction, "Make it concise.");
       instruction.dispatchEvent(new Event("input", { bubbles: true }));
@@ -669,14 +668,7 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
     return threadStartResponse("thread");
   }
 
-  async startStructuredTurn(
-    _threadId: string,
-    _cwd: string,
-    _text: string,
-    _outputSchema: JsonValue,
-    _model?: string,
-    _effort?: ReasoningEffort,
-  ): Promise<TurnStartResponse> {
+  async startStructuredTurn(_options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
     this.resolveStructuredTurnStarted();
     return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
   }
@@ -703,7 +695,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
   };
 }
 
-function thread(id: string): Thread {
+function thread(id: string): AppServerThread {
   return {
     id,
     sessionId: "session",

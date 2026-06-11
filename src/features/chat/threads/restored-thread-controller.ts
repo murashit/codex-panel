@@ -1,4 +1,3 @@
-import { restoreThreadPlaceholderAction } from "../state/actions";
 import type { ChatStateStore } from "../state/reducer";
 import {
   transitionRestoredThreadLifecycle,
@@ -47,7 +46,7 @@ export class RestoredThreadController {
       type: "placeholder-restored",
       restoredThread,
     });
-    this.host.stateStore.dispatch(restoreThreadPlaceholderAction(restoredThread.threadId));
+    this.host.stateStore.dispatch({ type: "active-thread/restored-placeholder", threadId: restoredThread.threadId });
     this.host.setStatus("Thread ready to resume.");
     this.host.refreshTabHeader();
     this.scheduleHydration();

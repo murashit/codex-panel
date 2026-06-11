@@ -165,6 +165,11 @@ function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): 
                 ]
                   .filter(Boolean)
                   .join(" ")}
+                role="progressbar"
+                aria-label={row.title}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={row.percent}
               >
                 <div className="codex-panel__limit-panel-fill" style={{ width: `${String(row.percent)}%` }} />
               </div>

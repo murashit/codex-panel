@@ -14,7 +14,8 @@ import {
 } from "../../../../../src/features/chat/state/reducer";
 import type { ServerNotification } from "../../../../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../../../../src/generated/app-server/ServerRequest";
-import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { Turn } from "../../../../../src/generated/app-server/v2/Turn";
 
 function controllerForState(
@@ -798,39 +799,38 @@ describe("ChatInboundController", () => {
         controller.handleServerRequest(request);
       }
       controller.handleServerRequest(userInputRequest(20));
-      for (const request of unsupportedRequests()) {
+      const unsupported = unsupportedRequests();
+      for (const request of unsupported) {
         controller.handleServerRequest(request);
       }
+      controller.handleServerRequest(unknownRequest());
 
       expect(state.requests.approvals.map((approval) => approval.requestId)).toEqual([10, 11, 12]);
       expect(state.requests.pendingUserInputs.map((input) => input.requestId)).toEqual([20]);
-      expect(rejectServerRequest).toHaveBeenCalledTimes(4);
+      const unsupportedMessages = unsupported.map((request) => `Rejected unsupported app-server request: ${request.method}`);
+      expect(rejectServerRequest).toHaveBeenCalledTimes(unsupportedMessages.length + 1);
+      for (const [index, request] of unsupported.entries()) {
+        expect(rejectServerRequest).toHaveBeenNthCalledWith(index + 1, request.id, -32601, unsupportedMessages[index]);
+      }
       expect(rejectServerRequest).toHaveBeenNthCalledWith(
-        1,
-        21,
+        unsupportedMessages.length + 1,
+        27,
         -32601,
-        "Rejected unsupported app-server request: mcpServer/elicitation/request",
+        "Rejected unknown app-server request: appServer/newFutureRequest",
       );
-      expect(rejectServerRequest).toHaveBeenNthCalledWith(2, 22, -32601, "Rejected unsupported app-server request: item/tool/call");
-      expect(rejectServerRequest).toHaveBeenNthCalledWith(
-        3,
-        23,
-        -32601,
-        "Rejected unsupported app-server request: account/chatgptAuthTokens/refresh",
-      );
-      expect(rejectServerRequest).toHaveBeenNthCalledWith(
-        4,
-        24,
-        -32601,
-        "Rejected unsupported app-server request: appServer/newFutureRequest",
-      );
-      expect(state.transcript.displayItems.map((item) => item.text)).toEqual([
-        "Rejected unsupported app-server request: mcpServer/elicitation/request",
-        "Rejected unsupported app-server request: item/tool/call",
-        "Rejected unsupported app-server request: account/chatgptAuthTokens/refresh",
-        "Rejected unsupported app-server request: appServer/newFutureRequest",
-      ]);
+      expect(state.transcript.displayItems.map((item) => item.text)).toEqual(unsupportedMessages);
       expect(state.transcript.displayItems.map((item) => item.text).join("\n")).not.toContain("do-not-render");
+    });
+
+    it("keeps unknown server request fallback out of the normal transcript", () => {
+      const state = createChatState();
+      const rejectServerRequest = vi.fn(() => true);
+      const controller = controllerForState(state, { rejectServerRequest });
+
+      controller.handleServerRequest(unknownRequest());
+
+      expect(rejectServerRequest).toHaveBeenCalledWith(27, -32601, "Rejected unknown app-server request: appServer/newFutureRequest");
+      expect(state.transcript.displayItems).toEqual([]);
     });
 
     it("rejects server requests scoped to a different active thread or turn", () => {
@@ -875,6 +875,28 @@ describe("ChatInboundController", () => {
         -32601,
         "Rejected inactive app-server request: item/tool/requestUserInput",
       );
+    });
+
+    it("rejects delayed turn-scoped server requests after the active thread returns to idle", () => {
+      const state = createChatState();
+      state.activeThread.id = "thread-active";
+      state.turn.lifecycle = { kind: "idle" };
+      const rejectServerRequest = vi.fn(() => true);
+      const controller = controllerForState(state, { rejectServerRequest });
+
+      controller.handleServerRequest({
+        id: 53,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-stale",
+          itemId: "input",
+          questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+        },
+      });
+
+      expect(state.requests.pendingUserInputs).toEqual([]);
+      expect(rejectServerRequest).toHaveBeenCalledWith(53, -32601, "Rejected inactive app-server request: item/tool/requestUserInput");
     });
 
     it("keeps pending requests when response delivery fails", () => {
@@ -1022,7 +1044,7 @@ describe("ChatInboundController", () => {
 
       controller.handleNotification({
         method: "thread/started",
-        params: { thread: thread("thread-other", "/workspace/other") },
+        params: { thread: appServerThread("thread-other", "/workspace/other") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(state.activeThread.cwd).toBe("/workspace/active");
@@ -1035,7 +1057,7 @@ describe("ChatInboundController", () => {
 
       controller.handleNotification({
         method: "thread/started",
-        params: { thread: thread("thread-active", "/workspace/active") },
+        params: { thread: appServerThread("thread-active", "/workspace/active") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(state.activeThread.cwd).toBe("/workspace/active");
@@ -1222,7 +1244,7 @@ describe("ChatInboundController", () => {
       state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
       const maybeNameThread = vi.fn();
       const controller = controllerForState(state, { maybeNameThread });
-      const turn: Turn = {
+      const turn = {
         id: "turn-active",
         status: "completed",
         error: null,
@@ -1234,20 +1256,23 @@ describe("ChatInboundController", () => {
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
         ],
-      };
+      } satisfies Turn;
 
       controller.handleNotification({
         method: "turn/completed",
         params: { threadId: "thread-active", turn },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(maybeNameThread).toHaveBeenCalledWith("thread-active", turn);
+      expect(maybeNameThread).toHaveBeenCalledWith("thread-active", "turn-active", {
+        userText: "hello",
+        assistantText: "done",
+      });
     });
 
     it("updates listed thread names from thread name notifications", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
-      state.threadList.listedThreads = [thread("thread-active", "/workspace/active")];
+      state.threadList.listedThreads = [panelThread("thread-active")];
       const notifyThreadRenamed = vi.fn();
       const controller = controllerForState(state, { notifyThreadRenamed });
 
@@ -1711,7 +1736,7 @@ function userInputRequest(id: number): ServerRequest {
   };
 }
 
-function thread(id: string, cwd: string): Thread & { archived: boolean } {
+function appServerThread(id: string, cwd: string): AppServerThread {
   return {
     id,
     sessionId: id,
@@ -1732,8 +1757,18 @@ function thread(id: string, cwd: string): Thread & { archived: boolean } {
     agentRole: null,
     gitInfo: null,
     name: null,
-    archived: false,
     turns: [],
+  };
+}
+
+function panelThread(id: string): PanelThread {
+  return {
+    id,
+    preview: "",
+    createdAt: 0,
+    updatedAt: 0,
+    name: null,
+    archived: false,
   };
 }
 
@@ -1783,8 +1818,34 @@ function unsupportedRequests(): ServerRequest[] {
     },
     {
       id: 24,
-      method: "appServer/newFutureRequest",
-      params: { secret: "do-not-render" },
-    } as unknown as ServerRequest,
+      method: "attestation/generate",
+      params: {},
+    },
+    {
+      id: 25,
+      method: "applyPatchApproval",
+      params: { conversationId: "thread", callId: "patch", fileChanges: {}, reason: "patch", grantRoot: null },
+    },
+    {
+      id: 26,
+      method: "execCommandApproval",
+      params: {
+        conversationId: "thread",
+        callId: "exec",
+        approvalId: null,
+        command: ["npm", "test"],
+        cwd: "/tmp/project",
+        reason: "exec",
+        parsedCmd: [],
+      },
+    },
   ];
+}
+
+function unknownRequest(): ServerRequest {
+  return {
+    id: 27,
+    method: "appServer/newFutureRequest",
+    params: { secret: "do-not-render" },
+  } as unknown as ServerRequest;
 }

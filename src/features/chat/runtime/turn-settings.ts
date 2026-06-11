@@ -4,14 +4,13 @@ import {
   currentModel,
   currentReasoningEffort,
   fastServiceTierRequestValue,
-  pendingRuntimeSettingPayload,
   runtimeConfigOrDefault,
-  type RuntimeConfigProjection,
   type RuntimeSnapshot,
 } from "./effective-settings";
+import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
 import { clearedServiceTierRequestValue, serviceTierRequestValue } from "../../../app-server/thread-settings";
+import { pendingRuntimeSettingPayload, type CollaborationMode } from "./model";
 
-export type CollaborationMode = "default" | "plan";
 export type TurnCollaborationModeWarning = "missing-model";
 
 export interface TurnCollaborationModeSettings {
@@ -38,7 +37,7 @@ export function collaborationModeToggleMessage(mode: CollaborationMode): string 
 
 export function serviceTierRequestForThreadStart(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
+  config: RuntimeConfigSnapshot = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): ServiceTierRequest {
   if (snapshot.requestedServiceTier.kind === "set") {
     return snapshot.requestedServiceTier.value === "fast"
@@ -63,7 +62,7 @@ export function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot
 
 export function pendingThreadSettingsUpdate(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigProjection = runtimeConfigOrDefault(snapshot.runtimeConfig),
+  config: RuntimeConfigSnapshot = runtimeConfigOrDefault(snapshot.runtimeConfig),
 ): PendingThreadSettingsUpdate {
   const update: ThreadSettingsUpdate = {};
   const collaborationModeSettings = requestedTurnCollaborationModeSettings(snapshot);

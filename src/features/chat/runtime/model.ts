@@ -1,0 +1,27 @@
+export type CollaborationMode = "default" | "plan";
+export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
+export type RequestedServiceTier = "fast" | "off";
+
+export function unchangedRuntimeSetting<T>(): PendingRuntimeSetting<T> {
+  return { kind: "unchanged" };
+}
+
+export function setPendingRuntimeSetting<T>(value: T): PendingRuntimeSetting<T> {
+  return { kind: "set", value };
+}
+
+export function resetRuntimeSettingToConfig<T>(): PendingRuntimeSetting<T> {
+  return { kind: "resetToConfig" };
+}
+
+export function pendingRuntimeSettingPayload<T>(setting: PendingRuntimeSetting<T>): T | null | undefined {
+  if (setting.kind === "set") return setting.value;
+  if (setting.kind === "resetToConfig") return null;
+  return undefined;
+}
+
+export function pendingRuntimeSettingLabel<T>(setting: PendingRuntimeSetting<T>): string {
+  if (setting.kind === "set") return String(setting.value);
+  if (setting.kind === "resetToConfig") return "(reset to config)";
+  return "(none)";
+}

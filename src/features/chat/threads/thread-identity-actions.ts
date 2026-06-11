@@ -1,5 +1,4 @@
 import type { RestoredThreadController } from "./restored-thread-controller";
-import { applyThreadListAction, clearActiveThreadAction } from "../state/actions";
 import { activeThreadId, listedThreads } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
 
@@ -39,7 +38,7 @@ function clearActiveThreadContext(host: ThreadIdentityActionsHost): void {
   host.invalidateResumeWork();
   host.restoredThread.clear();
   host.clearDeferredRestoredThreadHydration();
-  host.stateStore.dispatch(clearActiveThreadAction());
+  host.stateStore.dispatch({ type: "active-thread/cleared" });
   host.resetThreadTurnPresence(false);
   host.notifyActiveThreadIdentityChanged();
   host.refreshLiveState();
@@ -58,7 +57,7 @@ function notifyThreadRenamed(host: ThreadIdentityActionsHost, threadId: string, 
     changed = true;
     return { ...thread, name };
   });
-  host.stateStore.dispatch(applyThreadListAction(renamedThreads));
+  host.stateStore.dispatch({ type: "thread-list/applied", threads: renamedThreads });
   const restoredThread = host.restoredThread.placeholder();
   if (restoredThread?.threadId === threadId && (restoredThread.title !== name || restoredThread.explicitName !== name)) {
     host.restoredThread.rename(threadId, name);

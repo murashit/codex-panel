@@ -1,33 +1,20 @@
-import { parseServiceTier, type ApprovalPolicy } from "../../../app-server/runtime-policy";
+import { parseServiceTier } from "../../../app-server/runtime-policy";
 import { upsertThread } from "../../../domain/threads/model";
-import { threadFromAppServerThread } from "../../../app-server/thread-model";
 import { normalizeReasoningEffort } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
-import type { ThreadStartResponse } from "../../../generated/app-server/v2/ThreadStartResponse";
-import type { ThreadResumeResponse } from "../../../generated/app-server/v2/ThreadResumeResponse";
+import { threadActivationSnapshotFromAppServerResponse, type ThreadActivationSnapshot } from "../../../app-server/thread-activation";
 import type { ChatRuntimeState } from "../runtime/state";
 import type { DisplayItem } from "../display/types";
 import type { ActiveThreadResumedAction } from "../state/actions";
 
-interface ThreadActivationResponse {
-  thread: Thread;
-  cwd: string;
-  model: string | null;
-  serviceTier: string | null;
-  approvalPolicy: ApprovalPolicy | null;
-  approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
-  activePermissionProfile: ChatRuntimeState["activePermissionProfile"];
-  reasoningEffort: string | null;
-}
-
 export interface ResumedThreadActionParams {
-  response: ThreadActivationResponse;
+  response: ThreadActivationSnapshot;
   listedThreads?: readonly Thread[];
   displayItems?: readonly DisplayItem[];
 }
 
 export interface ResumedThreadFromAppServerParams {
-  response: ThreadStartResponse | ThreadResumeResponse;
+  response: Parameters<typeof threadActivationSnapshotFromAppServerResponse>[0];
   listedThreads?: readonly Thread[];
   displayItems?: readonly DisplayItem[];
 }
@@ -50,7 +37,7 @@ export interface ResumedThreadFromActiveRuntimeParams {
 
 export function resumedThreadActionFromAppServerResponse(params: ResumedThreadFromAppServerParams): ActiveThreadResumedAction {
   return resumedThreadAction({
-    response: threadActivationResponseFromAppServerResponse(params.response),
+    response: threadActivationSnapshotFromAppServerResponse(params.response),
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
     ...(params.displayItems ? { displayItems: params.displayItems } : {}),
   });
@@ -87,18 +74,5 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     activePermissionProfile: response.activePermissionProfile,
     ...(params.displayItems ? { displayItems: params.displayItems } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
-  };
-}
-
-function threadActivationResponseFromAppServerResponse(response: ThreadStartResponse | ThreadResumeResponse): ThreadActivationResponse {
-  return {
-    thread: threadFromAppServerThread(response.thread),
-    cwd: response.cwd,
-    model: response.model,
-    reasoningEffort: response.reasoningEffort,
-    serviceTier: response.serviceTier,
-    approvalPolicy: response.approvalPolicy,
-    approvalsReviewer: response.approvalsReviewer,
-    activePermissionProfile: response.activePermissionProfile,
   };
 }

@@ -1,12 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/client";
 import type { CodexInput } from "../../../../app-server/request-input";
 import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
-import {
-  addTranscriptItemAction,
-  optimisticTurnStartedAction,
-  turnStartAcknowledgedAction,
-  turnStartFailedAction,
-} from "../../state/actions";
 import { submissionStateSnapshot } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
 import {
@@ -96,11 +90,20 @@ export class TurnSubmissionController {
         codexInput,
         referencedThread,
       });
-      this.host.stateStore.dispatch(optimisticTurnStartedAction(optimistic.item, optimistic.pendingTurnStart));
+      this.host.stateStore.dispatch({
+        type: "turn/optimistic-started",
+        item: optimistic.item,
+        pendingTurnStart: optimistic.pendingTurnStart,
+      });
       this.host.composer.setDraft("");
       this.host.view.render();
 
-      const response = await client.startTurn(activeThreadId, this.host.connection.vaultPath, codexInput, optimisticUserId);
+      const response = await client.startTurn({
+        threadId: activeThreadId,
+        cwd: this.host.connection.vaultPath,
+        input: codexInput,
+        clientUserMessageId: optimisticUserId,
+      });
       const acknowledgedState = submissionStateSnapshot(this.host.stateStore.getState());
       const pendingStart = acknowledgedState.pendingTurnStart;
       if (
@@ -117,19 +120,21 @@ export class TurnSubmissionController {
           turnId: response.turn.id,
           pendingTurnStart: pendingStart,
         });
-        this.host.stateStore.dispatch(turnStartAcknowledgedAction(response.turn.id, displayItems));
+        this.host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
         this.host.status.setStatus("Turn running...");
       }
     } catch (error) {
       const failedState = submissionStateSnapshot(this.host.stateStore.getState());
-      const displayItems = cleanupFailedTurnStart({
-        items: failedState.displayItems,
-        optimisticUserId,
-        pendingTurnStart: failedState.pendingTurnStart,
-      });
-      this.host.stateStore.dispatch(turnStartFailedAction(displayItems));
-      this.host.composer.setDraft(text);
-      this.host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+      if (!optimisticUserId || failedState.pendingTurnStart?.anchorItemId === optimisticUserId) {
+        const displayItems = cleanupFailedTurnStart({
+          items: failedState.displayItems,
+          optimisticUserId,
+          pendingTurnStart: failedState.pendingTurnStart,
+        });
+        this.host.stateStore.dispatch({ type: "turn/start-failed", displayItems });
+        this.host.composer.setDraft(text);
+        this.host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+      }
     }
     this.host.view.scheduleRender();
   }
@@ -154,23 +159,29 @@ export class TurnSubmissionController {
 
     try {
       await client.steerTurn(threadId, expectedTurnId, codexInput, localSteerId);
-      this.host.stateStore.dispatch(
-        addTranscriptItemAction(
-          localUserMessageItemFromInput({
-            id: localSteerId,
-            text,
-            turnId: expectedTurnId,
-            referencedThread,
-            codexInput,
-          }),
-        ),
-      );
+      if (!this.isCurrentTurn(threadId, expectedTurnId)) return;
+      this.host.stateStore.dispatch({
+        type: "transcript/item-added",
+        item: localUserMessageItemFromInput({
+          id: localSteerId,
+          text,
+          turnId: expectedTurnId,
+          referencedThread,
+          codexInput,
+        }),
+      });
       this.host.status.setStatus("Steered current turn.");
     } catch (error) {
+      if (!this.isCurrentTurn(threadId, expectedTurnId)) return;
       this.host.composer.setDraft(text, { focus: true });
       this.host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
 
     this.host.view.scheduleRender();
+  }
+
+  private isCurrentTurn(threadId: string, turnId: string): boolean {
+    const state = submissionStateSnapshot(this.host.stateStore.getState());
+    return state.activeThreadId === threadId && state.activeTurnId === turnId;
   }
 }

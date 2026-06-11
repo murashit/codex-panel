@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/app-server/thread-goal";
 import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../../src/features/chat/conversation/composer/slash-commands";
-import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../../../src/domain/threads/model";
 import {
   executeSlashCommand,
   type SlashCommandExecutionContext,
@@ -31,8 +31,10 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     toggleAutoReview: vi.fn(),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
-    setRequestedModel: vi.fn(),
-    setRequestedReasoningEffort: vi.fn(),
+    requestModel: vi.fn(),
+    resetModelToConfig: vi.fn(),
+    requestReasoningEffort: vi.fn(),
+    resetReasoningEffortToConfig: vi.fn(),
     supportedReasoningEfforts: () => ["low", "medium", "high"],
     activeGoal: vi.fn(() => null),
     setGoalObjective: vi.fn().mockResolvedValue(true),
@@ -47,31 +49,16 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
   };
 }
 
-function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
+function thread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "thread-1",
-    sessionId: "session-1",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "Preview",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: "idle",
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.130.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
     ...overrides,
-  } as Thread & { archived: boolean };
+  };
 }
 
 function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
@@ -628,22 +615,37 @@ describe("slash commands", () => {
 
     await executeSlashCommand("reasoning", "extreme", ctx);
 
-    expect(ctx.setRequestedReasoningEffort).not.toHaveBeenCalled();
+    expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
+    expect(ctx.resetReasoningEffortToConfig).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported reasoning level: extreme. Usage: /reasoning [level|default]");
   });
 
   it("does not announce model or effort changes when applying them fails", async () => {
     const ctx = context({
-      setRequestedModel: vi.fn().mockResolvedValue(false),
-      setRequestedReasoningEffort: vi.fn().mockResolvedValue(false),
+      requestModel: vi.fn().mockResolvedValue(false),
+      requestReasoningEffort: vi.fn().mockResolvedValue(false),
     });
 
     await executeSlashCommand("model", "gpt-5.5", ctx);
     await executeSlashCommand("reasoning", "high", ctx);
 
-    expect(ctx.setRequestedModel).toHaveBeenCalledWith("gpt-5.5");
-    expect(ctx.setRequestedReasoningEffort).toHaveBeenCalledWith("high");
+    expect(ctx.requestModel).toHaveBeenCalledWith("gpt-5.5");
+    expect(ctx.requestReasoningEffort).toHaveBeenCalledWith("high");
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("routes default model and reasoning overrides through reset commands", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("model", "default", ctx);
+    await executeSlashCommand("reasoning", "default", ctx);
+
+    expect(ctx.resetModelToConfig).toHaveBeenCalledOnce();
+    expect(ctx.resetReasoningEffortToConfig).toHaveBeenCalledOnce();
+    expect(ctx.requestModel).not.toHaveBeenCalled();
+    expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Model reset to default for subsequent turns.");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort reset to default for subsequent turns.");
   });
 
   it("preserves supported reasoning effort casing", async () => {
@@ -653,7 +655,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("reasoning", "CaseSensitive", ctx);
 
-    expect(ctx.setRequestedReasoningEffort).toHaveBeenCalledWith("CaseSensitive");
+    expect(ctx.requestReasoningEffort).toHaveBeenCalledWith("CaseSensitive");
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort set to CaseSensitive for subsequent turns.");
   });
 

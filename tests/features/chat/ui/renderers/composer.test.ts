@@ -9,7 +9,7 @@ import {
   type ComposerCallbacks,
 } from "../../../../../src/features/chat/ui/composer";
 import type { ComposerSuggestion } from "../../../../../src/features/chat/conversation/composer/suggestions";
-import type { ComposerMetaViewModel } from "../../../../../src/features/chat/panel/view-model";
+import type { ComposerMetaViewModel } from "../../../../../src/features/chat/panel/view-model/types";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
@@ -82,6 +82,7 @@ describe("composer renderer decisions", () => {
     );
 
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Refactor terminal streaming”...");
+    expect(composer.getAttribute("aria-label")).toBe("Message");
 
     mountComposerShellNode(parent, "view", "", false, false, "Ask Codex to work on “Renamed thread”...", [], 0, callbacks);
 
@@ -149,6 +150,7 @@ describe("composer renderer decisions", () => {
     expect(modeIcons.map((icon) => icon.getAttribute("role"))).toEqual([null, null, null]);
     expect(modeIcons.map((icon) => icon.getAttribute("tabindex"))).toEqual([null, null, null]);
     expect(modeIcons.map((icon) => icon.getAttribute("aria-label"))).toEqual([null, null, null]);
+    expect(modeIcons.map((icon) => icon.getAttribute("aria-hidden"))).toEqual(["true", "true", "true"]);
     expect(modeIcons.every((icon) => icon.classList.contains("codex-panel__composer-meta-trigger"))).toBe(true);
     expect(modeIcons.every((icon) => !icon.className.includes("clickable-icon"))).toBe(true);
     expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.tagName).toBe("SPAN");
@@ -456,6 +458,7 @@ describe("composer renderer decisions", () => {
 
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
     expect(composer.getAttribute("placeholder")).toBe("Add steering message...");
+    expect(composer.getAttribute("aria-label")).toBe("Steering message");
     expect(sendButton?.classList.contains("is-interrupt")).toBe(true);
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");

@@ -56,7 +56,7 @@ export function transitionChatTurnLifecycleState(state: ChatTurnLifecycleState, 
       if (state.kind === "running" && state.turnId !== event.turnId) return state;
       return { kind: "running", turnId: event.turnId };
     case "start-failed":
-      return { kind: "idle" };
+      return state.kind === "starting" ? { kind: "idle" } : state;
     case "pending-start-hook-upserted":
       if (event.pendingTurnStart) return { kind: "starting", pendingTurnStart: event.pendingTurnStart };
       return state.kind === "starting" ? { kind: "idle" } : state;

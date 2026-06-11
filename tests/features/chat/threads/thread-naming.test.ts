@@ -18,15 +18,13 @@ import {
   type ThreadNamingClientFactory,
 } from "../../../../src/app-server/thread-title-generation";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../../src/features/chat/threads/thread-naming";
-import type { AppServerClientHandlers } from "../../../../src/app-server/client";
+import type { AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../../src/app-server/client";
 import type { InitializeResponse } from "../../../../src/generated/app-server/InitializeResponse";
-import type { JsonValue } from "../../../../src/generated/app-server/serde_json/JsonValue";
 import type { RequestId } from "../../../../src/generated/app-server/RequestId";
-import type { ReasoningEffort } from "../../../../src/generated/app-server/ReasoningEffort";
 import type { Model } from "../../../../src/generated/app-server/v2/Model";
 import type { ModelListResponse } from "../../../../src/generated/app-server/v2/ModelListResponse";
 import type { ServerNotification } from "../../../../src/generated/app-server/ServerNotification";
-import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../../../src/generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../../../src/generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
@@ -317,14 +315,7 @@ class FakeThreadNamingClient implements ThreadNamingClient {
     return threadStartResponse("thread");
   }
 
-  async startStructuredTurn(
-    _threadId: string,
-    _cwd: string,
-    _text: string,
-    _outputSchema: JsonValue,
-    _model?: string,
-    _effort?: ReasoningEffort,
-  ): Promise<TurnStartResponse> {
+  async startStructuredTurn(_options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
     return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
   }
 
@@ -350,7 +341,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
   };
 }
 
-function threadFixture(id: string): Thread {
+function threadFixture(id: string): AppServerThread {
   return {
     id,
     sessionId: "session",

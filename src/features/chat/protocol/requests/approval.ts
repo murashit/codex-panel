@@ -1,32 +1,90 @@
-import type { RequestId } from "../../../../generated/app-server/RequestId";
-import type { ServerRequest } from "../../../../generated/app-server/ServerRequest";
-import type { CommandExecutionApprovalDecision } from "../../../../generated/app-server/v2/CommandExecutionApprovalDecision";
-import type { CommandExecutionRequestApprovalResponse } from "../../../../generated/app-server/v2/CommandExecutionRequestApprovalResponse";
-import type { FileChangeRequestApprovalResponse } from "../../../../generated/app-server/v2/FileChangeRequestApprovalResponse";
-import type { GrantedPermissionProfile } from "../../../../generated/app-server/v2/GrantedPermissionProfile";
-import type { PermissionsRequestApprovalResponse } from "../../../../generated/app-server/v2/PermissionsRequestApprovalResponse";
 import { addOptional, nonEmptyString, permissionRows } from "../../display/permission-details";
+
+type RequestId = string | number;
+type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
+type CommandApprovalDecision =
+  | SimpleApprovalDecision
+  | { acceptWithExecpolicyAmendment: unknown }
+  | { applyNetworkPolicyAmendment: { network_policy_amendment: { action: string; [key: string]: unknown } } };
+
+interface ApprovalRequestLike {
+  id: RequestId;
+  method: string;
+  params: unknown;
+}
+
+type ApprovalRequest = CommandApprovalRequest | FileChangeApprovalRequest | PermissionsApprovalRequest;
+interface CommandApprovalRequest extends ApprovalRequestLike {
+  method: "item/commandExecution/requestApproval";
+  params: CommandApprovalParams;
+}
+interface FileChangeApprovalRequest extends ApprovalRequestLike {
+  method: "item/fileChange/requestApproval";
+  params: FileChangeApprovalParams;
+}
+interface PermissionsApprovalRequest extends ApprovalRequestLike {
+  method: "item/permissions/requestApproval";
+  params: PermissionsApprovalParams;
+}
+
+interface CommandApprovalParams {
+  threadId: string;
+  turnId: string;
+  itemId: string;
+  startedAtMs: number;
+  approvalId?: string | null;
+  reason?: string | null;
+  networkApprovalContext?: unknown;
+  command?: string | null;
+  cwd?: string | null;
+  commandActions?: unknown[] | null;
+  additionalPermissions?: unknown;
+  proposedExecpolicyAmendment?: unknown;
+  proposedNetworkPolicyAmendments?: unknown[] | null;
+  availableDecisions?: CommandApprovalDecision[] | null;
+}
+
+interface FileChangeApprovalParams {
+  threadId: string;
+  turnId: string;
+  itemId: string;
+  startedAtMs: number;
+  reason: string | null;
+  grantRoot: string | null;
+}
+
+interface PermissionsApprovalParams {
+  threadId: string;
+  turnId: string;
+  itemId: string;
+  startedAtMs: number;
+  reason: string | null;
+  cwd: string;
+  environmentId: string | null;
+  permissions: PermissionProfile;
+}
+
+type PermissionProfile = Parameters<typeof permissionRows>[0];
+interface GrantedPermissionProfile {
+  network?: PermissionProfile["network"];
+  fileSystem?: PermissionProfile["fileSystem"];
+}
+
+type ApprovalResponse =
+  | { decision: CommandApprovalDecision }
+  | { decision: SimpleApprovalDecision }
+  | { scope: "session" | "turn"; permissions: GrantedPermissionProfile };
 
 export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel" | CommandApprovalDecisionAction;
 interface CommandApprovalDecisionAction {
   kind: "command-decision";
-  decision: CommandExecutionApprovalDecision;
+  decision: CommandApprovalDecision;
 }
 export interface ApprovalActionOption {
   label: string;
   action: ApprovalAction;
   className: string;
 }
-type ApprovalRequest = Extract<
-  ServerRequest,
-  {
-    method: "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" | "item/permissions/requestApproval";
-  }
->;
-export type ApprovalResponse =
-  | CommandExecutionRequestApprovalResponse
-  | FileChangeRequestApprovalResponse
-  | PermissionsRequestApprovalResponse;
 
 type PendingApprovalFor<Request extends ApprovalRequest> = Request extends ApprovalRequest
   ? {
@@ -36,9 +94,6 @@ type PendingApprovalFor<Request extends ApprovalRequest> = Request extends Appro
     }
   : never;
 export type PendingApproval = PendingApprovalFor<ApprovalRequest>;
-type CommandApprovalRequest = Extract<ApprovalRequest, { method: "item/commandExecution/requestApproval" }>;
-type FileChangeApprovalRequest = Extract<ApprovalRequest, { method: "item/fileChange/requestApproval" }>;
-type PermissionsApprovalRequest = Extract<ApprovalRequest, { method: "item/permissions/requestApproval" }>;
 
 interface ApprovalSummaryParts {
   reason: string | null;
@@ -47,7 +102,7 @@ interface ApprovalSummaryParts {
   lines: string[];
 }
 
-export function toPendingApproval(request: ServerRequest): PendingApproval | null {
+export function toPendingApproval(request: ApprovalRequestLike): PendingApproval | null {
   if (!isApprovalRequest(request)) return null;
   switch (request.method) {
     case "item/commandExecution/requestApproval":
@@ -59,7 +114,7 @@ export function toPendingApproval(request: ServerRequest): PendingApproval | nul
   }
 }
 
-function isApprovalRequest(request: ServerRequest): request is ApprovalRequest {
+function isApprovalRequest(request: ApprovalRequestLike): request is ApprovalRequest {
   return (
     request.method === "item/commandExecution/requestApproval" ||
     request.method === "item/fileChange/requestApproval" ||
@@ -97,19 +152,19 @@ export function approvalResponse(approval: PendingApproval, action: ApprovalActi
   if (approval.method === "item/commandExecution/requestApproval") {
     return {
       decision: isCommandDecisionAction(action) ? action.decision : commandDecision(action),
-    } satisfies CommandExecutionRequestApprovalResponse;
+    };
   }
 
   if (approval.method === "item/fileChange/requestApproval") {
     return {
       decision: fileChangeDecision(action),
-    } satisfies FileChangeRequestApprovalResponse;
+    };
   }
 
   return {
     scope: action === "accept-session" ? "session" : "turn",
     permissions: action === "accept" || action === "accept-session" ? grantedPermissions(approval.params.permissions) : {},
-  } satisfies PermissionsRequestApprovalResponse;
+  };
 }
 
 export function approvalTitle(approval: PendingApproval): string {
@@ -194,7 +249,7 @@ function summaryParts(reason: string | null, target: string | null, fallback: st
   };
 }
 
-function commandDecision(action: ApprovalAction): CommandExecutionRequestApprovalResponse["decision"] {
+function commandDecision(action: ApprovalAction): CommandApprovalDecision {
   if (action === "accept") return "accept";
   if (action === "accept-session") return "acceptForSession";
   if (action === "cancel") return "cancel";
@@ -224,7 +279,7 @@ function defaultApprovalActionOptions(): ApprovalActionOption[] {
   ];
 }
 
-function commandDecisionLabel(decision: CommandExecutionApprovalDecision): string {
+function commandDecisionLabel(decision: CommandApprovalDecision): string {
   if (decision === "accept") return "Allow";
   if (decision === "acceptForSession") return "Allow session";
   if (decision === "decline") return "Deny";
@@ -236,7 +291,7 @@ function commandDecisionLabel(decision: CommandExecutionApprovalDecision): strin
   return "Choose";
 }
 
-function commandDecisionClassName(decision: CommandExecutionApprovalDecision): string {
+function commandDecisionClassName(decision: CommandApprovalDecision): string {
   const kind = approvalActionKind({ kind: "command-decision", decision });
   if (kind === "accept") return "mod-cta";
   if (kind === "decline") return "mod-warning";
@@ -247,16 +302,14 @@ function isCommandDecisionAction(action: ApprovalAction): action is CommandAppro
   return typeof action === "object";
 }
 
-function fileChangeDecision(action: ApprovalAction): FileChangeRequestApprovalResponse["decision"] {
+function fileChangeDecision(action: ApprovalAction): SimpleApprovalDecision {
   if (action === "accept") return "accept";
   if (action === "accept-session") return "acceptForSession";
   if (action === "cancel") return "cancel";
   return "decline";
 }
 
-function grantedPermissions(
-  requested: Extract<PendingApproval, { method: "item/permissions/requestApproval" }>["params"]["permissions"],
-): GrantedPermissionProfile {
+function grantedPermissions(requested: PermissionsApprovalParams["permissions"]): GrantedPermissionProfile {
   const granted: GrantedPermissionProfile = {};
   if (requested.network) granted.network = requested.network;
   if (requested.fileSystem) granted.fileSystem = requested.fileSystem;

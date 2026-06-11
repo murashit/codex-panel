@@ -33,9 +33,8 @@ export function createChatServerActionControllers(
   },
 ) {
   const { plugin, runtime } = context;
-  const stateStore = context.state.stateStore;
   const serverActionHost = {
-    stateStore,
+    stateStore: context.state.stateStore,
     vaultPath: plugin.vaultPath,
     currentClient: () => refs.connection.currentClient(),
   };
@@ -102,8 +101,8 @@ export function createChatInboundController(
     },
     refreshSkills: (forceReload) => void thread.refreshSkills(forceReload),
     publishAppServerMetadata: thread.publishAppServerMetadataSnapshot,
-    maybeNameThread: (threadId, turn) => {
-      refs.threadRename.maybeAutoNameThread(threadId, turn);
+    maybeNameThread: (threadId, turnId, completedSummary) => {
+      refs.threadRename.maybeAutoNameThread(threadId, turnId, completedSummary);
     },
     notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
@@ -117,7 +116,7 @@ export function createChatInboundController(
 }
 
 interface ChatConnectionControllerPorts {
-  plugin: Pick<CodexChatHost, "settings">;
+  plugin: Pick<CodexChatHost, "publishAppServerIdentity" | "settings">;
   state: {
     stateStore: ChatStateStore;
   };
@@ -180,6 +179,7 @@ export function createChatConnectionControllers(
       resetThreadTurnPresence: thread.resetTurnPresence,
       setStatus: status.set,
       addSystemMessage: status.addSystemMessage,
+      publishAppServerIdentity: plugin.publishAppServerIdentity,
       configuredCommand: () => plugin.settings.codexPath,
       refreshLiveState: liveState.refresh,
       render: render.now,

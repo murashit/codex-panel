@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { messageStreamVirtualItems } from "../../../../../src/features/chat/ui/message-stream/render";
-import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream";
+import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
 
 describe("message stream virtual item fallback", () => {
   it("starts fallback rendering near the current top scroll offset", () => {

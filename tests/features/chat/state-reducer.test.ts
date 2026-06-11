@@ -12,7 +12,7 @@ import {
 } from "../../../src/features/chat/state/reducer";
 import type { ThreadGoal } from "../../../src/app-server/thread-goal";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../src/domain/threads/model";
 
 describe("chatReducer", () => {
   it("clears active turn and thread-scoped state", () => {
@@ -68,6 +68,8 @@ describe("chatReducer", () => {
     state.composer.suggestSelected = 1;
     state.composer.suggestions = [suggestion("/plan")];
     state.composer.suggestionsDismissedSignature = "dismissed";
+    state.runtime.activeCollaborationMode = "plan";
+    state.runtime.selectedCollaborationMode = "plan";
     const resumedItems = [message("resumed-message")];
 
     const next = chatReducer(state, {
@@ -97,6 +99,8 @@ describe("chatReducer", () => {
     expect(next.composer.suggestSelected).toBe(0);
     expect(next.composer.suggestions).toEqual([]);
     expect(next.composer.suggestionsDismissedSignature).toBeNull();
+    expect(next.runtime.activeCollaborationMode).toBe("default");
+    expect(next.runtime.selectedCollaborationMode).toBe("plan");
   });
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {
@@ -244,6 +248,19 @@ describe("chatReducer", () => {
     expect(pendingTurnStart(next)).toBeNull();
   });
 
+  it("ignores stale turn start failures after the turn is already running", () => {
+    const state = createChatState();
+    state.turn.lifecycle = { kind: "running", turnId: "turn" };
+    state.transcript.displayItems = [message("existing")];
+
+    const next = chatReducer(state, { type: "turn/start-failed", displayItems: [] });
+
+    expect(next).toBe(state);
+    expect(chatTurnBusy(next)).toBe(true);
+    expect(activeTurnId(next)).toBe("turn");
+    expect(next.transcript.displayItems).toBe(state.transcript.displayItems);
+  });
+
   it("clears turn-scoped requests when clearing the local turn scope", () => {
     const state = createChatState();
     state.turn.lifecycle = { kind: "running", turnId: "turn" };
@@ -348,10 +365,10 @@ describe("chatReducer", () => {
 
   it("commits pending runtime settings and resets applied overrides", () => {
     let state = createChatState();
-    state = chatReducer(state, { type: "runtime/requested-model-set", model: "gpt-5.1" });
-    state = chatReducer(state, { type: "runtime/requested-effort-set", effort: "high" });
-    state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: "fast" });
-    state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: "auto_review" });
+    state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.1" });
+    state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
+    state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
 
     const next = chatReducer(state, {
       type: "runtime/pending-thread-settings-committed",
@@ -380,8 +397,8 @@ describe("chatReducer", () => {
     state.runtime.activeServiceTier = "flex";
     state.runtime.activeApprovalsReviewer = "user";
 
-    state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: "fast" });
-    state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: "auto_review" });
+    state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
 
     expect(state.runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
     expect(state.runtime.activeServiceTier).toBe("flex");
@@ -389,17 +406,17 @@ describe("chatReducer", () => {
     expect(state.runtime.activeApprovalsReviewer).toBe("user");
   });
 
-  it("keeps null runtime request semantics explicit", () => {
+  it("keeps reset and unset runtime request semantics explicit", () => {
     let state = createChatState();
-    state = chatReducer(state, { type: "runtime/requested-model-set", model: "gpt-5.1" });
-    state = chatReducer(state, { type: "runtime/requested-effort-set", effort: "high" });
-    state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: "fast" });
-    state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: "auto_review" });
+    state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.1" });
+    state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
+    state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
 
-    state = chatReducer(state, { type: "runtime/requested-model-set", model: null });
-    state = chatReducer(state, { type: "runtime/requested-effort-set", effort: null });
-    state = chatReducer(state, { type: "runtime/requested-service-tier-set", serviceTier: null });
-    state = chatReducer(state, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: null });
+    state = chatReducer(state, { type: "runtime/model-reset-to-config" });
+    state = chatReducer(state, { type: "runtime/reasoning-effort-reset-to-config" });
+    state = chatReducer(state, { type: "runtime/service-tier-request-cleared" });
+    state = chatReducer(state, { type: "runtime/approvals-reviewer-request-cleared" });
 
     expect(state.runtime.requestedModel).toEqual({ kind: "resetToConfig" });
     expect(state.runtime.requestedReasoningEffort).toEqual({ kind: "resetToConfig" });
@@ -513,28 +530,13 @@ function goal(threadId: string): ThreadGoal {
   };
 }
 
-export function thread(id: string): Thread & { archived: boolean } {
+export function thread(id: string): Thread {
   return {
     id,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "codex-cli 1.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
   };
 }

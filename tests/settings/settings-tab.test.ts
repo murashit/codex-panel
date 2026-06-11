@@ -2,14 +2,14 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Thread } from "../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { modelMetadataFromAppServerModels } from "../../src/app-server/catalog-model";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
-import { archivedThreadDisplayTitle } from "../../src/domain/threads/model";
+import { archivedThreadDisplayTitle, type Thread } from "../../src/domain/threads/model";
 import { notices } from "../mocks/obsidian";
 import { installObsidianDomShims } from "../support/dom";
 
@@ -30,14 +30,14 @@ describe("settings tab", () => {
   });
 
   it("uses a placeholder for threads without a useful title", () => {
-    expect(archivedThreadDisplayTitle(thread({ name: null, preview: "" }))).toBe("Untitled archived thread");
-    expect(archivedThreadDisplayTitle(thread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781" }))).toBe("Untitled archived thread");
+    expect(archivedThreadDisplayTitle(panelThread({ name: null, preview: "" }))).toBe("Untitled archived thread");
+    expect(archivedThreadDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781" }))).toBe("Untitled archived thread");
   });
 
   it("normalizes and truncates archived thread titles", () => {
-    expect(archivedThreadDisplayTitle(thread({ preview: "A title\nwith   extra\tspace" }))).toBe("A title with extra space");
+    expect(archivedThreadDisplayTitle(panelThread({ preview: "A title\nwith   extra\tspace" }))).toBe("A title with extra space");
 
-    const title = archivedThreadDisplayTitle(thread({ preview: "x".repeat(120) }));
+    const title = archivedThreadDisplayTitle(panelThread({ preview: "x".repeat(120) }));
     expect(title).toHaveLength(96);
     expect(title.endsWith("...")).toBe(true);
   });
@@ -87,6 +87,7 @@ describe("settings tab", () => {
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
+    expect(inputForSetting(tab, "Codex executable")?.getAttribute("aria-label")).toBe("Codex executable");
     const shortcut = tab.containerEl.querySelector<HTMLSelectElement>('select[aria-label="Send shortcut"]');
     if (!shortcut) throw new Error("Missing send shortcut dropdown");
 
@@ -143,6 +144,9 @@ describe("settings tab", () => {
     const filename = inputForSetting(tab, "Saved note filename");
     const tags = inputForSetting(tab, "Saved note tags");
     if (!toggle || !folder || !filename || !tags) throw new Error("Missing archive export controls");
+    expect(folder.getAttribute("aria-label")).toBe("Saved note folder");
+    expect(filename.getAttribute("aria-label")).toBe("Saved note filename");
+    expect(tags.getAttribute("aria-label")).toBe("Saved note tags");
 
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));
@@ -162,10 +166,10 @@ describe("settings tab", () => {
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
-    const firstClient = settingsClient({ models: [model("gpt-5.4")], threads: [thread({ id: "thread-old", preview: "Old" })] });
+    const firstClient = settingsClient({ models: [model("gpt-5.4")], threads: [appServerThread({ id: "thread-old", preview: "Old" })] });
     const secondClient = settingsClient({
       models: [model("gpt-5.5")],
-      threads: [thread({ id: "thread-new", preview: "New" })],
+      threads: [appServerThread({ id: "thread-new", preview: "New" })],
     });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
@@ -226,7 +230,7 @@ describe("settings tab", () => {
     const client = settingsClient({
       models: [model("gpt-5.4")],
       hooksError: new Error("hooks unavailable"),
-      threads: [thread({ preview: "Archived thread" })],
+      threads: [appServerThread({ preview: "Archived thread" })],
     });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
@@ -246,7 +250,7 @@ describe("settings tab", () => {
   it("renders archived threads and hooks as dynamic setting rows", async () => {
     const client = settingsClient({
       hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", trustStatus: "untrusted" })],
-      threads: [thread({ id: "thread-archived", preview: "Archived thread" })],
+      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
     });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
@@ -272,7 +276,19 @@ describe("settings tab", () => {
   });
 });
 
-function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
+function panelThread(overrides: Partial<Thread> = {}): Thread {
+  return {
+    id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
+    preview: "Preview",
+    createdAt: 1,
+    updatedAt: 1,
+    name: null,
+    archived: false,
+    ...overrides,
+  };
+}
+
+function appServerThread(overrides: Partial<AppServerThread> = {}): AppServerThread {
   return {
     id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
     sessionId: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
@@ -293,7 +309,6 @@ function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread
     agentRole: null,
     gitInfo: null,
     name: null,
-    archived: false,
     turns: [],
     ...overrides,
   };
@@ -341,7 +356,7 @@ function hook(overrides: Partial<HookMetadata> = {}): HookMetadata {
   };
 }
 
-function settingsClient(options: { models?: Model[]; hooks?: HookMetadata[]; hooksError?: Error; threads?: Thread[] } = {}) {
+function settingsClient(options: { models?: Model[]; hooks?: HookMetadata[]; hooksError?: Error; threads?: AppServerThread[] } = {}) {
   return {
     listModels: vi.fn().mockResolvedValue({ data: options.models ?? [model("gpt-5.4")] }),
     listHooks: vi.fn().mockImplementation(() => {
@@ -357,7 +372,7 @@ function settingsClient(options: { models?: Model[]; hooks?: HookMetadata[]; hoo
         ],
       });
     }),
-    listThreads: vi.fn().mockResolvedValue({ data: options.threads ?? [thread({ preview: "Archived" })] }),
+    listThreads: vi.fn().mockResolvedValue({ data: options.threads ?? [appServerThread({ preview: "Archived" })] }),
   };
 }
 

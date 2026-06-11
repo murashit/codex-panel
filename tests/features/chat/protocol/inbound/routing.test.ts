@@ -54,6 +54,26 @@ describe("chat inbound routing", () => {
     expect(messageTurnId(userInputRequest())).toBe("turn-active");
   });
 
+  it("classifies every active-thread server request method and extracts its scope", () => {
+    const requests = [
+      { request: commandApprovalRequest(), kind: "approval" },
+      { request: fileChangeApprovalRequest(), kind: "approval" },
+      { request: permissionsApprovalRequest(), kind: "approval" },
+      { request: userInputRequest({ threadId: "thread-active" }), kind: "userInput" },
+      { request: mcpElicitationRequest(), kind: "unsupported" },
+      { request: dynamicToolCallRequest(), kind: "unsupported" },
+    ] as const;
+
+    for (const { request, kind } of requests) {
+      expect(messageThreadId(request)).toBe("thread-active");
+      expect(messageTurnId(request)).toBe("turn-active");
+      expect(routeServerRequest(request, activeScope).kind).toBe(kind);
+      expect(
+        routeServerRequest({ ...request, params: { ...request.params, turnId: "turn-other" } } as ServerRequest, activeScope).kind,
+      ).toBe("inactive");
+    }
+  });
+
   it("marks scoped messages inactive when the thread or turn does not match", () => {
     const otherThread = {
       method: "item/agentMessage/delta",
@@ -72,6 +92,15 @@ describe("chat inbound routing", () => {
     const idleActiveThreadScope = { activeThreadId: "thread-active", activeTurnId: null };
 
     expect(routeServerNotification(agentDeltaNotification(), idleActiveThreadScope).kind).toBe("inactive");
+  });
+
+  it("marks delayed turn-scoped requests inactive after the active thread returns to idle", () => {
+    const idleActiveThreadScope = { activeThreadId: "thread-active", activeTurnId: null };
+    const request = userInputRequest({ threadId: "thread-active" });
+
+    expect(messageThreadId(request)).toBe("thread-active");
+    expect(messageTurnId(request)).toBe("turn-active");
+    expect(routeServerRequest(request, idleActiveThreadScope).kind).toBe("inactive");
   });
 
   it("routes thread catalog notifications even when another thread is active", () => {
@@ -112,6 +141,35 @@ describe("chat inbound routing", () => {
     expect(route.kind).toBe("inactive");
   });
 
+  it("keeps unscoped unsupported requests out of active-turn routing", () => {
+    for (const request of unscopedUnsupportedRequests()) {
+      expect(messageThreadId(request)).toBeNull();
+      expect(messageTurnId(request)).toBeNull();
+      expect(routeServerRequest(request, activeScope).kind).toBe("unsupported");
+    }
+  });
+
+  it("routes unknown runtime server requests to the unknown fallback", () => {
+    const request = {
+      id: 99,
+      method: "future/request",
+      params: { threadId: "thread-active", turnId: "turn-active" },
+    } as unknown as ServerRequest;
+
+    expect(messageThreadId(request)).toBe("thread-active");
+    expect(messageTurnId(request)).toBe("turn-active");
+    expect(routeServerRequest(request, activeScope).kind).toBe("unknown");
+    expect(
+      routeServerRequest(
+        {
+          ...request,
+          params: { threadId: "thread-other", turnId: "turn-active" },
+        } as unknown as ServerRequest,
+        activeScope,
+      ).kind,
+    ).toBe("inactive");
+  });
+
   it("classifies notification categories without mutating state", () => {
     expect(routeServerNotification(agentDeltaNotification(), activeScope).kind).toBe("streamUpdate");
     expect(routeServerNotification(turnStartedNotification(), activeScope).kind).toBe("turnLifecycle");
@@ -135,6 +193,26 @@ describe("chat inbound routing", () => {
     expect(route.kind).toBe("unhandled");
   });
 
+  it("routes unknown runtime notifications to the unhandled fallback", () => {
+    const notification = {
+      method: "future/notification",
+      params: { threadId: "thread-active", turnId: "turn-active" },
+    } as unknown as ServerNotification;
+
+    expect(messageThreadId(notification)).toBe("thread-active");
+    expect(messageTurnId(notification)).toBe("turn-active");
+    expect(routeServerNotification(notification, activeScope).kind).toBe("unhandled");
+    expect(
+      routeServerNotification(
+        {
+          ...notification,
+          params: { threadId: "thread-active", turnId: "turn-other" },
+        } as unknown as ServerNotification,
+        activeScope,
+      ).kind,
+    ).toBe("inactive");
+  });
+
   it("still scopes app-server notifications that Codex Panel does not handle", () => {
     expect(routeServerNotification(rawResponseItemCompletedNotification("thread-active", "turn-active"), activeScope).kind).toBe(
       "unhandled",
@@ -145,6 +223,21 @@ describe("chat inbound routing", () => {
     expect(routeServerNotification(turnModerationMetadataNotification("thread-active", "turn-active"), activeScope).kind).toBe("unhandled");
     expect(routeServerNotification(turnModerationMetadataNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
     expect(routeServerNotification(turnModerationMetadataNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
+
+    expect(routeServerNotification(terminalInteractionNotification("thread-active", "turn-active"), activeScope).kind).toBe("unhandled");
+    expect(routeServerNotification(terminalInteractionNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
+    expect(routeServerNotification(terminalInteractionNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
+
+    expect(routeServerNotification(modelVerificationNotification("thread-active", "turn-active"), activeScope).kind).toBe("unhandled");
+    expect(routeServerNotification(modelVerificationNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
+    expect(routeServerNotification(modelVerificationNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
+  });
+
+  it("still scopes unhandled thread lifecycle notifications", () => {
+    expect(routeServerNotification(threadStatusChangedNotification("thread-active"), activeScope).kind).toBe("unhandled");
+    expect(routeServerNotification(threadStatusChangedNotification("thread-other"), activeScope).kind).toBe("inactive");
+    expect(routeServerNotification(threadClosedNotification("thread-active"), activeScope).kind).toBe("unhandled");
+    expect(routeServerNotification(threadClosedNotification("thread-other"), activeScope).kind).toBe("inactive");
   });
 
   it("scopes MCP startup status notifications when app-server provides a thread id", () => {
@@ -173,7 +266,9 @@ function commandApprovalRequest(): ServerRequest {
   };
 }
 
-function userInputRequest(): ServerRequest {
+function userInputRequest(
+  overrides: Partial<Extract<ServerRequest, { method: "item/tool/requestUserInput" }>["params"]> = {},
+): ServerRequest {
   return {
     id: 2,
     method: "item/tool/requestUserInput",
@@ -182,6 +277,39 @@ function userInputRequest(): ServerRequest {
       turnId: "turn-active",
       itemId: "input",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+      ...overrides,
+    },
+  };
+}
+
+function fileChangeApprovalRequest(): ServerRequest {
+  return {
+    id: 8,
+    method: "item/fileChange/requestApproval",
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      itemId: "file-change",
+      startedAtMs: 1,
+      reason: "Need write access",
+      grantRoot: "/tmp/project",
+    },
+  };
+}
+
+function permissionsApprovalRequest(): ServerRequest {
+  return {
+    id: 9,
+    method: "item/permissions/requestApproval",
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      itemId: "permissions",
+      startedAtMs: 1,
+      cwd: "/tmp/project",
+      reason: "Need network",
+      environmentId: null,
+      permissions: { network: { enabled: true }, fileSystem: null },
     },
   };
 }
@@ -200,6 +328,54 @@ function mcpElicitationRequest(): ServerRequest {
       requestedSchema: { type: "object", properties: {} },
     },
   };
+}
+
+function dynamicToolCallRequest(): ServerRequest {
+  return {
+    id: 10,
+    method: "item/tool/call",
+    params: {
+      threadId: "thread-active",
+      turnId: "turn-active",
+      callId: "call",
+      namespace: null,
+      tool: "example",
+      arguments: {},
+    },
+  };
+}
+
+function unscopedUnsupportedRequests(): ServerRequest[] {
+  return [
+    {
+      id: 4,
+      method: "account/chatgptAuthTokens/refresh",
+      params: { reason: "unauthorized", previousAccountId: null },
+    },
+    {
+      id: 5,
+      method: "attestation/generate",
+      params: {},
+    },
+    {
+      id: 6,
+      method: "applyPatchApproval",
+      params: { conversationId: "thread-active", callId: "patch-1", fileChanges: {}, reason: "Patch requested", grantRoot: null },
+    },
+    {
+      id: 7,
+      method: "execCommandApproval",
+      params: {
+        conversationId: "thread-active",
+        callId: "exec-1",
+        approvalId: null,
+        command: ["npm", "test"],
+        cwd: "/tmp/project",
+        reason: "Run tests",
+        parsedCmd: [],
+      },
+    },
+  ];
 }
 
 function agentDeltaNotification(): ServerNotification {
@@ -303,6 +479,37 @@ function turnModerationMetadataNotification(
   return {
     method: "turn/moderationMetadata",
     params: { threadId, turnId, metadata: { blocked: false } },
+  };
+}
+
+function terminalInteractionNotification(
+  threadId: string,
+  turnId: string,
+): Extract<ServerNotification, { method: "item/commandExecution/terminalInteraction" }> {
+  return {
+    method: "item/commandExecution/terminalInteraction",
+    params: { threadId, turnId, itemId: "command", processId: "process", stdin: "q" },
+  };
+}
+
+function modelVerificationNotification(threadId: string, turnId: string): Extract<ServerNotification, { method: "model/verification" }> {
+  return {
+    method: "model/verification",
+    params: { threadId, turnId, verifications: ["trustedAccessForCyber"] },
+  };
+}
+
+function threadStatusChangedNotification(threadId: string): Extract<ServerNotification, { method: "thread/status/changed" }> {
+  return {
+    method: "thread/status/changed",
+    params: { threadId, status: { type: "idle" } },
+  };
+}
+
+function threadClosedNotification(threadId: string): Extract<ServerNotification, { method: "thread/closed" }> {
+  return {
+    method: "thread/closed",
+    params: { threadId },
   };
 }
 

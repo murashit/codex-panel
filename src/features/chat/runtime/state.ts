@@ -6,15 +6,15 @@ import {
   type ServiceTier,
 } from "../../../app-server/runtime-policy";
 import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import type { CollaborationMode } from "./turn-settings";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import {
   resetRuntimeSettingToConfig,
   setPendingRuntimeSetting,
   unchangedRuntimeSetting,
+  type CollaborationMode,
   type PendingRuntimeSetting,
   type RequestedServiceTier,
-} from "./effective-settings";
+} from "./model";
 
 export interface ChatRuntimeState {
   activeModel: string | null;
@@ -63,34 +63,59 @@ export function initialChatRuntimeState(): ChatRuntimeState {
   };
 }
 
-export function setRequestedModelRuntimeState(state: ChatRuntimeState, model: string | null): ChatRuntimeState {
+export function requestModelRuntimeState(state: ChatRuntimeState, model: string): ChatRuntimeState {
   return {
     ...state,
-    requestedModel: model === null ? resetRuntimeSettingToConfig() : setPendingRuntimeSetting(model),
+    requestedModel: setPendingRuntimeSetting(model),
   };
 }
 
-export function setRequestedReasoningEffortRuntimeState(state: ChatRuntimeState, effort: ReasoningEffort | null): ChatRuntimeState {
+export function resetModelToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedReasoningEffort: effort === null ? resetRuntimeSettingToConfig() : setPendingRuntimeSetting(effort),
+    requestedModel: resetRuntimeSettingToConfig(),
   };
 }
 
-export function setRequestedServiceTierRuntimeState(state: ChatRuntimeState, serviceTier: RequestedServiceTier | null): ChatRuntimeState {
+export function requestReasoningEffortRuntimeState(state: ChatRuntimeState, effort: ReasoningEffort): ChatRuntimeState {
   return {
     ...state,
-    requestedServiceTier: serviceTier === null ? unchangedRuntimeSetting() : setPendingRuntimeSetting(serviceTier),
+    requestedReasoningEffort: setPendingRuntimeSetting(effort),
   };
 }
 
-export function setRequestedApprovalsReviewerRuntimeState(
-  state: ChatRuntimeState,
-  approvalsReviewer: ApprovalsReviewer | null,
-): ChatRuntimeState {
+export function resetReasoningEffortToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedApprovalsReviewer: approvalsReviewer === null ? unchangedRuntimeSetting() : setPendingRuntimeSetting(approvalsReviewer),
+    requestedReasoningEffort: resetRuntimeSettingToConfig(),
+  };
+}
+
+export function requestServiceTierRuntimeState(state: ChatRuntimeState, serviceTier: RequestedServiceTier): ChatRuntimeState {
+  return {
+    ...state,
+    requestedServiceTier: setPendingRuntimeSetting(serviceTier),
+  };
+}
+
+export function clearRequestedServiceTierRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
+  return {
+    ...state,
+    requestedServiceTier: unchangedRuntimeSetting(),
+  };
+}
+
+export function requestApprovalsReviewerRuntimeState(state: ChatRuntimeState, approvalsReviewer: ApprovalsReviewer): ChatRuntimeState {
+  return {
+    ...state,
+    requestedApprovalsReviewer: setPendingRuntimeSetting(approvalsReviewer),
+  };
+}
+
+export function clearRequestedApprovalsReviewerRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
+  return {
+    ...state,
+    requestedApprovalsReviewer: unchangedRuntimeSetting(),
   };
 }
 

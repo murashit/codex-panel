@@ -1,12 +1,47 @@
 import { permissionRows } from "./permission-details";
-import type { GuardianApprovalReviewAction } from "../../../generated/app-server/v2/GuardianApprovalReviewAction";
-import type { ItemGuardianApprovalReviewCompletedNotification } from "../../../generated/app-server/v2/ItemGuardianApprovalReviewCompletedNotification";
-import type { ItemGuardianApprovalReviewStartedNotification } from "../../../generated/app-server/v2/ItemGuardianApprovalReviewStartedNotification";
 import type { DisplayItem } from "./types";
 import { pathsRelativeToRoot } from "./paths";
 import { autoReviewExecutionState } from "./state";
 
-type AutoReviewNotification = ItemGuardianApprovalReviewStartedNotification | ItemGuardianApprovalReviewCompletedNotification;
+type AutoReviewNotification = AutoReviewStartedNotification | AutoReviewCompletedNotification;
+
+interface AutoReviewStartedNotification {
+  threadId: string;
+  turnId: string;
+  startedAtMs: number;
+  reviewId: string;
+  targetItemId: string | null;
+  review: AutoReview;
+  action: AutoReviewAction;
+}
+
+interface AutoReviewCompletedNotification extends AutoReviewStartedNotification {
+  completedAtMs: number;
+  decisionSource: string;
+}
+
+interface AutoReview {
+  status: string;
+  riskLevel: string | null;
+  userAuthorization: string | null;
+  rationale: string | null;
+}
+
+type AutoReviewAction =
+  | { type: "command"; source: string; command: string; cwd: string }
+  | { type: "execve"; source: string; program: string; argv: readonly string[]; cwd: string }
+  | { type: "applyPatch"; cwd: string; files: readonly string[] }
+  | { type: "networkAccess"; target: string; host: string; protocol: string; port: number }
+  | {
+      type: "mcpToolCall";
+      server: string;
+      toolName: string;
+      connectorId: string | null;
+      connectorName: string | null;
+      toolTitle: string | null;
+    }
+  | { type: "requestPermissions"; reason: string | null; permissions: Parameters<typeof permissionRows>[0] };
+
 interface DisplayRow {
   key: string;
   value: string;
@@ -83,7 +118,7 @@ function parseAutomaticApprovalReviewMessage(
   };
 }
 
-function autoReviewActionRows(action: GuardianApprovalReviewAction): DisplayRow[] {
+function autoReviewActionRows(action: AutoReviewAction): DisplayRow[] {
   if (action.type === "command") {
     return [
       { key: "action", value: "command" },
@@ -105,7 +140,7 @@ function autoReviewActionRows(action: GuardianApprovalReviewAction): DisplayRow[
     return [
       { key: "action", value: "apply patch" },
       { key: "cwd", value: action.cwd },
-      { key: "files", value: action.files.length > 0 ? pathsRelativeToRoot(action.files, action.cwd).join("\n") : "(none)" },
+      { key: "files", value: action.files.length > 0 ? pathsRelativeToRoot([...action.files], action.cwd).join("\n") : "(none)" },
     ];
   }
   if (action.type === "networkAccess") {
@@ -134,7 +169,7 @@ function autoReviewActionRows(action: GuardianApprovalReviewAction): DisplayRow[
   ];
 }
 
-function autoReviewActionLabel(action: GuardianApprovalReviewAction): string {
+function autoReviewActionLabel(action: AutoReviewAction): string {
   if (action.type === "command") return action.command;
   if (action.type === "execve") return [action.program, ...action.argv].join(" ");
   if (action.type === "applyPatch") return `apply patch (${String(action.files.length)} files)`;

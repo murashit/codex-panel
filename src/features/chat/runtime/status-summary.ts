@@ -1,4 +1,5 @@
 import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
+import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
 import { jsonPreview } from "../../../utils";
 import { sortedModelMetadata } from "../../../domain/catalog/metadata";
 import { defaultEffortForModelMetadata } from "../../../domain/catalog/metadata";
@@ -9,12 +10,11 @@ import {
   currentReasoningEffort,
   autoReviewActive,
   fastModeLabel,
-  pendingRuntimeSettingLabel,
   runtimeConfigOrDefault,
-  type RuntimeConfigProjection,
   serviceTierLabel,
   type RuntimeSnapshot,
 } from "./effective-settings";
+import { pendingRuntimeSettingLabel } from "./model";
 
 export interface ContextSummary {
   label: string;
@@ -181,12 +181,12 @@ function contextUsageTokens(usage: ThreadTokenUsage): number {
   return usage.last.inputTokens > 0 ? usage.last.inputTokens : usage.last.totalTokens;
 }
 
-function configuredModel(snapshot: RuntimeSnapshot, config: RuntimeConfigProjection): string | null {
+function configuredModel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string | null {
   if (config.model) return config.model;
   return sortedModelMetadata(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
 }
 
-function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeConfigProjection): string | null {
+function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string | null {
   if (config.rawReasoningEffort) return config.rawReasoningEffort;
   const model = configuredModel(snapshot, config);
   return defaultEffortForModelMetadata(

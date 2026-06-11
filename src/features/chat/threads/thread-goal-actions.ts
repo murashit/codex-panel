@@ -1,11 +1,11 @@
 import type { AppServerClient } from "../../../app-server/client";
 import {
+  appServerThreadGoalUserHistoryItem,
   threadGoalFromAppServerGoal,
   type ThreadGoal,
   type ThreadGoalStatus,
   type ThreadGoalUpdate,
 } from "../../../app-server/thread-goal";
-import type { JsonValue } from "../../../generated/app-server/serde_json/JsonValue";
 import type { ChatStateStore } from "../state/reducer";
 import type { GoalDisplayItem } from "../display/types";
 import { goalChangeItem } from "../display/goal-messages";
@@ -45,8 +45,7 @@ async function syncThreadGoal(host: ChatThreadGoalActionsHost, threadId: string)
     const response = await client.getThreadGoal(threadId);
     applyGoalIfActive(host, threadId, threadGoalFromAppServerGoal(response.goal), { reportChange: false });
   } catch (error) {
-    if (host.stateStore.getState().activeThread.id !== threadId) return;
-    host.addSystemMessage(`Could not load thread goal: ${errorMessage(error)}`);
+    addThreadScopedSystemMessage(host, threadId, `Could not load thread goal: ${errorMessage(error)}`);
   }
 }
 
@@ -87,7 +86,7 @@ async function clearGoal(host: ChatThreadGoalActionsHost, threadId: string): Pro
     applyGoalIfActive(host, threadId, null, { reportChange: true });
     return true;
   } catch (error) {
-    host.addSystemMessage(errorMessage(error));
+    addThreadScopedSystemMessage(host, threadId, errorMessage(error));
     return false;
   }
 }
@@ -100,7 +99,7 @@ async function setGoal(host: ChatThreadGoalActionsHost, threadId: string, params
     const response = await client.setThreadGoal(threadId, params);
     return applyGoalIfActive(host, threadId, threadGoalFromAppServerGoal(response.goal), { reportChange: true });
   } catch (error) {
-    host.addSystemMessage(errorMessage(error));
+    addThreadScopedSystemMessage(host, threadId, errorMessage(error));
     return false;
   }
 }
@@ -125,10 +124,15 @@ async function recordGoalUserMessage(host: ChatThreadGoalActionsHost, threadId: 
   const client = host.currentClient();
   if (!client) return;
   try {
-    await client.injectThreadItems(threadId, [goalUserHistoryItem(objective)]);
+    await client.injectThreadItems(threadId, [appServerThreadGoalUserHistoryItem(objective)]);
   } catch (error) {
-    host.addSystemMessage(`Could not record goal message: ${errorMessage(error)}`);
+    addThreadScopedSystemMessage(host, threadId, `Could not record goal message: ${errorMessage(error)}`);
   }
+}
+
+function addThreadScopedSystemMessage(host: ChatThreadGoalActionsHost, threadId: string, text: string): void {
+  if (host.stateStore.getState().activeThread.id !== threadId) return;
+  host.addSystemMessage(text);
 }
 
 function errorMessage(error: unknown): string {
@@ -137,12 +141,4 @@ function errorMessage(error: unknown): string {
 
 function goalEventId(): string {
   return `goal-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
-}
-
-function goalUserHistoryItem(text: string): JsonValue {
-  return {
-    type: "message",
-    role: "user",
-    content: [{ type: "input_text", text }],
-  };
 }

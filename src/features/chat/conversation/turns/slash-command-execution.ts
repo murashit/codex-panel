@@ -39,8 +39,10 @@ export interface SlashCommandExecutionContext {
   toggleAutoReview: () => void | Promise<void>;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
-  setRequestedModel: (model: string | null) => boolean | undefined | Promise<boolean | undefined>;
-  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => boolean | undefined | Promise<boolean | undefined>;
+  requestModel: (model: string) => boolean | undefined | Promise<boolean | undefined>;
+  resetModelToConfig: () => boolean | undefined | Promise<boolean | undefined>;
+  requestReasoningEffort: (effort: ReasoningEffort) => boolean | undefined | Promise<boolean | undefined>;
+  resetReasoningEffortToConfig: () => boolean | undefined | Promise<boolean | undefined>;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
   activeGoal: () => ThreadGoal | null;
   setGoalObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<boolean>;
@@ -215,7 +217,7 @@ export async function executeSlashCommand(
   if (command === "model") {
     const requested = parseModelOverride(args);
     if (requested !== undefined) {
-      const applied = await context.setRequestedModel(requested);
+      const applied = await applyModelOverride(context, requested);
       if (applied === false) return;
       context.addSystemMessage(modelOverrideMessage(requested));
       return;
@@ -231,7 +233,7 @@ export async function executeSlashCommand(
         context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
         return;
       }
-      const applied = await context.setRequestedReasoningEffort(requested);
+      const applied = await applyReasoningEffortOverride(context, requested);
       if (applied === false) return;
       context.addSystemMessage(reasoningEffortOverrideMessage(requested));
       return;
@@ -245,6 +247,20 @@ export async function executeSlashCommand(
   }
 
   context.addStructuredSystemMessage("Available slash commands", slashCommandHelpSections());
+}
+
+function applyModelOverride(
+  context: SlashCommandExecutionContext,
+  requested: string | null,
+): boolean | undefined | Promise<boolean | undefined> {
+  return requested === null ? context.resetModelToConfig() : context.requestModel(requested);
+}
+
+function applyReasoningEffortOverride(
+  context: SlashCommandExecutionContext,
+  requested: ReasoningEffort | null,
+): boolean | undefined | Promise<boolean | undefined> {
+  return requested === null ? context.resetReasoningEffortToConfig() : context.requestReasoningEffort(requested);
 }
 
 function validateSlashCommandArguments(command: SlashCommandName, args: string): string | null {

@@ -33,8 +33,10 @@ export interface SlashCommandRuntimePort {
   toggleFastMode: () => void | Promise<void>;
   toggleCollaborationMode: () => void | Promise<void>;
   toggleAutoReview: () => void | Promise<void>;
-  setRequestedModel: (model: string | null) => boolean | undefined | Promise<boolean | undefined>;
-  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => boolean | undefined | Promise<boolean | undefined>;
+  requestModel: (model: string) => boolean | undefined | Promise<boolean | undefined>;
+  resetModelToConfig: () => boolean | undefined | Promise<boolean | undefined>;
+  requestReasoningEffort: (effort: ReasoningEffort) => boolean | undefined | Promise<boolean | undefined>;
+  resetReasoningEffortToConfig: () => boolean | undefined | Promise<boolean | undefined>;
 }
 
 export interface SlashCommandStatusPort {
@@ -109,8 +111,10 @@ async function executeSlashCommand(
     addStructuredSystemMessage: (text, details) => {
       host.status.addStructuredSystemMessage(text, details);
     },
-    setRequestedModel: (model) => host.runtime.setRequestedModel(model),
-    setRequestedReasoningEffort: (effort) => host.runtime.setRequestedReasoningEffort(effort),
+    requestModel: (model) => host.runtime.requestModel(model),
+    resetModelToConfig: () => host.runtime.resetModelToConfig(),
+    requestReasoningEffort: (effort) => host.runtime.requestReasoningEffort(effort),
+    resetReasoningEffortToConfig: () => host.runtime.resetReasoningEffortToConfig(),
     supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
     activeGoal: () => host.goals.activeGoal(),
     setGoalObjective: (threadId, objective, tokenBudget) => host.goals.setObjective(threadId, objective, tokenBudget),

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import type { ThreadActivationSnapshot } from "../../../../src/app-server/thread-activation";
 import { resumedThreadAction } from "../../../../src/features/chat/threads/thread-resume";
-import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
-import type { ThreadResumeResponse } from "../../../../src/generated/app-server/v2/ThreadResumeResponse";
+import type { Thread } from "../../../../src/domain/threads/model";
 
 describe("chat thread resume helpers", () => {
   it("builds thread resumed actions from response snapshots", () => {
@@ -46,46 +46,26 @@ describe("chat thread resume helpers", () => {
   });
 });
 
-function responseFixture(thread: Thread & { archived: boolean }): ThreadResumeResponse & { thread: Thread & { archived: boolean } } {
+function responseFixture(thread: Thread): ThreadActivationSnapshot {
   return {
     thread,
     model: "gpt-5.5",
-    modelProvider: "openai",
     serviceTier: "fast",
     cwd: "/vault",
-    runtimeWorkspaceRoots: [],
-    instructionSources: [],
     approvalPolicy: "on-request",
     approvalsReviewer: "user",
-    sandbox: { type: "readOnly", networkAccess: false },
     activePermissionProfile: null,
     reasoningEffort: "high",
-    initialTurnsPage: null,
   };
 }
 
-function threadFixture(id: string, name: string): Thread & { archived: boolean } {
+function threadFixture(id: string, name: string): Thread {
   return {
     id,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
-    createdAt: 1,
-    updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name,
     archived: false,
-    turns: [],
+    createdAt: 1,
+    updatedAt: 1,
   };
 }

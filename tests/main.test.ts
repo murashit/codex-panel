@@ -7,8 +7,10 @@ import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import type CodexPanelPlugin from "../src/main";
 import type { CodexChatView } from "../src/features/chat/view";
-import type { Thread } from "../src/generated/app-server/v2/Thread";
+import type { CodexChatHost } from "../src/features/chat/chat-host";
+import type { Thread } from "../src/domain/threads/model";
 import type { SharedAppServerCache } from "../src/app-server/shared-cache";
+import type { SharedAppServerCacheContext } from "../src/app-server/shared-cache-state";
 import type { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
 import type { ThreadSurfaceCoordinator } from "../src/workspace/thread-surface-coordinator";
 import { installObsidianDomShims } from "./support/dom";
@@ -25,6 +27,22 @@ function threadSurfaces(plugin: CodexPanelPlugin): ThreadSurfaceCoordinator {
 
 function sharedAppServerCache(plugin: CodexPanelPlugin): SharedAppServerCache {
   return (plugin as unknown as { sharedAppServerCache: SharedAppServerCache }).sharedAppServerCache;
+}
+
+function chatHost(plugin: CodexPanelPlugin): CodexChatHost {
+  return (plugin as unknown as { chatHost(): CodexChatHost }).chatHost();
+}
+
+function sharedAppServerCacheContext(
+  plugin: CodexPanelPlugin,
+  overrides: Partial<SharedAppServerCacheContext> = {},
+): SharedAppServerCacheContext {
+  return {
+    codexPath: plugin.settings.codexPath,
+    vaultPath: plugin.vaultPath,
+    appServerUserAgent: null,
+    ...overrides,
+  };
 }
 
 describe("CodexPanelPlugin boot restored panel loading", () => {
@@ -407,17 +425,18 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
   it("single-flights shared thread list refreshes and caches successful results", async () => {
     const plugin = await pluginWithLeaves([]);
-    let resolveThreads!: (threads: (Thread & { archived: boolean })[]) => void;
+    let resolveThreads!: (threads: Thread[]) => void;
     const fetchThreads = vi.fn(
       () =>
-        new Promise<(Thread & { archived: boolean })[]>((resolve) => {
+        new Promise<Thread[]>((resolve) => {
           resolveThreads = resolve;
         }),
     );
     const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
 
-    const first = sharedAppServerCache(plugin).refreshThreadList(fetchThreads);
-    const second = sharedAppServerCache(plugin).refreshThreadList(secondFetch);
+    const context = sharedAppServerCacheContext(plugin);
+    const first = sharedAppServerCache(plugin).refreshThreadList(context, fetchThreads);
+    const second = sharedAppServerCache(plugin).refreshThreadList(context, secondFetch);
 
     expect(fetchThreads).toHaveBeenCalledOnce();
     expect(secondFetch).not.toHaveBeenCalled();
@@ -425,16 +444,60 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     await expect(first).resolves.toEqual([thread("first")]);
     await expect(second).resolves.toEqual([thread("first")]);
-    expect(sharedAppServerCache(plugin).cachedThreadList()).toEqual([thread("first")]);
+    expect(sharedAppServerCache(plugin).cachedThreadList(context)).toEqual([thread("first")]);
+  });
+
+  it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const firstContext = sharedAppServerCacheContext(plugin, { codexPath: "codex-a" });
+    const secondContext = sharedAppServerCacheContext(plugin, { codexPath: "codex-b" });
+    let resolveFirst!: (threads: Thread[]) => void;
+    const firstFetch = vi.fn(
+      () =>
+        new Promise<Thread[]>((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
+
+    const first = sharedAppServerCache(plugin).refreshThreadList(firstContext, firstFetch);
+    const second = sharedAppServerCache(plugin).refreshThreadList(secondContext, secondFetch);
+
+    expect(firstFetch).toHaveBeenCalledOnce();
+    expect(secondFetch).toHaveBeenCalledOnce();
+    await expect(second).resolves.toEqual([thread("second")]);
+    expect(sharedAppServerCache(plugin).cachedThreadList(secondContext)).toEqual([thread("second")]);
+
+    resolveFirst([thread("first")]);
+    await expect(first).resolves.toEqual([thread("first")]);
+    expect(sharedAppServerCache(plugin).cachedThreadList(secondContext)).toEqual([thread("second")]);
+    expect(sharedAppServerCache(plugin).cachedThreadList(firstContext)).toBeNull();
+  });
+
+  it("keys shared thread list snapshots by published app-server identity", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const host = chatHost(plugin);
+
+    host.publishAppServerIdentity("codex-cli/1.2.3");
+    await host.refreshThreadList(() => Promise.resolve([thread("versioned")]));
+
+    expect(
+      sharedAppServerCache(plugin).cachedThreadList(sharedAppServerCacheContext(plugin, { appServerUserAgent: "codex-cli/1.2.3" })),
+    ).toEqual([thread("versioned")]);
+
+    host.publishAppServerIdentity("codex-cli/9.9.9");
+
+    expect(host.cachedThreadList()).toBeNull();
   });
 
   it("keeps the previous shared thread list when refresh fails", async () => {
     const plugin = await pluginWithLeaves([]);
-    await sharedAppServerCache(plugin).refreshThreadList(() => Promise.resolve([thread("cached")]));
+    const context = sharedAppServerCacheContext(plugin);
+    await sharedAppServerCache(plugin).refreshThreadList(context, () => Promise.resolve([thread("cached")]));
 
-    await expect(sharedAppServerCache(plugin).refreshThreadList(() => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
+    await expect(sharedAppServerCache(plugin).refreshThreadList(context, () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
 
-    expect(sharedAppServerCache(plugin).cachedThreadList()).toEqual([thread("cached")]);
+    expect(sharedAppServerCache(plugin).cachedThreadList(context)).toEqual([thread("cached")]);
   });
 
   it("refreshes shared thread lists from a connected chat panel", async () => {
@@ -565,35 +628,21 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
       refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
       cachedThreadList: vi.fn(() => null),
       publishAppServerMetadata: vi.fn(),
+      publishAppServerIdentity: vi.fn(),
       cachedAppServerMetadata: vi.fn(() => null),
     },
   );
 }
 
-function thread(id: string): Thread & { archived: boolean } {
+function thread(id: string): Thread {
   return {
     id,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: id,
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
-  } as Thread & { archived: boolean };
+  };
 }
 
 function panelSnapshot(

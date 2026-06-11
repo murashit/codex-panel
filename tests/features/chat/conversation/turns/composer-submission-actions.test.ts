@@ -3,31 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/client";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import { createComposerSubmissionActions } from "../../../../../src/features/chat/conversation/turns/composer-submission-actions";
-import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../../../src/domain/threads/model";
 
-function thread(id: string): Thread & { archived: boolean } {
+function thread(id: string): Thread {
   return {
     id,
-    sessionId: id,
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "test",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
   };
 }
 

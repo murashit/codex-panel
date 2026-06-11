@@ -4,31 +4,16 @@ import { createChatState, createChatStateStore } from "../../../../src/features/
 import { createThreadIdentityActions } from "../../../../src/features/chat/threads/thread-identity-actions";
 import type { RestoredThreadController } from "../../../../src/features/chat/threads/restored-thread-controller";
 import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/panel/lifecycle";
-import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../../src/domain/threads/model";
 
-function thread(id: string, name: string | null = null): Thread & { archived: boolean } {
+function thread(id: string, name: string | null = null): Thread {
   return {
     id,
-    sessionId: id,
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "test",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name,
     archived: false,
-    turns: [],
   };
 }
 

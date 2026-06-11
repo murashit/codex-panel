@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import {
   codexPanelDisplayTitle,
   explicitThreadName,
   getThreadTitle,
   inheritedForkThreadName,
   upsertThread,
+  type Thread,
 } from "../../../src/domain/threads/model";
 
 describe("thread helpers", () => {
@@ -48,29 +48,14 @@ describe("thread helpers", () => {
   });
 });
 
-function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
+function thread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "thread-1",
-    sessionId: "session-1",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: "idle",
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.130.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
     ...overrides,
-  } as Thread & { archived: boolean };
+  };
 }

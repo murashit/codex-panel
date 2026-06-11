@@ -9,7 +9,7 @@ import type { CodexChatHost } from "../chat-host";
 import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
-import type { ComposerMetaViewModel } from "./view-model";
+import type { ComposerMetaViewModel } from "./view-model/types";
 
 export interface ChatControllerCompositionPorts {
   obsidian: ChatPanelObsidianContext;

@@ -1,4 +1,3 @@
-import { closePanelsAction } from "../state/actions";
 import { canSwitchToThread } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
 
@@ -32,7 +31,7 @@ export function createThreadSelectionActions(host: ThreadSelectionControllerHost
     async selectThreadFromToolbar(threadId) {
       if (!canSwitchToThread(host.stateStore.getState(), threadId)) return;
 
-      host.stateStore.dispatch(closePanelsAction());
+      host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
       await selectThread(threadId);
     },
   };

@@ -14,20 +14,19 @@ import type { SharedAppServerMetadata } from "../../app-server/shared-cache-stat
 import type { CodexChatHost } from "./chat-host";
 import { createStructuredSystemItem, createSystemItem } from "./display/system";
 import {
-  activeThreadTitle as buildActiveThreadTitle,
-  chatViewDisplayTitle,
-  connectionDiagnosticsModel,
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
   runtimeSnapshotForChatSlices,
   statusSummaryLines as buildStatusSummaryLines,
-} from "./panel/view-model";
+} from "./panel/view-model/runtime";
+import { activeThreadTitle as buildActiveThreadTitle, chatViewDisplayTitle } from "./panel/view-model/thread-title";
+import { connectionDiagnosticsModel } from "./panel/view-model/toolbar";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
 import { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./panel/lifecycle";
 import { ChatMessageScrollIntentController } from "./panel/message-scroll-intent-controller";
 import type { ChatControllerCompositionPorts } from "./panel/controller-ports";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/composition";
-import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelMessagesPorts, ChatPanelToolbarPorts } from "./panel/ui-ports";
+import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelStatePort, ChatPanelToolbarPorts } from "./panel/ui-ports";
 import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder, chatPanelPendingRequestsSignature } from "./ui/region-view-models";
 import {
   chatPanelComposerRegionNode,
@@ -49,7 +48,7 @@ export class CodexChatView extends ItemView {
   private readonly messageScrollIntent: ChatMessageScrollIntentController;
   private readonly toolbarPorts: ChatPanelToolbarPorts;
   private readonly goalPorts: ChatPanelGoalPorts;
-  private readonly messagesPorts: ChatPanelMessagesPorts;
+  private readonly messagesPorts: ChatPanelStatePort;
   private readonly composerPorts: ChatPanelComposerPorts;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
@@ -205,7 +204,7 @@ export class CodexChatView extends ItemView {
   private createPanelRegionPorts(controllers: ChatViewControllers): {
     toolbar: ChatPanelToolbarPorts;
     goal: ChatPanelGoalPorts;
-    messages: ChatPanelMessagesPorts;
+    messages: ChatPanelStatePort;
     composer: ChatPanelComposerPorts;
   } {
     const state = {
@@ -252,8 +251,9 @@ export class CodexChatView extends ItemView {
         },
         runtime: {
           snapshot: () => this.runtimeSnapshot(),
-          setRequestedModel: (model) => this.setRequestedModelFromUi(model),
-          setRequestedReasoningEffort: (effort) => this.setRequestedReasoningEffortFromUi(effort),
+          requestModel: (model) => this.requestModelFromUi(model),
+          requestReasoningEffort: (effort) => this.requestReasoningEffortFromUi(effort),
+          resetReasoningEffortToConfig: () => this.resetReasoningEffortToConfigFromUi(),
         },
       },
     };
@@ -528,12 +528,16 @@ export class CodexChatView extends ItemView {
     void this.app.workspace.requestSaveLayout();
   }
 
-  private async setRequestedModelFromUi(model: string | null): Promise<void> {
-    await this.controllers.runtime.settings.setRequestedModelFromUi(model);
+  private async requestModelFromUi(model: string): Promise<void> {
+    await this.controllers.runtime.settings.requestModelFromUi(model);
   }
 
-  private async setRequestedReasoningEffortFromUi(effort: ReasoningEffort | null): Promise<void> {
-    await this.controllers.runtime.settings.setRequestedReasoningEffortFromUi(effort);
+  private async requestReasoningEffortFromUi(effort: ReasoningEffort): Promise<void> {
+    await this.controllers.runtime.settings.requestReasoningEffortFromUi(effort);
+  }
+
+  private async resetReasoningEffortToConfigFromUi(): Promise<void> {
+    await this.controllers.runtime.settings.resetReasoningEffortToConfigFromUi();
   }
 
   private async ensureRestoredThreadLoaded(): Promise<boolean> {

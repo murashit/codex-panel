@@ -14,33 +14,18 @@ import {
   type TurnSubmissionThreadPort,
   type TurnSubmissionViewPort,
 } from "../../../../../src/features/chat/conversation/turns/turn-submission-controller";
-import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../../../src/domain/threads/model";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
-function thread(id: string): Thread & { archived: boolean } {
+function thread(id: string): Thread {
   return {
     id,
-    sessionId: id,
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "test",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
   };
 }
 
@@ -145,11 +130,42 @@ describe("TurnSubmissionController", () => {
     expect(host.thread.startThread).toHaveBeenCalledWith("hello");
     expect(host.thread.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.thread.resetThreadTurnPresence).toHaveBeenCalledWith(false);
-    expect(startTurn).toHaveBeenCalledWith("thread", "/vault", textInput("hello"), expect.stringMatching(/^local-user-\d+$/));
+    expect(startTurn).toHaveBeenCalledWith({
+      threadId: "thread",
+      cwd: "/vault",
+      input: textInput("hello"),
+      clientUserMessageId: expect.stringMatching(/^local-user-\d+$/),
+    });
     expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.composer.setDraft).toHaveBeenCalledWith("");
     expect(host.status.setStatus).toHaveBeenCalledWith("Turn running...");
     expect(host.view.scheduleRender).toHaveBeenCalledOnce();
+  });
+
+  it("does not restore stale drafts or report stale start failures after the active thread changes", async () => {
+    const { host, startTurn, stateStore } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: thread("thread"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    startTurn.mockImplementation(async () => {
+      stateStore.dispatch({ type: "active-thread/cleared" });
+      throw new Error("offline");
+    });
+    const controller = new TurnSubmissionController(host);
+
+    await controller.sendTurnText("hello");
+
+    expect(host.composer.setDraft).toHaveBeenCalledWith("");
+    expect(host.composer.setDraft).not.toHaveBeenCalledWith("hello");
+    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("steers a running turn instead of starting another turn", async () => {
@@ -179,5 +195,61 @@ describe("TurnSubmissionController", () => {
         .getState()
         .transcript.displayItems.some((item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up"),
     ).toBe(true);
+  });
+
+  it("does not append stale steer messages after the active turn changes", async () => {
+    const { host, startTurn, stateStore, steerTurn } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: thread("thread"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    steerTurn.mockImplementation(async () => {
+      stateStore.dispatch({ type: "active-thread/cleared" });
+      return {};
+    });
+    const controller = new TurnSubmissionController(host);
+
+    await controller.sendTurnText("follow up");
+
+    expect(startTurn).not.toHaveBeenCalled();
+    expect(host.composer.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(host.status.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
+    expect(stateStore.getState().transcript.displayItems).toEqual([]);
+  });
+
+  it("does not restore stale steer drafts or report stale steer failures after the active turn changes", async () => {
+    const { host, startTurn, stateStore, steerTurn } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: thread("thread"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    steerTurn.mockImplementation(async () => {
+      stateStore.dispatch({ type: "active-thread/cleared" });
+      throw new Error("offline");
+    });
+    const controller = new TurnSubmissionController(host);
+
+    await controller.sendTurnText("follow up");
+
+    expect(startTurn).not.toHaveBeenCalled();
+    expect(host.composer.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(host.composer.setDraft).not.toHaveBeenCalledWith("follow up", { focus: true });
+    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
   });
 });

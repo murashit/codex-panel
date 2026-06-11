@@ -1,14 +1,29 @@
-import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";
-import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateDisplay, DisplayItem, ExecutionState } from "./types";
+import type { AgentDisplayItem, AgentRunSummary, AgentRunSummaryAgent, AgentStateDisplay, DisplayItem, ExecutionState } from "./types";
 import { definedProp } from "../../../utils";
 import { agentActivitySummaryLabel, agentMessagePreview } from "./labels";
 import { collabAgentStateExecutionState, collabAgentToolCallExecutionState } from "./state";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
 type AgentRunState = "running" | "completed" | "failed";
-type CollabAgentToolCallItem = Extract<ThreadItem, { type: "collabAgentToolCall" }>;
 
-export function agentDisplayItem(item: CollabAgentToolCallItem, turnId?: string): DisplayItem {
+interface DisplayCollabAgentToolCall {
+  id: string;
+  tool: string;
+  status: string;
+  senderThreadId: string;
+  receiverThreadIds: string[];
+  prompt: string | null;
+  model: string | null;
+  reasoningEffort: string | null;
+  agentsStates: Record<string, DisplayCollabAgentState | undefined>;
+}
+
+interface DisplayCollabAgentState {
+  status?: string | null;
+  message?: string | null;
+}
+
+export function agentDisplayItem(item: DisplayCollabAgentToolCall, turnId?: string): AgentDisplayItem {
   const agents = agentStatesDisplay(item.agentsStates);
   const receiverText = item.receiverThreadIds.length > 0 ? `\ntargets: ${item.receiverThreadIds.join(", ")}` : "";
   const promptText = item.prompt ? `\n${item.prompt}` : "";
@@ -71,7 +86,7 @@ export function activeAgentRunSummary(items: readonly DisplayItem[], activeTurnI
   return summary;
 }
 
-function agentStatesDisplay(states: CollabAgentToolCallItem["agentsStates"]): AgentStateDisplay[] {
+function agentStatesDisplay(states: DisplayCollabAgentToolCall["agentsStates"]): AgentStateDisplay[] {
   return Object.entries(states)
     .map(([threadId, state]) => ({
       threadId,

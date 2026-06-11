@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
-import type { ComposerMetaViewModel, RuntimeChoice } from "../panel/view-model";
+import type { ComposerMetaViewModel, RuntimeChoice } from "../panel/view-model/types";
 import { IconButton } from "../../../shared/ui/components";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 
@@ -127,6 +127,7 @@ function ComposerShell({
           className="codex-panel-ui__text-input codex-panel__composer-input"
           placeholder={sendMode.canInterrupt ? "Add steering message..." : normalPlaceholder}
           role="combobox"
+          aria-label={sendMode.canInterrupt ? "Steering message" : "Message"}
           aria-autocomplete="list"
           aria-expanded={suggestions.length > 0 ? "true" : "false"}
           aria-controls={`${viewId}-composer-suggestions`}
@@ -371,6 +372,7 @@ function ComposerMetaModeButton({ icon, active, onMouseDown }: { icon: string; a
   return (
     <span
       ref={iconRef}
+      aria-hidden="true"
       className={["codex-panel__composer-meta-trigger", "codex-panel__composer-meta-icon", active ? "is-active" : ""]
         .filter(Boolean)
         .join(" ")}

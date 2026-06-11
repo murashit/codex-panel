@@ -1,7 +1,6 @@
 import { StaleConnectionError } from "../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../app-server/client";
 import type { AppServerInitialization } from "../../../app-server/initialization";
-import { clearDisconnectedConnectionStateAction, connectionInitializedAction } from "../state/actions";
 import type { ChatStateStore } from "../state/reducer";
 import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../panel/lifecycle";
 
@@ -35,6 +34,7 @@ export interface ChatConnectionControllerHost {
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
+  publishAppServerIdentity: (userAgent: string | null) => void;
   configuredCommand: () => string;
   refreshLiveState: () => void;
   render: () => void;
@@ -71,8 +71,9 @@ export class ChatConnectionController {
   handleExit(): void {
     this.invalidate();
     this.host.invalidateResumeWork();
+    this.host.publishAppServerIdentity(null);
     this.host.setStatus("Codex app-server stopped.");
-    this.host.stateStore.dispatch(clearDisconnectedConnectionStateAction());
+    this.host.stateStore.dispatch({ type: "connection/scoped-cleared" });
     this.host.resetThreadTurnPresence(false);
     this.host.setClient(null);
     this.host.refreshLiveState();
@@ -118,10 +119,13 @@ export class ChatConnectionController {
   }
 
   private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
+    this.host.publishAppServerIdentity(null);
     this.host.setStatus("Starting Codex app-server...");
     try {
-      this.host.stateStore.dispatch(connectionInitializedAction(await this.host.connection.connect()));
+      const initialization = await this.host.connection.connect();
       if (this.host.connectionWork.isStale(connection)) return;
+      this.host.publishAppServerIdentity(initialization.userAgent);
+      this.host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
       const client = this.host.connection.currentClient();
       this.host.setClient(client);
       if (!client) throw new Error("Codex app-server connection did not initialize.");

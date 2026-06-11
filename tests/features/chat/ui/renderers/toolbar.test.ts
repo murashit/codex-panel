@@ -152,6 +152,9 @@ describe("toolbar renderer decisions", () => {
     expect(meters.map((meter) => meter.classList.contains("codex-panel__limit-panel-meter--divided"))).toEqual([true, true]);
     expect(meters[0]?.classList.contains("codex-panel__limit-panel-meter--5")).toBe(true);
     expect(meters[1]?.classList.contains("codex-panel__limit-panel-meter--7")).toBe(true);
+    expect(meters.map((meter) => meter.getAttribute("role"))).toEqual(["progressbar", "progressbar"]);
+    expect(meters.map((meter) => meter.getAttribute("aria-valuenow"))).toEqual(["42", "21"]);
+    expect(meters.map((meter) => meter.getAttribute("aria-label"))).toEqual(["Codex 5h: 42% used.", "Codex 1w: 21% used."]);
   });
 
   it("renders connection diagnostics in the status menu", () => {

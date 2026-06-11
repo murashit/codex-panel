@@ -1,5 +1,4 @@
 import type { AppServerClient } from "../../../../app-server/client";
-import { closePanelsAction, setRequestedCollaborationModeDefaultAction } from "../../state/actions";
 import { activeThreadId, canImplementPlan } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
 import type { DisplayItem } from "../../display/types";
@@ -38,7 +37,7 @@ async function implementPlan(host: PlanImplementationActionsHost, item: DisplayI
   await host.connection.ensureConnected();
   if (!host.connection.currentClient() || !activeThreadId(host.stateStore.getState())) return;
 
-  host.stateStore.dispatch(setRequestedCollaborationModeDefaultAction());
-  host.stateStore.dispatch(closePanelsAction());
+  host.stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+  host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   await host.submission.sendTurnText(IMPLEMENT_PLAN_PROMPT);
 }

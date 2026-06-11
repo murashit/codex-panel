@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../../src/app-server/client";
-import type { AppServerRpcError } from "../../src/app-server/client";
+import type { AppServerRpcError, AppServerStartStructuredTurnOptions, AppServerStartTurnOptions } from "../../src/app-server/client";
 import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/transport";
 import type { RpcOutboundMessage } from "../../src/app-server/types";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
@@ -388,7 +388,7 @@ describe("AppServerClient", () => {
   it("sends golden thread and turn request payloads", async () => {
     const { client, transport } = await connectedClient();
 
-    const startingThread = client.startThread("/vault", "fast");
+    const startingThread = client.startThread({ cwd: "/vault", serviceTier: "fast" });
     expect(transport.sent[2]).toMatchObject({
       id: 2,
       method: "thread/start",
@@ -401,7 +401,13 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 2, result: { thread: { id: "thread-1", title: null }, serviceTier: "fast" } });
     await startingThread;
 
-    const startingTurn = client.startTurn("thread-1", "/vault", "hello", "local-user-1", null);
+    const startingTurn = client.startTurn({
+      threadId: "thread-1",
+      cwd: "/vault",
+      input: "hello",
+      clientUserMessageId: "local-user-1",
+      runtime: { serviceTier: null },
+    });
     expect(transport.sent[3]).toMatchObject({
       id: 3,
       method: "turn/start",
@@ -424,7 +430,7 @@ describe("AppServerClient", () => {
       { type: "mention" as const, name: "Alpha", path: "thoughts/Alpha.md" },
     ];
 
-    const startingTurn = client.startTurn("thread-1", "/vault", input);
+    const startingTurn = client.startTurn({ threadId: "thread-1", cwd: "/vault", input });
     expect(transport.sent[2]).toMatchObject({
       method: "turn/start",
       params: {
@@ -452,7 +458,7 @@ describe("AppServerClient", () => {
   it("sends explicit null service tier when fast mode is disabled", async () => {
     const { client, transport } = await connectedClient();
 
-    const startingThread = client.startThread("/vault", null);
+    const startingThread = client.startThread({ cwd: "/vault", serviceTier: null });
     expect(transport.sent[2]).toMatchObject({
       id: 2,
       method: "thread/start",
@@ -465,7 +471,12 @@ describe("AppServerClient", () => {
   it("sends collaboration mode only for Plan turns", async () => {
     const { client, transport } = await connectedClient();
 
-    const defaultTurn = client.startTurn("thread-1", "/vault", "default", undefined, null, null);
+    const defaultTurn = client.startTurn({
+      threadId: "thread-1",
+      cwd: "/vault",
+      input: "default",
+      runtime: { serviceTier: null },
+    });
     expect(transport.sent[2]).toMatchObject({
       method: "turn/start",
       params: {
@@ -478,12 +489,20 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 2, result: { turn: { id: "turn-default" } } });
     await defaultTurn;
 
-    const planTurn = client.startTurn("thread-1", "/vault", "plan", undefined, null, {
-      mode: "plan",
-      settings: {
-        model: "gpt-5.5",
-        reasoning_effort: "medium",
-        developer_instructions: null,
+    const planTurn = client.startTurn({
+      threadId: "thread-1",
+      cwd: "/vault",
+      input: "plan",
+      runtime: {
+        serviceTier: null,
+        collaborationMode: {
+          mode: "plan",
+          settings: {
+            model: "gpt-5.5",
+            reasoning_effort: "medium",
+            developer_instructions: null,
+          },
+        },
       },
     });
     expect(transport.sent[3]).toMatchObject({
@@ -509,7 +528,12 @@ describe("AppServerClient", () => {
   it("sends model and effort turn overrides when provided", async () => {
     const { client, transport } = await connectedClient();
 
-    const startingTurn = client.startTurn("thread-1", "/vault", "override", undefined, null, null, "gpt-5.5", "high");
+    const startingTurn = client.startTurn({
+      threadId: "thread-1",
+      cwd: "/vault",
+      input: "override",
+      runtime: { serviceTier: null, model: "gpt-5.5", effort: "high" },
+    });
     expect(transport.sent[2]).toMatchObject({
       method: "turn/start",
       params: {
@@ -523,7 +547,12 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 2, result: { turn: { id: "turn-override" } } });
     await startingTurn;
 
-    const resetTurn = client.startTurn("thread-1", "/vault", "reset", undefined, null, null, null, null);
+    const resetTurn = client.startTurn({
+      threadId: "thread-1",
+      cwd: "/vault",
+      input: "reset",
+      runtime: { serviceTier: null, model: null, effort: null, approvalsReviewer: null },
+    });
     expect(transport.sent[3]).toMatchObject({
       method: "turn/start",
       params: {
@@ -531,6 +560,7 @@ describe("AppServerClient", () => {
         cwd: "/vault",
         model: null,
         effort: null,
+        approvalsReviewer: null,
         input: [{ type: "text", text: "reset", text_elements: [] }],
       },
     });
@@ -538,20 +568,75 @@ describe("AppServerClient", () => {
     await resetTurn;
   });
 
+  it("omits undefined runtime turn overrides while preserving explicit null resets", async () => {
+    const { client, transport } = await connectedClient();
+
+    const runtimeWithUndefined = {
+      serviceTier: null,
+      collaborationMode: undefined,
+      model: undefined,
+      effort: undefined,
+      approvalsReviewer: undefined,
+    } as unknown as NonNullable<AppServerStartTurnOptions["runtime"]>;
+    const turn = client.startTurn({
+      threadId: "thread-1",
+      cwd: "/vault",
+      input: "runtime boundary",
+      runtime: runtimeWithUndefined,
+    });
+    const params = (transport.sent[2] as { params?: Record<string, unknown> }).params ?? {};
+    expect(params).toMatchObject({
+      threadId: "thread-1",
+      cwd: "/vault",
+      serviceTier: null,
+      input: [{ type: "text", text: "runtime boundary", text_elements: [] }],
+    });
+    expect(params).not.toHaveProperty("collaborationMode");
+    expect(params).not.toHaveProperty("model");
+    expect(params).not.toHaveProperty("effort");
+    expect(params).not.toHaveProperty("approvalsReviewer");
+    transport.emitLine({ id: 2, result: { turn: { id: "turn-runtime-boundary" } } });
+    await turn;
+
+    const structuredRuntimeWithUndefined = {
+      serviceTier: undefined,
+      collaborationMode: undefined,
+      model: undefined,
+      effort: undefined,
+      approvalsReviewer: undefined,
+    } as unknown as NonNullable<AppServerStartStructuredTurnOptions["runtime"]>;
+    const structuredTurn = client.startStructuredTurn({
+      threadId: "structured-thread",
+      cwd: "/vault",
+      text: "structured runtime boundary",
+      outputSchema: { type: "object", properties: {}, additionalProperties: false },
+      runtime: structuredRuntimeWithUndefined,
+    });
+    const structuredParams = (transport.sent[3] as { params?: Record<string, unknown> }).params ?? {};
+    expect(structuredParams).toMatchObject({
+      threadId: "structured-thread",
+      cwd: "/vault",
+      input: [{ type: "text", text: "structured runtime boundary", text_elements: [] }],
+      outputSchema: { type: "object", properties: {}, additionalProperties: false },
+    });
+    expect(structuredParams).not.toHaveProperty("serviceTier");
+    expect(structuredParams).not.toHaveProperty("collaborationMode");
+    expect(structuredParams).not.toHaveProperty("model");
+    expect(structuredParams).not.toHaveProperty("effort");
+    expect(structuredParams).not.toHaveProperty("approvalsReviewer");
+    transport.emitLine({ id: 3, result: { turn: { id: "turn-structured-runtime-boundary" } } });
+    await structuredTurn;
+  });
+
   it("sends approval reviewer turn overrides when provided", async () => {
     const { client, transport } = await connectedClient();
 
-    const autoReviewTurn = client.startTurn(
-      "thread-1",
-      "/vault",
-      "review this",
-      undefined,
-      null,
-      null,
-      undefined,
-      undefined,
-      "auto_review",
-    );
+    const autoReviewTurn = client.startTurn({
+      threadId: "thread-1",
+      cwd: "/vault",
+      input: "review this",
+      runtime: { serviceTier: null, approvalsReviewer: "auto_review" },
+    });
     expect(transport.sent[2]).toMatchObject({
       method: "turn/start",
       params: {
@@ -564,7 +649,12 @@ describe("AppServerClient", () => {
     transport.emitLine({ id: 2, result: { turn: { id: "turn-auto-review" } } });
     await autoReviewTurn;
 
-    const userReviewTurn = client.startTurn("thread-1", "/vault", "ask me", undefined, null, null, undefined, undefined, "user");
+    const userReviewTurn = client.startTurn({
+      threadId: "thread-1",
+      cwd: "/vault",
+      input: "ask me",
+      runtime: { serviceTier: null, approvalsReviewer: "user" },
+    });
     expect(transport.sent[3]).toMatchObject({
       method: "turn/start",
       params: {
@@ -745,7 +835,11 @@ describe("AppServerClient", () => {
   it("starts title generation in a read-only ephemeral thread", async () => {
     const { client, transport } = await connectedClient();
 
-    const namingThread = client.startEphemeralThread("/vault", "naming", "Return a title.");
+    const namingThread = client.startEphemeralThread({
+      cwd: "/vault",
+      serviceName: "naming",
+      developerInstructions: "Return a title.",
+    });
     expect(transport.sent[2]).toMatchObject({
       id: 2,
       method: "thread/start",
@@ -766,26 +860,40 @@ describe("AppServerClient", () => {
   it("requests structured title output with optional naming runtime overrides", async () => {
     const { client, transport } = await connectedClient();
 
-    const structuredTurn = client.startStructuredTurn(
-      "naming-thread",
-      "/vault",
-      "title please",
-      {
+    const structuredTurn = client.startStructuredTurn({
+      threadId: "naming-thread",
+      cwd: "/vault",
+      text: "title please",
+      outputSchema: {
         type: "object",
         properties: { title: { type: "string" } },
         required: ["title"],
       },
-      "gpt-5.4-mini",
-      "minimal",
-    );
+      runtime: {
+        serviceTier: null,
+        collaborationMode: {
+          mode: "plan",
+          settings: { model: "gpt-5.4-mini", reasoning_effort: "minimal", developer_instructions: null },
+        },
+        model: "gpt-5.4-mini",
+        effort: "minimal",
+        approvalsReviewer: null,
+      },
+    });
     expect(transport.sent[2]).toMatchObject({
       id: 2,
       method: "turn/start",
       params: {
         threadId: "naming-thread",
         cwd: "/vault",
+        serviceTier: null,
+        collaborationMode: {
+          mode: "plan",
+          settings: { model: "gpt-5.4-mini", reasoning_effort: "minimal", developer_instructions: null },
+        },
         model: "gpt-5.4-mini",
         effort: "minimal",
+        approvalsReviewer: null,
         input: [{ type: "text", text: "title please", text_elements: [] }],
         outputSchema: {
           type: "object",

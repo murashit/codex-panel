@@ -6,11 +6,10 @@ import {
   collaborationModeToggleMessage,
   nextCollaborationMode,
   pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate,
-  type CollaborationMode,
   type TurnCollaborationModeWarning,
 } from "./turn-settings";
 import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import type { RequestedServiceTier } from "./effective-settings";
+import type { CollaborationMode, RequestedServiceTier } from "./model";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../conversation/turns/runtime-overrides";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 
@@ -29,6 +28,7 @@ interface PendingThreadSettingsUpdateResult {
 }
 
 type AutoReviewState = "enabled" | "disabled";
+type FastModeState = "enabled" | "disabled";
 
 export interface RuntimeSettingsActionsHost {
   stateStore: ChatStateStore;
@@ -40,26 +40,40 @@ export interface RuntimeSettingsActionsHost {
 
 export interface ChatRuntimeSettingsActions {
   applyPendingThreadSettings: () => Promise<boolean>;
-  setRequestedModel: (model: string | null) => Promise<boolean>;
-  setRequestedModelFromUi: (model: string | null) => Promise<void>;
-  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => Promise<boolean>;
-  setRequestedReasoningEffortFromUi: (effort: ReasoningEffort | null) => Promise<void>;
+  requestModel: (model: string) => Promise<boolean>;
+  resetModelToConfig: () => Promise<boolean>;
+  requestModelFromUi: (model: string) => Promise<void>;
+  requestReasoningEffort: (effort: ReasoningEffort) => Promise<boolean>;
+  resetReasoningEffortToConfig: () => Promise<boolean>;
+  requestReasoningEffortFromUi: (effort: ReasoningEffort) => Promise<void>;
+  resetReasoningEffortToConfigFromUi: () => Promise<void>;
+  enableFastMode: () => Promise<void>;
+  disableFastMode: () => Promise<void>;
   toggleFastMode: () => Promise<void>;
   toggleCollaborationMode: () => Promise<void>;
   setCollaborationMode: (collaborationMode: CollaborationMode) => Promise<boolean>;
+  enableAutoReview: () => Promise<void>;
+  disableAutoReview: () => Promise<void>;
   toggleAutoReview: () => Promise<void>;
 }
 
 export function createChatRuntimeSettingsActions(host: RuntimeSettingsActionsHost): ChatRuntimeSettingsActions {
   return {
     applyPendingThreadSettings: () => applyPendingThreadSettings(host),
-    setRequestedModel: (model) => setRequestedModel(host, model),
-    setRequestedModelFromUi: (model) => setRequestedModelFromUi(host, model),
-    setRequestedReasoningEffort: (effort) => setRequestedReasoningEffort(host, effort),
-    setRequestedReasoningEffortFromUi: (effort) => setRequestedReasoningEffortFromUi(host, effort),
+    requestModel: (model) => requestModel(host, model),
+    resetModelToConfig: () => resetModelToConfig(host),
+    requestModelFromUi: (model) => requestModelFromUi(host, model),
+    requestReasoningEffort: (effort) => requestReasoningEffort(host, effort),
+    resetReasoningEffortToConfig: () => resetReasoningEffortToConfig(host),
+    requestReasoningEffortFromUi: (effort) => requestReasoningEffortFromUi(host, effort),
+    resetReasoningEffortToConfigFromUi: () => resetReasoningEffortToConfigFromUi(host),
+    enableFastMode: () => setFastMode(host, "enabled"),
+    disableFastMode: () => setFastMode(host, "disabled"),
     toggleFastMode: () => toggleFastMode(host),
     toggleCollaborationMode: () => toggleCollaborationMode(host),
     setCollaborationMode: (collaborationMode) => setCollaborationMode(host, collaborationMode),
+    enableAutoReview: () => setAutoReview(host, "enabled"),
+    disableAutoReview: () => setAutoReview(host, "disabled"),
     toggleAutoReview: () => toggleAutoReview(host),
   };
 }
@@ -79,44 +93,66 @@ async function applyPendingThreadSettingsResult(host: RuntimeSettingsActionsHost
 
   try {
     await client.updateThreadSettings(threadId, update);
+    if (state(host).activeThread.id !== threadId) return { ok: false, collaborationModeApplied: false };
     dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
     return { ok: true, collaborationModeApplied };
   } catch (error) {
+    if (state(host).activeThread.id !== threadId) return { ok: false, collaborationModeApplied: false };
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return { ok: false, collaborationModeApplied: false };
   }
 }
 
-async function setRequestedModel(host: RuntimeSettingsActionsHost, model: string | null): Promise<boolean> {
-  dispatch(host, { type: "runtime/requested-model-set", model });
+async function requestModel(host: RuntimeSettingsActionsHost, model: string): Promise<boolean> {
+  dispatch(host, { type: "runtime/model-requested", model });
   return applyPendingThreadSettings(host);
 }
 
-async function setRequestedModelFromUi(host: RuntimeSettingsActionsHost, model: string | null): Promise<void> {
-  if (!(await setRequestedModel(host, model))) return;
+async function resetModelToConfig(host: RuntimeSettingsActionsHost): Promise<boolean> {
+  dispatch(host, { type: "runtime/model-reset-to-config" });
+  return applyPendingThreadSettings(host);
+}
+
+async function requestModelFromUi(host: RuntimeSettingsActionsHost, model: string): Promise<void> {
+  if (!(await requestModel(host, model))) return;
   dispatch(host, { type: "ui/panel-set", panel: null });
   host.addSystemMessage(modelOverrideMessage(model));
 }
 
-async function setRequestedReasoningEffort(host: RuntimeSettingsActionsHost, effort: ReasoningEffort | null): Promise<boolean> {
-  dispatch(host, { type: "runtime/requested-effort-set", effort });
+async function requestReasoningEffort(host: RuntimeSettingsActionsHost, effort: ReasoningEffort): Promise<boolean> {
+  dispatch(host, { type: "runtime/reasoning-effort-requested", effort });
   return applyPendingThreadSettings(host);
 }
 
-async function setRequestedReasoningEffortFromUi(host: RuntimeSettingsActionsHost, effort: ReasoningEffort | null): Promise<void> {
-  if (!(await setRequestedReasoningEffort(host, effort))) return;
+async function resetReasoningEffortToConfig(host: RuntimeSettingsActionsHost): Promise<boolean> {
+  dispatch(host, { type: "runtime/reasoning-effort-reset-to-config" });
+  return applyPendingThreadSettings(host);
+}
+
+async function requestReasoningEffortFromUi(host: RuntimeSettingsActionsHost, effort: ReasoningEffort): Promise<void> {
+  if (!(await requestReasoningEffort(host, effort))) return;
   dispatch(host, { type: "ui/panel-set", panel: null });
   host.addSystemMessage(reasoningEffortOverrideMessage(effort));
+}
+
+async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsActionsHost): Promise<void> {
+  if (!(await resetReasoningEffortToConfig(host))) return;
+  dispatch(host, { type: "ui/panel-set", panel: null });
+  host.addSystemMessage(reasoningEffortOverrideMessage(null));
 }
 
 async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {
   const snapshot = host.runtimeSnapshot();
   const config = runtimeConfigOrDefault(state(host).connection.runtimeConfig);
-  const next: RequestedServiceTier = fastModeActive(snapshot, config) ? "off" : "fast";
-  dispatch(host, { type: "runtime/requested-service-tier-set", serviceTier: next });
+  await setFastMode(host, fastModeActive(snapshot, config) ? "disabled" : "enabled");
+}
+
+async function setFastMode(host: RuntimeSettingsActionsHost, mode: FastModeState): Promise<void> {
+  const serviceTier: RequestedServiceTier = mode === "enabled" ? "fast" : "off";
+  dispatch(host, { type: "runtime/service-tier-requested", serviceTier });
   dispatch(host, { type: "ui/panel-set", panel: null });
   if (!(await applyPendingThreadSettings(host))) return;
-  host.addSystemMessage(next === "fast" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.");
+  host.addSystemMessage(fastModeToggleMessage(mode));
 }
 
 async function toggleCollaborationMode(host: RuntimeSettingsActionsHost): Promise<void> {
@@ -136,10 +172,14 @@ async function toggleAutoReview(host: RuntimeSettingsActionsHost): Promise<void>
   const nextState = nextAutoReviewState(
     autoReviewActive(host.runtimeSnapshot(), runtimeConfigOrDefault(state(host).connection.runtimeConfig)),
   );
-  dispatch(host, { type: "runtime/requested-approvals-reviewer-set", approvalsReviewer: autoReviewReviewerForState(nextState) });
+  await setAutoReview(host, nextState);
+}
+
+async function setAutoReview(host: RuntimeSettingsActionsHost, mode: AutoReviewState): Promise<void> {
+  dispatch(host, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: autoReviewReviewerForState(mode) });
   dispatch(host, { type: "ui/panel-set", panel: null });
   if (!(await applyPendingThreadSettings(host))) return;
-  host.addSystemMessage(autoReviewToggleMessage(nextState));
+  host.addSystemMessage(autoReviewToggleMessage(mode));
 }
 
 function nextAutoReviewState(active: boolean): AutoReviewState {
@@ -148,6 +188,10 @@ function nextAutoReviewState(active: boolean): AutoReviewState {
 
 function autoReviewReviewerForState(state: AutoReviewState): ApprovalsReviewer {
   return state === "enabled" ? "auto_review" : "user";
+}
+
+function fastModeToggleMessage(state: FastModeState): string {
+  return state === "enabled" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.";
 }
 
 function autoReviewToggleMessage(state: AutoReviewState): string {

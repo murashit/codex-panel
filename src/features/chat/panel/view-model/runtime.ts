@@ -1,11 +1,11 @@
 import {
   currentModel,
   currentReasoningEffort,
-  pendingRuntimeSettingLabel,
   runtimeConfigOrDefault,
   serviceTierLabel,
   supportedReasoningEfforts,
 } from "../../runtime/effective-settings";
+import { pendingRuntimeSettingLabel } from "../../runtime/model";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import { contextSummary, rateLimitSummary, type RateLimitSummary } from "../../runtime/status-summary";
 import type {
@@ -51,7 +51,7 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
     label: model.model,
     selected: activeModel === model.model,
     onClick: () => {
-      input.setRequestedModel(model.model);
+      input.requestModel(model.model);
     },
   }));
   if (models.length === 0) {
@@ -68,14 +68,14 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
       label: "Codex default",
       selected: activeEffort === null,
       onClick: () => {
-        input.setRequestedReasoningEffort(null);
+        input.resetReasoningEffortToConfig();
       },
     },
     ...supportedReasoningEfforts(input.snapshot).map((effort) => ({
       label: effort,
       selected: activeEffort === effort,
       onClick: () => {
-        input.setRequestedReasoningEffort(effort);
+        input.requestReasoningEffort(effort);
       },
     })),
   ];

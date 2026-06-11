@@ -74,6 +74,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setName("Codex executable")
       .setDesc("Path used to start `codex app-server`. Use an absolute path if Obsidian cannot find `codex`.")
       .addText((text) => {
+        text.inputEl.ariaLabel = "Codex executable";
         text
           .setPlaceholder(DEFAULT_CODEX_PATH)
           .setValue(this.plugin.settings.codexPath)

@@ -11,33 +11,18 @@ import {
   type SlashCommandStatusPort,
   type SlashCommandThreadPort,
 } from "../../../../../src/features/chat/conversation/turns/slash-command-actions";
-import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../../../src/domain/threads/model";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
-function thread(id: string, name: string | null = null): Thread & { archived: boolean } {
+function thread(id: string, name: string | null = null): Thread {
   return {
     id,
-    sessionId: id,
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "test",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name,
     archived: false,
-    turns: [],
   };
 }
 
@@ -76,8 +61,10 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
     toggleAutoReview: vi.fn(),
-    setRequestedModel: vi.fn(),
-    setRequestedReasoningEffort: vi.fn(),
+    requestModel: vi.fn(),
+    resetModelToConfig: vi.fn(),
+    requestReasoningEffort: vi.fn(),
+    resetReasoningEffortToConfig: vi.fn(),
     ...runtimeOverrides,
   };
   const status: SlashCommandStatusPort = {

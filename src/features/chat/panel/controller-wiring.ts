@@ -2,9 +2,13 @@ import type { ChatComposerController } from "../conversation/composer/controller
 import type { DisplayDetailSection } from "../display/types";
 import type { ChatConnectionController } from "../connection/connection-controller";
 import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
-import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatControllerCompositionPorts } from "./controller-ports";
 import type { ChatViewRenderController } from "./view-render-controller";
+
+type ChatControllerCompositionActionPorts = Pick<
+  ChatControllerCompositionPorts,
+  "client" | "render" | "status" | "scroll" | "thread" | "state" | "runtime"
+>;
 
 export interface ChatControllerCompositionBridges {
   connection: {
@@ -13,39 +17,36 @@ export interface ChatControllerCompositionBridges {
   threadSelection: {
     actions: Pick<ThreadSelectionActions, "selectThread"> | null;
   };
-  messageViewport: {
-    renderer: Pick<ChatMessageRenderer, "forceMessagesToBottom"> | null;
-  };
   composerDraft: {
     controller: Pick<ChatComposerController, "setDraft"> | null;
   };
 }
 
 export interface ChatControllerCompositionActions {
-  client: ChatControllerCompositionPorts["client"] & {
+  client: ChatControllerCompositionActionPorts["client"] & {
     ensureConnected: () => Promise<void>;
   };
-  render: ChatControllerCompositionPorts["render"] & {
+  render: ChatControllerCompositionActionPorts["render"] & {
     now: () => void;
   };
-  status: ChatControllerCompositionPorts["status"] & {
+  status: ChatControllerCompositionActionPorts["status"] & {
     addSystemMessage: (text: string) => void;
     addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   };
-  scroll: ChatControllerCompositionPorts["scroll"];
-  thread: ChatControllerCompositionPorts["thread"] & {
+  scroll: ChatControllerCompositionActionPorts["scroll"];
+  thread: ChatControllerCompositionActionPorts["thread"] & {
     selectThread: (threadId: string) => Promise<void>;
     refreshThreads: () => Promise<void>;
     refreshSkills: (forceReload?: boolean) => Promise<void>;
   };
-  runtime: ChatControllerCompositionPorts["runtime"];
+  runtime: ChatControllerCompositionActionPorts["runtime"];
   composer: {
     setText: (text: string) => void;
   };
 }
 
 export function createChatControllerCompositionActions(
-  ports: ChatControllerCompositionPorts,
+  ports: ChatControllerCompositionActionPorts,
   deps: {
     renderController: ChatViewRenderController;
     bridges: ChatControllerCompositionBridges;
@@ -53,13 +54,19 @@ export function createChatControllerCompositionActions(
 ): ChatControllerCompositionActions {
   const { bridges, renderController } = deps;
   const render = {
-    ...ports.render,
+    panelRoot: ports.render.panelRoot,
+    toolbarNode: ports.render.toolbarNode,
+    goalNode: ports.render.goalNode,
+    messagesNode: ports.render.messagesNode,
+    composerNode: ports.render.composerNode,
+    closeToolbarPanelOnOutsidePointer: ports.render.closeToolbarPanelOnOutsidePointer,
+    schedule: ports.render.schedule,
     now: () => {
       renderController.render();
     },
   };
   const status = {
-    ...ports.status,
+    set: ports.status.set,
     addSystemMessage: (text: string) => {
       ports.state.stateStore.dispatch({ type: "transcript/system-message-added", item: ports.state.systemItem(text) });
       render.now();
@@ -85,19 +92,26 @@ export function createChatControllerCompositionActions(
 
   return {
     client: {
-      ...ports.client,
+      getClient: ports.client.getClient,
+      setClient: ports.client.setClient,
+      clear: ports.client.clear,
       ensureConnected: () => requireCompositionBridge(bridges.connection.controller, "connection bridge").ensureConnected(),
     },
     render,
     status,
     scroll: {
-      ...ports.scroll,
+      followBottom: ports.scroll.followBottom,
+      preservePosition: ports.scroll.preservePosition,
       forceBottom: () => {
         ports.scroll.forceBottom();
       },
     },
     thread: {
-      ...ports.thread,
+      ensureRestoredThreadLoaded: ports.thread.ensureRestoredThreadLoaded,
+      startNewThread: ports.thread.startNewThread,
+      loadSharedThreadList: ports.thread.loadSharedThreadList,
+      notifyIdentityChanged: ports.thread.notifyIdentityChanged,
+      refreshTabHeader: ports.thread.refreshTabHeader,
       ...threadNavigation,
       ...threadRefresh,
     },

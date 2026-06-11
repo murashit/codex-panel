@@ -92,6 +92,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
     .setName("Saved note folder")
     .setDesc("Vault-relative folder for saved thread notes. The folder is created when needed.")
     .addText((text) => {
+      text.inputEl.ariaLabel = "Saved note folder";
       text
         .setPlaceholder("Codex archives")
         .setValue(state.exportFolderTemplate)
@@ -104,6 +105,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
     .setName("Saved note filename")
     .setDesc("Filename template. Variables: {{date}}, {{time}}, {{title}}, {{id}}, {{shortId}}. Existing files get a numeric suffix.")
     .addText((text) => {
+      text.inputEl.ariaLabel = "Saved note filename";
       text
         .setPlaceholder("{{date}} {{time}} {{title}} {{shortId}}.md")
         .setValue(state.exportFilenameTemplate)
@@ -116,6 +118,7 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
     .setName("Saved note tags")
     .setDesc("Comma-separated fixed tags for saved notes. Leave empty to omit tags.")
     .addText((text) => {
+      text.inputEl.ariaLabel = "Saved note tags";
       text
         .setPlaceholder("Codex, archive")
         .setValue(state.exportTags)

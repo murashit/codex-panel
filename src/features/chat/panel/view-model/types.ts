@@ -101,8 +101,9 @@ export interface ConnectionDiagnosticsModelInput {
 export interface RuntimeComposerChoicesInput {
   state: ChatState;
   snapshot: RuntimeSnapshot;
-  setRequestedModel: (model: string | null) => void;
-  setRequestedReasoningEffort: (effort: ReasoningEffort | null) => void;
+  requestModel: (model: string) => void;
+  requestReasoningEffort: (effort: ReasoningEffort) => void;
+  resetReasoningEffortToConfig: () => void;
 }
 
 export interface StatusSummaryLinesInput {

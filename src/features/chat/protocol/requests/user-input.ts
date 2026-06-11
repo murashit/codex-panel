@@ -1,27 +1,58 @@
-import type { RequestId } from "../../../../generated/app-server/RequestId";
-import type { ServerRequest } from "../../../../generated/app-server/ServerRequest";
-import type { ToolRequestUserInputParams } from "../../../../generated/app-server/v2/ToolRequestUserInputParams";
-import type { ToolRequestUserInputQuestion } from "../../../../generated/app-server/v2/ToolRequestUserInputQuestion";
-import type { ToolRequestUserInputResponse } from "../../../../generated/app-server/v2/ToolRequestUserInputResponse";
+export type RequestId = string | number;
 
-type UserInputRequest = Extract<ServerRequest, { method: "item/tool/requestUserInput" }>;
+interface UserInputRequestLike {
+  id: RequestId;
+  method: string;
+  params: unknown;
+}
+
+interface AppServerUserInputRequest extends UserInputRequestLike {
+  method: "item/tool/requestUserInput";
+  params: PendingUserInputParams;
+}
+
+interface PendingUserInputParams {
+  threadId: string;
+  turnId: string;
+  itemId: string;
+  questions: PendingUserInputQuestion[];
+}
+
+export interface PendingUserInputQuestion {
+  id: string;
+  header: string;
+  question: string;
+  isOther: boolean;
+  isSecret: boolean;
+  options: PendingUserInputOption[] | null;
+}
+
+interface PendingUserInputOption {
+  label: string;
+  description: string;
+}
+
+interface UserInputResponse {
+  answers: Record<string, { answers: string[] }>;
+}
 
 export interface PendingUserInput {
   requestId: RequestId;
-  method: UserInputRequest["method"];
-  params: ToolRequestUserInputParams;
+  method: "item/tool/requestUserInput";
+  params: PendingUserInputParams;
 }
 
-export function toPendingUserInput(request: ServerRequest): PendingUserInput | null {
+export function toPendingUserInput(request: UserInputRequestLike): PendingUserInput | null {
   if (request.method !== "item/tool/requestUserInput") return null;
+  const userInputRequest = request as AppServerUserInputRequest;
   return {
-    requestId: request.id,
-    method: request.method,
-    params: request.params,
+    requestId: userInputRequest.id,
+    method: userInputRequest.method,
+    params: userInputRequest.params,
   };
 }
 
-export function userInputResponse(input: PendingUserInput, answers: Record<string, string>): ToolRequestUserInputResponse {
+export function userInputResponse(input: PendingUserInput, answers: Record<string, string>): UserInputResponse {
   return {
     answers: Object.fromEntries(
       input.params.questions.map((question) => [
@@ -34,7 +65,7 @@ export function userInputResponse(input: PendingUserInput, answers: Record<strin
   };
 }
 
-export function questionDefaultAnswer(question: ToolRequestUserInputQuestion): string {
+export function questionDefaultAnswer(question: PendingUserInputQuestion): string {
   return question.options?.[0]?.label ?? "";
 }
 

@@ -51,6 +51,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
     resetThreadTurnPresence: vi.fn(),
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
+    publishAppServerIdentity: vi.fn(),
     configuredCommand: () => "codex",
     refreshLiveState: vi.fn(),
     render: vi.fn(),
@@ -80,6 +81,8 @@ describe("ChatConnectionController", () => {
       platformOs: "macos",
       userAgent: "test",
     });
+    expect(host.publishAppServerIdentity).toHaveBeenNthCalledWith(1, null);
+    expect(host.publishAppServerIdentity).toHaveBeenNthCalledWith(2, "test");
     expect(refreshPublishedAppServerMetadata).toHaveBeenCalledOnce();
     expect(host.loadSharedThreadList).toHaveBeenCalledOnce();
     expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
@@ -117,6 +120,7 @@ describe("ChatConnectionController", () => {
     controller.handleExit();
 
     expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
+    expect(host.publishAppServerIdentity).toHaveBeenCalledWith(null);
     expect(host.setStatus).toHaveBeenCalledWith("Codex app-server stopped.");
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.setClient).toHaveBeenCalledWith(null);

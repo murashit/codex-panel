@@ -10,7 +10,7 @@ import { createChatState, createChatStateStore } from "../../../../src/features/
 import type { Model } from "../../../../src/generated/app-server/v2/Model";
 import type { McpServerStatus } from "../../../../src/generated/app-server/v2/McpServerStatus";
 import type { SkillMetadata } from "../../../../src/generated/app-server/v2/SkillMetadata";
-import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../../../src/generated/app-server/v2/Thread";
 
 describe("chat server actions", () => {
   it("publishes newly started threads before the first turn completes", async () => {
@@ -252,7 +252,7 @@ describe("chat server actions", () => {
   });
 });
 
-function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
+function threadFixture(id: string, overrides: Partial<AppServerThread> = {}): AppServerThread {
   return {
     id,
     sessionId: id,

@@ -1,5 +1,6 @@
 import type { ThreadGoal as AppServerThreadGoal } from "../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus as AppServerThreadGoalStatus } from "../generated/app-server/v2/ThreadGoalStatus";
+import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
 
 export type ThreadGoalStatus = "active" | "paused" | "blocked" | "usageLimited" | "budgetLimited" | "complete";
 
@@ -43,6 +44,14 @@ export function appServerThreadGoalUpdate(update: ThreadGoalUpdate): {
     ...("objective" in update ? { objective: update.objective } : {}),
     ...("status" in update ? { status: update.status === null ? null : appServerThreadGoalStatus(update.status) } : {}),
     ...("tokenBudget" in update ? { tokenBudget: update.tokenBudget } : {}),
+  };
+}
+
+export function appServerThreadGoalUserHistoryItem(text: string): JsonValue {
+  return {
+    type: "message",
+    role: "user",
+    content: [{ type: "input_text", text }],
   };
 }
 

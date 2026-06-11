@@ -1,21 +1,25 @@
-import type { ServerNotification } from "../../../generated/app-server/ServerNotification";
 import { definedProp } from "../../../utils";
-import type { DisplayItem } from "./types";
+import type { DisplayDetailMetaRow, DisplayDetailSection, DisplayItem, HookDisplayItem } from "./types";
 
-export function hookRunDisplayItem(
-  run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"],
-  turnId: string | null,
-  status: string,
-): DisplayItem | null {
+interface DisplayHookRun {
+  id: string;
+  eventName: string | null;
+  statusMessage: string | null;
+  startedAt: { toString(): string };
+  durationMs: { toString(): string } | number | bigint | null;
+  entries: readonly { kind: string; text: string }[];
+}
+
+export function hookRunDisplayItem(run: DisplayHookRun, turnId: string | null, status: string): HookDisplayItem | null {
   if (run.id.length === 0) return null;
   const entries = run.entries.map((entry) => `${entry.kind}: ${entry.text}`).join("\n");
-  const metaRows = [
+  const metaRows: DisplayDetailMetaRow[] = [
     { key: "status", value: status },
-    { key: "event", value: run.eventName },
+    { key: "event", value: hookEventName(run.eventName) },
     ...(run.statusMessage ? [{ key: "message", value: run.statusMessage }] : []),
     ...(run.durationMs !== null ? [{ key: "duration", value: `${String(run.durationMs)}ms` }] : []),
   ];
-  const details = [{ rows: metaRows }, ...(entries ? [{ title: "Hook output", body: entries }] : [])];
+  const details: DisplayDetailSection[] = [{ rows: metaRows }, ...(entries ? [{ title: "Hook output", body: entries }] : [])];
   const displayId = hookRunDisplayId(run);
   return {
     id: displayId,
@@ -31,8 +35,13 @@ export function hookRunDisplayItem(
   };
 }
 
-function hookRunDisplayId(run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"]): string {
+function hookRunDisplayId(run: DisplayHookRun): string {
   return `hook-${run.id}-${run.startedAt.toString()}`;
+}
+
+function hookEventName(eventName: string | null | undefined): string {
+  const trimmed = eventName?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : "Hook";
 }
 
 export function attachHookRunsToTurn(
@@ -61,8 +70,7 @@ function lastUserMessageAnchorId(items: readonly DisplayItem[], turnId: string):
 }
 
 function hookSummary(eventName: string | null | undefined, statusMessage: string | null | undefined): string {
-  const trimmedEvent = eventName?.trim();
-  const event = trimmedEvent && trimmedEvent.length > 0 ? trimmedEvent : "Hook";
   const message = statusMessage?.trim();
+  const event = hookEventName(eventName);
   return message ? `${event}: ${message}` : event;
 }

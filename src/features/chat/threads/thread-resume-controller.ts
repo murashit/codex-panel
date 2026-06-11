@@ -1,6 +1,5 @@
 import type { AppServerClient } from "../../../app-server/client";
 import type { ThreadTokenUsage } from "../../../app-server/runtime-metrics";
-import { setActiveThreadTokenUsageAction } from "../state/actions";
 import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
 import type { RestoredThreadController } from "./restored-thread-controller";
@@ -89,7 +88,7 @@ export class ThreadResumeController {
         if (!tokenUsage || this.isStale(resume)) return;
         const state = this.host.stateStore.getState();
         if (activeThreadId(state) !== threadId || state.activeThread.tokenUsage !== null) return;
-        this.host.stateStore.dispatch(setActiveThreadTokenUsageAction(tokenUsage));
+        this.host.stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
         this.host.refreshLiveState();
         this.host.render();
       })

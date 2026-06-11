@@ -1,5 +1,3 @@
-import type { FileSystemPath } from "../../../generated/app-server/v2/FileSystemPath";
-import type { RequestPermissionProfile } from "../../../generated/app-server/v2/RequestPermissionProfile";
 import { jsonPreview } from "../../../utils";
 
 export interface DetailRow {
@@ -7,7 +5,28 @@ export interface DetailRow {
   value: string;
 }
 
-export function permissionRows(permissions: RequestPermissionProfile): DetailRow[] {
+interface DisplayPermissionProfile {
+  network?: { enabled?: boolean | null } | null;
+  fileSystem?: {
+    entries?: readonly { path: DisplayFileSystemPath; access?: unknown }[] | null;
+    read?: unknown;
+    write?: unknown;
+    globScanMaxDepth?: unknown;
+  } | null;
+}
+
+type DisplayFileSystemPath =
+  | { type: "path"; path: string }
+  | { type: "glob_pattern"; pattern: string }
+  | {
+      type: "special";
+      value:
+        | { kind: "project_roots"; subpath?: string | null }
+        | { kind: "unknown"; path: string; subpath?: string | null }
+        | { kind: string };
+    };
+
+export function permissionRows(permissions: DisplayPermissionProfile): DetailRow[] {
   const rows: DetailRow[] = [];
   const networkEnabled = permissions.network?.enabled;
   if (typeof networkEnabled === "boolean") {
@@ -17,10 +36,11 @@ export function permissionRows(permissions: RequestPermissionProfile): DetailRow
   const fileSystem = permissions.fileSystem;
   if (!fileSystem) return rows;
 
-  if (Array.isArray(fileSystem.entries) && fileSystem.entries.length > 0) {
+  const entries = fileSystem.entries;
+  if (entries && entries.length > 0) {
     rows.push({
       key: "filesystem",
-      value: fileSystem.entries.map((entry) => `${fileSystemPathLabel(entry.path)} (${stringValue(entry.access, "unknown")})`).join("\n"),
+      value: entries.map((entry) => `${fileSystemPathLabel(entry.path)} (${stringValue(entry.access, "unknown")})`).join("\n"),
     });
   }
   addOptional(rows, "read", fileSystem.read);
@@ -49,16 +69,19 @@ export function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
-function fileSystemPathLabel(path: FileSystemPath): string {
+function fileSystemPathLabel(path: DisplayFileSystemPath): string {
   if (path.type === "path") return path.path;
   if (path.type === "glob_pattern") return path.pattern;
 
   const special = path.value;
   if (special.kind === "project_roots") {
-    return special.subpath ? `project_roots/${special.subpath}` : "project_roots";
+    const subpath = "subpath" in special ? special.subpath : null;
+    return subpath ? `project_roots/${subpath}` : "project_roots";
   }
   if (special.kind === "unknown") {
-    return special.subpath ? `${special.path}/${special.subpath}` : special.path;
+    const specialPath = "path" in special ? special.path : "unknown";
+    const subpath = "subpath" in special ? special.subpath : null;
+    return subpath ? `${specialPath}/${subpath}` : specialPath;
   }
   return special.kind;
 }

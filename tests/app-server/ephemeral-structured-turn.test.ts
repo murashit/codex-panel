@@ -7,15 +7,17 @@ import {
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnClientFactory,
 } from "../../src/app-server/ephemeral-structured-turn";
-import type { AppServerClientHandlers } from "../../src/app-server/client";
+import type {
+  AppServerClientHandlers,
+  AppServerStartEphemeralThreadOptions,
+  AppServerStartStructuredTurnOptions,
+} from "../../src/app-server/client";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
-import type { JsonValue } from "../../src/generated/app-server/serde_json/JsonValue";
 import type { RequestId } from "../../src/generated/app-server/RequestId";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
-import type { ReasoningEffort } from "../../src/generated/app-server/ReasoningEffort";
 import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelListResponse";
-import type { Thread } from "../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
 import type { ThreadItem } from "../../src/generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
 import type { Turn } from "../../src/generated/app-server/v2/Turn";
@@ -148,6 +150,27 @@ describe("runEphemeralStructuredTurn", () => {
 
     expect(callOrder).toEqual(["resolve-runtime", "start-thread"]);
     expect(expectPresent(client.current).listModels).toHaveBeenCalledWith(false);
+    expect(expectPresent(client.current).startStructuredTurnOptions).toEqual({
+      threadId: "thread",
+      cwd: "/vault",
+      text: "Run.",
+      outputSchema: { type: "object" },
+      runtime: { model: "gpt-5.1", effort: "low" },
+    });
+  });
+
+  it("starts the ephemeral thread with named service options", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await runEphemeralStructuredTurn(runOptions(clientFactory));
+
+    expect(expectPresent(client.current).startEphemeralThreadOptions).toEqual({
+      cwd: "/vault",
+      serviceName: "structured-test",
+      developerInstructions: "Return JSON.",
+    });
   });
 });
 
@@ -186,6 +209,8 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   connectImpl: (() => Promise<InitializeResponse>) | null = null;
   startEphemeralThreadImpl: (() => Promise<ThreadStartResponse>) | null = null;
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
+  startEphemeralThreadOptions: AppServerStartEphemeralThreadOptions | null = null;
+  startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
   readonly listModels = vi.fn(async (): Promise<ModelListResponse> => ({ data: [], nextCursor: null }));
   readonly rejectServerRequest = vi.fn();
   readonly structuredTurnStarted: Promise<void>;
@@ -205,18 +230,13 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
     return undefined;
   }
 
-  async startEphemeralThread(): Promise<ThreadStartResponse> {
+  async startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<ThreadStartResponse> {
+    this.startEphemeralThreadOptions = options;
     return this.startEphemeralThreadImpl ? this.startEphemeralThreadImpl() : threadStartResponse("thread");
   }
 
-  async startStructuredTurn(
-    _threadId: string,
-    _cwd: string,
-    _text: string,
-    _outputSchema: JsonValue,
-    _model?: string,
-    _effort?: ReasoningEffort,
-  ): Promise<TurnStartResponse> {
+  async startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
+    this.startStructuredTurnOptions = options;
     this.resolveStructuredTurnStarted();
     return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
   }
@@ -247,7 +267,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
   };
 }
 
-function thread(id: string): Thread {
+function thread(id: string): AppServerThread {
   return {
     id,
     sessionId: "session",

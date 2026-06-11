@@ -7,7 +7,7 @@ import {
   type ThreadNamingContext,
 } from "../../../domain/threads/naming";
 import type { Thread } from "../../../domain/threads/model";
-import type { Turn } from "../../../generated/app-server/v2/Turn";
+import type { ThreadConversationSummary } from "../../../domain/threads/transcript";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 import { generateThreadTitleWithCodex } from "../../../app-server/thread-title-generation";
@@ -195,17 +195,15 @@ export class ThreadRenameController {
     }
   }
 
-  maybeAutoNameThread(threadId: string, turn: Turn): void {
+  maybeAutoNameThread(threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null): void {
     const hadTurnsBeforeThisCompletion = this.activeThreadHadTurns;
     this.activeThreadHadTurns = true;
 
-    if (hadTurnsBeforeThisCompletion || turn.status !== "completed") return;
+    if (hadTurnsBeforeThisCompletion || !completedSummary) return;
     if (this.threadHasName(threadId)) return;
     if (this.autoNameAttemptedThreadIds.has(threadId) || this.autoNameInFlightThreadIds.has(threadId)) return;
-    const summary = completedConversationSummaryFromAppServerTurn(turn);
     const context =
-      (summary ? namingContextFromConversationSummary(summary) : null) ??
-      namingContextFromDisplayItems(turn.id, this.state.transcript.displayItems);
+      namingContextFromConversationSummary(completedSummary) ?? namingContextFromDisplayItems(turnId, this.state.transcript.displayItems);
     if (!context) return;
 
     this.autoNameAttemptedThreadIds.add(threadId);

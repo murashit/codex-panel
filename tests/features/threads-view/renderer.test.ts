@@ -9,7 +9,7 @@ import {
   threadRows,
   type ThreadsRowModel,
 } from "../../../src/features/threads-view/state";
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../src/domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../src/workspace/open-panel-snapshot";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
@@ -45,29 +45,14 @@ function openPanelSnapshot(
   };
 }
 
-function threadFixture(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
+function threadFixture(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "thread",
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
     ...overrides,
   };
 }
@@ -160,6 +145,7 @@ describe("threads view renderer decisions", () => {
     expect(main.classList.contains("codex-panel-ui__nav-item")).toBe(true);
     expect(row.classList.contains("codex-panel-threads__row--selected")).toBe(true);
     expect(row.classList.contains("is-selected")).toBe(true);
+    expect(main.getAttribute("aria-current")).toBe("true");
     expect(row.getAttribute("title")).toBeNull();
     const toolbarButtons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel-threads__toolbar-button")];
     expect(toolbarButtons.map((button) => button.getAttribute("aria-label"))).toEqual(["Open new panel", "Refresh threads"]);

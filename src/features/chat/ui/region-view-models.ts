@@ -1,14 +1,14 @@
 import type { ChatState } from "../state/reducer";
 import { pendingRequestsSignature as requestStateSignature } from "../pending-requests/view-model";
 import {
-  activeComposerThreadName as buildActiveComposerThreadName,
   composerMetaViewModel as buildComposerMetaViewModel,
   composerPlaceholder as buildComposerPlaceholder,
-  runtimeComposerChoices,
-  toolbarViewModel as buildToolbarViewModel,
-} from "../panel/view-model";
+} from "../panel/view-model/composer";
+import { runtimeComposerChoices } from "../panel/view-model/runtime";
+import { activeComposerThreadName as buildActiveComposerThreadName } from "../panel/view-model/thread-title";
+import { toolbarViewModel as buildToolbarViewModel } from "../panel/view-model/toolbar";
 import type { GoalBannerActions, GoalBannerOptions } from "./goal-banner";
-import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelMessagesPorts, ChatPanelToolbarPorts } from "../panel/ui-ports";
+import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelStatePort, ChatPanelToolbarPorts } from "../panel/ui-ports";
 import type { ChatPanelShellState } from "./shell";
 
 export function chatPanelToolbarViewModel(ports: ChatPanelToolbarPorts, shellState: ChatPanelShellState) {
@@ -82,13 +82,14 @@ export function chatPanelComposerMetaViewModel(ports: ChatPanelComposerPorts) {
     ...runtimeComposerChoices({
       state: ports.state.chat(),
       snapshot: ports.runtime.snapshot(),
-      setRequestedModel: (model) => void ports.runtime.setRequestedModel(model),
-      setRequestedReasoningEffort: (effort) => void ports.runtime.setRequestedReasoningEffort(effort),
+      requestModel: (model) => void ports.runtime.requestModel(model),
+      requestReasoningEffort: (effort) => void ports.runtime.requestReasoningEffort(effort),
+      resetReasoningEffortToConfig: () => void ports.runtime.resetReasoningEffortToConfig(),
     }),
   };
 }
 
-export function chatPanelPendingRequestsSignature(ports: ChatPanelMessagesPorts): string {
+export function chatPanelPendingRequestsSignature(ports: ChatPanelStatePort): string {
   const state = ports.state.chat();
   return requestStateSignature(state.requests.approvals, state.requests.pendingUserInputs, state.requests.userInputDrafts);
 }

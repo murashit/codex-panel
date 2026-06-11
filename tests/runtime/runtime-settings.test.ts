@@ -20,13 +20,11 @@ import {
   fastModeActive,
   fastServiceTierRequestValue,
   fastModeLabel,
-  resetRuntimeSettingToConfig,
-  pendingRuntimeSettingPayload,
   runtimeConfigOrDefault,
-  setPendingRuntimeSetting,
   serviceTierLabel,
   type RuntimeSnapshot,
 } from "../../src/features/chat/runtime/effective-settings";
+import { pendingRuntimeSettingPayload, resetRuntimeSettingToConfig, setPendingRuntimeSetting } from "../../src/features/chat/runtime/model";
 import { requestedTurnCollaborationModeSettings, serviceTierRequestForThreadStart } from "../../src/features/chat/runtime/turn-settings";
 import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/runtime/status-summary";
 
@@ -517,6 +515,17 @@ describe("runtime settings", () => {
 
     expect(serviceTierLabel(snapshot)).toBe("(Codex default)");
     expect(fastModeLabel(snapshot)).toBe("off");
+    expect(serviceTierRequestForThreadStart(snapshot)).toBeNull();
+  });
+
+  it("serializes service tier reset for thread start as an explicit null request", () => {
+    const snapshot = runtimeSnapshot({
+      runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
+      requestedServiceTier: resetRuntimeSettingToConfig(),
+    });
+
+    expect(serviceTierLabel(snapshot)).toBe("fast");
+    expect(fastModeLabel(snapshot)).toBe("on");
     expect(serviceTierRequestForThreadStart(snapshot)).toBeNull();
   });
 

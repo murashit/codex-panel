@@ -8,11 +8,12 @@ import type { ThreadHistoryController } from "../../../../src/features/chat/thre
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/panel/lifecycle";
 import type { ThreadResumeResponse } from "../../../../src/generated/app-server/v2/ThreadResumeResponse";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
-import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
 import type { ThreadTokenUsage } from "../../../../src/app-server/runtime-metrics";
 import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
 
-function thread(id: string): Thread & { archived: boolean } {
+function appServerThread(id: string): AppServerThread {
   return {
     id,
     sessionId: id,
@@ -33,14 +34,13 @@ function thread(id: string): Thread & { archived: boolean } {
     agentRole: null,
     gitInfo: null,
     name: null,
-    archived: false,
     turns: [],
   };
 }
 
 function activation(threadId: string): ThreadResumeResponse {
   return {
-    thread: thread(threadId),
+    thread: appServerThread(threadId),
     cwd: "/vault",
     model: "gpt-test",
     modelProvider: "openai",
@@ -144,7 +144,7 @@ describe("ThreadResumeController", () => {
     const { controller, host, resumeThread, stateStore } = createController();
     stateStore.dispatch({
       type: "active-thread/resumed",
-      thread: thread("active"),
+      thread: panelThread("active"),
       cwd: "/vault",
       model: null,
       reasoningEffort: null,
@@ -245,6 +245,17 @@ function turnFixture(items: ThreadItem[]): Turn {
     startedAt: 1,
     completedAt: 2,
     durationMs: 1000,
+  };
+}
+
+function panelThread(id: string): PanelThread {
+  return {
+    id,
+    preview: "",
+    createdAt: 0,
+    updatedAt: 0,
+    name: null,
+    archived: false,
   };
 }
 

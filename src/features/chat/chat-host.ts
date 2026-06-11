@@ -17,5 +17,6 @@ export interface CodexChatHost {
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
   cachedThreadList(): readonly Thread[] | null;
   publishAppServerMetadata(metadata: SharedAppServerMetadata): void;
+  publishAppServerIdentity(userAgent: string | null): void;
   cachedAppServerMetadata(): SharedAppServerMetadata | null;
 }

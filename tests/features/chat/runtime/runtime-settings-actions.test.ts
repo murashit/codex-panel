@@ -5,7 +5,7 @@ import {
   type ChatRuntimeSettingsActions,
 } from "../../../../src/features/chat/runtime/runtime-settings-actions";
 import { createChatState, createChatStateStore, type ChatState } from "../../../../src/features/chat/state/reducer";
-import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/view-model";
+import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/view-model/runtime";
 import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/state/actions";
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
@@ -25,7 +25,7 @@ describe("createChatRuntimeSettingsActions", () => {
       addSystemMessage: (text) => messages.push(text),
     });
 
-    await expect(controller.setRequestedModel("gpt-5.5")).resolves.toBe(true);
+    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(true);
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
     expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
@@ -47,6 +47,23 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(store.getState().runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
     expect(store.getState().runtime.activeServiceTier).toBe("fast");
     expect(messages).toEqual(["Fast mode on for subsequent turns."]);
+  });
+
+  it("enables and disables fast mode through explicit commands", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    const store = createChatStateStore(state);
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await controller.enableFastMode();
+    store.dispatch({ type: "active-thread/settings-applied", ...threadSettings("fast") });
+    await controller.disableFastMode();
+
+    expect(client.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { serviceTier: "fast" });
+    expect(client.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { serviceTier: null });
+    expect(messages).toEqual(["Fast mode on for subsequent turns.", "Fast mode off for subsequent turns."]);
   });
 
   it("requests the catalog Fast tier id and toggles it off from the reported effective id", async () => {
@@ -97,11 +114,86 @@ describe("createChatRuntimeSettingsActions", () => {
     const messages: string[] = [];
     const controller = runtimeControllerFixture(store, client, messages);
 
-    await expect(controller.setRequestedModel("gpt-5.5")).resolves.toBe(false);
+    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
 
     expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(store.getState().runtime.activeModel).toBeNull();
     expect(messages).toEqual(["nope"]);
+  });
+
+  it("does not commit stale runtime updates after the active thread changes", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    const store = createChatStateStore(state);
+    const client = clientFixture({
+      updateThreadSettings: vi.fn().mockImplementation(async () => {
+        store.dispatch({ type: "active-thread/cleared" });
+        return {};
+      }),
+    });
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
+
+    expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
+    expect(store.getState().activeThread.id).toBeNull();
+    expect(store.getState().runtime.activeModel).toBeNull();
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(messages).toEqual([]);
+  });
+
+  it("does not report stale runtime update failures after the active thread changes", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    const store = createChatStateStore(state);
+    const client = clientFixture({
+      updateThreadSettings: vi.fn().mockImplementation(async () => {
+        store.dispatch({ type: "active-thread/cleared" });
+        throw new Error("nope");
+      }),
+    });
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
+
+    expect(store.getState().activeThread.id).toBeNull();
+    expect(store.getState().runtime.activeModel).toBeNull();
+    expect(messages).toEqual([]);
+  });
+
+  it("resets requested model to config through an explicit command", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.runtime.activeModel = "gpt-5.5";
+    const store = createChatStateStore(state);
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await expect(controller.resetModelToConfig()).resolves.toBe(true);
+
+    expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: null });
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.activeModel).toBeNull();
+  });
+
+  it("enables and disables auto-review through explicit commands", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    const store = createChatStateStore(state);
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await controller.enableAutoReview();
+    store.dispatch({ type: "active-thread/settings-applied", ...threadSettings(null, "auto_review") });
+    await controller.disableAutoReview();
+
+    expect(client.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { approvalsReviewer: "auto_review" });
+    expect(client.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { approvalsReviewer: "user" });
+    expect(messages).toEqual(["Auto-review on for subsequent turns.", "Auto-review off for subsequent turns."]);
   });
 });
 
@@ -156,7 +248,10 @@ function modelFixture(model: string, fastTierId: string): ModelMetadata {
   };
 }
 
-function threadSettings(serviceTier: string | null): Omit<ActiveThreadSettingsAppliedAction, "type"> {
+function threadSettings(
+  serviceTier: string | null,
+  approvalsReviewer: Omit<ActiveThreadSettingsAppliedAction, "type">["approvalsReviewer"] = "user",
+): Omit<ActiveThreadSettingsAppliedAction, "type"> {
   return {
     cwd: "/vault",
     model: "gpt-5.5",
@@ -164,7 +259,7 @@ function threadSettings(serviceTier: string | null): Omit<ActiveThreadSettingsAp
     collaborationMode: "default",
     serviceTier,
     approvalPolicy: "on-request",
-    approvalsReviewer: "user",
+    approvalsReviewer,
     activePermissionProfile: null,
   };
 }

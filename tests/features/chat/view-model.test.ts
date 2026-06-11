@@ -3,22 +3,23 @@ import { describe, expect, it } from "vitest";
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
 import { runtimeConfigSnapshotFromAppServerConfig, type RuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
+import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/view-model/composer";
 import {
-  activeComposerThreadName,
-  activeThreadTitle,
-  chatViewDisplayTitle,
-  composerMetaViewModel,
-  composerPlaceholder,
   effortStatusLines,
   runtimeComposerChoices,
   modelStatusLines,
   runtimeSnapshotForChatSlices,
   statusSummaryLines,
-  toolbarViewModel,
-} from "../../../src/features/chat/panel/view-model";
+} from "../../../src/features/chat/panel/view-model/runtime";
+import {
+  activeComposerThreadName,
+  activeThreadTitle,
+  chatViewDisplayTitle,
+} from "../../../src/features/chat/panel/view-model/thread-title";
+import { toolbarViewModel } from "../../../src/features/chat/panel/view-model/toolbar";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../src/domain/threads/model";
 import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/ConfigReadResponse";
 
 describe("chat view model", () => {
@@ -209,17 +210,21 @@ describe("chat view model", () => {
     const state = createChatState();
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
-    const selectedModels: (string | null)[] = [];
-    const selectedEfforts: (string | null)[] = [];
+    const selectedModels: string[] = [];
+    const selectedEfforts: string[] = [];
+    let resetEffortCount = 0;
 
     const choices = runtimeComposerChoices({
       state,
       snapshot: runtimeSnapshotFixture(state),
-      setRequestedModel: (model) => {
+      requestModel: (model) => {
         selectedModels.push(model);
       },
-      setRequestedReasoningEffort: (effort) => {
+      requestReasoningEffort: (effort) => {
         selectedEfforts.push(effort);
+      },
+      resetReasoningEffortToConfig: () => {
+        resetEffortCount += 1;
       },
     });
 
@@ -236,7 +241,8 @@ describe("chat view model", () => {
     choices.effortChoices[0]?.onClick();
     choices.effortChoices[1]?.onClick();
     expect(selectedModels).toEqual(["gpt-5-mini"]);
-    expect(selectedEfforts).toEqual([null, "high"]);
+    expect(resetEffortCount).toBe(1);
+    expect(selectedEfforts).toEqual(["high"]);
   });
 
   it("derives active thread titles and composer placeholders", () => {
@@ -274,29 +280,14 @@ function runtimeSnapshotFixture(state: ChatState) {
   });
 }
 
-function threadFixture(id: string, name: string | null): Thread & { archived: boolean } {
+function threadFixture(id: string, name: string | null): Thread {
   return {
     id,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name,
     archived: false,
-    turns: [],
   };
 }
 

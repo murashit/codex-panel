@@ -11,7 +11,7 @@ import { closeChatView, openChatView, type ChatViewLifecycleHost } from "./view-
 import { ToolbarPanelController } from "./toolbar-controller";
 import { ChatViewRenderController } from "./view-render-controller";
 import { applyChatViewState } from "./view-state-controller";
-import type { ChatMessageRenderer } from "../ui/message-stream";
+import type { ChatMessageRenderer } from "../ui/message-stream/renderer";
 import { applyCachedSharedAppServerState, type CachedSharedAppServerStateSource } from "./cached-app-server-state";
 import type { ChatViewDeferredTasks, RestoredThreadState } from "./lifecycle";
 import { createChatShellRenderPort } from "./shell-render";

@@ -9,19 +9,23 @@ import type { Diagnostics } from "../../../app-server/diagnostics";
 import { createAppServerDiagnostics } from "../../../app-server/diagnostics";
 import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
-import type { CollaborationMode } from "../runtime/turn-settings";
+import type { CollaborationMode } from "../runtime/model";
 import {
   commitPendingThreadSettingsRuntimeState,
+  clearRequestedApprovalsReviewerRuntimeState,
+  clearRequestedServiceTierRuntimeState,
   initialActiveChatRuntimeState,
   initialChatRuntimeState,
-  setRequestedApprovalsReviewerRuntimeState,
-  setRequestedModelRuntimeState,
-  setRequestedReasoningEffortRuntimeState,
-  setRequestedServiceTierRuntimeState,
+  requestApprovalsReviewerRuntimeState,
+  requestModelRuntimeState,
+  requestReasoningEffortRuntimeState,
+  requestServiceTierRuntimeState,
+  resetModelToConfigRuntimeState,
+  resetReasoningEffortToConfigRuntimeState,
   setSelectedCollaborationModeRuntimeState,
   type ChatRuntimeState,
 } from "../runtime/state";
-import type { RequestedServiceTier } from "../runtime/effective-settings";
+import type { RequestedServiceTier } from "../runtime/model";
 import type { PendingApproval } from "../protocol/requests/approval";
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
 import { upsertDisplayItem } from "../display/stream-updates";
@@ -30,14 +34,11 @@ import type {
   ActiveThreadResumedAction,
   ActiveThreadRestoredPlaceholderAction,
   ActiveThreadSettingsAppliedAction,
-  ActiveThreadTokenUsageSetAction,
   ClearActiveThreadAction,
   ClearDisconnectedConnectionStateAction,
   ClearLocalTurnAction,
-  ClosePanelsAction,
   ConnectionInitializedAction,
   DetailOpenSetAction,
-  SetRequestedCollaborationModeDefaultAction,
   ThreadListAppliedAction,
   TranscriptItemAddedAction,
   TurnOptimisticStartedAction,
@@ -142,16 +143,18 @@ type ThreadListAction = ThreadListAppliedAction;
 type ActiveThreadAction =
   | { type: "active-thread/cwd-set"; cwd: string | null }
   | { type: "active-thread/goal-set"; goal: ThreadGoal | null }
-  | { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null }
-  | ActiveThreadTokenUsageSetAction;
+  | { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
 
 type RuntimeAction =
-  | { type: "runtime/requested-model-set"; model: string | null }
-  | { type: "runtime/requested-effort-set"; effort: ReasoningEffort | null }
-  | { type: "runtime/requested-service-tier-set"; serviceTier: RequestedServiceTier | null }
-  | { type: "runtime/requested-approvals-reviewer-set"; approvalsReviewer: ApprovalsReviewer | null }
+  | { type: "runtime/model-requested"; model: string }
+  | { type: "runtime/model-reset-to-config" }
+  | { type: "runtime/reasoning-effort-requested"; effort: ReasoningEffort }
+  | { type: "runtime/reasoning-effort-reset-to-config" }
+  | { type: "runtime/service-tier-requested"; serviceTier: RequestedServiceTier }
+  | { type: "runtime/service-tier-request-cleared" }
+  | { type: "runtime/approvals-reviewer-requested"; approvalsReviewer: ApprovalsReviewer }
+  | { type: "runtime/approvals-reviewer-request-cleared" }
   | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: CollaborationMode }
-  | SetRequestedCollaborationModeDefaultAction
   | { type: "runtime/pending-thread-settings-committed"; update: ThreadSettingsUpdate };
 
 interface TurnStartedAction {
@@ -203,7 +206,6 @@ type UiAction =
       panel: "history" | "chat-actions" | "status-panel" | null;
       toggle?: boolean;
     }
-  | ClosePanelsAction
   | DetailOpenSetAction;
 
 export type ChatAction = ChatTransitionAction | ChatSliceAction;
@@ -357,6 +359,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       ...state.runtime,
       activeModel: action.model,
       activeReasoningEffort: action.reasoningEffort,
+      activeCollaborationMode: initialActiveChatRuntimeState().activeCollaborationMode,
       activeServiceTier: action.serviceTier,
       activeApprovalPolicy: action.approvalPolicy,
       activeApprovalsReviewer: action.approvalsReviewer,
@@ -470,6 +473,7 @@ function reduceTurnStartAcknowledgedTransition(state: ChatState, action: TurnSta
 
 function reduceTurnStartFailedTransition(state: ChatState, action: TurnStartFailedAction): ChatState {
   const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "start-failed" });
+  if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
     transcript: { ...state.transcript, displayItems: action.displayItems },
@@ -558,14 +562,22 @@ function reduceActiveThreadSlice(state: ChatActiveThreadState, action: ChatSlice
 
 function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): ChatRuntimeState {
   switch (action.type) {
-    case "runtime/requested-model-set":
-      return patchObject(state, setRequestedModelRuntimeState(state, action.model));
-    case "runtime/requested-effort-set":
-      return patchObject(state, setRequestedReasoningEffortRuntimeState(state, action.effort));
-    case "runtime/requested-service-tier-set":
-      return patchObject(state, setRequestedServiceTierRuntimeState(state, action.serviceTier));
-    case "runtime/requested-approvals-reviewer-set":
-      return patchObject(state, setRequestedApprovalsReviewerRuntimeState(state, action.approvalsReviewer));
+    case "runtime/model-requested":
+      return patchObject(state, requestModelRuntimeState(state, action.model));
+    case "runtime/model-reset-to-config":
+      return patchObject(state, resetModelToConfigRuntimeState(state));
+    case "runtime/reasoning-effort-requested":
+      return patchObject(state, requestReasoningEffortRuntimeState(state, action.effort));
+    case "runtime/reasoning-effort-reset-to-config":
+      return patchObject(state, resetReasoningEffortToConfigRuntimeState(state));
+    case "runtime/service-tier-requested":
+      return patchObject(state, requestServiceTierRuntimeState(state, action.serviceTier));
+    case "runtime/service-tier-request-cleared":
+      return patchObject(state, clearRequestedServiceTierRuntimeState(state));
+    case "runtime/approvals-reviewer-requested":
+      return patchObject(state, requestApprovalsReviewerRuntimeState(state, action.approvalsReviewer));
+    case "runtime/approvals-reviewer-request-cleared":
+      return patchObject(state, clearRequestedApprovalsReviewerRuntimeState(state));
     case "runtime/requested-collaboration-mode-set":
       return patchObject(state, setSelectedCollaborationModeRuntimeState(state, action.collaborationMode));
     case "runtime/pending-thread-settings-committed":

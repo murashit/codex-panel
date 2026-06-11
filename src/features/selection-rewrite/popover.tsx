@@ -486,6 +486,7 @@ function SelectionRewritePopoverView({
           <textarea
             ref={instructionRef}
             className="codex-panel-ui__text-input codex-panel-selection-rewrite__instruction"
+            aria-label="Rewrite instruction"
             disabled={generating}
             onInput={(event) => {
               onInstructionInput(event.currentTarget.value);

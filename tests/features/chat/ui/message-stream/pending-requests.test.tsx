@@ -79,6 +79,9 @@ describe("pending request renderer decisions", () => {
     };
 
     render();
+    expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.getAttribute("aria-label")).toBe(
+      "Other answer: How broad?",
+    );
     actEvent(() => {
       changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
     });
@@ -238,7 +241,9 @@ describe("pending request renderer decisions", () => {
         true,
       );
 
-      expect(document.activeElement).toBe(parent.querySelector(".codex-panel__user-input-text"));
+      const inputElement = parent.querySelector<HTMLInputElement>(".codex-panel__user-input-text");
+      expect(inputElement?.getAttribute("aria-label")).toBe("How broad?");
+      expect(document.activeElement).toBe(inputElement);
     } finally {
       unmountUiRootInAct(parent);
       parent.remove();

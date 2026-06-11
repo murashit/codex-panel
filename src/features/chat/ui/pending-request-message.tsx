@@ -257,6 +257,7 @@ function UserInputQuestions({
                     <OtherUserInputOption
                       input={input}
                       questionId={question.id}
+                      questionText={question.question}
                       groupName={`codex-panel-${String(input.requestId)}-${question.id}`}
                       current={current}
                       optionLabels={new Set(question.options.map((option) => option.label))}
@@ -269,6 +270,7 @@ function UserInputQuestions({
                 <FreeformUserInput
                   input={input}
                   questionId={question.id}
+                  questionText={question.question}
                   isSecret={question.isSecret}
                   current={current}
                   drafts={drafts}
@@ -286,6 +288,7 @@ function UserInputQuestions({
 function OtherUserInputOption({
   input,
   questionId,
+  questionText,
   groupName,
   current,
   optionLabels,
@@ -294,6 +297,7 @@ function OtherUserInputOption({
 }: {
   input: PendingUserInput;
   questionId: string;
+  questionText: string;
   groupName: string;
   current: string;
   optionLabels: ReadonlySet<string>;
@@ -348,6 +352,7 @@ function OtherUserInputOption({
       <input
         className="codex-panel__user-input-text codex-panel__user-input-other-text"
         type="text"
+        aria-label={`Other answer: ${questionText}`}
         value={inputValue}
         tabIndex={otherSelected ? 0 : -1}
         placeholder="Other answer"
@@ -366,6 +371,7 @@ function OtherUserInputOption({
 function FreeformUserInput({
   input,
   questionId,
+  questionText,
   isSecret,
   current,
   drafts,
@@ -373,6 +379,7 @@ function FreeformUserInput({
 }: {
   input: PendingUserInput;
   questionId: string;
+  questionText: string;
   isSecret: boolean;
   current: string;
   drafts: PendingRequestMessageDrafts;
@@ -383,6 +390,7 @@ function FreeformUserInput({
     <input
       className="codex-panel__user-input-text"
       type={isSecret ? "password" : "text"}
+      aria-label={questionText}
       value={current}
       onInput={(event) => {
         actions.setUserInputDraft(draftKey, event.currentTarget.value);

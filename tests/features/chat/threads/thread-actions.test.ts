@@ -5,7 +5,7 @@ import type { ArchiveExportAdapter } from "../../../../src/domain/threads/export
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createChatThreadActions, type ChatThreadActionsHost } from "../../../../src/features/chat/threads/thread-actions";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
-import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../../../src/generated/app-server/v2/Thread";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { notices } from "../../../mocks/obsidian";
 
@@ -267,7 +267,7 @@ function archiveAdapterMock(overrides: Partial<MockArchiveExportAdapter> = {}): 
   };
 }
 
-function archivedThread(): Thread {
+function archivedThread(): AppServerThread {
   return {
     id: "abcdef12-9999",
     sessionId: "abcdef12-9999",
@@ -292,7 +292,7 @@ function archivedThread(): Thread {
   };
 }
 
-function rollbackThread(): Thread {
+function rollbackThread(): AppServerThread {
   return {
     ...archivedThread(),
     id: "forked",

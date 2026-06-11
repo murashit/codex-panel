@@ -100,20 +100,13 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/ui-root.tsx",
 ];
 const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts"];
-const generatedAppServerImportLegacyFiles = [
-  "src/features/chat/display/agent.ts",
-  "src/features/chat/display/hooks.ts",
-  "src/features/chat/display/permission-details.ts",
-  "src/features/chat/display/review.ts",
+// These files are the remaining chat app-server adapter boundary: they translate
+// generated protocol messages into Panel-owned display, routing, and request models.
+const generatedAppServerImportProtocolAdapterFiles = [
   "src/features/chat/protocol/display-items.ts",
   "src/features/chat/protocol/inbound/controller.ts",
   "src/features/chat/protocol/inbound/notification-plan.ts",
   "src/features/chat/protocol/inbound/routing.ts",
-  "src/features/chat/protocol/requests/approval.ts",
-  "src/features/chat/protocol/requests/user-input.ts",
-  "src/features/chat/threads/thread-goal-actions.ts",
-  "src/features/chat/threads/thread-rename-controller.ts",
-  "src/features/chat/threads/thread-resume.ts",
 ];
 const codexPanelEslintPlugin = {
   rules: {
@@ -443,7 +436,7 @@ export default defineConfig([
   },
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/app-server/**/*.{ts,tsx}", ...generatedAppServerImportLegacyFiles],
+    ignores: ["src/app-server/**/*.{ts,tsx}", ...generatedAppServerImportProtocolAdapterFiles],
     rules: {
       "no-restricted-imports": [
         "error",

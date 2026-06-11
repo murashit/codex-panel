@@ -17,11 +17,11 @@ import type { ThreadHistoryController } from "../../threads/thread-history-contr
 import type { ThreadRenameController } from "../../threads/thread-rename-controller";
 import type { ChatInboundController } from "../../protocol/inbound/controller";
 import { currentModel, type RuntimeSnapshot } from "../../runtime/effective-settings";
-import { ChatMessageRenderer } from "../../ui/message-stream";
+import { ChatMessageRenderer } from "../../ui/message-stream/renderer";
 import type { CodexChatHost } from "../../chat-host";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ChatMessageScrollIntentController } from "../../panel/message-scroll-intent-controller";
-import type { ComposerMetaViewModel } from "../../panel/view-model";
+import type { ComposerMetaViewModel } from "../../panel/view-model/types";
 
 interface ConversationSurfaceControllerGroupPorts {
   obsidian: {
@@ -181,8 +181,10 @@ export function createConversationSurfaceControllerGroup(
       toggleFastMode: () => refs.runtimeSettings.toggleFastMode(),
       toggleCollaborationMode: () => refs.runtimeSettings.toggleCollaborationMode(),
       toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
-      setRequestedModel: (model) => refs.runtimeSettings.setRequestedModel(model),
-      setRequestedReasoningEffort: (effort) => refs.runtimeSettings.setRequestedReasoningEffort(effort),
+      requestModel: (model) => refs.runtimeSettings.requestModel(model),
+      resetModelToConfig: () => refs.runtimeSettings.resetModelToConfig(),
+      requestReasoningEffort: (effort) => refs.runtimeSettings.requestReasoningEffort(effort),
+      resetReasoningEffortToConfig: () => refs.runtimeSettings.resetReasoningEffortToConfig(),
     },
     goals: {
       activeGoal: () => refs.goals.activeGoal(),

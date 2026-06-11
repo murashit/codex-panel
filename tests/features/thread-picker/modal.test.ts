@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { Thread } from "../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../src/domain/threads/model";
 import { threadOpenModeFromEvent, threadPickerSuggestions } from "../../../src/features/thread-picker/modal";
 
 describe("threadPickerSuggestions", () => {
@@ -38,28 +38,13 @@ describe("threadOpenModeFromEvent", () => {
   });
 });
 
-function thread(options: Partial<Thread & { archived: boolean }> & { id: string }): Thread & { archived: boolean } {
+function thread(options: Partial<Thread> & { id: string }): Thread {
   return {
     id: options.id,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: options.preview ?? options.id,
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: options.createdAt ?? 1,
     updatedAt: options.updatedAt ?? 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: options.cwd ?? "/vault",
-    cliVersion: "0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: options.name ?? null,
     archived: false,
-    turns: [],
-  } as Thread & { archived: boolean };
+  };
 }

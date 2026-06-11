@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { ThreadRenameController } from "../../../../src/features/chat/threads/thread-rename-controller";
 import type { AppServerClient } from "../../../../src/app-server/client";
-import type { Thread } from "../../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../../src/domain/threads/model";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
 import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
@@ -187,29 +187,14 @@ function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}):
   } as unknown as AppServerClient;
 }
 
-function threadFixture(id: string): Thread & { archived: boolean } {
+function threadFixture(id: string): Thread {
   return {
     id,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "Thread preview",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
   };
 }
 

@@ -4,6 +4,7 @@ import type { AppServerClient } from "../../../../src/app-server/client";
 import type { ThreadGoal } from "../../../../src/app-server/thread-goal";
 import { createChatThreadGoalActions } from "../../../../src/features/chat/threads/thread-goal-actions";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
+import { deferred } from "../../../support/async";
 
 describe("createChatThreadGoalActions", () => {
   it("syncs the active thread goal into chat state", async () => {
@@ -93,6 +94,60 @@ describe("createChatThreadGoalActions", () => {
     expect(stateStore.getState().activeThread.goal).toBeNull();
   });
 
+  it("does not report stale goal action failures after the active thread changes", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.activeThread.goal = goal();
+    const stateStore = createChatStateStore(state);
+    const update = deferred<never>();
+    const client = { setThreadGoal: vi.fn().mockReturnValue(update.promise) } as unknown as AppServerClient;
+    const addSystemMessage = vi.fn();
+    const controller = createChatThreadGoalActions({
+      stateStore,
+      currentClient: () => client,
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      render: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    const pending = controller.setStatus("thread", "paused");
+    await Promise.resolve();
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    update.reject(new Error("offline"));
+    await pending;
+
+    expect(addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not report stale goal clear failures after the active thread changes", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.activeThread.goal = goal();
+    const stateStore = createChatStateStore(state);
+    const clear = deferred<never>();
+    const client = { clearThreadGoal: vi.fn().mockReturnValue(clear.promise) } as unknown as AppServerClient;
+    const addSystemMessage = vi.fn();
+    const controller = createChatThreadGoalActions({
+      stateStore,
+      currentClient: () => client,
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      render: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    const pending = controller.clear("thread");
+    await Promise.resolve();
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    clear.reject(new Error("offline"));
+    await pending;
+
+    expect(addSystemMessage).not.toHaveBeenCalled();
+  });
+
   it("reports goal creation as a structured goal event", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
@@ -131,6 +186,55 @@ describe("createChatThreadGoalActions", () => {
         content: [{ type: "input_text", text: "Finish" }],
       },
     ]);
+  });
+
+  it("reports goal user history injection failures while the thread remains active", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    const stateStore = createChatStateStore(state);
+    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
+    const injectThreadItems = vi.fn().mockRejectedValue(new Error("offline"));
+    const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
+    const addSystemMessage = vi.fn();
+    const controller = createChatThreadGoalActions({
+      stateStore,
+      currentClient: () => client,
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      render: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await controller.setObjective("thread", "Finish", null);
+
+    expect(addSystemMessage).toHaveBeenCalledWith("Could not record goal message: offline");
+  });
+
+  it("does not report stale goal user history injection failures after the active thread changes", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    const stateStore = createChatStateStore(state);
+    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
+    const injectThreadItems = vi.fn().mockImplementation(async () => {
+      stateStore.dispatch({ type: "active-thread/cleared" });
+      throw new Error("offline");
+    });
+    const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
+    const addSystemMessage = vi.fn();
+    const controller = createChatThreadGoalActions({
+      stateStore,
+      currentClient: () => client,
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      render: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await controller.setObjective("thread", "Finish", null);
+
+    expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("does not inject a goal user history message when editing an existing goal", async () => {

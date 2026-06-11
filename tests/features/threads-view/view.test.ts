@@ -42,7 +42,12 @@ vi.mock("../../../src/app-server/connection-manager", () => {
     connect(): Promise<unknown> {
       connectionMock.state.connectCalls += 1;
       connectionMock.state.connected = true;
-      return Promise.resolve({});
+      return Promise.resolve({
+        userAgent: "codex-test",
+        codexHome: "/tmp/codex",
+        platformFamily: "unix",
+        platformOs: "macos",
+      });
     }
 
     currentClient(): unknown {
@@ -88,11 +93,14 @@ describe("CodexThreadsView", () => {
     connectionMock.state.client = clientFixture({
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
     });
-    const view = await threadsView();
+    const host = threadsHost();
+    const view = await threadsView(host);
 
     await view.refresh();
 
     expect(connectionMock.state.connectCalls).toBe(1);
+    expect(host.publishAppServerIdentity).toHaveBeenNthCalledWith(1, null);
+    expect(host.publishAppServerIdentity).toHaveBeenNthCalledWith(2, "codex-test");
     expect(view.containerEl.textContent).toContain("Thread preview");
   });
 
@@ -372,6 +380,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     getOpenPanelSnapshots: vi.fn(() => []),
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),
+    publishAppServerIdentity: vi.fn(),
     refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
     cachedThreadList: vi.fn(() => null),
     ...overrides,

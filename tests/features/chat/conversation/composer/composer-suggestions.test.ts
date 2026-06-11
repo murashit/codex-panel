@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ReasoningEffort } from "../../../../../src/generated/app-server/ReasoningEffort";
-import type { Thread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import {
   activeComposerSuggestions,
@@ -19,31 +19,16 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-function thread(overrides: Partial<Thread & { archived: boolean }> = {}): Thread & { archived: boolean } {
+function thread(overrides: Partial<Thread> = {}): Thread {
   return {
     id: "019abcde-0000-7000-8000-000000000001",
-    sessionId: "session-1",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "Preview",
-    ephemeral: false,
-    modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
-    status: "idle",
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.130.0",
-    source: "appServer",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: null,
     archived: false,
-    turns: [],
     ...overrides,
-  } as Thread & { archived: boolean };
+  };
 }
 
 function model(name: string, efforts: ReasoningEffort[], overrides: Partial<ModelMetadata> = {}): ModelMetadata {

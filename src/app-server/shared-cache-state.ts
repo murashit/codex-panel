@@ -12,61 +12,96 @@ export interface SharedAppServerMetadata {
   appServerDiagnostics: Diagnostics;
 }
 
-type SharedCache<T> = { kind: "unloaded" } | { kind: "loaded"; data: T };
+export interface SharedAppServerCacheContext {
+  codexPath: string;
+  vaultPath: string;
+  appServerUserAgent: string | null;
+}
+
+type SharedCache<T> = { kind: "unloaded" } | { kind: "loaded"; context: SharedAppServerCacheContext; data: T };
 
 export interface SharedAppServerState {
   threads: SharedCache<readonly Thread[]>;
   appServerMetadata: SharedCache<SharedAppServerMetadata>;
-  availableModels: readonly ModelMetadata[];
+  availableModels: SharedCache<readonly ModelMetadata[]>;
 }
 
 export function createSharedAppServerState(): SharedAppServerState {
   return {
     threads: { kind: "unloaded" },
     appServerMetadata: { kind: "unloaded" },
-    availableModels: [],
+    availableModels: { kind: "unloaded" },
   };
 }
 
-export function applySharedThreadList(state: SharedAppServerState, threads: readonly Thread[]): SharedAppServerState {
+export function applySharedThreadList(
+  state: SharedAppServerState,
+  context: SharedAppServerCacheContext,
+  threads: readonly Thread[],
+): SharedAppServerState {
   return {
     ...state,
-    threads: { kind: "loaded", data: cloneThreads(threads) },
+    threads: { kind: "loaded", context: cloneSharedAppServerCacheContext(context), data: cloneThreads(threads) },
   };
 }
 
-export function applySharedAppServerMetadata(state: SharedAppServerState, metadata: SharedAppServerMetadata): SharedAppServerState {
+export function applySharedAppServerMetadata(
+  state: SharedAppServerState,
+  context: SharedAppServerCacheContext,
+  metadata: SharedAppServerMetadata,
+): SharedAppServerState {
   const clonedMetadata = cloneSharedAppServerMetadata(metadata);
   return {
     ...state,
-    appServerMetadata: { kind: "loaded", data: clonedMetadata },
-    availableModels: cloneModelMetadata(clonedMetadata.availableModels),
+    appServerMetadata: { kind: "loaded", context: cloneSharedAppServerCacheContext(context), data: clonedMetadata },
+    availableModels: {
+      kind: "loaded",
+      context: cloneSharedAppServerCacheContext(context),
+      data: cloneModelMetadata(clonedMetadata.availableModels),
+    },
   };
 }
 
-export function applySharedModels(state: SharedAppServerState, models: readonly ModelMetadata[]): SharedAppServerState {
+export function applySharedModels(
+  state: SharedAppServerState,
+  context: SharedAppServerCacheContext,
+  models: readonly ModelMetadata[],
+): SharedAppServerState {
   const clonedModels = cloneModelMetadata(models);
   return {
     ...state,
     appServerMetadata:
-      state.appServerMetadata.kind === "loaded"
-        ? { kind: "loaded", data: { ...state.appServerMetadata.data, availableModels: cloneModelMetadata(clonedModels) } }
+      state.appServerMetadata.kind === "loaded" && sharedAppServerCacheContextMatches(state.appServerMetadata.context, context)
+        ? {
+            kind: "loaded",
+            context: cloneSharedAppServerCacheContext(context),
+            data: { ...state.appServerMetadata.data, availableModels: cloneModelMetadata(clonedModels) },
+          }
         : state.appServerMetadata,
-    availableModels: clonedModels,
+    availableModels: { kind: "loaded", context: cloneSharedAppServerCacheContext(context), data: clonedModels },
   };
 }
 
-export function cachedSharedThreadList(state: SharedAppServerState): readonly Thread[] | null {
-  return state.threads.kind === "loaded" ? cloneThreads(state.threads.data) : null;
+export function cachedSharedThreadList(state: SharedAppServerState, context: SharedAppServerCacheContext): readonly Thread[] | null {
+  return state.threads.kind === "loaded" && sharedAppServerCacheContextMatches(state.threads.context, context)
+    ? cloneThreads(state.threads.data)
+    : null;
 }
 
-export function cachedSharedAppServerMetadata(state: SharedAppServerState): SharedAppServerMetadata | null {
-  if (state.appServerMetadata.kind === "loaded") return cloneSharedAppServerMetadata(state.appServerMetadata.data);
+export function cachedSharedAppServerMetadata(
+  state: SharedAppServerState,
+  context: SharedAppServerCacheContext,
+): SharedAppServerMetadata | null {
+  if (state.appServerMetadata.kind === "loaded" && sharedAppServerCacheContextMatches(state.appServerMetadata.context, context)) {
+    return cloneSharedAppServerMetadata(state.appServerMetadata.data);
+  }
   return null;
 }
 
-export function cachedSharedModels(state: SharedAppServerState): ModelMetadata[] {
-  return cloneModelMetadata(state.availableModels);
+export function cachedSharedModels(state: SharedAppServerState, context: SharedAppServerCacheContext): ModelMetadata[] {
+  return state.availableModels.kind === "loaded" && sharedAppServerCacheContextMatches(state.availableModels.context, context)
+    ? cloneModelMetadata(state.availableModels.data)
+    : [];
 }
 
 function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): SharedAppServerMetadata {
@@ -98,4 +133,12 @@ function cloneModelMetadata(models: readonly ModelMetadata[]): ModelMetadata[] {
 
 function cloneSkillMetadata(skills: readonly SkillMetadata[]): SkillMetadata[] {
   return skills.map((skill) => ({ ...skill }));
+}
+
+function cloneSharedAppServerCacheContext(context: SharedAppServerCacheContext): SharedAppServerCacheContext {
+  return { ...context };
+}
+
+export function sharedAppServerCacheContextMatches(left: SharedAppServerCacheContext, right: SharedAppServerCacheContext): boolean {
+  return left.codexPath === right.codexPath && left.vaultPath === right.vaultPath && left.appServerUserAgent === right.appServerUserAgent;
 }

@@ -4,7 +4,7 @@ import type { RuntimeSnapshot } from "../runtime/effective-settings";
 import type { SendShortcut } from "../../../shared/ui/keyboard";
 import type { ToolbarActions } from "../ui/toolbar";
 import type { ToolbarThreadRow } from "./view-model/types";
-import type { RestoredThreadTitleSnapshot } from "./view-model";
+import type { RestoredThreadTitleSnapshot } from "./view-model/types";
 
 interface ChatPanelToolbarState {
   archiveConfirmId: () => string | null;
@@ -22,7 +22,7 @@ interface ChatPanelGoalActions {
   setEditingOpen: (open: boolean) => void;
 }
 
-interface ChatPanelStatePort {
+export interface ChatPanelStatePort {
   state: {
     chat: () => ChatState;
   };
@@ -58,15 +58,14 @@ export interface ChatPanelGoalPorts extends ChatPanelStatePort {
   };
 }
 
-export type ChatPanelMessagesPorts = ChatPanelStatePort;
-
 export interface ChatPanelComposerPorts extends ChatPanelStatePort {
   thread: {
     restoredPlaceholder: () => RestoredThreadTitleSnapshot | null;
   };
   runtime: {
     snapshot: () => RuntimeSnapshot;
-    setRequestedModel: (model: string | null) => Promise<void>;
-    setRequestedReasoningEffort: (effort: ReasoningEffort | null) => Promise<void>;
+    requestModel: (model: string) => Promise<void>;
+    requestReasoningEffort: (effort: ReasoningEffort) => Promise<void>;
+    resetReasoningEffortToConfig: () => Promise<void>;
   };
 }

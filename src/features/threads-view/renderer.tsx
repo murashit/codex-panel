@@ -101,7 +101,14 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
         <RenameRow row={row} actions={actions} className={mainClassName} />
       ) : (
         <>
-          <div className={mainClassName} role="button" tabIndex={0} onClick={open} onKeyDown={openFromKeyboard}>
+          <div
+            className={mainClassName}
+            role="button"
+            tabIndex={0}
+            aria-current={row.selected ? "true" : undefined}
+            onClick={open}
+            onKeyDown={openFromKeyboard}
+          >
             <span className="codex-panel-threads__row-title">{row.title}</span>
           </div>
           <div
