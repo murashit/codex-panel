@@ -8,7 +8,7 @@ import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/turn-settings";
 import type { RuntimeSnapshot } from "./runtime/effective-settings";
-import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./chat-state";
+import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./state/reducer";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
 import type { CodexChatHost } from "./chat-host";
@@ -21,7 +21,7 @@ import {
   modelStatusLines as buildModelStatusLines,
   runtimeSnapshotForChatSlices,
   statusSummaryLines as buildStatusSummaryLines,
-} from "./panel/model";
+} from "./panel/view-model";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
 import { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./panel/lifecycle";
 import { ChatMessageScrollIntentController } from "./panel/message-scroll-intent-controller";

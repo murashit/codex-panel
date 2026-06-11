@@ -11,7 +11,7 @@ import { ThreadResumeController } from "./thread-resume-controller";
 import { createThreadSelectionActions } from "./thread-selection-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
 import type { ToolbarPanelController } from "../panel/toolbar-controller";
-import type { ChatStateStore } from "../chat-state";
+import type { ChatStateStore } from "../state/reducer";
 import type { CodexChatHost } from "../chat-host";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../panel/lifecycle";
 

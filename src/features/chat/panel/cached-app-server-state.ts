@@ -1,7 +1,7 @@
 import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
 import type { Thread } from "../../../domain/threads/model";
-import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
-import type { ChatServerThreadActions } from "../server-actions/thread-actions";
+import type { ChatServerMetadataActions } from "../protocol/client-actions/metadata-actions";
+import type { ChatServerThreadActions } from "../protocol/client-actions/thread-actions";
 
 export interface CachedSharedAppServerStateSource {
   cachedThreadList: () => readonly Thread[] | null;

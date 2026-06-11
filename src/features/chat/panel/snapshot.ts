@@ -1,5 +1,5 @@
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
-import type { ChatState } from "../chat-state";
+import type { ChatState } from "../state/reducer";
 import type { DisplayItem } from "../display/types";
 import type { RestoredThreadState } from "./lifecycle";
 

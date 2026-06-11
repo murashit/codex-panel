@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 
 import type { Thread } from "../../../../src/domain/threads/model";
-import { createChatStateStore } from "../../../../src/features/chat/chat-state";
-import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/model";
+import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
+import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/view-model";
 import { createToolbarArchiveConfirmState } from "../../../../src/features/chat/panel/toolbar-archive-confirm-state";
 import { ToolbarPanelController } from "../../../../src/features/chat/panel/toolbar-controller";
 import type { ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/ui-ports";

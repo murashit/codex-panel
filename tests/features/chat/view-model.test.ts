@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
 import { runtimeConfigSnapshotFromAppServerConfig, type RuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
-import { createChatState } from "../../../src/features/chat/chat-state";
+import { createChatState } from "../../../src/features/chat/state/reducer";
 import {
   activeComposerThreadName,
   activeThreadTitle,
@@ -15,8 +15,8 @@ import {
   runtimeSnapshotForChatSlices,
   statusSummaryLines,
   toolbarViewModel,
-} from "../../../src/features/chat/panel/model";
-import type { ChatState } from "../../../src/features/chat/chat-state";
+} from "../../../src/features/chat/panel/view-model";
+import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/ConfigReadResponse";

@@ -9,7 +9,7 @@ import {
 import type { Thread } from "../../../domain/threads/model";
 import type { Turn } from "../../../generated/app-server/v2/Turn";
 import type { CodexPanelSettings } from "../../../settings/model";
-import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
+import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 import { generateThreadTitleWithCodex } from "../../../app-server/thread-title-generation";
 import { completedConversationSummaryFromAppServerTurn } from "../../../app-server/turn-model";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";

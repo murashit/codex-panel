@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createThreadIdentityActions } from "../../../../src/features/chat/threads/thread-identity-actions";
 import type { RestoredThreadController } from "../../../../src/features/chat/threads/restored-thread-controller";
 import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/panel/lifecycle";

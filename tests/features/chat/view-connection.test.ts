@@ -7,7 +7,7 @@ import type { CodexChatHost } from "../../../src/features/chat/chat-host";
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
 import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
-import type { ChatState } from "../../../src/features/chat/chat-state";
+import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
 import type { Thread } from "../../../src/generated/app-server/v2/Thread";
 import { notices } from "../../mocks/obsidian";

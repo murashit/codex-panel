@@ -1,8 +1,8 @@
 import type { AppServerClient } from "../../../app-server/client";
 import type { ThreadTokenUsage } from "../../../app-server/runtime-metrics";
-import { setActiveThreadTokenUsageAction } from "../chat-state-actions";
-import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../chat-state-selectors";
-import type { ChatStateStore } from "../chat-state";
+import { setActiveThreadTokenUsageAction } from "../state/actions";
+import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../state/selectors";
+import type { ChatStateStore } from "../state/reducer";
 import type { RestoredThreadController } from "./restored-thread-controller";
 import { resumedThreadActionFromAppServerResponse } from "./thread-resume";
 import type { ThreadHistoryController } from "./thread-history-controller";

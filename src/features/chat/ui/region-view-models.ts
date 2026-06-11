@@ -1,12 +1,12 @@
-import type { ChatState } from "../chat-state";
-import { pendingRequestsSignature as requestStateSignature } from "../requests/view-model";
+import type { ChatState } from "../state/reducer";
+import { pendingRequestsSignature as requestStateSignature } from "../pending-requests/view-model";
 import {
   activeComposerThreadName as buildActiveComposerThreadName,
   composerMetaViewModel as buildComposerMetaViewModel,
   composerPlaceholder as buildComposerPlaceholder,
   runtimeComposerChoices,
   toolbarViewModel as buildToolbarViewModel,
-} from "../panel/model";
+} from "../panel/view-model";
 import type { GoalBannerActions, GoalBannerOptions } from "./goal-banner";
 import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelMessagesPorts, ChatPanelToolbarPorts } from "../panel/ui-ports";
 import type { ChatPanelShellState } from "./shell";

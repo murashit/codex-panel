@@ -1,4 +1,4 @@
-import type { ChatAction, ChatState } from "../../chat-state";
+import type { ChatAction, ChatState } from "../../state/reducer";
 import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./context-builder";
 
 export interface MessageStreamContextPortOptions {

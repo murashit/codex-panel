@@ -105,12 +105,12 @@ const generatedAppServerImportLegacyFiles = [
   "src/features/chat/display/hooks.ts",
   "src/features/chat/display/permission-details.ts",
   "src/features/chat/display/review.ts",
-  "src/features/chat/display/thread-items.ts",
-  "src/features/chat/inbound/controller.ts",
-  "src/features/chat/inbound/notification-plan.ts",
-  "src/features/chat/inbound/routing.ts",
-  "src/features/chat/requests/approval.ts",
-  "src/features/chat/requests/user-input.ts",
+  "src/features/chat/protocol/display-items.ts",
+  "src/features/chat/protocol/inbound/controller.ts",
+  "src/features/chat/protocol/inbound/notification-plan.ts",
+  "src/features/chat/protocol/inbound/routing.ts",
+  "src/features/chat/protocol/requests/approval.ts",
+  "src/features/chat/protocol/requests/user-input.ts",
   "src/features/chat/threads/thread-goal-actions.ts",
   "src/features/chat/threads/thread-rename-controller.ts",
   "src/features/chat/threads/thread-resume.ts",
@@ -400,7 +400,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/features/chat/chat-state.ts", "src/features/chat/display/**/*.{ts,tsx}"],
+    files: ["src/features/chat/state/reducer.ts", "src/features/chat/display/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": [
         "error",

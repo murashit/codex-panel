@@ -1,4 +1,4 @@
-import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
+import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 import type { ChatThreadActions } from "../threads/thread-actions";
 import type { ToolbarArchiveConfirmState } from "./toolbar-archive-confirm-state";
 

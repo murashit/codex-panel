@@ -10,7 +10,7 @@ import {
   parseModelOverride,
   parseReasoningEffortOverride,
   reasoningEffortOverrideMessage,
-} from "../../src/features/chat/turns/runtime-overrides";
+} from "../../src/features/chat/conversation/turns/runtime-overrides";
 import {
   autoReviewActive,
   currentApprovalsReviewer,

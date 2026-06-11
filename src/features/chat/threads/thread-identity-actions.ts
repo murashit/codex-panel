@@ -1,7 +1,7 @@
 import type { RestoredThreadController } from "./restored-thread-controller";
-import { applyThreadListAction, clearActiveThreadAction } from "../chat-state-actions";
-import { activeThreadId, listedThreads } from "../chat-state-selectors";
-import type { ChatStateStore } from "../chat-state";
+import { applyThreadListAction, clearActiveThreadAction } from "../state/actions";
+import { activeThreadId, listedThreads } from "../state/selectors";
+import type { ChatStateStore } from "../state/reducer";
 
 export interface ThreadIdentityActionsHost {
   stateStore: ChatStateStore;

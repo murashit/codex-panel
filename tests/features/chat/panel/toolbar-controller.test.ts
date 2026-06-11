@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createToolbarArchiveConfirmState } from "../../../../src/features/chat/panel/toolbar-archive-confirm-state";
 import { ToolbarPanelController } from "../../../../src/features/chat/panel/toolbar-controller";
 import type { ChatThreadActions } from "../../../../src/features/chat/threads/thread-actions";

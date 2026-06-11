@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ChatStateStore } from "../chat-state";
+import type { ChatStateStore } from "../state/reducer";
 import { renderChatPanelShell } from "../ui/shell";
 
 export interface ChatShellRenderPort {

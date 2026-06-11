@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 import { useEffect } from "preact/hooks";
 
-import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { renderChatPanelShell, unmountChatPanelShell, useChatPanelShellState } from "../../../../src/features/chat/ui/shell";
 import { installObsidianDomShims } from "../../../support/dom";
 

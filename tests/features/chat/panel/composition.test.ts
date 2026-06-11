@@ -4,12 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { App, Component, EventRef } from "obsidian";
 
 import type { RuntimeSnapshot } from "../../../../src/features/chat/runtime/effective-settings";
-import { createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createChatViewControllers } from "../../../../src/features/chat/panel/composition";
 import type { ChatControllerCompositionPorts } from "../../../../src/features/chat/panel/controller-ports";
 import { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "../../../../src/features/chat/panel/lifecycle";
 import { ChatMessageScrollIntentController } from "../../../../src/features/chat/panel/message-scroll-intent-controller";
-import type { ComposerMetaViewModel } from "../../../../src/features/chat/panel/model";
+import type { ComposerMetaViewModel } from "../../../../src/features/chat/panel/view-model";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 
 describe("createChatViewControllers", () => {

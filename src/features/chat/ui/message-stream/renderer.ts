@@ -2,8 +2,8 @@ import type { App, Component } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
-import type { ChatAction, ChatState, ChatStateStore } from "../../chat-state";
-import type { ComposerBoundaryScrollAction } from "../../composer/boundary-scroll";
+import type { ChatAction, ChatState, ChatStateStore } from "../../state/reducer";
+import type { ComposerBoundaryScrollAction } from "../../conversation/composer/boundary-scroll";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../message-virtualizer";
 import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./context-builder";
 import { createMessageStreamContextPort } from "./context-port";

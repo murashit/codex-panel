@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../app-server/client";
 import type { ThreadTurnsPage } from "../../../app-server/turn-history";
-import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
-import { displayItemsFromTurns } from "../display/thread-items";
+import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
+import { displayItemsFromTurns } from "../protocol/display-items";
 
 export interface ThreadHistoryControllerHost {
   stateStore: ChatStateStore;

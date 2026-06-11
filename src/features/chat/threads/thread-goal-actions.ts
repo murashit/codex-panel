@@ -6,7 +6,7 @@ import {
   type ThreadGoalUpdate,
 } from "../../../app-server/thread-goal";
 import type { JsonValue } from "../../../generated/app-server/serde_json/JsonValue";
-import type { ChatStateStore } from "../chat-state";
+import type { ChatStateStore } from "../state/reducer";
 import type { GoalDisplayItem } from "../display/types";
 import { goalChangeItem } from "../display/goal-messages";
 

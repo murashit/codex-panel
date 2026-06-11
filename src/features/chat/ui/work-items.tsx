@@ -13,7 +13,7 @@ import type {
   TaskProgressDisplayItem,
 } from "../display/types";
 import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel, taskStatusMarker } from "../display/labels";
-import { activeTurnId, type ChatTurnLifecycleState } from "../chat-state";
+import { activeTurnId, type ChatTurnLifecycleState } from "../state/reducer";
 import { createWorkMessageClassName } from "./work-message";
 import { shortThreadId, truncate } from "../../../utils";
 

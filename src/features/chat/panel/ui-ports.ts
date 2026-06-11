@@ -1,10 +1,10 @@
-import type { ChatState } from "../chat-state";
+import type { ChatState } from "../state/reducer";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../runtime/effective-settings";
 import type { SendShortcut } from "../../../shared/ui/keyboard";
 import type { ToolbarActions } from "../ui/toolbar";
-import type { ToolbarThreadRow } from "./model/types";
-import type { RestoredThreadTitleSnapshot } from "./model";
+import type { ToolbarThreadRow } from "./view-model/types";
+import type { RestoredThreadTitleSnapshot } from "./view-model";
 
 interface ChatPanelToolbarState {
   archiveConfirmId: () => string | null;

@@ -2,8 +2,8 @@ import { setIcon } from "obsidian";
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import type { ComposerSuggestion } from "../composer/suggestions";
-import type { ComposerMetaViewModel, RuntimeChoice } from "../panel/model";
+import type { ComposerSuggestion } from "../conversation/composer/suggestions";
+import type { ComposerMetaViewModel, RuntimeChoice } from "../panel/view-model";
 import { IconButton } from "../../../shared/ui/components";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 

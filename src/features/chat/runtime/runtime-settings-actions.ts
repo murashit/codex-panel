@@ -11,8 +11,8 @@ import {
 } from "./turn-settings";
 import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import type { RequestedServiceTier } from "./effective-settings";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../turns/runtime-overrides";
-import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../conversation/turns/runtime-overrides";
+import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 
 const COLLABORATION_MODE_WARNING_MESSAGES: Record<TurnCollaborationModeWarning, string> = {
   "missing-model": "No effective model is available. Sending without a mode override.",

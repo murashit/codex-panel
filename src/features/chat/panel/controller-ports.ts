@@ -4,12 +4,12 @@ import type { ComponentChild as UiNode } from "preact";
 import type { AppServerClient } from "../../../app-server/client";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import type { RuntimeSnapshot } from "../runtime/effective-settings";
-import type { ChatState, ChatStateStore } from "../chat-state";
+import type { ChatState, ChatStateStore } from "../state/reducer";
 import type { CodexChatHost } from "../chat-host";
 import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
-import type { ComposerMetaViewModel } from "./model";
+import type { ComposerMetaViewModel } from "./view-model";
 
 export interface ChatControllerCompositionPorts {
   obsidian: ChatPanelObsidianContext;

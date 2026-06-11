@@ -1,6 +1,6 @@
-import { closePanelsAction } from "../chat-state-actions";
-import { canSwitchToThread } from "../chat-state-selectors";
-import type { ChatStateStore } from "../chat-state";
+import { closePanelsAction } from "../state/actions";
+import { canSwitchToThread } from "../state/selectors";
+import type { ChatStateStore } from "../state/reducer";
 
 export interface ThreadSelectionControllerHost {
   stateStore: ChatStateStore;

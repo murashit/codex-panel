@@ -23,7 +23,7 @@ import {
   patchApplyExecutionState,
   taskProgressExecutionState,
 } from "../../../../src/features/chat/display/state";
-import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/display/thread-items";
+import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/protocol/display-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";

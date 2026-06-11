@@ -9,7 +9,7 @@ import {
   type ChatAction,
   type ChatState,
   type ChatStateStore,
-} from "../../../../../src/features/chat/chat-state";
+} from "../../../../../src/features/chat/state/reducer";
 import {
   ChatMessageRenderer,
   bindRenderedWikiLinks,

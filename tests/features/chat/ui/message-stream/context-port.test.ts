@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, type ChatAction } from "../../../../../src/features/chat/chat-state";
+import { createChatState, type ChatAction } from "../../../../../src/features/chat/state/reducer";
 import { createMessageStreamContextPort } from "../../../../../src/features/chat/ui/message-stream";
 
 describe("message stream context port", () => {

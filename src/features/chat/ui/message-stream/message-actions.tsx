@@ -1,7 +1,7 @@
 import { type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 
-import { activeTurnId } from "../../chat-state";
+import { activeTurnId } from "../../state/reducer";
 import type { DisplayItem } from "../../display/types";
 import { IconButton } from "../../../../shared/ui/components";
 import type { MessageActionContext, RenderableTextItem } from "./context";

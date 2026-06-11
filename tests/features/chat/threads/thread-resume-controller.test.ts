@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/client";
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import type { RestoredThreadController } from "../../../../src/features/chat/threads/restored-thread-controller";
 import { ThreadResumeController } from "../../../../src/features/chat/threads/thread-resume-controller";
 import type { ThreadHistoryController } from "../../../../src/features/chat/threads/thread-history-controller";

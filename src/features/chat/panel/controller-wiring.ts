@@ -1,6 +1,6 @@
-import type { ChatComposerController } from "../composer/controller";
+import type { ChatComposerController } from "../conversation/composer/controller";
 import type { DisplayDetailSection } from "../display/types";
-import type { ChatConnectionController } from "../session/connection-controller";
+import type { ChatConnectionController } from "../connection/connection-controller";
 import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream";
 import type { ChatControllerCompositionPorts } from "./controller-ports";

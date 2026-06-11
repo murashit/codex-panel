@@ -8,8 +8,8 @@ import {
   syncComposerHeight,
   type ComposerCallbacks,
 } from "../../../../../src/features/chat/ui/composer";
-import type { ComposerSuggestion } from "../../../../../src/features/chat/composer/suggestions";
-import type { ComposerMetaViewModel } from "../../../../../src/features/chat/panel/model";
+import type { ComposerSuggestion } from "../../../../../src/features/chat/conversation/composer/suggestions";
+import type { ComposerMetaViewModel } from "../../../../../src/features/chat/panel/view-model";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";

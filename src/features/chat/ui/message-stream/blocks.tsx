@@ -1,11 +1,11 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useState } from "preact/hooks";
 
-import { activeTurnId } from "../../chat-state";
+import { activeTurnId } from "../../state/reducer";
 import { displayBlocksForItems } from "../../display/blocks";
 import type { ToolResultDisplayItem } from "../../display/tool-view";
 import type { DisplayBlock, DisplayItem } from "../../display/types";
-import { userInputDraftKey, userInputOtherDraftKey } from "../../requests/user-input";
+import { userInputDraftKey, userInputOtherDraftKey } from "../../protocol/requests/user-input";
 import { pendingRequestMessageNode } from "../pending-request-message";
 import { toolResultNode } from "../tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "../work-items";

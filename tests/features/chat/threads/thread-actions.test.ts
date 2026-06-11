@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { ArchiveExportAdapter } from "../../../../src/domain/threads/export";
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createChatThreadActions, type ChatThreadActionsHost } from "../../../../src/features/chat/threads/thread-actions";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import type { Thread } from "../../../../src/generated/app-server/v2/Thread";

@@ -1,6 +1,6 @@
-import type { ChatState } from "../../chat-state";
-import type { PendingRequestSnapshot } from "../../chat-state-selectors";
-import { chatTurnBusy } from "../../chat-state";
+import type { ChatState } from "../../state/reducer";
+import type { PendingRequestSnapshot } from "../../state/selectors";
+import { chatTurnBusy } from "../../state/reducer";
 import type { DisplayItem } from "../../display/types";
 import {
   forkCandidatesFromItems,

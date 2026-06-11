@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { ToolbarViewModel } from "../../../../../src/features/chat/panel/model/types";
+import type { ToolbarViewModel } from "../../../../../src/features/chat/panel/view-model/types";
 import { toolbarNode } from "../../../../../src/features/chat/ui/toolbar";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { changeInputValue, installObsidianDomShims } from "../../../../support/dom";

@@ -7,7 +7,7 @@ import type { ThreadStartResponse } from "../../../generated/app-server/v2/Threa
 import type { ThreadResumeResponse } from "../../../generated/app-server/v2/ThreadResumeResponse";
 import type { ChatRuntimeState } from "../runtime/state";
 import type { DisplayItem } from "../display/types";
-import type { ActiveThreadResumedAction } from "../chat-state-actions";
+import type { ActiveThreadResumedAction } from "../state/actions";
 
 interface ThreadActivationResponse {
   thread: Thread;

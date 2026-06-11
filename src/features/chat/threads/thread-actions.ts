@@ -7,9 +7,9 @@ import { exportArchivedThreadMarkdown } from "../../../domain/threads/export";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import { inheritedForkThreadName } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
-import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../chat-state";
+import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../state/reducer";
 import { rollbackCandidateFromItems, turnsAfterTurnId } from "../display/action-candidates";
-import { displayItemsFromTurns } from "../display/thread-items";
+import { displayItemsFromTurns } from "../protocol/display-items";
 import { resumedThreadActionFromActiveRuntime } from "./thread-resume";
 
 export interface ChatThreadActionsHost {

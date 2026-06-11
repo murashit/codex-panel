@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../src/features/chat/state/reducer";
 import {
   createThreadSelectionActions,
   type ThreadSelectionControllerHost,

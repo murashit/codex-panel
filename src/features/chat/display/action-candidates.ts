@@ -4,7 +4,7 @@ import {
   type ChatRuntimeState,
   type ChatTranscriptState,
   type ChatTurnState,
-} from "../chat-state";
+} from "../state/reducer";
 import type { DisplayItem, MessageDisplayItem } from "./types";
 import { isCompletedTurnOutcomeMessage } from "./turn-outcome-message";
 

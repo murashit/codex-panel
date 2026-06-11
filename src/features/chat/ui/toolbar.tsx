@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { RuntimeConfigSection, RateLimitSummary } from "../runtime/status-summary";
 import { IconButton } from "../../../shared/ui/components";
-import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/model/types";
+import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/view-model/types";
 
 type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;

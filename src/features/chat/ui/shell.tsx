@@ -2,7 +2,7 @@ import { createContext, type ComponentChild as UiNode } from "preact";
 import { useContext } from "preact/hooks";
 import { signal, type Signal } from "@preact/signals";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
-import type { ChatState, ChatStateStore } from "../chat-state";
+import type { ChatState, ChatStateStore } from "../state/reducer";
 
 export interface ChatPanelShellState {
   connection: Signal<ChatState["connection"]>;

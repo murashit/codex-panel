@@ -1,12 +1,12 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
 import type { ComponentChild as UiNode } from "preact";
-import type { ChatStateStore } from "../chat-state";
+import type { ChatStateStore } from "../state/reducer";
 import type { CodexChatHost } from "../chat-host";
-import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
-import type { ChatServerThreadActions } from "../server-actions/thread-actions";
-import type { ChatComposerController } from "../composer/controller";
+import type { ChatServerMetadataActions } from "../protocol/client-actions/metadata-actions";
+import type { ChatServerThreadActions } from "../protocol/client-actions/thread-actions";
+import type { ChatComposerController } from "../conversation/composer/controller";
 import type { ChatThreadActions } from "../threads/thread-actions";
-import { scheduleAppServerWarmup } from "../session/app-server-warmup-controller";
+import { scheduleAppServerWarmup } from "../connection/app-server-warmup-controller";
 import { closeChatView, openChatView, type ChatViewLifecycleHost } from "./view-lifecycle";
 import { ToolbarPanelController } from "./toolbar-controller";
 import { ChatViewRenderController } from "./view-render-controller";

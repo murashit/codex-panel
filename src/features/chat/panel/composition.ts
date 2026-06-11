@@ -1,20 +1,20 @@
 import { ConnectionManager } from "../../../app-server/connection-manager";
-import type { ChatServerDiagnosticsActions } from "../server-actions/diagnostics-actions";
-import type { ChatServerMetadataActions } from "../server-actions/metadata-actions";
-import type { ChatServerThreadActions } from "../server-actions/thread-actions";
-import type { ChatComposerController } from "../composer/controller";
-import type { ChatInboundController } from "../inbound/controller";
+import type { ChatServerDiagnosticsActions } from "../protocol/client-actions/diagnostics-actions";
+import type { ChatServerMetadataActions } from "../protocol/client-actions/metadata-actions";
+import type { ChatServerThreadActions } from "../protocol/client-actions/thread-actions";
+import type { ChatComposerController } from "../conversation/composer/controller";
+import type { ChatInboundController } from "../protocol/inbound/controller";
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "../runtime/runtime-settings-actions";
 import type { ChatThreadActions } from "../threads/thread-actions";
 import type { ThreadHistoryController } from "../threads/thread-history-controller";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import type { ToolbarPanelController } from "./toolbar-controller";
-import type { ChatConnectionController } from "../session/connection-controller";
-import type { ChatReconnectActions } from "../session/reconnect-actions";
-import type { PendingRequestController } from "../requests/pending-request-controller";
-import { rejectServerRequest, respondToServerRequest } from "../requests/server-request-responder";
-import type { ComposerSubmissionActions } from "../turns/composer-submission-actions";
+import type { ChatConnectionController } from "../connection/connection-controller";
+import type { ChatReconnectActions } from "../connection/reconnect-actions";
+import type { PendingRequestController } from "../pending-requests/controller";
+import { rejectServerRequest, respondToServerRequest } from "../protocol/requests/server-request-responder";
+import type { ComposerSubmissionActions } from "../conversation/turns/composer-submission-actions";
 import type { RestoredThreadController } from "../threads/restored-thread-controller";
 import type { ThreadIdentityActions } from "../threads/thread-identity-actions";
 import type { ThreadResumeController } from "../threads/thread-resume-controller";
@@ -28,9 +28,9 @@ import {
   createChatConnectionControllers,
   createChatInboundController,
   createChatReconnectControllerGroup,
-} from "../session/composition";
+} from "../connection/composition";
 import { createThreadControllerGroup, createThreadSelectionControllerGroup } from "../threads/composition";
-import { createConversationSurfaceControllerGroup } from "../turns/composition";
+import { createConversationSurfaceControllerGroup } from "../conversation/turns/composition";
 import { createConnectionLifecycleControllerGroup, createPanelUiControllerGroup, createViewRenderControllerGroup } from "./ui-composition";
 
 export interface ChatViewControllers {

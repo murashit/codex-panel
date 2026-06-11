@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { ThreadHistoryController } from "../../../../src/features/chat/threads/thread-history-controller";
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";

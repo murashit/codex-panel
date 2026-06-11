@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ChatTurnLifecycleState } from "../../chat-state";
-import type { PendingRequestSnapshot } from "../../chat-state-selectors";
+import type { ChatTurnLifecycleState } from "../../state/reducer";
+import type { PendingRequestSnapshot } from "../../state/selectors";
 import type { DisplayItem } from "../../display/types";
 import type { PendingRequestMessageActions } from "../pending-request-message";
 import type { ChatTurnDiffViewState } from "../turn-diff";

@@ -1,5 +1,5 @@
-import { restoreThreadPlaceholderAction } from "../chat-state-actions";
-import type { ChatStateStore } from "../chat-state";
+import { restoreThreadPlaceholderAction } from "../state/actions";
+import type { ChatStateStore } from "../state/reducer";
 import {
   transitionRestoredThreadLifecycle,
   type RestoredThreadLifecycleState,

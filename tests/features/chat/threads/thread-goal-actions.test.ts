@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { ThreadGoal } from "../../../../src/app-server/thread-goal";
 import { createChatThreadGoalActions } from "../../../../src/features/chat/threads/thread-goal-actions";
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/chat-state";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 
 describe("createChatThreadGoalActions", () => {
   it("syncs the active thread goal into chat state", async () => {
