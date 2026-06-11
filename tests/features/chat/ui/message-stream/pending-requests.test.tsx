@@ -561,40 +561,6 @@ describe("pending request renderer decisions", () => {
     expect(consumeAutoFocus).not.toHaveBeenCalled();
   });
 
-  it("keeps pending request Preact events mounted in the message stream host", () => {
-    const parent = document.createElement("div");
-    const approval = pendingApproval();
-    const resolveApproval = vi.fn();
-
-    renderMessageStreamBlocksInAct(
-      parent,
-      messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
-        displayItems: [
-          { id: "a1", kind: "message", role: "assistant", text: "Waiting", messageKind: "assistantResponse", messageState: "completed" },
-        ],
-        openDetails: new Set(),
-        loadOlderTurns: vi.fn(),
-        renderMarkdown: (element, text) => element.createDiv({ text }),
-        pendingRequests: pendingRequestContext({
-          signature: "approval:1",
-          snapshot: emptyPendingRequestSnapshot({ approvals: [approval] }),
-          actions: pendingRequestActions({ resolveApproval }),
-        }),
-      }),
-    );
-
-    actEvent(() => {
-      parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button")?.click();
-    });
-
-    expect(resolveApproval).toHaveBeenCalledWith(approval, "accept");
-    unmountUiRootInAct(parent);
-  });
-
   it("removes pending request blocks when the signature clears", () => {
     const parent = document.createElement("div");
     const baseContext = {

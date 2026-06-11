@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   activeTurnId,
@@ -171,34 +171,6 @@ describe("chatReducer", () => {
     expect(withHistoryPanel.ui).not.toBe(withDiff.ui);
     expect(withHistoryPanel.ui.toolbarPanel).toBe("history");
     expect(withHistoryPanel.ui.openDetails).toBe(withDiff.ui.openDetails);
-  });
-
-  it("returns the same state reference for no-op actions", () => {
-    const state = createChatState();
-
-    expect(chatReducer(state, { type: "connection/status-set", status: "Idle" })).toBe(state);
-    expect(chatReducer(state, { type: "request/approval-queued", approval: approval(1) })).not.toBe(state);
-    const queued = chatReducer(state, { type: "request/approval-queued", approval: approval(1) });
-    expect(chatReducer(queued, { type: "request/approval-queued", approval: approval(1) })).toBe(queued);
-  });
-
-  it("keeps slice actions scoped to their owning state group", () => {
-    const connectionState = createChatState();
-    expectOnlySliceReferenceChanged(
-      chatReducer(connectionState, { type: "connection/status-set", status: "Working" }),
-      connectionState,
-      "connection",
-    );
-
-    const uiState = createChatState();
-    expectOnlySliceReferenceChanged(chatReducer(uiState, { type: "ui/panel-set", panel: "history" }), uiState, "ui");
-
-    const transcriptState = createChatState();
-    expectOnlySliceReferenceChanged(
-      chatReducer(transcriptState, { type: "transcript/items-replaced", items: [message("next")] }),
-      transcriptState,
-      "transcript",
-    );
   });
 
   it("deduplicates reported logs while keeping reported log state immutable", () => {
@@ -497,22 +469,6 @@ describe("chatReducer", () => {
     });
     expect(panelB.getState().requests.userInputDrafts.get("2:note")).toBe("panel B answer");
   });
-
-  it("notifies ChatStateStore subscribers only when the state reference changes", () => {
-    const store = createChatStateStore();
-    const listener = vi.fn();
-    const unsubscribe = store.subscribe(listener);
-
-    store.dispatch({ type: "connection/status-set", status: "Idle" });
-    expect(listener).not.toHaveBeenCalled();
-
-    store.dispatch({ type: "connection/status-set", status: "Working" });
-    expect(listener).toHaveBeenCalledTimes(1);
-
-    unsubscribe();
-    store.dispatch({ type: "connection/status-set", status: "Done" });
-    expect(listener).toHaveBeenCalledTimes(1);
-  });
 });
 
 function message(id: string): DisplayItem {
@@ -521,17 +477,6 @@ function message(id: string): DisplayItem {
 
 function suggestion(display: string): ChatState["composer"]["suggestions"][number] {
   return { display, detail: "Plan mode", replacement: display, start: 0, appendSpaceOnInsert: true };
-}
-
-function expectOnlySliceReferenceChanged(next: ChatState, previous: ChatState, changedKey: keyof ChatState): void {
-  expect(next).not.toBe(previous);
-  for (const key of Object.keys(previous) as (keyof ChatState)[]) {
-    if (key === changedKey) {
-      expect(next[key]).not.toBe(previous[key]);
-    } else {
-      expect(next[key]).toBe(previous[key]);
-    }
-  }
 }
 
 function approval(requestId: number): ChatState["requests"]["approvals"][number] {

@@ -83,7 +83,7 @@ export function installMessageViewportMetrics(
   }) as typeof element.scrollTo;
 }
 
-export function renderUiRootInAct(parent: HTMLElement, node: UiNode): void {
+function renderUiRootInAct(parent: HTMLElement, node: UiNode): void {
   void act(() => {
     renderUiRoot(parent, node);
   });

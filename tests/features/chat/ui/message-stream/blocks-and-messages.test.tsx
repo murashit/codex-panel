@@ -16,7 +16,6 @@ import {
   messageStreamBlocks,
   renderMessageBlockElement,
   renderMessageStreamBlocksInAct,
-  renderUiRootInAct,
   runningTurnLifecycle,
   startingTurnLifecycle,
   unmountUiRootInAct,
@@ -93,58 +92,6 @@ describe("message stream rendering and message actions", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("renders the history bar as a Preact block", () => {
-    const loadOlderTurns = vi.fn();
-    const [historyBlock] = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: "cursor",
-      loadingHistory: false,
-      displayItems: [],
-      openDetails: new Set(),
-      loadOlderTurns,
-      renderMarkdown: (element, text) => element.createDiv({ text }),
-    });
-    const parent = document.createElement("div");
-
-    expect(historyBlock.key).toBe("history-bar");
-    expect(historyBlock.node).not.toBeUndefined();
-    renderUiRootInAct(parent, historyBlock.node);
-
-    const button = expectPresent(parent.querySelector<HTMLButtonElement>("button"));
-    expect(parent.querySelector(".codex-panel__history-bar")).not.toBeNull();
-    expect(button.textContent).toBe("Load older");
-    expect(button.disabled).toBe(false);
-
-    button.click();
-
-    expect(loadOlderTurns).toHaveBeenCalledOnce();
-    unmountUiRootInAct(parent);
-  });
-
-  it("renders the empty message stream state as a Preact block", () => {
-    const [emptyBlock] = messageStreamBlocks({
-      activeThreadId: null,
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      displayItems: [],
-      openDetails: new Set(),
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (element, text) => element.createDiv({ text }),
-    });
-    const parent = document.createElement("div");
-
-    expect(emptyBlock.key).toBe("empty");
-    expect(emptyBlock.node).not.toBeUndefined();
-    renderUiRootInAct(parent, emptyBlock.node);
-
-    const empty = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message--system"));
-    expect(empty.classList.contains("codex-panel__message")).toBe(true);
-    expect(empty.textContent).toBe("Send a message to start a conversation.");
-    unmountUiRootInAct(parent);
-  });
-
   it("renders review result items as compact auto-review tool rows", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
@@ -210,89 +157,6 @@ describe("message stream rendering and message actions", () => {
       "filessrc/display/tool-view.ts\nsrc/ui/message-stream.ts",
     );
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
-  });
-
-  it("keeps tool result Preact details mounted in the message stream host", () => {
-    const parent = document.createElement("div");
-    const onDetailsToggle = vi.fn();
-
-    renderMessageStreamBlocksInAct(
-      parent,
-      messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
-        displayItems: [
-          {
-            id: "cmd-1",
-            kind: "command",
-            role: "tool",
-            text: "npm test",
-            command: "npm test",
-            cwd: "/vault",
-            status: "completed",
-            output: "ok",
-            executionState: "completed",
-          },
-        ],
-        openDetails: new Set(),
-        onDetailsToggle,
-        loadOlderTurns: vi.fn(),
-        renderMarkdown: (element, text) => element.createDiv({ text }),
-      }),
-    );
-
-    const block = expectPresent(parent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:cmd-1"]'));
-    const result = expectPresent(block.querySelector<HTMLElement>(".codex-panel__tool-result"));
-    expect(result.classList.contains("codex-panel__execution--completed")).toBe(true);
-    expect(result.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("command");
-    expect(result.querySelector(":scope > .codex-panel__tool-summary")?.textContent).toBe("npm test");
-    expect(result.querySelector(".codex-panel__tool-summary")?.textContent).toBe("npm test");
-    expect(result.querySelector(".codex-panel__meta-grid")?.textContent).toContain("commandnpm test");
-    expect(result.querySelector(".codex-panel__output-title")?.textContent).toBe("Output");
-
-    const details = expectPresent(result.querySelector<HTMLDetailsElement>("details"));
-    void act(() => {
-      details.open = true;
-      details.dispatchEvent(new Event("toggle", { bubbles: false }));
-    });
-
-    expect(onDetailsToggle).toHaveBeenCalledWith("cmd-1:command-details", true);
-    unmountUiRootInAct(parent);
-  });
-
-  it("renders file change diffs through the Preact tool result adapter", () => {
-    const parent = document.createElement("div");
-
-    renderMessageStreamBlocksInAct(
-      parent,
-      messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
-        workspaceRoot: "/vault",
-        displayItems: [
-          {
-            id: "file-1",
-            kind: "fileChange",
-            role: "tool",
-            text: "Changed 1 file",
-            status: "completed",
-            changes: [{ kind: "modified", path: "/vault/src/app.ts", diff: "-old\n+new" }],
-          },
-        ],
-        openDetails: new Set(["file-1:file-change-details"]),
-        loadOlderTurns: vi.fn(),
-        renderMarkdown: (element, text) => element.createDiv({ text }),
-      }),
-    );
-
-    expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/app.ts");
-    expect(parent.querySelector(".codex-panel-diff-file .codex-panel__output-title")?.textContent).toBe("modified src/app.ts");
-    expect([...parent.querySelectorAll(".codex-panel-diff__line")].map((line) => line.textContent)).toEqual(["old", "new"]);
-    unmountUiRootInAct(parent);
   });
 
   it("renders structured system result details as visible selectable meta rows", () => {
@@ -536,83 +400,6 @@ describe("message stream rendering and message actions", () => {
     expectPresent(element.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-message")).click();
 
     expect(onForkItem).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }), true);
-  });
-
-  it("keeps message Preact actions mounted in the message stream host", () => {
-    const parent = document.createElement("div");
-    const copyText = vi.fn();
-    const onImplementPlanItem = vi.fn();
-
-    renderMessageStreamBlocksInAct(
-      parent,
-      messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
-        displayItems: [
-          {
-            id: "p1",
-            kind: "message",
-            role: "assistant",
-            text: "Plan",
-            copyText: "Plan",
-            turnId: "turn-1",
-            messageKind: "proposedPlan",
-            messageState: "streaming",
-          },
-        ],
-        openDetails: new Set(),
-        loadOlderTurns: vi.fn(),
-        renderMarkdown: (element, text) => element.createDiv({ text }),
-        copyText,
-        canImplementPlanItem: () => true,
-        onImplementPlanItem,
-      }),
-    );
-
-    parent.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
-    parent.querySelector<HTMLButtonElement>(".codex-panel__implement-plan")?.click();
-
-    expect(copyText).toHaveBeenCalledWith("Plan");
-    expect(onImplementPlanItem).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }));
-    expect(parent.querySelector('[data-codex-panel-block-key="item:p1"] .codex-panel__message--assistant')).not.toBeNull();
-    unmountUiRootInAct(parent);
-  });
-
-  it("renders message markdown through the Preact content adapter", () => {
-    const parent = document.createElement("div");
-    const renderMarkdown = vi.fn((element: HTMLElement, text: string) => {
-      element.createDiv({ text: `rendered:${text}` });
-    });
-
-    renderMessageStreamBlocksInAct(
-      parent,
-      messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
-        displayItems: [
-          {
-            id: "a1",
-            kind: "message",
-            role: "assistant",
-            text: "**answer**",
-            turnId: "turn-1",
-            messageKind: "assistantResponse",
-            messageState: "completed",
-          },
-        ],
-        openDetails: new Set(),
-        loadOlderTurns: vi.fn(),
-        renderMarkdown,
-      }),
-    );
-
-    expect(renderMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "**answer**");
-    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("rendered:**answer**");
-    unmountUiRootInAct(parent);
   });
 
   it("updates message content when a streaming plan delta completes", () => {

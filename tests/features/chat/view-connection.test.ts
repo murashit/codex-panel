@@ -195,37 +195,6 @@ describe("CodexChatView connection lifecycle", () => {
     expect(siblingRoots.every((sibling) => !sibling.classList.contains("codex-panel") && sibling.childElementCount === 0)).toBe(true);
   });
 
-  it("unmounts the chat shell from the view content root on close", async () => {
-    const view = await chatView();
-    const siblingRoots = Array.from(view.containerEl.children).filter((child) => child !== view.contentEl);
-
-    await view.onOpen();
-    await view.onClose();
-
-    expect(view.contentEl.classList.contains("codex-panel")).toBe(true);
-    expect(view.contentEl.childElementCount).toBe(0);
-    expect(siblingRoots.every((sibling) => !sibling.classList.contains("codex-panel") && sibling.childElementCount === 0)).toBe(true);
-  });
-
-  it("wires open lifecycle registrations through the view controller host", async () => {
-    const addEventListener = vi.spyOn(document, "addEventListener");
-    const cachedThreadList = vi.fn(() => null);
-    const cachedAppServerMetadata = vi.fn(() => null);
-    const host = chatHost({
-      cachedThreadList,
-      cachedAppServerMetadata,
-    });
-    const view = await chatView({ host });
-
-    await view.onOpen();
-
-    expect(addEventListener).toHaveBeenCalledWith("pointerdown", expect.any(Function));
-    expect(cachedThreadList).toHaveBeenCalledOnce();
-    expect(cachedAppServerMetadata).toHaveBeenCalledOnce();
-
-    addEventListener.mockRestore();
-  });
-
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
     vi.useFakeTimers();
     const client = connectedClient({

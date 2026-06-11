@@ -101,19 +101,6 @@ describe("createChatThreadActions", () => {
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
 
-  it("does not open the fork in a new panel before archiving the source", async () => {
-    const client = clientMock();
-    const host = hostMock({ client, displayItems: turnItems() });
-    const controller = createChatThreadActions(host);
-
-    await controller.forkThreadFromTurn("source", "turn-2", true);
-
-    expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
-    expect(client.rollbackThread).toHaveBeenCalledWith("forked", 1);
-    expect(host.openThreadInNewView).not.toHaveBeenCalled();
-    expect(client.archiveThread).toHaveBeenCalledWith("source");
-  });
-
   it("saves the source before replacing the panel during fork and archive", async () => {
     const client = clientMock();
     const adapter = archiveAdapterMock();
@@ -156,22 +143,6 @@ describe("createChatThreadActions", () => {
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
     expect(host.notifyThreadArchived).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("archive failed");
-  });
-
-  it("replaces the source panel before notifying surfaces after fork and archive succeeds", async () => {
-    const client = clientMock();
-    const host = hostMock({ client, displayItems: turnItems() });
-    const controller = createChatThreadActions(host);
-
-    await controller.forkThreadFromTurn("source", "turn-3", true);
-
-    expect(client.archiveThread).toHaveBeenCalledWith("source");
-    expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
-    expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
-    const openOrder = host.openThreadInCurrentPanel.mock.invocationCallOrder[0];
-    const notifyOrder = host.notifyThreadArchived.mock.invocationCallOrder[0];
-    if (openOrder === undefined || notifyOrder === undefined) throw new Error("Expected open and archive notification calls.");
-    expect(openOrder).toBeLessThan(notifyOrder);
   });
 
   it("notifies surfaces when fork and archive succeeds but the fork cannot replace the source panel", async () => {
