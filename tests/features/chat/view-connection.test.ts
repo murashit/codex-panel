@@ -6,10 +6,9 @@ import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/chat-host";
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
-import { threadFromAppServerThread } from "../../../src/app-server/thread-model";
+import { threadFromAppServerThread, type AppServerThread } from "../../../src/app-server/thread-model";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
-import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
-import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
+import type { ServerNotification } from "../../../src/app-server/types";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
@@ -446,7 +445,7 @@ describe("CodexChatView connection lifecycle", () => {
         threadId: "thread-1",
         cwd: "/vault",
         input: [{ type: "text", text: "hello" }],
-        clientUserMessageId: expect.stringMatching(/^local-user-\d+$/),
+        clientUserMessageId: expect.stringMatching(/^local-user-\d+-\d+$/),
       });
     });
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });

@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/client";
+import type { AppServerThread } from "../../../../src/app-server/thread-model";
 import type { ArchiveExportAdapter } from "../../../../src/domain/threads/export";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createChatThreadActions, type ChatThreadActionsHost } from "../../../../src/features/chat/threads/thread-actions";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
-import type { Thread as AppServerThread } from "../../../../src/generated/app-server/v2/Thread";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { notices } from "../../../mocks/obsidian";
+import { deferred, waitForAsyncWork } from "../../../support/async";
 
 type MockArchiveExportAdapter = ArchiveExportAdapter & {
   exists: ReturnType<typeof vi.fn<ArchiveExportAdapter["exists"]>>;
@@ -33,6 +34,46 @@ describe("createChatThreadActions", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Compaction requested.");
   });
 
+  it("does not report compaction completion after the panel switches threads", async () => {
+    const compact = deferred<undefined>();
+    const client = clientMock();
+    client.compactThread.mockReturnValue(compact.promise);
+    const host = hostMock({ client, displayItems: [] });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: panelThread("source"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    const controller = createChatThreadActions(host);
+
+    const pendingCompact = controller.compactThread("source");
+    await waitForAsyncWork(() => {
+      expect(client.compactThread).toHaveBeenCalledWith("source");
+    });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: panelThread("other"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    compact.resolve(undefined);
+    await pendingCompact;
+
+    expect(host.addSystemMessage).not.toHaveBeenCalledWith("Compaction requested.");
+    expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
+  });
+
   it("saves archive markdown before archiving and notifying shared surfaces", async () => {
     const client = clientMock();
     const adapter = archiveAdapterMock();
@@ -51,6 +92,7 @@ describe("createChatThreadActions", () => {
 
     await controller.archiveThread("source");
 
+    expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(client.readThread).toHaveBeenCalledWith("source", true);
     expect(adapter.write).toHaveBeenCalledWith(
       "Archive/Archived Thread abcdef12.md",
@@ -60,6 +102,7 @@ describe("createChatThreadActions", () => {
     expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
     expect(notices).toEqual(["Saved archived thread to Archive/Archived Thread abcdef12.md."]);
     expect(callOrder(adapter.write)).toBeLessThan(callOrder(client.archiveThread));
+    expect(callOrder(host.ensureConnected)).toBeLessThan(callOrder(client.readThread));
     expect(callOrder(client.archiveThread)).toBeLessThan(callOrder(host.notifyThreadArchived));
   });
 
@@ -158,9 +201,69 @@ describe("createChatThreadActions", () => {
     expect(host.addSystemMessage).toHaveBeenCalledWith("Archived thread source, but could not open forked thread forked: resume failed");
   });
 
+  it("does not archive or replace the panel from stale fork responses", async () => {
+    const fork = deferred<{ thread: { id: string } }>();
+    const client = clientMock();
+    client.forkThread.mockReturnValue(fork.promise);
+    const host = hostMock({ client, displayItems: turnItems() });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: panelThread("source"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    host.stateStore.dispatch({
+      type: "thread-list/applied",
+      threads: [{ ...panelThread("source"), name: "Source name" }],
+      threadsLoaded: true,
+    });
+    const controller = createChatThreadActions(host);
+
+    const pendingFork = controller.forkThreadFromTurn("source", null, true);
+    await waitForAsyncWork(() => {
+      expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
+    });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: panelThread("other"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    fork.resolve({ thread: { id: "forked" } });
+    await pendingFork;
+
+    expect(client.archiveThread).not.toHaveBeenCalled();
+    expect(client.setThreadName).not.toHaveBeenCalled();
+    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
+    expect(host.notifyThreadRenamed).not.toHaveBeenCalled();
+    expect(host.notifyThreadArchived).not.toHaveBeenCalled();
+  });
+
   it("applies rollback response turns directly before refreshing the shell", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: panelThread("source"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    host.stateStore.dispatch({ type: "transcript/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
     const controller = createChatThreadActions(host);
 
     await controller.rollbackThread("source");
@@ -175,6 +278,49 @@ describe("createChatThreadActions", () => {
     expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.render));
     expect(callOrder(host.render)).toBeLessThan(callOrder(vi.mocked(host.refreshThreads)));
     expect(callOrder(vi.mocked(host.refreshThreads))).toBeLessThan(callOrder(host.refreshSharedThreadListFromOpenSurface));
+  });
+
+  it("ignores stale rollback responses after the panel switches threads", async () => {
+    const rollback = deferred<{ thread: AppServerThread }>();
+    const client = clientMock();
+    client.rollbackThread.mockReturnValue(rollback.promise);
+    const host = hostMock({ client, displayItems: turnItems() });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: panelThread("source"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    host.stateStore.dispatch({ type: "transcript/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
+    const controller = createChatThreadActions(host);
+
+    const pendingRollback = controller.rollbackThread("source");
+    await waitForAsyncWork(() => {
+      expect(client.rollbackThread).toHaveBeenCalledWith("source");
+    });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: panelThread("other"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    rollback.resolve({ thread: rollbackThread() });
+    await pendingRollback;
+
+    expect(host.stateStore.getState().activeThread.id).toBe("other");
+    expect(host.setComposerText).not.toHaveBeenCalled();
+    expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
+    expect(host.refreshSharedThreadListFromOpenSurface).not.toHaveBeenCalled();
   });
 });
 
@@ -313,6 +459,17 @@ function rollbackThread(): AppServerThread {
         durationMs: 1000,
       },
     ],
+  };
+}
+
+function panelThread(id: string) {
+  return {
+    id,
+    preview: "",
+    createdAt: 0,
+    updatedAt: 0,
+    name: null,
+    archived: false,
   };
 }
 

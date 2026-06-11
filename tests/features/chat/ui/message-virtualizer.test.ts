@@ -466,7 +466,14 @@ describe("TestMessageStreamVirtualizer", () => {
     withResizeObserver((triggerResize, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
-      container.append(renderedMeasuredElement("first", 0, 300), renderedMeasuredElement("second", 1, 100));
+      const first = renderedMeasuredElement("first", 0, 300);
+      first.append(renderedMeasuredElement("stale-nested", 0, 900));
+      appendRenderedVirtualizer(
+        container,
+        first,
+        renderedMeasuredElement("second", 1, 100),
+        renderedMeasuredElement("stale-sibling", 1, 900),
+      );
 
       renderVirtualItems(controller, container, ["first", "second"], [300, 100], "follow-bottom");
       expect(container.scrollTop).toBe(300);
@@ -488,7 +495,7 @@ describe("TestMessageStreamVirtualizer", () => {
     withResizeObserver((_triggerResize, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 0 });
       const controller = createMessageStreamVirtualizerDriver(container);
-      container.append(renderedMeasuredElement("first", 0, 300), renderedMeasuredElement("second", 1, 100));
+      appendRenderedVirtualizer(container, renderedMeasuredElement("first", 0, 300), renderedMeasuredElement("second", 1, 100));
       setContainerClientSize(container, { width: 0, height: 0 });
 
       renderVirtualItems(controller, container, ["first", "second"], [300, 100], "preserve");
@@ -658,6 +665,13 @@ function renderedMeasuredElement(key: string, index: number, height: number): HT
   const element = measuredElement(key, index, height);
   element.classList.add("codex-panel__message-block");
   return element;
+}
+
+function appendRenderedVirtualizer(container: HTMLElement, ...blocks: HTMLElement[]): void {
+  const virtualizer = document.createElement("div");
+  virtualizer.classList.add("codex-panel__message-virtualizer");
+  virtualizer.append(...blocks);
+  container.append(virtualizer);
 }
 
 interface MessageStreamVirtualizerDriver extends MessageStreamVirtualizerHandle {

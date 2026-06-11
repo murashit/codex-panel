@@ -6,12 +6,12 @@ import type { RestoredThreadController } from "../../../../src/features/chat/thr
 import { ThreadResumeController } from "../../../../src/features/chat/threads/thread-resume-controller";
 import type { ThreadHistoryController } from "../../../../src/features/chat/threads/thread-history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/panel/lifecycle";
-import type { ThreadResumeResponse } from "../../../../src/generated/app-server/v2/ThreadResumeResponse";
-import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
-import type { Thread as AppServerThread } from "../../../../src/generated/app-server/v2/Thread";
+import type { AppServerThread } from "../../../../src/app-server/thread-model";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
 import type { ThreadTokenUsage } from "../../../../src/app-server/runtime-metrics";
-import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
+import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
+
+type ThreadResumeResponse = Awaited<ReturnType<AppServerClient["resumeThread"]>>;
 
 function appServerThread(id: string): AppServerThread {
   return {
@@ -235,7 +235,7 @@ describe("ThreadResumeController", () => {
   });
 });
 
-function turnFixture(items: ThreadItem[]): Turn {
+function turnFixture(items: AppServerThreadItem[]): AppServerTurn {
   return {
     id: "turn",
     items,
@@ -259,7 +259,7 @@ function panelThread(id: string): PanelThread {
   };
 }
 
-function userMessage(id: string, text: string): ThreadItem {
+function userMessage(id: string, text: string): AppServerThreadItem {
   return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
 }
 

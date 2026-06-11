@@ -1,5 +1,4 @@
-import type { ServerNotification } from "../../../../generated/app-server/ServerNotification";
-import type { ServerRequest } from "../../../../generated/app-server/ServerRequest";
+import type { ServerNotification, ServerRequest } from "../../../../app-server/types";
 import { toPendingApproval, type PendingApproval } from "../requests/approval";
 import { toPendingUserInput, type PendingUserInput } from "../requests/user-input";
 

@@ -1,4 +1,6 @@
-export type RequestId = string | number;
+import type { RequestId } from "./model";
+
+export type { RequestId } from "./model";
 
 interface UserInputRequestLike {
   id: RequestId;

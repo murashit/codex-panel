@@ -15,6 +15,7 @@ import {
   bindRenderedWikiLinks,
   type RenderedMarkdownLinkContext,
 } from "../../../../../src/features/chat/ui/message-stream/rendered-markdown-links";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-content-events";
 import type { MessageStreamScrollIntent } from "../../../../../src/features/chat/ui/message-virtualizer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { notices } from "../../../../mocks/obsidian";
@@ -307,6 +308,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     const oldMessages = messageViewport(parent);
     installMessageViewportMetrics(oldMessages, { clientHeight: 100, scrollHeight: 1000 });
     await settleMessageRender(oldMessages);
+    oldMessages.scrollTop = 125;
 
     unmountUiRoot(parent);
 
@@ -317,6 +319,7 @@ describe("ChatMessageRenderer scroll pinning", () => {
     renderer.forceMessagesToBottom();
 
     expect(newMessages.scrollTop).toBe(900);
+    expect(oldMessages.scrollTop).toBe(125);
   });
 
   it("completes bottom pinning after the message viewport commits", async () => {
@@ -343,6 +346,45 @@ describe("ChatMessageRenderer scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(900);
+  });
+
+  it("keeps bottom pinning after markdown content changes message height", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.transcript.displayItems = [
+      {
+        id: "message",
+        kind: "message",
+        role: "assistant",
+        text: "**Rendered** message",
+        turnId: "turn",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ];
+    const parent = document.createElement("div");
+    const renderer = chatMessageRenderer(state);
+
+    renderUiRoot(parent, renderer.renderNode());
+    const messages = messageViewport(parent);
+    installMessageViewportMetrics(messages, { clientHeight: 100 });
+    let scrollHeight = 1000;
+    Object.defineProperty(messages, "scrollHeight", {
+      get: () => scrollHeight,
+      configurable: true,
+    });
+
+    renderer.forceMessagesToBottom();
+    await settleMessageRender(messages);
+    expect(messages.scrollTop).toBe(900);
+
+    scrollHeight = 1200;
+    const content = parent.querySelector<HTMLElement>(".codex-panel__message-content");
+    if (!content) throw new Error("Expected rendered message content.");
+    content.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
+    await settleMessageRender(messages);
+
+    expect(messages.scrollTop).toBe(1100);
   });
 
   it("does not force the bottom into view when the user is reading older messages", async () => {

@@ -13,32 +13,8 @@ import type {
   ModelStatusLinesInput,
   RuntimeChoice,
   RuntimeComposerChoicesInput,
-  RuntimeSnapshotInput,
   StatusSummaryLinesInput,
 } from "./types";
-
-export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput) {
-  return {
-    runtimeConfig: input.runtimeConfig,
-    activeThreadId: input.activeThread.id,
-    activeModel: input.runtime.activeModel,
-    activeReasoningEffort: input.runtime.activeReasoningEffort,
-    activeCollaborationMode: input.runtime.activeCollaborationMode,
-    activeServiceTier: input.runtime.activeServiceTier,
-    activeApprovalPolicy: input.runtime.activeApprovalPolicy,
-    activeApprovalsReviewer: input.runtime.activeApprovalsReviewer,
-    activePermissionProfile: input.runtime.activePermissionProfile,
-    requestedModel: input.runtime.requestedModel,
-    requestedReasoningEffort: input.runtime.requestedReasoningEffort,
-    requestedApprovalsReviewer: input.runtime.requestedApprovalsReviewer,
-    selectedCollaborationMode: input.runtime.selectedCollaborationMode,
-    requestedServiceTier: input.runtime.requestedServiceTier,
-    tokenUsage: input.activeThread.tokenUsage,
-    rateLimit: input.rateLimit,
-    hasThreadTurns: input.displayItems.some((item) => item.turnId),
-    availableModels: input.availableModels,
-  };
-}
 
 export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   modelChoices: RuntimeChoice[];
@@ -71,7 +47,7 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
         input.resetReasoningEffortToConfig();
       },
     },
-    ...supportedReasoningEfforts(input.snapshot).map((effort) => ({
+    ...supportedReasoningEfforts(input.snapshot, config).map((effort) => ({
       label: effort,
       selected: activeEffort === effort,
       onClick: () => {
@@ -111,7 +87,7 @@ export function effortStatusLines(input: EffortStatusLinesInput): string[] {
   return [
     `Effort: ${currentReasoningEffort(input.snapshot, config) ?? "(Codex default)"}`,
     `Override: ${pendingRuntimeSettingLabel(input.requestedReasoningEffort)}`,
-    `Supported: ${supportedReasoningEfforts(input.snapshot).join(", ")}`,
+    `Supported: ${supportedReasoningEfforts(input.snapshot, config).join(", ")}`,
   ];
 }
 

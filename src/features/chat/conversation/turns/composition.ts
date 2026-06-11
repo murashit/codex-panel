@@ -16,12 +16,14 @@ import type { ChatThreadGoalActions } from "../../threads/thread-goal-actions";
 import type { ThreadHistoryController } from "../../threads/thread-history-controller";
 import type { ThreadRenameController } from "../../threads/thread-rename-controller";
 import type { ChatInboundController } from "../../protocol/inbound/controller";
-import { currentModel, type RuntimeSnapshot } from "../../runtime/effective-settings";
+import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective-settings";
+import type { RuntimeSnapshot } from "../../runtime/model";
 import { ChatMessageRenderer } from "../../ui/message-stream/renderer";
-import type { CodexChatHost } from "../../chat-host";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ChatMessageScrollIntentController } from "../../panel/message-scroll-intent-controller";
+import type { ChatTurnDiffViewState } from "../../ui/turn-diff";
 import type { ComposerMetaViewModel } from "../../panel/view-model/types";
+import type { CodexPanelSettings } from "../../../../settings/model";
 
 interface ConversationSurfaceControllerGroupPorts {
   obsidian: {
@@ -29,7 +31,11 @@ interface ConversationSurfaceControllerGroupPorts {
     owner: Component;
     viewId: string;
   };
-  plugin: Pick<CodexChatHost, "openTurnDiff" | "settings" | "vaultPath">;
+  plugin: {
+    openTurnDiff: (state: ChatTurnDiffViewState) => Promise<void>;
+    settings: CodexPanelSettings;
+    vaultPath: string;
+  };
   state: {
     stateStore: ChatStateStore;
     getState: () => ChatState;
@@ -53,7 +59,7 @@ interface ConversationSurfaceControllerGroupPorts {
     composerMetaViewModel: () => ComposerMetaViewModel;
   };
   runtime: {
-    runtimeSnapshot: () => RuntimeSnapshot;
+    runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
     statusSummaryLines: () => string[];
     connectionDiagnosticDetails: () => DisplayDetailSection[];
     mcpStatusLines: () => Promise<string[]>;
@@ -106,11 +112,16 @@ export function createConversationSurfaceControllerGroup(
     viewId,
     sendShortcut: () => plugin.settings.sendShortcut,
     scrollThreadFromComposerEdges: () => plugin.settings.scrollThreadFromComposerEdges,
-    canInterrupt: () =>
-      state.getState().turn.lifecycle.kind !== "idle" && Boolean(state.getState().activeThread.id && activeTurnId(state.getState())),
+    canInterrupt: () => {
+      const current = state.getState();
+      return current.turn.lifecycle.kind !== "idle" && Boolean(current.activeThread.id && activeTurnId(current));
+    },
     composerPlaceholder: composerView.composerPlaceholder,
     composerMeta: composerView.composerMetaViewModel,
-    currentModelForSuggestions: () => currentModel(runtime.runtimeSnapshot()),
+    currentModelForSuggestions: () => {
+      const current = state.getState();
+      return currentModel(runtime.runtimeSnapshotForState(current), runtimeConfigOrDefault(current.connection.runtimeConfig));
+    },
     togglePlan: () => void refs.runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
     toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
@@ -212,6 +223,11 @@ export function createConversationSurfaceControllerGroup(
     submission: {
       sendTurnText: (text) => turnSubmission.sendTurnText(text),
     },
+    runtime: {
+      requestDefaultCollaborationModeForNextTurn: () => {
+        refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
+      },
+    },
   });
 
   const messageRenderer = new ChatMessageRenderer({
@@ -258,7 +274,6 @@ export function createConversationSurfaceControllerGroup(
       addSystemMessage: status.addSystemMessage,
     },
     scroll: {
-      forceBottom: scroll.forceBottom,
       followBottom: scroll.followBottom,
     },
   });

@@ -12,11 +12,10 @@ import {
   type ChatState,
   type ChatStateStore,
 } from "../../../../../src/features/chat/state/reducer";
-import type { ServerNotification } from "../../../../../src/generated/app-server/ServerNotification";
-import type { ServerRequest } from "../../../../../src/generated/app-server/ServerRequest";
-import type { Thread as AppServerThread } from "../../../../../src/generated/app-server/v2/Thread";
+import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/types";
+import type { AppServerThread } from "../../../../../src/app-server/thread-model";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
-import type { Turn } from "../../../../../src/generated/app-server/v2/Turn";
+import type { AppServerTurn } from "../../../../../src/app-server/turn-model";
 
 function controllerForState(
   state = createChatState(),
@@ -756,6 +755,25 @@ describe("ChatInboundController", () => {
       });
     });
 
+    it("ignores stale requestUserInput objects with a reused request id", () => {
+      const state = createChatState();
+      const respondToServerRequest = vi.fn(() => true);
+      const rejectServerRequest = vi.fn(() => true);
+      const controller = controllerForState(state, { respondToServerRequest, rejectServerRequest });
+
+      controller.handleServerRequest(userInputRequest(44));
+      const current = expectPresent(state.requests.pendingUserInputs[0]);
+      const stale = { ...current };
+
+      controller.resolveUserInput(stale, { note: "stale" });
+      controller.cancelUserInput(stale);
+
+      expect(respondToServerRequest).not.toHaveBeenCalled();
+      expect(rejectServerRequest).not.toHaveBeenCalled();
+      expect(state.requests.pendingUserInputs).toEqual([current]);
+      expect(state.transcript.displayItems).toEqual([]);
+    });
+
     it("records manual permission approvals as colored result items", () => {
       const state = createChatState();
       const respondToServerRequest = vi.fn(() => true);
@@ -788,6 +806,22 @@ describe("ChatInboundController", () => {
           },
         ],
       });
+    });
+
+    it("ignores stale approval objects with a reused request id", () => {
+      const state = createChatState();
+      const respondToServerRequest = vi.fn(() => true);
+      const controller = controllerForState(state, { respondToServerRequest });
+
+      controller.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
+      const current = expectPresent(state.requests.approvals[0]);
+      const stale = { ...current };
+
+      controller.resolveApproval(stale, "accept-session");
+
+      expect(respondToServerRequest).not.toHaveBeenCalled();
+      expect(state.requests.approvals).toEqual([current]);
+      expect(state.transcript.displayItems).toEqual([]);
     });
 
     it("handles known server request families and rejects unsupported requests by default", () => {
@@ -1154,15 +1188,22 @@ describe("ChatInboundController", () => {
       );
       expect(state.transcript.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
 
-      const legacyState = createChatState();
-      legacyState.activeThread.id = "thread-active";
-      legacyState.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      legacyState.transcript.displayItems = [
-        { id: "local-user-legacy", kind: "message", messageKind: "user", role: "user", text: "legacy text", turnId: "turn-active" },
+      const fallbackStateWithoutClientId = createChatState();
+      fallbackStateWithoutClientId.activeThread.id = "thread-active";
+      fallbackStateWithoutClientId.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      fallbackStateWithoutClientId.transcript.displayItems = [
+        {
+          id: "local-user-without-client-id",
+          kind: "message",
+          messageKind: "user",
+          role: "user",
+          text: "fallback text",
+          turnId: "turn-active",
+        },
       ];
-      const legacyController = controllerForState(legacyState);
+      const fallbackControllerWithoutClientId = controllerForState(fallbackStateWithoutClientId);
 
-      legacyController.handleNotification({
+      fallbackControllerWithoutClientId.handleNotification({
         method: "turn/completed",
         params: {
           threadId: "thread-active",
@@ -1175,14 +1216,21 @@ describe("ChatInboundController", () => {
             durationMs: null,
             itemsView: "full",
             items: [
-              { type: "userMessage", id: "legacy-u1", clientId: null, content: [{ type: "text", text: "legacy text", text_elements: [] }] },
+              {
+                type: "userMessage",
+                id: "server-u1",
+                clientId: null,
+                content: [{ type: "text", text: "fallback text", text_elements: [] }],
+              },
             ],
           },
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(legacyState.transcript.displayItems).toEqual([expect.objectContaining({ id: "legacy-u1", text: "legacy text" })]);
-      expect(legacyState.transcript.displayItems.some((item) => item.id === "local-user-legacy")).toBe(false);
+      expect(fallbackStateWithoutClientId.transcript.displayItems).toEqual([
+        expect.objectContaining({ id: "server-u1", text: "fallback text" }),
+      ]);
+      expect(fallbackStateWithoutClientId.transcript.displayItems.some((item) => item.id === "local-user-without-client-id")).toBe(false);
     });
 
     it("keeps the observed steer message order when completed turns reconcile by client id", () => {
@@ -1256,7 +1304,7 @@ describe("ChatInboundController", () => {
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
         ],
-      } satisfies Turn;
+      } satisfies AppServerTurn;
 
       controller.handleNotification({
         method: "turn/completed",

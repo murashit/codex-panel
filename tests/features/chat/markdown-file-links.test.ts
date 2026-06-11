@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TFile, type App } from "obsidian";
 
-import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "../../../src/features/chat/markdown-file-links";
+import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "../../../src/shared/obsidian/file-links";
 
 describe("markdown file links", () => {
   it("resolves absolute vault paths", () => {

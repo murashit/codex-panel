@@ -242,9 +242,25 @@ function reconcileMessageVirtualizerBottomAfterCommit(runtime: MessageVirtualize
 }
 
 function measureRenderedMessageBlocks(runtime: MessageVirtualizerRuntime): void {
-  for (const element of runtime.container?.querySelectorAll<HTMLElement>(".codex-panel__message-block") ?? []) {
+  for (const element of renderedMessageBlockElements(runtime.container)) {
+    if (!isCurrentMessageBlockElement(runtime, element)) continue;
     runtime.virtualizer.measureElement(element);
   }
+}
+
+function isCurrentMessageBlockElement(runtime: MessageVirtualizerRuntime, element: HTMLElement): boolean {
+  const key = element.dataset["codexPanelBlockKey"];
+  return key !== undefined && runtime.blocks.some((block) => block.key === key);
+}
+
+function renderedMessageBlockElements(container: HTMLElement | null): HTMLElement[] {
+  const virtualizer = Array.from(container?.children ?? []).find(
+    (element): element is HTMLElement => "offsetHeight" in element && element.classList.contains("codex-panel__message-virtualizer"),
+  );
+  if (!virtualizer) return [];
+  return Array.from(virtualizer.children).filter(
+    (element): element is HTMLElement => "offsetHeight" in element && element.classList.contains("codex-panel__message-block"),
+  );
 }
 
 function syncMessageVirtualizerScrollOffset(runtime: MessageVirtualizerRuntime): boolean {
@@ -639,7 +655,7 @@ function mountMessageVirtualizer(runtime: MessageVirtualizerRuntime): () => void
 }
 
 function updateMessageVirtualizer(virtualizer: Virtualizer<HTMLElement, HTMLElement>): void {
-  // Same adapter pattern as TanStack's React/Solid/etc. bindings; this is the Preact-local _willUpdate bridge.
+  // Same adapter pattern as TanStack's React/Solid/etc. bindings; this is the Preact-local _willUpdate boundary.
   virtualizer._willUpdate();
 }
 

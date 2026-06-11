@@ -1,5 +1,6 @@
-import type { Turn } from "../generated/app-server/v2/Turn";
-import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
+import type { FileUpdateChange as AppServerFileUpdateChange } from "../generated/app-server/v2/FileUpdateChange";
+import type { ThreadItem as AppServerThreadItem } from "../generated/app-server/v2/ThreadItem";
+import type { Turn as AppServerTurn } from "../generated/app-server/v2/Turn";
 import type { UserInput } from "../generated/app-server/v2/UserInput";
 import {
   conversationSummaryFromTranscriptEntries,
@@ -8,29 +9,31 @@ import {
   type ThreadTranscriptEntry,
 } from "../domain/threads/transcript";
 
-export function transcriptEntriesFromAppServerTurn(turn: Turn): ThreadTranscriptEntry[] {
+export type { AppServerFileUpdateChange, AppServerThreadItem, AppServerTurn };
+
+export function transcriptEntriesFromAppServerTurn(turn: AppServerTurn): ThreadTranscriptEntry[] {
   return turn.items.flatMap((item) => transcriptEntriesFromAppServerThreadItem(item, turn));
 }
 
-export function conversationSummaryFromAppServerTurn(turn: Turn): ThreadConversationSummary {
+export function conversationSummaryFromAppServerTurn(turn: AppServerTurn): ThreadConversationSummary {
   return conversationSummaryFromTranscriptEntries(transcriptEntriesFromAppServerTurn(turn));
 }
 
-export function completedConversationSummaryFromAppServerTurn(turn: Turn): ThreadConversationSummary | null {
+export function completedConversationSummaryFromAppServerTurn(turn: AppServerTurn): ThreadConversationSummary | null {
   if (turn.status !== "completed") return null;
   const summary = conversationSummaryFromAppServerTurn(turn);
   return summary.userText && summary.assistantText ? summary : null;
 }
 
-export function chronologicalConversationSummariesFromAppServerTurns(turns: readonly Turn[]): ThreadConversationSummary[] {
+export function chronologicalConversationSummariesFromAppServerTurns(turns: readonly AppServerTurn[]): ThreadConversationSummary[] {
   return nonEmptyConversationSummaries(chronologicalAppServerTurns(turns).map(conversationSummaryFromAppServerTurn));
 }
 
-export function appServerUserItemText(item: Extract<ThreadItem, { type: "userMessage" }>): string {
+export function appServerUserItemText(item: Extract<AppServerThreadItem, { type: "userMessage" }>): string {
   return appServerUserInputText(item.content);
 }
 
-export function lastAgentMessageTextFromAppServerTurn(turn: Turn): string | null {
+export function lastAgentMessageTextFromAppServerTurn(turn: AppServerTurn): string | null {
   for (let index = turn.items.length - 1; index >= 0; index -= 1) {
     const item = turn.items[index];
     if (item === undefined) continue;
@@ -41,7 +44,7 @@ export function lastAgentMessageTextFromAppServerTurn(turn: Turn): string | null
   return null;
 }
 
-function transcriptEntriesFromAppServerThreadItem(item: ThreadItem, turn: Turn): ThreadTranscriptEntry[] {
+function transcriptEntriesFromAppServerThreadItem(item: AppServerThreadItem, turn: AppServerTurn): ThreadTranscriptEntry[] {
   if (item.type === "userMessage") {
     const text = appServerUserItemText(item).trim();
     return text ? [{ kind: "user", text, timestamp: turn.startedAt }] : [];
@@ -71,6 +74,6 @@ function appServerUserInputText(content: UserInput[]): string {
     .join("\n");
 }
 
-function chronologicalAppServerTurns(turns: readonly Turn[]): Turn[] {
+function chronologicalAppServerTurns(turns: readonly AppServerTurn[]): AppServerTurn[] {
   return [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
 }

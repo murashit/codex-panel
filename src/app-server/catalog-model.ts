@@ -4,6 +4,8 @@ import type { SkillMetadata as AppServerSkillMetadata } from "../generated/app-s
 import type { AppServerHookOperation } from "./client";
 import type { HookItem, ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
 
+export type { HookMetadata as AppServerHookMetadata, Model as AppServerModel, AppServerSkillMetadata };
+
 function modelMetadataFromAppServerModel(model: Model): ModelMetadata {
   return {
     id: model.id,

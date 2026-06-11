@@ -14,10 +14,15 @@ interface PlanImplementationSubmissionPort {
   sendTurnText(text: string): Promise<void>;
 }
 
+interface PlanImplementationRuntimePort {
+  requestDefaultCollaborationModeForNextTurn(): void;
+}
+
 export interface PlanImplementationActionsHost {
   stateStore: ChatStateStore;
   connection: PlanImplementationConnectionPort;
   submission: PlanImplementationSubmissionPort;
+  runtime: PlanImplementationRuntimePort;
 }
 
 export interface PlanImplementationActions {
@@ -37,7 +42,7 @@ async function implementPlan(host: PlanImplementationActionsHost, item: DisplayI
   await host.connection.ensureConnected();
   if (!host.connection.currentClient() || !activeThreadId(host.stateStore.getState())) return;
 
-  host.stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+  host.runtime.requestDefaultCollaborationModeForNextTurn();
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   await host.submission.sendTurnText(IMPLEMENT_PLAN_PROMPT);
 }

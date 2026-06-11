@@ -39,7 +39,6 @@ export interface ThreadRenameControllerHost {
   settings: () => CodexPanelSettings;
   ensureConnected: () => Promise<void>;
   currentClient: () => AppServerClient | null;
-  refreshThreads: () => Promise<void>;
   render: () => void;
   addSystemMessage: (text: string) => void;
   notifyThreadRenamed: (threadId: string, name: string) => void;
@@ -125,7 +124,9 @@ export class ThreadRenameController {
         type: "thread-list/applied",
         threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
       });
-      this.clear();
+      if (this.renameState === editingState) {
+        this.clear();
+      }
       this.host.notifyThreadRenamed(threadId, title);
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -214,11 +215,12 @@ export class ThreadRenameController {
   private async generateAndSetName(threadId: string, context: ThreadNamingContext): Promise<void> {
     try {
       const title = await this.generateTitle(context);
-      if (!title || this.threadHasName(threadId)) return;
+      if (!title || !this.threadCanReceiveGeneratedName(threadId)) return;
 
       const client = this.host.currentClient();
       if (!client) return;
       await client.setThreadName(threadId, title);
+      if (!this.threadCanReceiveGeneratedName(threadId)) return;
       this.dispatch({
         type: "thread-list/applied",
         threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
@@ -284,6 +286,11 @@ export class ThreadRenameController {
 
   private threadHasName(threadId: string): boolean {
     return Boolean(this.thread(threadId)?.name?.trim());
+  }
+
+  private threadCanReceiveGeneratedName(threadId: string): boolean {
+    const thread = this.thread(threadId);
+    return Boolean(thread && !thread.name?.trim());
   }
 
   private thread(threadId: string): Thread | undefined {

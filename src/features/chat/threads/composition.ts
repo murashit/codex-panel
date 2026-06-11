@@ -12,22 +12,21 @@ import { createThreadSelectionActions } from "./thread-selection-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
 import type { ToolbarPanelController } from "../panel/toolbar-controller";
 import type { ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../chat-host";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../panel/lifecycle";
+import type { CodexPanelSettings } from "../../../settings/model";
 
 interface ThreadControllerGroupPorts {
   obsidian: {
     archiveAdapter: () => ArchiveExportAdapter;
   };
-  plugin: Pick<
-    CodexChatHost,
-    | "notifyThreadArchived"
-    | "notifyThreadRenamed"
-    | "openThreadInNewView"
-    | "refreshSharedThreadListFromOpenSurface"
-    | "settings"
-    | "vaultPath"
-  >;
+  plugin: {
+    notifyThreadArchived: (threadId: string) => void;
+    notifyThreadRenamed: (threadId: string, name: string | null) => void;
+    openThreadInNewView: (threadId: string) => Promise<unknown>;
+    refreshSharedThreadListFromOpenSurface: () => void;
+    settings: CodexPanelSettings;
+    vaultPath: string;
+  };
   state: {
     stateStore: ChatStateStore;
   };
@@ -84,7 +83,6 @@ export function createThreadControllerGroup(
     settings: () => plugin.settings,
     ensureConnected: client.ensureConnected,
     currentClient: () => refs.connection.currentClient(),
-    refreshThreads: thread.refreshThreads,
     render: render.now,
     addSystemMessage: status.addSystemMessage,
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
@@ -201,7 +199,9 @@ function requireThreadController<T>(controller: T | null, name: string): T {
 }
 
 interface ThreadSelectionControllerGroupPorts {
-  plugin: Pick<CodexChatHost, "focusThreadInOpenView">;
+  plugin: {
+    focusThreadInOpenView: (threadId: string) => Promise<boolean>;
+  };
   state: {
     stateStore: ChatStateStore;
   };

@@ -7,7 +7,7 @@ import {
   userInputResponse,
 } from "../../../../../src/features/chat/protocol/requests/user-input";
 import { pendingRequestFocusSignature, pendingRequestsSignature } from "../../../../../src/features/chat/pending-requests/view-model";
-import type { ServerRequest } from "../../../../../src/generated/app-server/ServerRequest";
+import type { ServerRequest } from "../../../../../src/app-server/types";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

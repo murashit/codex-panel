@@ -1,9 +1,11 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection-manager";
-import type { RuntimeSnapshot } from "../runtime/effective-settings";
-import type { ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../chat-host";
+import type { RuntimeSnapshot } from "../runtime/model";
+import type { ChatState, ChatStateStore } from "../state/reducer";
+import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
+import type { Thread } from "../../../domain/threads/model";
+import type { CodexPanelSettings } from "../../../settings/model";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../protocol/client-actions/diagnostics-actions";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../protocol/client-actions/metadata-actions";
 import { createChatServerThreadActions } from "../protocol/client-actions/thread-actions";
@@ -16,12 +18,16 @@ import { ChatInboundController } from "../protocol/inbound/controller";
 import type { ChatConnectionWorkTracker } from "../panel/lifecycle";
 
 interface ChatServerActionControllerPorts {
-  plugin: Pick<CodexChatHost, "applyThreadListSnapshot" | "publishAppServerMetadata" | "vaultPath">;
+  plugin: {
+    applyThreadListSnapshot: (threads: readonly Thread[]) => void;
+    publishAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
+    vaultPath: string;
+  };
   state: {
     stateStore: ChatStateStore;
   };
   runtime: {
-    runtimeSnapshot: () => RuntimeSnapshot;
+    runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   };
 }
 
@@ -33,27 +39,30 @@ export function createChatServerActionControllers(
   },
 ) {
   const { plugin, runtime } = context;
-  const serverActionHost = {
-    stateStore: context.state.stateStore,
-    vaultPath: plugin.vaultPath,
-    currentClient: () => refs.connection.currentClient(),
-  };
+  const { stateStore } = context.state;
+  const currentClient = () => refs.connection.currentClient();
   const serverMetadata = createChatServerMetadataActions({
-    ...serverActionHost,
+    stateStore,
+    vaultPath: plugin.vaultPath,
+    currentClient,
     publishAppServerMetadata: (metadata) => {
       plugin.publishAppServerMetadata(metadata);
     },
   });
   const serverDiagnostics = createChatServerDiagnosticsActions({
-    ...serverActionHost,
+    stateStore,
+    vaultPath: plugin.vaultPath,
+    currentClient,
     publishAppServerMetadata: (metadata) => {
       plugin.publishAppServerMetadata(metadata);
     },
     serverMetadataSnapshot: () => serverMetadata.serverMetadataSnapshot(),
   });
   const serverThreads = createChatServerThreadActions({
-    ...serverActionHost,
-    runtimeSnapshot: runtime.runtimeSnapshot,
+    stateStore,
+    vaultPath: plugin.vaultPath,
+    currentClient,
+    runtimeSnapshotForState: runtime.runtimeSnapshotForState,
     publishThreadList: (threads) => {
       plugin.applyThreadListSnapshot(threads);
     },
@@ -66,7 +75,10 @@ export function createChatServerActionControllers(
 }
 
 interface ChatInboundControllerPorts {
-  plugin: Pick<CodexChatHost, "notifyThreadArchived" | "notifyThreadRenamed">;
+  plugin: {
+    notifyThreadArchived: (threadId: string) => void;
+    notifyThreadRenamed: (threadId: string, name: string | null) => void;
+  };
   state: {
     stateStore: ChatStateStore;
   };
@@ -116,7 +128,10 @@ export function createChatInboundController(
 }
 
 interface ChatConnectionControllerPorts {
-  plugin: Pick<CodexChatHost, "publishAppServerIdentity" | "settings">;
+  plugin: {
+    publishAppServerIdentity: (userAgent: string | null) => void;
+    settings: CodexPanelSettings;
+  };
   state: {
     stateStore: ChatStateStore;
   };

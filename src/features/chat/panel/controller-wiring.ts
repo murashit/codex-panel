@@ -1,24 +1,38 @@
-import type { ChatComposerController } from "../conversation/composer/controller";
-import type { DisplayDetailSection } from "../display/types";
-import type { ChatConnectionController } from "../connection/connection-controller";
-import type { ThreadSelectionActions } from "../threads/thread-selection-controller";
-import type { ChatControllerCompositionPorts } from "./controller-ports";
+import type { AppServerClient } from "../../../app-server/client";
+import type { DisplayDetailSection, DisplayItem } from "../display/types";
+import type { ChatStateStore } from "../state/reducer";
 import type { ChatViewRenderController } from "./view-render-controller";
 
-type ChatControllerCompositionActionPorts = Pick<
-  ChatControllerCompositionPorts,
-  "client" | "render" | "status" | "scroll" | "thread" | "state" | "runtime"
->;
-
-export interface ChatControllerCompositionBridges {
-  connection: {
-    controller: Pick<ChatConnectionController, "ensureConnected" | "refreshThreads" | "refreshSkills"> | null;
+interface ChatControllerCompositionActionPorts {
+  client: {
+    getClient: () => AppServerClient | null;
+    setClient: (client: AppServerClient | null) => void;
+    clear: () => void;
   };
-  threadSelection: {
-    actions: Pick<ThreadSelectionActions, "selectThread"> | null;
+  render: {
+    panelRoot: () => HTMLElement | null;
+    closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
+    schedule: () => void;
   };
-  composerDraft: {
-    controller: Pick<ChatComposerController, "setDraft"> | null;
+  state: {
+    stateStore: ChatStateStore;
+    systemItem: (text: string) => DisplayItem;
+    structuredSystemItem: (text: string, details: DisplayDetailSection[]) => DisplayItem;
+  };
+  status: {
+    set: (status: string) => void;
+  };
+  scroll: {
+    forceBottom: () => void;
+    followBottom: () => void;
+    preservePosition: () => void;
+  };
+  thread: {
+    ensureRestoredThreadLoaded: () => Promise<boolean>;
+    startNewThread: () => Promise<void>;
+    loadSharedThreadList: () => Promise<void>;
+    notifyIdentityChanged: () => void;
+    refreshTabHeader: () => void;
   };
 }
 
@@ -39,7 +53,6 @@ export interface ChatControllerCompositionActions {
     refreshThreads: () => Promise<void>;
     refreshSkills: (forceReload?: boolean) => Promise<void>;
   };
-  runtime: ChatControllerCompositionActionPorts["runtime"];
   composer: {
     setText: (text: string) => void;
   };
@@ -49,16 +62,16 @@ export function createChatControllerCompositionActions(
   ports: ChatControllerCompositionActionPorts,
   deps: {
     renderController: ChatViewRenderController;
-    bridges: ChatControllerCompositionBridges;
+    ensureConnected: () => Promise<void>;
+    refreshThreads: () => Promise<void>;
+    refreshSkills: (forceReload?: boolean) => Promise<void>;
+    selectThread: (threadId: string) => Promise<void>;
+    setComposerText: (text: string) => void;
   },
 ): ChatControllerCompositionActions {
-  const { bridges, renderController } = deps;
+  const { renderController } = deps;
   const render = {
     panelRoot: ports.render.panelRoot,
-    toolbarNode: ports.render.toolbarNode,
-    goalNode: ports.render.goalNode,
-    messagesNode: ports.render.messagesNode,
-    composerNode: ports.render.composerNode,
     closeToolbarPanelOnOutsidePointer: ports.render.closeToolbarPanelOnOutsidePointer,
     schedule: ports.render.schedule,
     now: () => {
@@ -80,54 +93,31 @@ export function createChatControllerCompositionActions(
     },
   };
 
-  const threadNavigation = {
-    selectThread: (threadId: string) =>
-      requireCompositionBridge(bridges.threadSelection.actions, "thread selection bridge").selectThread(threadId),
-  };
-  const threadRefresh = {
-    refreshThreads: () => requireCompositionBridge(bridges.connection.controller, "connection bridge").refreshThreads(),
-    refreshSkills: (forceReload?: boolean) =>
-      requireCompositionBridge(bridges.connection.controller, "connection bridge").refreshSkills(forceReload),
-  };
-
   return {
     client: {
       getClient: ports.client.getClient,
       setClient: ports.client.setClient,
       clear: ports.client.clear,
-      ensureConnected: () => requireCompositionBridge(bridges.connection.controller, "connection bridge").ensureConnected(),
+      ensureConnected: deps.ensureConnected,
     },
     render,
     status,
-    scroll: {
-      followBottom: ports.scroll.followBottom,
-      preservePosition: ports.scroll.preservePosition,
-      forceBottom: () => {
-        ports.scroll.forceBottom();
-      },
-    },
+    scroll: ports.scroll,
     thread: {
       ensureRestoredThreadLoaded: ports.thread.ensureRestoredThreadLoaded,
       startNewThread: ports.thread.startNewThread,
       loadSharedThreadList: ports.thread.loadSharedThreadList,
       notifyIdentityChanged: ports.thread.notifyIdentityChanged,
       refreshTabHeader: ports.thread.refreshTabHeader,
-      ...threadNavigation,
-      ...threadRefresh,
+      selectThread: deps.selectThread,
+      refreshThreads: deps.refreshThreads,
+      refreshSkills: deps.refreshSkills,
     },
-    runtime: ports.runtime,
     composer: {
       setText: (text) => {
-        requireCompositionBridge(bridges.composerDraft.controller, "composer draft bridge").setDraft(text, {
-          focus: true,
-        });
+        deps.setComposerText(text);
         render.now();
       },
     },
   };
-}
-
-function requireCompositionBridge<T>(value: T | null, name: string): T {
-  if (!value) throw new Error(`Chat controller composition did not initialize ${name}.`);
-  return value;
 }

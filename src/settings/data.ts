@@ -1,6 +1,11 @@
-export type SettingsDataRefreshLifecycleState = { kind: "idle" } | { kind: "loading" } | { kind: "completed"; failedCount: number };
+export type SettingsDataRefreshLifecycleState =
+  | { kind: "idle" }
+  | { kind: "loading"; operationId: number }
+  | { kind: "completed"; failedCount: number; operationId: number };
 
-export type SettingsDataRefreshLifecycleEvent = { type: "started" } | { type: "completed"; failedCount: number };
+export type SettingsDataRefreshLifecycleEvent =
+  | { type: "started"; operationId: number }
+  | { type: "completed"; failedCount: number; operationId: number };
 
 export type SettingsDynamicSectionLifecycleState =
   | { kind: "idle"; status: "" }
@@ -20,9 +25,11 @@ export function transitionSettingsDataRefreshLifecycle(
 ): SettingsDataRefreshLifecycleState {
   switch (event.type) {
     case "started":
-      return state.kind === "loading" ? state : { kind: "loading" };
+      if (isStaleSettingsDataRefreshEvent(state, event.operationId)) return state;
+      return { kind: "loading", operationId: event.operationId };
     case "completed":
-      return { kind: "completed", failedCount: event.failedCount };
+      if (isStaleSettingsDataRefreshEvent(state, event.operationId)) return state;
+      return { kind: "completed", failedCount: event.failedCount, operationId: event.operationId };
   }
 }
 
@@ -36,6 +43,7 @@ export function transitionSettingsDynamicSectionLifecycle(
 ): SettingsDynamicSectionLifecycleState {
   switch (event.type) {
     case "started":
+      if (isStaleSettingsDynamicSectionEvent(state, event.operationId)) return state;
       return { kind: "loading", status: event.status, operationId: event.operationId };
     case "loaded":
       if (isStaleSettingsDynamicSectionEvent(state, event.operationId)) return state;
@@ -49,5 +57,9 @@ export function transitionSettingsDynamicSectionLifecycle(
 }
 
 function isStaleSettingsDynamicSectionEvent(state: SettingsDynamicSectionLifecycleState, operationId: number): boolean {
+  return "operationId" in state && state.operationId > operationId;
+}
+
+function isStaleSettingsDataRefreshEvent(state: SettingsDataRefreshLifecycleState, operationId: number): boolean {
   return "operationId" in state && state.operationId > operationId;
 }

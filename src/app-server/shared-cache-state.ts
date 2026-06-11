@@ -39,6 +39,7 @@ export function applySharedThreadList(
   context: SharedAppServerCacheContext,
   threads: readonly Thread[],
 ): SharedAppServerState {
+  if (!sharedAppServerCacheContextIsComplete(context)) return state;
   return {
     ...state,
     threads: { kind: "loaded", context: cloneSharedAppServerCacheContext(context), data: cloneThreads(threads) },
@@ -50,6 +51,7 @@ export function applySharedAppServerMetadata(
   context: SharedAppServerCacheContext,
   metadata: SharedAppServerMetadata,
 ): SharedAppServerState {
+  if (!sharedAppServerCacheContextIsComplete(context)) return state;
   const clonedMetadata = cloneSharedAppServerMetadata(metadata);
   return {
     ...state,
@@ -67,6 +69,7 @@ export function applySharedModels(
   context: SharedAppServerCacheContext,
   models: readonly ModelMetadata[],
 ): SharedAppServerState {
+  if (!sharedAppServerCacheContextIsComplete(context)) return state;
   const clonedModels = cloneModelMetadata(models);
   return {
     ...state,
@@ -83,6 +86,7 @@ export function applySharedModels(
 }
 
 export function cachedSharedThreadList(state: SharedAppServerState, context: SharedAppServerCacheContext): readonly Thread[] | null {
+  if (!sharedAppServerCacheContextIsComplete(context)) return null;
   return state.threads.kind === "loaded" && sharedAppServerCacheContextMatches(state.threads.context, context)
     ? cloneThreads(state.threads.data)
     : null;
@@ -92,28 +96,40 @@ export function cachedSharedAppServerMetadata(
   state: SharedAppServerState,
   context: SharedAppServerCacheContext,
 ): SharedAppServerMetadata | null {
+  if (!sharedAppServerCacheContextIsComplete(context)) return null;
   if (state.appServerMetadata.kind === "loaded" && sharedAppServerCacheContextMatches(state.appServerMetadata.context, context)) {
     return cloneSharedAppServerMetadata(state.appServerMetadata.data);
   }
   return null;
 }
 
-export function cachedSharedModels(state: SharedAppServerState, context: SharedAppServerCacheContext): ModelMetadata[] {
+export function cachedSharedModels(state: SharedAppServerState, context: SharedAppServerCacheContext): ModelMetadata[] | null {
+  if (!sharedAppServerCacheContextIsComplete(context)) return null;
   return state.availableModels.kind === "loaded" && sharedAppServerCacheContextMatches(state.availableModels.context, context)
     ? cloneModelMetadata(state.availableModels.data)
-    : [];
+    : null;
 }
 
 function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): SharedAppServerMetadata {
   return {
     ...metadata,
     runtimeConfig: metadata.runtimeConfig ? cloneRuntimeConfigSnapshot(metadata.runtimeConfig) : null,
+    rateLimit: metadata.rateLimit ? cloneRateLimitSnapshot(metadata.rateLimit) : null,
     availableModels: cloneModelMetadata(metadata.availableModels),
     availableSkills: cloneSkillMetadata(metadata.availableSkills),
     appServerDiagnostics: {
       probes: { ...metadata.appServerDiagnostics.probes },
       mcpServers: metadata.appServerDiagnostics.mcpServers.map((server) => ({ ...server })),
     },
+  };
+}
+
+function cloneRateLimitSnapshot(snapshot: RateLimitSnapshot): RateLimitSnapshot {
+  return {
+    ...snapshot,
+    primary: snapshot.primary ? { ...snapshot.primary } : null,
+    secondary: snapshot.secondary ? { ...snapshot.secondary } : null,
+    individualLimit: snapshot.individualLimit ? { ...snapshot.individualLimit } : null,
   };
 }
 
@@ -140,5 +156,24 @@ function cloneSharedAppServerCacheContext(context: SharedAppServerCacheContext):
 }
 
 export function sharedAppServerCacheContextMatches(left: SharedAppServerCacheContext, right: SharedAppServerCacheContext): boolean {
-  return left.codexPath === right.codexPath && left.vaultPath === right.vaultPath && left.appServerUserAgent === right.appServerUserAgent;
+  return (
+    sharedAppServerCacheContextIsComplete(left) &&
+    sharedAppServerCacheContextIsComplete(right) &&
+    left.codexPath === right.codexPath &&
+    left.vaultPath === right.vaultPath &&
+    left.appServerUserAgent === right.appServerUserAgent
+  );
+}
+
+export function sharedAppServerCacheContextIsComplete(context: SharedAppServerCacheContext): boolean {
+  return (
+    nonEmptyString(context.codexPath) &&
+    nonEmptyString(context.vaultPath) &&
+    context.appServerUserAgent !== null &&
+    nonEmptyString(context.appServerUserAgent)
+  );
+}
+
+function nonEmptyString(value: string): boolean {
+  return value.trim().length > 0;
 }

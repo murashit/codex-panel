@@ -7,8 +7,7 @@ import {
   routeServerNotification,
   routeServerRequest,
 } from "../../../../../src/features/chat/protocol/inbound/routing";
-import type { ServerNotification } from "../../../../../src/generated/app-server/ServerNotification";
-import type { ServerRequest } from "../../../../../src/generated/app-server/ServerRequest";
+import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/types";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
 

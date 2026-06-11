@@ -32,6 +32,8 @@ export interface OptimisticTurnStart {
 }
 
 export interface TurnStartAckMatchParams {
+  expectedThreadId: string;
+  activeThreadId: string | null;
   pendingTurnStart: PendingTurnStart | null;
   activeTurnId: string | null;
   optimisticUserId: string;
@@ -78,6 +80,7 @@ export function optimisticTurnStart(params: OptimisticTurnStartParams): Optimist
 }
 
 export function shouldAcknowledgeTurnStart(params: TurnStartAckMatchParams): boolean {
+  if (params.activeThreadId !== params.expectedThreadId) return false;
   return (
     params.pendingTurnStart?.anchorItemId === params.optimisticUserId ||
     (!params.pendingTurnStart && params.activeTurnId === params.responseTurnId)

@@ -7,15 +7,15 @@ import {
 } from "../../runtime/effective-settings";
 import { compactReasoningEffortLabel } from "../../conversation/turns/runtime-overrides";
 import { contextSummary } from "../../runtime/status-summary";
+import type { RuntimeSnapshot } from "../../runtime/model";
 import type { ChatState } from "../../state/reducer";
 import type { ComposerContextMeterCellViewModel, ComposerContextMeterViewModel, ComposerMetaViewModel } from "./types";
-import type { runtimeSnapshotForChatSlices } from "./runtime";
 
 export function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
 }
 
-export function composerMetaViewModel(state: ChatState, snapshot: ReturnType<typeof runtimeSnapshotForChatSlices>): ComposerMetaViewModel {
+export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapshot): ComposerMetaViewModel {
   if (state.connection.status === "Connection failed.") {
     return {
       fatal: "Codex app-server disconnected",

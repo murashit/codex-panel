@@ -1,8 +1,6 @@
 import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem } from "../display/types";
 import type { CodexInput, CodexInputItem } from "../../../app-server/request-input";
-import type { FileUpdateChange } from "../../../generated/app-server/v2/FileUpdateChange";
-import type { ThreadItem } from "../../../generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../../generated/app-server/v2/Turn";
+import type { AppServerFileUpdateChange, AppServerThreadItem, AppServerTurn } from "../../../app-server/turn-model";
 import { definedProp, truncate } from "../../../utils";
 import { referencedThreadDisplayFromPrompt } from "../../../domain/threads/reference";
 import { appServerUserItemText } from "../../../app-server/turn-model";
@@ -26,24 +24,26 @@ import {
   statusQualifier,
 } from "../display/tool-format";
 
-type UserMessageItem = Extract<ThreadItem, { type: "userMessage" }>;
-type AgentMessageItem = Extract<ThreadItem, { type: "agentMessage" }>;
-type PlanItem = Extract<ThreadItem, { type: "plan" }>;
-type HookPromptItem = Extract<ThreadItem, { type: "hookPrompt" }>;
-type ReasoningItem = Extract<ThreadItem, { type: "reasoning" }>;
-type CommandExecutionItem = Extract<ThreadItem, { type: "commandExecution" }>;
+type UserMessageItem = Extract<AppServerThreadItem, { type: "userMessage" }>;
+type AgentMessageItem = Extract<AppServerThreadItem, { type: "agentMessage" }>;
+type PlanItem = Extract<AppServerThreadItem, { type: "plan" }>;
+type HookPromptItem = Extract<AppServerThreadItem, { type: "hookPrompt" }>;
+type ReasoningItem = Extract<AppServerThreadItem, { type: "reasoning" }>;
+type CommandExecutionItem = Extract<AppServerThreadItem, { type: "commandExecution" }>;
 type CommandAction = CommandExecutionItem["commandActions"][number];
-type FileChangeItem = Extract<ThreadItem, { type: "fileChange" }>;
-type McpToolCallItem = Extract<ThreadItem, { type: "mcpToolCall" }>;
-type DynamicToolCallItem = Extract<ThreadItem, { type: "dynamicToolCall" }>;
-type WebSearchItem = Extract<ThreadItem, { type: "webSearch" }>;
-type ImageViewItem = Extract<ThreadItem, { type: "imageView" }>;
-type ImageGenerationItem = Extract<ThreadItem, { type: "imageGeneration" }>;
-type ReviewModeItem = Extract<ThreadItem, { type: "enteredReviewMode" }> | Extract<ThreadItem, { type: "exitedReviewMode" }>;
-type ContextCompactionItem = Extract<ThreadItem, { type: "contextCompaction" }>;
+type FileChangeItem = Extract<AppServerThreadItem, { type: "fileChange" }>;
+type McpToolCallItem = Extract<AppServerThreadItem, { type: "mcpToolCall" }>;
+type DynamicToolCallItem = Extract<AppServerThreadItem, { type: "dynamicToolCall" }>;
+type WebSearchItem = Extract<AppServerThreadItem, { type: "webSearch" }>;
+type ImageViewItem = Extract<AppServerThreadItem, { type: "imageView" }>;
+type ImageGenerationItem = Extract<AppServerThreadItem, { type: "imageGeneration" }>;
+type ReviewModeItem =
+  | Extract<AppServerThreadItem, { type: "enteredReviewMode" }>
+  | Extract<AppServerThreadItem, { type: "exitedReviewMode" }>;
+type ContextCompactionItem = Extract<AppServerThreadItem, { type: "contextCompaction" }>;
 type TextRange = [number, number];
 
-export function displayItemsFromTurns(turns: readonly Turn[]): DisplayItem[] {
+export function displayItemsFromTurns(turns: readonly AppServerTurn[]): DisplayItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: DisplayItem[] = [];
   for (const turn of sortedTurns) {
@@ -55,7 +55,7 @@ export function displayItemsFromTurns(turns: readonly Turn[]): DisplayItem[] {
   return items;
 }
 
-export function displayItemFromThreadItem(item: ThreadItem, turnId?: string): DisplayItem | null {
+export function displayItemFromThreadItem(item: AppServerThreadItem, turnId?: string): DisplayItem | null {
   switch (item.type) {
     case "userMessage":
       return userMessageDisplayItem(item, turnId);
@@ -583,7 +583,7 @@ function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): DisplayIt
   };
 }
 
-export function normalizeFileChanges(changes: FileUpdateChange[]): DisplayFileChange[] {
+export function normalizeFileChanges(changes: AppServerFileUpdateChange[]): DisplayFileChange[] {
   return changes.map((change) => ({
     kind: change.kind.type,
     path: change.path,
@@ -591,7 +591,7 @@ export function normalizeFileChanges(changes: FileUpdateChange[]): DisplayFileCh
   }));
 }
 
-export function shouldSuppressLifecycleItem(item: ThreadItem): boolean {
+export function shouldSuppressLifecycleItem(item: AppServerThreadItem): boolean {
   return item.type === "agentMessage" || item.type === "userMessage";
 }
 

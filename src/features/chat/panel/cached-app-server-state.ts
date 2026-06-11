@@ -14,7 +14,7 @@ export function applyCachedSharedAppServerState(
   serverMetadata: ChatServerMetadataActions,
 ): void {
   const threads = source.cachedThreadList();
-  if (threads) serverThreads.applyThreadList(threads);
+  if (threads && threads.length > 0) serverThreads.applyThreadList(threads);
   const metadata = source.cachedAppServerMetadata();
   if (metadata) serverMetadata.applyAppServerMetadata(metadata);
 }

@@ -12,12 +12,16 @@ describe("settings data", () => {
   it("tracks settings data refresh lifecycle", () => {
     const idle = { kind: "idle" } as const;
 
-    const loading = transitionSettingsDataRefreshLifecycle(idle, { type: "started" });
-    expect(loading).toEqual({ kind: "loading" });
-    expect(transitionSettingsDataRefreshLifecycle(loading, { type: "started" })).toBe(loading);
+    const loading = transitionSettingsDataRefreshLifecycle(idle, { type: "started", operationId: 1 });
+    expect(loading).toEqual({ kind: "loading", operationId: 1 });
+    expect(transitionSettingsDataRefreshLifecycle(loading, { type: "started", operationId: 0 })).toBe(loading);
 
-    const completed = transitionSettingsDataRefreshLifecycle(loading, { type: "completed", failedCount: 2 });
-    expect(completed).toEqual({ kind: "completed", failedCount: 2 });
+    const newerLoading = transitionSettingsDataRefreshLifecycle(loading, { type: "started", operationId: 2 });
+    expect(newerLoading).toEqual({ kind: "loading", operationId: 2 });
+    expect(transitionSettingsDataRefreshLifecycle(newerLoading, { type: "completed", failedCount: 2, operationId: 1 })).toBe(newerLoading);
+
+    const completed = transitionSettingsDataRefreshLifecycle(newerLoading, { type: "completed", failedCount: 2, operationId: 2 });
+    expect(completed).toEqual({ kind: "completed", failedCount: 2, operationId: 2 });
   });
 
   it("tracks dynamic section lifecycle", () => {
@@ -36,6 +40,9 @@ describe("settings data", () => {
     expect(failed).toEqual({ kind: "failed", status: "Could not load hooks.", operationId: 1 });
 
     const laterLoaded = transitionSettingsDynamicSectionLifecycle(failed, { type: "loaded", status: "Loaded 2 hooks.", operationId: 2 });
+    expect(
+      transitionSettingsDynamicSectionLifecycle(laterLoaded, { type: "started", status: "Loading old hooks...", operationId: 1 }),
+    ).toBe(laterLoaded);
     expect(transitionSettingsDynamicSectionLifecycle(laterLoaded, { type: "failed", status: "Late old failure.", operationId: 1 })).toBe(
       laterLoaded,
     );

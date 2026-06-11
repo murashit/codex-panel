@@ -1,11 +1,11 @@
 import { addOptional, nonEmptyString, permissionRows } from "../../display/permission-details";
+import type { RequestId } from "./model";
 
-type RequestId = string | number;
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
-type CommandApprovalDecision =
+export type CommandApprovalDecision =
   | SimpleApprovalDecision
   | { acceptWithExecpolicyAmendment: unknown }
-  | { applyNetworkPolicyAmendment: { network_policy_amendment: { action: string; [key: string]: unknown } } };
+  | { applyNetworkPolicyAmendment: { network_policy_amendment: { action: "allow" | "deny"; [key: string]: unknown } } };
 
 interface ApprovalRequestLike {
   id: RequestId;

@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ReasoningEffort } from "../../../../../src/generated/app-server/ReasoningEffort";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
+import type { ModelMetadata, ReasoningEffort } from "../../../../../src/domain/catalog/metadata";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,

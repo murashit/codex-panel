@@ -31,7 +31,6 @@ interface ComposerStatusPort {
 }
 
 interface ComposerScrollPort {
-  forceBottom: () => void;
   followBottom: () => void;
 }
 
@@ -80,32 +79,13 @@ async function sendMessage(host: ComposerSubmissionActionsHost): Promise<void> {
       host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
     }
     if (result?.sendText) {
-      await sendComposerTurn(host, result.sendText, result.sendInput, result.referencedThread);
+      host.scroll.followBottom();
+      await host.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
     }
     return;
   }
 
-  await sendComposerTurn(host, text);
-}
-
-function sendComposerTurn(host: ComposerSubmissionActionsHost, text: string): Promise<void>;
-function sendComposerTurn(
-  host: ComposerSubmissionActionsHost,
-  text: string,
-  codexInputOverride: CodexInput | undefined,
-  referencedThread: ReferencedThreadDisplay | undefined,
-): Promise<void>;
-async function sendComposerTurn(
-  host: ComposerSubmissionActionsHost,
-  text: string,
-  codexInputOverride?: CodexInput,
-  referencedThread?: ReferencedThreadDisplay,
-): Promise<void> {
   host.scroll.followBottom();
-  if (arguments.length > 2) {
-    await host.turnSubmission.sendTurnText(text, codexInputOverride, referencedThread);
-    return;
-  }
   await host.turnSubmission.sendTurnText(text);
 }
 

@@ -54,8 +54,10 @@ async function compactThread(host: ChatThreadActionsHost, threadId: string): Pro
   await host.ensureConnected();
   const client = host.currentClient();
   if (!client) return;
+  const initialActiveThreadId = state(host).activeThread.id;
   try {
     await client.compactThread(threadId);
+    if (!threadActionStillTargetsOriginalPanel(state(host), initialActiveThreadId, threadId)) return;
     host.addSystemMessage("Compaction requested.");
     host.setStatus("Compaction requested.");
   } catch (error) {
@@ -82,6 +84,7 @@ async function archiveThreadOnServer(
     host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
     return false;
   }
+  await host.ensureConnected();
   const client = host.currentClient();
   if (!client) return false;
   try {
@@ -124,6 +127,7 @@ async function forkThreadFromTurn(
   const client = host.currentClient();
   if (!client) return;
 
+  const initialActiveThreadId = state(host).activeThread.id;
   const turnsToDrop = turnId ? turnsAfterTurnId(state(host).transcript.displayItems, turnId) : 0;
   if (turnsToDrop === null) {
     host.addSystemMessage("Could not find the selected turn to fork.");
@@ -137,6 +141,7 @@ async function forkThreadFromTurn(
     if (turnsToDrop > 0) {
       await client.rollbackThread(forkedThreadId, turnsToDrop);
     }
+    if (!threadActionStillTargetsOriginalPanel(state(host), initialActiveThreadId, threadId)) return;
     if (sourceName) {
       try {
         await client.setThreadName(forkedThreadId, sourceName);
@@ -186,6 +191,7 @@ async function rollbackThread(host: ChatThreadActionsHost, threadId: string): Pr
   try {
     host.setStatus("Rolling back latest turn...");
     const response = await client.rollbackThread(threadId);
+    if (!threadActionStillTargetsPanel(state(host), threadId)) return;
     const thread = threadFromAppServerThread(response.thread);
     dispatch(
       host,
@@ -217,6 +223,15 @@ async function rollbackThread(host: ChatThreadActionsHost, threadId: string): Pr
 
 function state(host: ChatThreadActionsHost): ChatState {
   return host.stateStore.getState();
+}
+
+function threadActionStillTargetsPanel(state: ChatState, threadId: string): boolean {
+  return state.activeThread.id === threadId;
+}
+
+function threadActionStillTargetsOriginalPanel(state: ChatState, initialThreadId: string | null, threadId: string): boolean {
+  if (!initialThreadId) return true;
+  return initialThreadId === threadId && state.activeThread.id === threadId;
 }
 
 function dispatch(host: ChatThreadActionsHost, action: ChatAction): void {

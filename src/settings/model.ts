@@ -41,10 +41,10 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
   const record = asRecord(data);
   return {
     codexPath: stringOrDefault(record["codexPath"], DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH,
-    threadNamingModel: modelOrDefault(record["threadNamingModel"]),
-    threadNamingEffort: reasoningEffortOrDefault(record["threadNamingEffort"]),
-    rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"]),
-    rewriteSelectionEffort: reasoningEffortOrDefault(record["rewriteSelectionEffort"]),
+    threadNamingModel: modelOrDefault(record["threadNamingModel"], DEFAULT_SETTINGS.threadNamingModel),
+    threadNamingEffort: reasoningEffortOrDefault(record["threadNamingEffort"], DEFAULT_SETTINGS.threadNamingEffort),
+    rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"], DEFAULT_SETTINGS.rewriteSelectionModel),
+    rewriteSelectionEffort: reasoningEffortOrDefault(record["rewriteSelectionEffort"], DEFAULT_SETTINGS.rewriteSelectionEffort),
     showToolbar: booleanOrDefault(record["showToolbar"], DEFAULT_SETTINGS.showToolbar),
     sendShortcut: sendShortcutOrDefault(record["sendShortcut"]),
     scrollThreadFromComposerEdges: booleanOrDefault(
@@ -80,14 +80,14 @@ function booleanOrDefault(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function modelOrDefault(value: unknown): string | null {
-  if (typeof value !== "string") return DEFAULT_SETTINGS.threadNamingModel;
+function modelOrDefault(value: unknown, fallback: string | null): string | null {
+  if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function reasoningEffortOrDefault(value: unknown): ReasoningEffort | null {
-  return normalizeReasoningEffort(value) ?? DEFAULT_SETTINGS.threadNamingEffort;
+function reasoningEffortOrDefault(value: unknown, fallback: ReasoningEffort | null): ReasoningEffort | null {
+  return normalizeReasoningEffort(value) ?? fallback;
 }
 
 function sendShortcutOrDefault(value: unknown): SendShortcut {

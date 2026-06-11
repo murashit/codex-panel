@@ -38,6 +38,9 @@ function createController({ client = {} as AppServerClient } = {}) {
   const stateStore = createChatStateStore(createChatState());
   const ensureConnected = vi.fn().mockResolvedValue(undefined);
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
+  const requestDefaultCollaborationModeForNextTurn = vi.fn(() => {
+    stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+  });
   const host: PlanImplementationActionsHost = {
     stateStore,
     connection: {
@@ -47,8 +50,17 @@ function createController({ client = {} as AppServerClient } = {}) {
     submission: {
       sendTurnText,
     },
+    runtime: {
+      requestDefaultCollaborationModeForNextTurn,
+    },
   };
-  return { controller: createPlanImplementationActions(host), ensureConnected, sendTurnText, stateStore };
+  return {
+    controller: createPlanImplementationActions(host),
+    ensureConnected,
+    requestDefaultCollaborationModeForNextTurn,
+    sendTurnText,
+    stateStore,
+  };
 }
 
 describe("createPlanImplementationActions", () => {
@@ -66,7 +78,7 @@ describe("createPlanImplementationActions", () => {
   });
 
   it("switches out of plan mode and submits the implementation prompt", async () => {
-    const { controller, ensureConnected, sendTurnText, stateStore } = createController();
+    const { controller, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createController();
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);
     stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
@@ -74,6 +86,7 @@ describe("createPlanImplementationActions", () => {
     await controller.implement(plan);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
+    expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
     expect(stateStore.getState().runtime.selectedCollaborationMode).toBe("default");
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(sendTurnText).toHaveBeenCalledWith("Please implement this plan.");

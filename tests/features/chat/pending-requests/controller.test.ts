@@ -4,7 +4,7 @@ import { ChatInboundController } from "../../../../src/features/chat/protocol/in
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { PendingRequestController } from "../../../../src/features/chat/pending-requests/controller";
 import { toPendingUserInput } from "../../../../src/features/chat/protocol/requests/user-input";
-import type { ServerRequest } from "../../../../src/generated/app-server/ServerRequest";
+import type { ServerRequest } from "../../../../src/app-server/types";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

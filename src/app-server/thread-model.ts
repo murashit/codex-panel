@@ -1,6 +1,8 @@
 import type { Thread as AppServerThread } from "../generated/app-server/v2/Thread";
 import type { Thread } from "../domain/threads/model";
 
+export type { AppServerThread };
+
 export function threadFromAppServerThread(thread: AppServerThread, options: { archived?: boolean } = {}): Thread {
   return {
     id: thread.id,

@@ -26,7 +26,7 @@ import {
   type ChatRuntimeState,
 } from "../runtime/state";
 import type { RequestedServiceTier } from "../runtime/model";
-import type { PendingApproval } from "../protocol/requests/approval";
+import type { RequestId } from "../protocol/requests/model";
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
 import { upsertDisplayItem } from "../display/stream-updates";
 import type { DisplayItem } from "../display/types";
@@ -212,7 +212,7 @@ export type ChatAction = ChatTransitionAction | ChatSliceAction;
 
 interface RequestResolvedAction {
   type: "request/resolved";
-  requestId: PendingApproval["requestId"];
+  requestId: RequestId;
   resultItem?: DisplayItem;
 }
 
@@ -496,9 +496,12 @@ function reducePendingStartHookUpsertedTransition(state: ChatState, action: Pend
 }
 
 function reduceRequestResolvedTransition(state: ChatState, action: RequestResolvedAction): ChatState {
+  const requests = resolveChatRequest(state.requests, action.requestId);
+  if (requests === state.requests) return state;
   const displayItems = action.resultItem ? [...state.transcript.displayItems, action.resultItem] : state.transcript.displayItems;
   return patchChatState(state, {
-    requests: resolveChatRequest(state.requests, action.requestId),
+    requests,
+    ui: clearResolvedRequestDetailOpenState(state.ui, action.requestId),
     transcript: {
       ...state.transcript,
       displayItems,
@@ -512,7 +515,7 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
     threadList: reduceThreadListSlice(state.threadList, action),
     activeThread: reduceActiveThreadSlice(state.activeThread, action),
     runtime: reduceRuntimeSlice(state.runtime, action),
-    turn: reduceTurnSlice(state.turn, action),
+    turn: state.turn,
     requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
     transcript: isTranscriptAction(action) ? reduceTranscriptSlice(state.transcript, action) : state.transcript,
     composer: reduceComposerSlice(state.composer, action),
@@ -587,10 +590,6 @@ function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): C
   }
 }
 
-function reduceTurnSlice(state: ChatTurnState, _action: ChatSliceAction): ChatTurnState {
-  return state;
-}
-
 function reduceComposerSlice(state: ChatComposerState, action: ChatSliceAction): ChatComposerState {
   switch (action.type) {
     case "composer/draft-set":
@@ -638,6 +637,7 @@ function clearActiveTurnState(state: ChatState): ChatState {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
     },
     requests: initialRequestState(),
+    ui: clearAllRequestDetailOpenState(state.ui),
   });
 }
 
@@ -789,6 +789,39 @@ function setDetailOpenSlice(state: ChatUiState, key: string, open: boolean): Cha
     openDetails.delete(key);
   }
   return patchObject(state, { openDetails });
+}
+
+function clearAllRequestDetailOpenState(state: ChatUiState): ChatUiState {
+  return filterOpenDetails(state, (key) => !isRequestDetailOpenKey(key));
+}
+
+function clearResolvedRequestDetailOpenState(state: ChatUiState, requestId: RequestId): ChatUiState {
+  return filterOpenDetails(state, (key) => !isRequestDetailOpenKeyForRequest(key, requestId));
+}
+
+function filterOpenDetails(state: ChatUiState, keep: (key: string) => boolean): ChatUiState {
+  let openDetails: Set<string> | null = null;
+  for (const key of state.openDetails) {
+    if (keep(key)) {
+      openDetails?.add(key);
+    } else if (openDetails === null) {
+      openDetails = new Set();
+      for (const kept of state.openDetails) {
+        if (kept === key) break;
+        openDetails.add(kept);
+      }
+    }
+  }
+  return openDetails === null ? state : patchObject(state, { openDetails });
+}
+
+function isRequestDetailOpenKey(key: string): boolean {
+  return key.startsWith("approval:") || key.startsWith("request:");
+}
+
+function isRequestDetailOpenKeyForRequest(key: string, requestId: RequestId): boolean {
+  const id = String(requestId);
+  return key === `request:${id}` || key.startsWith(`request:${id}:`) || key.startsWith(`approval:${id}:`);
 }
 
 function isRequestAction(action: ChatSliceAction): action is RequestAction {

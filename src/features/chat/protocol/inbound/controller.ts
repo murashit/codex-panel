@@ -1,5 +1,4 @@
-import type { ServerNotification } from "../../../../generated/app-server/ServerNotification";
-import type { ServerRequest } from "../../../../generated/app-server/ServerRequest";
+import type { ServerNotification, ServerRequest } from "../../../../app-server/types";
 import type { McpServerStartupStatus } from "../../../../app-server/diagnostics";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { classifyAppServerLog } from "./app-server-logs";
@@ -7,12 +6,11 @@ import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } fr
 import { createStructuredSystemItem, createSystemItem } from "../../display/system";
 import type { DisplayDetailSection } from "../../display/types";
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "../requests/approval";
+import type { RequestId } from "../requests/model";
 import { userInputResponse, type PendingUserInput } from "../requests/user-input";
 import { createApprovalResultItem, createUserInputResultItem } from "../../pending-requests/view-model";
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
-
-type RequestId = string | number;
 
 export interface ChatInboundControllerActions {
   refreshThreads: () => void;
@@ -79,7 +77,7 @@ export class ChatInboundController {
   }
 
   resolveApproval(approval: PendingApproval, action: ApprovalAction): void {
-    if (!this.state.requests.approvals.some((item) => item.requestId === approval.requestId)) return;
+    if (!this.state.requests.approvals.includes(approval)) return;
     if (!this.actions.respondToServerRequest(approval.requestId, approvalResponse(approval, action))) {
       this.addSystemMessage("Could not send approval response because Codex app-server is not connected.");
       return;
@@ -88,7 +86,7 @@ export class ChatInboundController {
   }
 
   resolveUserInput(input: PendingUserInput, answers: Record<string, string>): void {
-    if (!this.state.requests.pendingUserInputs.some((item) => item.requestId === input.requestId)) return;
+    if (!this.state.requests.pendingUserInputs.includes(input)) return;
     if (!this.actions.respondToServerRequest(input.requestId, userInputResponse(input, answers))) {
       this.addSystemMessage("Could not send user input because Codex app-server is not connected.");
       return;
@@ -101,7 +99,7 @@ export class ChatInboundController {
   }
 
   cancelUserInput(input: PendingUserInput): void {
-    if (!this.state.requests.pendingUserInputs.some((item) => item.requestId === input.requestId)) return;
+    if (!this.state.requests.pendingUserInputs.includes(input)) return;
     if (!this.actions.rejectServerRequest(input.requestId, -32000, "User cancelled input request.")) {
       this.addSystemMessage("Could not cancel user input because Codex app-server is not connected.");
       return;

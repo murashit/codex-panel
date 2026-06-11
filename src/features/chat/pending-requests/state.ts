@@ -1,5 +1,6 @@
 import type { PendingApproval } from "../protocol/requests/approval";
-import type { PendingUserInput } from "../protocol/requests/user-input";
+import type { RequestId } from "../protocol/requests/model";
+import { userInputDraftKey, userInputOtherDraftKey, type PendingUserInput } from "../protocol/requests/user-input";
 
 export interface ChatRequestState {
   approvals: readonly PendingApproval[];
@@ -33,14 +34,21 @@ export function reduceRequestSlice(state: ChatRequestState, action: RequestActio
   }
 }
 
-export function resolveChatRequest(state: ChatRequestState, requestId: PendingApproval["requestId"]): ChatRequestState {
+export function resolveChatRequest(state: ChatRequestState, requestId: RequestId): ChatRequestState {
   const resolvedInputs = state.pendingUserInputs.filter((input) => input.requestId === requestId);
+  const resolvedApprovals = state.approvals.filter((approval) => approval.requestId === requestId);
+  if (resolvedApprovals.length === 0 && resolvedInputs.length === 0) return state;
+
   const draftKeys = new Set(
     resolvedInputs.flatMap((input) =>
-      input.params.questions.flatMap((question) => [`${String(requestId)}:${question.id}`, `${String(requestId)}:${question.id}:other`]),
+      input.params.questions.flatMap((question) => [
+        userInputDraftKey(requestId, question.id),
+        userInputOtherDraftKey(requestId, question.id),
+      ]),
     ),
   );
-  const userInputDrafts = new Map([...state.userInputDrafts].filter(([key]) => !draftKeys.has(key)));
+  const userInputDrafts =
+    draftKeys.size === 0 ? state.userInputDrafts : new Map([...state.userInputDrafts].filter(([key]) => !draftKeys.has(key)));
   return patchObject(state, {
     approvals: state.approvals.filter((approval) => approval.requestId !== requestId),
     pendingUserInputs: state.pendingUserInputs.filter((input) => input.requestId !== requestId),

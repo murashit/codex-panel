@@ -434,7 +434,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     );
     const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
 
-    const context = sharedAppServerCacheContext(plugin);
+    const context = sharedAppServerCacheContext(plugin, { appServerUserAgent: "codex-cli/1.2.3" });
     const first = sharedAppServerCache(plugin).refreshThreadList(context, fetchThreads);
     const second = sharedAppServerCache(plugin).refreshThreadList(context, secondFetch);
 
@@ -449,8 +449,8 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
     const plugin = await pluginWithLeaves([]);
-    const firstContext = sharedAppServerCacheContext(plugin, { codexPath: "codex-a" });
-    const secondContext = sharedAppServerCacheContext(plugin, { codexPath: "codex-b" });
+    const firstContext = sharedAppServerCacheContext(plugin, { codexPath: "codex-a", appServerUserAgent: "codex-cli/1.2.3" });
+    const secondContext = sharedAppServerCacheContext(plugin, { codexPath: "codex-b", appServerUserAgent: "codex-cli/1.2.3" });
     let resolveFirst!: (threads: Thread[]) => void;
     const firstFetch = vi.fn(
       () =>
@@ -492,7 +492,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
   it("keeps the previous shared thread list when refresh fails", async () => {
     const plugin = await pluginWithLeaves([]);
-    const context = sharedAppServerCacheContext(plugin);
+    const context = sharedAppServerCacheContext(plugin, { appServerUserAgent: "codex-cli/1.2.3" });
     await sharedAppServerCache(plugin).refreshThreadList(context, () => Promise.resolve([thread("cached")]));
 
     await expect(sharedAppServerCache(plugin).refreshThreadList(context, () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
@@ -556,7 +556,7 @@ async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
   const { default: CodexPanelPlugin } = await import("../src/main");
   const adapter = new FileSystemAdapter();
   vi.spyOn(adapter, "getBasePath").mockReturnValue("/vault");
-  return new CodexPanelPlugin(
+  const plugin = new CodexPanelPlugin(
     {
       vault: {
         adapter,
@@ -575,6 +575,8 @@ async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
     } as never,
     {} as never,
   );
+  plugin.vaultPath = "/vault";
+  return plugin;
 }
 
 type TestLeaf = ReturnType<typeof leaf>;

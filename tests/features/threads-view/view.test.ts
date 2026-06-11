@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { Turn } from "../../../src/generated/app-server/v2/Turn";
+import type { AppServerTurn } from "../../../src/app-server/turn-model";
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/thread-title-generation";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -355,6 +355,47 @@ describe("CodexThreadsView", () => {
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
     });
   });
+
+  it("keeps a manually edited rename draft when threads view auto-name finishes later", async () => {
+    const threadTurnsList = vi.fn().mockResolvedValue({
+      data: [
+        turnFixture([
+          {
+            type: "userMessage",
+            id: "u1",
+            clientId: null,
+            content: [{ type: "text", text: "rename stale handling", text_elements: [] }],
+          },
+          { type: "agentMessage", id: "a1", text: "Handled.", phase: "final_answer", memoryCitation: null },
+        ]),
+      ],
+      nextCursor: null,
+    });
+    const generatedTitle = deferred<string | null>();
+    namingMock.generateThreadTitleWithCodex.mockReturnValue(generatedTitle.promise);
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      threadTurnsList,
+    });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+    await waitForAsyncWork(() => {
+      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+    });
+
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    expect(input).not.toBeNull();
+    if (!input) return;
+    changeInputValue(input, "Manual title");
+    generatedTitle.resolve("Generated title");
+
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Manual title");
+    });
+  });
 });
 
 function clientFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -429,7 +470,7 @@ function threadFixture(overrides: Record<string, unknown> = {}): Record<string, 
   };
 }
 
-function turnFixture(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
+function turnFixture(items: AppServerTurn["items"], overrides: Partial<AppServerTurn> = {}): AppServerTurn {
   return {
     id: "turn",
     items,

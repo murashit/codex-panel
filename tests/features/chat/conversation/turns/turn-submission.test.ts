@@ -66,6 +66,8 @@ describe("chat turn submission helpers", () => {
   it("keeps turn start acknowledgement matching explicit", () => {
     expect(
       shouldAcknowledgeTurnStart({
+        expectedThreadId: "thread",
+        activeThreadId: "thread",
         pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
         activeTurnId: null,
         optimisticUserId: "local-user",
@@ -74,6 +76,8 @@ describe("chat turn submission helpers", () => {
     ).toBe(true);
     expect(
       shouldAcknowledgeTurnStart({
+        expectedThreadId: "thread",
+        activeThreadId: "thread",
         pendingTurnStart: null,
         activeTurnId: "turn",
         optimisticUserId: "local-user",
@@ -82,8 +86,20 @@ describe("chat turn submission helpers", () => {
     ).toBe(true);
     expect(
       shouldAcknowledgeTurnStart({
+        expectedThreadId: "thread",
+        activeThreadId: "thread",
         pendingTurnStart: { anchorItemId: "other", promptSubmitHookItemIds: [] },
         activeTurnId: "stale-turn",
+        optimisticUserId: "local-user",
+        responseTurnId: "turn",
+      }),
+    ).toBe(false);
+    expect(
+      shouldAcknowledgeTurnStart({
+        expectedThreadId: "thread",
+        activeThreadId: "other-thread",
+        pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
+        activeTurnId: null,
         optimisticUserId: "local-user",
         responseTurnId: "turn",
       }),

@@ -6,8 +6,7 @@ import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/turn-settings";
-import type { RuntimeSnapshot } from "./runtime/effective-settings";
+import { collaborationModeLabel as formatCollaborationModeLabel, type RuntimeSnapshot } from "./runtime/model";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./state/reducer";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
@@ -16,9 +15,9 @@ import { createStructuredSystemItem, createSystemItem } from "./display/system";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
-  runtimeSnapshotForChatSlices,
   statusSummaryLines as buildStatusSummaryLines,
 } from "./panel/view-model/runtime";
+import { runtimeSnapshotForChatState } from "./runtime/snapshot";
 import { activeThreadTitle as buildActiveThreadTitle, chatViewDisplayTitle } from "./panel/view-model/thread-title";
 import { connectionDiagnosticsModel } from "./panel/view-model/toolbar";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
@@ -85,7 +84,36 @@ export class CodexChatView extends ItemView {
         },
         archiveAdapter: () => this.app.vault.adapter,
       },
-      plugin: this.plugin,
+      plugin: {
+        settings: this.plugin.settings,
+        vaultPath: this.plugin.vaultPath,
+        openThreadInNewView: (threadId) => this.plugin.openThreadInNewView(threadId),
+        focusThreadInOpenView: (threadId) => this.plugin.focusThreadInOpenView(threadId),
+        openTurnDiff: (state) => this.plugin.openTurnDiff(state),
+        notifyThreadArchived: (threadId) => {
+          this.plugin.notifyThreadArchived(threadId);
+        },
+        notifyThreadRenamed: (threadId, name) => {
+          this.plugin.notifyThreadRenamed(threadId, name);
+        },
+        refreshThreadsViewLiveState: () => {
+          this.plugin.refreshThreadsViewLiveState();
+        },
+        refreshSharedThreadListFromOpenSurface: () => {
+          this.plugin.refreshSharedThreadListFromOpenSurface();
+        },
+        applyThreadListSnapshot: (threads) => {
+          this.plugin.applyThreadListSnapshot(threads);
+        },
+        publishAppServerMetadata: (metadata) => {
+          this.plugin.publishAppServerMetadata(metadata);
+        },
+        publishAppServerIdentity: (userAgent) => {
+          this.plugin.publishAppServerIdentity(userAgent);
+        },
+        cachedThreadList: () => this.plugin.cachedThreadList(),
+        cachedAppServerMetadata: () => this.plugin.cachedAppServerMetadata(),
+      },
       state: {
         stateStore: this.chatState,
         getState: () => this.state,
@@ -154,7 +182,7 @@ export class CodexChatView extends ItemView {
         composerMetaViewModel: () => chatPanelComposerMetaViewModel(this.composerPorts),
       },
       runtime: {
-        runtimeSnapshot: () => this.runtimeSnapshot(),
+        runtimeSnapshotForState: (state) => this.runtimeSnapshotForState(state),
         collaborationModeLabel: () => this.collaborationModeLabel(),
         connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
         modelStatusLines: () => this.modelStatusLines(),
@@ -655,13 +683,6 @@ export class CodexChatView extends ItemView {
   }
 
   private runtimeSnapshotForState(state: ChatState): RuntimeSnapshot {
-    return runtimeSnapshotForChatSlices({
-      runtimeConfig: state.connection.runtimeConfig,
-      activeThread: state.activeThread,
-      runtime: state.runtime,
-      rateLimit: state.connection.rateLimit,
-      displayItems: state.transcript.displayItems,
-      availableModels: state.connection.availableModels,
-    });
+    return runtimeSnapshotForChatState(state);
   }
 }

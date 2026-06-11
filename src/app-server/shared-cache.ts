@@ -8,6 +8,7 @@ import {
   cachedSharedModels,
   cachedSharedThreadList,
   createSharedAppServerState,
+  sharedAppServerCacheContextIsComplete,
   sharedAppServerCacheContextMatches,
   type SharedAppServerCacheContext,
   type SharedAppServerMetadata,
@@ -27,9 +28,13 @@ export class SharedAppServerCache {
     fetchThreads: () => Promise<readonly Thread[]>,
     onSnapshot?: (threads: readonly Thread[]) => void,
   ): Promise<readonly Thread[]> {
+    const refreshContext = { ...context };
+    if (!sharedAppServerCacheContextIsComplete(refreshContext)) {
+      return fetchThreads();
+    }
     if (
       this.threadListRefreshLifecycle.kind === "refreshing" &&
-      sharedAppServerCacheContextMatches(this.threadListRefreshLifecycle.context, context)
+      sharedAppServerCacheContextMatches(this.threadListRefreshLifecycle.context, refreshContext)
     ) {
       return this.threadListRefreshLifecycle.promise;
     }
@@ -38,9 +43,9 @@ export class SharedAppServerCache {
         if (
           this.threadListRefreshLifecycle.kind === "refreshing" &&
           this.threadListRefreshLifecycle.promise === promise &&
-          sharedAppServerCacheContextMatches(this.threadListRefreshLifecycle.context, context)
+          sharedAppServerCacheContextMatches(this.threadListRefreshLifecycle.context, refreshContext)
         ) {
-          this.applyThreadListSnapshot(context, threads);
+          this.applyThreadListSnapshot(refreshContext, threads);
           onSnapshot?.(threads);
         }
         return threads;
@@ -50,11 +55,12 @@ export class SharedAppServerCache {
           this.threadListRefreshLifecycle = { kind: "idle" };
         }
       });
-    this.threadListRefreshLifecycle = { kind: "refreshing", context: { ...context }, promise };
+    this.threadListRefreshLifecycle = { kind: "refreshing", context: refreshContext, promise };
     return promise;
   }
 
   applyThreadListSnapshot(context: SharedAppServerCacheContext, threads: readonly Thread[]): void {
+    if (threads.length === 0) return;
     this.state = applySharedThreadList(this.state, context, threads);
   }
 
@@ -63,6 +69,7 @@ export class SharedAppServerCache {
   }
 
   applyAppServerMetadataSnapshot(context: SharedAppServerCacheContext, metadata: SharedAppServerMetadata): void {
+    if (!isCacheableSharedAppServerMetadata(metadata)) return;
     this.state = applySharedAppServerMetadata(this.state, context, metadata);
   }
 
@@ -71,10 +78,20 @@ export class SharedAppServerCache {
   }
 
   applyModelsSnapshot(context: SharedAppServerCacheContext, models: readonly ModelMetadata[]): void {
+    if (models.length === 0) return;
     this.state = applySharedModels(this.state, context, models);
   }
 
-  cachedModels(context: SharedAppServerCacheContext): ModelMetadata[] {
+  cachedModels(context: SharedAppServerCacheContext): ModelMetadata[] | null {
     return cachedSharedModels(this.state, context);
   }
+}
+
+function isCacheableSharedAppServerMetadata(metadata: SharedAppServerMetadata): boolean {
+  return (
+    metadata.availableModels.length > 0 &&
+    metadata.appServerDiagnostics.probes["model/list"].status === "ok" &&
+    metadata.appServerDiagnostics.probes["skills/list"].status === "ok" &&
+    metadata.appServerDiagnostics.probes["account/rateLimits/read"].status === "ok"
+  );
 }

@@ -4,6 +4,8 @@ import type { RequestId } from "../generated/app-server/RequestId";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../generated/app-server/ServerRequest";
 
+export type { RequestId, ServerNotification, ServerRequest };
+
 export type ClientRequestMethod = ClientRequest["method"];
 export type ClientRequestParams<M extends ClientRequestMethod> = Extract<ClientRequest, { method: M }>["params"];
 

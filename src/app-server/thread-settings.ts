@@ -4,7 +4,7 @@ import type { Personality } from "../generated/app-server/Personality";
 import type { ReasoningEffort } from "../generated/app-server/ReasoningEffort";
 import type { ReasoningSummary } from "../generated/app-server/ReasoningSummary";
 import type { SandboxPolicy } from "../generated/app-server/v2/SandboxPolicy";
-import type { ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "./runtime-policy";
+import type { ApprovalPolicy, ApprovalsReviewer } from "./runtime-policy";
 
 export type ServiceTierRequest = string | null | undefined;
 
@@ -39,12 +39,4 @@ export function appServerCollaborationMode(mode: ModeKind, model: string, reason
       developer_instructions: null,
     },
   };
-}
-
-export function serviceTierRequestValue(value: ServiceTier): string {
-  return value;
-}
-
-export function clearedServiceTierRequestValue(): null {
-  return null;
 }

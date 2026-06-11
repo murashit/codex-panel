@@ -77,7 +77,7 @@ describe("settings", () => {
     expect(settingsMatchNormalizedData({ ...settings, codexPath: "   " }, settings)).toBe(false);
   });
 
-  it("normalizes current naming runtime settings", () => {
+  it("normalizes thread naming helper preferences", () => {
     expect(normalizeSettings({ threadNamingModel: " gpt-5.4-mini ", threadNamingEffort: "low" })).toMatchObject({
       threadNamingModel: "gpt-5.4-mini",
       threadNamingEffort: "low",
@@ -88,7 +88,7 @@ describe("settings", () => {
     });
   });
 
-  it("normalizes current rewrite selection runtime settings", () => {
+  it("normalizes selection rewrite helper preferences", () => {
     expect(normalizeSettings({ rewriteSelectionModel: " gpt-5.4-mini ", rewriteSelectionEffort: "minimal" })).toMatchObject({
       rewriteSelectionModel: "gpt-5.4-mini",
       rewriteSelectionEffort: "minimal",

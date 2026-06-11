@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  appServerCollaborationMode,
-  applyThreadSettingsValue,
-  clearedServiceTierRequestValue,
-  serviceTierRequestValue,
-  type ThreadSettingsUpdate,
-} from "../../src/app-server/thread-settings";
+import { appServerCollaborationMode, applyThreadSettingsValue, type ThreadSettingsUpdate } from "../../src/app-server/thread-settings";
 import { appServerApprovalsReviewerOrNull, parseServiceTier } from "../../src/app-server/runtime-policy";
 
 describe("app-server thread settings", () => {
@@ -51,11 +45,5 @@ describe("app-server thread settings", () => {
   it("ignores absent service tier values", () => {
     expect(parseServiceTier("")).toBeNull();
     expect(parseServiceTier(null)).toBeNull();
-  });
-
-  it("serializes service tier thread settings requests", () => {
-    expect(serviceTierRequestValue("fast")).toBe("fast");
-    expect(serviceTierRequestValue("priority")).toBe("priority");
-    expect(clearedServiceTierRequestValue()).toBeNull();
   });
 });

@@ -134,7 +134,7 @@ describe("TurnSubmissionController", () => {
       threadId: "thread",
       cwd: "/vault",
       input: textInput("hello"),
-      clientUserMessageId: expect.stringMatching(/^local-user-\d+$/),
+      clientUserMessageId: expect.stringMatching(/^local-user-\d+-\d+$/),
     });
     expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.composer.setDraft).toHaveBeenCalledWith("");
@@ -186,7 +186,7 @@ describe("TurnSubmissionController", () => {
 
     await controller.sendTurnText("follow up");
 
-    expect(steerTurn).toHaveBeenCalledWith("thread", "turn", textInput("follow up"), expect.stringMatching(/^local-steer-\d+$/));
+    expect(steerTurn).toHaveBeenCalledWith("thread", "turn", textInput("follow up"), expect.stringMatching(/^local-steer-\d+-\d+$/));
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.status.setStatus).toHaveBeenCalledWith("Steered current turn.");
     const localSteerId = steerTurn.mock.calls[0]?.[3];
@@ -195,6 +195,38 @@ describe("TurnSubmissionController", () => {
         .getState()
         .transcript.displayItems.some((item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up"),
     ).toBe(true);
+  });
+
+  it("keeps local user ids distinct when submissions share the same timestamp", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1234);
+    try {
+      const first = createHost();
+      const second = createHost();
+      for (const host of [first.host, second.host]) {
+        host.stateStore.dispatch({
+          type: "active-thread/resumed",
+          thread: thread("thread"),
+          cwd: "/vault",
+          model: null,
+          reasoningEffort: null,
+          serviceTier: null,
+          approvalPolicy: null,
+          approvalsReviewer: null,
+          activePermissionProfile: null,
+        });
+      }
+
+      await new TurnSubmissionController(first.host).sendTurnText("first");
+      await new TurnSubmissionController(second.host).sendTurnText("second");
+
+      const firstId = first.startTurn.mock.calls[0]?.[0].clientUserMessageId;
+      const secondId = second.startTurn.mock.calls[0]?.[0].clientUserMessageId;
+      expect(firstId).toMatch(/^local-user-1234-\d+$/);
+      expect(secondId).toMatch(/^local-user-1234-\d+$/);
+      expect(firstId).not.toBe(secondId);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("does not append stale steer messages after the active turn changes", async () => {

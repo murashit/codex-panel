@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ChatComposerController } from "../../../../../src/features/chat/conversation/composer/controller";
 import { createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
-import type { SkillMetadata } from "../../../../../src/generated/app-server/v2/SkillMetadata";
+import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
@@ -352,7 +352,6 @@ function skill(name: string): SkillMetadata {
     name,
     description: `${name} description`,
     path: `/vault/skills/${name}/SKILL.md`,
-    scope: "repo",
     enabled: true,
   };
 }

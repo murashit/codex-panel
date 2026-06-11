@@ -19,6 +19,21 @@ describe("message stream virtual item fallback", () => {
     expect(items).toHaveLength(32);
   });
 
+  it("clamps negative fallback scroll offsets to the first block", () => {
+    const items = messageStreamVirtualItems([], messageBlocks(40), -96);
+
+    expect(items[0]).toMatchObject({ index: 0, key: "block-0", start: 0 });
+    expect(items).toHaveLength(32);
+  });
+
+  it("clamps fallback rendering to the last full window near the end", () => {
+    const items = messageStreamVirtualItems([], messageBlocks(80), 96 * 10_000);
+
+    expect(items[0]).toMatchObject({ index: 48, key: "block-48", start: 96 * 48 });
+    expect(items.at(-1)).toMatchObject({ index: 79, key: "block-79", start: 96 * 79 });
+    expect(items).toHaveLength(32);
+  });
+
   it("uses virtualizer items when TanStack has produced a range", () => {
     const virtualItems = [{ index: 12, key: "virtual", start: 1234 }];
 

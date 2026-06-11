@@ -1,7 +1,7 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
 import type { ComponentChild as UiNode } from "preact";
 import type { ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../chat-host";
+import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatServerMetadataActions } from "../protocol/client-actions/metadata-actions";
 import type { ChatServerThreadActions } from "../protocol/client-actions/thread-actions";
 import type { ChatComposerController } from "../conversation/composer/controller";
@@ -18,7 +18,9 @@ import { createChatShellRenderPort } from "./shell-render";
 import { createToolbarArchiveConfirmState } from "./toolbar-archive-confirm-state";
 
 interface ViewRenderControllerGroupPorts {
-  plugin: Pick<CodexChatHost, "settings">;
+  plugin: {
+    settings: CodexPanelSettings;
+  };
   state: {
     stateStore: ChatStateStore;
   };

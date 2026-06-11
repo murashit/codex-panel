@@ -1,105 +1,82 @@
 import { applyThreadSettingsValue, appServerCollaborationMode, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import type { ServiceTierRequest } from "../../../app-server/thread-settings";
-import {
-  currentModel,
-  currentReasoningEffort,
-  fastServiceTierRequestValue,
-  runtimeConfigOrDefault,
-  type RuntimeSnapshot,
-} from "./effective-settings";
+import { currentModel, currentReasoningEffort, fastServiceTierRequestValue } from "./effective-settings";
 import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
-import { clearedServiceTierRequestValue, serviceTierRequestValue } from "../../../app-server/thread-settings";
-import { pendingRuntimeSettingPayload, type CollaborationMode } from "./model";
+import type { PendingRuntimeSetting, RuntimeSnapshot } from "./model";
 
 export type TurnCollaborationModeWarning = "missing-model";
 
-export interface TurnCollaborationModeSettings {
-  collaborationMode: ThreadSettingsUpdate["collaborationMode"] | null;
-  warning: TurnCollaborationModeWarning | null;
-}
+export type TurnCollaborationModeSettings =
+  | {
+      collaborationMode: NonNullable<ThreadSettingsUpdate["collaborationMode"]>;
+      warning: null;
+    }
+  | {
+      collaborationMode: null;
+      warning: TurnCollaborationModeWarning;
+    };
 
 export interface PendingThreadSettingsUpdate {
   update: ThreadSettingsUpdate;
   collaborationModeWarning: TurnCollaborationModeWarning | null;
 }
 
-export function nextCollaborationMode(mode: CollaborationMode): CollaborationMode {
-  return mode === "plan" ? "default" : "plan";
-}
-
-export function collaborationModeLabel(mode: CollaborationMode): string {
-  return mode === "plan" ? "Plan" : "Default";
-}
-
-export function collaborationModeToggleMessage(mode: CollaborationMode): string {
-  return mode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.";
-}
-
-export function serviceTierRequestForThreadStart(
-  snapshot: RuntimeSnapshot,
-  config: RuntimeConfigSnapshot = runtimeConfigOrDefault(snapshot.runtimeConfig),
-): ServiceTierRequest {
+export function serviceTierRequestForThreadStart(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): ServiceTierRequest {
   if (snapshot.requestedServiceTier.kind === "set") {
-    return snapshot.requestedServiceTier.value === "fast"
-      ? serviceTierRequestValue(fastServiceTierRequestValue(snapshot, config))
-      : clearedServiceTierRequestValue();
+    return snapshot.requestedServiceTier.value === "fast" ? fastServiceTierRequestValue(snapshot, config) : null;
   }
   if (snapshot.requestedServiceTier.kind === "resetToConfig") {
-    return clearedServiceTierRequestValue();
+    return null;
   }
   return config.serviceTier ?? undefined;
 }
 
-export function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot): TurnCollaborationModeSettings {
-  const model = currentModel(snapshot);
-  const effort = currentReasoningEffort(snapshot);
-  const collaborationMode = model ? collaborationModePayload(snapshot.selectedCollaborationMode, model, effort) : null;
+export function requestedTurnCollaborationModeSettings(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigSnapshot,
+): TurnCollaborationModeSettings {
+  const model = currentModel(snapshot, config);
+  const effort = currentReasoningEffort(snapshot, config);
+  if (!model) return { collaborationMode: null, warning: "missing-model" };
   return {
-    collaborationMode,
-    warning: model ? null : "missing-model",
+    collaborationMode: appServerCollaborationMode(snapshot.selectedCollaborationMode, model, effort),
+    warning: null,
   };
 }
 
-export function pendingThreadSettingsUpdate(
-  snapshot: RuntimeSnapshot,
-  config: RuntimeConfigSnapshot = runtimeConfigOrDefault(snapshot.runtimeConfig),
-): PendingThreadSettingsUpdate {
+export function pendingThreadSettingsUpdate(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): PendingThreadSettingsUpdate {
   const update: ThreadSettingsUpdate = {};
-  const collaborationModeSettings = requestedTurnCollaborationModeSettings(snapshot);
+  const collaborationModeSettings = requestedTurnCollaborationModeSettings(snapshot, config);
 
   if (snapshot.requestedModel.kind !== "unchanged") {
-    applyThreadSettingsValue(update, "model", pendingRuntimeSettingPayload(snapshot.requestedModel));
+    applyThreadSettingsValue(update, "model", appServerThreadSettingsValue(snapshot.requestedModel));
   }
   if (snapshot.requestedReasoningEffort.kind !== "unchanged") {
-    applyThreadSettingsValue(update, "effort", pendingRuntimeSettingPayload(snapshot.requestedReasoningEffort));
+    applyThreadSettingsValue(update, "effort", appServerThreadSettingsValue(snapshot.requestedReasoningEffort));
   }
   if (snapshot.requestedServiceTier.kind === "set") {
     applyThreadSettingsValue(
       update,
       "serviceTier",
-      snapshot.requestedServiceTier.value === "fast"
-        ? serviceTierRequestValue(fastServiceTierRequestValue(snapshot, config))
-        : clearedServiceTierRequestValue(),
+      snapshot.requestedServiceTier.value === "fast" ? fastServiceTierRequestValue(snapshot, config) : null,
     );
   } else if (snapshot.requestedServiceTier.kind === "resetToConfig") {
-    applyThreadSettingsValue(update, "serviceTier", clearedServiceTierRequestValue());
+    applyThreadSettingsValue(update, "serviceTier", null);
   }
   if (snapshot.requestedApprovalsReviewer.kind !== "unchanged") {
-    applyThreadSettingsValue(update, "approvalsReviewer", pendingRuntimeSettingPayload(snapshot.requestedApprovalsReviewer));
+    applyThreadSettingsValue(update, "approvalsReviewer", appServerThreadSettingsValue(snapshot.requestedApprovalsReviewer));
   }
   if (snapshot.selectedCollaborationMode !== snapshot.activeCollaborationMode) {
     if (collaborationModeSettings.warning) {
       return { update, collaborationModeWarning: collaborationModeSettings.warning };
     }
-    applyThreadSettingsValue(update, "collaborationMode", collaborationModeSettings.collaborationMode ?? undefined);
+    applyThreadSettingsValue(update, "collaborationMode", collaborationModeSettings.collaborationMode);
   }
   return { update, collaborationModeWarning: null };
 }
 
-function collaborationModePayload(
-  mode: RuntimeSnapshot["selectedCollaborationMode"],
-  model: string,
-  reasoningEffort: ReturnType<typeof currentReasoningEffort>,
-): NonNullable<ThreadSettingsUpdate["collaborationMode"]> {
-  return appServerCollaborationMode(mode, model, reasoningEffort);
+function appServerThreadSettingsValue<T>(setting: PendingRuntimeSetting<T>): T | null | undefined {
+  if (setting.kind === "set") return setting.value;
+  if (setting.kind === "resetToConfig") return null;
+  return undefined;
 }

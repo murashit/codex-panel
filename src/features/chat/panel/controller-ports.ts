@@ -2,10 +2,13 @@ import type { App, Component, EventRef } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
 import type { AppServerClient } from "../../../app-server/client";
+import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
-import type { RuntimeSnapshot } from "../runtime/effective-settings";
+import type { Thread } from "../../../domain/threads/model";
+import type { CodexPanelSettings } from "../../../settings/model";
+import type { RuntimeSnapshot } from "../runtime/model";
 import type { ChatState, ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../chat-host";
+import type { ChatTurnDiffViewState } from "../ui/turn-diff";
 import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
@@ -13,7 +16,7 @@ import type { ComposerMetaViewModel } from "./view-model/types";
 
 export interface ChatControllerCompositionPorts {
   obsidian: ChatPanelObsidianContext;
-  plugin: CodexChatHost;
+  plugin: ChatControllerHostContext;
   state: ChatPanelStateContext;
   client: ChatPanelClientContext;
   lifecycle: ChatPanelLifecycleContext;
@@ -25,6 +28,23 @@ export interface ChatControllerCompositionPorts {
   liveState: ChatPanelLiveStateContext;
   scroll: ChatPanelScrollContext;
   status: ChatPanelStatusContext;
+}
+
+interface ChatControllerHostContext {
+  settings: CodexPanelSettings;
+  vaultPath: string;
+  openThreadInNewView: (threadId: string) => Promise<unknown>;
+  focusThreadInOpenView: (threadId: string) => Promise<boolean>;
+  openTurnDiff: (state: ChatTurnDiffViewState) => Promise<void>;
+  notifyThreadArchived: (threadId: string) => void;
+  notifyThreadRenamed: (threadId: string, name: string | null) => void;
+  refreshThreadsViewLiveState: () => void;
+  refreshSharedThreadListFromOpenSurface: () => void;
+  applyThreadListSnapshot: (threads: readonly Thread[]) => void;
+  publishAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
+  publishAppServerIdentity: (userAgent: string | null) => void;
+  cachedThreadList: () => readonly Thread[] | null;
+  cachedAppServerMetadata: () => SharedAppServerMetadata | null;
 }
 
 interface ChatPanelObsidianContext {
@@ -86,7 +106,7 @@ interface ChatPanelComposerContext {
 }
 
 interface ChatPanelRuntimeContext {
-  runtimeSnapshot: () => RuntimeSnapshot;
+  runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   collaborationModeLabel: () => string;
   connectionDiagnosticDetails: () => DisplayDetailSection[];
   modelStatusLines: () => string[];

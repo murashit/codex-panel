@@ -28,8 +28,7 @@ import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../sr
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import type { Thread } from "../../../../src/domain/threads/model";
-import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
+import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -65,14 +64,14 @@ function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): Displ
 
 describe("thread item conversion preserves app-server semantics", () => {
   it("sorts app-server turns oldest first before converting messages", () => {
-    const userMessage: ThreadItem = {
+    const userMessage: AppServerThreadItem = {
       type: "userMessage",
       id: "u1",
       clientId: null,
       content: [{ type: "text", text: "hello", text_elements: [] }],
     };
-    const assistantMessage: ThreadItem = { type: "agentMessage", id: "a1", text: "world", phase: null, memoryCitation: null };
-    const turns: Turn[] = [
+    const assistantMessage: AppServerThreadItem = { type: "agentMessage", id: "a1", text: "world", phase: null, memoryCitation: null };
+    const turns: AppServerTurn[] = [
       {
         id: "new",
         items: [assistantMessage],
@@ -92,7 +91,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("keeps resolved file mentions visible as user message metadata", () => {
-    const userMessage: ThreadItem = {
+    const userMessage: AppServerThreadItem = {
       type: "userMessage",
       id: "u1",
       clientId: null,
@@ -147,7 +146,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("renders resolved skill references as inline code without changing copy text", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "userMessage",
       id: "u1",
       clientId: null,
@@ -164,7 +163,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("does not rewrite skill references that are already in markdown code", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "userMessage",
       id: "u1",
       clientId: null,
@@ -184,17 +183,17 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("preserves reasoning text", () => {
-    const item: ThreadItem = { type: "reasoning", id: "r1", summary: ["summary"], content: ["detail"] };
+    const item: AppServerThreadItem = { type: "reasoning", id: "r1", summary: ["summary"], content: ["detail"] };
     expect(displayItemFromThreadItem(item)?.text).toBe("summary\n\ndetail");
   });
 
   it("keeps empty reasoning text empty so completed placeholders can be hidden", () => {
-    const item: ThreadItem = { type: "reasoning", id: "r1", summary: [], content: [] };
+    const item: AppServerThreadItem = { type: "reasoning", id: "r1", summary: [], content: [] };
     expect(displayItemFromThreadItem(item)?.text).toBe("");
   });
 
   it("renders completed proposed plans as copyable assistant markdown", () => {
-    const item: ThreadItem = { type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" };
+    const item: AppServerThreadItem = { type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" };
     expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
       id: "p1",
       kind: "message",
@@ -266,7 +265,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("formats collab agent tool calls as agent activity", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "collabAgentToolCall",
       id: "agent-1",
       tool: "spawnAgent",
@@ -296,7 +295,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("marks completed spawn calls complete even before child state arrives", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "collabAgentToolCall",
       id: "agent-1",
       tool: "spawnAgent",
@@ -317,7 +316,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("keeps command output in details instead of inline summaries", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "npm run check",
@@ -340,7 +339,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed read commands separately from generic commands", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "sed -n '1,20p' src/main.ts",
@@ -363,7 +362,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes piped parsed read commands by file name only", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "nl -ba src/main.ts | sed -n '1,20p'",
@@ -388,7 +387,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("keeps absolute read paths when they are outside the command cwd", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "sed -n '1,20p' /vault/src/main.ts",
@@ -411,7 +410,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes zsh login wrapper commands without changing their command classification", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "/bin/zsh -lc 'npm run check'",
@@ -436,7 +435,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed search commands and summarizes their query and path", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg 'command target' src/display",
@@ -461,7 +460,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes parsed search paths relative to the command cwd", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg target /vault/src/display",
@@ -484,7 +483,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes Windows paths relative to the command cwd", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg target C:\\Vault\\src\\display",
@@ -507,7 +506,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed file listing commands and summarizes their path", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg --files src/display",
@@ -530,7 +529,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("uses the representative command action for both label and summary", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "cd src && rg target",
@@ -556,7 +555,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes parsed workspace file listings without a path", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg --files",
@@ -579,7 +578,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("uses structured command status instead of stdout or stderr text", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg error src",
@@ -601,7 +600,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("omits running qualifiers from command, file change, and tool summaries", () => {
-    const command: ThreadItem = {
+    const command: AppServerThreadItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "npm run check",
@@ -614,13 +613,13 @@ describe("thread item conversion preserves app-server semantics", () => {
       exitCode: null,
       durationMs: null,
     };
-    const fileChange: ThreadItem = {
+    const fileChange: AppServerThreadItem = {
       type: "fileChange",
       id: "patch-1",
       status: "inProgress",
       changes: [{ kind: { type: "update", move_path: null }, path: "src/main.ts", diff: "@@\n-old\n+new" }],
     };
-    const tool: ThreadItem = {
+    const tool: AppServerThreadItem = {
       type: "mcpToolCall",
       id: "mcp-1",
       server: "github",
@@ -649,7 +648,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes MCP tool calls from structured arguments and errors", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "mcpToolCall",
       id: "mcp-1",
       server: "github",
@@ -675,7 +674,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes dynamic tool calls from structured arguments only", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "dynamicToolCall",
       id: "tool-1",
       namespace: "web",
@@ -700,7 +699,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("marks image view summaries as path summaries", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "imageView",
       id: "image-1",
       path: "/vault/project/assets/image.png",
@@ -715,7 +714,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("preserves image generation status, details, and state", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "imageGeneration",
       id: "image-gen-1",
       status: "completed",
@@ -740,7 +739,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("uses image generation result as the summary when no saved path is present", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "imageGeneration",
       id: "image-gen-1",
       status: "completed",
@@ -761,7 +760,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("uses details as the summary when a tool target cannot be extracted", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "dynamicToolCall",
       id: "tool-1",
       namespace: "multi_tool_use",
@@ -782,7 +781,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes web search actions by action type and target", () => {
-    const item: ThreadItem = {
+    const item: AppServerThreadItem = {
       type: "webSearch",
       id: "search-1",
       query: "fallback query",
@@ -806,8 +805,8 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("preserves review mode items with their review output", () => {
-    const entered: ThreadItem = { type: "enteredReviewMode", id: "review-entered", review: "Review started" };
-    const exited: ThreadItem = { type: "exitedReviewMode", id: "review-exited", review: "Review finished" };
+    const entered: AppServerThreadItem = { type: "enteredReviewMode", id: "review-entered", review: "Review started" };
+    const exited: AppServerThreadItem = { type: "exitedReviewMode", id: "review-exited", review: "Review finished" };
 
     expect(displayItemFromThreadItem(entered, "t1")).toMatchObject({
       kind: "tool",
@@ -824,7 +823,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("preserves context compaction items as short work items", () => {
-    const item: ThreadItem = { type: "contextCompaction", id: "compact-1" };
+    const item: AppServerThreadItem = { type: "contextCompaction", id: "compact-1" };
 
     expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
       kind: "contextCompaction",

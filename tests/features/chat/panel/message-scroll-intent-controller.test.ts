@@ -19,4 +19,15 @@ describe("ChatMessageScrollIntentController", () => {
 
     expect(controller.consumeIntent()).toBe("force-bottom");
   });
+
+  it("uses the latest scroll intent before consumption", () => {
+    const controller = new ChatMessageScrollIntentController();
+
+    controller.preservePosition();
+    controller.followBottom();
+    controller.forceBottom();
+
+    expect(controller.consumeIntent()).toBe("force-bottom");
+    expect(controller.consumeIntent()).toBe("auto");
+  });
 });

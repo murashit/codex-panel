@@ -17,6 +17,7 @@ type WebSearchMode = "disabled" | "cached" | "live";
 type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 
 export type { ActivePermissionProfile } from "./runtime-policy";
+export type { AppServerConfigReadResponse };
 
 export interface RuntimeConfigSnapshot {
   profile: string | null;

@@ -16,6 +16,7 @@ import type { ThreadGoal, ThreadGoalStatus } from "../../../../app-server/thread
 import { submissionStateSnapshot } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
 import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective-settings";
+import { runtimeSnapshotForChatState } from "../../runtime/snapshot";
 
 export interface SlashCommandThreadPort {
   startNewThread: () => Promise<void>;
@@ -130,31 +131,8 @@ async function executeSlashCommand(
 
 function supportedReasoningEfforts(state: ReturnType<ChatStateStore["getState"]>): ReasoningEffort[] {
   const config = runtimeConfigOrDefault(state.connection.runtimeConfig);
-  const model = findModelMetadataByIdOrName(state.connection.availableModels, currentModel(runtimeSnapshot(state), config));
+  const model = findModelMetadataByIdOrName(state.connection.availableModels, currentModel(runtimeSnapshotForChatState(state), config));
   return supportedEffortsForModelMetadata(model);
-}
-
-function runtimeSnapshot(state: ReturnType<ChatStateStore["getState"]>) {
-  return {
-    runtimeConfig: state.connection.runtimeConfig,
-    activeThreadId: state.activeThread.id,
-    activeModel: state.runtime.activeModel,
-    activeReasoningEffort: state.runtime.activeReasoningEffort,
-    activeCollaborationMode: state.runtime.activeCollaborationMode,
-    activeServiceTier: state.runtime.activeServiceTier,
-    activeApprovalPolicy: state.runtime.activeApprovalPolicy,
-    activeApprovalsReviewer: state.runtime.activeApprovalsReviewer,
-    activePermissionProfile: state.runtime.activePermissionProfile,
-    requestedModel: state.runtime.requestedModel,
-    requestedReasoningEffort: state.runtime.requestedReasoningEffort,
-    requestedApprovalsReviewer: state.runtime.requestedApprovalsReviewer,
-    selectedCollaborationMode: state.runtime.selectedCollaborationMode,
-    requestedServiceTier: state.runtime.requestedServiceTier,
-    tokenUsage: state.activeThread.tokenUsage,
-    rateLimit: state.connection.rateLimit,
-    hasThreadTurns: state.transcript.displayItems.some((item) => item.turnId),
-    availableModels: state.connection.availableModels,
-  };
 }
 
 async function referencedThreadInput(

@@ -73,6 +73,11 @@ interface AppServerTurnRuntimeOverrides {
   approvalsReviewer?: ApprovalsReviewer | null;
 }
 
+type AppServerTurnRuntimeParams = Pick<
+  ClientRequestParams<"turn/start">,
+  "serviceTier" | "collaborationMode" | "model" | "effort" | "approvalsReviewer"
+>;
+
 export interface AppServerStartThreadOptions {
   cwd: string;
   serviceTier?: ServiceTierRequest;
@@ -161,6 +166,16 @@ type AppServerClientLifecycleState =
 function toUserInput(input: string | CodexInput): UserInput[] {
   if (typeof input !== "string") return toAppServerUserInput(input);
   return toAppServerUserInput([{ type: "text", text: input }]);
+}
+
+function appServerTurnRuntimeParams(runtime: AppServerTurnRuntimeOverrides | undefined): AppServerTurnRuntimeParams {
+  const params: AppServerTurnRuntimeParams = {};
+  if (runtime?.serviceTier !== undefined) params.serviceTier = runtime.serviceTier;
+  if (runtime?.collaborationMode !== undefined) params.collaborationMode = runtime.collaborationMode;
+  if (runtime?.model !== undefined) params.model = runtime.model;
+  if (runtime?.effort !== undefined) params.effort = runtime.effort;
+  if (runtime?.approvalsReviewer !== undefined) params.approvalsReviewer = runtime.approvalsReviewer;
+  return params;
 }
 
 export class AppServerClient {
@@ -404,13 +419,9 @@ export class AppServerClient {
       threadId,
       cwd,
       ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
-      ...(runtime?.serviceTier !== undefined ? { serviceTier: runtime.serviceTier } : {}),
+      ...appServerTurnRuntimeParams(runtime),
       input: toUserInput(input),
     };
-    if (runtime?.collaborationMode !== undefined) params.collaborationMode = runtime.collaborationMode;
-    if (runtime?.model !== undefined) params.model = runtime.model;
-    if (runtime?.effort !== undefined) params.effort = runtime.effort;
-    if (runtime?.approvalsReviewer !== undefined) params.approvalsReviewer = runtime.approvalsReviewer;
     return this.request("turn/start", params);
   }
 
@@ -427,12 +438,8 @@ export class AppServerClient {
         },
       ],
       outputSchema,
+      ...appServerTurnRuntimeParams(runtime),
     };
-    if (runtime?.serviceTier !== undefined) params.serviceTier = runtime.serviceTier;
-    if (runtime?.collaborationMode !== undefined) params.collaborationMode = runtime.collaborationMode;
-    if (runtime?.model !== undefined) params.model = runtime.model;
-    if (runtime?.effort !== undefined) params.effort = runtime.effort;
-    if (runtime?.approvalsReviewer !== undefined) params.approvalsReviewer = runtime.approvalsReviewer;
     return this.request("turn/start", params);
   }
 

@@ -1,16 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
-import { runtimeConfigSnapshotFromAppServerConfig, type RuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
+import {
+  runtimeConfigSnapshotFromAppServerConfig,
+  type AppServerConfigReadResponse,
+  type RuntimeConfigSnapshot,
+} from "../../../src/app-server/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
 import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/view-model/composer";
 import {
   effortStatusLines,
   runtimeComposerChoices,
   modelStatusLines,
-  runtimeSnapshotForChatSlices,
   statusSummaryLines,
 } from "../../../src/features/chat/panel/view-model/runtime";
+import { runtimeSnapshotForChatState } from "../../../src/features/chat/runtime/snapshot";
 import {
   activeComposerThreadName,
   activeThreadTitle,
@@ -20,7 +24,9 @@ import { toolbarViewModel } from "../../../src/features/chat/panel/view-model/to
 import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/domain/threads/model";
-import type { ConfigReadResponse } from "../../../src/generated/app-server/v2/ConfigReadResponse";
+import { chatPanelComposerMetaViewModel, chatPanelGoalProps } from "../../../src/features/chat/ui/region-view-models";
+import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/ui-ports";
+import type { ThreadGoal } from "../../../src/app-server/thread-goal";
 
 describe("chat view model", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {
@@ -245,6 +251,82 @@ describe("chat view model", () => {
     expect(selectedEfforts).toEqual(["high"]);
   });
 
+  it("routes goal status actions to the rendered goal thread", () => {
+    const state = createChatState();
+    state.activeThread.id = "thread-rendered";
+    state.activeThread.goal = goalFixture("thread-rendered");
+    const statuses: [string, string][] = [];
+    const clears: string[] = [];
+    const ports = {
+      state: {
+        chat: () => {
+          throw new Error("Goal status actions should not reread the active thread.");
+        },
+      },
+      settings: {
+        sendShortcut: () => "enter",
+      },
+      actions: {
+        goal: {
+          saveObjective: async () => undefined,
+          setStatus: async (threadId, status) => {
+            statuses.push([threadId, status]);
+          },
+          clear: async (threadId) => {
+            clears.push(threadId);
+          },
+          setEditingOpen: () => undefined,
+        },
+      },
+    } satisfies ChatPanelGoalPorts;
+
+    const props = chatPanelGoalProps(ports, state);
+    state.activeThread.id = "thread-current";
+    props.actions.onPause();
+    props.actions.onResume();
+    props.actions.onClear();
+
+    expect(statuses).toEqual([
+      ["thread-rendered", "paused"],
+      ["thread-rendered", "active"],
+    ]);
+    expect(clears).toEqual(["thread-rendered"]);
+  });
+
+  it("builds composer meta from one captured chat state and runtime snapshot", () => {
+    const state = createChatState();
+    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
+    state.connection.availableModels = [modelFixture("gpt-5.5")];
+    const snapshot = runtimeSnapshotFixture(state);
+    const chat = vi.fn(() => state);
+    const runtimeSnapshot = vi.fn(() => snapshot);
+
+    const model = chatPanelComposerMetaViewModel({
+      state: { chat },
+      thread: {
+        restoredPlaceholder: () => null,
+      },
+      runtime: {
+        snapshot: runtimeSnapshot,
+        requestModel: async () => undefined,
+        requestReasoningEffort: async () => undefined,
+        resetReasoningEffortToConfig: async () => undefined,
+      },
+    } satisfies ChatPanelComposerPorts);
+
+    expect(chat).toHaveBeenCalledOnce();
+    expect(runtimeSnapshot).toHaveBeenCalledOnce();
+    expect(model).toMatchObject({
+      model: "gpt-5.5",
+      effort: "high",
+      modelChoices: [{ label: "gpt-5.5", selected: true }],
+      effortChoices: [
+        { label: "Codex default", selected: false },
+        { label: "high", selected: true },
+      ],
+    });
+  });
+
   it("derives active thread titles and composer placeholders", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";
@@ -263,21 +345,14 @@ describe("chat view model", () => {
 
 function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {
   return runtimeConfigSnapshotFromAppServerConfig({
-    config: config as ConfigReadResponse["config"],
+    config: config as AppServerConfigReadResponse["config"],
     origins: {},
     layers: null,
   });
 }
 
 function runtimeSnapshotFixture(state: ChatState) {
-  return runtimeSnapshotForChatSlices({
-    runtimeConfig: state.connection.runtimeConfig,
-    activeThread: state.activeThread,
-    runtime: state.runtime,
-    rateLimit: state.connection.rateLimit,
-    displayItems: state.transcript.displayItems,
-    availableModels: state.connection.availableModels,
-  });
+  return runtimeSnapshotForChatState(state);
 }
 
 function threadFixture(id: string, name: string | null): Thread {
@@ -305,5 +380,18 @@ function modelFixture(model: string, fastTierId?: string): ModelMetadata {
     serviceTiers: fastTierId ? [{ id: fastTierId, name: "Fast" }] : [],
     defaultServiceTier: null,
     isDefault: true,
+  };
+}
+
+function goalFixture(threadId: string): ThreadGoal {
+  return {
+    threadId,
+    objective: "Ship it",
+    status: "active",
+    tokenBudget: null,
+    tokensUsed: 0,
+    timeUsedSeconds: 0,
+    createdAt: 1,
+    updatedAt: 1,
   };
 }

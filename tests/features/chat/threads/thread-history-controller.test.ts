@@ -3,8 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { ThreadHistoryController } from "../../../../src/features/chat/threads/thread-history-controller";
 import type { AppServerClient } from "../../../../src/app-server/client";
-import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
+import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
 import { deferred } from "../../../support/async";
 
 describe("ThreadHistoryController", () => {
@@ -112,11 +111,11 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
   return { loader, stateStore, addSystemMessage, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom };
 }
 
-function threadTurnsResponse(data: Turn[], nextCursor: string | null): ThreadTurnsListResponse {
+function threadTurnsResponse(data: AppServerTurn[], nextCursor: string | null): ThreadTurnsListResponse {
   return { data, nextCursor, backwardsCursor: null };
 }
 
-function turnFixture(items: ThreadItem[]): Turn {
+function turnFixture(items: AppServerThreadItem[]): AppServerTurn {
   return {
     id: "turn",
     items,
@@ -129,7 +128,7 @@ function turnFixture(items: ThreadItem[]): Turn {
   };
 }
 
-function assistantMessage(id: string, text: string): ThreadItem {
+function assistantMessage(id: string, text: string): AppServerThreadItem {
   return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
 }
 

@@ -18,18 +18,19 @@ import {
   type ThreadNamingClientFactory,
 } from "../../../../src/app-server/thread-title-generation";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../../src/features/chat/threads/thread-naming";
-import type { AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../../src/app-server/client";
-import type { InitializeResponse } from "../../../../src/generated/app-server/InitializeResponse";
-import type { RequestId } from "../../../../src/generated/app-server/RequestId";
-import type { Model } from "../../../../src/generated/app-server/v2/Model";
-import type { ModelListResponse } from "../../../../src/generated/app-server/v2/ModelListResponse";
-import type { ServerNotification } from "../../../../src/generated/app-server/ServerNotification";
-import type { Thread as AppServerThread } from "../../../../src/generated/app-server/v2/Thread";
-import type { ThreadItem } from "../../../../src/generated/app-server/v2/ThreadItem";
-import type { ThreadStartResponse } from "../../../../src/generated/app-server/v2/ThreadStartResponse";
-import type { Turn } from "../../../../src/generated/app-server/v2/Turn";
-import type { TurnStartResponse } from "../../../../src/generated/app-server/v2/TurnStartResponse";
-import { modelMetadataFromAppServerModels } from "../../../../src/app-server/catalog-model";
+import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../../src/app-server/client";
+import type { AppServerInitialization } from "../../../../src/app-server/initialization";
+import type { RequestId, ServerNotification } from "../../../../src/app-server/types";
+import type { AppServerThread } from "../../../../src/app-server/thread-model";
+import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
+import { modelMetadataFromAppServerModels, type AppServerModel } from "../../../../src/app-server/catalog-model";
+
+type InitializeResponse = AppServerInitialization;
+type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
+type ThreadItem = AppServerThreadItem;
+type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
+type Turn = AppServerTurn;
+type TurnStartResponse = Awaited<ReturnType<AppServerClient["startStructuredTurn"]>>;
 
 describe("thread naming", () => {
   it("builds naming context from a conversation summary", () => {
@@ -398,7 +399,7 @@ function turnCompletedNotification(threadId: string, completedTurn: Turn): Serve
   };
 }
 
-function model(name: string, efforts: Model["supportedReasoningEfforts"][number]["reasoningEffort"][]): Model {
+function model(name: string, efforts: AppServerModel["supportedReasoningEfforts"][number]["reasoningEffort"][]): AppServerModel {
   return {
     id: name,
     model: name,

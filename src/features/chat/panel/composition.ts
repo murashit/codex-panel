@@ -22,7 +22,7 @@ import type { ThreadSelectionActions } from "../threads/thread-selection-control
 import type { ChatViewRenderController } from "./view-render-controller";
 import type { ChatMessageRenderer } from "../ui/message-stream/renderer";
 import type { ChatControllerCompositionPorts } from "./controller-ports";
-import { createChatControllerCompositionActions, type ChatControllerCompositionBridges } from "./controller-wiring";
+import { createChatControllerCompositionActions } from "./controller-wiring";
 import {
   createChatServerActionControllers,
   createChatConnectionControllers,
@@ -100,11 +100,9 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       composerNode: ports.render.composerNode,
     },
   });
-  const bridges: ChatControllerCompositionBridges = {
-    connection: { controller: null },
-    threadSelection: { actions: null },
-    composerDraft: { controller: null },
-  };
+  let connectionController: ChatConnectionController | null = null;
+  let threadSelection: ThreadSelectionActions | null = null;
+  let composerController: ChatComposerController | null = null;
   const actions = createChatControllerCompositionActions(
     {
       state: ports.state,
@@ -113,14 +111,22 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       status: ports.status,
       scroll: ports.scroll,
       thread: ports.thread,
-      runtime: ports.runtime,
     },
-    { renderController, bridges },
+    {
+      renderController,
+      ensureConnected: () => requireComposedController(connectionController, "connection controller").ensureConnected(),
+      refreshThreads: () => requireComposedController(connectionController, "connection controller").refreshThreads(),
+      refreshSkills: (forceReload) => requireComposedController(connectionController, "connection controller").refreshSkills(forceReload),
+      selectThread: (threadId) => requireComposedController(threadSelection, "thread selection actions").selectThread(threadId),
+      setComposerText: (text) => {
+        requireComposedController(composerController, "composer controller").setDraft(text, { focus: true });
+      },
+    },
   );
   const runtimeSettings = createChatRuntimeSettingsActions({
     stateStore: ports.state.stateStore,
     currentClient: ports.client.getClient,
-    runtimeSnapshot: ports.runtime.runtimeSnapshot,
+    runtimeSnapshotForState: ports.runtime.runtimeSnapshotForState,
     collaborationModeLabel: ports.runtime.collaborationModeLabel,
     addSystemMessage: actions.status.addSystemMessage,
   });
@@ -211,7 +217,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       threadActions,
     },
   );
-  const threadSelection = createThreadSelectionControllerGroup(
+  threadSelection = createThreadSelectionControllerGroup(
     {
       plugin: {
         focusThreadInOpenView: (threadId) => ports.plugin.focusThreadInOpenView(threadId),
@@ -228,7 +234,6 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       toolbarPanels,
     },
   ).threadSelection;
-  bridges.threadSelection.actions = threadSelection;
   const { reconnectActions } = createChatReconnectControllerGroup(
     {
       state: {
@@ -261,7 +266,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
         stateStore: ports.state.stateStore,
       },
       runtime: {
-        runtimeSnapshot: ports.runtime.runtimeSnapshot,
+        runtimeSnapshotForState: ports.runtime.runtimeSnapshotForState,
       },
     },
     {
@@ -303,7 +308,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
     },
   );
-  const connectionController = createChatConnectionControllers(
+  connectionController = createChatConnectionControllers(
     {
       plugin: {
         publishAppServerIdentity: (userAgent) => {
@@ -335,7 +340,6 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       serverDiagnostics,
     },
   ).connectionController;
-  bridges.connection.controller = connectionController;
 
   connection.setHandlers({
     onNotification: (notification) => {
@@ -376,7 +380,11 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       client: actions.client,
       render: actions.render,
       runtime: {
-        ...actions.runtime,
+        runtimeSnapshotForState: ports.runtime.runtimeSnapshotForState,
+        statusSummaryLines: ports.runtime.statusSummaryLines,
+        connectionDiagnosticDetails: ports.runtime.connectionDiagnosticDetails,
+        modelStatusLines: ports.runtime.modelStatusLines,
+        effortStatusLines: ports.runtime.effortStatusLines,
         mcpStatusLines: () => serverDiagnostics.mcpStatusLines(),
       },
       thread: {
@@ -416,8 +424,8 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     },
   );
   const { pendingRequests, composerSubmission } = conversationControllers;
-  const { messageRenderer, composerController } = conversationControllers;
-  bridges.composerDraft.controller = composerController;
+  const { messageRenderer } = conversationControllers;
+  composerController = conversationControllers.composerController;
   const { scheduleAppServerWarmup, openView, closeView } = createConnectionLifecycleControllerGroup(
     {
       obsidian: {
@@ -508,4 +516,9 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       applyViewState,
     },
   };
+}
+
+function requireComposedController<T>(controller: T | null, name: string): T {
+  if (!controller) throw new Error(`Chat view controller composition did not initialize ${name}.`);
+  return controller;
 }

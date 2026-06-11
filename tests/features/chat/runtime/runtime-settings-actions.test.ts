@@ -5,9 +5,10 @@ import {
   type ChatRuntimeSettingsActions,
 } from "../../../../src/features/chat/runtime/runtime-settings-actions";
 import { createChatState, createChatStateStore, type ChatState } from "../../../../src/features/chat/state/reducer";
-import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/view-model/runtime";
+import { runtimeSnapshotForChatState } from "../../../../src/features/chat/runtime/snapshot";
 import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/state/actions";
 import type { AppServerClient } from "../../../../src/app-server/client";
+import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/runtime-config";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 
 describe("createChatRuntimeSettingsActions", () => {
@@ -20,7 +21,7 @@ describe("createChatRuntimeSettingsActions", () => {
     const controller = createChatRuntimeSettingsActions({
       stateStore: store,
       currentClient: () => client as AppServerClient,
-      runtimeSnapshot: () => runtimeSnapshotFixture(store.getState()),
+      runtimeSnapshotForState: runtimeSnapshotFixture,
       collaborationModeLabel: () => "Plan",
       addSystemMessage: (text) => messages.push(text),
     });
@@ -36,6 +37,7 @@ describe("createChatRuntimeSettingsActions", () => {
   it("toggles fast mode and reports the user-visible result", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
+    state.ui.toolbarPanel = "status-panel";
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -46,6 +48,7 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { serviceTier: "fast" });
     expect(store.getState().runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
     expect(store.getState().runtime.activeServiceTier).toBe("fast");
+    expect(store.getState().ui.toolbarPanel).toBeNull();
     expect(messages).toEqual(["Fast mode on for subsequent turns."]);
   });
 
@@ -106,6 +109,58 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual(["Plan mode is selected, but No effective model is available. Sending without a mode override."]);
   });
 
+  it("requests default collaboration mode for the next turn without applying thread settings", () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.runtime.activeCollaborationMode = "plan";
+    state.runtime.selectedCollaborationMode = "plan";
+    const store = createChatStateStore(state);
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    controller.requestDefaultCollaborationModeForNextTurn();
+
+    expect(client.updateThreadSettings).not.toHaveBeenCalled();
+    expect(store.getState().runtime.selectedCollaborationMode).toBe("default");
+    expect(store.getState().runtime.activeCollaborationMode).toBe("plan");
+    expect(messages).toEqual([]);
+  });
+
+  it("builds pending thread settings from explicit effective config", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.connection.runtimeConfig = {
+      ...emptyRuntimeConfigSnapshot(),
+      model: "gpt-config",
+      reasoningEffort: "medium",
+    };
+    const store = createChatStateStore(state);
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = createChatRuntimeSettingsActions({
+      stateStore: store,
+      currentClient: () => client as AppServerClient,
+      runtimeSnapshotForState: (state) => ({ ...runtimeSnapshotFixture(state), runtimeConfig: null }),
+      collaborationModeLabel: () => "Plan",
+      addSystemMessage: (text) => messages.push(text),
+    });
+
+    await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
+
+    expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", {
+      collaborationMode: {
+        mode: "plan",
+        settings: {
+          model: "gpt-config",
+          reasoning_effort: "medium",
+          developer_instructions: null,
+        },
+      },
+    });
+    expect(messages).toEqual(["Plan mode on for subsequent turns."]);
+  });
+
   it("leaves pending override in place when the app-server update fails", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
@@ -118,6 +173,22 @@ describe("createChatRuntimeSettingsActions", () => {
 
     expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(store.getState().runtime.activeModel).toBeNull();
+    expect(messages).toEqual(["nope"]);
+  });
+
+  it("keeps the runtime panel open when a toolbar runtime update fails", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    state.ui.toolbarPanel = "status-panel";
+    const store = createChatStateStore(state);
+    const client = clientFixture({ updateThreadSettings: vi.fn().mockRejectedValue(new Error("nope")) });
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await controller.enableFastMode();
+
+    expect(store.getState().runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(store.getState().ui.toolbarPanel).toBe("status-panel");
     expect(messages).toEqual(["nope"]);
   });
 
@@ -163,6 +234,39 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual([]);
   });
 
+  it("does not commit stale runtime updates after a newer pending override replaces them", async () => {
+    const state = createChatState();
+    state.activeThread.id = "thread";
+    const store = createChatStateStore(state);
+    const firstUpdate = deferred({});
+    const secondUpdate = deferred({});
+    const client = clientFixture({
+      updateThreadSettings: vi
+        .fn()
+        .mockImplementationOnce(() => firstUpdate.promise)
+        .mockImplementationOnce(() => secondUpdate.promise),
+    });
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    const firstRequest = controller.requestModel("gpt-old");
+    expect(client.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" });
+
+    const secondRequest = controller.requestModel("gpt-new");
+    expect(client.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" });
+
+    secondUpdate.resolve({});
+    await expect(secondRequest).resolves.toBe(true);
+    expect(store.getState().runtime.activeModel).toBe("gpt-new");
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
+
+    firstUpdate.resolve({});
+    await expect(firstRequest).resolves.toBe(false);
+    expect(store.getState().runtime.activeModel).toBe("gpt-new");
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(messages).toEqual([]);
+  });
+
   it("resets requested model to config through an explicit command", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
@@ -205,7 +309,7 @@ function runtimeControllerFixture(
   return createChatRuntimeSettingsActions({
     stateStore: store,
     currentClient: () => client as AppServerClient,
-    runtimeSnapshot: () => runtimeSnapshotFixture(store.getState()),
+    runtimeSnapshotForState: runtimeSnapshotFixture,
     collaborationModeLabel: () => "Plan",
     addSystemMessage: (text) => messages.push(text),
   });
@@ -221,14 +325,7 @@ function clientFixture(
 }
 
 function runtimeSnapshotFixture(state: ChatState) {
-  return runtimeSnapshotForChatSlices({
-    runtimeConfig: state.connection.runtimeConfig,
-    activeThread: state.activeThread,
-    runtime: state.runtime,
-    rateLimit: state.connection.rateLimit,
-    displayItems: state.transcript.displayItems,
-    availableModels: state.connection.availableModels,
-  });
+  return runtimeSnapshotForChatState(state);
 }
 
 function modelFixture(model: string, fastTierId: string): ModelMetadata {
@@ -261,5 +358,18 @@ function threadSettings(
     approvalPolicy: "on-request",
     approvalsReviewer,
     activePermissionProfile: null,
+  };
+}
+
+function deferred<T>(initialValue: T): { promise: Promise<T>; resolve: (value?: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return {
+    promise,
+    resolve: (value = initialValue) => {
+      resolve(value);
+    },
   };
 }

@@ -23,7 +23,6 @@ function createController(draft: string) {
   const setDraft = vi.fn();
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const execute = vi.fn().mockResolvedValue(undefined);
-  const forceBottom = vi.fn();
   const followBottom = vi.fn();
   const controller = createComposerSubmissionActions({
     stateStore,
@@ -43,9 +42,9 @@ function createController(draft: string) {
       setStatus: vi.fn(),
       addSystemMessage: vi.fn(),
     },
-    scroll: { forceBottom, followBottom },
+    scroll: { followBottom },
   });
-  return { controller, execute, followBottom, forceBottom, interruptTurn, sendTurnText, setDraft, stateStore };
+  return { controller, execute, followBottom, interruptTurn, sendTurnText, setDraft, stateStore };
 }
 
 describe("createComposerSubmissionActions", () => {
@@ -56,12 +55,12 @@ describe("createComposerSubmissionActions", () => {
 
     expect(followBottom).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith("hello");
-    const [forceBottomOrder] = followBottom.mock.invocationCallOrder;
+    const [followBottomOrder] = followBottom.mock.invocationCallOrder;
     const [sendTurnTextOrder] = sendTurnText.mock.invocationCallOrder;
-    if (forceBottomOrder === undefined || sendTurnTextOrder === undefined) {
-      throw new Error("Expected forceBottom and sendTurnText to be called");
+    if (followBottomOrder === undefined || sendTurnTextOrder === undefined) {
+      throw new Error("Expected followBottom and sendTurnText to be called");
     }
-    expect(forceBottomOrder).toBeLessThan(sendTurnTextOrder);
+    expect(followBottomOrder).toBeLessThan(sendTurnTextOrder);
   });
 
   it("executes slash commands and forwards command send results", async () => {
@@ -77,19 +76,19 @@ describe("createComposerSubmissionActions", () => {
   });
 
   it("restores slash command composer drafts from command results", async () => {
-    const { controller, execute, forceBottom, sendTurnText, setDraft } = createController("/goal edit");
+    const { controller, execute, followBottom, sendTurnText, setDraft } = createController("/goal edit");
     execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });
 
     await controller.submit();
 
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(setDraft).toHaveBeenCalledWith("/goal set Current objective", { focus: true, clearSuggestions: true });
-    expect(forceBottom).not.toHaveBeenCalled();
+    expect(followBottom).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
   });
 
   it("interrupts a running turn when submitting an empty draft", async () => {
-    const { controller, forceBottom, interruptTurn, stateStore } = createController("");
+    const { controller, followBottom, interruptTurn, stateStore } = createController("");
     stateStore.dispatch({
       type: "active-thread/resumed",
       thread: thread("thread"),
@@ -105,7 +104,7 @@ describe("createComposerSubmissionActions", () => {
 
     await controller.submit();
 
-    expect(forceBottom).not.toHaveBeenCalled();
+    expect(followBottom).not.toHaveBeenCalled();
     expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
   });
 });

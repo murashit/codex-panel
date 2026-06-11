@@ -57,6 +57,8 @@ export interface TurnSubmissionControllerHost {
 }
 
 export class TurnSubmissionController {
+  private static localItemSequence = 0;
+
   constructor(private readonly host: TurnSubmissionControllerHost) {}
 
   async sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadDisplay): Promise<void> {
@@ -83,7 +85,7 @@ export class TurnSubmissionController {
       if (!(await this.host.runtime.applyPendingThreadSettings())) return;
 
       const codexInput = codexInputOverride ?? this.host.composer.codexInput(text);
-      optimisticUserId = `local-user-${String(Date.now())}`;
+      optimisticUserId = TurnSubmissionController.nextLocalItemId("local-user");
       const optimistic = optimisticTurnStart({
         id: optimisticUserId,
         text,
@@ -108,6 +110,8 @@ export class TurnSubmissionController {
       const pendingStart = acknowledgedState.pendingTurnStart;
       if (
         shouldAcknowledgeTurnStart({
+          expectedThreadId: activeThreadId,
+          activeThreadId: acknowledgedState.activeThreadId,
           pendingTurnStart: pendingStart,
           activeTurnId: acknowledgedState.activeTurnId,
           optimisticUserId,
@@ -154,7 +158,7 @@ export class TurnSubmissionController {
     }
 
     const codexInput = codexInputOverride ?? this.host.composer.codexInput(text);
-    const localSteerId = `local-steer-${String(Date.now())}`;
+    const localSteerId = TurnSubmissionController.nextLocalItemId("local-steer");
     this.host.composer.setDraft("", { clearSuggestions: true });
 
     try {
@@ -183,5 +187,10 @@ export class TurnSubmissionController {
   private isCurrentTurn(threadId: string, turnId: string): boolean {
     const state = submissionStateSnapshot(this.host.stateStore.getState());
     return state.activeThreadId === threadId && state.activeTurnId === turnId;
+  }
+
+  private static nextLocalItemId(prefix: "local-user" | "local-steer"): string {
+    this.localItemSequence += 1;
+    return `${prefix}-${String(Date.now())}-${String(this.localItemSequence)}`;
   }
 }

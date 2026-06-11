@@ -52,7 +52,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     private readonly plugin: CodexPanelSettingTabHost,
   ) {
     super(app, owner);
-    this.models = plugin.cachedModels();
+    this.models = plugin.cachedModels() ?? [];
   }
 
   display(): void {
@@ -265,7 +265,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async refreshSettingsData(): Promise<void> {
     const operationId = this.nextSettingsDynamicOperationId();
-    this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, { type: "started" });
+    this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, {
+      type: "started",
+      operationId,
+    });
     this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
       type: "started",
       status: "Loading models...",
@@ -286,6 +289,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     let failedCount = 0;
     try {
       const result = await this.withSettingsConnection((client) => loadSettingsData(client, this.plugin.vaultPath));
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
 
       if (result.models.ok) {
         this.models = result.models.data;
@@ -338,6 +342,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         });
       }
     } catch (error) {
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       failedCount = 3;
       const message = errorMessage(error);
       this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
@@ -356,14 +361,18 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         operationId,
       });
     } finally {
+      const staleOperation = this.isStaleSettingsDynamicOperation(operationId);
       this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, {
         type: "completed",
         failedCount,
+        operationId,
       });
-      if (failedCount > 0) {
-        new Notice("Could not refresh all Codex data.");
+      if (!staleOperation) {
+        if (failedCount > 0) {
+          new Notice("Could not refresh all Codex data.");
+        }
+        this.display();
       }
-      this.display();
     }
   }
 
@@ -381,6 +390,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.display();
     try {
       const hooks = await this.withSettingsConnection((client) => loadHookData(client, this.plugin.vaultPath));
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.hooks = hooks.hooks;
       this.hookWarnings = hooks.warnings;
       this.hookErrors = hooks.errors;
@@ -390,6 +400,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         operationId,
       });
     } catch (error) {
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "failed",
         status: `Could not load hooks: ${errorMessage(error)}`,
@@ -397,7 +408,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
       new Notice("Could not load Codex hooks.");
     } finally {
-      this.display();
+      if (!this.isStaleSettingsDynamicOperation(operationId)) this.display();
     }
   }
 
@@ -411,6 +422,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.display();
     try {
       await this.withSettingsConnection((client) => trustHookItem(client, hook));
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "loaded",
         status: "Trusted hook definition.",
@@ -418,6 +430,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
       await this.loadHooks();
     } catch (error) {
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "failed",
         status: `Could not trust hook: ${errorMessage(error)}`,
@@ -438,6 +451,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.display();
     try {
       await this.withSettingsConnection((client) => setHookItemEnabled(client, hook, enabled));
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "loaded",
         status: enabled ? "Enabled hook." : "Disabled hook.",
@@ -445,6 +459,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
       await this.loadHooks();
     } catch (error) {
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
         type: "failed",
         status: `Could not update hook: ${errorMessage(error)}`,
@@ -486,6 +501,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.display();
     try {
       const restoredThread = await this.withSettingsConnection((client) => restoreArchivedThread(client, threadId));
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
         type: "loaded",
@@ -494,6 +510,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
       this.plugin.refreshSharedThreadListFromOpenSurface();
     } catch (error) {
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
         type: "failed",
         status: `Could not restore archived thread: ${errorMessage(error)}`,
@@ -501,7 +518,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
       new Notice("Could not restore archived Codex thread.");
     } finally {
-      this.display();
+      if (!this.isStaleSettingsDynamicOperation(operationId)) this.display();
     }
   }
 
@@ -514,6 +531,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private nextSettingsDynamicOperationId(): number {
     this.settingsDynamicOperationId += 1;
     return this.settingsDynamicOperationId;
+  }
+
+  private isStaleSettingsDynamicOperation(operationId: number): boolean {
+    return operationId !== this.settingsDynamicOperationId;
   }
 
   private modelMetadata(): ModelMetadata[] {
@@ -544,6 +565,6 @@ export interface CodexPanelSettingTabHost {
   saveSettings(): Promise<void>;
   refreshOpenViews(): void;
   refreshSharedThreadListFromOpenSurface(): void;
-  cachedModels(): ModelMetadata[];
+  cachedModels(): ModelMetadata[] | null;
   publishModels(models: ModelMetadata[]): void;
 }

@@ -5,16 +5,23 @@ import {
   mcpServerStatusSummariesFromAppServerStatuses,
   upsertMcpServerStatusDiagnostics,
   upsertMcpServerDiagnostic,
+  type Diagnostics,
   type DiagnosticProbeMethod,
   type McpServerStartupStatus,
   type McpServerStatusSummary,
 } from "../../../../app-server/diagnostics";
 import type { SharedAppServerMetadata } from "../../../../app-server/shared-cache-state";
-import { mcpStatusLines as buildMcpStatusLines } from "../../mcp-status";
+import { mcpStatusLines as buildMcpStatusLines } from "../../display/diagnostics";
 import { cloneAppServerDiagnostics, type ChatServerActionHost } from "./shared";
 
 interface RefreshDiagnosticProbesOptions {
   cachedAppServerMetadata?: boolean;
+}
+
+interface DiagnosticProbeSnapshot {
+  method: DiagnosticProbeMethod;
+  probe: Diagnostics["probes"][DiagnosticProbeMethod];
+  mcpServerStatuses?: readonly McpServerStatusSummary[];
 }
 
 export interface ChatServerDiagnosticsActionsHost extends ChatServerActionHost {
@@ -31,7 +38,9 @@ export interface ChatServerDiagnosticsActions {
 
 export function createChatServerDiagnosticsActions(host: ChatServerDiagnosticsActionsHost): ChatServerDiagnosticsActions {
   return {
-    refreshDiagnosticProbes: (options) => refreshDiagnosticProbes(host, options),
+    refreshDiagnosticProbes: async (options) => {
+      await refreshDiagnosticProbes(host, options);
+    },
     refreshPublishedDiagnosticProbes: (options) => refreshPublishedDiagnosticProbes(host, options),
     mcpStatusLines: () => mcpStatusLines(host),
     recordMcpStartupStatus: (name, startupStatus, message) => {
@@ -43,21 +52,19 @@ export function createChatServerDiagnosticsActions(host: ChatServerDiagnosticsAc
 async function refreshDiagnosticProbes(
   host: ChatServerDiagnosticsActionsHost,
   options: RefreshDiagnosticProbesOptions = {},
-): Promise<void> {
+): Promise<boolean> {
   const client = host.currentClient();
-  if (!client) return;
+  if (!client) return false;
 
-  const probes: Promise<void>[] = [];
+  const probes: Promise<DiagnosticProbeSnapshot>[] = [];
   if (!options.cachedAppServerMetadata) {
     probes.push(
       probeDiagnostic(
-        host,
         "model/list",
         () => client.listModels(false),
         (response) => `${String(response.data.length)} models`,
       ),
       probeDiagnostic(
-        host,
         "skills/list",
         () => client.listSkills(host.vaultPath),
         (response) => {
@@ -66,7 +73,6 @@ async function refreshDiagnosticProbes(
         },
       ),
       probeDiagnostic(
-        host,
         "account/rateLimits/read",
         () => client.readAccountRateLimits(),
         (response) => (response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available"),
@@ -76,7 +82,6 @@ async function refreshDiagnosticProbes(
 
   probes.push(
     probeDiagnostic(
-      host,
       "hooks/list",
       () => client.listHooks(host.vaultPath),
       (response) => {
@@ -85,26 +90,23 @@ async function refreshDiagnosticProbes(
       },
     ),
     probeDiagnostic(
-      host,
       "mcpServerStatus/list",
       () => client.listMcpServerStatus(mcpServerStatusParams(host.stateStore.getState().activeThread.id)),
       (response) => {
         const summaries = mcpServerStatusSummariesFromAppServerStatuses(response.data);
-        recordMcpServerStatusDiagnostics(host, summaries);
         const issueCount = summaries.filter((server) => server.authStatus === "notLoggedIn").length;
         return issueCount > 0
           ? `${String(summaries.length)} servers, ${String(issueCount)} auth issues`
           : `${String(summaries.length)} servers`;
       },
+      (response) => mcpServerStatusSummariesFromAppServerStatuses(response.data),
     ),
     probeDiagnostic(
-      host,
       "collaborationMode/list",
       () => client.listCollaborationModes(),
       (response) => `${String(response.data.length)} modes`,
     ),
     probeDiagnostic(
-      host,
       "modelProvider/capabilities/read",
       () => client.readModelProviderCapabilities(),
       (response) =>
@@ -118,14 +120,23 @@ async function refreshDiagnosticProbes(
     ),
   );
 
-  await Promise.all(probes);
+  const results = await Promise.all(probes);
+  if (host.currentClient() !== client) return false;
+
+  let diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
+  for (const result of results) {
+    diagnostics.probes[result.method] = result.probe;
+    if (result.mcpServerStatuses) diagnostics = upsertMcpServerStatusDiagnostics(diagnostics, result.mcpServerStatuses);
+  }
+  host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
+  return true;
 }
 
 async function refreshPublishedDiagnosticProbes(
   host: ChatServerDiagnosticsActionsHost,
   options: RefreshDiagnosticProbesOptions = {},
 ): Promise<void> {
-  await refreshDiagnosticProbes(host, options);
+  if (!(await refreshDiagnosticProbes(host, options))) return;
   host.publishAppServerMetadata(host.serverMetadataSnapshot());
 }
 
@@ -165,26 +176,22 @@ function recordMcpStartupStatus(
 }
 
 async function probeDiagnostic<T>(
-  host: ChatServerDiagnosticsActionsHost,
   method: DiagnosticProbeMethod,
   request: () => Promise<T>,
   summarize: (response: T) => string | null,
-): Promise<void> {
+  mcpServerStatuses?: (response: T) => readonly McpServerStatusSummary[],
+): Promise<DiagnosticProbeSnapshot> {
   try {
     const response = await request();
-    const diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
-    diagnostics.probes[method] = diagnosticProbeOk(method, summarize(response));
-    host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
+    const statuses = mcpServerStatuses?.(response);
+    return {
+      method,
+      probe: diagnosticProbeOk(method, summarize(response)),
+      ...(statuses ? { mcpServerStatuses: statuses } : {}),
+    };
   } catch (error) {
-    const diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
-    diagnostics.probes[method] = diagnosticProbeError(method, error);
-    host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
+    return { method, probe: diagnosticProbeError(method, error) };
   }
-}
-
-function recordMcpServerStatusDiagnostics(host: ChatServerDiagnosticsActionsHost, servers: readonly McpServerStatusSummary[]): void {
-  const diagnostics = upsertMcpServerStatusDiagnostics(host.stateStore.getState().connection.appServerDiagnostics, servers);
-  host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
 }
 
 function mcpServerStatusParams(threadId: string | null): Parameters<AppServerClient["listMcpServerStatus"]>[0] {

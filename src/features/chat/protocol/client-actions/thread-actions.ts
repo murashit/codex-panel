@@ -1,16 +1,18 @@
 import { listThreads } from "../../../../app-server/resource-operations";
 import type { Thread } from "../../../../domain/threads/model";
-import type { RuntimeSnapshot } from "../../runtime/effective-settings";
+import type { RuntimeSnapshot } from "../../runtime/model";
+import { runtimeConfigOrDefault } from "../../runtime/effective-settings";
 import { serviceTierRequestForThreadStart } from "../../runtime/turn-settings";
 import { resumedThreadActionFromAppServerResponse } from "../../threads/thread-resume";
 import type { ChatServerActionHost } from "./shared";
+import type { ChatState } from "../../state/reducer";
 
 interface StartedThreadSummary {
   threadId: string;
 }
 
 export interface ChatServerThreadActionsHost extends ChatServerActionHost {
-  runtimeSnapshot: () => RuntimeSnapshot;
+  runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   publishThreadList: (threads: readonly Thread[]) => void;
   syncThreadGoal: (threadId: string) => void;
 }
@@ -48,8 +50,13 @@ async function startThread(
 ): Promise<StartedThreadSummary | null> {
   const client = host.currentClient();
   if (!client) return null;
-  const serviceTier = serviceTierRequestForThreadStart(host.runtimeSnapshot());
+  const requestState = host.stateStore.getState();
+  const serviceTier = serviceTierRequestForThreadStart(
+    host.runtimeSnapshotForState(requestState),
+    runtimeConfigOrDefault(requestState.connection.runtimeConfig),
+  );
   const response = await client.startThread({ cwd: host.vaultPath, serviceTier });
+  if (host.currentClient() !== client) return null;
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();
   const activationResponse =

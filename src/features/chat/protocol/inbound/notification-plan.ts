@@ -1,11 +1,13 @@
 import { activeThreadSettingsAppliedAction } from "../../state/actions";
 import type { McpServerStartupStatus } from "../../../../app-server/diagnostics";
 import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/runtime-metrics";
-import { completedConversationSummaryFromAppServerTurn } from "../../../../app-server/turn-model";
-import type { ServerNotification } from "../../../../generated/app-server/ServerNotification";
-import type { FileUpdateChange } from "../../../../generated/app-server/v2/FileUpdateChange";
-import type { ThreadItem } from "../../../../generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../../../generated/app-server/v2/Turn";
+import {
+  completedConversationSummaryFromAppServerTurn,
+  type AppServerFileUpdateChange,
+  type AppServerThreadItem,
+  type AppServerTurn,
+} from "../../../../app-server/turn-model";
+import type { ServerNotification } from "../../../../app-server/types";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
@@ -392,13 +394,13 @@ function autoApprovalReviewPlan(
   });
 }
 
-function startedItemPlan(item: ThreadItem, turnId: string): ChatNotificationPlan {
+function startedItemPlan(item: AppServerThreadItem, turnId: string): ChatNotificationPlan {
   if (shouldSuppressLifecycleItem(item)) return EMPTY_PLAN;
   const displayItem = displayItemFromThreadItem(item, turnId);
   return displayItem ? actionPlan({ type: "transcript/item-upserted", item: displayItem }) : EMPTY_PLAN;
 }
 
-function completedItemPlan(state: ChatState, item: ThreadItem, turnId: string): ChatNotificationPlan {
+function completedItemPlan(state: ChatState, item: AppServerThreadItem, turnId: string): ChatNotificationPlan {
   if (item.type === "userMessage") return EMPTY_PLAN;
   const displayItem = displayItemFromThreadItem(item, turnId);
   if (!displayItem) return EMPTY_PLAN;
@@ -409,7 +411,7 @@ function completedItemPlan(state: ChatState, item: ThreadItem, turnId: string): 
   return actionPlan({ type: "transcript/items-replaced", items: displayItems });
 }
 
-function fileChangePlan(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): ChatNotificationPlan {
+function fileChangePlan(itemId: string, turnId: string, changes: AppServerFileUpdateChange[], status: string): ChatNotificationPlan {
   return actionPlan({
     type: "transcript/item-upserted",
     item: {
@@ -479,7 +481,7 @@ function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: stri
   return attachHookRunsToTurn(state.transcript.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }
 
-function reconciledCompletedTurnItems(state: ChatState, turn: Turn): readonly DisplayItem[] {
+function reconciledCompletedTurnItems(state: ChatState, turn: AppServerTurn): readonly DisplayItem[] {
   const turnItems = displayItemsFromTurns([turn]);
   if (turnItems.length === 0) return state.transcript.displayItems;
   const serverUserMessages = turnItems.filter(isUserMessage);

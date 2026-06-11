@@ -25,20 +25,22 @@ import {
   type SelectionRewriteClient,
   type SelectionRewriteClientFactory,
 } from "../../../src/features/selection-rewrite/runner";
-import type { AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../src/app-server/client";
+import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../src/app-server/client";
+import type { AppServerInitialization } from "../../../src/app-server/initialization";
+import type { RequestId, ServerNotification } from "../../../src/app-server/types";
+import type { AppServerThread } from "../../../src/app-server/thread-model";
+import type { AppServerThreadItem, AppServerTurn } from "../../../src/app-server/turn-model";
 import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
-import type { InitializeResponse } from "../../../src/generated/app-server/InitializeResponse";
-import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
-import type { ServerNotification } from "../../../src/generated/app-server/ServerNotification";
-import type { RequestId } from "../../../src/generated/app-server/RequestId";
-import type { Thread as AppServerThread } from "../../../src/generated/app-server/v2/Thread";
 import type { ComposerSendKeyEvent } from "../../../src/shared/ui/keyboard";
-import type { ThreadItem } from "../../../src/generated/app-server/v2/ThreadItem";
-import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
-import type { Turn } from "../../../src/generated/app-server/v2/Turn";
-import type { TurnStartResponse } from "../../../src/generated/app-server/v2/TurnStartResponse";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
+
+type InitializeResponse = AppServerInitialization;
+type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
+type ThreadItem = AppServerThreadItem;
+type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
+type Turn = AppServerTurn;
+type TurnStartResponse = Awaited<ReturnType<AppServerClient["startStructuredTurn"]>>;
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

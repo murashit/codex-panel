@@ -1,6 +1,8 @@
 import type { McpServerStatus as AppServerMcpServerStatus } from "../generated/app-server/v2/McpServerStatus";
 import type { AppServerInitialization } from "./initialization";
 
+export type { AppServerMcpServerStatus };
+
 export const DIAGNOSTIC_PROBE_METHODS = [
   "model/list",
   "skills/list",

@@ -1,6 +1,6 @@
 import type { ChatState } from "../state/reducer";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "../runtime/effective-settings";
+import type { RuntimeSnapshot } from "../runtime/model";
 import type { SendShortcut } from "../../../shared/ui/keyboard";
 import type { ToolbarActions } from "../ui/toolbar";
 import type { ToolbarThreadRow } from "./view-model/types";

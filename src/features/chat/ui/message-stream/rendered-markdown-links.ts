@@ -1,6 +1,6 @@
 import { Notice, type App } from "obsidian";
 
-import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "../../markdown-file-links";
+import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "../../../../shared/obsidian/file-links";
 
 export interface RenderedMarkdownLinkContext {
   app: App;

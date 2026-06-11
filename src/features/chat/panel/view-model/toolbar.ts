@@ -1,7 +1,7 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import { runtimeConfigSections, rateLimitSummary } from "../../runtime/status-summary";
-import { connectionDiagnosticSections } from "../../diagnostics";
+import { connectionDiagnosticSections } from "../../display/diagnostics";
 import type { ConnectionDiagnosticsModelInput, ToolbarThreadRow, ToolbarViewModel, ToolbarViewModelInput } from "./types";
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {

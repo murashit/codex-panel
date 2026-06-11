@@ -5,7 +5,7 @@ import { act } from "preact/test-utils";
 
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { runtimeSnapshotForChatSlices } from "../../../../src/features/chat/panel/view-model/runtime";
+import { runtimeSnapshotForChatState } from "../../../../src/features/chat/runtime/snapshot";
 import { createToolbarArchiveConfirmState } from "../../../../src/features/chat/panel/toolbar-archive-confirm-state";
 import { ToolbarPanelController } from "../../../../src/features/chat/panel/toolbar-controller";
 import type { ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/ui-ports";
@@ -74,17 +74,7 @@ function toolbarPorts(store: ReturnType<typeof createChatStateStore>, controller
       archiveExportEnabled: () => true,
     },
     runtime: {
-      snapshot: () => {
-        const state = store.getState();
-        return runtimeSnapshotForChatSlices({
-          runtimeConfig: state.connection.runtimeConfig,
-          activeThread: state.activeThread,
-          runtime: state.runtime,
-          rateLimit: state.connection.rateLimit,
-          displayItems: state.transcript.displayItems,
-          availableModels: state.connection.availableModels,
-        });
-      },
+      snapshot: () => runtimeSnapshotForChatState(store.getState()),
     },
     view: {
       toolbar: {

@@ -1,16 +1,7 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "../../runtime/effective-settings";
+import type { RuntimeSnapshot } from "../../runtime/model";
 import type { RuntimeConfigSection, RateLimitSummary } from "../../runtime/status-summary";
 import type { ChatState } from "../../state/reducer";
-
-export interface RuntimeSnapshotInput {
-  runtimeConfig: ChatState["connection"]["runtimeConfig"];
-  activeThread: Pick<ChatState["activeThread"], "id" | "tokenUsage">;
-  runtime: ChatState["runtime"];
-  rateLimit: ChatState["connection"]["rateLimit"];
-  displayItems: ChatState["transcript"]["displayItems"];
-  availableModels: ChatState["connection"]["availableModels"];
-}
 
 export interface ComposerMetaViewModel {
   fatal: string | null;

@@ -7,9 +7,9 @@ import {
   approvalSummary,
   approvalTitle,
   toPendingApproval,
+  type CommandApprovalDecision,
 } from "../../../../../src/features/chat/protocol/requests/approval";
-import type { ServerRequest } from "../../../../../src/generated/app-server/ServerRequest";
-import type { CommandExecutionApprovalDecision } from "../../../../../src/generated/app-server/v2/CommandExecutionApprovalDecision";
+import type { ServerRequest } from "../../../../../src/app-server/types";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -70,7 +70,7 @@ describe("approval model", () => {
   it("uses command approval decisions supplied by app-server", () => {
     const networkDecision = {
       applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } },
-    } satisfies CommandExecutionApprovalDecision;
+    } satisfies CommandApprovalDecision;
     const request: ServerRequest = {
       id: 30,
       method: "item/commandExecution/requestApproval",

@@ -12,9 +12,8 @@ import {
   fastModeLabel,
   runtimeConfigOrDefault,
   serviceTierLabel,
-  type RuntimeSnapshot,
 } from "./effective-settings";
-import { pendingRuntimeSettingLabel } from "./model";
+import { collaborationModeLabel, pendingRuntimeSettingLabel, type RuntimeSnapshot } from "./model";
 
 export interface ContextSummary {
   label: string;
@@ -138,7 +137,7 @@ export function runtimeConfigSections(snapshot: RuntimeSnapshot, vaultPath: stri
           value:
             snapshot.selectedCollaborationMode === snapshot.activeCollaborationMode
               ? "(none)"
-              : modeLabel(snapshot.selectedCollaborationMode),
+              : collaborationModeLabel(snapshot.selectedCollaborationMode),
         },
         { key: "effective service tier", value: serviceTierLabel(snapshot, config) },
         { key: "configured service tier", value: config.serviceTier ?? CODEX_DEFAULT_LABEL },
@@ -192,10 +191,6 @@ function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeCon
   return defaultEffortForModelMetadata(
     sortedModelMetadata(snapshot.availableModels).find((availableModel) => availableModel.model === model) ?? null,
   );
-}
-
-function modeLabel(mode: RuntimeSnapshot["selectedCollaborationMode"]): string {
-  return mode === "plan" ? "Plan" : "Default";
 }
 
 function activeRuntimeValueLabel(value: string | null): string {

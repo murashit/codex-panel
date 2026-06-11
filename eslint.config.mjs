@@ -21,6 +21,31 @@ const removedChatStateEscapeHatchRestrictions = [
     message: "Use a named ChatAction instead of reintroducing the generic state patch escape hatch.",
   },
 ];
+const generatedAppServerSourceImportPatterns = [
+  "src/generated/app-server/**",
+  "../generated/app-server/**",
+  "../../generated/app-server/**",
+  "../../../generated/app-server/**",
+  "../../../../generated/app-server/**",
+  "../../../../../generated/app-server/**",
+  "../../../../../../generated/app-server/**",
+];
+const generatedAppServerTestImportPatterns = [
+  "src/generated/app-server/**",
+  "../src/generated/app-server/**",
+  "../../src/generated/app-server/**",
+  "../../../src/generated/app-server/**",
+  "../../../../src/generated/app-server/**",
+  "../../../../../src/generated/app-server/**",
+  "../../../../../../src/generated/app-server/**",
+];
+const generatedAppServerThreadImportRestrictions = [
+  {
+    selector:
+      "ImportDeclaration[source.value=/generated\\/app-server\\/v2\\/Thread$/] ImportSpecifier[imported.name='Thread'][local.name='Thread']",
+    message: "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
+  },
+];
 const unsafeIteratorRestrictions = [
   {
     selector: "MemberExpression[property.name='value'][object.type='CallExpression'][object.callee.property.name='next']",
@@ -100,14 +125,6 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/ui-root.tsx",
 ];
 const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts"];
-// These files are the remaining chat app-server adapter boundary: they translate
-// generated protocol messages into Panel-owned display, routing, and request models.
-const generatedAppServerImportProtocolAdapterFiles = [
-  "src/features/chat/protocol/display-items.ts",
-  "src/features/chat/protocol/inbound/controller.ts",
-  "src/features/chat/protocol/inbound/notification-plan.ts",
-  "src/features/chat/protocol/inbound/routing.ts",
-];
 const codexPanelEslintPlugin = {
   rules: {
     "no-self-referential-initializer-callback": {
@@ -311,6 +328,7 @@ export default defineConfig([
       "@typescript-eslint/no-unsafe-member-access": "off",
       "@typescript-eslint/no-unnecessary-type-assertion": "off",
       "@typescript-eslint/require-await": "off",
+      "no-restricted-syntax": ["error", ...generatedAppServerThreadImportRestrictions],
     },
   },
   {
@@ -337,6 +355,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...generatedAppServerThreadImportRestrictions,
         ...unsafeIteratorRestrictions,
         ...imperativeDomRestrictions,
         ...preactFormRestrictions,
@@ -350,6 +369,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...generatedAppServerThreadImportRestrictions,
         ...unsafeIteratorRestrictions,
         ...imperativeDomRestrictions,
         ...preactFormRestrictions,
@@ -363,6 +383,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...generatedAppServerThreadImportRestrictions,
         ...unsafeIteratorRestrictions,
         ...preactFormRestrictions,
       ],
@@ -375,6 +396,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...generatedAppServerThreadImportRestrictions,
         ...unsafeIteratorRestrictions,
         ...preactFormRestrictions,
       ],
@@ -386,6 +408,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...generatedAppServerThreadImportRestrictions,
         ...unsafeIteratorRestrictions,
         ...imperativeDomWriteRestrictions,
         ...preactFormRestrictions,
@@ -398,6 +421,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...removedChatStateEscapeHatchRestrictions,
+        ...generatedAppServerThreadImportRestrictions,
         ...unsafeIteratorRestrictions,
         ...imperativeDomRestrictions,
         ...preactFormRestrictions,
@@ -436,24 +460,33 @@ export default defineConfig([
   },
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/app-server/**/*.{ts,tsx}", ...generatedAppServerImportProtocolAdapterFiles],
+    ignores: ["src/app-server/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
             {
-              group: [
-                "src/generated/app-server/**",
-                "../generated/app-server/**",
-                "../../generated/app-server/**",
-                "../../../generated/app-server/**",
-                "../../../../generated/app-server/**",
-                "../../../../../generated/app-server/**",
-                "../../../../../../generated/app-server/**",
-              ],
+              group: generatedAppServerSourceImportPatterns,
+              message: "Keep generated app-server types behind src/app-server; expose Panel-owned models to feature, UI, and reducer code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["tests/**/*.{ts,tsx}"],
+    ignores: ["tests/app-server/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: generatedAppServerTestImportPatterns,
               message:
-                "Keep generated app-server types behind src/app-server or the chat app-server adapter; expose Panel-owned models to feature, UI, and reducer code.",
+                "Keep generated app-server types behind src/app-server and tests/app-server; feature tests should use Panel-owned models.",
             },
           ],
         },
