@@ -676,6 +676,7 @@ describe("ChatInboundController", () => {
       controller.handleNotification({
         method: "mcpServer/startupStatus/updated",
         params: {
+          threadId: null,
           name: "github",
           status: "failed",
           error: "missing token",

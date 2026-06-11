@@ -96,6 +96,7 @@ export function messageThreadId(message: ServerNotification | ServerRequest): st
     case "item/reasoning/summaryTextDelta":
     case "item/reasoning/summaryPartAdded":
     case "item/reasoning/textDelta":
+    case "turn/moderationMetadata":
     case "thread/compacted":
     case "model/rerouted":
     case "model/verification":
@@ -121,7 +122,6 @@ export function messageThreadId(message: ServerNotification | ServerRequest): st
     case "process/outputDelta":
     case "process/exited":
     case "mcpServer/oauthLogin/completed":
-    case "mcpServer/startupStatus/updated":
     case "account/updated":
     case "account/rateLimits/updated":
     case "app/list/updated":
@@ -140,6 +140,8 @@ export function messageThreadId(message: ServerNotification | ServerRequest): st
     case "applyPatchApproval":
     case "execCommandApproval":
       return null;
+    case "mcpServer/startupStatus/updated":
+      return message.params.threadId ?? null;
   }
 }
 
@@ -170,6 +172,7 @@ export function messageTurnId(message: ServerNotification | ServerRequest): stri
     case "item/reasoning/summaryTextDelta":
     case "item/reasoning/summaryPartAdded":
     case "item/reasoning/textDelta":
+    case "turn/moderationMetadata":
     case "thread/compacted":
     case "model/rerouted":
     case "model/verification":

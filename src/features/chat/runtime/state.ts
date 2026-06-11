@@ -7,7 +7,7 @@ import {
 } from "../../../app-server/runtime-policy";
 import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
 import type { CollaborationMode } from "./turn-settings";
-import type { ReasoningEffort } from "../../../domain/catalog/metadata";
+import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import {
   resetRuntimeSettingToConfig,
   setPendingRuntimeSetting,
@@ -106,7 +106,10 @@ export function commitPendingThreadSettingsRuntimeState(state: ChatRuntimeState,
     ...state,
     ...("model" in update ? { activeModel: update.model ?? null, requestedModel: unchangedRuntimeSetting<string>() } : {}),
     ...("effort" in update
-      ? { activeReasoningEffort: update.effort ?? null, requestedReasoningEffort: unchangedRuntimeSetting<ReasoningEffort>() }
+      ? {
+          activeReasoningEffort: normalizeReasoningEffort(update.effort),
+          requestedReasoningEffort: unchangedRuntimeSetting<ReasoningEffort>(),
+        }
       : {}),
     ...("serviceTier" in update
       ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedServiceTier: unchangedRuntimeSetting<RequestedServiceTier>() }

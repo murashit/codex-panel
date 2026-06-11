@@ -1,7 +1,7 @@
 import { parseServiceTier, type ApprovalPolicy } from "../../../app-server/runtime-policy";
 import { upsertThread } from "../../../domain/threads/model";
 import { threadFromAppServerThread } from "../../../app-server/thread-model";
-import type { ReasoningEffort } from "../../../domain/catalog/metadata";
+import { normalizeReasoningEffort } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import type { ThreadStartResponse } from "../../../generated/app-server/v2/ThreadStartResponse";
 import type { ThreadResumeResponse } from "../../../generated/app-server/v2/ThreadResumeResponse";
@@ -17,7 +17,7 @@ interface ThreadActivationResponse {
   approvalPolicy: ApprovalPolicy | null;
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
   activePermissionProfile: ChatRuntimeState["activePermissionProfile"];
-  reasoningEffort: ReasoningEffort | null;
+  reasoningEffort: string | null;
 }
 
 export interface ResumedThreadActionParams {
@@ -80,7 +80,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     thread: response.thread,
     cwd: response.cwd,
     model: response.model,
-    reasoningEffort: response.reasoningEffort,
+    reasoningEffort: normalizeReasoningEffort(response.reasoningEffort),
     serviceTier: parseServiceTier(response.serviceTier),
     approvalPolicy: response.approvalPolicy,
     approvalsReviewer: response.approvalsReviewer,

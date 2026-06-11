@@ -141,6 +141,16 @@ describe("chat inbound routing", () => {
     );
     expect(routeServerNotification(rawResponseItemCompletedNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
     expect(routeServerNotification(rawResponseItemCompletedNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
+
+    expect(routeServerNotification(turnModerationMetadataNotification("thread-active", "turn-active"), activeScope).kind).toBe("unhandled");
+    expect(routeServerNotification(turnModerationMetadataNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
+    expect(routeServerNotification(turnModerationMetadataNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
+  });
+
+  it("scopes MCP startup status notifications when app-server provides a thread id", () => {
+    expect(messageThreadId(mcpStartupStatusNotificationForThread("thread-active"))).toBe("thread-active");
+    expect(routeServerNotification(mcpStartupStatusNotificationForThread("thread-active"), activeScope).kind).toBe("diagnosticStatus");
+    expect(routeServerNotification(mcpStartupStatusNotificationForThread("thread-other"), activeScope).kind).toBe("inactive");
   });
 });
 
@@ -276,9 +286,23 @@ function serverRequestResolvedNotification(): ServerNotification {
 }
 
 function mcpStartupStatusNotification(): ServerNotification {
+  return mcpStartupStatusNotificationForThread(null);
+}
+
+function mcpStartupStatusNotificationForThread(threadId: string | null): ServerNotification {
   return {
     method: "mcpServer/startupStatus/updated",
-    params: { name: "github", status: "failed", error: "missing token" },
+    params: { threadId, name: "github", status: "failed", error: "missing token" },
+  };
+}
+
+function turnModerationMetadataNotification(
+  threadId: string,
+  turnId: string,
+): Extract<ServerNotification, { method: "turn/moderationMetadata" }> {
+  return {
+    method: "turn/moderationMetadata",
+    params: { threadId, turnId, metadata: { blocked: false } },
   };
 }
 

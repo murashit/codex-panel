@@ -2,7 +2,7 @@ import type { AppServerInitialization } from "../../../app-server/initialization
 import type { Thread } from "../../../domain/threads/model";
 import type { ThreadTokenUsage } from "../../../app-server/runtime-metrics";
 import { parseServiceTier, type ServiceTier } from "../../../app-server/runtime-policy";
-import type { ReasoningEffort } from "../../../domain/catalog/metadata";
+import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../runtime/state";
 import type { CollaborationMode } from "../runtime/turn-settings";
 import type { DisplayItem } from "../display/types";
@@ -38,7 +38,7 @@ export interface ActiveThreadSettingsAppliedAction {
 export interface ActiveThreadSettingsAppliedActionSettings {
   cwd: string;
   model: string | null;
-  effort: ReasoningEffort | null;
+  effort: string | null;
   collaborationMode: { mode: CollaborationMode };
   serviceTier: string | null;
   approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
@@ -161,7 +161,7 @@ export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettings
     type: "active-thread/settings-applied",
     cwd: settings.cwd,
     model: settings.model,
-    reasoningEffort: settings.effort,
+    reasoningEffort: normalizeReasoningEffort(settings.effort),
     collaborationMode: settings.collaborationMode.mode,
     serviceTier: parseServiceTier(settings.serviceTier),
     approvalPolicy: settings.approvalPolicy,
