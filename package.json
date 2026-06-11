@@ -58,6 +58,7 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
+    "@preact/signals": "^2.9.1",
     "@tanstack/virtual-core": "3.17.0",
     "preact": "^10.29.2"
   }

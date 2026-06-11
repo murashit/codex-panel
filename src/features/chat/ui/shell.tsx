@@ -1,6 +1,22 @@
-import type { ComponentChild as UiNode } from "preact";
+import { createContext, type ComponentChild as UiNode } from "preact";
+import { useContext } from "preact/hooks";
+import { signal, type Signal } from "@preact/signals";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
-import type { ChatStateStore } from "../chat-state";
+import type { ChatState, ChatStateStore } from "../chat-state";
+
+export interface ChatPanelShellState {
+  connection: Signal<ChatState["connection"]>;
+  threadList: Signal<ChatState["threadList"]>;
+  activeThread: Signal<ChatState["activeThread"]>;
+  runtime: Signal<ChatState["runtime"]>;
+  turn: Signal<ChatState["turn"]>;
+  transcript: Signal<ChatState["transcript"]>;
+  requests: Signal<ChatState["requests"]>;
+  composer: Signal<ChatState["composer"]>;
+  ui: Signal<ChatState["ui"]>;
+  renderVersion: Signal<number>;
+  latestState: () => ChatState;
+}
 
 export interface ChatPanelShellProps {
   stateStore: ChatStateStore;
@@ -16,16 +32,18 @@ interface ChatPanelShellMount {
   stateStore: ChatStateStore;
   unsubscribe: () => void;
   stopStatusBarClearanceSync: () => void;
-  stateVersion: number;
+  shellState: ChatPanelShellState;
 }
 
 const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
+const ChatPanelShellStateContext = createContext<ChatPanelShellState | null>(null);
 
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
   container.addClass("codex-panel");
   const existing = shellMounts.get(container);
   const mount = existing?.stateStore === props.stateStore ? existing : createShellMount(container, props);
   mount.props = props;
+  mount.shellState.renderVersion.value += 1;
   renderMountedShell(container, mount);
 }
 
@@ -43,20 +61,50 @@ function createShellMount(container: HTMLElement, props: ChatPanelShellProps): C
   const existing = shellMounts.get(container);
   existing?.unsubscribe();
   existing?.stopStatusBarClearanceSync();
+  let latestState = props.stateStore.getState();
   const mount: ChatPanelShellMount = {
     props,
     stateStore: props.stateStore,
-    stateVersion: 0,
+    shellState: createShellState(latestState, () => latestState),
     unsubscribe: props.stateStore.subscribe(() => {
       const current = shellMounts.get(container);
       if (!current) return;
-      current.stateVersion += 1;
-      renderMountedShell(container, current);
+      latestState = props.stateStore.getState();
+      syncShellState(current.shellState, latestState);
+      if (!uiRootIntact(container)) renderMountedShell(container, current);
     }),
     stopStatusBarClearanceSync: startStatusBarClearanceSync(container),
   };
   shellMounts.set(container, mount);
   return mount;
+}
+
+function createShellState(initialState: ChatState, latestState: () => ChatState): ChatPanelShellState {
+  return {
+    connection: signal(initialState.connection),
+    threadList: signal(initialState.threadList),
+    activeThread: signal(initialState.activeThread),
+    runtime: signal(initialState.runtime),
+    turn: signal(initialState.turn),
+    transcript: signal(initialState.transcript),
+    requests: signal(initialState.requests),
+    composer: signal(initialState.composer),
+    ui: signal(initialState.ui),
+    renderVersion: signal(0),
+    latestState,
+  };
+}
+
+function syncShellState(shellState: ChatPanelShellState, nextState: ChatState): void {
+  if (shellState.connection.value !== nextState.connection) shellState.connection.value = nextState.connection;
+  if (shellState.threadList.value !== nextState.threadList) shellState.threadList.value = nextState.threadList;
+  if (shellState.activeThread.value !== nextState.activeThread) shellState.activeThread.value = nextState.activeThread;
+  if (shellState.runtime.value !== nextState.runtime) shellState.runtime.value = nextState.runtime;
+  if (shellState.turn.value !== nextState.turn) shellState.turn.value = nextState.turn;
+  if (shellState.transcript.value !== nextState.transcript) shellState.transcript.value = nextState.transcript;
+  if (shellState.requests.value !== nextState.requests) shellState.requests.value = nextState.requests;
+  if (shellState.composer.value !== nextState.composer) shellState.composer.value = nextState.composer;
+  if (shellState.ui.value !== nextState.ui) shellState.ui.value = nextState.ui;
 }
 
 function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount): void {
@@ -65,7 +113,7 @@ function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount):
     container.replaceChildren();
   }
   syncStatusBarClearance(container);
-  renderUiRoot(container, <ChatPanelShell {...mount.props} stateVersion={mount.stateVersion} />);
+  renderUiRoot(container, <ChatPanelShell {...mount.props} shellState={mount.shellState} />);
 }
 
 function uiRootIntact(container: HTMLElement): boolean {
@@ -84,18 +132,24 @@ function ChatPanelShell({
   goalNode,
   messagesNode,
   composerNode,
-  stateVersion,
-}: ChatPanelShellProps & { stateVersion: number }): UiNode {
+  shellState,
+}: ChatPanelShellProps & { shellState: ChatPanelShellState }): UiNode {
   return (
-    <>
+    <ChatPanelShellStateContext.Provider value={shellState}>
       {showToolbar ? <div className="codex-panel__toolbar">{toolbarNode()}</div> : null}
-      <div className="codex-panel__body" data-codex-panel-state-version={String(stateVersion)}>
+      <div className="codex-panel__body">
         <div className="codex-panel__region codex-panel__region--goal">{goalNode()}</div>
         {messagesNode()}
         <div className="codex-panel__region codex-panel__region--composer">{composerNode()}</div>
       </div>
-    </>
+    </ChatPanelShellStateContext.Provider>
   );
+}
+
+export function useChatPanelShellState(): ChatPanelShellState {
+  const context = useContext(ChatPanelShellStateContext);
+  if (!context) throw new Error("Chat panel shell state is only available inside ChatPanelShell.");
+  return context;
 }
 
 function startStatusBarClearanceSync(container: HTMLElement): () => void {

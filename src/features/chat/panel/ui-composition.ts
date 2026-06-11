@@ -15,6 +15,7 @@ import type { ChatMessageRenderer } from "../ui/message-stream";
 import { applyCachedSharedAppServerState, type CachedSharedAppServerStateSource } from "./cached-app-server-state";
 import type { ChatViewDeferredTasks, RestoredThreadState } from "./lifecycle";
 import { createChatShellRenderPort } from "./shell-render";
+import { createToolbarArchiveConfirmState } from "./toolbar-archive-confirm-state";
 
 interface ViewRenderControllerGroupPorts {
   plugin: Pick<CodexChatHost, "settings">;
@@ -189,6 +190,7 @@ export function createPanelUiControllerGroup(
   const toolbarPanels = new ToolbarPanelController({
     stateStore: context.state.stateStore,
     threadActions: refs.threadActions,
+    archiveConfirm: createToolbarArchiveConfirmState(),
     scheduleRender: render.schedule,
   });
   const applyViewState = (state: unknown) => {

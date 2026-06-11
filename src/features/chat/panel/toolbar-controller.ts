@@ -1,9 +1,11 @@
 import type { ChatAction, ChatState, ChatStateStore } from "../chat-state";
 import type { ChatThreadActions } from "../threads/thread-actions";
+import type { ToolbarArchiveConfirmState } from "./toolbar-archive-confirm-state";
 
 export interface ToolbarPanelControllerHost {
   stateStore: ChatStateStore;
   threadActions: ChatThreadActions;
+  archiveConfirm: ToolbarArchiveConfirmState;
   scheduleRender: () => void;
 }
 
@@ -17,8 +19,6 @@ export interface ToolbarOutsidePointerContext {
 type ToolbarDomWindow = Window & { Element: typeof Element };
 
 export class ToolbarPanelController {
-  private archiveConfirmThreadId: string | null = null;
-
   constructor(private readonly host: ToolbarPanelControllerHost) {}
 
   private get state(): ChatState {
@@ -30,7 +30,11 @@ export class ToolbarPanelController {
   }
 
   archiveConfirmId(): string | null {
-    return this.archiveConfirmThreadId;
+    return this.host.archiveConfirm.get();
+  }
+
+  onArchiveConfirmChange(listener: () => void): () => void {
+    return this.host.archiveConfirm.subscribe(listener);
   }
 
   toggleHistory(): void {
@@ -53,16 +57,15 @@ export class ToolbarPanelController {
   }
 
   closeForThreadSelection(): void {
-    this.archiveConfirmThreadId = null;
+    this.host.archiveConfirm.set(null);
   }
 
   startArchive(threadId: string): void {
-    this.archiveConfirmThreadId = threadId;
-    this.host.scheduleRender();
+    this.host.archiveConfirm.set(threadId);
   }
 
   async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
-    if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
+    if (this.host.archiveConfirm.get() === threadId) this.host.archiveConfirm.set(null);
     await this.host.threadActions.archiveThread(threadId, saveMarkdown);
     this.host.scheduleRender();
   }
@@ -74,17 +77,15 @@ export class ToolbarPanelController {
     if (isToolbarElement(target, context.viewWindow)) {
       const insideToolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
       if (insideToolbarPanel && context.contains(insideToolbarPanel)) {
-        if (this.archiveConfirmThreadId && !target.closest(".codex-panel__archive-confirm")) {
-          this.archiveConfirmThreadId = null;
-          this.host.scheduleRender();
+        if (this.host.archiveConfirm.get() && !target.closest(".codex-panel__archive-confirm")) {
+          this.host.archiveConfirm.set(null);
         }
         return;
       }
     }
 
-    if (this.archiveConfirmThreadId) {
-      this.archiveConfirmThreadId = null;
-      this.host.scheduleRender();
+    if (this.host.archiveConfirm.get()) {
+      this.host.archiveConfirm.set(null);
     }
 
     if (context.renameEditing) return;
@@ -100,7 +101,7 @@ export class ToolbarPanelController {
     if (!this.hasOpenPanel()) return;
 
     this.dispatch({ type: "ui/panel-set", panel: null });
-    this.archiveConfirmThreadId = null;
+    this.host.archiveConfirm.set(null);
     this.host.scheduleRender();
   }
 }

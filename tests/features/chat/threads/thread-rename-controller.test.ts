@@ -10,15 +10,30 @@ import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
 describe("ThreadRenameController", () => {
-  it("rerenders after updating a controlled rename draft", () => {
+  it("notifies subscribers without rerendering after updating a controlled rename draft", () => {
     const { controller, render } = controllerFixture();
+    const listener = vi.fn();
+    controller.subscribe(listener);
 
     controller.start("thread");
-    render.mockClear();
     controller.updateDraft("thread", "New name");
 
-    expect(render).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(render).not.toHaveBeenCalled();
     expect(controller.editState("thread")).toEqual({ draft: "New name", generating: false });
+  });
+
+  it("notifies subscribers when inline rename state changes", () => {
+    const { controller } = controllerFixture();
+    const listener = vi.fn();
+    const unsubscribe = controller.subscribe(listener);
+
+    controller.start("thread");
+    controller.updateDraft("thread", "New name");
+    unsubscribe();
+    controller.cancel("thread");
+
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it("applies generated rename drafts and clears the generating state", async () => {
@@ -113,6 +128,31 @@ describe("ThreadRenameController", () => {
     await autoName;
 
     expect(controller.editState("thread")).toEqual({ draft: "Manual draft", generating: false });
+  });
+
+  it("does not let an older auto-name request finish a newer generation", async () => {
+    const firstGeneratedTitle = deferred<string | null>();
+    const secondGeneratedTitle = deferred<string | null>();
+    const generateThreadTitle = vi.fn().mockReturnValueOnce(firstGeneratedTitle.promise).mockReturnValueOnce(secondGeneratedTitle.promise);
+    const { controller } = controllerFixture({ generateThreadTitle });
+
+    controller.start("thread");
+    const firstAutoName = controller.autoNameDraft("thread");
+    await flushPromises();
+    controller.cancel("thread");
+    controller.start("thread");
+    const secondAutoName = controller.autoNameDraft("thread");
+    await flushPromises();
+
+    firstGeneratedTitle.resolve("Old generated title");
+    await firstAutoName;
+
+    expect(controller.editState("thread")).toEqual({ draft: "Thread preview", generating: true });
+
+    secondGeneratedTitle.resolve("New generated title");
+    await secondAutoName;
+
+    expect(controller.editState("thread")).toEqual({ draft: "New generated title", generating: false });
   });
 });
 

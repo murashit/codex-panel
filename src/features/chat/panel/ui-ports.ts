@@ -1,14 +1,16 @@
-import type { ChatState } from "../../chat-state";
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "../../runtime/effective-settings";
-import type { SendShortcut } from "../../../../shared/ui/keyboard";
-import type { ToolbarActions } from "../../ui/toolbar";
-import type { ToolbarThreadRow } from "../model/types";
-import type { RestoredThreadTitleSnapshot } from "../model";
+import type { ChatState } from "../chat-state";
+import type { ReasoningEffort } from "../../../domain/catalog/metadata";
+import type { RuntimeSnapshot } from "../runtime/effective-settings";
+import type { SendShortcut } from "../../../shared/ui/keyboard";
+import type { ToolbarActions } from "../ui/toolbar";
+import type { ToolbarThreadRow } from "./model/types";
+import type { RestoredThreadTitleSnapshot } from "./model";
 
 interface ChatPanelToolbarState {
   archiveConfirmId: () => string | null;
+  archiveConfirmSubscribe: (listener: () => void) => () => void;
   renameState: (threadId: string) => ToolbarThreadRow["rename"];
+  renameSubscribe: (listener: () => void) => () => void;
 }
 
 type ChatPanelToolbarActions = ToolbarActions;
@@ -68,5 +70,3 @@ export interface ChatPanelComposerPorts extends ChatPanelStatePort {
     setRequestedReasoningEffort: (effort: ReasoningEffort | null) => Promise<void>;
   };
 }
-
-export type ChatPanelUiPorts = ChatPanelToolbarPorts & ChatPanelGoalPorts & ChatPanelMessagesPorts & ChatPanelComposerPorts;
