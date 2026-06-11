@@ -7,6 +7,7 @@ const checks = [
   { local: "test", ci: "test:ci", localPhase: "parallel" },
   { local: "lint:ts", ci: "lint:ts:ci", localPhase: "parallel" },
   { local: "lint:css", ci: "lint:css", localPhase: "parallel" },
+  { local: "lint:css:usage:check", ci: null, localPhase: "parallel" },
   { local: "format:check", ci: "format:check:ci", localPhase: "parallel" },
   { local: "build:styles:check", ci: "build:styles:check", localPhase: "parallel" },
   { local: "unused", ci: "unused", localPhase: "parallel" },
@@ -21,7 +22,10 @@ for (const arg of args) {
 }
 
 if (args.has("--ci")) {
-  for (const check of checks) run(npmCommand, ["run", check.ci]);
+  for (const check of checks) {
+    if (check.ci === null) continue;
+    run(npmCommand, ["run", check.ci]);
+  }
 } else {
   const parallelScripts = checks.filter((check) => check.localPhase === "parallel").map((check) => check.local);
   run("node", ["scripts/run-parallel.mjs", ...parallelScripts]);

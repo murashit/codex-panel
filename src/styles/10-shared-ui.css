@@ -26,8 +26,9 @@
   transform: translateX(-10000px);
 }
 
-.codex-panel-ui__toolbar-control,
 .codex-panel-ui__icon-button {
+  --icon-size: var(--codex-panel-control-icon-size);
+  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
   box-sizing: border-box;
   display: inline-flex;
   flex: 0 0 auto;
@@ -42,65 +43,16 @@
   line-height: var(--line-height-tight);
   cursor: default;
   user-select: none;
-}
-
-.codex-panel-ui__toolbar-control:disabled,
-.codex-panel-ui__icon-button:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.codex-panel-ui__toolbar-control {
-  --icon-size: var(--codex-panel-control-icon-size);
-  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
-  min-width: var(--codex-panel-icon-button-inline-size);
-  width: auto;
-  height: auto;
-  padding: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
-  border-radius: var(--codex-panel-control-radius);
-}
-
-.codex-panel-ui__toolbar-control:hover,
-.codex-panel-ui__toolbar-control:focus-visible,
-.codex-panel-ui__toolbar-control:active {
-  background: var(--background-modifier-hover);
-  box-shadow: none;
-  color: var(--icon-color);
-}
-
-.codex-panel-ui__toolbar-control:active svg {
-  color: var(--icon-color);
-  stroke: currentcolor;
-}
-
-.codex-panel-ui__toolbar-control.is-active,
-.codex-panel-ui__toolbar-control.is-active:hover,
-.codex-panel-ui__toolbar-control.is-active:focus-visible,
-.codex-panel-ui__toolbar-control.is-active:active {
-  background: var(--background-modifier-active-hover);
-  box-shadow: none;
-  color: var(--icon-color-active);
-}
-
-.codex-panel-ui__toolbar-control.is-active svg {
-  color: var(--icon-color-active);
-  stroke: currentcolor;
-}
-
-.codex-panel-ui__toolbar-control:where(:focus:not(:hover):not(:focus-visible)) {
-  background: transparent;
-  box-shadow: none;
-  color: var(--icon-color);
-}
-
-.codex-panel-ui__icon-button {
-  --icon-size: var(--codex-panel-control-icon-size);
-  --icon-stroke: var(--icon-m-stroke-width, 1.75px);
   min-width: var(--codex-panel-composer-control-size);
   width: auto;
   height: auto;
   padding: var(--codex-panel-control-gap);
   border-radius: var(--codex-panel-control-radius);
+}
+
+.codex-panel-ui__icon-button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .codex-panel-ui__toolbar-action {
@@ -277,7 +229,6 @@
   outline: none;
 }
 
-.codex-panel-ui__toolbar-control svg,
 .codex-panel-ui__icon-button svg,
 .codex-panel-ui__toolbar-action svg,
 .codex-panel-ui__nav-row-action svg {
@@ -292,15 +243,6 @@
   font-family: var(--codex-panel-content-font);
   font-size: var(--codex-panel-content-font-size);
   resize: none;
-}
-
-.codex-panel-ui__action-stack {
-  height: 100%;
-  align-self: end;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: var(--codex-panel-control-gap);
 }
 
 .workspace-leaf-content[data-type="codex-panel-view"] .view-content.codex-panel {

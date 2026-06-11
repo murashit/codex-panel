@@ -56,34 +56,22 @@ describe("chat toolbar CSS", () => {
     expect(styles).not.toContain(".codex-panel__runtime-strip");
   });
 
-  it("keeps mouse-focus reset less specific than active toolbar controls", () => {
-    const toolbarMouseFocus =
-      /\.codex-panel-ui__toolbar-control:where\(:focus:not\(:hover\):not\(:focus-visible\)\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
-        "body"
-      ] ?? "";
+  it("keeps mouse-focus reset less specific than active toolbar actions", () => {
     const toolbarActionMouseFocus =
       /\.codex-panel-ui__toolbar-action:where\(:focus:not\(:hover\):not\(:focus-visible\)\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
         "body"
       ] ?? "";
 
-    expect(toolbarMouseFocus).toContain("background: transparent");
-    expect(toolbarMouseFocus).toContain("color: var(--icon-color)");
     expect(toolbarActionMouseFocus).toContain("background: transparent");
     expect(toolbarActionMouseFocus).toContain("color: var(--icon-color)");
   });
 
   it("uses the shared active state for toolbar actions", () => {
-    const toolbarControlActive =
-      /\.codex-panel-ui__toolbar-control\.is-active,\n\.codex-panel-ui__toolbar-control\.is-active:hover,\n\.codex-panel-ui__toolbar-control\.is-active:focus-visible,\n\.codex-panel-ui__toolbar-control\.is-active:active \{(?<body>[^}]+)\}/.exec(
-        styles,
-      )?.groups?.["body"] ?? "";
     const toolbarActionActive =
       /\.codex-panel-ui__toolbar-action\.is-active,\n\.codex-panel-ui__toolbar-action\.is-active:hover,\n\.codex-panel-ui__toolbar-action\.is-active:focus-visible,\n\.codex-panel-ui__toolbar-action\.is-active:active \{(?<body>[^}]+)\}/.exec(
         styles,
       )?.groups?.["body"] ?? "";
 
-    expect(toolbarControlActive).toContain("background: var(--background-modifier-active-hover)");
-    expect(toolbarControlActive).toContain("color: var(--icon-color-active)");
     expect(toolbarActionActive).toContain("background: var(--background-modifier-active-hover)");
     expect(toolbarActionActive).toContain("color: var(--icon-color-active)");
     expect(styles).not.toContain(".codex-panel__runtime-model.is-active");

@@ -51,7 +51,6 @@
 }
 
 .codex-panel__goal:hover .codex-panel__goal-action,
-.codex-panel__goal-role--confirm-open .codex-panel__goal-action,
 .codex-panel__goal-action:focus-visible {
   opacity: 1;
 }
