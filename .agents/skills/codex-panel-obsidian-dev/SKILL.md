@@ -48,6 +48,17 @@ Use this skill for live Obsidian checks after building Codex Panel or when inves
 
 5. Use focused selectors for the behavior under test. Prefer stable Codex Panel classes such as `.codex-panel`, `.codex-panel__composer`, `.codex-panel-threads`, and `.codex-panel-chat-turn-diff`.
 
+## Dynamic UI Investigations
+
+When checking behavior that depends on browser layout, asynchronous rendering, or virtualized DOM state, measure the live UI rather than inferring from unit tests alone.
+
+- Capture both the user-visible state and the underlying DOM metrics. Useful fields include `scrollTop`, `scrollHeight`, `clientHeight`, element bounding rects, rendered element counts, inline styles, and relevant computed styles.
+- For virtualized or asynchronously rendered regions, compare framework state against DOM state where possible, such as virtualizer total size versus actual `scrollHeight`, rendered item count versus data count, or pre-event versus post-frame measurements.
+- Prefer real input paths for input-sensitive bugs. Use `obsidian dev:cdp method=Input.dispatchMouseEvent ...` or focused keyboard events when a synthetic `dispatchEvent()` may skip browser/Electron behavior.
+- Record measurements before the action, immediately after the action, after at least one animation frame, and after a short timeout when layout, markdown rendering, resize observers, or virtualizer settle loops may run later.
+- If injecting temporary DOM probes with `obsidian eval`, remove them before finishing and re-check `dev:errors`. Avoid leaving long-running eval promises; use bounded `setTimeout`-based scripts that resolve.
+- Treat console instrumentation as temporary. Remove debug logging before final validation, and search the touched files for probe markers or conflict markers before reporting.
+
 ## Common Checks
 
 - Confirm the loaded version and enabled state:
