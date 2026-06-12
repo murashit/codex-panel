@@ -14,7 +14,7 @@
   grid-row: 1;
 }
 
-.codex-panel__region--messages {
+.codex-panel__region--message-stream {
   grid-row: 2;
   min-height: 0;
   overflow: hidden;

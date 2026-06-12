@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PendingRequestBlockSnapshot } from "../../../../../src/features/chat/conversation/pending-requests/snapshot";
+import { pendingApprovalViewModel } from "../../../../../src/features/chat/conversation/pending-requests/view-model";
 import type { PendingApproval } from "../../../../../src/features/chat/protocol/server-requests/approval";
 import type { PendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
@@ -60,7 +61,7 @@ describe("pending request renderer decisions", () => {
     actEvent(() => {
       parent.querySelector<HTMLButtonElement>(".mod-cta")?.click();
     });
-    expect(resolveUserInput).toHaveBeenCalledWith(input);
+    expect(resolveUserInput).toHaveBeenCalledWith(input.requestId);
   });
 
   it("selects the other Plan mode answer from controlled drafts", () => {
@@ -349,7 +350,7 @@ describe("pending request renderer decisions", () => {
     actEvent(() => {
       allowButton.click();
     });
-    expect(resolveApproval).toHaveBeenCalledWith(approval, {
+    expect(resolveApproval).toHaveBeenCalledWith(approval.requestId, {
       kind: "command-decision",
       decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },
     });
@@ -527,7 +528,7 @@ describe("pending request renderer decisions", () => {
           renderMarkdown: (element, text) => element.createDiv({ text }),
           pendingRequests: pendingRequestContext({
             signature: "approval:1",
-            snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApproval()] }),
+            snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApprovalViewModel(pendingApproval())] }),
             consumeAutoFocus,
           }),
         }),
@@ -587,7 +588,7 @@ describe("pending request renderer decisions", () => {
         ...baseContext,
         pendingRequests: pendingRequestContext({
           signature: "request:1",
-          snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApproval()] }),
+          snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApprovalViewModel(pendingApproval())] }),
         }),
       }),
     );

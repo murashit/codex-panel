@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { messageStreamVirtualItems } from "../../../../../src/features/chat/ui/message-stream/render";
+import { messageStreamVirtualItems } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
 
 describe("message stream virtual item fallback", () => {

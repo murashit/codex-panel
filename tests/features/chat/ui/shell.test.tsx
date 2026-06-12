@@ -28,7 +28,7 @@ describe("ChatPanelShell", () => {
     expect(container.textContent).toContain("0");
     expect(container.textContent).toContain("ready");
     expect(container.querySelector(".codex-panel__region--config")).toBeNull();
-    expect(container.querySelector(".codex-panel__body > .codex-panel__region--messages")).toBe(
+    expect(container.querySelector(".codex-panel__body > .codex-panel__region--message-stream")).toBe(
       container.querySelector(".codex-panel__body > .codex-panel__messages"),
     );
 
@@ -83,7 +83,7 @@ describe("ChatPanelShell", () => {
 
     expect(container.querySelector(".codex-panel__toolbar .test-toolbar")?.textContent).toBe("Working");
     expect(container.querySelector(".codex-panel__region--goal .test-goal")?.textContent).toBe("no goal");
-    expect(container.querySelector(".codex-panel__region--messages .test-messages")?.textContent).toBe("1");
+    expect(container.querySelector(".codex-panel__region--message-stream .test-messages")?.textContent).toBe("1");
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer .test-composer textarea")?.value).toBe("ready");
     expect(container.querySelector(".codex-panel__region--composer .test-toolbar")).toBeNull();
     expect(container.querySelector(".codex-panel__region--composer .test-messages")).toBeNull();
@@ -106,7 +106,7 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar .test-toolbar")?.textContent).toBe("Idle");
-    expect(container.querySelector(".codex-panel__region--messages .test-messages")?.textContent).toBe("0");
+    expect(container.querySelector(".codex-panel__region--message-stream .test-messages")?.textContent).toBe("0");
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -132,7 +132,7 @@ describe("ChatPanelShell", () => {
     });
     renderers.toolbarNode.mockClear();
     renderers.goalNode.mockClear();
-    renderers.messagesNode.mockClear();
+    renderers.messageStreamNode.mockClear();
     renderers.composerNode.mockClear();
 
     await act(async () => {
@@ -143,7 +143,7 @@ describe("ChatPanelShell", () => {
     expect(container.querySelector(".test-toolbar")?.textContent).toBe("Working");
     expect(renderers.toolbarNode).not.toHaveBeenCalled();
     expect(renderers.goalNode).not.toHaveBeenCalled();
-    expect(renderers.messagesNode).not.toHaveBeenCalled();
+    expect(renderers.messageStreamNode).not.toHaveBeenCalled();
     expect(renderers.composerNode).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -163,7 +163,7 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
-    expect(container.querySelector(".codex-panel__region--messages")).not.toBeNull();
+    expect(container.querySelector(".codex-panel__region--message-stream")).not.toBeNull();
     expect(container.querySelector(".codex-panel__region--composer")).not.toBeNull();
 
     await act(async () => {
@@ -359,8 +359,8 @@ function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
 
     goalNode: vi.fn(() => <ShellGoal />),
 
-    messagesNode: vi.fn(() => (
-      <div className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+    messageStreamNode: vi.fn(() => (
+      <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
         <ShellMessageCount />
       </div>
     )),
@@ -382,8 +382,8 @@ function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>
 
     goalNode: vi.fn(() => <ShellGoal className="test-goal" />),
 
-    messagesNode: vi.fn(() => (
-      <div className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+    messageStreamNode: vi.fn(() => (
+      <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
         <ShellMessageCount className="test-messages" />
       </div>
     )),
@@ -405,8 +405,8 @@ function trackedRootShellRenderers(store: ReturnType<typeof createChatStateStore
 
     goalNode: vi.fn(() => <TrackedSlot region="goal" cleanup={cleanup} />),
 
-    messagesNode: vi.fn(() => (
-      <div className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+    messageStreamNode: vi.fn(() => (
+      <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
         <TrackedSlot region="messages" cleanup={cleanup} />
       </div>
     )),
@@ -423,8 +423,8 @@ function nodeShellRenderers(store: ReturnType<typeof createChatStateStore>, clea
 
     goalNode: vi.fn(() => <TrackedStateSlot region="goal" cleanup={cleanup} className="test-goal" selector="goal" />),
 
-    messagesNode: vi.fn(() => (
-      <div className="codex-panel__region codex-panel__region--messages codex-panel__messages">
+    messageStreamNode: vi.fn(() => (
+      <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
         <TrackedStateSlot region="messages" cleanup={cleanup} className="test-messages" selector="message-count" />
       </div>
     )),

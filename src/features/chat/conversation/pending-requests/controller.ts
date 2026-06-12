@@ -3,8 +3,8 @@ import type { ApprovalAction, PendingApproval } from "../../protocol/server-requ
 import type { ChatInboundController } from "../../protocol/inbound/controller";
 import { pendingRequestFocusSignature } from "./signatures";
 import { pendingRequestBlockSnapshot, type PendingRequestBlockSnapshot } from "./snapshot";
-import type { PendingRequestBlockActions } from "../../ui/pending-request-block";
 import { answersForPendingUserInput, type PendingUserInput } from "../../protocol/server-requests/user-input";
+import type { PendingRequestBlockActions, PendingRequestId } from "./view-model";
 
 export interface PendingRequestControllerHost {
   stateStore: ChatStateStore;
@@ -17,14 +17,14 @@ export interface PendingRequestControllerHost {
 export class PendingRequestController {
   private lastFocusSignature = "";
   private readonly blockActions: PendingRequestBlockActions = {
-    resolveApproval: (approval, action) => {
-      this.resolveApproval(approval, action);
+    resolveApproval: (requestId, action) => {
+      this.resolveApproval(requestId, action);
     },
-    resolveUserInput: (input) => {
-      this.resolveUserInput(input);
+    resolveUserInput: (requestId) => {
+      this.resolveUserInput(requestId);
     },
-    cancelUserInput: (input) => {
-      this.cancelUserInput(input);
+    cancelUserInput: (requestId) => {
+      this.cancelUserInput(requestId);
     },
     setOpenDetail: (key, open) => {
       this.host.stateStore.dispatch({ type: "ui/detail-open-set", key, open });
@@ -44,12 +44,16 @@ export class PendingRequestController {
     return this.blockActions;
   }
 
-  resolveApproval(approval: PendingApproval, action: ApprovalAction): void {
+  resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void {
+    const approval = this.pendingApproval(requestId);
+    if (!approval) return;
     this.host.controller.resolveApproval(approval, action);
     this.commitRequestAction();
   }
 
-  resolveUserInput(input: PendingUserInput): void {
+  resolveUserInput(requestId: PendingRequestId): void {
+    const input = this.pendingUserInput(requestId);
+    if (!input) return;
     this.host.controller.resolveUserInput(
       input,
       answersForPendingUserInput(input, pendingRequestBlockSnapshot(this.host.stateStore.getState()).userInputDrafts),
@@ -57,9 +61,19 @@ export class PendingRequestController {
     this.commitRequestAction();
   }
 
-  cancelUserInput(input: PendingUserInput): void {
+  cancelUserInput(requestId: PendingRequestId): void {
+    const input = this.pendingUserInput(requestId);
+    if (!input) return;
     this.host.controller.cancelUserInput(input);
     this.commitRequestAction();
+  }
+
+  private pendingApproval(requestId: PendingRequestId): PendingApproval | null {
+    return this.host.stateStore.getState().requests.approvals.find((approval) => approval.requestId === requestId) ?? null;
+  }
+
+  private pendingUserInput(requestId: PendingRequestId): PendingUserInput | null {
+    return this.host.stateStore.getState().requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
   }
 
   private commitRequestAction(): void {
@@ -68,8 +82,8 @@ export class PendingRequestController {
   }
 
   consumeAutoFocus(): boolean {
-    const state = pendingRequestBlockSnapshot(this.host.stateStore.getState());
-    const signature = pendingRequestFocusSignature(state.approvals, state.pendingUserInputs);
+    const state = this.host.stateStore.getState();
+    const signature = pendingRequestFocusSignature(state.requests.approvals, state.requests.pendingUserInputs);
     if (!signature) {
       this.lastFocusSignature = "";
       return false;

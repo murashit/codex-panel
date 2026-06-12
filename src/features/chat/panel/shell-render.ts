@@ -13,7 +13,7 @@ export function createChatShellRenderPort(
     showToolbar: () => boolean;
     toolbarNode: () => UiNode;
     goalNode: () => UiNode;
-    messagesNode: () => UiNode;
+    messageStreamNode: () => UiNode;
     composerNode: () => UiNode;
   },
 ): ChatShellRenderPort {
@@ -24,7 +24,7 @@ export function createChatShellRenderPort(
         showToolbar: options.showToolbar(),
         toolbarNode: options.toolbarNode,
         goalNode: options.goalNode,
-        messagesNode: options.messagesNode,
+        messageStreamNode: options.messageStreamNode,
         composerNode: options.composerNode,
       });
     },

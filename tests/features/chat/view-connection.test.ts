@@ -192,7 +192,7 @@ describe("CodexChatView connection lifecycle", () => {
     const root = view.contentEl;
     expect(root.classList.contains("codex-panel")).toBe(true);
     expect(root.querySelector(":scope > .codex-panel__toolbar")).not.toBeNull();
-    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__region--messages")).not.toBeNull();
+    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__region--message-stream")).not.toBeNull();
     expect(root.querySelector(":scope > .codex-panel__body .codex-panel__region--composer")).not.toBeNull();
     expect(siblingRoots.every((sibling) => !sibling.classList.contains("codex-panel") && sibling.childElementCount === 0)).toBe(true);
   });

@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useState } from "preact/hooks";
 
-import { activeAgentRunSummary, agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel } from "../display/stream/agent-summary";
+import { activeAgentRunSummary, agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel } from "../../display/stream/agent-summary";
 import type {
   AgentDisplayItem,
   AgentRunSummary,
@@ -11,10 +11,10 @@ import type {
   ExecutionState,
   ReasoningDisplayItem,
   TaskProgressDisplayItem,
-} from "../display/types";
-import { activeTurnId, type ChatTurnLifecycleState } from "../state/reducer";
+} from "../../display/types";
+import { activeTurnId, type ChatTurnLifecycleState } from "../../state/reducer";
 import { createWorkMessageClassName } from "./work-message";
-import { shortThreadId, truncate } from "../../../utils";
+import { shortThreadId, truncate } from "../../../../utils";
 
 const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
 const AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT = 96;

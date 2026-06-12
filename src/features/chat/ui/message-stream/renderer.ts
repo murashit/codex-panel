@@ -2,51 +2,60 @@ import type { App, Component } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
-import type { ChatAction, ChatState, ChatStateStore } from "../../state/reducer";
+import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
 import type { ComposerBoundaryScrollAction } from "../../conversation/composer/boundary-scroll";
-import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../message-virtualizer";
+import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "./virtualizer";
 import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./ports";
 import { createMessageStreamContextPort } from "./ports";
 import { MarkdownMessageRenderer } from "./markdown-renderer";
-import { messageStreamBlocksNode, type MessageStreamRenderState } from "./render";
-import { createMessageStreamRenderState } from "./render-model";
+import { messageStreamViewportNode, type MessageStreamViewportState } from "./viewport";
+import type { DisplayItem } from "../../display/types";
+import { implementPlanCandidateFromState } from "../../state/selectors";
+import {
+  forkCandidatesFromItems,
+  isForkCandidateItem,
+  isRollbackCandidateItem,
+  rollbackCandidateFromItems,
+} from "../../display/item-actions";
+import { messageStreamBlocks } from "./stream-blocks";
+import type { MessageStreamContext } from "./context";
 
-interface ChatMessageRendererObsidianPort {
+interface MessageStreamRendererObsidianPort {
   app: App;
   owner: Component;
 }
 
-interface ChatMessageRendererStatePort {
+interface MessageStreamRendererStatePort {
   store: ChatStateStore;
 }
 
-interface ChatMessageRendererWorkspacePort {
+interface MessageStreamRendererWorkspacePort {
   vaultPath: string;
 }
 
-interface ChatMessageRendererScrollPort {
+interface MessageStreamRendererScrollPort {
   consumeIntent: () => MessageStreamScrollIntent;
 }
 
-interface ChatMessageRendererHistoryPort {
+interface MessageStreamRendererHistoryPort {
   loadOlderTurns: () => void;
 }
 
-export interface ChatMessageRendererOptions {
-  obsidian: ChatMessageRendererObsidianPort;
-  state: ChatMessageRendererStatePort;
-  workspace: ChatMessageRendererWorkspacePort;
-  scroll: ChatMessageRendererScrollPort;
-  history: ChatMessageRendererHistoryPort;
+export interface MessageStreamRendererOptions {
+  obsidian: MessageStreamRendererObsidianPort;
+  state: MessageStreamRendererStatePort;
+  workspace: MessageStreamRendererWorkspacePort;
+  scroll: MessageStreamRendererScrollPort;
+  history: MessageStreamRendererHistoryPort;
   actions: ChatMessageStreamActionPort;
   requests: ChatMessageStreamRequestPort;
 }
 
-export class ChatMessageRenderer {
+export class MessageStreamRenderer {
   private messageVirtualizer: MessageStreamVirtualizerHandle | null = null;
   private readonly markdownRenderer: MarkdownMessageRenderer;
 
-  constructor(private readonly options: ChatMessageRendererOptions) {
+  constructor(private readonly options: MessageStreamRendererOptions) {
     this.markdownRenderer = new MarkdownMessageRenderer({
       app: options.obsidian.app,
       owner: options.obsidian.owner,
@@ -64,16 +73,15 @@ export class ChatMessageRenderer {
 
   renderNode(): UiNode {
     const state = this.state;
-    return messageStreamBlocksNode(this.renderStateFor(state));
+    return messageStreamViewportNode(this.renderStateFor(state));
   }
 
-  private renderStateFor(state: ChatState): MessageStreamRenderState {
-    return createMessageStreamRenderState({
-      state,
-      contextPort: this.messageStreamPort(),
+  private renderStateFor(state: ChatState): MessageStreamViewportState {
+    return {
+      blocks: messageStreamBlocks(this.messageStreamContext(state, this.messageStreamPort())),
       consumeScrollIntent: this.options.scroll.consumeIntent,
       registerVirtualizer: this.registerVirtualizer,
-    });
+    };
   }
 
   private messageStreamPort(): ChatMessageStreamContextPort {
@@ -95,6 +103,51 @@ export class ChatMessageRenderer {
     });
   }
 
+  private messageStreamContext(state: ChatState, port: ChatMessageStreamContextPort): MessageStreamContext {
+    const busy = chatTurnBusy(state);
+    const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.messageStream.displayItems);
+    const forkCandidates = busy ? [] : forkCandidatesFromItems(state.messageStream.displayItems);
+    const implementPlanCandidate = implementPlanCandidateFromState(state);
+
+    return {
+      activeThreadId: state.activeThread.id,
+      turnLifecycle: state.turn.lifecycle,
+      historyCursor: state.messageStream.historyCursor,
+      loadingHistory: state.messageStream.loadingHistory,
+      displayItems: state.messageStream.displayItems,
+      turnDiffs: state.messageStream.turnDiffs,
+      workspaceRoot: state.activeThread.cwd ?? port.vaultPath,
+      openDetails: state.ui.openDetails,
+      onDetailsToggle: port.setOpenDetail,
+      loadOlderTurns: port.loadOlderTurns,
+      renderMarkdown: port.renderMarkdown,
+      copyText: port.copyMessageText,
+      canImplementPlanItem: (item: DisplayItem) => item.id === implementPlanCandidate?.id,
+      onImplementPlanItem: (item) => {
+        port.actions.implementPlan(item);
+      },
+      canRollbackItem: (item: DisplayItem) => isRollbackCandidateItem(item, rollbackCandidate),
+      onRollbackItem: () => {
+        if (state.activeThread.id) port.actions.rollbackThread(state.activeThread.id);
+      },
+      canForkItem: (item: DisplayItem) => isForkCandidateItem(item, forkCandidates),
+      onForkItem: (item, archiveSource) => {
+        if (state.activeThread.id && item.turnId) {
+          port.actions.forkThreadFromTurn(state.activeThread.id, item.turnId, archiveSource);
+        }
+      },
+      openTurnDiff: (turnDiffState) => {
+        port.actions.openTurnDiff(turnDiffState);
+      },
+      pendingRequests: {
+        signature: port.requests.pendingSignature(),
+        snapshot: port.requests.pendingSnapshot,
+        actions: port.requests.pendingActions,
+        consumeAutoFocus: port.requests.consumePendingAutoFocus,
+      },
+    };
+  }
+
   dispose(): void {
     this.messageVirtualizer = null;
   }
@@ -107,11 +160,11 @@ export class ChatMessageRenderer {
     }
   }
 
-  forceMessagesToBottom(): void {
+  forceMessageStreamToBottom(): void {
     this.messageVirtualizer?.pinToBottom();
   }
 
-  repinMessagesToBottomIfPinned(): void {
+  repinMessageStreamToBottomIfPinned(): void {
     this.messageVirtualizer?.repinToBottomIfPinned();
   }
 

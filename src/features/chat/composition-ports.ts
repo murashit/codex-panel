@@ -9,7 +9,7 @@ import type { CodexPanelSettings } from "../../settings/model";
 import type { RuntimeSnapshot } from "./runtime/snapshot";
 import type { ChatState, ChatStateStore } from "./state/reducer";
 import type { ChatTurnDiffViewState } from "./turn-diff/model";
-import type { ChatMessageScrollIntentController } from "./ui/message-scroll-intent-controller";
+import type { ChatMessageScrollIntentController } from "./ui/message-stream/scroll-intent-controller";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
 import type { ComposerMetaViewModel } from "./ui/composer";
@@ -21,7 +21,7 @@ export interface ChatControllerCompositionPorts {
   client: ChatPanelClientContext;
   lifecycle: ChatPanelLifecycleContext;
   render: ChatPanelRenderContext;
-  messages: ChatPanelMessageContext;
+  messageStream: ChatPanelMessageStreamContext;
   composerView: ChatPanelComposerContext;
   runtime: ChatPanelRuntimeContext;
   thread: ChatThreadContext;
@@ -90,13 +90,13 @@ interface ChatPanelRenderContext {
   panelRoot: () => HTMLElement | null;
   toolbarNode: () => UiNode;
   goalNode: () => UiNode;
-  messagesNode: () => UiNode;
+  messageStreamNode: () => UiNode;
   composerNode: () => UiNode;
   closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
   schedule: () => void;
 }
 
-interface ChatPanelMessageContext {
+interface ChatPanelMessageStreamContext {
   pendingRequestsSignature: () => string;
 }
 

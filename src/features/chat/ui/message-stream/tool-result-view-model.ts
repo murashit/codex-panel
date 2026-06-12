@@ -1,5 +1,5 @@
-import { pathRelativeToRoot } from "../display/details/path-labels";
-import { definedProp } from "../../../utils";
+import { pathRelativeToRoot } from "../../display/details/path-labels";
+import { definedProp } from "../../../../utils";
 import type {
   ApprovalResultDisplayItem,
   CommandDisplayItem,
@@ -12,7 +12,7 @@ import type {
   HookDisplayItem,
   ReviewResultDisplayItem,
   ToolCallDisplayItem,
-} from "../display/types";
+} from "../../display/types";
 
 export type ToolResultDisplayItem =
   | CommandDisplayItem

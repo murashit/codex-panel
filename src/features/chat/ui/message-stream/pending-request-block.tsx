@@ -2,37 +2,17 @@ import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import {
-  approvalActionOptions,
-  approvalDetails,
-  approvalSummary,
-  approvalTitle,
-  type ApprovalAction,
-  type PendingApproval,
-} from "../protocol/server-requests/approval";
-import type { PendingUserInput } from "../protocol/server-requests/user-input";
-import { questionDefaultAnswer } from "../protocol/server-requests/user-input";
+  type PendingApprovalViewModel,
+  type PendingRequestBlockActions,
+  type PendingUserInputQuestionViewModel,
+  type PendingUserInputViewModel,
+} from "../../conversation/pending-requests/view-model";
 import { createWorkMessageClassName } from "./work-message";
 
-type PendingUserInputRequestId = PendingUserInput["requestId"];
-
-export interface PendingRequestBlockActions {
-  resolveApproval: (approval: PendingApproval, action: ApprovalAction) => void;
-  resolveUserInput: (input: PendingUserInput) => void;
-  cancelUserInput: (input: PendingUserInput) => void;
-  setOpenDetail?: (key: string, open: boolean) => void;
-  setUserInputDraft: (key: string, value: string) => void;
-}
-
-export interface PendingRequestBlockDrafts {
-  values: ReadonlyMap<string, string>;
-  draftKey: (requestId: PendingUserInputRequestId, questionId: string) => string;
-  otherDraftKey: (requestId: PendingUserInputRequestId, questionId: string) => string;
-}
-
 export function pendingRequestBlockNode(
-  approvals: readonly PendingApproval[],
-  pendingUserInputs: readonly PendingUserInput[],
-  drafts: PendingRequestBlockDrafts,
+  approvals: readonly PendingApprovalViewModel[],
+  pendingUserInputs: readonly PendingUserInputViewModel[],
+  userInputDrafts: ReadonlyMap<string, string>,
   openDetails: ReadonlySet<string>,
   actions: PendingRequestBlockActions,
   autoFocusRequested = false,
@@ -43,7 +23,7 @@ export function pendingRequestBlockNode(
     <PendingRequestBlock
       approvals={approvals}
       pendingUserInputs={pendingUserInputs}
-      drafts={drafts}
+      userInputDrafts={userInputDrafts}
       openDetails={openDetails}
       actions={actions}
       autoFocusRequested={autoFocusRequested}
@@ -56,16 +36,16 @@ export function pendingRequestBlockNode(
 function PendingRequestBlock({
   approvals,
   pendingUserInputs,
-  drafts,
+  userInputDrafts,
   openDetails,
   actions,
   autoFocusRequested,
   consumeAutoFocus,
   autoFocusSignature,
 }: {
-  approvals: readonly PendingApproval[];
-  pendingUserInputs: readonly PendingUserInput[];
-  drafts: PendingRequestBlockDrafts;
+  approvals: readonly PendingApprovalViewModel[];
+  pendingUserInputs: readonly PendingUserInputViewModel[];
+  userInputDrafts: ReadonlyMap<string, string>;
   openDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
   autoFocusRequested: boolean;
@@ -87,7 +67,7 @@ function PendingRequestBlock({
         <ApprovalCard key={String(approval.requestId)} approval={approval} openDetails={openDetails} actions={actions} />
       ))}
       {pendingUserInputs.map((input) => (
-        <UserInputCard key={String(input.requestId)} input={input} drafts={drafts} actions={actions} />
+        <UserInputCard key={String(input.requestId)} input={input} userInputDrafts={userInputDrafts} actions={actions} />
       ))}
     </div>
   );
@@ -114,25 +94,25 @@ function ApprovalCard({
   openDetails,
   actions,
 }: {
-  approval: PendingApproval;
+  approval: PendingApprovalViewModel;
   openDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
   return (
     <PendingRequestCard className="codex-panel__approval">
       <div className="codex-panel__pending-request-info">
-        <div className="codex-panel__pending-request-title">{approvalTitle(approval)}</div>
-        <div className="codex-panel__pending-request-body">{approvalSummary(approval)}</div>
+        <div className="codex-panel__pending-request-title">{approval.title}</div>
+        <div className="codex-panel__pending-request-body">{approval.summary}</div>
         <ApprovalDetails approval={approval} openDetails={openDetails} actions={actions} />
       </div>
       <div className="codex-panel__pending-request-actions">
-        {approvalActionOptions(approval).map((option) => (
+        {approval.actions.map((option) => (
           <ActionButton
             key={option.label}
             label={option.label}
             className={option.className}
             onClick={() => {
-              actions.resolveApproval(approval, option.action);
+              actions.resolveApproval(approval.requestId, option.action);
             }}
           />
         ))}
@@ -146,7 +126,7 @@ function ApprovalDetails({
   openDetails,
   actions,
 }: {
-  approval: PendingApproval;
+  approval: PendingApprovalViewModel;
   openDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
@@ -161,7 +141,7 @@ function ApprovalDetails({
     >
       <summary tabIndex={-1}>Request details</summary>
       <dl className="codex-panel__meta-grid">
-        {approvalDetails(approval).map((row) => (
+        {approval.details.map((row) => (
           <MetaPair key={`${row.key}:${row.value}`} name={row.key} value={row.value} />
         ))}
       </dl>
@@ -171,35 +151,33 @@ function ApprovalDetails({
 
 function UserInputCard({
   input,
-  drafts,
+  userInputDrafts,
   actions,
 }: {
-  input: PendingUserInput;
-  drafts: PendingRequestBlockDrafts;
+  input: PendingUserInputViewModel;
+  userInputDrafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
   return (
     <PendingRequestCard className="codex-panel__user-input">
       <div className="codex-panel__pending-request-info">
-        <div className="codex-panel__pending-request-title">Codex needs input</div>
-        <div className="codex-panel__pending-request-body">
-          Answer {String(input.params.questions.length)} Plan mode question{input.params.questions.length === 1 ? "" : "s"} to continue.
-        </div>
-        <UserInputQuestions input={input} drafts={drafts} actions={actions} />
+        <div className="codex-panel__pending-request-title">{input.title}</div>
+        <div className="codex-panel__pending-request-body">{input.body}</div>
+        <UserInputQuestions input={input} userInputDrafts={userInputDrafts} actions={actions} />
       </div>
       <div className="codex-panel__pending-request-actions">
         <ActionButton
           label="Submit"
           className="mod-cta"
           onClick={() => {
-            actions.resolveUserInput(input);
+            actions.resolveUserInput(input.requestId);
           }}
         />
         <ActionButton
           label="Cancel"
           className=""
           onClick={() => {
-            actions.cancelUserInput(input);
+            actions.cancelUserInput(input.requestId);
           }}
         />
       </div>
@@ -213,18 +191,17 @@ function PendingRequestCard({ className, children }: { className: string; childr
 
 function UserInputQuestions({
   input,
-  drafts,
+  userInputDrafts,
   actions,
 }: {
-  input: PendingUserInput;
-  drafts: PendingRequestBlockDrafts;
+  input: PendingUserInputViewModel;
+  userInputDrafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
   return (
     <>
-      {input.params.questions.map((question) => {
-        const draftKey = drafts.draftKey(input.requestId, question.id);
-        const current = drafts.values.get(draftKey) ?? questionDefaultAnswer(question);
+      {input.questions.map((question) => {
+        const current = userInputDrafts.get(question.draftKey) ?? question.defaultAnswer;
         return (
           <div key={question.id} className="codex-panel__user-input-question">
             {question.header ? <div className="codex-panel__user-input-header">{question.header}</div> : null}
@@ -243,7 +220,7 @@ function UserInputQuestions({
                           value={option.label}
                           checked={current === option.label}
                           onChange={(event) => {
-                            if (event.currentTarget.checked) actions.setUserInputDraft(draftKey, option.label);
+                            if (event.currentTarget.checked) actions.setUserInputDraft(question.draftKey, option.label);
                           }}
                         />
                         <span className="codex-panel__user-input-option-label">{option.label}</span>
@@ -255,25 +232,22 @@ function UserInputQuestions({
                   })}
                   {question.isOther ? (
                     <OtherUserInputOption
-                      input={input}
-                      questionId={question.id}
                       questionText={question.question}
                       groupName={`codex-panel-${String(input.requestId)}-${question.id}`}
                       current={current}
                       optionLabels={new Set(question.options.map((option) => option.label))}
-                      drafts={drafts}
+                      question={question}
+                      userInputDrafts={userInputDrafts}
                       actions={actions}
                     />
                   ) : null}
                 </>
               ) : (
                 <FreeformUserInput
-                  input={input}
-                  questionId={question.id}
                   questionText={question.question}
                   isSecret={question.isSecret}
                   current={current}
-                  drafts={drafts}
+                  question={question}
                   actions={actions}
                 />
               )}
@@ -286,30 +260,28 @@ function UserInputQuestions({
 }
 
 function OtherUserInputOption({
-  input,
-  questionId,
   questionText,
   groupName,
   current,
   optionLabels,
-  drafts,
+  question,
+  userInputDrafts,
   actions,
 }: {
-  input: PendingUserInput;
-  questionId: string;
   questionText: string;
   groupName: string;
   current: string;
   optionLabels: ReadonlySet<string>;
-  drafts: PendingRequestBlockDrafts;
+  question: PendingUserInputQuestionViewModel;
+  userInputDrafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
-  const draftKey = drafts.draftKey(input.requestId, questionId);
-  const otherKey = drafts.otherDraftKey(input.requestId, questionId);
-  const otherValue = drafts.values.get(otherKey) ?? "";
+  const draftKey = question.draftKey;
+  const otherKey = question.otherDraftKey;
+  const otherValue = userInputDrafts.get(otherKey) ?? "";
   const [inputValue, setInputValue] = useState(otherValue);
   const composingRef = useRef(false);
-  const otherSelected = drafts.values.has(draftKey) && current === otherValue && !optionLabels.has(current);
+  const otherSelected = userInputDrafts.has(draftKey) && current === otherValue && !optionLabels.has(current);
   useEffect(() => {
     if (!composingRef.current) setInputValue(otherValue);
   }, [otherValue]);
@@ -369,23 +341,18 @@ function OtherUserInputOption({
 }
 
 function FreeformUserInput({
-  input,
-  questionId,
   questionText,
   isSecret,
   current,
-  drafts,
+  question,
   actions,
 }: {
-  input: PendingUserInput;
-  questionId: string;
   questionText: string;
   isSecret: boolean;
   current: string;
-  drafts: PendingRequestBlockDrafts;
+  question: PendingUserInputQuestionViewModel;
   actions: PendingRequestBlockActions;
 }): UiNode {
-  const draftKey = drafts.draftKey(input.requestId, questionId);
   return (
     <input
       className="codex-panel__user-input-text"
@@ -393,7 +360,7 @@ function FreeformUserInput({
       aria-label={questionText}
       value={current}
       onInput={(event) => {
-        actions.setUserInputDraft(draftKey, event.currentTarget.value);
+        actions.setUserInputDraft(question.draftKey, event.currentTarget.value);
       }}
     />
   );

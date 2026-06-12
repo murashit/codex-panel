@@ -21,7 +21,7 @@ import type { IdentitySync } from "./threads/identity-sync";
 import type { ResumeController } from "./threads/resume-controller";
 import type { SelectionActions } from "./threads/selection-actions";
 import type { ChatViewRenderController } from "./panel/view-render-controller";
-import type { ChatMessageRenderer } from "./ui/message-stream/renderer";
+import type { MessageStreamRenderer } from "./ui/message-stream/renderer";
 import type { ChatControllerCompositionPorts } from "./composition-ports";
 import { createChatControllerCompositionActions } from "./composition-actions";
 import {
@@ -79,7 +79,7 @@ export interface ChatViewControllers {
   };
   render: {
     controller: ChatViewRenderController;
-    messages: ChatMessageRenderer;
+    messageStream: MessageStreamRenderer;
     openView: () => void;
     closeView: () => void;
     applyViewState: (state: unknown) => void;
@@ -102,7 +102,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       panelRoot: ports.render.panelRoot,
       toolbarNode: ports.render.toolbarNode,
       goalNode: ports.render.goalNode,
-      messagesNode: ports.render.messagesNode,
+      messageStreamNode: ports.render.messageStreamNode,
       composerNode: ports.render.composerNode,
     },
   });
@@ -408,8 +408,8 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       lifecycle: {
         messageScrollIntent: ports.lifecycle.messageScrollIntent,
       },
-      messages: {
-        pendingRequestsSignature: ports.messages.pendingRequestsSignature,
+      messageStream: {
+        pendingRequestsSignature: ports.messageStream.pendingRequestsSignature,
       },
       composerView: {
         composerPlaceholder: ports.composerView.composerPlaceholder,
@@ -430,7 +430,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     },
   );
   const { pendingRequests, composerSubmit } = conversationControllers;
-  const { messageRenderer } = conversationControllers;
+  const { messageStreamRenderer } = conversationControllers;
   composerController = conversationControllers.composerController;
   const { scheduleAppServerWarmup, openView, closeView } = createConnectionLifecycleControllerGroup(
     {
@@ -470,7 +470,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     {
       connection,
       composerController,
-      messageRenderer,
+      messageStreamRenderer,
       serverThreads,
       serverMetadata,
     },
@@ -517,7 +517,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     },
     render: {
       controller: renderController,
-      messages: messageRenderer,
+      messageStream: messageStreamRenderer,
       openView,
       closeView,
       applyViewState,

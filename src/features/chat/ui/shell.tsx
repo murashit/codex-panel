@@ -23,7 +23,7 @@ export interface ChatPanelShellProps {
   showToolbar: boolean;
   toolbarNode: () => UiNode;
   goalNode: () => UiNode;
-  messagesNode: () => UiNode;
+  messageStreamNode: () => UiNode;
   composerNode: () => UiNode;
 }
 
@@ -130,7 +130,7 @@ function ChatPanelShell({
   showToolbar,
   toolbarNode,
   goalNode,
-  messagesNode,
+  messageStreamNode,
   composerNode,
   shellState,
 }: ChatPanelShellProps & { shellState: ChatPanelShellState }): UiNode {
@@ -139,7 +139,7 @@ function ChatPanelShell({
       {showToolbar ? <div className="codex-panel__toolbar">{toolbarNode()}</div> : null}
       <div className="codex-panel__body">
         <div className="codex-panel__region codex-panel__region--goal">{goalNode()}</div>
-        {messagesNode()}
+        {messageStreamNode()}
         <div className="codex-panel__region codex-panel__region--composer">{composerNode()}</div>
       </div>
     </ChatPanelShellStateContext.Provider>

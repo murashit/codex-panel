@@ -2,7 +2,7 @@ import { type ComponentChild as UiNode, type Ref } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { DisplayItem, ExecutionState } from "../../display/types";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "../message-content-events";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { TextItemContentContext, TextItemContext, TextDisplayItem } from "./context";
 import { TextItemHeader } from "./text-item-actions";
 import { AutoReviewSummaries, EditedFiles, MentionedFiles, TextItemDetails, ReferencedThread, SystemDetails } from "./text-item-metadata";

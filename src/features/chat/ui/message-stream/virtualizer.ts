@@ -1,7 +1,7 @@
 import { elementScroll, observeElementOffset, observeElementRect, Virtualizer, type VirtualItem } from "@tanstack/virtual-core";
 import { useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import type { MessageStreamBlock } from "./message-stream/context";
+import type { MessageStreamBlock } from "./context";
 
 export type MessageStreamScrollIntent = "auto" | "force-bottom" | "follow-bottom" | "preserve";
 type MessageScrollDirection = -1 | 1;

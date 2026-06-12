@@ -23,16 +23,16 @@ import { codexPanelDisplayTitle, getThreadTitle } from "../../domain/threads/mod
 import { connectionDiagnosticsModel } from "./panel/regions/toolbar";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
 import { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
-import { ChatMessageScrollIntentController } from "./ui/message-scroll-intent-controller";
+import { ChatMessageScrollIntentController } from "./ui/message-stream/scroll-intent-controller";
 import type { ChatControllerCompositionPorts } from "./composition-ports";
 import { createChatViewControllers, type ChatViewControllers } from "./composition";
-import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelMessagesPorts, ChatPanelToolbarPorts } from "./panel/regions/ports";
+import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelMessageStreamPorts, ChatPanelToolbarPorts } from "./panel/regions/ports";
 import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "./panel/regions/composer";
-import { chatPanelPendingRequestsSignature } from "./panel/regions/messages";
+import { chatPanelMessageStreamPendingRequestsSignature } from "./panel/regions/message-stream";
 import {
   chatPanelComposerRegionNode,
   chatPanelGoalRegionNode,
-  chatPanelMessagesRegionNode,
+  chatPanelMessageStreamRegionNode,
   chatPanelToolbarRegionNode,
 } from "./panel/regions/render";
 
@@ -49,7 +49,7 @@ export class CodexChatView extends ItemView {
   private readonly messageScrollIntent: ChatMessageScrollIntentController;
   private readonly toolbarPorts: ChatPanelToolbarPorts;
   private readonly goalPorts: ChatPanelGoalPorts;
-  private readonly messagesPorts: ChatPanelMessagesPorts;
+  private readonly messageStreamPorts: ChatPanelMessageStreamPorts;
   private readonly composerPorts: ChatPanelComposerPorts;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
@@ -68,7 +68,7 @@ export class CodexChatView extends ItemView {
     const panelPorts = this.createPanelRegionPorts(this.controllers);
     this.toolbarPorts = panelPorts.toolbar;
     this.goalPorts = panelPorts.goal;
-    this.messagesPorts = panelPorts.messages;
+    this.messageStreamPorts = panelPorts.messageStream;
     this.composerPorts = panelPorts.composer;
   }
 
@@ -167,7 +167,7 @@ export class CodexChatView extends ItemView {
         panelRoot: () => this.panelRoot(),
         toolbarNode: () => chatPanelToolbarRegionNode(this.toolbarPorts),
         goalNode: () => chatPanelGoalRegionNode(this.goalPorts),
-        messagesNode: () => chatPanelMessagesRegionNode(this.messagesPorts),
+        messageStreamNode: () => chatPanelMessageStreamRegionNode(this.messageStreamPorts),
         composerNode: () => chatPanelComposerRegionNode(() => this.controllers.composer.controller.renderNode()),
         closeToolbarPanelOnOutsidePointer: (event) => {
           this.closeToolbarPanelOnOutsidePointer(event);
@@ -176,8 +176,8 @@ export class CodexChatView extends ItemView {
           this.scheduleRender();
         },
       },
-      messages: {
-        pendingRequestsSignature: () => chatPanelPendingRequestsSignature(this.messagesPorts),
+      messageStream: {
+        pendingRequestsSignature: () => chatPanelMessageStreamPendingRequestsSignature(this.messageStreamPorts),
       },
       composerView: {
         composerPlaceholder: () => chatPanelComposerPlaceholder(this.composerPorts),
@@ -234,7 +234,7 @@ export class CodexChatView extends ItemView {
   private createPanelRegionPorts(controllers: ChatViewControllers): {
     toolbar: ChatPanelToolbarPorts;
     goal: ChatPanelGoalPorts;
-    messages: ChatPanelMessagesPorts;
+    messageStream: ChatPanelMessageStreamPorts;
     composer: ChatPanelComposerPorts;
   } {
     const state = {
@@ -271,10 +271,10 @@ export class CodexChatView extends ItemView {
           goal: this.createGoalPanelActions(controllers),
         },
       },
-      messages: {
+      messageStream: {
         state,
         render: {
-          node: () => this.controllers.render.messages.renderNode(),
+          node: () => this.controllers.render.messageStream.renderNode(),
         },
       },
       composer: {

@@ -2,8 +2,8 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ChatTurnLifecycleState } from "../../state/reducer";
 import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
+import type { PendingRequestBlockActions } from "../../conversation/pending-requests/view-model";
 import type { DisplayItem } from "../../display/types";
-import type { PendingRequestBlockActions } from "../pending-request-block";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 
 export interface MessageStreamBlock {

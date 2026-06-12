@@ -17,9 +17,9 @@ import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
 import { currentModel, runtimeConfigOrDefault } from "../runtime/effective";
 import type { RuntimeSnapshot } from "../runtime/snapshot";
-import { ChatMessageRenderer } from "../ui/message-stream/renderer";
+import { MessageStreamRenderer } from "../ui/message-stream/renderer";
 import type { DisplayDetailSection } from "../display/types";
-import type { ChatMessageScrollIntentController } from "../ui/message-scroll-intent-controller";
+import type { ChatMessageScrollIntentController } from "../ui/message-stream/scroll-intent-controller";
 import type { ChatTurnDiffViewState } from "../turn-diff/model";
 import type { ComposerMetaViewModel } from "../ui/composer";
 import type { CodexPanelSettings } from "../../../settings/model";
@@ -50,7 +50,7 @@ interface ConversationSurfaceControllerGroupPorts {
     now: () => void;
     schedule: () => void;
   };
-  messages: {
+  messageStream: {
     pendingRequestsSignature: () => string;
   };
   composerView: {
@@ -98,7 +98,7 @@ export function createConversationSurfaceControllerGroup(
     history: HistoryController;
   },
 ) {
-  const { plugin, state, render, messages, composerView, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
+  const { plugin, state, render, messageStream, composerView, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
   const { app, owner, viewId } = context.obsidian;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
@@ -125,7 +125,7 @@ export function createConversationSurfaceControllerGroup(
     toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
     onDraftChange: liveState.refresh,
     onHeightChange: () => {
-      messageRenderer.repinMessagesToBottomIfPinned();
+      messageStreamRenderer.repinMessageStreamToBottomIfPinned();
     },
   });
   const pendingRequests = new PendingRequestController({
@@ -228,7 +228,7 @@ export function createConversationSurfaceControllerGroup(
     },
   });
 
-  const messageRenderer = new ChatMessageRenderer({
+  const messageStreamRenderer = new MessageStreamRenderer({
     obsidian: {
       app,
       owner,
@@ -252,7 +252,7 @@ export function createConversationSurfaceControllerGroup(
       openTurnDiff: (state) => void plugin.openTurnDiff(state),
     },
     requests: {
-      pendingSignature: messages.pendingRequestsSignature,
+      pendingSignature: messageStream.pendingRequestsSignature,
       pendingSnapshot: () => pendingRequests.snapshot(),
       pendingActions: () => pendingRequests.actions(),
       consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
@@ -278,13 +278,13 @@ export function createConversationSurfaceControllerGroup(
   composerController.setActionHandlers({
     submit: () => void composerSubmit.submit(),
     threadScrollFromComposer: (action) => {
-      messageRenderer.scrollFromComposer(action);
+      messageStreamRenderer.scrollFromComposer(action);
     },
   });
 
   return {
     pendingRequests,
-    messageRenderer,
+    messageStreamRenderer,
     composerController,
     composerSubmit,
   };

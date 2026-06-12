@@ -1,8 +1,8 @@
 import type { ChatAction, ChatState } from "../../state/reducer";
 import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
+import type { PendingRequestBlockActions } from "../../conversation/pending-requests/view-model";
 import type { DisplayItem } from "../../display/types";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
-import type { PendingRequestBlockActions } from "../pending-request-block";
 
 export interface ChatMessageStreamActionPort {
   rollbackThread: (threadId: string) => void;

@@ -1,4 +1,4 @@
-import type { MessageStreamScrollIntent } from "../ui/message-virtualizer";
+import type { MessageStreamScrollIntent } from "./virtualizer";
 
 export class ChatMessageScrollIntentController {
   private nextIntent: MessageStreamScrollIntent = "auto";

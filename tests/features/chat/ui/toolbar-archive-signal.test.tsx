@@ -38,7 +38,7 @@ describe("chat toolbar archive confirmation signal", () => {
         showToolbar: true,
         toolbarNode: () => chatPanelToolbarRegionNode(toolbarPorts(store, controller)),
         goalNode: () => null,
-        messagesNode: () => <div className="codex-panel__region codex-panel__region--messages codex-panel__messages" />,
+        messageStreamNode: () => <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages" />,
         composerNode: () => null,
       });
       await settle();

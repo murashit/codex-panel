@@ -64,7 +64,7 @@ export interface ChatPanelGoalPorts extends ChatPanelStatePort {
   };
 }
 
-export interface ChatPanelMessagesPorts extends ChatPanelStatePort {
+export interface ChatPanelMessageStreamPorts extends ChatPanelStatePort {
   render: {
     node: () => UiNode;
   };

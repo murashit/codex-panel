@@ -3,12 +3,11 @@ import { useLayoutEffect, useState } from "preact/hooks";
 
 import { activeTurnId } from "../../state/reducer";
 import { displayBlocksForItems } from "../../display/stream/blocks";
-import type { ToolResultDisplayItem } from "../tool-result-view";
+import type { ToolResultDisplayItem } from "./tool-result-view-model";
 import type { DisplayBlock, DisplayItem } from "../../display/types";
-import { userInputDraftKey, userInputOtherDraftKey } from "../../protocol/server-requests/user-input";
-import { pendingRequestBlockNode } from "../pending-request-block";
-import { toolResultNode } from "../tool-result";
-import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "../work-items";
+import { pendingRequestBlockNode } from "./pending-request-block";
+import { toolResultNode } from "./tool-result";
+import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "./work-items";
 import type { MessageStreamBlock, MessageStreamContext, TextDisplayItem } from "./context";
 import { textItemNode } from "./text-item";
 
@@ -92,11 +91,7 @@ function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | nu
       node: pendingRequestBlockNode(
         snapshot.approvals,
         snapshot.pendingUserInputs,
-        {
-          values: snapshot.userInputDrafts,
-          draftKey: userInputDraftKey,
-          otherDraftKey: userInputOtherDraftKey,
-        },
+        snapshot.userInputDrafts,
         snapshot.openDetails,
         context.pendingRequests.actions(),
         false,

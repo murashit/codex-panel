@@ -11,7 +11,7 @@ import { closeChatView, openChatView, type ChatViewLifecycleHost } from "./view-
 import { createToolbarArchiveConfirmState, ToolbarPanelController } from "./regions/toolbar";
 import { ChatViewRenderController } from "./view-render-controller";
 import { applyChatViewState } from "./view-state";
-import type { ChatMessageRenderer } from "../ui/message-stream/renderer";
+import type { MessageStreamRenderer } from "../ui/message-stream/renderer";
 import { applyCachedSharedAppServerState, type CachedSharedAppServerStateSource } from "./cached-app-server-state";
 import type { ChatViewDeferredTasks, RestoredThreadState } from "../lifecycle";
 import { createChatShellRenderPort } from "./shell-render";
@@ -30,7 +30,7 @@ interface ViewRenderControllerGroupPorts {
     panelRoot: () => HTMLElement | null;
     toolbarNode: () => UiNode;
     goalNode: () => UiNode;
-    messagesNode: () => UiNode;
+    messageStreamNode: () => UiNode;
     composerNode: () => UiNode;
   };
 }
@@ -45,7 +45,7 @@ export function createViewRenderControllerGroup(context: ViewRenderControllerGro
         showToolbar: () => plugin.settings.showToolbar,
         toolbarNode: context.render.toolbarNode,
         goalNode: context.render.goalNode,
-        messagesNode: context.render.messagesNode,
+        messageStreamNode: context.render.messageStreamNode,
         composerNode: context.render.composerNode,
       }),
       panelRoot: render.panelRoot,
@@ -90,7 +90,7 @@ export function createConnectionLifecycleControllerGroup(
   refs: {
     connection: ConnectionManager;
     composerController: ChatComposerController;
-    messageRenderer: ChatMessageRenderer;
+    messageStreamRenderer: MessageStreamRenderer;
     serverThreads: ChatServerThreadActions;
     serverMetadata: ChatServerMetadataActions;
   },
@@ -128,7 +128,7 @@ export function createConnectionLifecycleControllerGroup(
     },
     panelRoot: render.panelRoot,
     disposeMessages: () => {
-      refs.messageRenderer.dispose();
+      refs.messageStreamRenderer.dispose();
     },
     disposeComposer: () => {
       refs.composerController.dispose();

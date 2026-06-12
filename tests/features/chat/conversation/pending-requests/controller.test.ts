@@ -40,7 +40,7 @@ describe("PendingRequestController", () => {
     stateStore.dispatch({ type: "request/user-input-queued", input });
     stateStore.dispatch({ type: "request/user-input-draft-set", key: "7:direction", value: "Left" });
 
-    pendingRequests.resolveUserInput(input);
+    pendingRequests.resolveUserInput(input.requestId);
 
     expect(respondToServerRequest).toHaveBeenCalledWith(7, { answers: { direction: { answers: ["Left"] } } });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);

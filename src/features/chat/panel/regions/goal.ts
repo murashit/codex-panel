@@ -1,4 +1,4 @@
-import type { GoalBannerActions, GoalBannerOptions } from "../../ui/goal-banner";
+import type { GoalRegionActions, GoalRegionOptions } from "../../ui/goal";
 import type { ChatPanelGoalPorts } from "./ports";
 
 export function chatPanelGoalProps(
@@ -6,8 +6,8 @@ export function chatPanelGoalProps(
   state: ReturnType<ChatPanelGoalPorts["state"]["chat"]>,
 ): {
   goal: ReturnType<ChatPanelGoalPorts["state"]["chat"]>["activeThread"]["goal"];
-  actions: GoalBannerActions;
-  options: GoalBannerOptions;
+  actions: GoalRegionActions;
+  options: GoalRegionOptions;
 } {
   const goal = state.activeThread.goal;
   const goalThreadId = goal?.threadId ?? null;

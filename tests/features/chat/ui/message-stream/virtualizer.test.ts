@@ -9,10 +9,10 @@ import {
   type MessageStreamVirtualizerHandle,
   type MessageStreamVirtualizerView,
   useMessageStreamVirtualizer,
-} from "../../../../src/features/chat/ui/message-virtualizer";
-import type { MessageStreamBlock } from "../../../../src/features/chat/ui/message-stream/context";
-import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/ui-root";
-import { installObsidianDomShims } from "../../../support/dom";
+} from "../../../../../src/features/chat/ui/message-stream/virtualizer";
+import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
 

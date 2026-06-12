@@ -4,11 +4,13 @@ import { act } from "preact/test-utils";
 
 import type { PendingApproval } from "../../../../../src/features/chat/protocol/server-requests/approval";
 import type { PendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
-import { pendingRequestBlockNode, type PendingRequestBlockActions } from "../../../../../src/features/chat/ui/pending-request-block";
+import { pendingRequestBlockSnapshotFromRequests } from "../../../../../src/features/chat/conversation/pending-requests/snapshot";
+import type { PendingRequestBlockActions } from "../../../../../src/features/chat/conversation/pending-requests/view-model";
+import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
 import type { ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
-import { messageStreamBlocksNode } from "../../../../../src/features/chat/ui/message-stream/render";
+import { messageStreamViewportNode } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(
@@ -55,7 +57,7 @@ export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: Mess
   void act(() => {
     renderUiRoot(
       parent,
-      messageStreamBlocksNode({
+      messageStreamViewportNode({
         blocks,
         consumeScrollIntent: () => "auto",
       }),
@@ -93,8 +95,40 @@ export function unmountUiRootInAct(parent: HTMLElement): void {
   });
 }
 
-export function renderPendingRequestNode(parent: HTMLElement, ...args: Parameters<typeof pendingRequestBlockNode>): void {
-  renderUiRootInAct(parent, pendingRequestBlockNode(...args));
+export function renderPendingRequestNode(
+  parent: HTMLElement,
+  approvals: readonly PendingApproval[],
+  pendingUserInputs: readonly PendingUserInput[],
+  drafts: {
+    values: ReadonlyMap<string, string>;
+    draftKey?: (requestId: PendingUserInput["requestId"], questionId: string) => string;
+    otherDraftKey?: (requestId: PendingUserInput["requestId"], questionId: string) => string;
+  },
+  openDetails: ReadonlySet<string>,
+  actions: PendingRequestBlockActions,
+  autoFocusRequested = false,
+  consumeAutoFocus?: () => boolean,
+  autoFocusSignature = "",
+): void {
+  const snapshot = pendingRequestBlockSnapshotFromRequests({
+    approvals,
+    pendingUserInputs,
+    userInputDrafts: drafts.values,
+    openDetails,
+  });
+  renderUiRootInAct(
+    parent,
+    pendingRequestBlockNode(
+      snapshot.approvals,
+      snapshot.pendingUserInputs,
+      snapshot.userInputDrafts,
+      snapshot.openDetails,
+      actions,
+      autoFocusRequested,
+      consumeAutoFocus,
+      autoFocusSignature,
+    ),
+  );
 }
 
 export function pendingRequestActions(overrides: Partial<PendingRequestBlockActions> = {}): PendingRequestBlockActions {

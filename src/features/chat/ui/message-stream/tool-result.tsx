@@ -1,8 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { toolResultView, type ToolResultDetailSection, type ToolResultDisplayItem, type ToolResultView } from "./tool-result-view";
-import { renderRawDiffLines } from "../../../shared/diff/render";
+import { toolResultView, type ToolResultDetailSection, type ToolResultDisplayItem, type ToolResultView } from "./tool-result-view-model";
+import { renderRawDiffLines } from "../../../../shared/diff/render";
 
 export interface ToolResultRenderContext {
   workspaceRoot?: string | null;
