@@ -25,11 +25,11 @@ import {
   mcpToolCallExecutionState,
   patchApplyExecutionState,
 } from "../../../../src/features/chat/display/turn-items";
-import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/display/turn-items";
+import { displayItemFromTurnItem, displayItemsFromTurns } from "../../../../src/features/chat/display/turn-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import type { Thread } from "../../../../src/domain/threads/model";
-import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/turn";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -63,16 +63,16 @@ function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): Displ
   };
 }
 
-describe("thread item conversion preserves app-server semantics", () => {
+describe("turn item conversion preserves app-server semantics", () => {
   it("sorts app-server turns oldest first before converting messages", () => {
-    const userMessage: AppServerThreadItem = {
+    const userMessage: TurnItem = {
       type: "userMessage",
       id: "u1",
       clientId: null,
       content: [{ type: "text", text: "hello", text_elements: [] }],
     };
-    const assistantMessage: AppServerThreadItem = { type: "agentMessage", id: "a1", text: "world", phase: null, memoryCitation: null };
-    const turns: AppServerTurn[] = [
+    const assistantMessage: TurnItem = { type: "agentMessage", id: "a1", text: "world", phase: null, memoryCitation: null };
+    const turns: TurnRecord[] = [
       {
         id: "new",
         items: [assistantMessage],
@@ -87,12 +87,12 @@ describe("thread item conversion preserves app-server semantics", () => {
     ];
 
     expect(displayItemsFromTurns(turns).map((item) => item.text)).toEqual(["hello", "world"]);
-    expect(displayItemFromThreadItem(userMessage)).toMatchObject({ role: "user", copyText: "hello" });
-    expect(displayItemFromThreadItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
+    expect(displayItemFromTurnItem(userMessage)).toMatchObject({ role: "user", copyText: "hello" });
+    expect(displayItemFromTurnItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
   });
 
   it("keeps resolved file mentions visible as user message metadata", () => {
-    const userMessage: AppServerThreadItem = {
+    const userMessage: TurnItem = {
       type: "userMessage",
       id: "u1",
       clientId: null,
@@ -104,7 +104,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       ],
     };
 
-    expect(displayItemFromThreadItem(userMessage)).toMatchObject({
+    expect(displayItemFromTurnItem(userMessage)).toMatchObject({
       kind: "message",
       messageKind: "user",
       role: "user",
@@ -127,7 +127,7 @@ describe("thread item conversion preserves app-server semantics", () => {
     );
 
     expect(
-      displayItemFromThreadItem({
+      displayItemFromTurnItem({
         type: "userMessage",
         id: "u1",
         clientId: null,
@@ -147,7 +147,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("renders resolved skill references as inline code without changing copy text", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "userMessage",
       id: "u1",
       clientId: null,
@@ -157,14 +157,14 @@ describe("thread item conversion preserves app-server semantics", () => {
       ],
     };
 
-    expect(displayItemFromThreadItem(item)).toMatchObject({
+    expect(displayItemFromTurnItem(item)).toMatchObject({
       text: "Use `$obsidian-codex-panel-maintain` and $missing.",
       copyText: "Use $obsidian-codex-panel-maintain and $missing.",
     });
   });
 
   it("does not rewrite skill references that are already in markdown code", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "userMessage",
       id: "u1",
       clientId: null,
@@ -178,24 +178,24 @@ describe("thread item conversion preserves app-server semantics", () => {
       ],
     };
 
-    expect(displayItemFromThreadItem(item)).toMatchObject({
+    expect(displayItemFromTurnItem(item)).toMatchObject({
       text: "Use `$obsidian-codex-panel-maintain`.\n\n```\n$obsidian-codex-panel-maintain\n```\n\nThen `$obsidian-codex-panel-maintain`.",
     });
   });
 
   it("preserves reasoning text", () => {
-    const item: AppServerThreadItem = { type: "reasoning", id: "r1", summary: ["summary"], content: ["detail"] };
-    expect(displayItemFromThreadItem(item)?.text).toBe("summary\n\ndetail");
+    const item: TurnItem = { type: "reasoning", id: "r1", summary: ["summary"], content: ["detail"] };
+    expect(displayItemFromTurnItem(item)?.text).toBe("summary\n\ndetail");
   });
 
   it("keeps empty reasoning text empty so completed placeholders can be hidden", () => {
-    const item: AppServerThreadItem = { type: "reasoning", id: "r1", summary: [], content: [] };
-    expect(displayItemFromThreadItem(item)?.text).toBe("");
+    const item: TurnItem = { type: "reasoning", id: "r1", summary: [], content: [] };
+    expect(displayItemFromTurnItem(item)?.text).toBe("");
   });
 
   it("renders completed proposed plans as copyable assistant markdown", () => {
-    const item: AppServerThreadItem = { type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" };
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    const item: TurnItem = { type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" };
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       id: "p1",
       kind: "message",
       role: "assistant",
@@ -266,7 +266,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("formats collab agent tool calls as agent activity", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "collabAgentToolCall",
       id: "agent-1",
       tool: "spawnAgent",
@@ -279,7 +279,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       agentsStates: { "child-thread": { status: "completed", message: "Done" } },
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       id: "agent-1",
       kind: "agent",
       role: "tool",
@@ -296,7 +296,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("marks completed spawn calls complete even before child state arrives", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "collabAgentToolCall",
       id: "agent-1",
       tool: "spawnAgent",
@@ -309,7 +309,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       agentsStates: {},
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "agent",
       status: "completed",
       executionState: "completed",
@@ -317,7 +317,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("keeps command output in details instead of inline summaries", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "npm run check",
@@ -331,7 +331,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 42,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       text: "npm run check (exit 1)",
       output: "stderr with many details",
@@ -340,7 +340,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed read commands separately from generic commands", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "sed -n '1,20p' src/main.ts",
@@ -354,7 +354,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "read",
       text: "src/main.ts",
@@ -363,7 +363,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes piped parsed read commands by file name only", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "nl -ba src/main.ts | sed -n '1,20p'",
@@ -377,7 +377,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "read",
       text: "src/main.ts",
@@ -388,7 +388,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("keeps absolute read paths when they are outside the command cwd", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "sed -n '1,20p' /vault/src/main.ts",
@@ -402,7 +402,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "read",
       text: "/vault/src/main.ts",
@@ -411,7 +411,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes zsh login wrapper commands without changing their command classification", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "/bin/zsh -lc 'npm run check'",
@@ -425,7 +425,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "command",
       text: "npm run check",
@@ -436,7 +436,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed search commands and summarizes their query and path", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg 'command target' src/display",
@@ -450,7 +450,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "search",
       text: '"command target" in src/display',
@@ -461,7 +461,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes parsed search paths relative to the command cwd", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg target /vault/src/display",
@@ -475,7 +475,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "search",
       text: "target in src/display",
@@ -484,7 +484,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes Windows paths relative to the command cwd", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg target C:\\Vault\\src\\display",
@@ -498,7 +498,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "search",
       text: "target in src/display",
@@ -507,7 +507,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed file listing commands and summarizes their path", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg --files src/display",
@@ -521,7 +521,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "list files",
       text: "src/display",
@@ -530,7 +530,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("uses the representative command action for both label and summary", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "cd src && rg target",
@@ -547,7 +547,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "search",
       text: "target in src",
@@ -556,7 +556,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes parsed workspace file listings without a path", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg --files",
@@ -570,7 +570,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "list files",
       text: "workspace",
@@ -579,7 +579,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("uses structured command status instead of stdout or stderr text", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "rg error src",
@@ -593,7 +593,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: null,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       text: "rg error src",
       executionState: "completed",
@@ -601,7 +601,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("omits running qualifiers from command, file change, and tool summaries", () => {
-    const command: AppServerThreadItem = {
+    const command: TurnItem = {
       type: "commandExecution",
       id: "cmd-1",
       command: "npm run check",
@@ -614,13 +614,13 @@ describe("thread item conversion preserves app-server semantics", () => {
       exitCode: null,
       durationMs: null,
     };
-    const fileChange: AppServerThreadItem = {
+    const fileChange: TurnItem = {
       type: "fileChange",
       id: "patch-1",
       status: "inProgress",
       changes: [{ kind: { type: "update", move_path: null }, path: "src/main.ts", diff: "@@\n-old\n+new" }],
     };
-    const tool: AppServerThreadItem = {
+    const tool: TurnItem = {
       type: "mcpToolCall",
       id: "mcp-1",
       server: "github",
@@ -633,15 +633,15 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: null,
     };
 
-    expect(displayItemFromThreadItem(command, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(command, "t1")).toMatchObject({
       text: "npm run check",
       executionState: "running",
     });
-    expect(displayItemFromThreadItem(fileChange, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(fileChange, "t1")).toMatchObject({
       text: "src/main.ts",
       executionState: "running",
     });
-    expect(displayItemFromThreadItem(tool, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(tool, "t1")).toMatchObject({
       text: "123",
       toolLabel: "github.pull_request_read",
       executionState: "running",
@@ -649,7 +649,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes MCP tool calls from structured arguments and errors", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "mcpToolCall",
       id: "mcp-1",
       server: "github",
@@ -662,7 +662,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "123 (Not found)",
       toolLabel: "github.pull_request_read",
@@ -675,7 +675,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes dynamic tool calls from structured arguments only", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "dynamicToolCall",
       id: "tool-1",
       namespace: "web",
@@ -687,7 +687,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "https://example.com",
       toolLabel: "web.open",
@@ -700,13 +700,13 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("marks image view summaries as path summaries", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "imageView",
       id: "image-1",
       path: "/vault/project/assets/image.png",
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "/vault/project/assets/image.png",
       toolLabel: "imageView",
@@ -715,7 +715,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("preserves image generation status, details, and state", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "imageGeneration",
       id: "image-gen-1",
       status: "completed",
@@ -724,7 +724,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       savedPath: "/vault/project/assets/generated.png",
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "/vault/project/assets/generated.png",
       toolLabel: "imageGeneration",
@@ -740,7 +740,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("uses image generation result as the summary when no saved path is present", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "imageGeneration",
       id: "image-gen-1",
       status: "completed",
@@ -748,7 +748,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       result: "image result",
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "image result",
       toolLabel: "imageGeneration",
@@ -761,7 +761,7 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("uses details as the summary when a tool target cannot be extracted", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "dynamicToolCall",
       id: "tool-1",
       namespace: "multi_tool_use",
@@ -773,7 +773,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "details",
       toolLabel: "multi_tool_use.parallel",
@@ -782,14 +782,14 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes web search actions by action type and target", () => {
-    const item: AppServerThreadItem = {
+    const item: TurnItem = {
       type: "webSearch",
       id: "search-1",
       query: "fallback query",
       action: { type: "search", query: "codex app-server", queries: ["obsidian codex panel"] },
     };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "search: codex app-server; obsidian codex panel; fallback query",
       toolLabel: "web search",
@@ -806,16 +806,16 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("preserves review mode items with their review output", () => {
-    const entered: AppServerThreadItem = { type: "enteredReviewMode", id: "review-entered", review: "Review started" };
-    const exited: AppServerThreadItem = { type: "exitedReviewMode", id: "review-exited", review: "Review finished" };
+    const entered: TurnItem = { type: "enteredReviewMode", id: "review-entered", review: "Review started" };
+    const exited: TurnItem = { type: "exitedReviewMode", id: "review-exited", review: "Review finished" };
 
-    expect(displayItemFromThreadItem(entered, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(entered, "t1")).toMatchObject({
       kind: "tool",
       text: "Entered review mode",
       toolLabel: "enteredReviewMode",
       output: "Review started",
     });
-    expect(displayItemFromThreadItem(exited, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(exited, "t1")).toMatchObject({
       kind: "tool",
       text: "Exited review mode",
       toolLabel: "exitedReviewMode",
@@ -824,9 +824,9 @@ describe("thread item conversion preserves app-server semantics", () => {
   });
 
   it("preserves context compaction items as short work items", () => {
-    const item: AppServerThreadItem = { type: "contextCompaction", id: "compact-1" };
+    const item: TurnItem = { type: "contextCompaction", id: "compact-1" };
 
-    expect(displayItemFromThreadItem(item, "t1")).toMatchObject({
+    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "contextCompaction",
       text: "Context compaction",
       turnId: "t1",

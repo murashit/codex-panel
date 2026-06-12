@@ -1,4 +1,4 @@
-import { threadFromAppServerThread } from "../../../app-server/thread-model";
+import { threadFromThreadRecord } from "../../../app-server/thread";
 import { rollbackCandidateFromItems } from "../display/item-actions";
 import { displayItemsFromTurns } from "../display/turn-items";
 import { chatTurnBusy } from "../state/reducer";
@@ -25,7 +25,7 @@ export async function rollbackThread(host: ChatThreadActionsHost, threadId: stri
     host.setStatus("Rolling back latest turn...");
     const response = await client.rollbackThread(threadId);
     if (!threadActionStillTargetsPanel(threadActionState(host), threadId)) return;
-    const thread = threadFromAppServerThread(response.thread);
+    const thread = threadFromThreadRecord(response.thread);
     threadActionDispatch(
       host,
       resumedThreadActionFromActiveRuntime({

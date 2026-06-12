@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { threadActivationSnapshotFromAppServerResponse } from "../../src/app-server/thread-activation";
 import type { ThreadResumeResponse } from "../../src/generated/app-server/v2/ThreadResumeResponse";
-import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
+import type { Thread as ThreadRecord } from "../../src/generated/app-server/v2/Thread";
 
 describe("app-server thread activation", () => {
   it("maps app-server activation responses into panel-owned snapshots", () => {
@@ -23,7 +23,7 @@ describe("app-server thread activation", () => {
   });
 });
 
-function responseFixture(thread: AppServerThread): ThreadResumeResponse {
+function responseFixture(thread: ThreadRecord): ThreadResumeResponse {
   return {
     thread,
     model: "gpt-5.5",
@@ -41,7 +41,7 @@ function responseFixture(thread: AppServerThread): ThreadResumeResponse {
   };
 }
 
-function threadFixture(id: string, name: string): AppServerThread {
+function threadFixture(id: string, name: string): ThreadRecord {
   return {
     id,
     sessionId: "session",
@@ -56,7 +56,7 @@ function threadFixture(id: string, name: string): AppServerThread {
     path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,

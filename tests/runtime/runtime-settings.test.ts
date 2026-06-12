@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   runtimeConfigSnapshotFromAppServerConfig,
-  type AppServerConfigReadResponse,
+  type ConfigReadResult,
   type RuntimeConfigSnapshot,
 } from "../../src/app-server/runtime-config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
@@ -766,20 +766,20 @@ function snapshotConfig(snapshot: RuntimeSnapshot): RuntimeConfigSnapshot {
 
 function runtimeConfigFixture(
   config: Record<string, unknown>,
-  layers: AppServerConfigReadResponse["layers"] = null,
+  layers: ConfigReadResult["layers"] = null,
 ): RuntimeConfigSnapshot {
   return runtimeConfigSnapshotFromAppServerConfig({
-    config: config as AppServerConfigReadResponse["config"],
+    config: config as ConfigReadResult["config"],
     origins: {},
     layers,
   });
 }
 
-function configLayer(config: Record<string, unknown>, profile: string | null): NonNullable<AppServerConfigReadResponse["layers"]>[number] {
+function configLayer(config: Record<string, unknown>, profile: string | null): NonNullable<ConfigReadResult["layers"]>[number] {
   return {
     name: { type: "user", file: "/home/me/.codex/config.toml", profile },
     version: "1",
-    config: config as NonNullable<AppServerConfigReadResponse["layers"]>[number]["config"],
+    config: config as NonNullable<ConfigReadResult["layers"]>[number]["config"],
     disabledReason: null,
   };
 }

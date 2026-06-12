@@ -1,4 +1,4 @@
-import { modelMetadataFromAppServerModels } from "../../app-server/catalog-model";
+import { modelMetadataFromCatalogModels } from "../../app-server/catalog";
 import {
   runEphemeralStructuredTurn,
   type EphemeralStructuredTurnClient,
@@ -6,7 +6,7 @@ import {
   type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "../../app-server/ephemeral-structured-turn";
-import { conversationSummaryFromAppServerTurn, type AppServerTurn } from "../../app-server/turn-model";
+import { conversationSummaryFromTurnRecord, type TurnRecord } from "../../app-server/turn";
 import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/catalog/runtime-overrides";
 import { threadTitleFromGeneratedText, threadTitlePrompt, type ThreadTitleContext } from "./model";
@@ -72,8 +72,8 @@ export interface ThreadTitleRuntimeOverride {
   effort?: ReasoningEffort;
 }
 
-export function threadTitleFromGenerationTurn(turn: AppServerTurn): string | null {
-  const response = conversationSummaryFromAppServerTurn(turn).assistantText;
+export function threadTitleFromGenerationTurn(turn: TurnRecord): string | null {
+  const response = conversationSummaryFromTurnRecord(turn).assistantText;
   return response ? threadTitleFromGeneratedText(response) : null;
 }
 
@@ -96,7 +96,7 @@ async function threadTitleRuntimeOverrideForClient(
   if (!runtime.model || !runtime.effort) return runtime;
   try {
     const response = await client.listModels(false);
-    return validatedThreadTitleRuntimeOverride(settings, modelMetadataFromAppServerModels(response.data));
+    return validatedThreadTitleRuntimeOverride(settings, modelMetadataFromCatalogModels(response.data));
   } catch {
     return runtime;
   }

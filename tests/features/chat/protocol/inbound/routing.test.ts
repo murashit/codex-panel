@@ -552,7 +552,7 @@ function threadSnapshot(id: string): Extract<ServerNotification, { method: "thre
     path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,

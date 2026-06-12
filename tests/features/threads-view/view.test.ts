@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { AppServerTurn } from "../../../src/app-server/turn-model";
+import type { TurnRecord } from "../../../src/app-server/turn";
 import type * as ThreadTitleGeneratorModule from "../../../src/features/thread-title/generation";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -459,7 +459,7 @@ function threadFixture(overrides: Record<string, unknown> = {}): Record<string, 
     path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,
@@ -470,7 +470,7 @@ function threadFixture(overrides: Record<string, unknown> = {}): Record<string, 
   };
 }
 
-function turnFixture(items: AppServerTurn["items"], overrides: Partial<AppServerTurn> = {}): AppServerTurn {
+function turnFixture(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
   return {
     id: "turn",
     items,

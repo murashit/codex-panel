@@ -1,9 +1,15 @@
-import type { Thread as AppServerThread } from "../generated/app-server/v2/Thread";
 import type { Thread } from "../domain/threads/model";
 
-export type { AppServerThread };
+export interface ThreadRecord {
+  id: string;
+  preview: string;
+  name: string | null;
+  createdAt: number;
+  updatedAt: number;
+  [key: string]: unknown;
+}
 
-export function threadFromAppServerThread(thread: AppServerThread, options: { archived?: boolean } = {}): Thread {
+export function threadFromThreadRecord(thread: ThreadRecord, options: { archived?: boolean } = {}): Thread {
   return {
     id: thread.id,
     preview: normalizeString(thread.preview),
@@ -14,8 +20,8 @@ export function threadFromAppServerThread(thread: AppServerThread, options: { ar
   };
 }
 
-export function threadsFromAppServerThreads(threads: readonly AppServerThread[], options: { archived?: boolean } = {}): Thread[] {
-  return threads.map((thread) => threadFromAppServerThread(thread, options));
+export function threadsFromThreadRecords(threads: readonly ThreadRecord[], options: { archived?: boolean } = {}): Thread[] {
+  return threads.map((thread) => threadFromThreadRecord(thread, options));
 }
 
 function normalizeNullableString(value: string | null): string | null {

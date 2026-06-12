@@ -1,8 +1,6 @@
-import type { ThreadResumeResponse } from "../generated/app-server/v2/ThreadResumeResponse";
-import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
 import type { Thread } from "../domain/threads/model";
 import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "./runtime-policy";
-import { threadFromAppServerThread } from "./thread-model";
+import { threadFromThreadRecord, type ThreadRecord } from "./thread";
 
 export interface ThreadActivationSnapshot {
   thread: Thread;
@@ -15,11 +13,20 @@ export interface ThreadActivationSnapshot {
   reasoningEffort: string | null;
 }
 
-export type AppServerThreadActivationResponse = ThreadStartResponse | ThreadResumeResponse;
+export interface ThreadActivationResponse {
+  thread: ThreadRecord;
+  cwd: string;
+  model: string | null;
+  serviceTier: ServiceTier | null;
+  approvalPolicy: ApprovalPolicy | null;
+  approvalsReviewer: ApprovalsReviewer | null;
+  activePermissionProfile: ActivePermissionProfile | null;
+  reasoningEffort: string | null;
+}
 
-export function threadActivationSnapshotFromAppServerResponse(response: AppServerThreadActivationResponse): ThreadActivationSnapshot {
+export function threadActivationSnapshotFromAppServerResponse(response: ThreadActivationResponse): ThreadActivationSnapshot {
   return {
-    thread: threadFromAppServerThread(response.thread),
+    thread: threadFromThreadRecord(response.thread),
     cwd: response.cwd,
     model: response.model,
     reasoningEffort: response.reasoningEffort,

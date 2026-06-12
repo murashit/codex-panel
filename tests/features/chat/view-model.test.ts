@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
 import {
   runtimeConfigSnapshotFromAppServerConfig,
-  type AppServerConfigReadResponse,
+  type ConfigReadResult,
   type RuntimeConfigSnapshot,
 } from "../../../src/app-server/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
@@ -348,7 +348,7 @@ describe("chat view model", () => {
 
 function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {
   return runtimeConfigSnapshotFromAppServerConfig({
-    config: config as AppServerConfigReadResponse["config"],
+    config: config as ConfigReadResult["config"],
     origins: {},
     layers: null,
   });

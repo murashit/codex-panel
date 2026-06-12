@@ -2,11 +2,11 @@ import { activeThreadSettingsAppliedAction } from "../../state/actions";
 import type { McpServerStartupStatus } from "../../../../app-server/diagnostics";
 import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/runtime-metrics";
 import {
-  completedConversationSummaryFromAppServerTurn,
-  type AppServerFileUpdateChange,
-  type AppServerThreadItem,
-  type AppServerTurn,
-} from "../../../../app-server/turn-model";
+  completedConversationSummaryFromTurnRecord,
+  type FileUpdateChange,
+  type TurnItem,
+  type TurnRecord,
+} from "../../../../app-server/turn";
 import type { ServerNotification } from "../../../../app-server/types";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
@@ -21,7 +21,7 @@ import {
   completeReasoningItems,
   upsertDisplayItem,
 } from "../../state/message-stream-updates";
-import { displayItemFromThreadItem, displayItemsFromTurns, normalizeFileChanges, shouldSuppressLifecycleItem } from "../../display/turn-items";
+import { displayItemFromTurnItem, displayItemsFromTurns, normalizeFileChanges, shouldSuppressLifecycleItem } from "../../display/turn-items";
 import { taskProgressDisplayItem } from "../../display/items/task-progress";
 import { createSystemItem } from "../../display/items/system";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../../display/types";
@@ -223,7 +223,7 @@ const TURN_LIFECYCLE_PLANNERS = {
           type: "maybe-name-thread",
           threadId: notification.params.threadId,
           turnId: notification.params.turn.id,
-          completedSummary: completedConversationSummaryFromAppServerTurn(notification.params.turn),
+          completedSummary: completedConversationSummaryFromTurnRecord(notification.params.turn),
         },
         { type: "refresh-threads" },
       ],
@@ -395,15 +395,15 @@ function autoApprovalReviewPlan(
   });
 }
 
-function startedItemPlan(item: AppServerThreadItem, turnId: string): ChatNotificationPlan {
+function startedItemPlan(item: TurnItem, turnId: string): ChatNotificationPlan {
   if (shouldSuppressLifecycleItem(item)) return EMPTY_PLAN;
-  const displayItem = displayItemFromThreadItem(item, turnId);
+  const displayItem = displayItemFromTurnItem(item, turnId);
   return displayItem ? actionPlan({ type: "message-stream/item-upserted", item: displayItem }) : EMPTY_PLAN;
 }
 
-function completedItemPlan(state: ChatState, item: AppServerThreadItem, turnId: string): ChatNotificationPlan {
+function completedItemPlan(state: ChatState, item: TurnItem, turnId: string): ChatNotificationPlan {
   if (item.type === "userMessage") return EMPTY_PLAN;
-  const displayItem = displayItemFromThreadItem(item, turnId);
+  const displayItem = displayItemFromTurnItem(item, turnId);
   if (!displayItem) return EMPTY_PLAN;
   let displayItems = upsertDisplayItem(state.messageStream.displayItems, displayItem);
   if (displayItem.kind === "reasoning") {
@@ -412,7 +412,7 @@ function completedItemPlan(state: ChatState, item: AppServerThreadItem, turnId: 
   return actionPlan({ type: "message-stream/items-replaced", items: displayItems });
 }
 
-function fileChangePlan(itemId: string, turnId: string, changes: AppServerFileUpdateChange[], status: string): ChatNotificationPlan {
+function fileChangePlan(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): ChatNotificationPlan {
   return actionPlan({
     type: "message-stream/item-upserted",
     item: {
@@ -482,7 +482,7 @@ function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: stri
   return attachHookRunsToTurn(state.messageStream.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }
 
-function reconciledCompletedTurnItems(state: ChatState, turn: AppServerTurn): readonly DisplayItem[] {
+function reconciledCompletedTurnItems(state: ChatState, turn: TurnRecord): readonly DisplayItem[] {
   const turnItems = displayItemsFromTurns([turn]);
   if (turnItems.length === 0) return state.messageStream.displayItems;
   const serverUserMessages = turnItems.filter(isUserMessage);

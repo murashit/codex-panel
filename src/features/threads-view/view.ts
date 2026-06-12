@@ -3,13 +3,13 @@ import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 import type { AppServerClient } from "../../app-server/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection-manager";
 import { listThreads } from "../../app-server/resource-operations";
-import { threadFromAppServerThread } from "../../app-server/thread-model";
+import { threadFromThreadRecord } from "../../app-server/thread";
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import { exportArchivedThreadMarkdown } from "../thread-export/archive-markdown";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import { completedConversationSummaryFromAppServerTurn, transcriptEntriesFromAppServerTurn } from "../../app-server/turn-model";
+import { completedConversationSummaryFromTurnRecord, transcriptEntriesFromTurnRecord } from "../../app-server/turn";
 import { generateThreadTitleWithCodex } from "../thread-title/generation";
 import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../thread-title/model";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
@@ -333,7 +333,7 @@ export class CodexThreadsView extends ItemView {
           const response = await client.threadTurnsList(id, cursor, limit, sortDirection);
           return {
             data: response.data.flatMap((turn) => {
-              const summary = completedConversationSummaryFromAppServerTurn(turn);
+              const summary = completedConversationSummaryFromTurnRecord(turn);
               return summary ? [summary] : [];
             }),
             nextCursor: response.nextCursor,
@@ -382,8 +382,8 @@ export class CodexThreadsView extends ItemView {
         const response = await this.client.readThread(threadId, true);
         const result = await exportArchivedThreadMarkdown(
           {
-            ...threadFromAppServerThread(response.thread, { archived: true }),
-            transcriptEntries: response.thread.turns.flatMap(transcriptEntriesFromAppServerTurn),
+            ...threadFromThreadRecord(response.thread, { archived: true }),
+            transcriptEntries: response.thread.turns.flatMap(transcriptEntriesFromTurnRecord),
           },
           { ...this.plugin.settings, vaultPath: this.plugin.vaultPath },
           this.app.vault.adapter,

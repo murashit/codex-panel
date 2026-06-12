@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../../app-server/client";
 import {
   diagnosticProbeError,
   diagnosticProbeOk,
-  mcpServerStatusSummariesFromAppServerStatuses,
+  mcpServerStatusSummariesFromStatuses,
   upsertMcpServerStatusDiagnostics,
   upsertMcpServerDiagnostic,
   type Diagnostics,
@@ -93,13 +93,13 @@ async function refreshDiagnosticProbes(
       "mcpServerStatus/list",
       () => client.listMcpServerStatus(mcpServerStatusParams(host.stateStore.getState().activeThread.id)),
       (response) => {
-        const summaries = mcpServerStatusSummariesFromAppServerStatuses(response.data);
+        const summaries = mcpServerStatusSummariesFromStatuses(response.data);
         const issueCount = summaries.filter((server) => server.authStatus === "notLoggedIn").length;
         return issueCount > 0
           ? `${String(summaries.length)} servers, ${String(issueCount)} auth issues`
           : `${String(summaries.length)} servers`;
       },
-      (response) => mcpServerStatusSummariesFromAppServerStatuses(response.data),
+      (response) => mcpServerStatusSummariesFromStatuses(response.data),
     ),
     probeDiagnostic(
       "collaborationMode/list",
@@ -148,7 +148,7 @@ async function mcpStatusLines(host: ChatServerDiagnosticsActionsHost): Promise<s
     const state = host.stateStore.getState();
     const response = await client.listMcpServerStatus(mcpServerStatusParams(state.activeThread.id));
     return buildMcpStatusLines(
-      mcpServerStatusSummariesFromAppServerStatuses(response.data),
+      mcpServerStatusSummariesFromStatuses(response.data),
       state.connection.appServerDiagnostics.mcpServers,
     );
   } catch (error) {

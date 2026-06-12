@@ -1,25 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/client";
-import type { AppServerMcpServerStatus } from "../../../../../src/app-server/diagnostics";
+import type { McpServerStatus } from "../../../../../src/app-server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/app-server/runtime-config";
 import type { RateLimitSnapshot } from "../../../../../src/app-server/runtime-metrics";
-import { threadFromAppServerThread, type AppServerThread } from "../../../../../src/app-server/thread-model";
+import { threadFromThreadRecord } from "../../../../../src/app-server/thread";
 import { createChatServerDiagnosticsActions } from "../../../../../src/features/chat/connection/server-actions/diagnostics";
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/connection/server-actions/metadata";
 import { createChatServerThreadActions } from "../../../../../src/features/chat/connection/server-actions/threads";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
-import type { AppServerModel, AppServerSkillMetadata } from "../../../../../src/app-server/catalog-model";
+import type { CatalogModel, CatalogSkillMetadata } from "../../../../../src/app-server/catalog";
+
+type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startThread"]>>;
 
 describe("chat server actions", () => {
   it("publishes newly started threads before the first turn completes", async () => {
     const state = createChatState();
     const existing = threadFixture("existing");
-    state.threadList.listedThreads = [threadFromAppServerThread(existing)];
+    state.threadList.listedThreads = [threadFromThreadRecord(existing)];
     const stateStore = createChatStateStore(state);
     const started = threadFixture("started");
-    const optimistic = threadFromAppServerThread({ ...started, preview: "first prompt" });
-    const existingThread = threadFromAppServerThread(existing);
+    const optimistic = threadFromThreadRecord({ ...started, preview: "first prompt" });
+    const existingThread = threadFromThreadRecord(existing);
     const publishThreadList = vi.fn();
     const syncThreadGoal = vi.fn();
     const client = {
@@ -143,7 +145,7 @@ describe("chat server actions", () => {
 
     await controller.startThread("local preview");
 
-    expect(publishThreadList).toHaveBeenCalledWith([threadFromAppServerThread(started)]);
+    expect(publishThreadList).toHaveBeenCalledWith([threadFromThreadRecord(started)]);
   });
 
   it("does not apply newly started threads after the client changes", async () => {
@@ -361,7 +363,7 @@ describe("chat server actions", () => {
 
   it("does not apply refreshed models after the client changes", async () => {
     const stateStore = createChatStateStore(createChatState());
-    const modelRefresh = deferred<{ data: AppServerModel[] }>();
+    const modelRefresh = deferred<{ data: CatalogModel[] }>();
     const listModels = vi.fn().mockReturnValue(modelRefresh.promise);
     const firstClient = { listModels } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
@@ -385,7 +387,7 @@ describe("chat server actions", () => {
 
   it("does not apply or publish refreshed skills after the client changes", async () => {
     const stateStore = createChatStateStore(createChatState());
-    const skillRefresh = deferred<{ data: { skills: AppServerSkillMetadata[] }[] }>();
+    const skillRefresh = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const listSkills = vi.fn().mockReturnValue(skillRefresh.promise);
     const firstClient = { listSkills } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
@@ -518,7 +520,7 @@ describe("chat server actions", () => {
   });
 });
 
-function threadFixture(id: string, overrides: Partial<AppServerThread> = {}): AppServerThread {
+function threadFixture(id: string, overrides: Partial<ThreadStartResponse["thread"]> = {}): ThreadStartResponse["thread"] {
   return {
     id,
     sessionId: id,
@@ -533,7 +535,7 @@ function threadFixture(id: string, overrides: Partial<AppServerThread> = {}): Ap
     path: null,
     cwd: "/vault",
     cliVersion: "test",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,
@@ -544,7 +546,7 @@ function threadFixture(id: string, overrides: Partial<AppServerThread> = {}): Ap
   };
 }
 
-function modelFixture(model: string): AppServerModel {
+function modelFixture(model: string): CatalogModel {
   return {
     id: model,
     model,
@@ -565,7 +567,7 @@ function modelFixture(model: string): AppServerModel {
   };
 }
 
-function skillFixture(name: string): AppServerSkillMetadata {
+function skillFixture(name: string): CatalogSkillMetadata {
   return {
     name,
     description: "",
@@ -587,7 +589,7 @@ function rateLimitFixture(overrides: Partial<RateLimitSnapshot> = {}): RateLimit
   };
 }
 
-function mcpServerStatus(): AppServerMcpServerStatus {
+function mcpServerStatus(): McpServerStatus {
   return {
     name: "github",
     serverInfo: null,
@@ -597,7 +599,7 @@ function mcpServerStatus(): AppServerMcpServerStatus {
     resources: [],
     resourceTemplates: [],
     authStatus: "oAuth",
-  } as AppServerMcpServerStatus;
+  } as McpServerStatus;
 }
 
 interface Deferred<T> {

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../src/app-server/client";
-import { modelMetadataFromAppServerModels, type AppServerModel } from "../../../src/app-server/catalog-model";
+import { modelMetadataFromCatalogModels, type CatalogModel } from "../../../src/app-server/catalog";
 import type { AppServerInitialization } from "../../../src/app-server/initialization";
-import type { AppServerThread } from "../../../src/app-server/thread-model";
-import type { AppServerThreadItem, AppServerTurn } from "../../../src/app-server/turn-model";
+import type { TurnItem, TurnRecord } from "../../../src/app-server/turn";
 import type { RequestId, ServerNotification } from "../../../src/app-server/types";
 import {
   generateThreadTitleWithCodex,
@@ -24,9 +23,8 @@ import {
 
 type InitializeResponse = AppServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
-type ThreadItem = AppServerThreadItem;
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
-type Turn = AppServerTurn;
+type Turn = TurnRecord;
 type TurnStartResponse = Awaited<ReturnType<AppServerClient["startStructuredTurn"]>>;
 
 describe("thread title", () => {
@@ -133,7 +131,7 @@ describe("thread title", () => {
     expect(
       validatedThreadTitleRuntimeOverride(
         { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
-        modelMetadataFromAppServerModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
+        modelMetadataFromCatalogModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
       ),
     ).toEqual({ model: "gpt-5.4-mini" });
   });
@@ -142,7 +140,7 @@ describe("thread title", () => {
     expect(
       validatedThreadTitleRuntimeOverride(
         { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" },
-        modelMetadataFromAppServerModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
+        modelMetadataFromCatalogModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
       ),
     ).toEqual({ model: "gpt-5.4-mini", effort: "low" });
   });
@@ -242,7 +240,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
   };
 }
 
-function threadFixture(id: string): AppServerThread {
+function threadFixture(id: string): ThreadStartResponse["thread"] {
   return {
     id,
     sessionId: "session",
@@ -257,7 +255,7 @@ function threadFixture(id: string): AppServerThread {
     path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,
@@ -281,11 +279,11 @@ function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
   };
 }
 
-function assistantMessage(id: string, text: string): ThreadItem {
+function assistantMessage(id: string, text: string): TurnItem {
   return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
 }
 
-function completedItemNotification(threadId: string, turnId: string, item: ThreadItem): ServerNotification {
+function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {
   return {
     method: "item/completed",
     params: { threadId, turnId, item, completedAtMs: 1 },
@@ -299,7 +297,7 @@ function turnCompletedNotification(threadId: string, completedTurn: Turn): Serve
   };
 }
 
-function model(name: string, efforts: AppServerModel["supportedReasoningEfforts"][number]["reasoningEffort"][]): AppServerModel {
+function model(name: string, efforts: CatalogModel["supportedReasoningEfforts"][number]["reasoningEffort"][]): CatalogModel {
   return {
     id: name,
     model: name,

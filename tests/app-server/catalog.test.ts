@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   appServerHookOperationFromHookItem,
-  hookItemsFromAppServerHooks,
-  modelMetadataFromAppServerModels,
-  skillMetadataFromAppServerSkills,
-} from "../../src/app-server/catalog-model";
+  hookItemsFromCatalogHooks,
+  modelMetadataFromCatalogModels,
+  skillMetadataFromCatalogSkills,
+} from "../../src/app-server/catalog";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { SkillMetadata } from "../../src/generated/app-server/v2/SkillMetadata";
 
-describe("app-server catalog model mappers", () => {
+describe("app-server catalog mappers", () => {
   it("maps app-server models to panel model options", () => {
-    expect(modelMetadataFromAppServerModels([modelFixture()])).toEqual([
+    expect(modelMetadataFromCatalogModels([modelFixture()])).toEqual([
       {
         id: "gpt-5.5-id",
         model: "gpt-5.5",
@@ -33,11 +33,11 @@ describe("app-server catalog model mappers", () => {
   it("preserves unknown app-server default reasoning efforts as raw catalog metadata", () => {
     const model = { ...modelFixture(), defaultReasoningEffort: "extreme" as never };
 
-    expect(modelMetadataFromAppServerModels([model])[0]?.defaultReasoningEffort).toBe("extreme");
+    expect(modelMetadataFromCatalogModels([model])[0]?.defaultReasoningEffort).toBe("extreme");
   });
 
   it("maps app-server skills to composer skill options", () => {
-    expect(skillMetadataFromAppServerSkills([skillFixture()])).toEqual([
+    expect(skillMetadataFromCatalogSkills([skillFixture()])).toEqual([
       {
         name: "writer",
         description: "Write notes",
@@ -50,7 +50,7 @@ describe("app-server catalog model mappers", () => {
   });
 
   it("maps app-server hooks to settings hook items", () => {
-    expect(hookItemsFromAppServerHooks([hookFixture()])).toEqual([
+    expect(hookItemsFromCatalogHooks([hookFixture()])).toEqual([
       {
         key: "hook-key",
         eventName: "postToolUse",
@@ -67,7 +67,7 @@ describe("app-server catalog model mappers", () => {
   });
 
   it("maps panel hook items to minimal app-server hook operations", () => {
-    const hook = hookItemsFromAppServerHooks([hookFixture()])[0];
+    const hook = hookItemsFromCatalogHooks([hookFixture()])[0];
     if (!hook) throw new Error("Expected mapped hook");
 
     expect(appServerHookOperationFromHookItem(hook)).toEqual({

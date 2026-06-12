@@ -2,10 +2,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AppServerHookMetadata, AppServerModel } from "../../src/app-server/catalog-model";
-import type { AppServerThread } from "../../src/app-server/thread-model";
+import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/catalog";
+import type { ThreadRecord } from "../../src/app-server/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
-import { modelMetadataFromAppServerModels } from "../../src/app-server/catalog-model";
+import { modelMetadataFromCatalogModels } from "../../src/app-server/catalog";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import { archivedThreadDisplayTitle, type Thread } from "../../src/domain/threads/model";
 import { notices } from "../mocks/obsidian";
@@ -191,7 +191,7 @@ describe("settings tab", () => {
   });
 
   it("ignores stale settings data refresh results after a newer refresh completes", async () => {
-    const firstModels = deferred<{ data: AppServerModel[] }>();
+    const firstModels = deferred<{ data: CatalogModel[] }>();
     const firstClient = settingsClient({
       threads: [appServerThread({ id: "thread-old", preview: "Old" })],
     });
@@ -228,7 +228,7 @@ describe("settings tab", () => {
 
   it("ignores stale hook reload results after a newer dynamic operation completes", async () => {
     const staleHooks = deferred<{
-      data: { cwd: string; hooks: AppServerHookMetadata[]; warnings: string[]; errors: unknown[] }[];
+      data: { cwd: string; hooks: CatalogHookMetadata[]; warnings: string[]; errors: unknown[] }[];
     }>();
     const initialClient = settingsClient({
       hooks: [hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" })],
@@ -269,7 +269,7 @@ describe("settings tab", () => {
   });
 
   it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
-    const staleRestore = deferred<{ thread: AppServerThread }>();
+    const staleRestore = deferred<{ thread: ThreadRecord }>();
     const refreshSharedThreadListFromOpenSurface = vi.fn();
     const initialClient = settingsClient({
       threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
@@ -315,7 +315,7 @@ describe("settings tab", () => {
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab({ cachedModels: modelMetadataFromAppServerModels([model("gpt-cached")]), publishModels });
+    const tab = newSettingsTab({ cachedModels: modelMetadataFromCatalogModels([model("gpt-cached")]), publishModels });
 
     tab.display();
 
@@ -323,13 +323,13 @@ describe("settings tab", () => {
 
     await flushPromises();
 
-    expect(publishModels).toHaveBeenCalledWith(modelMetadataFromAppServerModels([model("gpt-5.5")]));
+    expect(publishModels).toHaveBeenCalledWith(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
   });
 
   it("uses model-provided reasoning efforts in helper settings while preserving saved unknown values", async () => {
     const tab = newSettingsTab({
-      cachedModels: modelMetadataFromAppServerModels([model("gpt-5.5", false, false, ["extreme"])]),
+      cachedModels: modelMetadataFromCatalogModels([model("gpt-5.5", false, false, ["extreme"])]),
       settings: {
         threadNamingModel: "gpt-5.5",
         threadNamingEffort: "saved-custom-effort",
@@ -406,7 +406,7 @@ function panelThread(overrides: Partial<Thread> = {}): Thread {
   };
 }
 
-function appServerThread(overrides: Partial<AppServerThread> = {}): AppServerThread {
+function appServerThread(overrides: Partial<ThreadRecord> = {}): ThreadRecord {
   return {
     id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
     sessionId: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
@@ -421,7 +421,7 @@ function appServerThread(overrides: Partial<AppServerThread> = {}): AppServerThr
     path: null,
     cwd: "/tmp",
     cliVersion: "codex-cli 0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,
@@ -432,7 +432,7 @@ function appServerThread(overrides: Partial<AppServerThread> = {}): AppServerThr
   };
 }
 
-function model(modelId: string, isDefault = false, hidden = false, efforts: ReasoningEffort[] = ["medium"]): AppServerModel {
+function model(modelId: string, isDefault = false, hidden = false, efforts: ReasoningEffort[] = ["medium"]): CatalogModel {
   return {
     id: `${modelId}-id`,
     model: modelId,
@@ -450,10 +450,10 @@ function model(modelId: string, isDefault = false, hidden = false, efforts: Reas
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
-  } satisfies AppServerModel;
+  } satisfies CatalogModel;
 }
 
-function hook(overrides: Partial<AppServerHookMetadata> = {}): AppServerHookMetadata {
+function hook(overrides: Partial<CatalogHookMetadata> = {}): CatalogHookMetadata {
   return {
     key: "hook-key",
     eventName: "postToolUse",
@@ -475,7 +475,7 @@ function hook(overrides: Partial<AppServerHookMetadata> = {}): AppServerHookMeta
 }
 
 function settingsClient(
-  options: { models?: AppServerModel[]; hooks?: AppServerHookMetadata[]; hooksError?: Error; threads?: AppServerThread[] } = {},
+  options: { models?: CatalogModel[]; hooks?: CatalogHookMetadata[]; hooksError?: Error; threads?: ThreadRecord[] } = {},
 ) {
   return {
     listModels: vi.fn().mockResolvedValue({ data: options.models ?? [model("gpt-5.4")] }),

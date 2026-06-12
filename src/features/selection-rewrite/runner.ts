@@ -5,9 +5,9 @@ import {
   type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "../../app-server/ephemeral-structured-turn";
-import { lastAgentMessageTextFromAppServerTurn } from "../../app-server/turn-model";
+import { lastAgentMessageTextFromTurnRecord } from "../../app-server/turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import { modelMetadataFromAppServerModels } from "../../app-server/catalog-model";
+import { modelMetadataFromCatalogModels } from "../../app-server/catalog";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/catalog/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
@@ -71,7 +71,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       options.onPreview?.(preview);
     },
   });
-  const { output, rawText } = selectionRewriteOutputParseResultFromText(lastAgentMessageTextFromAppServerTurn(turn));
+  const { output, rawText } = selectionRewriteOutputParseResultFromText(lastAgentMessageTextFromTurnRecord(turn));
   if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
   return output;
 }
@@ -103,7 +103,7 @@ async function selectionRewriteRuntimeOverrideForClient(
   if (!runtime.model || !runtime.effort) return runtime;
   try {
     const response = await client.listModels(false);
-    return validatedSelectionRewriteRuntimeOverride(settings, modelMetadataFromAppServerModels(response.data));
+    return validatedSelectionRewriteRuntimeOverride(settings, modelMetadataFromCatalogModels(response.data));
   } catch {
     return runtime;
   }

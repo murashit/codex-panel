@@ -13,9 +13,10 @@ import {
   type ChatStateStore,
 } from "../../../../../src/features/chat/state/reducer";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/types";
-import type { AppServerThread } from "../../../../../src/app-server/thread-model";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
-import type { AppServerTurn } from "../../../../../src/app-server/turn-model";
+import type { TurnRecord } from "../../../../../src/app-server/turn";
+
+type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
 
 function controllerForState(
   state = createChatState(),
@@ -1304,7 +1305,7 @@ describe("ChatInboundController", () => {
           { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
         ],
-      } satisfies AppServerTurn;
+      } satisfies TurnRecord;
 
       controller.handleNotification({
         method: "turn/completed",
@@ -1784,7 +1785,7 @@ function userInputRequest(id: number): ServerRequest {
   };
 }
 
-function appServerThread(id: string, cwd: string): AppServerThread {
+function appServerThread(id: string, cwd: string): ThreadStartedNotification["params"]["thread"] {
   return {
     id,
     sessionId: id,
@@ -1799,7 +1800,7 @@ function appServerThread(id: string, cwd: string): AppServerThread {
     path: null,
     cwd,
     cliVersion: "codex",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,

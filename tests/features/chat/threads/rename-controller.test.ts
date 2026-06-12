@@ -4,7 +4,7 @@ import { createChatStateStore } from "../../../../src/features/chat/state/reduce
 import { RenameController } from "../../../../src/features/chat/threads/rename-controller";
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { Thread } from "../../../../src/domain/threads/model";
-import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/turn";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
@@ -191,7 +191,7 @@ function threadFixture(id: string): Thread {
   };
 }
 
-function turnFixture(items: AppServerThreadItem[]): AppServerTurn {
+function turnFixture(items: TurnItem[]): TurnRecord {
   return {
     id: "turn",
     items,
@@ -204,11 +204,11 @@ function turnFixture(items: AppServerThreadItem[]): AppServerTurn {
   };
 }
 
-function userMessage(id: string, text: string): AppServerThreadItem {
+function userMessage(id: string, text: string): TurnItem {
   return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
 }
 
-function assistantMessage(id: string, text: string): AppServerThreadItem {
+function assistantMessage(id: string, text: string): TurnItem {
   return { type: "agentMessage", id, text, phase: null, memoryCitation: null };
 }
 

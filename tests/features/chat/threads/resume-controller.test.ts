@@ -6,14 +6,13 @@ import type { RestorationController } from "../../../../src/features/chat/thread
 import { ResumeController } from "../../../../src/features/chat/threads/resume-controller";
 import type { HistoryController } from "../../../../src/features/chat/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/lifecycle";
-import type { AppServerThread } from "../../../../src/app-server/thread-model";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
 import type { ThreadTokenUsage } from "../../../../src/app-server/runtime-metrics";
-import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/turn";
 
 type ThreadResumeResponse = Awaited<ReturnType<AppServerClient["resumeThread"]>>;
 
-function appServerThread(id: string): AppServerThread {
+function appServerThread(id: string): ThreadResumeResponse["thread"] {
   return {
     id,
     sessionId: id,
@@ -28,7 +27,7 @@ function appServerThread(id: string): AppServerThread {
     path: null,
     cwd: "/vault",
     cliVersion: "test",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,
@@ -235,7 +234,7 @@ describe("ResumeController", () => {
   });
 });
 
-function turnFixture(items: AppServerThreadItem[]): AppServerTurn {
+function turnFixture(items: TurnItem[]): TurnRecord {
   return {
     id: "turn",
     items,
@@ -259,7 +258,7 @@ function panelThread(id: string): PanelThread {
   };
 }
 
-function userMessage(id: string, text: string): AppServerThreadItem {
+function userMessage(id: string, text: string): TurnItem {
   return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
 }
 

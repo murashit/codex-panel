@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/chat-host";
 import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
-import { threadFromAppServerThread, type AppServerThread } from "../../../src/app-server/thread-model";
+import { threadFromThreadRecord, type ThreadRecord } from "../../../src/app-server/thread";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ServerNotification } from "../../../src/app-server/types";
 import { notices } from "../../mocks/obsidian";
@@ -158,7 +158,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(refreshThreadList).toHaveBeenCalledOnce();
     expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual(
-      threads.map((thread) => threadFromAppServerThread(thread)),
+      threads.map((thread) => threadFromThreadRecord(thread)),
     );
   });
 
@@ -376,7 +376,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledWith("/vault", false);
     expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual([
-      threadFromAppServerThread(threadFixture("thread-1")),
+      threadFromThreadRecord(threadFixture("thread-1")),
     ]);
   });
 
@@ -1023,7 +1023,7 @@ function resumedThread(threadId: string) {
   };
 }
 
-function threadFixture(threadId: string): AppServerThread {
+function threadFixture(threadId: string): ThreadRecord {
   return {
     id: threadId,
     sessionId: "session",
@@ -1038,7 +1038,7 @@ function threadFixture(threadId: string): AppServerThread {
     path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,

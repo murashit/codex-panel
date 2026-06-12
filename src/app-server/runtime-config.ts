@@ -1,5 +1,3 @@
-import type { ConfigReadResponse as AppServerConfigReadResponse } from "../generated/app-server/v2/ConfigReadResponse";
-import type { Config as AppServerConfig } from "../generated/app-server/v2/Config";
 import {
   approvalPolicyOrNull,
   appServerApprovalsReviewerOrNull,
@@ -17,7 +15,19 @@ type WebSearchMode = "disabled" | "cached" | "live";
 type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 
 export type { ActivePermissionProfile } from "./runtime-policy";
-export type { AppServerConfigReadResponse };
+
+interface ConfigLayerRecord {
+  name: { type: string; profile?: unknown; [key: string]: unknown };
+  config: unknown;
+  [key: string]: unknown;
+}
+
+export interface ConfigReadResult {
+  config: unknown;
+  origins?: unknown;
+  layers: readonly ConfigLayerRecord[] | null;
+  [key: string]: unknown;
+}
 
 export interface RuntimeConfigSnapshot {
   profile: string | null;
@@ -63,30 +73,30 @@ export function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
   };
 }
 
-export function runtimeConfigSnapshotFromAppServerConfig(response: AppServerConfigReadResponse): RuntimeConfigSnapshot {
+export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadResult): RuntimeConfigSnapshot {
   const config = asConfigRecord(response.config);
-  const tools = asRecordOrNull(config.tools);
-  const workspaceWrite = asRecordOrNull(config.sandbox_workspace_write);
-  const effort = config.model_reasoning_effort;
+  const tools = asRecordOrNull(config["tools"]);
+  const workspaceWrite = asRecordOrNull(config["sandbox_workspace_write"]);
+  const effort = config["model_reasoning_effort"];
   return {
     profile: selectedConfigProfile(response.layers),
-    model: nonEmptyStringOrNull(config.model),
-    modelProvider: nonEmptyStringOrNull(config.model_provider),
+    model: nonEmptyStringOrNull(config["model"]),
+    modelProvider: nonEmptyStringOrNull(config["model_provider"]),
     reasoningEffort: normalizeReasoningEffort(effort),
     rawReasoningEffort: nonEmptyStringOrNull(effort),
-    reasoningSummary: reasoningSummaryOrNull(config.model_reasoning_summary),
-    verbosity: verbosityOrNull(config.model_verbosity),
-    serviceTier: parseServiceTier(config.service_tier),
-    approvalsReviewer: appServerApprovalsReviewerOrNull(config.approvals_reviewer),
-    approvalPolicy: approvalPolicyOrNull(config.approval_policy),
-    webSearch: webSearchModeOrNull(config.web_search),
-    modelContextWindow: numberOrNull(config.model_context_window),
-    autoCompactTokenLimit: numberOrNull(config.model_auto_compact_token_limit),
-    sandboxMode: sandboxModeOrNull(config.sandbox_mode),
+    reasoningSummary: reasoningSummaryOrNull(config["model_reasoning_summary"]),
+    verbosity: verbosityOrNull(config["model_verbosity"]),
+    serviceTier: parseServiceTier(config["service_tier"]),
+    approvalsReviewer: appServerApprovalsReviewerOrNull(config["approvals_reviewer"]),
+    approvalPolicy: approvalPolicyOrNull(config["approval_policy"]),
+    webSearch: webSearchModeOrNull(config["web_search"]),
+    modelContextWindow: numberOrNull(config["model_context_window"]),
+    autoCompactTokenLimit: numberOrNull(config["model_auto_compact_token_limit"]),
+    sandboxMode: sandboxModeOrNull(config["sandbox_mode"]),
     workspaceNetworkAccess: booleanOrNull(workspaceWrite?.["network_access"]),
     writableRoots: stringArrayOrNull(workspaceWrite?.["writable_roots"]),
     rawToolWebSearch: cloneJsonLike(asRecordOrNull(tools?.["web_search"])),
-    rawApps: cloneJsonLike(asRecordOrNull(config.apps)),
+    rawApps: cloneJsonLike(asRecordOrNull(config["apps"])),
   };
 }
 
@@ -100,7 +110,7 @@ export function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): Runti
   };
 }
 
-type ConfigProjectionRecord = Partial<AppServerConfig> & Record<string, unknown>;
+type ConfigProjectionRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -114,7 +124,7 @@ function asConfigRecord(value: unknown): ConfigProjectionRecord {
   return asRecord(value) as ConfigProjectionRecord;
 }
 
-function selectedConfigProfile(layers: AppServerConfigReadResponse["layers"]): string | null {
+function selectedConfigProfile(layers: ConfigReadResult["layers"]): string | null {
   let selected: string | null = null;
   if (!layers) return null;
   for (const layer of layers) {

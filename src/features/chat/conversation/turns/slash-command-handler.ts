@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/client";
 import { codexTextInputWithAttachments, type CodexInput } from "../../../../app-server/request-input";
-import { chronologicalConversationSummariesFromAppServerTurns } from "../../../../app-server/turn-model";
+import { chronologicalConversationSummariesFromTurnRecords } from "../../../../app-server/turn";
 import { referencedThreadPromptBundle, referencedThreadTurns, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
 import {
@@ -143,7 +143,7 @@ async function referencedThreadInput(
 ): Promise<ThreadReferenceInput | null> {
   try {
     const response = await client.threadTurnsList(thread.id, null, REFERENCED_THREAD_TURN_LIMIT);
-    const turns = referencedThreadTurns(chronologicalConversationSummariesFromAppServerTurns(response.data));
+    const turns = referencedThreadTurns(chronologicalConversationSummariesFromTurnRecords(response.data));
     if (turns.length === 0) {
       host.status.addSystemMessage("Referenced thread has no readable conversation turns.");
       return null;

@@ -10,10 +10,9 @@ import type { RequestId } from "../generated/app-server/RequestId";
 import type { ServerNotification } from "../generated/app-server/ServerNotification";
 import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
 import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
-import type { ThreadItem } from "../generated/app-server/v2/ThreadItem";
 import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
-import type { Turn } from "../generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
+import type { TurnItem, TurnRecord } from "./turn";
 
 export type StructuredTurnOutputSchema = JsonValue;
 
@@ -73,7 +72,7 @@ export interface RunEphemeralStructuredTurnOptions {
   timers?: EphemeralStructuredTurnTimers | undefined;
 }
 
-export async function runEphemeralStructuredTurn(options: RunEphemeralStructuredTurnOptions): Promise<Turn> {
+export async function runEphemeralStructuredTurn(options: RunEphemeralStructuredTurnOptions): Promise<TurnRecord> {
   throwIfAborted(options.signal, options.abortMessage);
   let state = createEphemeralStructuredTurnState();
   const timers = options.timers ?? DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS;
@@ -81,7 +80,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
 
-  const completedTurn = new Promise<Turn>((resolve, reject) => {
+  const completedTurn = new Promise<TurnRecord>((resolve, reject) => {
     rejectCompletedTurn = reject;
     timeout = timers.setTimeout(() => {
       if (state.lifecycle.kind === "completed") return;
@@ -177,13 +176,13 @@ type EphemeralStructuredTurnLifecycleEvent =
 
 interface EphemeralStructuredTurnState {
   lifecycle: EphemeralStructuredTurnLifecycleState;
-  completedItems: readonly ThreadItem[];
+  completedItems: readonly TurnItem[];
 }
 
 interface EphemeralStructuredTurnNotificationResult {
   state: EphemeralStructuredTurnState;
   progress?: StructuredTurnProgressEvent;
-  completedTurn?: Turn;
+  completedTurn?: TurnRecord;
 }
 
 function createEphemeralStructuredTurnState(): EphemeralStructuredTurnState {
@@ -252,7 +251,7 @@ function ephemeralStructuredTurnMatches(state: EphemeralStructuredTurnLifecycleS
   return false;
 }
 
-function turnWithCollectedItems(turn: Turn, completedItems: readonly ThreadItem[]): Turn {
+function turnWithCollectedItems(turn: TurnRecord, completedItems: readonly TurnItem[]): TurnRecord {
   if (turn.items.length > 0 || completedItems.length === 0) return turn;
   return { ...turn, items: [...completedItems], itemsView: "full" };
 }

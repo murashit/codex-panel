@@ -28,8 +28,7 @@ import {
 import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../src/app-server/client";
 import type { AppServerInitialization } from "../../../src/app-server/initialization";
 import type { RequestId, ServerNotification } from "../../../src/app-server/types";
-import type { AppServerThread } from "../../../src/app-server/thread-model";
-import type { AppServerThreadItem, AppServerTurn } from "../../../src/app-server/turn-model";
+import type { TurnItem, TurnRecord } from "../../../src/app-server/turn";
 import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
 import type { ComposerSendKeyEvent } from "../../../src/shared/ui/keyboard";
 import { deferred } from "../../support/async";
@@ -37,9 +36,8 @@ import { installObsidianDomShims } from "../../support/dom";
 
 type InitializeResponse = AppServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
-type ThreadItem = AppServerThreadItem;
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
-type Turn = AppServerTurn;
+type Turn = TurnRecord;
 type TurnStartResponse = Awaited<ReturnType<AppServerClient["startStructuredTurn"]>>;
 
 installObsidianDomShims();
@@ -752,7 +750,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
   };
 }
 
-function thread(id: string): AppServerThread {
+function thread(id: string): ThreadStartResponse["thread"] {
   return {
     id,
     sessionId: "session",
@@ -767,7 +765,7 @@ function thread(id: string): AppServerThread {
     path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,
@@ -791,7 +789,7 @@ function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
   };
 }
 
-function agentMessage(id: string, text: string): ThreadItem {
+function agentMessage(id: string, text: string): TurnItem {
   return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
 }
 
@@ -802,7 +800,7 @@ function agentDeltaNotification(threadId: string, turnId: string, delta: string)
   };
 }
 
-function completedItemNotification(threadId: string, turnId: string, item: ThreadItem): ServerNotification {
+function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {
   return {
     method: "item/completed",
     params: { threadId, turnId, item, completedAtMs: 1 },

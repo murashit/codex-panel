@@ -1,8 +1,9 @@
 import type { DisplayDetailSection, DisplayFileChange, DisplayItem, ExecutionState } from "./types";
-import type { AppServerFileUpdateChange, AppServerThreadItem, AppServerTurn } from "../../../app-server/turn-model";
+import type { HistoricalTurn } from "../../../app-server/turn-history";
+import type { FileUpdateChange, TurnItem } from "../../../app-server/turn";
 import { definedProp, truncate } from "../../../utils";
 import { referencedThreadDisplayFromPrompt } from "../../../domain/threads/reference";
-import { appServerUserItemText } from "../../../app-server/turn-model";
+import { turnUserItemText } from "../../../app-server/turn";
 import { agentDisplayItem } from "./items/agent";
 import { pathRelativeToRoot } from "./details/path-labels";
 import { normalizeProposedPlanMarkdown } from "./items/proposed-plan";
@@ -17,23 +18,23 @@ import {
   statusQualifier,
 } from "./details/tool-details";
 
-type UserMessageItem = Extract<AppServerThreadItem, { type: "userMessage" }>;
-type AgentMessageItem = Extract<AppServerThreadItem, { type: "agentMessage" }>;
-type PlanItem = Extract<AppServerThreadItem, { type: "plan" }>;
-type HookPromptItem = Extract<AppServerThreadItem, { type: "hookPrompt" }>;
-type ReasoningItem = Extract<AppServerThreadItem, { type: "reasoning" }>;
-type CommandExecutionItem = Extract<AppServerThreadItem, { type: "commandExecution" }>;
+type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
+type AgentMessageItem = Extract<TurnItem, { type: "agentMessage" }>;
+type PlanItem = Extract<TurnItem, { type: "plan" }>;
+type HookPromptItem = Extract<TurnItem, { type: "hookPrompt" }>;
+type ReasoningItem = Extract<TurnItem, { type: "reasoning" }>;
+type CommandExecutionItem = Extract<TurnItem, { type: "commandExecution" }>;
 type CommandAction = CommandExecutionItem["commandActions"][number];
-type FileChangeItem = Extract<AppServerThreadItem, { type: "fileChange" }>;
-type McpToolCallItem = Extract<AppServerThreadItem, { type: "mcpToolCall" }>;
-type DynamicToolCallItem = Extract<AppServerThreadItem, { type: "dynamicToolCall" }>;
-type WebSearchItem = Extract<AppServerThreadItem, { type: "webSearch" }>;
-type ImageViewItem = Extract<AppServerThreadItem, { type: "imageView" }>;
-type ImageGenerationItem = Extract<AppServerThreadItem, { type: "imageGeneration" }>;
+type FileChangeItem = Extract<TurnItem, { type: "fileChange" }>;
+type McpToolCallItem = Extract<TurnItem, { type: "mcpToolCall" }>;
+type DynamicToolCallItem = Extract<TurnItem, { type: "dynamicToolCall" }>;
+type WebSearchItem = Extract<TurnItem, { type: "webSearch" }>;
+type ImageViewItem = Extract<TurnItem, { type: "imageView" }>;
+type ImageGenerationItem = Extract<TurnItem, { type: "imageGeneration" }>;
 type ReviewModeItem =
-  | Extract<AppServerThreadItem, { type: "enteredReviewMode" }>
-  | Extract<AppServerThreadItem, { type: "exitedReviewMode" }>;
-type ContextCompactionItem = Extract<AppServerThreadItem, { type: "contextCompaction" }>;
+  | Extract<TurnItem, { type: "enteredReviewMode" }>
+  | Extract<TurnItem, { type: "exitedReviewMode" }>;
+type ContextCompactionItem = Extract<TurnItem, { type: "contextCompaction" }>;
 type DisplayExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
 
@@ -57,19 +58,19 @@ const STANDARD_TOOL_STATES = {
   failed: "failed",
 } as const satisfies ExecutionStateByStatus;
 
-export function displayItemsFromTurns(turns: readonly AppServerTurn[]): DisplayItem[] {
+export function displayItemsFromTurns(turns: readonly HistoricalTurn[]): DisplayItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: DisplayItem[] = [];
   for (const turn of sortedTurns) {
     for (const item of turn.items) {
-      const displayItem = displayItemFromThreadItem(item, turn.id);
+      const displayItem = displayItemFromTurnItem(item, turn.id);
       if (displayItem) items.push(displayItem);
     }
   }
   return items;
 }
 
-export function displayItemFromThreadItem(item: AppServerThreadItem, turnId?: string): DisplayItem | null {
+export function displayItemFromTurnItem(item: TurnItem, turnId?: string): DisplayItem | null {
   switch (item.type) {
     case "userMessage":
       return userMessageDisplayItem(item, turnId);
@@ -108,7 +109,7 @@ export function displayItemFromThreadItem(item: AppServerThreadItem, turnId?: st
 }
 
 function userMessageDisplayItem(item: UserMessageItem, turnId?: string): DisplayItem {
-  const text = appServerUserItemText(item);
+  const text = turnUserItemText(item);
   const displayText = userMessageDisplayText(text, item.content);
   const mentionedFiles = fileMentionsFromInput(item.content);
   const referencedThread = referencedThreadDisplayFromPrompt(text);
@@ -492,7 +493,7 @@ function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): DisplayIt
   };
 }
 
-export function normalizeFileChanges(changes: AppServerFileUpdateChange[]): DisplayFileChange[] {
+export function normalizeFileChanges(changes: FileUpdateChange[]): DisplayFileChange[] {
   return changes.map((change) => ({
     kind: change.kind.type,
     path: change.path,
@@ -500,7 +501,7 @@ export function normalizeFileChanges(changes: AppServerFileUpdateChange[]): Disp
   }));
 }
 
-export function shouldSuppressLifecycleItem(item: AppServerThreadItem): boolean {
+export function shouldSuppressLifecycleItem(item: TurnItem): boolean {
   return item.type === "agentMessage" || item.type === "userMessage";
 }
 

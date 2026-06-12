@@ -1,7 +1,4 @@
-import type { McpServerStatus as AppServerMcpServerStatus } from "../generated/app-server/v2/McpServerStatus";
 import type { AppServerInitialization } from "./initialization";
-
-export type { AppServerMcpServerStatus };
 
 export const DIAGNOSTIC_PROBE_METHODS = [
   "model/list",
@@ -15,8 +12,16 @@ export const DIAGNOSTIC_PROBE_METHODS = [
 
 export type DiagnosticProbeMethod = (typeof DIAGNOSTIC_PROBE_METHODS)[number];
 type DiagnosticProbeStatus = "unknown" | "ok" | "failed";
-type McpAuthStatus = "unsupported" | "notLoggedIn" | "bearerToken" | "oAuth";
+export type McpAuthStatus = "unsupported" | "notLoggedIn" | "bearerToken" | "oAuth";
 export type McpServerStartupStatus = "starting" | "ready" | "failed" | "cancelled";
+
+export interface McpServerStatus {
+  name: string;
+  tools: Record<string, unknown>;
+  resources: readonly unknown[];
+  resourceTemplates: readonly unknown[];
+  authStatus: McpAuthStatus;
+}
 
 export interface DiagnosticProbeResult {
   method: DiagnosticProbeMethod;
@@ -120,7 +125,7 @@ export function upsertMcpServerStatusDiagnostics(diagnostics: Diagnostics, serve
   return next;
 }
 
-function mcpServerStatusSummaryFromAppServerStatus(server: AppServerMcpServerStatus): McpServerStatusSummary {
+function mcpServerStatusSummaryFromStatus(server: McpServerStatus): McpServerStatusSummary {
   return {
     name: server.name,
     authStatus: server.authStatus,
@@ -130,8 +135,8 @@ function mcpServerStatusSummaryFromAppServerStatus(server: AppServerMcpServerSta
   };
 }
 
-export function mcpServerStatusSummariesFromAppServerStatuses(servers: readonly AppServerMcpServerStatus[]): McpServerStatusSummary[] {
-  return servers.map(mcpServerStatusSummaryFromAppServerStatus);
+export function mcpServerStatusSummariesFromStatuses(servers: readonly McpServerStatus[]): McpServerStatusSummary[] {
+  return servers.map(mcpServerStatusSummaryFromStatus);
 }
 
 export function shortErrorMessage(error: unknown, maxLength = 160): string {

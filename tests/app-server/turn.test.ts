@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  chronologicalConversationSummariesFromAppServerTurns,
-  completedConversationSummaryFromAppServerTurn,
-  lastAgentMessageTextFromAppServerTurn,
-  transcriptEntriesFromAppServerTurn,
-} from "../../src/app-server/turn-model";
-import type { ThreadItem } from "../../src/generated/app-server/v2/ThreadItem";
-import type { Turn } from "../../src/generated/app-server/v2/Turn";
+  chronologicalConversationSummariesFromTurnRecords,
+  completedConversationSummaryFromTurnRecord,
+  lastAgentMessageTextFromTurnRecord,
+  transcriptEntriesFromTurnRecord,
+  type TurnItem,
+  type TurnRecord,
+} from "../../src/app-server/turn";
 
-describe("app-server turn model", () => {
+describe("app-server turn records", () => {
   it("projects readable transcript entries without command log items", () => {
     expect(
-      transcriptEntriesFromAppServerTurn(
+      transcriptEntriesFromTurnRecord(
         turn([userMessage("u1", "  依頼です  "), commandItem("cmd"), agentMessage("a1", "回答です"), planItem("p1", "計画です")], {
           startedAt: 10,
           completedAt: 12,
@@ -27,7 +27,7 @@ describe("app-server turn model", () => {
 
   it("builds completed turn summaries from the first user message and last assistant-like item", () => {
     expect(
-      completedConversationSummaryFromAppServerTurn(
+      completedConversationSummaryFromTurnRecord(
         turn([
           agentMessage("draft", "途中経過"),
           userMessage("u1", "最初の依頼"),
@@ -40,13 +40,13 @@ describe("app-server turn model", () => {
 
   it("does not build completed summaries for failed turns", () => {
     expect(
-      completedConversationSummaryFromAppServerTurn(turn([userMessage("u1", "依頼"), agentMessage("a1", "回答")], { status: "failed" })),
+      completedConversationSummaryFromTurnRecord(turn([userMessage("u1", "依頼"), agentMessage("a1", "回答")], { status: "failed" })),
     ).toBeNull();
   });
 
   it("returns chronological summaries and drops turns without conversation text", () => {
     expect(
-      chronologicalConversationSummariesFromAppServerTurns([
+      chronologicalConversationSummariesFromTurnRecords([
         turn([userMessage("u2", "後の依頼"), agentMessage("a2", "後の回答")], { id: "turn-2", startedAt: 20 }),
         turn([commandItem("cmd")], { id: "turn-empty", startedAt: 15 }),
         turn([userMessage("u1", "先の依頼"), agentMessage("a1", "先の回答")], { id: "turn-1", startedAt: 10 }),
@@ -59,7 +59,7 @@ describe("app-server turn model", () => {
 
   it("extracts the final non-empty agent message text from a turn", () => {
     expect(
-      lastAgentMessageTextFromAppServerTurn(
+      lastAgentMessageTextFromTurnRecord(
         turn([
           agentMessage("a1", '{"replacementText":"first"}'),
           agentMessage("a2", "  "),
@@ -70,11 +70,11 @@ describe("app-server turn model", () => {
   });
 
   it("returns null when a turn has no agent message text", () => {
-    expect(lastAgentMessageTextFromAppServerTurn(turn([agentMessage("a1", "  ")]))).toBeNull();
+    expect(lastAgentMessageTextFromTurnRecord(turn([agentMessage("a1", "  ")]))).toBeNull();
   });
 });
 
-function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
+function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
   return {
     id: "turn",
     items,
@@ -88,19 +88,19 @@ function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
   };
 }
 
-function userMessage(id: string, text: string): ThreadItem {
+function userMessage(id: string, text: string): TurnItem {
   return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
 }
 
-function agentMessage(id: string, text: string): ThreadItem {
+function agentMessage(id: string, text: string): TurnItem {
   return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
 }
 
-function planItem(id: string, text: string): ThreadItem {
+function planItem(id: string, text: string): TurnItem {
   return { type: "plan", id, text };
 }
 
-function commandItem(id: string): ThreadItem {
+function commandItem(id: string): TurnItem {
   return {
     type: "commandExecution",
     id,

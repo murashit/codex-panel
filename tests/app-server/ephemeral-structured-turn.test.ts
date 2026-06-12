@@ -17,11 +17,10 @@ import type { RequestId } from "../../src/generated/app-server/RequestId";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
 import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelListResponse";
-import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
-import type { ThreadItem } from "../../src/generated/app-server/v2/ThreadItem";
+import type { Thread as ThreadRecord } from "../../src/generated/app-server/v2/Thread";
 import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
-import type { Turn } from "../../src/generated/app-server/v2/Turn";
 import type { TurnStartResponse } from "../../src/generated/app-server/v2/TurnStartResponse";
+import type { TurnItem, TurnRecord } from "../../src/app-server/turn";
 
 describe("runEphemeralStructuredTurn", () => {
   it("fills completed turn items from item completion notifications", async () => {
@@ -267,7 +266,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
   };
 }
 
-function thread(id: string): AppServerThread {
+function thread(id: string): ThreadRecord {
   return {
     id,
     sessionId: "session",
@@ -282,7 +281,7 @@ function thread(id: string): AppServerThread {
     path: null,
     cwd: "/vault",
     cliVersion: "0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,
@@ -292,7 +291,7 @@ function thread(id: string): AppServerThread {
   };
 }
 
-function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
+function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
   return {
     id: "turn",
     items,
@@ -306,18 +305,18 @@ function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
   };
 }
 
-function agentMessage(id: string, text: string): ThreadItem {
+function agentMessage(id: string, text: string): TurnItem {
   return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
 }
 
-function completedItemNotification(threadId: string, turnId: string, item: ThreadItem): ServerNotification {
+function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {
   return {
     method: "item/completed",
     params: { threadId, turnId, item, completedAtMs: 1 },
   };
 }
 
-function turnCompletedNotification(threadId: string, completedTurn: Turn): ServerNotification {
+function turnCompletedNotification(threadId: string, completedTurn: TurnRecord): ServerNotification {
   return {
     method: "turn/completed",
     params: { threadId, turn: completedTurn },

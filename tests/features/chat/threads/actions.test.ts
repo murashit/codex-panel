@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/client";
-import type { AppServerThread } from "../../../../src/app-server/thread-model";
+import type { ThreadRecord } from "../../../../src/app-server/thread";
 import type { ArchiveExportAdapter } from "../../../../src/features/thread-export/archive-markdown";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createChatThreadActions, type ChatThreadActionsHost } from "../../../../src/features/chat/threads/actions";
@@ -308,7 +308,7 @@ describe("createChatThreadActions", () => {
   });
 
   it("ignores stale rollback responses after the panel switches threads", async () => {
-    const rollback = deferred<{ thread: AppServerThread }>();
+    const rollback = deferred<{ thread: ThreadRecord }>();
     const client = clientMock();
     client.rollbackThread.mockReturnValue(rollback.promise);
     const host = hostMock({ client, displayItems: turnItems() });
@@ -440,7 +440,7 @@ function archiveAdapterMock(overrides: Partial<MockArchiveExportAdapter> = {}): 
   };
 }
 
-function archivedThread(): AppServerThread {
+function archivedThread(): ThreadRecord {
   return {
     id: "abcdef12-9999",
     sessionId: "abcdef12-9999",
@@ -455,7 +455,7 @@ function archivedThread(): AppServerThread {
     path: null,
     cwd: "/vault",
     cliVersion: "codex-cli 0.0.0",
-    source: "appServer",
+    source: "unknown",
     threadSource: null,
     agentNickname: null,
     agentRole: null,
@@ -465,7 +465,7 @@ function archivedThread(): AppServerThread {
   };
 }
 
-function rollbackThread(): AppServerThread {
+function rollbackThread(): ThreadRecord {
   return {
     ...archivedThread(),
     id: "forked",

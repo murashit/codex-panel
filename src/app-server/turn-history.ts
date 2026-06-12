@@ -1,6 +1,8 @@
-import type { Turn } from "../generated/app-server/v2/Turn";
+import type { TurnRecord } from "./turn";
+
+export type HistoricalTurn = Pick<TurnRecord, "id" | "items" | "startedAt">;
 
 export interface ThreadTurnsPage {
-  data: readonly Turn[];
+  data: readonly HistoricalTurn[];
   nextCursor: string | null;
 }
