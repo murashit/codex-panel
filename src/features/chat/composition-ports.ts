@@ -2,7 +2,7 @@ import type { App, Component, EventRef } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
 import type { AppServerClient } from "../../app-server/connection/client";
-import type { SharedAppServerMetadata } from "../../app-server/services/shared-cache-state";
+import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { ArchiveExportAdapter } from "../thread-export/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
@@ -41,10 +41,10 @@ interface ChatControllerHostContext {
   refreshThreadsViewLiveState: () => void;
   refreshSharedThreadListFromOpenSurface: () => void;
   applyThreadListSnapshot: (threads: readonly Thread[]) => void;
-  publishAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
+  publishAppServerMetadata: (metadata: SharedServerMetadata) => void;
   publishAppServerIdentity: (userAgent: string | null) => void;
   cachedThreadList: () => readonly Thread[] | null;
-  cachedAppServerMetadata: () => SharedAppServerMetadata | null;
+  cachedAppServerMetadata: () => SharedServerMetadata | null;
 }
 
 interface ChatPanelObsidianContext {

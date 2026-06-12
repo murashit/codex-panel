@@ -24,6 +24,22 @@ const removedChatStateEscapeHatchRestrictions = [
 const generatedAppServerSourceImportPatterns = importBoundaryPatterns("generated/app-server", "src/generated/app-server", 6);
 const generatedAppServerTestImportPatterns = importBoundaryPatterns("src/generated/app-server", "src/generated/app-server", 6);
 const lowerLevelFeatureImportPatterns = importBoundaryPatterns("features", "src/features", 6);
+const featureBannedAppServerProtocolModules = [
+  "catalog",
+  "diagnostics",
+  "initialization",
+  "request-input",
+  "runtime-config",
+  "runtime-metrics",
+  "runtime-policy",
+  "thread",
+  "thread-goal",
+  "thread-settings",
+  "turn-history",
+];
+const featureBannedAppServerProtocolImportPatterns = featureBannedAppServerProtocolModules.flatMap((moduleName) =>
+  importBoundaryPatterns(`app-server/protocol/${moduleName}`, `src/app-server/protocol/${moduleName}`, 6),
+);
 const generatedAppServerThreadImportRestrictions = [
   {
     selector:
@@ -405,6 +421,23 @@ export default defineConfig([
     },
   },
   {
+    files: ["src/features/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: featureBannedAppServerProtocolImportPatterns,
+              message:
+                "Feature modules must use domain models and app-server services instead of app-server protocol modules. The turn display/history protocol remains the only feature-side exception.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/app-server/**/*.{ts,tsx}"],
     rules: {
@@ -437,12 +470,6 @@ export default defineConfig([
           ],
         },
       ],
-    },
-  },
-  {
-    files: ["src/app-server/**/*.{ts,tsx}"],
-    rules: {
-      "obsidianmd/prefer-window-timers": "off",
     },
   },
   eslintConfigPrettier,

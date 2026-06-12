@@ -1,5 +1,5 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import type { McpServerStartupStatus } from "../../../../app-server/protocol/diagnostics";
+import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";

@@ -1,38 +1,34 @@
-import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../../../app-server/protocol/diagnostics";
-import { listModelMetadata, listSkillCatalog } from "../../../../app-server/services/resource-operations";
-import { runtimeConfigSnapshotFromAppServerConfig } from "../../../../app-server/protocol/runtime-config";
 import {
-  accountRateLimitsSummaryFromResponse,
-  rateLimitSnapshotFromAccountRateLimitsResponse,
-} from "../../../../app-server/protocol/runtime-metrics";
-import type { SharedAppServerMetadata } from "../../../../app-server/services/shared-cache-state";
-import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
-import { cloneAppServerDiagnostics, type ChatServerActionHost } from "./host";
-
-interface RateLimitMetadataResult {
-  data: SharedAppServerMetadata["rateLimit"];
-  probe: Diagnostics["probes"]["account/rateLimits/read"];
-}
+  readAppServerMetadata,
+  readModelMetadataProbe,
+  readRateLimitMetadataProbe,
+  readSkillMetadataProbe,
+  type ModelMetadataProbeResult,
+  type RateLimitMetadataProbeResult,
+  type SkillMetadataProbeResult,
+} from "../../../../app-server/services/metadata";
+import type { SharedServerMetadata } from "../../../../domain/server/metadata";
+import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";
 
 export interface ChatServerMetadataActionsHost extends ChatServerActionHost {
-  publishAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
+  publishAppServerMetadata: (metadata: SharedServerMetadata) => void;
 }
 
 export interface ChatServerMetadataActions {
-  serverMetadataSnapshot: () => SharedAppServerMetadata;
-  applyAppServerMetadata: (metadata: SharedAppServerMetadata) => void;
-  loadAppServerMetadata: () => Promise<SharedAppServerMetadata | null>;
-  refreshAppServerMetadata: () => Promise<SharedAppServerMetadata | null>;
-  refreshPublishedAppServerMetadata: () => Promise<SharedAppServerMetadata | null>;
+  serverMetadataSnapshot: () => SharedServerMetadata;
+  applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
+  loadAppServerMetadata: () => Promise<SharedServerMetadata | null>;
+  refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
+  refreshPublishedAppServerMetadata: () => Promise<SharedServerMetadata | null>;
   publishAppServerMetadataSnapshot: () => void;
   refreshModels: () => Promise<void>;
-  loadModels: () => Promise<{ data: ModelMetadata[]; probe: Diagnostics["probes"]["model/list"] }>;
+  loadModels: () => Promise<ModelMetadataProbeResult>;
   refreshSkills: (forceReload?: boolean) => Promise<void>;
   refreshPublishedSkills: (forceReload?: boolean) => Promise<void>;
-  loadSkills: (forceReload?: boolean) => Promise<{ data: SkillMetadata[]; probe: Diagnostics["probes"]["skills/list"] }>;
+  loadSkills: (forceReload?: boolean) => Promise<SkillMetadataProbeResult>;
   refreshRateLimits: () => Promise<void>;
   refreshPublishedRateLimits: () => Promise<void>;
-  loadRateLimit: () => Promise<RateLimitMetadataResult>;
+  loadRateLimit: () => Promise<RateLimitMetadataProbeResult>;
 }
 
 export function createChatServerMetadataActions(host: ChatServerMetadataActionsHost): ChatServerMetadataActions {
@@ -62,29 +58,29 @@ export function createChatServerMetadataActions(host: ChatServerMetadataActionsH
   };
 }
 
-function serverMetadataSnapshot(host: ChatServerMetadataActionsHost): SharedAppServerMetadata {
+function serverMetadataSnapshot(host: ChatServerMetadataActionsHost): SharedServerMetadata {
   const state = host.stateStore.getState();
   return {
     runtimeConfig: state.connection.runtimeConfig,
     availableModels: state.connection.availableModels,
     availableSkills: state.connection.availableSkills,
     rateLimit: state.connection.rateLimit,
-    appServerDiagnostics: state.connection.appServerDiagnostics,
+    serverDiagnostics: state.connection.serverDiagnostics,
   };
 }
 
-function applyAppServerMetadata(host: ChatServerMetadataActionsHost, metadata: SharedAppServerMetadata): void {
+function applyAppServerMetadata(host: ChatServerMetadataActionsHost, metadata: SharedServerMetadata): void {
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     runtimeConfig: metadata.runtimeConfig,
     availableModels: metadata.availableModels,
     availableSkills: metadata.availableSkills,
     rateLimit: metadata.rateLimit,
-    appServerDiagnostics: metadata.appServerDiagnostics,
+    serverDiagnostics: metadata.serverDiagnostics,
   });
 }
 
-async function loadAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedAppServerMetadata | null> {
+async function loadAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
   const client = host.currentClient();
   if (!client) return null;
   return loadAppServerMetadataFromClient(host, client);
@@ -93,27 +89,11 @@ async function loadAppServerMetadata(host: ChatServerMetadataActionsHost): Promi
 async function loadAppServerMetadataFromClient(
   host: ChatServerMetadataActionsHost,
   client: NonNullable<ReturnType<ChatServerMetadataActionsHost["currentClient"]>>,
-): Promise<SharedAppServerMetadata> {
-  const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await client.readEffectiveConfig(host.vaultPath));
-  const [models, skills, rateLimit] = await Promise.all([
-    loadModelsFromClient(client),
-    loadSkillsFromClient(client, host.vaultPath),
-    loadRateLimitFromClient(client),
-  ]);
-  const diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
-  diagnostics.probes["model/list"] = models.probe;
-  diagnostics.probes["skills/list"] = skills.probe;
-  diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
-  return {
-    runtimeConfig,
-    availableModels: models.data,
-    availableSkills: skills.data,
-    rateLimit: rateLimit.data,
-    appServerDiagnostics: diagnostics,
-  };
+): Promise<SharedServerMetadata> {
+  return readAppServerMetadata(client, host.vaultPath, host.stateStore.getState().connection.serverDiagnostics);
 }
 
-async function refreshAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedAppServerMetadata | null> {
+async function refreshAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
   const client = host.currentClient();
   if (!client) return null;
   const metadata = await loadAppServerMetadataFromClient(host, client);
@@ -122,7 +102,7 @@ async function refreshAppServerMetadata(host: ChatServerMetadataActionsHost): Pr
   return metadata;
 }
 
-async function refreshPublishedAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedAppServerMetadata | null> {
+async function refreshPublishedAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
   const metadata = await refreshAppServerMetadata(host);
   if (metadata) host.publishAppServerMetadata(metadata);
   return metadata;
@@ -134,54 +114,32 @@ function publishAppServerMetadataSnapshot(host: ChatServerMetadataActionsHost): 
 
 async function refreshModels(host: ChatServerMetadataActionsHost): Promise<boolean> {
   const client = host.currentClient();
-  const models = client ? await loadModelsFromClient(client) : disconnectedModelsResult();
+  const models = await readModelMetadataProbe(client);
   if (client && host.currentClient() !== client) return false;
-  const diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
+  const diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
   diagnostics.probes["model/list"] = models.probe;
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     availableModels: models.data,
-    appServerDiagnostics: diagnostics,
+    serverDiagnostics: diagnostics,
   });
   return true;
 }
 
-async function loadModels(
-  host: ChatServerMetadataActionsHost,
-): Promise<{ data: ModelMetadata[]; probe: Diagnostics["probes"]["model/list"] }> {
-  const client = host.currentClient();
-  if (!client) return disconnectedModelsResult();
-  return loadModelsFromClient(client);
-}
-
-function disconnectedModelsResult(): { data: ModelMetadata[]; probe: Diagnostics["probes"]["model/list"] } {
-  return { data: [], probe: diagnosticProbeError("model/list", new Error("Codex app-server is not connected.")) };
-}
-
-async function loadModelsFromClient(
-  client: NonNullable<ReturnType<ChatServerMetadataActionsHost["currentClient"]>>,
-): Promise<{ data: ModelMetadata[]; probe: Diagnostics["probes"]["model/list"] }> {
-  try {
-    const data = await listModelMetadata(client);
-    return {
-      data,
-      probe: diagnosticProbeOk("model/list", `${String(data.length)} models`),
-    };
-  } catch (error) {
-    return { data: [], probe: diagnosticProbeError("model/list", error) };
-  }
+async function loadModels(host: ChatServerMetadataActionsHost): Promise<ModelMetadataProbeResult> {
+  return readModelMetadataProbe(host.currentClient());
 }
 
 async function refreshSkills(host: ChatServerMetadataActionsHost, forceReload = false): Promise<boolean> {
   const client = host.currentClient();
-  const skills = client ? await loadSkillsFromClient(client, host.vaultPath, forceReload) : disconnectedSkillsResult();
+  const skills = await readSkillMetadataProbe(client, host.vaultPath, forceReload);
   if (client && host.currentClient() !== client) return false;
-  const diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
+  const diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
   diagnostics.probes["skills/list"] = skills.probe;
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     availableSkills: skills.data,
-    appServerDiagnostics: diagnostics,
+    serverDiagnostics: diagnostics,
   });
   return true;
 }
@@ -191,86 +149,41 @@ async function refreshPublishedSkills(host: ChatServerMetadataActionsHost, force
   publishAppServerMetadataSnapshot(host);
 }
 
-async function loadSkills(
-  host: ChatServerMetadataActionsHost,
-  forceReload = false,
-): Promise<{ data: SkillMetadata[]; probe: Diagnostics["probes"]["skills/list"] }> {
-  const client = host.currentClient();
-  if (!client) return disconnectedSkillsResult();
-  return loadSkillsFromClient(client, host.vaultPath, forceReload);
-}
-
-function disconnectedSkillsResult(): { data: SkillMetadata[]; probe: Diagnostics["probes"]["skills/list"] } {
-  return { data: [], probe: diagnosticProbeError("skills/list", new Error("Codex app-server is not connected.")) };
-}
-
-async function loadSkillsFromClient(
-  client: NonNullable<ReturnType<ChatServerMetadataActionsHost["currentClient"]>>,
-  vaultPath: string,
-  forceReload = false,
-): Promise<{ data: SkillMetadata[]; probe: Diagnostics["probes"]["skills/list"] }> {
-  try {
-    const catalog = await listSkillCatalog(client, vaultPath, { forceReload });
-    return { data: catalog.skills, probe: diagnosticProbeOk("skills/list", `${String(catalog.totalCount)} skills`) };
-  } catch (error) {
-    return { data: [], probe: diagnosticProbeError("skills/list", error) };
-  }
+async function loadSkills(host: ChatServerMetadataActionsHost, forceReload = false): Promise<SkillMetadataProbeResult> {
+  return readSkillMetadataProbe(host.currentClient(), host.vaultPath, forceReload);
 }
 
 async function refreshRateLimits(host: ChatServerMetadataActionsHost): Promise<void> {
   const client = host.currentClient();
-  const rateLimit = client ? await loadRateLimitFromClient(client) : disconnectedRateLimitResult();
+  const rateLimit = await readRateLimitMetadataProbe(client);
   if (client && host.currentClient() !== client) return;
-  const diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
+  const diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
   diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     rateLimit: rateLimit.data,
-    appServerDiagnostics: diagnostics,
+    serverDiagnostics: diagnostics,
   });
 }
 
 async function refreshPublishedRateLimits(host: ChatServerMetadataActionsHost): Promise<void> {
   const client = host.currentClient();
-  const rateLimit = client ? await loadRateLimitFromClient(client) : disconnectedRateLimitResult();
+  const rateLimit = await readRateLimitMetadataProbe(client);
   if (client && host.currentClient() !== client) return;
-  const diagnostics = cloneAppServerDiagnostics(host.stateStore.getState().connection.appServerDiagnostics);
+  const diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
   diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
   if (rateLimit.probe.status === "ok") {
     host.stateStore.dispatch({
       type: "connection/metadata-applied",
       rateLimit: rateLimit.data,
-      appServerDiagnostics: diagnostics,
+      serverDiagnostics: diagnostics,
     });
     publishAppServerMetadataSnapshot(host);
     return;
   }
-  host.stateStore.dispatch({ type: "connection/metadata-applied", appServerDiagnostics: diagnostics });
+  host.stateStore.dispatch({ type: "connection/metadata-applied", serverDiagnostics: diagnostics });
 }
 
-async function loadRateLimit(host: ChatServerMetadataActionsHost): Promise<RateLimitMetadataResult> {
-  const client = host.currentClient();
-  if (!client) return disconnectedRateLimitResult();
-  return loadRateLimitFromClient(client);
-}
-
-function disconnectedRateLimitResult(): RateLimitMetadataResult {
-  return {
-    data: null,
-    probe: diagnosticProbeError("account/rateLimits/read", new Error("Codex app-server is not connected.")),
-  };
-}
-
-async function loadRateLimitFromClient(
-  client: NonNullable<ReturnType<ChatServerMetadataActionsHost["currentClient"]>>,
-): Promise<RateLimitMetadataResult> {
-  try {
-    const response = await client.readAccountRateLimits();
-    return {
-      data: rateLimitSnapshotFromAccountRateLimitsResponse(response),
-      probe: diagnosticProbeOk("account/rateLimits/read", accountRateLimitsSummaryFromResponse(response)),
-    };
-  } catch (error) {
-    return { data: null, probe: diagnosticProbeError("account/rateLimits/read", error) };
-  }
+async function loadRateLimit(host: ChatServerMetadataActionsHost): Promise<RateLimitMetadataProbeResult> {
+  return readRateLimitMetadataProbe(host.currentClient());
 }

@@ -1,11 +1,7 @@
 import type { InitializeResponse as AppServerInitializeResponse } from "../../generated/app-server/InitializeResponse";
+import type { ServerInitialization } from "../../domain/server/initialization";
 
-export interface AppServerInitialization {
-  userAgent: string;
-  codexHome: string;
-  platformFamily: string;
-  platformOs: string;
-}
+export type AppServerInitialization = ServerInitialization;
 
 export function appServerInitializationFromResponse(response: AppServerInitializeResponse): AppServerInitialization {
   return {

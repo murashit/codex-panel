@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import type { Diagnostics } from "../../../../app-server/protocol/diagnostics";
+import { cloneServerDiagnostics } from "../../../../domain/server/diagnostics";
 import type { ChatStateStore } from "../../state/reducer";
 
 export interface ChatServerActionHost {
@@ -8,9 +8,4 @@ export interface ChatServerActionHost {
   currentClient: () => AppServerClient | null;
 }
 
-export function cloneAppServerDiagnostics(diagnostics: Diagnostics): Diagnostics {
-  return {
-    probes: { ...diagnostics.probes },
-    mcpServers: diagnostics.mcpServers.map((server) => ({ ...server })),
-  };
-}
+export { cloneServerDiagnostics };

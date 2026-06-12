@@ -1,5 +1,5 @@
-import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../app-server/protocol/runtime-metrics";
-import type { RuntimeConfigSnapshot } from "../../../../app-server/protocol/runtime-config";
+import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
+import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { jsonPreview } from "../../../../utils";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import { defaultEffortForModelMetadata } from "../../../../domain/catalog/metadata";
@@ -15,7 +15,7 @@ import {
   supportedReasoningEfforts,
 } from "../../runtime/effective";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import { collaborationModeLabel, pendingRuntimeSettingLabel } from "../../runtime/pending-settings";
+import { collaborationModeLabel, effectiveCollaborationMode, pendingRuntimeSettingLabel } from "../../runtime/pending-settings";
 
 export interface ContextSummary {
   label: string;
@@ -152,11 +152,11 @@ export function runtimeConfigSections(snapshot: RuntimeSnapshot, vaultPath: stri
         { key: "requested effort", value: pendingRuntimeSettingLabel(snapshot.requestedReasoningEffort) },
         { key: "reasoning summary", value: stringValue(config.reasoningSummary, CODEX_DEFAULT_LABEL) },
         { key: "verbosity", value: stringValue(config.verbosity, CODEX_DEFAULT_LABEL) },
-        { key: "effective mode", value: snapshot.activeCollaborationMode === "plan" ? "Plan" : "Default" },
+        { key: "effective mode", value: activeCollaborationModeLabel(snapshot.activeCollaborationMode) },
         {
           key: "requested mode",
           value:
-            snapshot.selectedCollaborationMode === snapshot.activeCollaborationMode
+            snapshot.selectedCollaborationMode === effectiveCollaborationMode(snapshot.activeCollaborationMode)
               ? "(none)"
               : collaborationModeLabel(snapshot.selectedCollaborationMode),
         },
@@ -248,6 +248,10 @@ function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeCon
 
 function activeRuntimeValueLabel(value: string | null): string {
   return value ?? NOT_REPORTED_LABEL;
+}
+
+function activeCollaborationModeLabel(value: RuntimeSnapshot["activeCollaborationMode"]): string {
+  return value ? collaborationModeLabel(value) : NOT_REPORTED_LABEL;
 }
 
 function activePermissionProfileLabel(profile: RuntimeSnapshot["activePermissionProfile"]): string {

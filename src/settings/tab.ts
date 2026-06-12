@@ -1,7 +1,8 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } from "obsidian";
 
 import type { AppServerClient } from "../app-server/connection/client";
-import { restoreArchivedThread, setHookItemEnabled, trustHookItem } from "../app-server/services/resource-operations";
+import { setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
+import { restoreArchivedThread } from "../app-server/services/threads";
 import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";

@@ -102,7 +102,7 @@ describe("createChatRuntimeSettingsActions", () => {
 
     expect(client.updateThreadSettings).not.toHaveBeenCalled();
     expect(store.getState().runtime.selectedCollaborationMode).toBe("plan");
-    expect(store.getState().runtime.activeCollaborationMode).toBe("default");
+    expect(store.getState().runtime.activeCollaborationMode).toBeNull();
     expect(messages).toEqual(["Plan mode is selected, but No effective model is available. Sending without a mode override."]);
   });
 
@@ -150,8 +150,8 @@ describe("createChatRuntimeSettingsActions", () => {
         mode: "plan",
         settings: {
           model: "gpt-config",
-          reasoning_effort: "medium",
-          developer_instructions: null,
+          reasoningEffort: "medium",
+          developerInstructions: null,
         },
       },
     });

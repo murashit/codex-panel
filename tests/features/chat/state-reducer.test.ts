@@ -10,7 +10,7 @@ import {
   transitionChatTurnLifecycleState,
   type ChatState,
 } from "../../../src/features/chat/state/reducer";
-import type { ThreadGoal } from "../../../src/app-server/protocol/thread-goal";
+import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/domain/threads/model";
 
@@ -54,7 +54,7 @@ describe("chatReducer", () => {
     expect(next.runtime.activeServiceTier).toBeNull();
     expect(next.runtime.activeApprovalPolicy).toBeNull();
     expect(next.runtime.activeApprovalsReviewer).toBeNull();
-    expect(next.runtime.activeCollaborationMode).toBe("default");
+    expect(next.runtime.activeCollaborationMode).toBeNull();
     expect(next.runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.2" });
     expect(next.runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "medium" });
     expect(next.runtime.requestedServiceTier).toEqual({ kind: "set", value: "off" });
@@ -123,7 +123,7 @@ describe("chatReducer", () => {
     expect(next.composer.suggestSelected).toBe(0);
     expect(next.composer.suggestions).toEqual([]);
     expect(next.composer.suggestionsDismissedSignature).toBeNull();
-    expect(next.runtime.activeCollaborationMode).toBe("default");
+    expect(next.runtime.activeCollaborationMode).toBeNull();
     expect(next.runtime.selectedCollaborationMode).toBe("plan");
     expect(next.ui.openDetails.size).toBe(0);
   });
@@ -419,7 +419,7 @@ describe("chatReducer", () => {
         effort: "high",
         serviceTier: "fast",
         approvalsReviewer: "auto_review",
-        collaborationMode: { mode: "plan", settings: { model: "gpt-5.1", reasoning_effort: "high", developer_instructions: null } },
+        collaborationMode: { mode: "plan", settings: { model: "gpt-5.1", reasoningEffort: "high", developerInstructions: null } },
       },
     });
 

@@ -1,5 +1,5 @@
 import { activeThreadSettingsAppliedAction } from "../../state/actions";
-import type { McpServerStartupStatus } from "../../../../app-server/protocol/diagnostics";
+import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/protocol/runtime-metrics";
 import {
   completedConversationSummaryFromTurnRecord,

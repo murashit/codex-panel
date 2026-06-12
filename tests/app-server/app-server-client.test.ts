@@ -684,8 +684,8 @@ describe("AppServerClient", () => {
         mode: "plan",
         settings: {
           model: "gpt-5.5",
-          reasoning_effort: "high",
-          developer_instructions: null,
+          reasoningEffort: "high",
+          developerInstructions: null,
         },
       },
     });
@@ -728,8 +728,17 @@ describe("AppServerClient", () => {
     );
     await expectRequest(
       transport,
-      client.listThreads("/vault", true),
-      { method: "thread/list", params: { cwd: "/vault", limit: 20, archived: true, sortKey: "updated_at", sortDirection: "desc" } },
+      client.listThreads("/vault", { archived: true }),
+      { method: "thread/list", params: { cwd: "/vault", archived: true, sortKey: "updated_at", sortDirection: "desc" } },
+      { data: [], nextCursor: null },
+    );
+    await expectRequest(
+      transport,
+      client.listThreads("/vault", { archived: false, cursor: "cursor-1", limit: 100 }),
+      {
+        method: "thread/list",
+        params: { cwd: "/vault", cursor: "cursor-1", limit: 100, archived: false, sortKey: "updated_at", sortDirection: "desc" },
+      },
       { data: [], nextCursor: null },
     );
     await expectRequest(

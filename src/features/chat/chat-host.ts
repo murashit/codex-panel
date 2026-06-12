@@ -1,5 +1,5 @@
 import type { Thread } from "../../domain/threads/model";
-import type { SharedAppServerMetadata } from "../../app-server/services/shared-cache-state";
+import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { ChatTurnDiffViewState } from "./turn-diff/model";
 
@@ -16,7 +16,7 @@ export interface CodexChatHost {
   applyThreadListSnapshot(threads: readonly Thread[]): void;
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
   cachedThreadList(): readonly Thread[] | null;
-  publishAppServerMetadata(metadata: SharedAppServerMetadata): void;
+  publishAppServerMetadata(metadata: SharedServerMetadata): void;
   publishAppServerIdentity(userAgent: string | null): void;
-  cachedAppServerMetadata(): SharedAppServerMetadata | null;
+  cachedAppServerMetadata(): SharedServerMetadata | null;
 }

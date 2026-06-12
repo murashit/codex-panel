@@ -1,10 +1,6 @@
-import {
-  cloneRuntimeConfigSnapshot,
-  emptyRuntimeConfigSnapshot,
-  type RuntimeConfigSnapshot,
-} from "../../../app-server/protocol/runtime-config";
+import { cloneRuntimeConfigSnapshot, emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../../domain/runtime/config";
 import { findModelMetadataByIdOrName, type ModelMetadata } from "../../../domain/catalog/metadata";
-import type { ApprovalPolicy, ApprovalsReviewer } from "../../../app-server/protocol/runtime-policy";
+import type { ApprovalPolicy, ApprovalsReviewer } from "../../../domain/runtime/policy";
 import { supportedEffortsForModelMetadata, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "./snapshot";
 
@@ -77,7 +73,7 @@ export function fastModeLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSn
   return serviceTier ? "off" : "Codex default";
 }
 
-export function fastServiceTierRequestValue(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
+export function fastRuntimeServiceTierRequestValue(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
   return currentModelServiceTiers(snapshot, config).find((tier) => tier.name.trim().toLowerCase() === "fast")?.id ?? "fast";
 }
 

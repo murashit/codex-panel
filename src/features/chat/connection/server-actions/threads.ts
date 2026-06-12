@@ -1,4 +1,4 @@
-import { listThreads } from "../../../../app-server/services/resource-operations";
+import { listThreads } from "../../../../app-server/services/threads";
 import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import { runtimeConfigOrDefault } from "../../runtime/effective";

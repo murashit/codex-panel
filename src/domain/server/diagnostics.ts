@@ -1,4 +1,4 @@
-import type { AppServerInitialization } from "./initialization";
+import type { ServerInitialization } from "./initialization";
 
 export const DIAGNOSTIC_PROBE_METHODS = [
   "model/list",
@@ -52,15 +52,22 @@ export interface Diagnostics {
   mcpServers: McpServerDiagnostic[];
 }
 
-export type InitializeDiagnostics = AppServerInitialization;
+export type InitializeDiagnostics = ServerInitialization;
 
-export function createAppServerDiagnostics(): Diagnostics {
+export function createServerDiagnostics(): Diagnostics {
   return {
     probes: Object.fromEntries(DIAGNOSTIC_PROBE_METHODS.map((method) => [method, createDiagnosticProbeResult(method)])) as Record<
       DiagnosticProbeMethod,
       DiagnosticProbeResult
     >,
     mcpServers: [],
+  };
+}
+
+export function cloneServerDiagnostics(diagnostics: Diagnostics): Diagnostics {
+  return {
+    probes: { ...diagnostics.probes },
+    mcpServers: diagnostics.mcpServers.map((server) => ({ ...server })),
   };
 }
 
@@ -98,11 +105,11 @@ export function diagnosticProbeError(method: DiagnosticProbeMethod, error: unkno
   };
 }
 
-export function appServerIdentity(initializeResponse: InitializeDiagnostics | null): string {
+export function serverIdentity(initializeResponse: InitializeDiagnostics | null): string {
   return initializeResponse?.userAgent ?? "(not connected)";
 }
 
-export function appServerPlatform(initializeResponse: InitializeDiagnostics | null): string {
+export function serverPlatform(initializeResponse: InitializeDiagnostics | null): string {
   if (!initializeResponse) return "(not connected)";
   const family = initializeResponse.platformFamily;
   const os = initializeResponse.platformOs;

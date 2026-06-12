@@ -12,7 +12,7 @@ import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue"
 import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
 import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
 import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
-import type { TurnItem, TurnRecord } from "../protocol/turn";
+import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
 
 export type StructuredTurnOutputSchema = JsonValue;
 
@@ -21,14 +21,14 @@ type StructuredTurnRuntimeOverride = NonNullable<AppServerStartStructuredTurnOpt
 type StructuredTurnProgressEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
 
 interface EphemeralStructuredTurnTimers {
-  setTimeout(callback: () => void, delayMs: number): unknown;
-  clearTimeout(timer: unknown): void;
+  setTimeout(callback: () => void, delayMs: number): ReturnType<Window["setTimeout"]>;
+  clearTimeout(timer: ReturnType<Window["setTimeout"]>): void;
 }
 
 const DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS: EphemeralStructuredTurnTimers = {
-  setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+  setTimeout: (callback, delayMs) => window.setTimeout(callback, delayMs),
   clearTimeout: (timer) => {
-    clearTimeout(timer as ReturnType<typeof setTimeout>);
+    window.clearTimeout(timer);
   },
 };
 
@@ -76,7 +76,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   throwIfAborted(options.signal, options.abortMessage);
   let state = createEphemeralStructuredTurnState();
   const timers = options.timers ?? DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS;
-  let timeout: unknown;
+  let timeout: ReturnType<Window["setTimeout"]> | undefined;
   let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
 
@@ -161,6 +161,11 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     if (timeout !== undefined) timers.clearTimeout(timeout);
     client.disconnect();
   }
+}
+
+export async function runEphemeralStructuredTurnForLastAgentText(options: RunEphemeralStructuredTurnOptions): Promise<string | null> {
+  const turn = await runEphemeralStructuredTurn(options);
+  return lastAgentMessageTextFromTurnRecord(turn);
 }
 
 type EphemeralStructuredTurnLifecycleState =

@@ -1,4 +1,5 @@
 export type CollaborationMode = "default" | "plan";
+export type ActiveCollaborationMode = CollaborationMode | null;
 export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
 export type RequestedServiceTier = "fast" | "off";
 
@@ -16,6 +17,10 @@ export function resetRuntimeSettingToConfig<T>(): PendingRuntimeSetting<T> {
 
 export function nextCollaborationMode(mode: CollaborationMode): CollaborationMode {
   return mode === "plan" ? "default" : "plan";
+}
+
+export function effectiveCollaborationMode(mode: ActiveCollaborationMode): CollaborationMode {
+  return mode ?? "default";
 }
 
 export function collaborationModeLabel(mode: CollaborationMode): string {

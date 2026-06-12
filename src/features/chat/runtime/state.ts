@@ -4,13 +4,14 @@ import {
   type ApprovalPolicy,
   type ApprovalsReviewer,
   type ServiceTier,
-} from "../../../app-server/protocol/runtime-policy";
-import type { ThreadSettingsUpdate } from "../../../app-server/protocol/thread-settings";
+} from "../../../domain/runtime/policy";
+import type { RuntimeSettingsPatch } from "../../../domain/runtime/thread-settings";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import {
   resetRuntimeSettingToConfig,
   setPendingRuntimeSetting,
   unchangedRuntimeSetting,
+  type ActiveCollaborationMode,
   type CollaborationMode,
   type PendingRuntimeSetting,
   type RequestedServiceTier,
@@ -19,7 +20,7 @@ import {
 export interface ChatRuntimeState {
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
-  activeCollaborationMode: CollaborationMode;
+  activeCollaborationMode: ActiveCollaborationMode;
   activeServiceTier: ServiceTier | null;
   activeApprovalPolicy: ApprovalPolicy | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
@@ -44,7 +45,7 @@ export function initialActiveChatRuntimeState(): Pick<
   return {
     activeModel: null,
     activeReasoningEffort: null,
-    activeCollaborationMode: "default",
+    activeCollaborationMode: null,
     activeServiceTier: null,
     activeApprovalPolicy: null,
     activeApprovalsReviewer: null,
@@ -126,7 +127,7 @@ export function setSelectedCollaborationModeRuntimeState(state: ChatRuntimeState
   };
 }
 
-export function commitPendingThreadSettingsRuntimeState(state: ChatRuntimeState, update: ThreadSettingsUpdate): ChatRuntimeState {
+export function commitPendingRuntimeSettingsPatchState(state: ChatRuntimeState, update: RuntimeSettingsPatch): ChatRuntimeState {
   return {
     ...state,
     ...("model" in update ? { activeModel: update.model ?? null, requestedModel: unchangedRuntimeSetting<string>() } : {}),

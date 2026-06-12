@@ -50,9 +50,10 @@ import type {
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
-import { toAppServerUserInput, type CodexInput } from "../protocol/request-input";
+import type { CodexInput } from "../../domain/chat/input";
+import { toAppServerUserInput } from "../protocol/request-input";
 import { appServerThreadGoalUpdate, type ThreadGoalUpdate } from "../protocol/thread-goal";
-import type { ServiceTierRequest, ThreadSettingsUpdate } from "../protocol/thread-settings";
+import { appServerRuntimeSettingsPatch, type RuntimeServiceTierRequest, type RuntimeSettingsPatch } from "../protocol/thread-settings";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const MAX_SUPPRESSED_ORPHAN_RESPONSES = 256;
@@ -73,7 +74,7 @@ export interface AppServerHookOperation {
 }
 
 interface AppServerTurnRuntimeOverrides {
-  serviceTier?: ServiceTierRequest;
+  serviceTier?: RuntimeServiceTierRequest;
   collaborationMode?: CollaborationMode;
   model?: string | null;
   effort?: ReasoningEffort | null;
@@ -87,7 +88,13 @@ type AppServerTurnRuntimeParams = Pick<
 
 export interface AppServerStartThreadOptions {
   cwd: string;
-  serviceTier?: ServiceTierRequest;
+  serviceTier?: RuntimeServiceTierRequest;
+}
+
+export interface AppServerThreadListOptions {
+  archived?: boolean;
+  cursor?: string | null;
+  limit?: number | null;
 }
 
 export interface AppServerStartEphemeralThreadOptions {
@@ -314,11 +321,12 @@ export class AppServerClient {
     });
   }
 
-  listThreads(cwd: string, archived = false): Promise<ThreadListResponse> {
+  listThreads(cwd: string, options: AppServerThreadListOptions = {}): Promise<ThreadListResponse> {
     return this.request("thread/list", {
       cwd,
-      limit: 20,
-      archived,
+      ...(options.cursor ? { cursor: options.cursor } : {}),
+      ...(options.limit === undefined ? {} : { limit: options.limit }),
+      archived: options.archived ?? false,
       sortKey: "updated_at",
       sortDirection: "desc",
     });
@@ -364,8 +372,8 @@ export class AppServerClient {
     return this.request("thread/inject_items", { threadId, items });
   }
 
-  updateThreadSettings(threadId: string, settings: ThreadSettingsUpdate): Promise<ThreadSettingsUpdateResponse> {
-    return this.request("thread/settings/update", { threadId, ...settings });
+  updateThreadSettings(threadId: string, settings: RuntimeSettingsPatch): Promise<ThreadSettingsUpdateResponse> {
+    return this.request("thread/settings/update", { threadId, ...appServerRuntimeSettingsPatch(settings) });
   }
 
   threadTurnsList(

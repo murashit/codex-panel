@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 
-import type { ThreadGoal } from "../../../../../src/app-server/protocol/thread-goal";
+import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { goalRegionNode, type GoalRegionActions } from "../../../../../src/features/chat/ui/goal";
 import type { SendShortcut } from "../../../../../src/shared/ui/keyboard";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";

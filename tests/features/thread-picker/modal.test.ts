@@ -24,6 +24,15 @@ describe("threadPickerSuggestions", () => {
 
     expect(suggestions.map((item) => item.thread.id)).toEqual(["newer", "older"]);
   });
+
+  it("returns every matching thread", () => {
+    const suggestions = threadPickerSuggestions(
+      Array.from({ length: 25 }, (_, index) => thread({ id: `thread-${String(index + 1)}`, name: "Match" })),
+      "match",
+    );
+
+    expect(suggestions).toHaveLength(25);
+  });
 });
 
 describe("threadOpenModeFromEvent", () => {

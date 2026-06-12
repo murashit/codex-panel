@@ -1,13 +1,12 @@
 import type { AppServerClient } from "../connection/client";
+import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
 import {
   appServerHookOperationFromHookItem,
   hookItemsFromCatalogHooks,
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
 } from "../protocol/catalog";
-import { threadFromThreadRecord, threadsFromThreadRecords } from "../protocol/thread";
 import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
-import type { Thread } from "../../domain/threads/model";
 
 export interface HookData {
   hooks: HookItem[];
@@ -15,13 +14,11 @@ export interface HookData {
   errors: string[];
 }
 
-export async function listThreads(client: AppServerClient, cwd: string, options: { archived?: boolean } = {}): Promise<Thread[]> {
-  const archived = options.archived ?? false;
-  const response = await client.listThreads(cwd, archived);
-  return threadsFromThreadRecords(response.data, { archived });
+interface ModelMetadataClient {
+  listModels(includeHidden: boolean): Promise<ModelListResponse>;
 }
 
-export async function listModelMetadata(client: AppServerClient, options: { includeHidden?: boolean } = {}): Promise<ModelMetadata[]> {
+export async function listModelMetadata(client: ModelMetadataClient, options: { includeHidden?: boolean } = {}): Promise<ModelMetadata[]> {
   const response = await client.listModels(options.includeHidden ?? false);
   return modelMetadataFromCatalogModels(response.data);
 }
@@ -56,9 +53,4 @@ export async function trustHookItem(client: AppServerClient, hook: HookItem): Pr
 
 export async function setHookItemEnabled(client: AppServerClient, hook: HookItem, enabled: boolean): Promise<void> {
   await client.setHookEnabled(appServerHookOperationFromHookItem(hook), enabled);
-}
-
-export async function restoreArchivedThread(client: AppServerClient, threadId: string): Promise<Thread> {
-  const response = await client.unarchiveThread(threadId);
-  return threadFromThreadRecord(response.thread);
 }

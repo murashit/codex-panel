@@ -133,7 +133,7 @@ export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInpu
     connected: input.connected,
     configuredCommand: input.configuredCommand,
     initializeResponse: input.state.connection.initializeResponse,
-    diagnostics: input.state.connection.appServerDiagnostics,
+    diagnostics: input.state.connection.serverDiagnostics,
   });
 }
 

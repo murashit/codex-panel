@@ -1,16 +1,16 @@
 import type { ChatState } from "../state/reducer";
-import type { ActivePermissionProfile, RuntimeConfigSnapshot } from "../../../app-server/protocol/runtime-config";
-import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/protocol/runtime-metrics";
-import type { ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../app-server/protocol/runtime-policy";
+import type { RuntimeConfigSnapshot } from "../../../domain/runtime/config";
+import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../domain/runtime/metrics";
+import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../domain/runtime/policy";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { CollaborationMode, PendingRuntimeSetting, RequestedServiceTier } from "./pending-settings";
+import type { ActiveCollaborationMode, CollaborationMode, PendingRuntimeSetting, RequestedServiceTier } from "./pending-settings";
 
 export interface RuntimeSnapshot {
   runtimeConfig: RuntimeConfigSnapshot | null;
   activeThreadId: string | null;
   activeModel: string | null;
   activeReasoningEffort: ReasoningEffort | null;
-  activeCollaborationMode: CollaborationMode;
+  activeCollaborationMode: ActiveCollaborationMode;
   activeServiceTier: ServiceTier | null;
   activeApprovalPolicy: ApprovalPolicy | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;

@@ -2,14 +2,12 @@ import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/connection/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection/connection-manager";
-import { listThreads } from "../../app-server/services/resource-operations";
-import { threadFromThreadRecord } from "../../app-server/protocol/thread";
+import { listThreads, readCompletedConversationSummariesPage, readThreadForArchiveExport } from "../../app-server/services/threads";
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import { exportArchivedThreadMarkdown } from "../thread-export/archive-markdown";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import { completedConversationSummariesFromTurnRecords, transcriptEntriesFromTurnRecords } from "../../app-server/protocol/turn";
 import { generateThreadTitleWithCodex } from "../thread-title/generation";
 import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../thread-title/model";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
@@ -329,13 +327,7 @@ export class CodexThreadsView extends ItemView {
       const client = this.client;
       const context = await findThreadTitleContext({
         threadId,
-        readTurns: async (id, cursor, limit, sortDirection) => {
-          const response = await client.threadTurnsList(id, cursor, limit, sortDirection);
-          return {
-            data: completedConversationSummariesFromTurnRecords(response.data),
-            nextCursor: response.nextCursor,
-          };
-        },
+        readTurns: (id, cursor, limit, sortDirection) => readCompletedConversationSummariesPage(client, id, cursor, limit, sortDirection),
       });
       if (!context) throw new Error(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
       const title = await generateThreadTitleWithCodex(this.plugin.settings.codexPath, this.plugin.vaultPath, context, {
@@ -376,12 +368,8 @@ export class CodexThreadsView extends ItemView {
       await this.ensureConnected();
       if (!this.client) return;
       if (saveMarkdown) {
-        const response = await this.client.readThread(threadId, true);
         const result = await exportArchivedThreadMarkdown(
-          {
-            ...threadFromThreadRecord(response.thread, { archived: true }),
-            transcriptEntries: transcriptEntriesFromTurnRecords(response.thread.turns),
-          },
+          await readThreadForArchiveExport(this.client, threadId),
           { ...this.plugin.settings, vaultPath: this.plugin.vaultPath },
           this.app.vault.adapter,
         );

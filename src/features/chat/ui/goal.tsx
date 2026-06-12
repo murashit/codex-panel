@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import type { ThreadGoal, ThreadGoalStatus } from "../../../app-server/protocol/thread-goal";
+import type { ThreadGoal, ThreadGoalStatus } from "../../../domain/threads/goal";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { IconButton } from "../../../shared/ui/components";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";

@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import { completedConversationSummariesFromTurnRecords } from "../../../app-server/protocol/turn";
+import { readCompletedConversationSummariesPage } from "../../../app-server/services/threads";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { Thread } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
@@ -151,13 +151,7 @@ export class RenameController {
     if (!client) return null;
     const context = await findThreadTitleContext({
       threadId,
-      readTurns: async (id, cursor, limit, sortDirection) => {
-        const response = await client.threadTurnsList(id, cursor, limit, sortDirection);
-        return {
-          data: completedConversationSummariesFromTurnRecords(response.data),
-          nextCursor: response.nextCursor,
-        };
-      },
+      readTurns: (id, cursor, limit, sortDirection) => readCompletedConversationSummariesPage(client, id, cursor, limit, sortDirection),
     });
     return (
       context ??

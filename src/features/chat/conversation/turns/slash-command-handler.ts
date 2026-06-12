@@ -1,8 +1,9 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { codexTextInputWithAttachments, type CodexInput } from "../../../../app-server/protocol/request-input";
-import { chronologicalConversationSummariesFromTurnRecords } from "../../../../app-server/protocol/turn";
-import { referencedThreadPromptBundle, referencedThreadTurns, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
+import { codexTextInputWithAttachments, type CodexInput } from "../../../../domain/chat/input";
+import { readReferencedThreadConversationSummaries } from "../../../../app-server/services/threads";
+import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
+import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
 import {
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionResult,
@@ -12,7 +13,6 @@ import type { SlashCommandName } from "../composer/slash-commands";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
-import type { ThreadGoal, ThreadGoalStatus } from "../../../../app-server/protocol/thread-goal";
 import { submissionStateSnapshot } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
 import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective";
@@ -142,8 +142,7 @@ async function referencedThreadInput(
   message: string,
 ): Promise<ThreadReferenceInput | null> {
   try {
-    const response = await client.threadTurnsList(thread.id, null, REFERENCED_THREAD_TURN_LIMIT);
-    const turns = referencedThreadTurns(chronologicalConversationSummariesFromTurnRecords(response.data));
+    const turns = await readReferencedThreadConversationSummaries(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
     if (turns.length === 0) {
       host.status.addSystemMessage("Referenced thread has no readable conversation turns.");
       return null;

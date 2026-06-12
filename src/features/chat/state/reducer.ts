@@ -1,17 +1,17 @@
-import type { AppServerInitialization } from "../../../app-server/protocol/initialization";
+import type { ServerInitialization } from "../../../domain/server/initialization";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../../../domain/catalog/metadata";
-import type { ThreadGoal } from "../../../app-server/protocol/thread-goal";
-import type { ThreadSettingsUpdate } from "../../../app-server/protocol/thread-settings";
-import type { ApprovalsReviewer } from "../../../app-server/protocol/runtime-policy";
-import type { Diagnostics } from "../../../app-server/protocol/diagnostics";
-import { createAppServerDiagnostics } from "../../../app-server/protocol/diagnostics";
-import type { RuntimeConfigSnapshot } from "../../../app-server/protocol/runtime-config";
-import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/protocol/runtime-metrics";
+import type { ThreadGoal } from "../../../domain/threads/goal";
+import type { Diagnostics } from "../../../domain/server/diagnostics";
+import { createServerDiagnostics } from "../../../domain/server/diagnostics";
+import type { RuntimeConfigSnapshot } from "../../../domain/runtime/config";
+import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../domain/runtime/metrics";
+import type { ApprovalsReviewer } from "../../../domain/runtime/policy";
+import type { RuntimeSettingsPatch } from "../../../domain/runtime/thread-settings";
 import type { CollaborationMode } from "../runtime/pending-settings";
 import {
-  commitPendingThreadSettingsRuntimeState,
+  commitPendingRuntimeSettingsPatchState,
   clearRequestedApprovalsReviewerRuntimeState,
   clearRequestedServiceTierRuntimeState,
   initialActiveChatRuntimeState,
@@ -80,9 +80,9 @@ export type { ChatMessageStreamState } from "./message-stream";
 interface ChatConnectionState {
   status: string;
   runtimeConfig: RuntimeConfigSnapshot | null;
-  initializeResponse: AppServerInitialization | null;
+  initializeResponse: ServerInitialization | null;
   rateLimit: RateLimitSnapshot | null;
-  appServerDiagnostics: Diagnostics;
+  serverDiagnostics: Diagnostics;
   availableModels: readonly ModelMetadata[];
   availableSkills: readonly SkillMetadata[];
 }
@@ -140,7 +140,7 @@ type ConnectionAction =
       availableModels?: readonly ModelMetadata[];
       availableSkills?: readonly SkillMetadata[];
       rateLimit?: RateLimitSnapshot | null;
-      appServerDiagnostics?: Diagnostics;
+      serverDiagnostics?: Diagnostics;
     };
 
 type ThreadListAction = ThreadListAppliedAction;
@@ -160,7 +160,7 @@ type RuntimeAction =
   | { type: "runtime/approvals-reviewer-requested"; approvalsReviewer: ApprovalsReviewer }
   | { type: "runtime/approvals-reviewer-request-cleared" }
   | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: CollaborationMode }
-  | { type: "runtime/pending-thread-settings-committed"; update: ThreadSettingsUpdate };
+  | { type: "runtime/pending-thread-settings-committed"; update: RuntimeSettingsPatch };
 
 interface TurnStartedAction {
   type: "turn/started";
@@ -540,7 +540,7 @@ function reduceConnectionSlice(state: ChatConnectionState, action: ChatSliceActi
         ...definedPatch("availableModels", action.availableModels),
         ...definedPatch("availableSkills", action.availableSkills),
         ...definedPatch("rateLimit", action.rateLimit),
-        ...definedPatch("appServerDiagnostics", action.appServerDiagnostics),
+        ...definedPatch("serverDiagnostics", action.serverDiagnostics),
       });
     default:
       return state;
@@ -589,7 +589,7 @@ function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): C
     case "runtime/requested-collaboration-mode-set":
       return patchObject(state, setSelectedCollaborationModeRuntimeState(state, action.collaborationMode));
     case "runtime/pending-thread-settings-committed":
-      return patchObject(state, commitPendingThreadSettingsRuntimeState(state, action.update));
+      return patchObject(state, commitPendingRuntimeSettingsPatchState(state, action.update));
     default:
       return state;
   }
@@ -670,7 +670,7 @@ function clearDisconnectedConnectionState(state: ChatState): ChatState {
     },
     connection: {
       ...state.connection,
-      appServerDiagnostics: createAppServerDiagnostics(),
+      serverDiagnostics: createServerDiagnostics(),
       rateLimit: null,
       availableModels: [],
       availableSkills: [],
@@ -684,7 +684,7 @@ function initialConnectionState(): ChatConnectionState {
     status: "Idle",
     runtimeConfig: null,
     initializeResponse: null,
-    appServerDiagnostics: createAppServerDiagnostics(),
+    serverDiagnostics: createServerDiagnostics(),
     rateLimit: null,
     availableModels: [],
     availableSkills: [],

@@ -17,22 +17,13 @@ interface ReferencedThreadEnvelope {
   visibleText: string;
 }
 
-export interface ReferencedThreadTurn {
-  userText: string | null;
-  assistantText: string | null;
-}
-
 export interface ReferencedThreadPromptBundle {
   prompt: string;
   referencedThread: ReferencedThreadDisplay;
   status: string;
 }
 
-export function referencedThreadTurns(summaries: readonly ThreadConversationSummary[]): ReferencedThreadTurn[] {
-  return [...summaries];
-}
-
-export function referencedThreadPrompt(thread: Thread, turns: ReferencedThreadTurn[], userRequest: string): string {
+export function referencedThreadPrompt(thread: Thread, turns: readonly ThreadConversationSummary[], userRequest: string): string {
   const reference = referencedThreadDisplay(thread, turns.length);
   const envelope = referencedThreadEnvelope(reference, userRequest);
 
@@ -70,7 +61,7 @@ function referencedThreadDisplay(thread: Thread, count: number): ReferencedThrea
 
 export function referencedThreadPromptBundle(
   thread: Thread,
-  turns: readonly ReferencedThreadTurn[],
+  turns: readonly ThreadConversationSummary[],
   userRequest: string,
 ): ReferencedThreadPromptBundle {
   const prompt = referencedThreadPrompt(thread, [...turns], userRequest);

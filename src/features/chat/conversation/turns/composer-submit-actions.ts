@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import type { CodexInput } from "../../../../app-server/protocol/request-input";
+import type { CodexInput } from "../../../../domain/chat/input";
 import { submissionStateSnapshot } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
 import { parseSlashCommand } from "../composer/suggestions";

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { describe, expect, it } from "vitest";
 
 import type {
@@ -5,10 +7,10 @@ import type {
   AppServerClientHandlers,
   AppServerStartStructuredTurnOptions,
 } from "../../../src/app-server/connection/client";
-import { modelMetadataFromCatalogModels, type CatalogModel } from "../../../src/app-server/protocol/catalog";
 import type { AppServerInitialization } from "../../../src/app-server/protocol/initialization";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { RequestId, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
+import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import {
   generateThreadTitleWithCodex,
   threadTitleFromGenerationTurn,
@@ -133,19 +135,17 @@ describe("thread title", () => {
 
   it("omits an explicit title effort when the selected model does not support it", () => {
     expect(
-      validatedThreadTitleRuntimeOverride(
-        { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
-        modelMetadataFromCatalogModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
-      ),
+      validatedThreadTitleRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" }, [
+        model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
+      ]),
     ).toEqual({ model: "gpt-5.4-mini" });
   });
 
   it("keeps an explicit title effort when the selected model supports it", () => {
     expect(
-      validatedThreadTitleRuntimeOverride(
-        { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" },
-        modelMetadataFromCatalogModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
-      ),
+      validatedThreadTitleRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" }, [
+        model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
+      ]),
     ).toEqual({ model: "gpt-5.4-mini", effort: "low" });
   });
 
@@ -301,20 +301,16 @@ function turnCompletedNotification(threadId: string, completedTurn: Turn): Serve
   };
 }
 
-function model(name: string, efforts: CatalogModel["supportedReasoningEfforts"][number]["reasoningEffort"][]): CatalogModel {
+function model(name: string, efforts: string[]): ModelMetadata {
   return {
     id: name,
     model: name,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
     displayName: name,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: "" })),
+    supportedReasoningEfforts: efforts,
     defaultReasoningEffort: efforts[0] ?? "low",
     inputModalities: ["text"],
-    supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,

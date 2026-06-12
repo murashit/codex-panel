@@ -1,7 +1,6 @@
 import { Notice } from "obsidian";
 
-import { threadFromThreadRecord } from "../../../app-server/protocol/thread";
-import { transcriptEntriesFromTurnRecords } from "../../../app-server/protocol/turn";
+import { readThreadForArchiveExport } from "../../../app-server/services/threads";
 import { exportArchivedThreadMarkdown } from "../../thread-export/archive-markdown";
 import { chatTurnBusy } from "../state/reducer";
 import type { ChatThreadActionsHost } from "./action-context";
@@ -32,12 +31,8 @@ export async function archiveThreadOnServer(
   try {
     const settings = host.settings();
     if (saveMarkdown) {
-      const response = await client.readThread(threadId, true);
       const result = await exportArchivedThreadMarkdown(
-        {
-          ...threadFromThreadRecord(response.thread, { archived: true }),
-          transcriptEntries: transcriptEntriesFromTurnRecords(response.thread.turns),
-        },
+        await readThreadForArchiveExport(client, threadId),
         { ...settings, vaultPath: host.vaultPath },
         host.archiveAdapter(),
       );

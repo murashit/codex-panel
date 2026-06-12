@@ -1,25 +1,9 @@
 import type { ThreadGoal as AppServerThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
 import type { ThreadGoalStatus as AppServerThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
+import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../domain/threads/goal";
 
-export type ThreadGoalStatus = "active" | "paused" | "blocked" | "usageLimited" | "budgetLimited" | "complete";
-
-export interface ThreadGoal {
-  threadId: string;
-  objective: string;
-  status: ThreadGoalStatus;
-  tokenBudget: number | null;
-  tokensUsed: number;
-  timeUsedSeconds: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface ThreadGoalUpdate {
-  objective?: string | null;
-  status?: ThreadGoalStatus | null;
-  tokenBudget?: number | null;
-}
+export type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
 
 export function threadGoalFromAppServerGoal(goal: AppServerThreadGoal | null): ThreadGoal | null {
   if (!goal) return null;

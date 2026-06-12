@@ -3,15 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   diagnosticProbeError,
   diagnosticProbeOk,
-  createAppServerDiagnostics,
+  createServerDiagnostics,
   upsertMcpServerDiagnostic,
   upsertMcpServerStatusDiagnostics,
-} from "../../../src/app-server/protocol/diagnostics";
+} from "../../../src/domain/server/diagnostics";
 import { connectionDiagnosticSections, hasDiagnosticIssue } from "../../../src/features/chat/display/status/diagnostics";
 
 describe("connection diagnostics", () => {
   it("formats base rows, capability probes, and MCP issues for /doctor", () => {
-    let diagnostics = createAppServerDiagnostics();
+    let diagnostics = createServerDiagnostics();
     diagnostics.probes["model/list"] = diagnosticProbeOk("model/list", "12 models", 1);
     diagnostics.probes["skills/list"] = diagnosticProbeError("skills/list", new Error("unknown method skills/list"), 2);
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
@@ -60,15 +60,15 @@ describe("connection diagnostics", () => {
   });
 
   it("detects diagnostic issues without treating unknown probes as issues", () => {
-    expect(hasDiagnosticIssue(createAppServerDiagnostics())).toBe(false);
+    expect(hasDiagnosticIssue(createServerDiagnostics())).toBe(false);
 
-    const failed = createAppServerDiagnostics();
+    const failed = createServerDiagnostics();
     failed.probes["model/list"] = diagnosticProbeError("model/list", new Error("network down"), 1);
     expect(hasDiagnosticIssue(failed)).toBe(true);
   });
 
   it("detects MCP diagnostic issues", () => {
-    let authIssue = upsertMcpServerDiagnostic(createAppServerDiagnostics(), {
+    let authIssue = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "docs",
       startupStatus: "ready",
       authStatus: "notLoggedIn",
@@ -88,7 +88,7 @@ describe("connection diagnostics", () => {
   });
 
   it("maps app-server MCP status snapshots into diagnostics", () => {
-    const diagnostics = upsertMcpServerDiagnostic(createAppServerDiagnostics(), {
+    const diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",
       startupStatus: "starting",
       authStatus: null,

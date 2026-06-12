@@ -20,7 +20,7 @@ export interface ActivePermissionProfile {
   extends: string | null;
 }
 
-export function appServerApprovalsReviewerOrNull(value: unknown): ApprovalsReviewer | null {
+export function approvalsReviewerOrNull(value: unknown): ApprovalsReviewer | null {
   return value === "user" || value === "auto_review" || value === "guardian_subagent" ? value : null;
 }
 

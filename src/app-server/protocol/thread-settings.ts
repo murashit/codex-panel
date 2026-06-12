@@ -1,42 +1,27 @@
-import type { CollaborationMode } from "../../generated/app-server/CollaborationMode";
-import type { ModeKind } from "../../generated/app-server/ModeKind";
-import type { Personality } from "../../generated/app-server/Personality";
-import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
-import type { ReasoningSummary } from "../../generated/app-server/ReasoningSummary";
-import type { SandboxPolicy } from "../../generated/app-server/v2/SandboxPolicy";
-import type { ApprovalPolicy, ApprovalsReviewer } from "./runtime-policy";
+import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
+import type { RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
 
-export type ServiceTierRequest = string | null | undefined;
+export type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
 
-export interface ThreadSettingsUpdate {
-  cwd?: string | null;
-  approvalPolicy?: ApprovalPolicy | null;
-  approvalsReviewer?: ApprovalsReviewer | null;
-  sandboxPolicy?: SandboxPolicy | null;
-  permissions?: string | null;
-  model?: string | null;
-  serviceTier?: string | null;
-  effort?: ReasoningEffort | null;
-  summary?: ReasoningSummary | null;
-  collaborationMode?: CollaborationMode | null;
-  personality?: Personality | null;
-}
+type AppServerRuntimeSettingsPatch = Omit<ThreadSettingsUpdateParams, "threadId">;
 
-export function applyThreadSettingsValue<K extends keyof ThreadSettingsUpdate>(
-  update: ThreadSettingsUpdate,
-  key: K,
-  value: ThreadSettingsUpdate[K] | undefined,
-): void {
-  if (value !== undefined) update[key] = value;
-}
-
-export function appServerCollaborationMode(mode: ModeKind, model: string, reasoningEffort: ReasoningEffort | null): CollaborationMode {
+export function appServerRuntimeSettingsPatch(update: RuntimeSettingsPatch): AppServerRuntimeSettingsPatch {
+  const { collaborationMode, ...settings } = update;
   return {
-    mode,
-    settings: {
-      model,
-      reasoning_effort: reasoningEffort,
-      developer_instructions: null,
-    },
+    ...settings,
+    ...("collaborationMode" in update
+      ? {
+          collaborationMode: collaborationMode
+            ? {
+                mode: collaborationMode.mode,
+                settings: {
+                  model: collaborationMode.settings.model,
+                  reasoning_effort: collaborationMode.settings.reasoningEffort,
+                  developer_instructions: collaborationMode.settings.developerInstructions,
+                },
+              }
+            : null,
+        }
+      : {}),
   };
 }

@@ -10,7 +10,7 @@ import type { RuntimeSnapshot } from "./runtime/snapshot";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/pending-settings";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./state/reducer";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import type { SharedAppServerMetadata } from "../../app-server/services/shared-cache-state";
+import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { CodexChatHost } from "./chat-host";
 import { createStructuredSystemItem, createSystemItem } from "./display/items/system";
 import {
@@ -461,7 +461,7 @@ export class CodexChatView extends ItemView {
     this.controllers.render.controller.render();
   }
 
-  applyAppServerMetadataSnapshot(metadata: SharedAppServerMetadata): void {
+  applyAppServerMetadataSnapshot(metadata: SharedServerMetadata): void {
     this.controllers.serverActions.metadata.applyAppServerMetadata(metadata);
     this.controllers.render.controller.render();
   }

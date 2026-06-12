@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   DIAGNOSTIC_PROBE_METHODS,
-  appServerIdentity,
-  appServerPlatform,
+  serverIdentity,
+  serverPlatform,
   diagnosticProbeError,
   diagnosticProbeOk,
-  createAppServerDiagnostics,
+  createServerDiagnostics,
   shortErrorMessage,
   upsertMcpServerDiagnostic,
-} from "../../src/app-server/protocol/diagnostics";
-import type { InitializeDiagnostics } from "../../src/app-server/protocol/diagnostics";
+} from "../../src/domain/server/diagnostics";
+import type { InitializeDiagnostics } from "../../src/domain/server/diagnostics";
 
 describe("app-server diagnostics", () => {
   it("formats initialize metadata", () => {
@@ -21,12 +21,12 @@ describe("app-server diagnostics", () => {
       platformOs: "macos",
     } satisfies InitializeDiagnostics;
 
-    expect(appServerIdentity(response)).toBe("codex-cli/0.128.0");
-    expect(appServerPlatform(response)).toBe("macos/unix");
+    expect(serverIdentity(response)).toBe("codex-cli/0.128.0");
+    expect(serverPlatform(response)).toBe("macos/unix");
   });
 
   it("creates generic capability probe defaults", () => {
-    const diagnostics = createAppServerDiagnostics();
+    const diagnostics = createServerDiagnostics();
 
     expect(Object.keys(diagnostics.probes)).toEqual([...DIAGNOSTIC_PROBE_METHODS]);
     expect(diagnostics.probes["model/list"]).toMatchObject({
@@ -61,7 +61,7 @@ describe("app-server diagnostics", () => {
     expect(shortErrorMessage("a\n b\t c")).toBe("a b c");
     expect(shortErrorMessage("x".repeat(200))).toHaveLength(160);
 
-    let diagnostics = upsertMcpServerDiagnostic(createAppServerDiagnostics(), {
+    let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",
       startupStatus: "failed",
       authStatus: null,

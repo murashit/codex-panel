@@ -4,7 +4,7 @@ import { VIEW_TYPE_CODEX_THREADS } from "../constants";
 import { CodexThreadsView } from "../features/threads-view/view";
 import type { ModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
-import type { SharedAppServerMetadata } from "../app-server/services/shared-cache-state";
+import type { SharedServerMetadata } from "../domain/server/metadata";
 import type { WorkspacePanelCoordinator } from "./panel-coordinator";
 
 export interface ThreadSurfaceCoordinatorOptions {
@@ -42,7 +42,7 @@ export class ThreadSurfaceCoordinator {
     }
   }
 
-  publishAppServerMetadata(metadata: SharedAppServerMetadata): void {
+  publishAppServerMetadata(metadata: SharedServerMetadata): void {
     for (const view of this.options.panels.panelViews()) {
       view.applyAppServerMetadataSnapshot(metadata);
     }

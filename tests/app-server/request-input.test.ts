@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  codexTextInputWithAttachments,
-  codexTextInputWithMentions,
-  toAppServerUserInput,
-  type CodexInput,
-} from "../../src/app-server/protocol/request-input";
+import { codexTextInputWithAttachments, codexTextInputWithMentions, type CodexInput } from "../../src/domain/chat/input";
+import { toAppServerUserInput } from "../../src/app-server/protocol/request-input";
 
 describe("app-server request input", () => {
   it("builds text input with mentions and skills", () => {

@@ -1,20 +1,9 @@
-import {
-  approvalPolicyOrNull,
-  appServerApprovalsReviewerOrNull,
-  cloneApprovalPolicy,
-  parseServiceTier,
-  type ApprovalPolicy,
-  type ApprovalsReviewer,
-  type ServiceTier,
-} from "./runtime-policy";
-import { normalizeReasoningEffort, type ReasoningEffort } from "../../domain/catalog/metadata";
+import { approvalPolicyOrNull, approvalsReviewerOrNull, parseServiceTier } from "../../domain/runtime/policy";
+import { normalizedRuntimeReasoningEffort } from "../../domain/runtime/config";
+import type { ReasoningSummary, SandboxMode, RuntimeConfigSnapshot, Verbosity, WebSearchMode } from "../../domain/runtime/config";
 
-type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
-type Verbosity = "low" | "medium" | "high";
-type WebSearchMode = "disabled" | "cached" | "live";
-type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
-
-export type { ActivePermissionProfile } from "./runtime-policy";
+export { emptyRuntimeConfigSnapshot } from "../../domain/runtime/config";
+export type { RuntimeConfigSnapshot } from "../../domain/runtime/config";
 
 interface ConfigLayerRecord {
   name: { type: string; profile?: unknown; [key: string]: unknown };
@@ -29,50 +18,6 @@ export interface ConfigReadResult {
   [key: string]: unknown;
 }
 
-export interface RuntimeConfigSnapshot {
-  profile: string | null;
-  model: string | null;
-  modelProvider: string | null;
-  reasoningEffort: ReasoningEffort | null;
-  rawReasoningEffort: string | null;
-  reasoningSummary: ReasoningSummary | null;
-  verbosity: Verbosity | null;
-  serviceTier: ServiceTier | null;
-  approvalsReviewer: ApprovalsReviewer | null;
-  approvalPolicy: ApprovalPolicy | null;
-  webSearch: WebSearchMode | null;
-  modelContextWindow: number | null;
-  autoCompactTokenLimit: number | null;
-  sandboxMode: SandboxMode | null;
-  workspaceNetworkAccess: boolean | null;
-  writableRoots: readonly string[] | null;
-  rawToolWebSearch: unknown;
-  rawApps: unknown;
-}
-
-export function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
-  return {
-    profile: null,
-    model: null,
-    modelProvider: null,
-    reasoningEffort: null,
-    rawReasoningEffort: null,
-    reasoningSummary: null,
-    verbosity: null,
-    serviceTier: null,
-    approvalsReviewer: null,
-    approvalPolicy: null,
-    webSearch: null,
-    modelContextWindow: null,
-    autoCompactTokenLimit: null,
-    sandboxMode: null,
-    workspaceNetworkAccess: null,
-    writableRoots: null,
-    rawToolWebSearch: null,
-    rawApps: null,
-  };
-}
-
 export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadResult): RuntimeConfigSnapshot {
   const config = asConfigRecord(response.config);
   const tools = asRecordOrNull(config["tools"]);
@@ -82,12 +27,12 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadRes
     profile: selectedConfigProfile(response.layers),
     model: nonEmptyStringOrNull(config["model"]),
     modelProvider: nonEmptyStringOrNull(config["model_provider"]),
-    reasoningEffort: normalizeReasoningEffort(effort),
+    reasoningEffort: normalizedRuntimeReasoningEffort(effort),
     rawReasoningEffort: nonEmptyStringOrNull(effort),
     reasoningSummary: reasoningSummaryOrNull(config["model_reasoning_summary"]),
     verbosity: verbosityOrNull(config["model_verbosity"]),
     serviceTier: parseServiceTier(config["service_tier"]),
-    approvalsReviewer: appServerApprovalsReviewerOrNull(config["approvals_reviewer"]),
+    approvalsReviewer: approvalsReviewerOrNull(config["approvals_reviewer"]),
     approvalPolicy: approvalPolicyOrNull(config["approval_policy"]),
     webSearch: webSearchModeOrNull(config["web_search"]),
     modelContextWindow: numberOrNull(config["model_context_window"]),
@@ -97,16 +42,6 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadRes
     writableRoots: stringArrayOrNull(workspaceWrite?.["writable_roots"]),
     rawToolWebSearch: cloneJsonLike(asRecordOrNull(tools?.["web_search"])),
     rawApps: cloneJsonLike(asRecordOrNull(config["apps"])),
-  };
-}
-
-export function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): RuntimeConfigSnapshot {
-  return {
-    ...config,
-    approvalPolicy: cloneApprovalPolicy(config.approvalPolicy),
-    writableRoots: config.writableRoots ? [...config.writableRoots] : null,
-    rawToolWebSearch: cloneJsonLike(config.rawToolWebSearch),
-    rawApps: cloneJsonLike(config.rawApps),
   };
 }
 

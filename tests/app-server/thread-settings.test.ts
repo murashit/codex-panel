@@ -1,37 +1,55 @@
 import { describe, expect, it } from "vitest";
 
+import { appServerRuntimeSettingsPatch } from "../../src/app-server/protocol/thread-settings";
 import {
-  appServerCollaborationMode,
-  applyThreadSettingsValue,
-  type ThreadSettingsUpdate,
-} from "../../src/app-server/protocol/thread-settings";
-import { appServerApprovalsReviewerOrNull, parseServiceTier } from "../../src/app-server/protocol/runtime-policy";
+  applyRuntimeSettingsPatchValue,
+  runtimeCollaborationModeSettings,
+  type RuntimeSettingsPatch,
+} from "../../src/domain/runtime/thread-settings";
+import { approvalsReviewerOrNull, parseServiceTier } from "../../src/domain/runtime/policy";
 
 describe("app-server thread settings", () => {
   it("applies defined thread setting values and omits undefined values", () => {
-    const update: ThreadSettingsUpdate = {};
+    const update: RuntimeSettingsPatch = {};
 
-    applyThreadSettingsValue(update, "model", "gpt-5.5");
-    applyThreadSettingsValue(update, "effort", null);
-    applyThreadSettingsValue(update, "serviceTier", undefined);
+    applyRuntimeSettingsPatchValue(update, "model", "gpt-5.5");
+    applyRuntimeSettingsPatchValue(update, "effort", null);
+    applyRuntimeSettingsPatchValue(update, "serviceTier", undefined);
 
     expect(update).toEqual({ model: "gpt-5.5", effort: null });
   });
 
   it("parses supported approvals reviewer values", () => {
-    expect(appServerApprovalsReviewerOrNull("user")).toBe("user");
-    expect(appServerApprovalsReviewerOrNull("auto_review")).toBe("auto_review");
-    expect(appServerApprovalsReviewerOrNull("guardian_subagent")).toBe("guardian_subagent");
-    expect(appServerApprovalsReviewerOrNull("unknown")).toBeNull();
+    expect(approvalsReviewerOrNull("user")).toBe("user");
+    expect(approvalsReviewerOrNull("auto_review")).toBe("auto_review");
+    expect(approvalsReviewerOrNull("guardian_subagent")).toBe("guardian_subagent");
+    expect(approvalsReviewerOrNull("unknown")).toBeNull();
   });
 
   it("builds collaboration mode payloads with built-in instructions", () => {
-    expect(appServerCollaborationMode("plan", "gpt-5.5", "high")).toEqual({
+    expect(runtimeCollaborationModeSettings("plan", "gpt-5.5", "high")).toEqual({
       mode: "plan",
       settings: {
         model: "gpt-5.5",
-        reasoning_effort: "high",
-        developer_instructions: null,
+        reasoningEffort: "high",
+        developerInstructions: null,
+      },
+    });
+  });
+
+  it("converts runtime settings patches to app-server thread settings params", () => {
+    expect(
+      appServerRuntimeSettingsPatch({
+        collaborationMode: runtimeCollaborationModeSettings("plan", "gpt-5.5", "high"),
+      }),
+    ).toEqual({
+      collaborationMode: {
+        mode: "plan",
+        settings: {
+          model: "gpt-5.5",
+          reasoning_effort: "high",
+          developer_instructions: null,
+        },
       },
     });
   });

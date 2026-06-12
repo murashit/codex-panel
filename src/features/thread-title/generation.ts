@@ -1,4 +1,3 @@
-import { modelMetadataFromCatalogModels } from "../../app-server/protocol/catalog";
 import {
   runEphemeralStructuredTurn,
   type EphemeralStructuredTurnClient,
@@ -6,9 +5,10 @@ import {
   type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
+import { listModelMetadata } from "../../app-server/services/catalog";
 import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../../app-server/protocol/turn";
 import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
-import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/catalog/runtime-overrides";
+import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/runtime/overrides";
 import { threadTitleFromGeneratedText, threadTitlePrompt, type ThreadTitleContext } from "./model";
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
@@ -95,8 +95,7 @@ async function threadTitleRuntimeOverrideForClient(
   const runtime = threadTitleRuntimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
-    const response = await client.listModels(false);
-    return validatedThreadTitleRuntimeOverride(settings, modelMetadataFromCatalogModels(response.data));
+    return validatedThreadTitleRuntimeOverride(settings, await listModelMetadata(client));
   } catch {
     return runtime;
   }

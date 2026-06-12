@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { createAppServerDiagnostics } from "../../src/app-server/protocol/diagnostics";
+import { createServerDiagnostics } from "../../src/domain/server/diagnostics";
 import type { RateLimitSnapshot } from "../../src/app-server/protocol/runtime-metrics";
 import { emptyRuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
 import {
-  applySharedAppServerMetadata,
+  applySharedServerMetadata,
   applySharedModels,
   applySharedThreadList,
-  cachedSharedAppServerMetadata,
+  cachedSharedServerMetadata,
   cachedSharedModels,
   cachedSharedThreadList,
   createSharedAppServerState,
@@ -39,23 +39,23 @@ describe("shared app-server cache state", () => {
     expect(expectPresent(cachedSharedModels(modelState, cacheContext()))[0]?.supportedReasoningEfforts).toEqual([]);
 
     const sourceRateLimit = rateLimitFixture();
-    const metadataState = applySharedAppServerMetadata(createSharedAppServerState(), cacheContext(), {
+    const metadataState = applySharedServerMetadata(createSharedAppServerState(), cacheContext(), {
       runtimeConfig: emptyRuntimeConfigSnapshot(),
       availableModels: sourceModels,
       availableSkills: [{ name: "skill", description: "", path: "/tmp/skill", enabled: true }],
       rateLimit: sourceRateLimit,
-      appServerDiagnostics: {
-        ...createAppServerDiagnostics(),
+      serverDiagnostics: {
+        ...createServerDiagnostics(),
         mcpServers: [{ name: "server", startupStatus: "ready", authStatus: null, toolCount: 1, message: null }],
       },
     });
     sourceModels.push(modelFixture("gpt-5.7"));
     if (sourceRateLimit.primary) sourceRateLimit.primary.usedPercent = 99;
-    const cachedMetadata = cachedSharedAppServerMetadata(metadataState, cacheContext());
+    const cachedMetadata = cachedSharedServerMetadata(metadataState, cacheContext());
     expect(cachedMetadata?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5", "gpt-5.6"]);
     expect(cachedMetadata?.rateLimit?.primary?.usedPercent).toBe(42);
     if (cachedMetadata?.rateLimit?.primary) cachedMetadata.rateLimit.primary.usedPercent = 100;
-    expect(cachedSharedAppServerMetadata(metadataState, cacheContext())?.rateLimit?.primary?.usedPercent).toBe(42);
+    expect(cachedSharedServerMetadata(metadataState, cacheContext())?.rateLimit?.primary?.usedPercent).toBe(42);
   });
 
   it("does not return snapshots for a different app-server cache context", () => {
@@ -82,7 +82,7 @@ describe("shared app-server cache state", () => {
 
     for (const incompleteContext of incompleteContexts) {
       expect(sharedAppServerCacheContextIsComplete(incompleteContext)).toBe(false);
-      const state = applySharedAppServerMetadata(
+      const state = applySharedServerMetadata(
         applySharedModels(
           applySharedThreadList(createSharedAppServerState(), incompleteContext, [threadFixture("thread-1")]),
           incompleteContext,
@@ -94,13 +94,13 @@ describe("shared app-server cache state", () => {
           availableModels: [modelFixture("gpt-5.6")],
           availableSkills: [],
           rateLimit: null,
-          appServerDiagnostics: createAppServerDiagnostics(),
+          serverDiagnostics: createServerDiagnostics(),
         },
       );
 
       expect(cachedSharedThreadList(state, incompleteContext)).toBeNull();
       expect(cachedSharedModels(state, incompleteContext)).toBeNull();
-      expect(cachedSharedAppServerMetadata(state, incompleteContext)).toBeNull();
+      expect(cachedSharedServerMetadata(state, incompleteContext)).toBeNull();
     }
   });
 });

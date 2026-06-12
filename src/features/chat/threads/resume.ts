@@ -1,6 +1,4 @@
-import { parseServiceTier } from "../../../app-server/protocol/runtime-policy";
 import { upsertThread } from "../../../domain/threads/model";
-import { normalizeReasoningEffort } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import {
   threadActivationSnapshotFromAppServerResponse,
@@ -70,8 +68,8 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     thread: response.thread,
     cwd: response.cwd,
     model: response.model,
-    reasoningEffort: normalizeReasoningEffort(response.reasoningEffort),
-    serviceTier: parseServiceTier(response.serviceTier),
+    reasoningEffort: response.reasoningEffort,
+    serviceTier: response.serviceTier,
     approvalPolicy: response.approvalPolicy,
     approvalsReviewer: response.approvalsReviewer,
     activePermissionProfile: response.activePermissionProfile,

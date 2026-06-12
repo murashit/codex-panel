@@ -1,5 +1,5 @@
-import type { ModelMetadata, ReasoningEffort } from "./metadata";
-import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "./metadata";
+import type { ModelMetadata, ReasoningEffort } from "../catalog/metadata";
+import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../catalog/metadata";
 
 export interface RuntimeOverrideSettings {
   model: string | null;

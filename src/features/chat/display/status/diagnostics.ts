@@ -1,4 +1,4 @@
-import { DIAGNOSTIC_PROBE_METHODS, appServerIdentity, appServerPlatform } from "../../../../app-server/protocol/diagnostics";
+import { DIAGNOSTIC_PROBE_METHODS, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
 import { CLIENT_VERSION } from "../../../../constants";
 import type {
   Diagnostics,
@@ -6,7 +6,7 @@ import type {
   DiagnosticProbeResult,
   McpServerDiagnostic,
   McpServerStatusSummary,
-} from "../../../../app-server/protocol/diagnostics";
+} from "../../../../domain/server/diagnostics";
 
 interface DiagnosticRow {
   label: string;
@@ -34,9 +34,9 @@ export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput):
       rows: [
         { label: "connection", value: input.connected ? "connected" : "offline" },
         { label: "configured command", value: input.configuredCommand },
-        { label: "Codex App Server", value: appServerIdentity(input.initializeResponse) },
+        { label: "Codex App Server", value: serverIdentity(input.initializeResponse) },
         { label: "panel client", value: CLIENT_VERSION },
-        { label: "platform", value: appServerPlatform(input.initializeResponse) },
+        { label: "platform", value: serverPlatform(input.initializeResponse) },
         { label: "Codex home", value: input.initializeResponse?.codexHome ?? "(not connected)" },
       ],
     },

@@ -1,24 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppServerDiagnostics } from "../../../../src/app-server/protocol/diagnostics";
+import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
 import { applyCachedSharedAppServerState } from "../../../../src/features/chat/panel/cached-app-server-state";
-import type { SharedAppServerMetadata } from "../../../../src/app-server/services/shared-cache-state";
+import type { SharedServerMetadata } from "../../../../src/app-server/services/shared-cache-state";
 import type { Thread } from "../../../../src/domain/threads/model";
 
 describe("cached app-server state", () => {
-  it("does not apply missing or empty cached thread snapshots as shared truth", () => {
+  it("does not apply missing cached thread snapshots as shared truth", () => {
     const serverThreads = { applyThreadList: vi.fn(), loadThreadList: vi.fn(), startThread: vi.fn() };
     const serverMetadata = { ...metadataActions(), applyAppServerMetadata: vi.fn() };
-
-    applyCachedSharedAppServerState(
-      {
-        cachedThreadList: () => [],
-        cachedAppServerMetadata: () => null,
-      },
-      serverThreads,
-      serverMetadata,
-    );
 
     applyCachedSharedAppServerState(
       {
@@ -33,8 +24,8 @@ describe("cached app-server state", () => {
     expect(serverMetadata.applyAppServerMetadata).not.toHaveBeenCalled();
   });
 
-  it("applies cached thread lists and metadata independently when present", () => {
-    const threads = [thread("thread-1")];
+  it("applies cached thread lists, including empty ready snapshots, and metadata independently when present", () => {
+    const threads: Thread[] = [];
     const metadata = metadataSnapshot();
     const serverThreads = { applyThreadList: vi.fn(), loadThreadList: vi.fn(), startThread: vi.fn() };
     const serverMetadata = { ...metadataActions(), applyAppServerMetadata: vi.fn() };
@@ -71,23 +62,12 @@ function metadataActions() {
   };
 }
 
-function metadataSnapshot(): SharedAppServerMetadata {
+function metadataSnapshot(): SharedServerMetadata {
   return {
     runtimeConfig: emptyRuntimeConfigSnapshot(),
     availableModels: [],
     availableSkills: [],
     rateLimit: null,
-    appServerDiagnostics: createAppServerDiagnostics(),
-  };
-}
-
-function thread(id: string): Thread {
-  return {
-    id,
-    preview: "",
-    name: null,
-    archived: false,
-    createdAt: 1,
-    updatedAt: 1,
+    serverDiagnostics: createServerDiagnostics(),
   };
 }

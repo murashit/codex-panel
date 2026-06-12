@@ -1,12 +1,12 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import type { RuntimeConfigSnapshot } from "../../../app-server/protocol/runtime-config";
-import type { ApprovalsReviewer } from "../../../app-server/protocol/runtime-policy";
-import type { ThreadSettingsUpdate } from "../../../app-server/protocol/thread-settings";
+import type { RuntimeConfigSnapshot } from "../../../domain/runtime/config";
+import type { ApprovalsReviewer } from "../../../domain/runtime/policy";
+import type { RuntimeSettingsPatch } from "../../../domain/runtime/thread-settings";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { autoReviewActive, fastModeActive, runtimeConfigOrDefault } from "./effective";
 import {
-  pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate,
-  type PendingThreadSettingsUpdate,
+  pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
+  type PendingRuntimeSettingsPatch,
   type TurnCollaborationModeWarning,
 } from "./thread-settings-update";
 import type { RuntimeSnapshot } from "./snapshot";
@@ -87,14 +87,14 @@ async function applyPendingThreadSettingsResult(host: RuntimeSettingsActionsHost
   const threadId = state(host).activeThread.id;
   if (!client || !threadId) return { ok: true, collaborationModeApplied: true };
 
-  const { update, collaborationModeWarning } = pendingThreadSettingsUpdate(host);
+  const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
   const collaborationModeApplied = !collaborationModeWarning && "collaborationMode" in update;
   if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
 
   try {
     await client.updateThreadSettings(threadId, update);
     if (state(host).activeThread.id !== threadId) return { ok: false, collaborationModeApplied: false };
-    if (!threadSettingsUpdateStillPending(currentPendingThreadSettingsUpdate(host), update)) {
+    if (!runtimeSettingsPatchStillPending(currentPendingRuntimeSettingsPatch(host), update)) {
       return { ok: false, collaborationModeApplied: false };
     }
     dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
@@ -208,9 +208,9 @@ function autoReviewToggleMessage(state: AutoReviewState): string {
   return state === "enabled" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.";
 }
 
-function pendingThreadSettingsUpdate(host: RuntimeSettingsActionsHost): PendingThreadSettingsUpdate {
+function pendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): PendingRuntimeSettingsPatch {
   const { snapshot, config } = runtimeProjection(host);
-  const { update, collaborationModeWarning } = buildPendingThreadSettingsUpdate(snapshot, config);
+  const { update, collaborationModeWarning } = buildPendingRuntimeSettingsPatch(snapshot, config);
   if (collaborationModeWarning) {
     host.addSystemMessage(
       `${host.collaborationModeLabel()} mode is selected, but ${collaborationModeWarningMessage(collaborationModeWarning)}`,
@@ -219,13 +219,13 @@ function pendingThreadSettingsUpdate(host: RuntimeSettingsActionsHost): PendingT
   return { update, collaborationModeWarning };
 }
 
-function currentPendingThreadSettingsUpdate(host: RuntimeSettingsActionsHost): ThreadSettingsUpdate {
+function currentPendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): RuntimeSettingsPatch {
   const { snapshot, config } = runtimeProjection(host);
-  return buildPendingThreadSettingsUpdate(snapshot, config).update;
+  return buildPendingRuntimeSettingsPatch(snapshot, config).update;
 }
 
-function threadSettingsUpdateStillPending(current: ThreadSettingsUpdate, applied: ThreadSettingsUpdate): boolean {
-  return (Object.keys(applied) as (keyof ThreadSettingsUpdate)[]).every((key) => {
+function runtimeSettingsPatchStillPending(current: RuntimeSettingsPatch, applied: RuntimeSettingsPatch): boolean {
+  return (Object.keys(applied) as (keyof RuntimeSettingsPatch)[]).every((key) => {
     return key in current && threadSettingsValueEqual(current[key], applied[key]);
   });
 }

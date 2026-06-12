@@ -1,6 +1,6 @@
-import type { AppServerInitialization } from "../../../app-server/protocol/initialization";
+import type { ServerInitialization } from "../../../domain/server/initialization";
 import type { Thread } from "../../../domain/threads/model";
-import { parseServiceTier, type ServiceTier } from "../../../app-server/protocol/runtime-policy";
+import { parseServiceTier, type ServiceTier } from "../../../domain/runtime/policy";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../runtime/state";
 import type { CollaborationMode } from "../runtime/pending-settings";
@@ -47,7 +47,7 @@ export interface ActiveThreadSettingsAppliedActionSettings {
 
 export interface ConnectionInitializedAction {
   type: "connection/initialized";
-  initializeResponse: AppServerInitialization;
+  initializeResponse: ServerInitialization;
 }
 
 export interface ClearDisconnectedConnectionStateAction {

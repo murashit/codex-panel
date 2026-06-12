@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import type { McpServerStatus } from "../../../../../src/app-server/protocol/diagnostics";
+import type { McpServerStatus } from "../../../../../src/domain/server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/app-server/protocol/runtime-config";
 import type { RateLimitSnapshot } from "../../../../../src/app-server/protocol/runtime-metrics";
 import { threadFromThreadRecord } from "../../../../../src/app-server/protocol/thread";
@@ -235,15 +235,15 @@ describe("chat server actions", () => {
     expect(listSkills).not.toHaveBeenCalled();
     expect(readAccountRateLimits).not.toHaveBeenCalled();
     expect(listHooks).toHaveBeenCalledWith("/vault");
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["model/list"]).toMatchObject({
+    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
       status: "ok",
       summary: "1 models",
     });
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["skills/list"]).toMatchObject({
+    expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"]).toMatchObject({
       status: "ok",
       summary: "1 skills",
     });
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["account/rateLimits/read"]).toMatchObject({
+    expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"]).toMatchObject({
       status: "ok",
       summary: "available",
     });
@@ -282,9 +282,9 @@ describe("chat server actions", () => {
 
     await refreshing;
     expect(listHooks).toHaveBeenCalledWith("/vault");
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["hooks/list"].status).toBe("unknown");
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["mcpServerStatus/list"].status).toBe("unknown");
-    expect(stateStore.getState().connection.appServerDiagnostics.mcpServers).toEqual([]);
+    expect(stateStore.getState().connection.serverDiagnostics.probes["hooks/list"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.probes["mcpServerStatus/list"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([]);
     expect(publishAppServerMetadata).not.toHaveBeenCalled();
   });
 
@@ -382,7 +382,7 @@ describe("chat server actions", () => {
     await refreshing;
     expect(listModels).toHaveBeenCalledOnce();
     expect(stateStore.getState().connection.availableModels).toEqual([]);
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["model/list"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"].status).toBe("unknown");
   });
 
   it("does not apply or publish refreshed skills after the client changes", async () => {
@@ -407,7 +407,7 @@ describe("chat server actions", () => {
     await refreshing;
     expect(listSkills).toHaveBeenCalledWith("/vault", true);
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["skills/list"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"].status).toBe("unknown");
     expect(publishAppServerMetadata).not.toHaveBeenCalled();
   });
 
@@ -454,7 +454,7 @@ describe("chat server actions", () => {
     await controller.refreshPublishedRateLimits();
 
     expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
+    expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
     expect(publishAppServerMetadata).not.toHaveBeenCalled();
   });
 
@@ -483,7 +483,7 @@ describe("chat server actions", () => {
 
     await refreshing;
     expect(stateStore.getState().connection.rateLimit).toBeNull();
-    expect(stateStore.getState().connection.appServerDiagnostics.probes["account/rateLimits/read"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("unknown");
     expect(publishAppServerMetadata).not.toHaveBeenCalled();
   });
 

@@ -54,7 +54,7 @@ describe("settings tab", () => {
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(client.listModels).toHaveBeenCalledTimes(1);
     expect(client.listHooks).toHaveBeenCalledTimes(1);
-    expect(client.listThreads).toHaveBeenCalledWith("/vault", true);
+    expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: true, cursor: null, limit: 100 });
 
     tab.display();
     await flushPromises();

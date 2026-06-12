@@ -1,17 +1,17 @@
 import type { Thread } from "../../domain/threads/model";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import {
-  applySharedAppServerMetadata,
+  applySharedServerMetadata,
   applySharedModels,
   applySharedThreadList,
-  cachedSharedAppServerMetadata,
+  cachedSharedServerMetadata,
   cachedSharedModels,
   cachedSharedThreadList,
   createSharedAppServerState,
   sharedAppServerCacheContextIsComplete,
   sharedAppServerCacheContextMatches,
   type SharedAppServerCacheContext,
-  type SharedAppServerMetadata,
+  type SharedServerMetadata,
   type SharedAppServerState,
 } from "./shared-cache-state";
 
@@ -60,7 +60,6 @@ export class SharedAppServerCache {
   }
 
   applyThreadListSnapshot(context: SharedAppServerCacheContext, threads: readonly Thread[]): void {
-    if (threads.length === 0) return;
     this.state = applySharedThreadList(this.state, context, threads);
   }
 
@@ -68,13 +67,13 @@ export class SharedAppServerCache {
     return cachedSharedThreadList(this.state, context);
   }
 
-  applyAppServerMetadataSnapshot(context: SharedAppServerCacheContext, metadata: SharedAppServerMetadata): void {
-    if (!isCacheableSharedAppServerMetadata(metadata)) return;
-    this.state = applySharedAppServerMetadata(this.state, context, metadata);
+  applyAppServerMetadataSnapshot(context: SharedAppServerCacheContext, metadata: SharedServerMetadata): void {
+    if (!isCacheableSharedServerMetadata(metadata)) return;
+    this.state = applySharedServerMetadata(this.state, context, metadata);
   }
 
-  cachedAppServerMetadata(context: SharedAppServerCacheContext): SharedAppServerMetadata | null {
-    return cachedSharedAppServerMetadata(this.state, context);
+  cachedAppServerMetadata(context: SharedAppServerCacheContext): SharedServerMetadata | null {
+    return cachedSharedServerMetadata(this.state, context);
   }
 
   applyModelsSnapshot(context: SharedAppServerCacheContext, models: readonly ModelMetadata[]): void {
@@ -87,11 +86,11 @@ export class SharedAppServerCache {
   }
 }
 
-function isCacheableSharedAppServerMetadata(metadata: SharedAppServerMetadata): boolean {
+function isCacheableSharedServerMetadata(metadata: SharedServerMetadata): boolean {
   return (
     metadata.availableModels.length > 0 &&
-    metadata.appServerDiagnostics.probes["model/list"].status === "ok" &&
-    metadata.appServerDiagnostics.probes["skills/list"].status === "ok" &&
-    metadata.appServerDiagnostics.probes["account/rateLimits/read"].status === "ok"
+    metadata.serverDiagnostics.probes["model/list"].status === "ok" &&
+    metadata.serverDiagnostics.probes["skills/list"].status === "ok" &&
+    metadata.serverDiagnostics.probes["account/rateLimits/read"].status === "ok"
   );
 }

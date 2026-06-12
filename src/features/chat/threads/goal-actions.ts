@@ -1,11 +1,6 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import {
-  appServerThreadGoalUserHistoryItem,
-  threadGoalFromAppServerGoal,
-  type ThreadGoal,
-  type ThreadGoalStatus,
-  type ThreadGoalUpdate,
-} from "../../../app-server/protocol/thread-goal";
+import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../app-server/services/thread-goals";
+import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../domain/threads/goal";
 import type { ChatStateStore } from "../state/reducer";
 import type { GoalDisplayItem } from "../display/types";
 import { goalChangeItem } from "../display/items/goal";
@@ -42,8 +37,7 @@ async function syncThreadGoal(host: GoalActionsHost, threadId: string): Promise<
   const client = host.currentClient();
   if (!client) return;
   try {
-    const response = await client.getThreadGoal(threadId);
-    applyGoalIfActive(host, threadId, threadGoalFromAppServerGoal(response.goal), { reportChange: false });
+    applyGoalIfActive(host, threadId, await readThreadGoal(client, threadId), { reportChange: false });
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, `Could not load thread goal: ${errorMessage(error)}`);
   }
@@ -91,8 +85,7 @@ async function setGoal(host: GoalActionsHost, threadId: string, params: ThreadGo
   const client = host.currentClient();
   if (!client) return false;
   try {
-    const response = await client.setThreadGoal(threadId, params);
-    return applyGoalIfActive(host, threadId, threadGoalFromAppServerGoal(response.goal), { reportChange: true });
+    return applyGoalIfActive(host, threadId, await setThreadGoal(client, threadId, params), { reportChange: true });
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, errorMessage(error));
     return false;
@@ -114,7 +107,7 @@ async function recordGoalUserMessage(host: GoalActionsHost, threadId: string, ob
   const client = host.currentClient();
   if (!client) return;
   try {
-    await client.injectThreadItems(threadId, [appServerThreadGoalUserHistoryItem(objective)]);
+    await recordThreadGoalUserMessage(client, threadId, objective);
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, `Could not record goal message: ${errorMessage(error)}`);
   }

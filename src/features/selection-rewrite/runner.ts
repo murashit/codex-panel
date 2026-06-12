@@ -1,15 +1,14 @@
 import {
-  runEphemeralStructuredTurn,
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnClientFactory,
   type EphemeralStructuredTurnRuntimeClient,
+  runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
-import { lastAgentMessageTextFromTurnRecord } from "../../app-server/protocol/turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import { modelMetadataFromCatalogModels } from "../../app-server/protocol/catalog";
+import { listModelMetadata } from "../../app-server/services/catalog";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
-import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/catalog/runtime-overrides";
+import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/runtime/overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText, type SelectionRewriteOutput } from "./output";
@@ -46,7 +45,7 @@ export type SelectionRewriteClientFactory = EphemeralStructuredTurnClientFactory
 export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
   let preview = "";
   const runtimeSettings = options.runtimeSettings;
-  const turn = await runEphemeralStructuredTurn({
+  const lastAgentText = await runEphemeralStructuredTurnForLastAgentText({
     codexPath: options.codexPath,
     cwd: options.cwd,
     serviceName: SELECTION_REWRITE_SERVICE_NAME,
@@ -71,7 +70,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
       options.onPreview?.(preview);
     },
   });
-  const { output, rawText } = selectionRewriteOutputParseResultFromText(lastAgentMessageTextFromTurnRecord(turn));
+  const { output, rawText } = selectionRewriteOutputParseResultFromText(lastAgentText);
   if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
   return output;
 }
@@ -102,8 +101,7 @@ async function selectionRewriteRuntimeOverrideForClient(
   const runtime = selectionRewriteRuntimeOverride(settings);
   if (!runtime.model || !runtime.effort) return runtime;
   try {
-    const response = await client.listModels(false);
-    return validatedSelectionRewriteRuntimeOverride(settings, modelMetadataFromCatalogModels(response.data));
+    return validatedSelectionRewriteRuntimeOverride(settings, await listModelMetadata(client));
   } catch {
     return runtime;
   }

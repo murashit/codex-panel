@@ -4,42 +4,15 @@ import type { RateLimitWindow as AppServerRateLimitWindow } from "../../generate
 import type { SpendControlLimitSnapshot as AppServerSpendControlLimitSnapshot } from "../../generated/app-server/v2/SpendControlLimitSnapshot";
 import type { ThreadTokenUsage as AppServerThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
 import type { TokenUsageBreakdown as AppServerTokenUsageBreakdown } from "../../generated/app-server/v2/TokenUsageBreakdown";
+import type {
+  RateLimitSnapshot,
+  RateLimitWindow,
+  SpendControlLimitSnapshot,
+  ThreadTokenUsage,
+  TokenUsageBreakdown,
+} from "../../domain/runtime/metrics";
 
-export interface RateLimitSnapshot {
-  limitId: string | null;
-  limitName: string | null;
-  primary: RateLimitWindow | null;
-  secondary: RateLimitWindow | null;
-  individualLimit: SpendControlLimitSnapshot | null;
-  rateLimitReachedType: string | null;
-}
-
-export interface RateLimitWindow {
-  usedPercent: number;
-  windowDurationMins: number | null;
-  resetsAt: number | null;
-}
-
-export interface SpendControlLimitSnapshot {
-  limit: string;
-  used: string;
-  remainingPercent: number;
-  resetsAt: number;
-}
-
-export interface ThreadTokenUsage {
-  total: TokenUsageBreakdown;
-  last: TokenUsageBreakdown;
-  modelContextWindow: number | null;
-}
-
-export interface TokenUsageBreakdown {
-  totalTokens: number;
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
-  reasoningOutputTokens: number;
-}
+export type { RateLimitSnapshot, ThreadTokenUsage } from "../../domain/runtime/metrics";
 
 function rateLimitSnapshotFromAppServerSnapshot(snapshot: AppServerRateLimitSnapshot): RateLimitSnapshot {
   return {

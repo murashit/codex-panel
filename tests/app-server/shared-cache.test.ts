@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppServerDiagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../src/app-server/protocol/diagnostics";
+import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../src/domain/server/diagnostics";
 import { SharedAppServerCache } from "../../src/app-server/services/shared-cache";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
-import type { SharedAppServerCacheContext, SharedAppServerMetadata } from "../../src/app-server/services/shared-cache-state";
+import type { SharedAppServerCacheContext, SharedServerMetadata } from "../../src/app-server/services/shared-cache-state";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 
 describe("SharedAppServerCache", () => {
@@ -78,7 +78,7 @@ describe("SharedAppServerCache", () => {
     expect(cache.cachedModels(cacheContext({ appServerUserAgent: "codex-cli/9.9.9" }))).toBeNull();
   });
 
-  it("does not replace the shared thread list cache with an empty snapshot", async () => {
+  it("stores successful empty thread list snapshots as shared cache truth", async () => {
     const cache = new SharedAppServerCache();
     const context = cacheContext();
     const onSnapshot = vi.fn();
@@ -86,11 +86,11 @@ describe("SharedAppServerCache", () => {
     cache.applyThreadListSnapshot(context, [thread("cached")]);
     cache.applyThreadListSnapshot(context, []);
 
-    expect(cache.cachedThreadList(context)?.map((item) => item.id)).toEqual(["cached"]);
+    expect(cache.cachedThreadList(context)).toEqual([]);
 
     await expect(cache.refreshThreadList(context, () => Promise.resolve([]), onSnapshot)).resolves.toEqual([]);
     expect(onSnapshot).toHaveBeenCalledWith([]);
-    expect(cache.cachedThreadList(context)?.map((item) => item.id)).toEqual(["cached"]);
+    expect(cache.cachedThreadList(context)).toEqual([]);
   });
 
   it("ignores stale thread list refresh snapshots after the app-server cache context changes", async () => {
@@ -153,8 +153,8 @@ function metadata(
     skillsProbeStatus?: "ok" | "failed";
     rateLimitProbeStatus?: "ok" | "failed";
   } = {},
-): SharedAppServerMetadata {
-  const diagnostics = createAppServerDiagnostics();
+): SharedServerMetadata {
+  const diagnostics = createServerDiagnostics();
   diagnostics.probes["model/list"] =
     overrides.modelProbeStatus === "failed"
       ? diagnosticProbeError("model/list", new Error("offline"))
@@ -172,7 +172,7 @@ function metadata(
     availableModels: overrides.availableModels ?? [modelMetadata("gpt-5.5")],
     availableSkills: [],
     rateLimit: null,
-    appServerDiagnostics: diagnostics,
+    serverDiagnostics: diagnostics,
   };
 }
 

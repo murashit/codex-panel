@@ -1,5 +1,7 @@
 import type { Thread } from "../../domain/threads/model";
-import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../protocol/runtime-policy";
+import { normalizeReasoningEffort, type ReasoningEffort } from "../../domain/catalog/metadata";
+import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../domain/runtime/policy";
+import { parseServiceTier } from "../../domain/runtime/policy";
 import { threadFromThreadRecord, type ThreadRecord } from "../protocol/thread";
 
 export interface ThreadActivationSnapshot {
@@ -10,7 +12,7 @@ export interface ThreadActivationSnapshot {
   approvalPolicy: ApprovalPolicy | null;
   approvalsReviewer: ApprovalsReviewer | null;
   activePermissionProfile: ActivePermissionProfile | null;
-  reasoningEffort: string | null;
+  reasoningEffort: ReasoningEffort | null;
 }
 
 export interface ThreadActivationResponse {
@@ -29,8 +31,8 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
     thread: threadFromThreadRecord(response.thread),
     cwd: response.cwd,
     model: response.model,
-    reasoningEffort: response.reasoningEffort,
-    serviceTier: response.serviceTier,
+    reasoningEffort: normalizeReasoningEffort(response.reasoningEffort),
+    serviceTier: parseServiceTier(response.serviceTier),
     approvalPolicy: response.approvalPolicy,
     approvalsReviewer: response.approvalsReviewer,
     activePermissionProfile: response.activePermissionProfile,

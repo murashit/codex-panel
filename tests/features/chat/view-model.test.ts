@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppServerDiagnostics } from "../../../src/app-server/protocol/diagnostics";
+import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import {
   runtimeConfigSnapshotFromAppServerConfig,
   type ConfigReadResult,
@@ -18,7 +18,7 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "../../../src/features/chat/panel/regions/composer";
 import { chatPanelGoalProps } from "../../../src/features/chat/panel/regions/goal";
 import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/regions/ports";
-import type { ThreadGoal } from "../../../src/app-server/protocol/thread-goal";
+import type { ThreadGoal } from "../../../src/domain/threads/goal";
 
 describe("chat view model", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {
@@ -28,7 +28,7 @@ describe("chat view model", () => {
     state.turn.lifecycle = { kind: "running", turnId: "turn" };
     state.ui.toolbarPanel = "history";
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
-    state.connection.appServerDiagnostics = createAppServerDiagnostics();
+    state.connection.serverDiagnostics = createServerDiagnostics();
 
     const model = toolbarViewModel({
       state,

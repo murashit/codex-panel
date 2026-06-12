@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/chat-host";
-import { createAppServerDiagnostics } from "../../../src/app-server/protocol/diagnostics";
+import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/protocol/runtime-config";
 import { threadFromThreadRecord, type ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
@@ -359,7 +359,7 @@ describe("CodexChatView connection lifecycle", () => {
   it("warms app-server metadata for an empty restored panel after the shell is open", async () => {
     vi.useFakeTimers();
     const client = connectedClient({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")], nextCursor: null }),
     });
     connectionMock.state.client = client;
     const view = await chatView();
@@ -374,7 +374,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.listModels).toHaveBeenCalledOnce();
     expect(client.listSkills).toHaveBeenCalledOnce();
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
-    expect(client.listThreads).toHaveBeenCalledWith("/vault", false);
+    expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: false, cursor: null, limit: 100 });
     expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual([
       threadFromThreadRecord(threadFixture("thread-1")),
     ]);
@@ -392,7 +392,7 @@ describe("CodexChatView connection lifecycle", () => {
               availableModels: [],
               availableSkills: [{ name: "writer", enabled: true }],
               rateLimit: null,
-              appServerDiagnostics: createAppServerDiagnostics(),
+              serverDiagnostics: createServerDiagnostics(),
             }) as never,
         ),
       }),

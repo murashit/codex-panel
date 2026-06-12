@@ -1,5 +1,5 @@
 import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem, ExecutionState } from "./types";
-import type { HistoricalTurn } from "../../../app-server/protocol/turn-history";
+import type { HistoricalTurn } from "../../../domain/threads/history";
 import type { FileUpdateChange, TurnItem } from "../../../app-server/protocol/turn";
 import { definedProp, truncate } from "../../../utils";
 import { referencedThreadDisplayFromPrompt, type ReferencedThreadDisplay } from "../../../domain/threads/reference";
@@ -104,7 +104,7 @@ const STANDARD_TOOL_STATES = {
   failed: "failed",
 } as const satisfies ExecutionStateByStatus;
 
-export function displayItemsFromTurns(turns: readonly HistoricalTurn[]): DisplayItem[] {
+export function displayItemsFromTurns(turns: readonly HistoricalTurn<TurnItem>[]): DisplayItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: DisplayItem[] = [];
   for (const turn of sortedTurns) {

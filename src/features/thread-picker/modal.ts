@@ -1,6 +1,6 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
-import { listThreads } from "../../app-server/services/resource-operations";
+import { listThreads } from "../../app-server/services/threads";
 import { withShortLivedAppServerClient } from "../../app-server/connection/short-lived-client";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { Thread } from "../../domain/threads/model";
@@ -23,8 +23,6 @@ interface ThreadSuggestion {
 }
 
 type ThreadOpenMode = "current" | "available";
-
-const MAX_THREAD_PICKER_SUGGESTIONS = 20;
 
 const THREAD_PICKER_MODIFIER_ENTER_LISTENER_OPTIONS = { capture: true } as const;
 
@@ -66,7 +64,6 @@ export function threadPickerSuggestions(threads: readonly Thread[], queryText: s
     })
     .filter((item) => item.score !== -1)
     .sort((a, b) => a.score - b.score || b.thread.updatedAt - a.thread.updatedAt || a.index - b.index)
-    .slice(0, MAX_THREAD_PICKER_SUGGESTIONS)
     .map(({ thread, title }) => ({
       thread,
       title,
@@ -101,7 +98,7 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
     private readonly threads: readonly Thread[],
   ) {
     super(host.app);
-    this.limit = MAX_THREAD_PICKER_SUGGESTIONS;
+    this.limit = threads.length;
     this.emptyStateText = "No matching Codex threads";
     this.setPlaceholder("Open Codex thread...");
     this.setInstructions([

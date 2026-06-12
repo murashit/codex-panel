@@ -1,16 +1,9 @@
-import type { Diagnostics } from "../protocol/diagnostics";
-import type { RateLimitSnapshot } from "../protocol/runtime-metrics";
-import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../protocol/runtime-config";
+import type { SharedServerMetadata } from "../../domain/server/metadata";
+import { cloneRuntimeConfigSnapshot } from "../../domain/runtime/config";
+import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 import type { Thread } from "../../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
-
-export interface SharedAppServerMetadata {
-  runtimeConfig: RuntimeConfigSnapshot | null;
-  availableModels: readonly ModelMetadata[];
-  availableSkills: readonly SkillMetadata[];
-  rateLimit: RateLimitSnapshot | null;
-  appServerDiagnostics: Diagnostics;
-}
+export type { SharedServerMetadata } from "../../domain/server/metadata";
 
 export interface SharedAppServerCacheContext {
   codexPath: string;
@@ -18,11 +11,18 @@ export interface SharedAppServerCacheContext {
   appServerUserAgent: string | null;
 }
 
+type SharedThreadListSnapshotStatus = "ready" | "stale" | "unavailable";
+
+interface SharedThreadListSnapshot {
+  status: SharedThreadListSnapshotStatus;
+  threads: readonly Thread[];
+}
+
 type SharedCache<T> = { kind: "unloaded" } | { kind: "loaded"; context: SharedAppServerCacheContext; data: T };
 
 export interface SharedAppServerState {
-  threads: SharedCache<readonly Thread[]>;
-  appServerMetadata: SharedCache<SharedAppServerMetadata>;
+  threads: SharedCache<SharedThreadListSnapshot>;
+  appServerMetadata: SharedCache<SharedServerMetadata>;
   availableModels: SharedCache<readonly ModelMetadata[]>;
 }
 
@@ -42,17 +42,21 @@ export function applySharedThreadList(
   if (!sharedAppServerCacheContextIsComplete(context)) return state;
   return {
     ...state,
-    threads: { kind: "loaded", context: cloneSharedAppServerCacheContext(context), data: cloneThreads(threads) },
+    threads: {
+      kind: "loaded",
+      context: cloneSharedAppServerCacheContext(context),
+      data: cloneSharedThreadListSnapshot({ status: "ready", threads }),
+    },
   };
 }
 
-export function applySharedAppServerMetadata(
+export function applySharedServerMetadata(
   state: SharedAppServerState,
   context: SharedAppServerCacheContext,
-  metadata: SharedAppServerMetadata,
+  metadata: SharedServerMetadata,
 ): SharedAppServerState {
   if (!sharedAppServerCacheContextIsComplete(context)) return state;
-  const clonedMetadata = cloneSharedAppServerMetadata(metadata);
+  const clonedMetadata = cloneSharedServerMetadata(metadata);
   return {
     ...state,
     appServerMetadata: { kind: "loaded", context: cloneSharedAppServerCacheContext(context), data: clonedMetadata },
@@ -87,18 +91,15 @@ export function applySharedModels(
 
 export function cachedSharedThreadList(state: SharedAppServerState, context: SharedAppServerCacheContext): readonly Thread[] | null {
   if (!sharedAppServerCacheContextIsComplete(context)) return null;
-  return state.threads.kind === "loaded" && sharedAppServerCacheContextMatches(state.threads.context, context)
-    ? cloneThreads(state.threads.data)
-    : null;
+  if (state.threads.kind !== "loaded" || !sharedAppServerCacheContextMatches(state.threads.context, context)) return null;
+  if (state.threads.data.status !== "ready") return null;
+  return cloneThreads(state.threads.data.threads);
 }
 
-export function cachedSharedAppServerMetadata(
-  state: SharedAppServerState,
-  context: SharedAppServerCacheContext,
-): SharedAppServerMetadata | null {
+export function cachedSharedServerMetadata(state: SharedAppServerState, context: SharedAppServerCacheContext): SharedServerMetadata | null {
   if (!sharedAppServerCacheContextIsComplete(context)) return null;
   if (state.appServerMetadata.kind === "loaded" && sharedAppServerCacheContextMatches(state.appServerMetadata.context, context)) {
-    return cloneSharedAppServerMetadata(state.appServerMetadata.data);
+    return cloneSharedServerMetadata(state.appServerMetadata.data);
   }
   return null;
 }
@@ -110,18 +111,22 @@ export function cachedSharedModels(state: SharedAppServerState, context: SharedA
     : null;
 }
 
-function cloneSharedAppServerMetadata(metadata: SharedAppServerMetadata): SharedAppServerMetadata {
+function cloneSharedServerMetadata(metadata: SharedServerMetadata): SharedServerMetadata {
   return {
     ...metadata,
     runtimeConfig: metadata.runtimeConfig ? cloneRuntimeConfigSnapshot(metadata.runtimeConfig) : null,
     rateLimit: metadata.rateLimit ? cloneRateLimitSnapshot(metadata.rateLimit) : null,
     availableModels: cloneModelMetadata(metadata.availableModels),
     availableSkills: cloneSkillMetadata(metadata.availableSkills),
-    appServerDiagnostics: {
-      probes: { ...metadata.appServerDiagnostics.probes },
-      mcpServers: metadata.appServerDiagnostics.mcpServers.map((server) => ({ ...server })),
+    serverDiagnostics: {
+      probes: { ...metadata.serverDiagnostics.probes },
+      mcpServers: metadata.serverDiagnostics.mcpServers.map((server) => ({ ...server })),
     },
   };
+}
+
+function cloneSharedThreadListSnapshot(snapshot: SharedThreadListSnapshot): SharedThreadListSnapshot {
+  return { status: snapshot.status, threads: cloneThreads(snapshot.threads) };
 }
 
 function cloneRateLimitSnapshot(snapshot: RateLimitSnapshot): RateLimitSnapshot {
