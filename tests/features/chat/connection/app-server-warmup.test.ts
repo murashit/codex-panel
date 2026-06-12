@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { scheduleAppServerWarmup } from "../../../../src/features/chat/connection/app-server-warmup";
-import { ChatViewDeferredTasks } from "../../../../src/features/chat/lifecycle";
+import { createChatViewDeferredTasks } from "../../../../src/features/chat/lifecycle";
 
 function createWarmupHost({
   opened = true,
@@ -12,7 +12,7 @@ function createWarmupHost({
 }: { opened?: boolean; closing?: boolean; connected?: boolean } = {}) {
   const ensureConnected = vi.fn().mockResolvedValue(undefined);
   const host = {
-    deferredTasks: new ChatViewDeferredTasks(() => window),
+    deferredTasks: createChatViewDeferredTasks(() => window),
     opened: () => opened,
     closing: () => closing,
     connected: () => connected,

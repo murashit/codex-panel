@@ -6,11 +6,15 @@ import { act } from "preact/test-utils";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { runtimeSnapshotForChatState } from "../../../../src/features/chat/runtime/snapshot";
-import { createToolbarArchiveConfirmState, ToolbarPanelController } from "../../../../src/features/chat/panel/regions/toolbar";
+import {
+  createToolbarArchiveConfirmState,
+  createToolbarPanelActions,
+  type ToolbarPanelActions,
+} from "../../../../src/features/chat/panel/regions/toolbar";
 import type { ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/regions/ports";
-import type { ChatThreadActions } from "../../../../src/features/chat/threads/actions";
+import type { ChatThreadActions } from "../../../../src/features/chat/threads/action-context";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
-import { chatPanelToolbarRegionNode } from "../../../../src/features/chat/panel/regions/render";
+import { chatPanelToolbarRegionNode } from "../../../../src/features/chat/panel/regions/toolbar";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -22,7 +26,7 @@ describe("chat toolbar archive confirmation signal", () => {
     const container = document.createElement("div");
     const archiveConfirm = createToolbarArchiveConfirmState();
     const scheduleRender = vi.fn();
-    const controller = new ToolbarPanelController({
+    const toolbarActions = createToolbarPanelActions({
       stateStore: store,
       threadActions: { archiveThread: vi.fn() } as unknown as ChatThreadActions,
       archiveConfirm,
@@ -36,7 +40,7 @@ describe("chat toolbar archive confirmation signal", () => {
       renderChatPanelShell(container, {
         stateStore: store,
         showToolbar: true,
-        toolbarNode: () => chatPanelToolbarRegionNode(toolbarPorts(store, controller)),
+        toolbarNode: () => chatPanelToolbarRegionNode(toolbarPorts(store, toolbarActions)),
         goalNode: () => null,
         messageStreamNode: () => <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages" />,
         composerNode: () => null,
@@ -47,7 +51,7 @@ describe("chat toolbar archive confirmation signal", () => {
     expect(container.querySelector(".codex-panel__archive-confirm")).toBeNull();
 
     await act(async () => {
-      controller.startArchive("thread-1");
+      toolbarActions.startArchive("thread-1");
       await settle();
     });
 
@@ -60,7 +64,7 @@ describe("chat toolbar archive confirmation signal", () => {
   });
 });
 
-function toolbarPorts(store: ReturnType<typeof createChatStateStore>, controller: ToolbarPanelController): ChatPanelToolbarPorts {
+function toolbarPorts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelToolbarPorts {
   return {
     state: {
       chat: () => store.getState(),
@@ -77,8 +81,8 @@ function toolbarPorts(store: ReturnType<typeof createChatStateStore>, controller
     },
     view: {
       toolbar: {
-        archiveConfirmId: () => controller.archiveConfirmId(),
-        archiveConfirmSubscribe: (listener) => controller.onArchiveConfirmChange(listener),
+        archiveConfirmId: () => toolbarActions.archiveConfirmId(),
+        archiveConfirmSubscribe: (listener) => toolbarActions.onArchiveConfirmChange(listener),
         renameState: () => null,
         renameSubscribe: () => () => undefined,
       },
@@ -95,7 +99,7 @@ function toolbarPorts(store: ReturnType<typeof createChatStateStore>, controller
         refreshStatus: vi.fn(),
         resumeThread: vi.fn(),
         startArchiveThread: (threadId) => {
-          controller.startArchive(threadId);
+          toolbarActions.startArchive(threadId);
         },
         archiveThread: vi.fn(),
         startRenameThread: vi.fn(),

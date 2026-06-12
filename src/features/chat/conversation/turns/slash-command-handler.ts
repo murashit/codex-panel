@@ -3,14 +3,13 @@ import { codexTextInputWithAttachments, type CodexInput } from "../../../../doma
 import { readReferencedThreadConversationSummaries } from "../../../../app-server/services/threads";
 import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
-import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
 import {
   executeSlashCommand as runSlashCommand,
+  type SlashCommandExecutionContext,
   type SlashCommandExecutionResult,
   type ThreadReferenceInput,
 } from "./slash-command-execution";
 import type { SlashCommandName } from "../composer/slash-commands";
-import type { DisplayDetailSection } from "../../display/types";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import { submissionStateSnapshot } from "../../state/selectors";
@@ -18,54 +17,13 @@ import type { ChatStateStore } from "../../state/reducer";
 import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective";
 import { runtimeSnapshotForChatState } from "../../runtime/snapshot";
 
-export interface SlashCommandThreadPort {
-  startNewThread: () => Promise<void>;
-  startThreadForGoal: (objective: string) => Promise<string | null>;
-  resumeThread: (threadId: string) => Promise<void>;
-  forkThread: (threadId: string) => Promise<void>;
-  rollbackThread: (threadId: string) => Promise<void>;
-  compactThread: (threadId: string) => Promise<void>;
-  archiveThread: (threadId: string) => Promise<void>;
-  renameThread: (threadId: string, name: string) => Promise<void>;
-  reconnect: () => Promise<void>;
-}
+type DynamicSlashCommandExecutionContext = "activeThreadId" | "busy" | "listedThreads" | "referThread" | "supportedReasoningEfforts";
 
-export interface SlashCommandRuntimePort {
-  toggleFastMode: () => void | Promise<void>;
-  toggleCollaborationMode: () => void | Promise<void>;
-  toggleAutoReview: () => void | Promise<void>;
-  requestModel: (model: string) => boolean | undefined | Promise<boolean | undefined>;
-  resetModelToConfig: () => boolean | undefined | Promise<boolean | undefined>;
-  requestReasoningEffort: (effort: ReasoningEffort) => boolean | undefined | Promise<boolean | undefined>;
-  resetReasoningEffortToConfig: () => boolean | undefined | Promise<boolean | undefined>;
-}
-
-export interface SlashCommandStatusPort {
-  addSystemMessage: (text: string) => void;
-  addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
-  setStatus: (status: string) => void;
-  statusSummaryLines: () => string[];
-  connectionDiagnosticDetails: () => DisplayDetailSection[];
-  mcpStatusLines: () => Promise<string[]>;
-  modelStatusLines: () => string[];
-  effortStatusLines: () => string[];
-}
-
-export interface SlashCommandGoalPort {
-  activeGoal: () => ThreadGoal | null;
-  setObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<boolean>;
-  setStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
-  clear: (threadId: string) => Promise<boolean>;
-}
-
-export interface SlashCommandHandlerHost {
+export interface SlashCommandHandlerHost extends Omit<SlashCommandExecutionContext, DynamicSlashCommandExecutionContext> {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   codexInput: (text: string) => CodexInput;
-  threads: SlashCommandThreadPort;
-  runtime: SlashCommandRuntimePort;
-  goals: SlashCommandGoalPort;
-  status: SlashCommandStatusPort;
+  setStatus: (status: string) => void;
 }
 
 export interface SlashCommandHandler {
@@ -87,45 +45,15 @@ async function executeSlashCommand(
   const client = host.currentClient();
   if (!client && command !== "reconnect" && command !== "compact") return;
   return runSlashCommand(command, args, {
+    ...host,
     activeThreadId: state.activeThreadId,
     listedThreads: state.listedThreads,
-    startNewThread: () => host.threads.startNewThread(),
-    startThreadForGoal: (objective) => host.threads.startThreadForGoal(objective),
-    resumeThread: (threadId) => host.threads.resumeThread(threadId),
-    reconnect: () => host.threads.reconnect(),
+    busy: state.busy,
     referThread: (thread, message) => {
       if (!client) return Promise.resolve(null);
       return referencedThreadInput(host, client, thread, message);
     },
-    forkThread: (threadId) => host.threads.forkThread(threadId),
-    rollbackThread: (threadId) => host.threads.rollbackThread(threadId),
-    compactThread: (threadId) => host.threads.compactThread(threadId),
-    archiveThread: (threadId) => host.threads.archiveThread(threadId),
-    renameThread: (threadId, name) => host.threads.renameThread(threadId, name),
-    busy: state.busy,
-    toggleFastMode: () => host.runtime.toggleFastMode(),
-    toggleCollaborationMode: () => host.runtime.toggleCollaborationMode(),
-    toggleAutoReview: () => host.runtime.toggleAutoReview(),
-    addSystemMessage: (text) => {
-      host.status.addSystemMessage(text);
-    },
-    addStructuredSystemMessage: (text, details) => {
-      host.status.addStructuredSystemMessage(text, details);
-    },
-    requestModel: (model) => host.runtime.requestModel(model),
-    resetModelToConfig: () => host.runtime.resetModelToConfig(),
-    requestReasoningEffort: (effort) => host.runtime.requestReasoningEffort(effort),
-    resetReasoningEffortToConfig: () => host.runtime.resetReasoningEffortToConfig(),
     supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
-    activeGoal: () => host.goals.activeGoal(),
-    setGoalObjective: (threadId, objective, tokenBudget) => host.goals.setObjective(threadId, objective, tokenBudget),
-    setGoalStatus: (threadId, status) => host.goals.setStatus(threadId, status),
-    clearGoal: (threadId) => host.goals.clear(threadId),
-    statusSummaryLines: () => host.status.statusSummaryLines(),
-    connectionDiagnosticDetails: () => host.status.connectionDiagnosticDetails(),
-    mcpStatusLines: () => host.status.mcpStatusLines(),
-    modelStatusLines: () => host.status.modelStatusLines(),
-    effortStatusLines: () => host.status.effortStatusLines(),
   });
 }
 
@@ -144,18 +72,18 @@ async function referencedThreadInput(
   try {
     const turns = await readReferencedThreadConversationSummaries(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
     if (turns.length === 0) {
-      host.status.addSystemMessage("Referenced thread has no readable conversation turns.");
+      host.addSystemMessage("Referenced thread has no readable conversation turns.");
       return null;
     }
     const reference = referencedThreadPromptBundle(thread, turns, message);
     const messageInput = host.codexInput(message);
-    host.status.setStatus(reference.status);
+    host.setStatus(reference.status);
     return {
       input: codexTextInputWithAttachments(reference.prompt, messageInput),
       referencedThread: reference.referencedThread,
     };
   } catch (error) {
-    host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+    host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return null;
   }
 }

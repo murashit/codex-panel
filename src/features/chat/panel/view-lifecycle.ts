@@ -3,55 +3,67 @@ import type { EventRef } from "obsidian";
 import { unmountChatPanelShell } from "../ui/shell";
 
 export interface ChatViewLifecycleHost {
-  setOpened: (opened: boolean) => void;
-  setClosing: (closing: boolean) => void;
-  registerEvent: (eventRef: EventRef) => void;
-  registerComposerNoteIndexInvalidation: (register: (eventRef: EventRef) => void) => void;
-  registerPointerDown: (handler: (event: PointerEvent) => void) => void;
-  applyCachedSharedAppServerState: () => void;
-  render: () => void;
-  scheduleDeferredAppServerWarmup: () => void;
-  scheduleDeferredRestoredThreadHydration: () => void;
-  closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
-  invalidateConnectionWork: () => void;
-  invalidateResumeWork: () => void;
-  clearDeferredTasks: () => void;
-  panelRoot: () => HTMLElement | null;
-  disposeMessages: () => void;
-  disposeComposer: () => void;
-  disconnect: () => void;
-  clearClient: () => void;
-  refreshLiveState: () => void;
-  deferRefreshLiveState: () => void;
+  lifecycle: {
+    setOpened: (opened: boolean) => void;
+    setClosing: (closing: boolean) => void;
+    invalidateConnectionWork: () => void;
+    invalidateResumeWork: () => void;
+    clearDeferredTasks: () => void;
+    scheduleDeferredAppServerWarmup: () => void;
+    scheduleDeferredRestoredThreadHydration: () => void;
+  };
+  events: {
+    registerEvent: (eventRef: EventRef) => void;
+    registerComposerNoteIndexInvalidation: (register: (eventRef: EventRef) => void) => void;
+    registerPointerDown: (handler: (event: PointerEvent) => void) => void;
+    closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
+  };
+  render: {
+    panelRoot: () => HTMLElement | null;
+    now: () => void;
+  };
+  sharedState: {
+    applyCachedAppServerState: () => void;
+  };
+  resources: {
+    disposeMessages: () => void;
+    disposeComposer: () => void;
+    disconnect: () => void;
+    clearClient: () => void;
+  };
+  liveState: {
+    refresh: () => void;
+    deferRefresh: () => void;
+  };
 }
 
 export function openChatView(host: ChatViewLifecycleHost): void {
-  host.setOpened(true);
-  host.setClosing(false);
-  host.registerComposerNoteIndexInvalidation((eventRef) => {
-    host.registerEvent(eventRef);
+  host.lifecycle.setOpened(true);
+  host.lifecycle.setClosing(false);
+  host.events.registerComposerNoteIndexInvalidation((eventRef) => {
+    host.events.registerEvent(eventRef);
   });
-  host.registerPointerDown((event) => {
-    host.closeToolbarPanelOnOutsidePointer(event);
+  host.events.registerPointerDown((event) => {
+    host.events.closeToolbarPanelOnOutsidePointer(event);
   });
-  host.applyCachedSharedAppServerState();
-  host.render();
-  host.scheduleDeferredAppServerWarmup();
-  host.scheduleDeferredRestoredThreadHydration();
+  host.sharedState.applyCachedAppServerState();
+  host.render.now();
+  host.lifecycle.scheduleDeferredAppServerWarmup();
+  host.lifecycle.scheduleDeferredRestoredThreadHydration();
 }
 
 export function closeChatView(host: ChatViewLifecycleHost): void {
-  host.setOpened(false);
-  host.setClosing(true);
-  host.invalidateConnectionWork();
-  host.invalidateResumeWork();
-  host.clearDeferredTasks();
-  const panelRoot = host.panelRoot();
-  host.disposeMessages();
-  host.disposeComposer();
+  host.lifecycle.setOpened(false);
+  host.lifecycle.setClosing(true);
+  host.lifecycle.invalidateConnectionWork();
+  host.lifecycle.invalidateResumeWork();
+  host.lifecycle.clearDeferredTasks();
+  const panelRoot = host.render.panelRoot();
+  host.resources.disposeMessages();
+  host.resources.disposeComposer();
   unmountChatPanelShell(panelRoot);
-  host.disconnect();
-  host.clearClient();
-  host.refreshLiveState();
-  host.deferRefreshLiveState();
+  host.resources.disconnect();
+  host.resources.clearClient();
+  host.liveState.refresh();
+  host.liveState.deferRefresh();
 }

@@ -7,10 +7,10 @@ import type {
   AppServerClientHandlers,
   AppServerStartStructuredTurnOptions,
 } from "../../../src/app-server/connection/client";
-import type { AppServerInitialization } from "../../../src/app-server/protocol/initialization";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { RequestId, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
+import type { ServerInitialization } from "../../../src/domain/server/initialization";
 import {
   generateThreadTitleWithCodex,
   threadTitleFromGenerationTurn,
@@ -27,7 +27,7 @@ import {
   threadTitlePrompt,
 } from "../../../src/features/thread-title/model";
 
-type InitializeResponse = AppServerInitialization;
+type InitializeResponse = ServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
 type Turn = TurnRecord;

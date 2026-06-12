@@ -81,3 +81,10 @@ export interface ChatPanelComposerPorts extends ChatPanelStatePort {
     resetReasoningEffortToConfig: () => Promise<void>;
   };
 }
+
+export interface ChatPanelRegionPorts {
+  toolbar: ChatPanelToolbarPorts;
+  goal: ChatPanelGoalPorts;
+  messageStream: ChatPanelMessageStreamPorts;
+  composer: ChatPanelComposerPorts;
+}

@@ -13,28 +13,40 @@ vi.mock("../../../../src/features/chat/ui/shell", () => ({
 function createHost(overrides: Partial<ChatViewLifecycleHost> = {}) {
   const root = document.createElement("div");
   const host: ChatViewLifecycleHost = {
-    setOpened: vi.fn(),
-    setClosing: vi.fn(),
-    registerEvent: vi.fn(),
-    registerComposerNoteIndexInvalidation: vi.fn((register) => {
-      register({} as EventRef);
-    }),
-    registerPointerDown: vi.fn(),
-    applyCachedSharedAppServerState: vi.fn(),
-    render: vi.fn(),
-    scheduleDeferredAppServerWarmup: vi.fn(),
-    scheduleDeferredRestoredThreadHydration: vi.fn(),
-    closeToolbarPanelOnOutsidePointer: vi.fn(),
-    invalidateConnectionWork: vi.fn(),
-    invalidateResumeWork: vi.fn(),
-    clearDeferredTasks: vi.fn(),
-    panelRoot: () => root,
-    disposeMessages: vi.fn(),
-    disposeComposer: vi.fn(),
-    disconnect: vi.fn(),
-    clearClient: vi.fn(),
-    refreshLiveState: vi.fn(),
-    deferRefreshLiveState: vi.fn(),
+    lifecycle: {
+      setOpened: vi.fn(),
+      setClosing: vi.fn(),
+      invalidateConnectionWork: vi.fn(),
+      invalidateResumeWork: vi.fn(),
+      clearDeferredTasks: vi.fn(),
+      scheduleDeferredAppServerWarmup: vi.fn(),
+      scheduleDeferredRestoredThreadHydration: vi.fn(),
+    },
+    events: {
+      registerEvent: vi.fn(),
+      registerComposerNoteIndexInvalidation: vi.fn((register) => {
+        register({} as EventRef);
+      }),
+      registerPointerDown: vi.fn(),
+      closeToolbarPanelOnOutsidePointer: vi.fn(),
+    },
+    render: {
+      panelRoot: () => root,
+      now: vi.fn(),
+    },
+    sharedState: {
+      applyCachedAppServerState: vi.fn(),
+    },
+    resources: {
+      disposeMessages: vi.fn(),
+      disposeComposer: vi.fn(),
+      disconnect: vi.fn(),
+      clearClient: vi.fn(),
+    },
+    liveState: {
+      refresh: vi.fn(),
+      deferRefresh: vi.fn(),
+    },
     ...overrides,
   };
   return { host, root };
@@ -50,14 +62,14 @@ describe("chat view lifecycle", () => {
 
     openChatView(host);
 
-    expect(host.setOpened).toHaveBeenCalledWith(true);
-    expect(host.setClosing).toHaveBeenCalledWith(false);
-    expect(host.registerEvent).toHaveBeenCalledOnce();
-    expect(host.registerPointerDown).toHaveBeenCalledOnce();
-    expect(host.applyCachedSharedAppServerState).toHaveBeenCalledOnce();
-    expect(host.render).toHaveBeenCalledOnce();
-    expect(host.scheduleDeferredAppServerWarmup).toHaveBeenCalledOnce();
-    expect(host.scheduleDeferredRestoredThreadHydration).toHaveBeenCalledOnce();
+    expect(host.lifecycle.setOpened).toHaveBeenCalledWith(true);
+    expect(host.lifecycle.setClosing).toHaveBeenCalledWith(false);
+    expect(host.events.registerEvent).toHaveBeenCalledOnce();
+    expect(host.events.registerPointerDown).toHaveBeenCalledOnce();
+    expect(host.sharedState.applyCachedAppServerState).toHaveBeenCalledOnce();
+    expect(host.render.now).toHaveBeenCalledOnce();
+    expect(host.lifecycle.scheduleDeferredAppServerWarmup).toHaveBeenCalledOnce();
+    expect(host.lifecycle.scheduleDeferredRestoredThreadHydration).toHaveBeenCalledOnce();
   });
 
   it("disposes mounted resources and refreshes live state on close", () => {
@@ -65,15 +77,15 @@ describe("chat view lifecycle", () => {
 
     closeChatView(host);
 
-    expect(host.setOpened).toHaveBeenCalledWith(false);
-    expect(host.setClosing).toHaveBeenCalledWith(true);
-    expect(host.clearDeferredTasks).toHaveBeenCalledOnce();
-    expect(host.disposeMessages).toHaveBeenCalledOnce();
-    expect(host.disposeComposer).toHaveBeenCalledOnce();
+    expect(host.lifecycle.setOpened).toHaveBeenCalledWith(false);
+    expect(host.lifecycle.setClosing).toHaveBeenCalledWith(true);
+    expect(host.lifecycle.clearDeferredTasks).toHaveBeenCalledOnce();
+    expect(host.resources.disposeMessages).toHaveBeenCalledOnce();
+    expect(host.resources.disposeComposer).toHaveBeenCalledOnce();
     expect(unmountChatPanelShell).toHaveBeenCalledWith(root);
-    expect(host.disconnect).toHaveBeenCalledOnce();
-    expect(host.clearClient).toHaveBeenCalledOnce();
-    expect(host.refreshLiveState).toHaveBeenCalledOnce();
-    expect(host.deferRefreshLiveState).toHaveBeenCalledOnce();
+    expect(host.resources.disconnect).toHaveBeenCalledOnce();
+    expect(host.resources.clearClient).toHaveBeenCalledOnce();
+    expect(host.liveState.refresh).toHaveBeenCalledOnce();
+    expect(host.liveState.deferRefresh).toHaveBeenCalledOnce();
   });
 });

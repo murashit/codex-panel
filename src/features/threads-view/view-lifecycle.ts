@@ -17,35 +17,30 @@ export type ThreadsViewConnectionLifecycleState = ConnectionWorkLifecycleState;
 export type ActiveThreadsViewConnection = ActiveConnectionWork;
 export type ThreadsViewConnectionLifecycleEvent = ConnectionWorkLifecycleEvent;
 
-export class ThreadsViewDeferredTasks {
-  private readonly renderTask: DeferredTask;
-  private readonly refreshTask: DeferredTask;
+export interface ThreadsViewDeferredTasks {
+  scheduleRender(callback: () => void): void;
+  scheduleRefresh(callback: () => void): void;
+  clearAll(): void;
+}
 
-  constructor(getWindow: () => DeferredTaskWindow) {
-    this.renderTask = new DeferredTask(getWindow, 0);
-    this.refreshTask = new DeferredTask(getWindow, 250);
-  }
+export function createThreadsViewDeferredTasks(getWindow: () => DeferredTaskWindow): ThreadsViewDeferredTasks {
+  const renderTask = new DeferredTask(getWindow, 0);
+  const refreshTask = new DeferredTask(getWindow, 250);
 
-  scheduleRender(callback: () => void): void {
-    this.renderTask.schedule(callback);
-  }
+  return {
+    scheduleRender(callback): void {
+      renderTask.schedule(callback);
+    },
 
-  scheduleRefresh(callback: () => void): void {
-    this.refreshTask.schedule(callback);
-  }
+    scheduleRefresh(callback): void {
+      refreshTask.schedule(callback);
+    },
 
-  clearAll(): void {
-    this.clearRender();
-    this.clearRefresh();
-  }
-
-  private clearRender(): void {
-    this.renderTask.clear();
-  }
-
-  private clearRefresh(): void {
-    this.refreshTask.clear();
-  }
+    clearAll(): void {
+      renderTask.clear();
+      refreshTask.clear();
+    },
+  };
 }
 
 export function transitionThreadsViewRefreshLifecycle(

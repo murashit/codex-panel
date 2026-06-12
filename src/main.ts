@@ -13,7 +13,9 @@ import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormali
 import { CodexPanelSettingTab, type CodexPanelSettingTabHost } from "./settings/tab";
 import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/turn-diff/model";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
-import { ThreadSurfaceCoordinator } from "./workspace/thread-surface-coordinator";
+import { createThreadSurfaceActions } from "./workspace/thread-surface-actions";
+import type { SharedServerMetadata } from "./domain/server/metadata";
+import type { Thread } from "./domain/threads/model";
 
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
@@ -26,7 +28,7 @@ export default class CodexPanelPlugin extends Plugin {
       this.threadSurfaces.refreshThreadsViewLiveState();
     },
   });
-  private readonly threadSurfaces = new ThreadSurfaceCoordinator({
+  private readonly threadSurfaces = createThreadSurfaceActions({
     app: this.app,
     panels: this.panels,
     refreshThreadSurfaces: () => {
@@ -141,6 +143,26 @@ export default class CodexPanelPlugin extends Plugin {
     this.appServerUserAgent = userAgent;
   }
 
+  private applyThreadListSnapshot(threads: readonly Thread[]): void {
+    this.sharedAppServerCache.applyThreadListSnapshot(this.sharedAppServerCacheContext(), threads);
+    this.threadSurfaces.applyThreadListSnapshot(threads);
+  }
+
+  private refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]> {
+    return this.sharedAppServerCache.refreshThreadList(this.sharedAppServerCacheContext(), fetchThreads, (threads) => {
+      this.threadSurfaces.applyThreadListSnapshot(threads);
+    });
+  }
+
+  private cachedThreadList(): readonly Thread[] | null {
+    return this.sharedAppServerCache.cachedThreadList(this.sharedAppServerCacheContext());
+  }
+
+  private publishAppServerMetadata(metadata: SharedServerMetadata): void {
+    this.sharedAppServerCache.applyAppServerMetadataSnapshot(this.sharedAppServerCacheContext(), metadata);
+    this.threadSurfaces.publishAppServerMetadata(metadata);
+  }
+
   private chatHost(): CodexChatHost {
     return {
       settings: this.settings,
@@ -161,17 +183,12 @@ export default class CodexPanelPlugin extends Plugin {
         this.threadSurfaces.refreshSharedThreadListFromOpenSurface();
       },
       applyThreadListSnapshot: (threads) => {
-        this.sharedAppServerCache.applyThreadListSnapshot(this.sharedAppServerCacheContext(), threads);
-        this.threadSurfaces.applyThreadListSnapshot(threads);
+        this.applyThreadListSnapshot(threads);
       },
-      refreshThreadList: (fetchThreads) =>
-        this.sharedAppServerCache.refreshThreadList(this.sharedAppServerCacheContext(), fetchThreads, (threads) => {
-          this.threadSurfaces.applyThreadListSnapshot(threads);
-        }),
-      cachedThreadList: () => this.sharedAppServerCache.cachedThreadList(this.sharedAppServerCacheContext()),
+      refreshThreadList: (fetchThreads) => this.refreshThreadList(fetchThreads),
+      cachedThreadList: () => this.cachedThreadList(),
       publishAppServerMetadata: (metadata) => {
-        this.sharedAppServerCache.applyAppServerMetadataSnapshot(this.sharedAppServerCacheContext(), metadata);
-        this.threadSurfaces.publishAppServerMetadata(metadata);
+        this.publishAppServerMetadata(metadata);
       },
       publishAppServerIdentity: (userAgent) => {
         this.publishAppServerIdentity(userAgent);
@@ -196,11 +213,8 @@ export default class CodexPanelPlugin extends Plugin {
       publishAppServerIdentity: (userAgent) => {
         this.publishAppServerIdentity(userAgent);
       },
-      refreshThreadList: (fetchThreads) =>
-        this.sharedAppServerCache.refreshThreadList(this.sharedAppServerCacheContext(), fetchThreads, (threads) => {
-          this.threadSurfaces.applyThreadListSnapshot(threads);
-        }),
-      cachedThreadList: () => this.sharedAppServerCache.cachedThreadList(this.sharedAppServerCacheContext()),
+      refreshThreadList: (fetchThreads) => this.refreshThreadList(fetchThreads),
+      cachedThreadList: () => this.cachedThreadList(),
     };
   }
 
@@ -209,11 +223,8 @@ export default class CodexPanelPlugin extends Plugin {
       app: this.app,
       settings: this.settings,
       vaultPath: this.vaultPath,
-      cachedThreadList: () => this.sharedAppServerCache.cachedThreadList(this.sharedAppServerCacheContext()),
-      refreshThreadList: (fetchThreads) =>
-        this.sharedAppServerCache.refreshThreadList(this.sharedAppServerCacheContext(), fetchThreads, (threads) => {
-          this.threadSurfaces.applyThreadListSnapshot(threads);
-        }),
+      cachedThreadList: () => this.cachedThreadList(),
+      refreshThreadList: (fetchThreads) => this.refreshThreadList(fetchThreads),
       openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
     };

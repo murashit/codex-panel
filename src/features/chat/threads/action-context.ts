@@ -23,6 +23,15 @@ export interface ChatThreadActionsHost {
   refreshSharedThreadListFromOpenSurface: () => void;
 }
 
+export interface ChatThreadActions {
+  compactThread: (threadId: string) => Promise<void>;
+  archiveThread: (threadId: string, saveMarkdown?: boolean) => Promise<void>;
+  forkThread: (threadId: string) => Promise<void>;
+  forkThreadFromTurn: (threadId: string, turnId: string | null, archiveSource: boolean) => Promise<void>;
+  renameThread: (threadId: string, name: string) => Promise<boolean>;
+  rollbackThread: (threadId: string) => Promise<void>;
+}
+
 export function threadActionState(host: ChatThreadActionsHost): ChatState {
   return host.stateStore.getState();
 }

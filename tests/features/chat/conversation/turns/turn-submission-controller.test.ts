@@ -6,13 +6,6 @@ import { createChatState, createChatStateStore } from "../../../../../src/featur
 import {
   TurnSubmissionController,
   type TurnSubmissionControllerHost,
-  type TurnSubmissionComposerPort,
-  type TurnSubmissionConnectionPort,
-  type TurnSubmissionRestoredThreadPort,
-  type TurnSubmissionRuntimePort,
-  type TurnSubmissionStatusPort,
-  type TurnSubmissionThreadPort,
-  type TurnSubmissionViewPort,
 } from "../../../../../src/features/chat/conversation/turns/turn-submission-controller";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
@@ -29,29 +22,9 @@ function thread(id: string): Thread {
   };
 }
 
-interface TurnSubmissionHostOverrides extends Partial<
-  Omit<TurnSubmissionControllerHost, "connection" | "restoredThread" | "thread" | "runtime" | "composer" | "view" | "status">
-> {
-  connection?: Partial<TurnSubmissionConnectionPort>;
-  restoredThread?: Partial<TurnSubmissionRestoredThreadPort>;
-  thread?: Partial<TurnSubmissionThreadPort>;
-  runtime?: Partial<TurnSubmissionRuntimePort>;
-  composer?: Partial<TurnSubmissionComposerPort>;
-  view?: Partial<TurnSubmissionViewPort>;
-  status?: Partial<TurnSubmissionStatusPort>;
-}
+type TurnSubmissionHostOverrides = Partial<TurnSubmissionControllerHost>;
 
 function createHost(overrides: TurnSubmissionHostOverrides = {}) {
-  const {
-    connection: connectionOverrides,
-    restoredThread: restoredThreadOverrides,
-    thread: threadOverrides,
-    runtime: runtimeOverrides,
-    composer: composerOverrides,
-    view: viewOverrides,
-    status: statusOverrides,
-    ...hostOverrides
-  } = overrides;
   const stateStore = createChatStateStore(createChatState());
   const startTurn = vi.fn().mockResolvedValue({ turn: { id: "turn" } });
   const steerTurn = vi.fn().mockResolvedValue({});
@@ -59,16 +32,11 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     startTurn,
     steerTurn,
   } as unknown as AppServerClient;
-  const connection: TurnSubmissionConnectionPort = {
+  const host: TurnSubmissionControllerHost = {
+    stateStore,
     vaultPath: "/vault",
     currentClient: () => client,
-    ...connectionOverrides,
-  };
-  const restoredThread: TurnSubmissionRestoredThreadPort = {
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
-    ...restoredThreadOverrides,
-  };
-  const threadPort: TurnSubmissionThreadPort = {
     startThread: vi.fn().mockImplementation(async () => {
       stateStore.dispatch({
         type: "active-thread/resumed",
@@ -85,37 +53,14 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     }),
     notifyActiveThreadIdentityChanged: vi.fn(),
     resetThreadTurnPresence: vi.fn(),
-    ...threadOverrides,
-  };
-  const runtime: TurnSubmissionRuntimePort = {
     applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
-    ...runtimeOverrides,
-  };
-  const composer: TurnSubmissionComposerPort = {
     codexInput: vi.fn((text: string) => textInput(text)),
     setDraft: vi.fn(),
-    ...composerOverrides,
-  };
-  const view: TurnSubmissionViewPort = {
     render: vi.fn(),
     scheduleRender: vi.fn(),
-    ...viewOverrides,
-  };
-  const status: TurnSubmissionStatusPort = {
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
-    ...statusOverrides,
-  };
-  const host: TurnSubmissionControllerHost = {
-    stateStore,
-    connection,
-    restoredThread,
-    thread: threadPort,
-    runtime,
-    composer,
-    view,
-    status,
-    ...hostOverrides,
+    ...overrides,
   };
   return { host, startTurn, stateStore, steerTurn };
 }
@@ -127,9 +72,9 @@ describe("TurnSubmissionController", () => {
 
     await controller.sendTurnText("hello");
 
-    expect(host.thread.startThread).toHaveBeenCalledWith("hello");
-    expect(host.thread.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
-    expect(host.thread.resetThreadTurnPresence).toHaveBeenCalledWith(false);
+    expect(host.startThread).toHaveBeenCalledWith("hello");
+    expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
+    expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(startTurn).toHaveBeenCalledWith({
       threadId: "thread",
       cwd: "/vault",
@@ -137,9 +82,9 @@ describe("TurnSubmissionController", () => {
       clientUserMessageId: expect.stringMatching(/^local-user-\d+-\d+$/),
     });
     expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
-    expect(host.composer.setDraft).toHaveBeenCalledWith("");
-    expect(host.status.setStatus).toHaveBeenCalledWith("Turn running...");
-    expect(host.view.scheduleRender).toHaveBeenCalledOnce();
+    expect(host.setDraft).toHaveBeenCalledWith("");
+    expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
+    expect(host.scheduleRender).toHaveBeenCalledOnce();
   });
 
   it("does not restore stale drafts or report stale start failures after the active thread changes", async () => {
@@ -163,9 +108,9 @@ describe("TurnSubmissionController", () => {
 
     await controller.sendTurnText("hello");
 
-    expect(host.composer.setDraft).toHaveBeenCalledWith("");
-    expect(host.composer.setDraft).not.toHaveBeenCalledWith("hello");
-    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
+    expect(host.setDraft).toHaveBeenCalledWith("");
+    expect(host.setDraft).not.toHaveBeenCalledWith("hello");
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("steers a running turn instead of starting another turn", async () => {
@@ -188,7 +133,7 @@ describe("TurnSubmissionController", () => {
 
     expect(steerTurn).toHaveBeenCalledWith("thread", "turn", textInput("follow up"), expect.stringMatching(/^local-steer-\d+-\d+$/));
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.status.setStatus).toHaveBeenCalledWith("Steered current turn.");
+    expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
     const localSteerId = steerTurn.mock.calls[0]?.[3];
     expect(
       stateStore
@@ -252,8 +197,8 @@ describe("TurnSubmissionController", () => {
     await controller.sendTurnText("follow up");
 
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.composer.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(host.status.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
+    expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(host.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
     expect(stateStore.getState().messageStream.displayItems).toEqual([]);
   });
 
@@ -280,8 +225,8 @@ describe("TurnSubmissionController", () => {
     await controller.sendTurnText("follow up");
 
     expect(startTurn).not.toHaveBeenCalled();
-    expect(host.composer.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(host.composer.setDraft).not.toHaveBeenCalledWith("follow up", { focus: true });
-    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
+    expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(host.setDraft).not.toHaveBeenCalledWith("follow up", { focus: true });
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 });

@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_THREADS } from "../../src/constants";
 import { CodexThreadsView } from "../../src/features/threads-view/view";
-import { ThreadSurfaceCoordinator } from "../../src/workspace/thread-surface-coordinator";
+import { createThreadSurfaceActions } from "../../src/workspace/thread-surface-actions";
 import type { OpenCodexPanelSnapshot } from "../../src/workspace/open-panel-snapshot";
 
-describe("ThreadSurfaceCoordinator", () => {
+describe("createThreadSurfaceActions", () => {
   it("falls back to the threads view when no connected chat panel can refresh shared threads", () => {
     const disconnectedPanelRefresh = vi.fn().mockResolvedValue(undefined);
     const threadsRefresh = vi.fn().mockResolvedValue(undefined);
-    const coordinator = new ThreadSurfaceCoordinator({
+    const threadSurfaces = createThreadSurfaceActions({
       app: {
         workspace: {
           getLeavesOfType: vi.fn((type: string) =>
@@ -28,7 +28,7 @@ describe("ThreadSurfaceCoordinator", () => {
       refreshThreadSurfaces: vi.fn(),
     });
 
-    coordinator.refreshSharedThreadListFromOpenSurface();
+    threadSurfaces.refreshSharedThreadListFromOpenSurface();
 
     expect(disconnectedPanelRefresh).not.toHaveBeenCalled();
     expect(threadsRefresh).toHaveBeenCalledOnce();
@@ -38,7 +38,7 @@ describe("ThreadSurfaceCoordinator", () => {
     const disconnectedPanelRefresh = vi.fn().mockResolvedValue(undefined);
     const connectedPanelRefresh = vi.fn().mockResolvedValue(undefined);
     const threadsRefresh = vi.fn().mockResolvedValue(undefined);
-    const coordinator = new ThreadSurfaceCoordinator({
+    const threadSurfaces = createThreadSurfaceActions({
       app: {
         workspace: {
           getLeavesOfType: vi.fn((type: string) =>
@@ -61,7 +61,7 @@ describe("ThreadSurfaceCoordinator", () => {
       refreshThreadSurfaces: vi.fn(),
     });
 
-    coordinator.refreshSharedThreadListFromOpenSurface();
+    threadSurfaces.refreshSharedThreadListFromOpenSurface();
 
     expect(disconnectedPanelRefresh).not.toHaveBeenCalled();
     expect(connectedPanelRefresh).toHaveBeenCalledOnce();

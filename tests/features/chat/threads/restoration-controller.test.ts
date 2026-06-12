@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { RestorationController } from "../../../../src/features/chat/threads/restoration-controller";
-import { ChatViewDeferredTasks } from "../../../../src/features/chat/lifecycle";
+import { createChatViewDeferredTasks } from "../../../../src/features/chat/lifecycle";
 import { deferred } from "../../../support/async";
 
 describe("RestorationController", () => {
@@ -13,7 +13,7 @@ describe("RestorationController", () => {
     const stateStore = createChatStateStore(createChatState());
     const resumeThread = vi.fn().mockResolvedValue(undefined);
     const controller = new RestorationController({
-      deferredTasks: new ChatViewDeferredTasks(() => window),
+      deferredTasks: createChatViewDeferredTasks(() => window),
       opened: () => true,
       resumeThread,
       invalidateResumeWork: vi.fn(),
@@ -59,7 +59,7 @@ describe("RestorationController", () => {
 
 function restoredThreadControllerFixture(overrides: Partial<ConstructorParameters<typeof RestorationController>[0]> = {}) {
   return new RestorationController({
-    deferredTasks: new ChatViewDeferredTasks(() => window),
+    deferredTasks: createChatViewDeferredTasks(() => window),
     opened: () => false,
     resumeThread: vi.fn().mockResolvedValue(undefined),
     invalidateResumeWork: vi.fn(),

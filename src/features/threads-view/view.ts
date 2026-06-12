@@ -22,11 +22,12 @@ import {
   type ThreadsRenameState,
 } from "./state";
 import {
-  ThreadsViewDeferredTasks,
+  createThreadsViewDeferredTasks,
   transitionThreadsViewConnectionLifecycle,
   transitionThreadsViewRefreshLifecycle,
   type ActiveThreadsViewConnection,
   type ActiveThreadsViewRefresh,
+  type ThreadsViewDeferredTasks,
   type ThreadsViewConnectionLifecycleState,
   type ThreadsViewRefreshLifecycleState,
 } from "./view-lifecycle";
@@ -67,7 +68,7 @@ export class CodexThreadsView extends ItemView {
     private readonly plugin: CodexThreadsHost,
   ) {
     super(leaf);
-    this.deferredTasks = new ThreadsViewDeferredTasks(() => this.containerEl.win);
+    this.deferredTasks = createThreadsViewDeferredTasks(() => this.containerEl.win);
     this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath);
     this.connection.setHandlers({
       onNotification: () => {

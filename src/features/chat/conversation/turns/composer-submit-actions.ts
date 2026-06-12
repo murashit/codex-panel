@@ -7,41 +7,29 @@ import type { SlashCommandExecutionResult } from "./slash-command-execution";
 import type { SlashCommandName } from "../composer/slash-commands";
 import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
 
-interface ComposerDraftPort {
-  readonly trimmedDraft: string;
-  setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean }): void;
-}
-
-interface ComposerSlashCommandPort {
-  execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined>;
-}
-
-interface ComposerTurnSubmissionPort {
-  sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadDisplay): Promise<void>;
-}
-
-interface ComposerConnectionPort {
-  ensureConnected: () => Promise<void>;
-  currentClient: () => AppServerClient | null;
-}
-
-interface ComposerStatusPort {
-  setStatus: (status: string) => void;
-  addSystemMessage: (text: string) => void;
-}
-
-interface ComposerScrollPort {
-  followBottom: () => void;
-}
-
 export interface ComposerSubmitActionsHost {
   stateStore: ChatStateStore;
-  composer: ComposerDraftPort;
-  slashCommands: ComposerSlashCommandPort;
-  turnSubmission: ComposerTurnSubmissionPort;
-  connection: ComposerConnectionPort;
-  status: ComposerStatusPort;
-  scroll: ComposerScrollPort;
+  composer: {
+    readonly trimmedDraft: string;
+    setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean }): void;
+  };
+  slashCommands: {
+    execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined>;
+  };
+  turnSubmission: {
+    sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadDisplay): Promise<void>;
+  };
+  connection: {
+    ensureConnected: () => Promise<void>;
+    currentClient: () => AppServerClient | null;
+  };
+  status: {
+    setStatus: (status: string) => void;
+    addSystemMessage: (text: string) => void;
+  };
+  scroll: {
+    followBottom: () => void;
+  };
 }
 
 export interface ComposerSubmitActions {

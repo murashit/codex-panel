@@ -6,24 +6,25 @@ import type { ChatComposerController } from "./conversation/composer/controller"
 import type { ChatInboundController } from "./protocol/inbound/controller";
 import type { GoalActions } from "./threads/goal-actions";
 import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "./runtime/settings-actions";
-import type { ChatThreadActions } from "./threads/actions";
+import type { ChatThreadActions } from "./threads/action-context";
 import type { AutoTitleController } from "./threads/auto-title-controller";
 import type { HistoryController } from "./threads/history-controller";
 import type { RenameController } from "./threads/rename-controller";
-import type { ToolbarPanelController } from "./panel/regions/toolbar";
+import type { ToolbarPanelActions } from "./panel/regions/toolbar";
 import type { ChatConnectionController } from "./connection/connection-controller";
 import type { ChatReconnectActions } from "./connection/reconnect-actions";
 import type { PendingRequestController } from "./conversation/pending-requests/controller";
+import type { DisplayDetailSection } from "./display/types";
 import { rejectServerRequest, respondToServerRequest } from "./protocol/server-requests/responder";
 import type { ComposerSubmitActions } from "./conversation/turns/composer-submit-actions";
 import type { RestorationController } from "./threads/restoration-controller";
 import type { IdentitySync } from "./threads/identity-sync";
 import type { ResumeController } from "./threads/resume-controller";
 import type { SelectionActions } from "./threads/selection-actions";
-import type { ChatViewRenderController } from "./panel/view-render-controller";
 import type { MessageStreamRenderer } from "./ui/message-stream/renderer";
 import type { ChatControllerCompositionPorts } from "./composition-ports";
-import { createChatControllerCompositionActions } from "./composition-actions";
+import { scheduleAppServerWarmup } from "./connection/app-server-warmup";
+import { runtimeSnapshotForChatState } from "./runtime/snapshot";
 import {
   createChatServerActionControllers,
   createChatConnectionControllers,
@@ -32,11 +33,7 @@ import {
 } from "./connection/composition";
 import { createThreadControllerGroup, createThreadSelectionActionGroup } from "./threads/composition";
 import { createConversationSurfaceControllerGroup } from "./conversation/composition";
-import {
-  createConnectionLifecycleControllerGroup,
-  createPanelUiControllerGroup,
-  createViewRenderControllerGroup,
-} from "./panel/composition";
+import { createChatViewRenderer, createConnectionLifecycleControllerGroup, createPanelUiControllerGroup } from "./panel/composition";
 
 export interface ChatViewControllers {
   connection: {
@@ -71,14 +68,14 @@ export interface ChatViewControllers {
     pending: PendingRequestController;
   };
   toolbar: {
-    panels: ToolbarPanelController;
+    panels: ToolbarPanelActions;
   };
   composer: {
     controller: ChatComposerController;
     submission: ComposerSubmitActions;
   };
   render: {
-    controller: ChatViewRenderController;
+    now: () => void;
     messageStream: MessageStreamRenderer;
     openView: () => void;
     closeView: () => void;
@@ -86,99 +83,68 @@ export interface ChatViewControllers {
   };
 }
 
+interface ChatCompositionSideEffects {
+  render: Pick<ChatControllerCompositionPorts["render"], "panelRoot" | "closeToolbarPanelOnOutsidePointer" | "schedule"> & {
+    now: () => void;
+  };
+  status: ChatControllerCompositionPorts["status"] & {
+    addSystemMessage: (text: string) => void;
+    addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
+  };
+  composer: {
+    setText: (text: string) => void;
+  };
+}
+
 export function createChatViewControllers(ports: ChatControllerCompositionPorts): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
-  const { renderController } = createViewRenderControllerGroup({
-    plugin: {
-      settings: ports.plugin.settings,
-    },
-    state: {
-      stateStore: ports.state.stateStore,
-    },
-    lifecycle: {
-      deferredTasks: ports.lifecycle.deferredTasks,
-    },
-    render: {
-      panelRoot: ports.render.panelRoot,
-      toolbarNode: ports.render.toolbarNode,
-      goalNode: ports.render.goalNode,
-      messageStreamNode: ports.render.messageStreamNode,
-      composerNode: ports.render.composerNode,
-    },
-  });
+  const renderNow = createChatViewRenderer(ports);
   let connectionController: ChatConnectionController | null = null;
   let selection: SelectionActions | null = null;
   let composerController: ChatComposerController | null = null;
-  const actions = createChatControllerCompositionActions(
-    {
-      state: ports.state,
-      client: ports.client,
-      render: ports.render,
-      status: ports.status,
-      scroll: ports.scroll,
-      thread: ports.thread,
+  const ensureConnected = () => requireComposedController(connectionController, "connection controller").ensureConnected();
+  const refreshThreads = () => requireComposedController(connectionController, "connection controller").refreshThreads();
+  const refreshSkills = (forceReload?: boolean) =>
+    requireComposedController(connectionController, "connection controller").refreshSkills(forceReload);
+  const selectThread = (threadId: string) => requireComposedController(selection, "selection actions").selectThread(threadId);
+  const sideEffects = createChatCompositionSideEffects(ports, {
+    renderNow,
+    setComposerText: (text) => {
+      requireComposedController(composerController, "composer controller").setDraft(text, { focus: true });
     },
-    {
-      renderController,
-      ensureConnected: () => requireComposedController(connectionController, "connection controller").ensureConnected(),
-      refreshThreads: () => requireComposedController(connectionController, "connection controller").refreshThreads(),
-      refreshSkills: (forceReload) => requireComposedController(connectionController, "connection controller").refreshSkills(forceReload),
-      selectThread: (threadId) => requireComposedController(selection, "selection actions").selectThread(threadId),
-      setComposerText: (text) => {
-        requireComposedController(composerController, "composer controller").setDraft(text, { focus: true });
-      },
-    },
-  );
+  });
   const runtimeSettings = createChatRuntimeSettingsActions({
     stateStore: ports.state.stateStore,
     currentClient: ports.client.getClient,
-    runtimeSnapshotForState: ports.runtime.runtimeSnapshotForState,
+    runtimeSnapshotForState: runtimeSnapshotForChatState,
     collaborationModeLabel: ports.runtime.collaborationModeLabel,
-    addSystemMessage: actions.status.addSystemMessage,
+    addSystemMessage: sideEffects.status.addSystemMessage,
   });
+  const scheduleWarmup = () => {
+    scheduleAppServerWarmup({
+      deferredTasks: ports.lifecycle.deferredTasks,
+      opened: ports.lifecycle.getOpened,
+      closing: ports.lifecycle.getClosing,
+      connected: () => connection.isConnected(),
+      ensureConnected,
+    });
+  };
   const threadControllers = createThreadControllerGroup(
     {
-      obsidian: {
-        archiveAdapter: ports.obsidian.archiveAdapter,
+      ...ports,
+      client: {
+        getClient: ports.client.getClient,
+        ensureConnected,
       },
-      plugin: {
-        notifyThreadArchived: (threadId) => {
-          ports.plugin.notifyThreadArchived(threadId);
-        },
-        notifyThreadRenamed: (threadId, name) => {
-          ports.plugin.notifyThreadRenamed(threadId, name);
-        },
-        openThreadInNewView: (threadId) => ports.plugin.openThreadInNewView(threadId),
-        refreshSharedThreadListFromOpenSurface: () => {
-          ports.plugin.refreshSharedThreadListFromOpenSurface();
-        },
-        settings: ports.plugin.settings,
-        vaultPath: ports.plugin.vaultPath,
-      },
-      state: {
-        stateStore: ports.state.stateStore,
-      },
-      client: actions.client,
-      lifecycle: {
-        deferredTasks: ports.lifecycle.deferredTasks,
-        resumeWork: ports.lifecycle.resumeWork,
-        getOpened: ports.lifecycle.getOpened,
-        getClosing: ports.lifecycle.getClosing,
-        clearDeferredRestoredThreadHydration: ports.lifecycle.clearDeferredRestoredThreadHydration,
-      },
-      render: actions.render,
-      status: actions.status,
+      render: sideEffects.render,
+      status: sideEffects.status,
       thread: {
-        selectThread: actions.thread.selectThread,
-        refreshThreads: actions.thread.refreshThreads,
-        notifyIdentityChanged: ports.thread.notifyIdentityChanged,
-        refreshTabHeader: ports.thread.refreshTabHeader,
+        ...ports.thread,
+        selectThread,
+        refreshThreads,
       },
-      liveState: {
-        refresh: ports.liveState.refresh,
-      },
-      scroll: actions.scroll,
-      composer: actions.composer,
+      scroll: ports.scroll,
+      composer: sideEffects.composer,
     },
     {
       connection,
@@ -194,21 +160,33 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     setOpened: ports.lifecycle.setOpened,
     getClosing: ports.lifecycle.getClosing,
     setClosing: ports.lifecycle.setClosing,
-    invalidateConnectionWork: ports.lifecycle.invalidateConnectionWork,
+    invalidateConnectionWork: () => {
+      ports.lifecycle.connectionWork.invalidate();
+    },
     invalidateResumeWork: threadControllers.invalidateResumeWork,
-    scheduleDeferredDiagnostics: ports.lifecycle.scheduleDeferredDiagnostics,
-    clearDeferredDiagnostics: ports.lifecycle.clearDeferredDiagnostics,
-    scheduleDeferredRestoredThreadHydration: ports.lifecycle.scheduleDeferredRestoredThreadHydration,
-    clearDeferredRestoredThreadHydration: ports.lifecycle.clearDeferredRestoredThreadHydration,
-    scheduleDeferredAppServerWarmup: ports.lifecycle.scheduleDeferredAppServerWarmup,
+    scheduleDeferredDiagnostics: () => {
+      ports.lifecycle.deferredTasks.scheduleDiagnostics(() => {
+        void ports.lifecycle.refreshDeferredDiagnostics();
+      });
+    },
+    clearDeferredDiagnostics: () => {
+      ports.lifecycle.deferredTasks.clearDiagnostics();
+    },
+    scheduleDeferredRestoredThreadHydration: () => {
+      restoration.scheduleHydration();
+    },
+    clearDeferredRestoredThreadHydration: () => {
+      restoration.clearHydration();
+    },
+    scheduleDeferredAppServerWarmup: () => {
+      scheduleWarmup();
+    },
   };
   const { toolbarPanels, applyViewState } = createPanelUiControllerGroup(
     {
-      state: {
-        stateStore: ports.state.stateStore,
-      },
+      state: ports.state,
       lifecycle: lifecycleActions,
-      render: actions.render,
+      render: sideEffects.render,
       thread: {
         restorePlaceholder: (restoredThreadState) => {
           restoration.restore(restoredThreadState);
@@ -224,16 +202,12 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
   );
   selection = createThreadSelectionActionGroup(
     {
-      plugin: {
-        focusThreadInOpenView: (threadId) => ports.plugin.focusThreadInOpenView(threadId),
-      },
-      state: {
-        stateStore: ports.state.stateStore,
-      },
+      plugin: ports.plugin,
+      state: ports.state,
       thread: {
         resumeThread: (threadId) => resume.resumeThread(threadId),
       },
-      status: actions.status,
+      status: sideEffects.status,
     },
     {
       closeForThreadSelection: () => {
@@ -243,13 +217,14 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
   ).selection;
   const { reconnectActions } = createChatReconnectControllerGroup(
     {
-      state: {
-        stateStore: ports.state.stateStore,
+      state: ports.state,
+      client: {
+        clear: ports.client.clear,
+        ensureConnected,
       },
-      client: actions.client,
       lifecycle: lifecycleActions,
-      render: actions.render,
-      status: actions.status,
+      render: sideEffects.render,
+      status: sideEffects.status,
       thread: {
         resumeThread: (threadId) => resume.resumeThread(threadId),
       },
@@ -258,50 +233,22 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       connection,
     },
   );
-  const serverActionControllers = createChatServerActionControllers(
-    {
-      plugin: {
-        applyThreadListSnapshot: (threads) => {
-          ports.plugin.applyThreadListSnapshot(threads);
-        },
-        publishAppServerMetadata: (metadata) => {
-          ports.plugin.publishAppServerMetadata(metadata);
-        },
-        vaultPath: ports.plugin.vaultPath,
-      },
-      state: {
-        stateStore: ports.state.stateStore,
-      },
-      runtime: {
-        runtimeSnapshotForState: ports.runtime.runtimeSnapshotForState,
-      },
-    },
-    {
-      connection,
-      goals,
-    },
-  );
+  const serverActionControllers = createChatServerActionControllers(ports, {
+    connection,
+    goals,
+  });
   const { serverThreads, serverMetadata, serverDiagnostics } = serverActionControllers;
   const serverRequestHost = {
     currentClient: ports.client.getClient,
   };
   const inboundController = createChatInboundController(
     {
-      plugin: {
-        notifyThreadArchived: (threadId) => {
-          ports.plugin.notifyThreadArchived(threadId);
-        },
-        notifyThreadRenamed: (threadId, name) => {
-          ports.plugin.notifyThreadRenamed(threadId, name);
-        },
-      },
-      state: {
-        stateStore: ports.state.stateStore,
-      },
-      render: actions.render,
+      plugin: ports.plugin,
+      state: ports.state,
+      render: sideEffects.render,
       thread: {
-        refreshThreads: actions.thread.refreshThreads,
-        refreshSkills: actions.thread.refreshSkills,
+        refreshThreads,
+        refreshSkills,
         publishAppServerMetadataSnapshot: () => {
           serverMetadata.publishAppServerMetadataSnapshot();
         },
@@ -317,16 +264,11 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
   );
   connectionController = createChatConnectionControllers(
     {
-      plugin: {
-        publishAppServerIdentity: (userAgent) => {
-          ports.plugin.publishAppServerIdentity(userAgent);
-        },
-        settings: ports.plugin.settings,
+      plugin: ports.plugin,
+      state: ports.state,
+      client: {
+        setClient: ports.client.setClient,
       },
-      state: {
-        stateStore: ports.state.stateStore,
-      },
-      client: actions.client,
       lifecycle: lifecycleActions,
       thread: {
         loadSharedThreadList: ports.thread.loadSharedThreadList,
@@ -335,11 +277,9 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
           autoTitle.resetThreadTurnPresence(hadTurns);
         },
       },
-      status: actions.status,
-      liveState: {
-        refresh: ports.liveState.refresh,
-      },
-      render: actions.render,
+      status: sideEffects.status,
+      liveState: ports.liveState,
+      render: sideEffects.render,
     },
     {
       connection,
@@ -352,16 +292,16 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     onNotification: (notification) => {
       inboundController.handleNotification(notification);
       ports.liveState.refresh();
-      actions.render.schedule();
+      sideEffects.render.schedule();
     },
     onServerRequest: (request) => {
       inboundController.handleServerRequest(request);
       ports.liveState.refresh();
-      actions.render.now();
+      sideEffects.render.now();
     },
     onLog: (message) => {
       inboundController.handleAppServerLog(message);
-      actions.render.now();
+      sideEffects.render.now();
     },
     onExit: () => {
       connectionController.handleExit();
@@ -370,54 +310,25 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
 
   const conversationControllers = createConversationSurfaceControllerGroup(
     {
-      obsidian: {
-        app: ports.obsidian.app,
-        owner: ports.obsidian.owner,
-        viewId: ports.obsidian.viewId,
+      ...ports,
+      client: {
+        getClient: ports.client.getClient,
+        ensureConnected,
       },
-      plugin: {
-        openTurnDiff: (state) => ports.plugin.openTurnDiff(state),
-        settings: ports.plugin.settings,
-        vaultPath: ports.plugin.vaultPath,
-      },
-      state: {
-        stateStore: ports.state.stateStore,
-        getState: ports.state.getState,
-      },
-      client: actions.client,
-      render: actions.render,
+      render: sideEffects.render,
       runtime: {
-        runtimeSnapshotForState: ports.runtime.runtimeSnapshotForState,
-        statusSummaryLines: ports.runtime.statusSummaryLines,
-        connectionDiagnosticDetails: ports.runtime.connectionDiagnosticDetails,
-        modelStatusLines: ports.runtime.modelStatusLines,
-        effortStatusLines: ports.runtime.effortStatusLines,
+        ...ports.runtime,
         mcpStatusLines: () => serverDiagnostics.mcpStatusLines(),
       },
       thread: {
-        ensureRestoredThreadLoaded: ports.thread.ensureRestoredThreadLoaded,
-        startNewThread: ports.thread.startNewThread,
-        selectThread: actions.thread.selectThread,
-        notifyIdentityChanged: ports.thread.notifyIdentityChanged,
+        ...ports.thread,
+        selectThread,
         resetTurnPresence: (hadTurns) => {
           autoTitle.resetThreadTurnPresence(hadTurns);
         },
       },
-      status: actions.status,
-      scroll: actions.scroll,
-      lifecycle: {
-        messageScrollIntent: ports.lifecycle.messageScrollIntent,
-      },
-      messageStream: {
-        pendingRequestsSignature: ports.messageStream.pendingRequestsSignature,
-      },
-      composerView: {
-        composerPlaceholder: ports.composerView.composerPlaceholder,
-        composerMetaViewModel: ports.composerView.composerMetaViewModel,
-      },
-      liveState: {
-        refresh: ports.liveState.refresh,
-      },
+      status: sideEffects.status,
+      scroll: ports.scroll,
     },
     {
       controller: inboundController,
@@ -432,40 +343,14 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
   const { pendingRequests, composerSubmit } = conversationControllers;
   const { messageStreamRenderer } = conversationControllers;
   composerController = conversationControllers.composerController;
-  const { scheduleAppServerWarmup, openView, closeView } = createConnectionLifecycleControllerGroup(
+  const lifecycleControllers = createConnectionLifecycleControllerGroup(
     {
-      obsidian: {
-        registerEvent: ports.obsidian.registerEvent,
-        registerPointerDown: ports.obsidian.registerPointerDown,
-      },
-      plugin: {
-        cachedThreadList: () => ports.plugin.cachedThreadList(),
-        cachedAppServerMetadata: () => ports.plugin.cachedAppServerMetadata(),
-      },
+      ...ports,
       client: {
-        clear: actions.client.clear,
-        ensureConnected: actions.client.ensureConnected,
+        clear: ports.client.clear,
       },
-      lifecycle: {
-        deferredTasks: lifecycleActions.deferredTasks,
-        getOpened: lifecycleActions.getOpened,
-        setOpened: lifecycleActions.setOpened,
-        getClosing: lifecycleActions.getClosing,
-        setClosing: lifecycleActions.setClosing,
-        invalidateConnectionWork: lifecycleActions.invalidateConnectionWork,
-        invalidateResumeWork: lifecycleActions.invalidateResumeWork,
-        scheduleDeferredRestoredThreadHydration: lifecycleActions.scheduleDeferredRestoredThreadHydration,
-        scheduleDeferredAppServerWarmup: lifecycleActions.scheduleDeferredAppServerWarmup,
-      },
-      render: {
-        panelRoot: actions.render.panelRoot,
-        closeToolbarPanelOnOutsidePointer: actions.render.closeToolbarPanelOnOutsidePointer,
-        now: actions.render.now,
-      },
-      liveState: {
-        refresh: ports.liveState.refresh,
-        deferRefresh: ports.liveState.deferRefresh,
-      },
+      lifecycle: lifecycleActions,
+      render: sideEffects.render,
     },
     {
       connection,
@@ -481,7 +366,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       manager: connection,
       controller: connectionController,
       reconnect: reconnectActions,
-      scheduleWarmup: scheduleAppServerWarmup,
+      scheduleWarmup,
     },
     inbound: {
       controller: inboundController,
@@ -516,10 +401,10 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       submission: composerSubmit,
     },
     render: {
-      controller: renderController,
+      now: sideEffects.render.now,
       messageStream: messageStreamRenderer,
-      openView,
-      closeView,
+      openView: lifecycleControllers.openView,
+      closeView: lifecycleControllers.closeView,
       applyViewState,
     },
   };
@@ -528,4 +413,46 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
 function requireComposedController<T>(controller: T | null, name: string): T {
   if (!controller) throw new Error(`Chat view controller composition did not initialize ${name}.`);
   return controller;
+}
+
+function createChatCompositionSideEffects(
+  ports: Pick<ChatControllerCompositionPorts, "render" | "state" | "status">,
+  deps: {
+    renderNow: () => void;
+    setComposerText: (text: string) => void;
+  },
+): ChatCompositionSideEffects {
+  const render = {
+    panelRoot: ports.render.panelRoot,
+    closeToolbarPanelOnOutsidePointer: ports.render.closeToolbarPanelOnOutsidePointer,
+    schedule: ports.render.schedule,
+    now: () => {
+      deps.renderNow();
+    },
+  };
+  const status = {
+    set: ports.status.set,
+    addSystemMessage: (text: string) => {
+      ports.state.stateStore.dispatch({ type: "message-stream/system-item-added", item: ports.state.systemItem(text) });
+      render.now();
+    },
+    addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => {
+      ports.state.stateStore.dispatch({
+        type: "message-stream/system-item-added",
+        item: ports.state.structuredSystemItem(text, details),
+      });
+      render.now();
+    },
+  };
+
+  return {
+    render,
+    status,
+    composer: {
+      setText: (text) => {
+        deps.setComposerText(text);
+        render.now();
+      },
+    },
+  };
 }

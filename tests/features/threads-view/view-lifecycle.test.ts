@@ -3,18 +3,18 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  ThreadsViewDeferredTasks,
+  createThreadsViewDeferredTasks,
   transitionThreadsViewConnectionLifecycle,
   transitionThreadsViewRefreshLifecycle,
   type ActiveThreadsViewConnection,
   type ActiveThreadsViewRefresh,
 } from "../../../src/features/threads-view/view-lifecycle";
 
-describe("ThreadsViewDeferredTasks", () => {
+describe("createThreadsViewDeferredTasks", () => {
   it("coalesces render and refresh callbacks", () => {
     vi.useFakeTimers();
     try {
-      const tasks = new ThreadsViewDeferredTasks(() => window);
+      const tasks = createThreadsViewDeferredTasks(() => window);
       const render = vi.fn();
       const refresh = vi.fn();
 
@@ -37,7 +37,7 @@ describe("ThreadsViewDeferredTasks", () => {
   it("clears pending callbacks", () => {
     vi.useFakeTimers();
     try {
-      const tasks = new ThreadsViewDeferredTasks(() => window);
+      const tasks = createThreadsViewDeferredTasks(() => window);
       const render = vi.fn();
       const refresh = vi.fn();
 

@@ -2,49 +2,27 @@ import type { App, Component, EventRef } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
 import type { AppServerClient } from "../../app-server/connection/client";
-import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { ArchiveExportAdapter } from "../thread-export/archive-markdown";
-import type { Thread } from "../../domain/threads/model";
-import type { CodexPanelSettings } from "../../settings/model";
-import type { RuntimeSnapshot } from "./runtime/snapshot";
-import type { ChatState, ChatStateStore } from "./state/reducer";
-import type { ChatTurnDiffViewState } from "./turn-diff/model";
-import type { ChatMessageScrollIntentController } from "./ui/message-stream/scroll-intent-controller";
+import type { ChatStateStore } from "./state/reducer";
+import type { ChatMessageScrollIntentState } from "./ui/message-stream/scroll-intent-state";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
 import type { ComposerMetaViewModel } from "./ui/composer";
+import type { CodexChatHost } from "./chat-host";
 
 export interface ChatControllerCompositionPorts {
   obsidian: ChatPanelObsidianContext;
-  plugin: ChatControllerHostContext;
+  plugin: CodexChatHost;
   state: ChatPanelStateContext;
   client: ChatPanelClientContext;
   lifecycle: ChatPanelLifecycleContext;
   render: ChatPanelRenderContext;
-  messageStream: ChatPanelMessageStreamContext;
-  composerView: ChatPanelComposerContext;
+  surface: ChatPanelSurfaceContext;
   runtime: ChatPanelRuntimeContext;
   thread: ChatThreadContext;
   liveState: ChatPanelLiveStateContext;
   scroll: ChatPanelScrollContext;
   status: ChatPanelStatusContext;
-}
-
-interface ChatControllerHostContext {
-  settings: CodexPanelSettings;
-  vaultPath: string;
-  openThreadInNewView: (threadId: string) => Promise<unknown>;
-  focusThreadInOpenView: (threadId: string) => Promise<boolean>;
-  openTurnDiff: (state: ChatTurnDiffViewState) => Promise<void>;
-  notifyThreadArchived: (threadId: string) => void;
-  notifyThreadRenamed: (threadId: string, name: string | null) => void;
-  refreshThreadsViewLiveState: () => void;
-  refreshSharedThreadListFromOpenSurface: () => void;
-  applyThreadListSnapshot: (threads: readonly Thread[]) => void;
-  publishAppServerMetadata: (metadata: SharedServerMetadata) => void;
-  publishAppServerIdentity: (userAgent: string | null) => void;
-  cachedThreadList: () => readonly Thread[] | null;
-  cachedAppServerMetadata: () => SharedServerMetadata | null;
 }
 
 interface ChatPanelObsidianContext {
@@ -58,7 +36,6 @@ interface ChatPanelObsidianContext {
 
 interface ChatPanelStateContext {
   stateStore: ChatStateStore;
-  getState: () => ChatState;
   systemItem: (text: string) => DisplayItem;
   structuredSystemItem: (text: string, details: DisplayDetailSection[]) => DisplayItem;
 }
@@ -73,17 +50,12 @@ interface ChatPanelLifecycleContext {
   deferredTasks: ChatViewDeferredTasks;
   resumeWork: ChatResumeWorkTracker;
   connectionWork: ChatConnectionWorkTracker;
-  messageScrollIntent: ChatMessageScrollIntentController;
+  messageScrollIntent: ChatMessageScrollIntentState;
   getOpened: () => boolean;
   setOpened: (opened: boolean) => void;
   getClosing: () => boolean;
   setClosing: (closing: boolean) => void;
-  invalidateConnectionWork: () => void;
-  scheduleDeferredDiagnostics: () => void;
-  clearDeferredDiagnostics: () => void;
-  scheduleDeferredRestoredThreadHydration: () => void;
-  clearDeferredRestoredThreadHydration: () => void;
-  scheduleDeferredAppServerWarmup: () => void;
+  refreshDeferredDiagnostics: () => Promise<void>;
 }
 
 interface ChatPanelRenderContext {
@@ -96,17 +68,13 @@ interface ChatPanelRenderContext {
   schedule: () => void;
 }
 
-interface ChatPanelMessageStreamContext {
+interface ChatPanelSurfaceContext {
   pendingRequestsSignature: () => string;
-}
-
-interface ChatPanelComposerContext {
   composerPlaceholder: () => string;
   composerMetaViewModel: () => ComposerMetaViewModel;
 }
 
 interface ChatPanelRuntimeContext {
-  runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   collaborationModeLabel: () => string;
   connectionDiagnosticDetails: () => DisplayDetailSection[];
   modelStatusLines: () => string[];

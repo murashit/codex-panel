@@ -30,15 +30,15 @@ import type {
   AppServerClientHandlers,
   AppServerStartStructuredTurnOptions,
 } from "../../../src/app-server/connection/client";
-import type { AppServerInitialization } from "../../../src/app-server/protocol/initialization";
 import type { RequestId, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
+import type { ServerInitialization } from "../../../src/domain/server/initialization";
 import type { ComposerSendKeyEvent } from "../../../src/shared/ui/keyboard";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
-type InitializeResponse = AppServerInitialization;
+type InitializeResponse = ServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
 type Turn = TurnRecord;

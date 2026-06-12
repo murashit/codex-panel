@@ -1,9 +1,6 @@
-import type { App, Component } from "obsidian";
-
-import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatServerThreadActions } from "../connection/server-actions/threads";
 import { ChatComposerController } from "./composer/controller";
-import { activeTurnId, type ChatState, type ChatStateStore } from "../state/reducer";
+import { activeTurnId } from "../state/reducer";
 import type { ChatReconnectActions } from "../connection/reconnect-actions";
 import { PendingRequestController } from "./pending-requests/controller";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
@@ -11,80 +8,45 @@ import { createComposerSubmitActions } from "./turns/composer-submit-actions";
 import { createPlanImplementation } from "./turns/plan-implementation";
 import { createSlashCommandHandler } from "./turns/slash-command-handler";
 import { TurnSubmissionController } from "./turns/turn-submission-controller";
-import type { ChatThreadActions } from "../threads/actions";
+import type { ChatThreadActions } from "../threads/action-context";
 import type { GoalActions } from "../threads/goal-actions";
 import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
 import { currentModel, runtimeConfigOrDefault } from "../runtime/effective";
-import type { RuntimeSnapshot } from "../runtime/snapshot";
+import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import { MessageStreamRenderer } from "../ui/message-stream/renderer";
+import type { ChatControllerCompositionPorts } from "../composition-ports";
 import type { DisplayDetailSection } from "../display/types";
-import type { ChatMessageScrollIntentController } from "../ui/message-stream/scroll-intent-controller";
-import type { ChatTurnDiffViewState } from "../turn-diff/model";
-import type { ComposerMetaViewModel } from "../ui/composer";
-import type { CodexPanelSettings } from "../../../settings/model";
 
-interface ConversationSurfaceControllerGroupPorts {
-  obsidian: {
-    app: App;
-    owner: Component;
-    viewId: string;
-  };
-  plugin: {
-    openTurnDiff: (state: ChatTurnDiffViewState) => Promise<void>;
-    settings: CodexPanelSettings;
-    vaultPath: string;
-  };
-  state: {
-    stateStore: ChatStateStore;
-    getState: () => ChatState;
-  };
+type ConversationSurfaceControllerGroupPorts = Pick<
+  ChatControllerCompositionPorts,
+  "obsidian" | "plugin" | "state" | "lifecycle" | "surface" | "runtime" | "liveState"
+> & {
   client: {
-    getClient: () => AppServerClient | null;
+    getClient: ChatControllerCompositionPorts["client"]["getClient"];
     ensureConnected: () => Promise<void>;
-  };
-  lifecycle: {
-    messageScrollIntent: ChatMessageScrollIntentController;
   };
   render: {
     now: () => void;
     schedule: () => void;
-  };
-  messageStream: {
-    pendingRequestsSignature: () => string;
-  };
-  composerView: {
-    composerPlaceholder: () => string;
-    composerMetaViewModel: () => ComposerMetaViewModel;
-  };
-  runtime: {
-    runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
-    statusSummaryLines: () => string[];
-    connectionDiagnosticDetails: () => DisplayDetailSection[];
-    mcpStatusLines: () => Promise<string[]>;
-    modelStatusLines: () => string[];
-    effortStatusLines: () => string[];
-  };
-  thread: {
-    ensureRestoredThreadLoaded: () => Promise<boolean>;
-    startNewThread: () => Promise<void>;
-    selectThread: (threadId: string) => Promise<void>;
-    notifyIdentityChanged: () => void;
-    resetTurnPresence: (hadTurns: boolean) => void;
-  };
-  liveState: {
-    refresh: () => void;
   };
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
     addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   };
-  scroll: {
-    forceBottom: () => void;
-    followBottom: () => void;
+  scroll: Pick<ChatControllerCompositionPorts["scroll"], "forceBottom" | "followBottom">;
+  thread: {
+    ensureRestoredThreadLoaded: ChatControllerCompositionPorts["thread"]["ensureRestoredThreadLoaded"];
+    startNewThread: ChatControllerCompositionPorts["thread"]["startNewThread"];
+    selectThread: (threadId: string) => Promise<void>;
+    notifyIdentityChanged: () => void;
+    resetTurnPresence: (hadTurns: boolean) => void;
   };
-}
+  runtime: ChatControllerCompositionPorts["runtime"] & {
+    mcpStatusLines: () => Promise<string[]>;
+  };
+};
 
 export function createConversationSurfaceControllerGroup(
   context: ConversationSurfaceControllerGroupPorts,
@@ -98,7 +60,7 @@ export function createConversationSurfaceControllerGroup(
     history: HistoryController;
   },
 ) {
-  const { plugin, state, render, messageStream, composerView, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
+  const { plugin, state, render, surface, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
   const { app, owner, viewId } = context.obsidian;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
@@ -111,14 +73,14 @@ export function createConversationSurfaceControllerGroup(
     sendShortcut: () => plugin.settings.sendShortcut,
     scrollThreadFromComposerEdges: () => plugin.settings.scrollThreadFromComposerEdges,
     canInterrupt: () => {
-      const current = state.getState();
+      const current = stateStore.getState();
       return current.turn.lifecycle.kind !== "idle" && Boolean(current.activeThread.id && activeTurnId(current));
     },
-    composerPlaceholder: composerView.composerPlaceholder,
-    composerMeta: composerView.composerMetaViewModel,
+    composerPlaceholder: surface.composerPlaceholder,
+    composerMeta: surface.composerMetaViewModel,
     currentModelForSuggestions: () => {
-      const current = state.getState();
-      return currentModel(runtime.runtimeSnapshotForState(current), runtimeConfigOrDefault(current.connection.runtimeConfig));
+      const current = stateStore.getState();
+      return currentModel(runtimeSnapshotForChatState(current), runtimeConfigOrDefault(current.connection.runtimeConfig));
     },
     togglePlan: () => void refs.runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
@@ -128,6 +90,16 @@ export function createConversationSurfaceControllerGroup(
       messageStreamRenderer.repinMessageStreamToBottomIfPinned();
     },
   });
+  const codexInput = (text: string) => composerController.codexInput(text);
+  const setComposerDraft = (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => {
+    composerController.setDraft(text, options);
+  };
+  const startThread = (preview?: string) => refs.serverThreads.startThread(preview);
+  const startThreadForGoal = async (objective: string) => {
+    const response = await refs.serverThreads.startThread(objective, { syncGoal: false });
+    return response?.threadId ?? null;
+  };
+
   const pendingRequests = new PendingRequestController({
     stateStore,
     controller: refs.controller,
@@ -138,93 +110,60 @@ export function createConversationSurfaceControllerGroup(
 
   const turnSubmission = new TurnSubmissionController({
     stateStore,
-    connection: {
-      vaultPath: plugin.vaultPath,
-      currentClient,
-    },
-    restoredThread: {
-      ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
-    },
-    thread: {
-      startThread: (preview) => refs.serverThreads.startThread(preview),
-      notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
-      resetThreadTurnPresence: thread.resetTurnPresence,
-    },
-    runtime: {
-      applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
-    },
-    composer: {
-      codexInput: (text) => composerController.codexInput(text),
-      setDraft: (text, options) => {
-        composerController.setDraft(text, options);
-      },
-    },
-    view: {
-      render: render.now,
-      scheduleRender: render.schedule,
-    },
-    status: {
-      setStatus: status.set,
-      addSystemMessage: status.addSystemMessage,
-    },
+    vaultPath: plugin.vaultPath,
+    currentClient,
+    ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
+    startThread,
+    notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
+    resetThreadTurnPresence: thread.resetTurnPresence,
+    applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
+    codexInput,
+    setDraft: setComposerDraft,
+    render: render.now,
+    scheduleRender: render.schedule,
+    setStatus: status.set,
+    addSystemMessage: status.addSystemMessage,
   });
   const slashCommands = createSlashCommandHandler({
     stateStore,
     currentClient,
-    codexInput: (text) => composerController.codexInput(text),
-    threads: {
-      startNewThread: thread.startNewThread,
-      startThreadForGoal: async (objective) => {
-        const response = await refs.serverThreads.startThread(objective, { syncGoal: false });
-        return response?.threadId ?? null;
-      },
-      resumeThread: thread.selectThread,
-      forkThread: (threadId) => refs.threadActions.forkThread(threadId),
-      rollbackThread: (threadId) => refs.threadActions.rollbackThread(threadId),
-      compactThread: (threadId) => refs.threadActions.compactThread(threadId),
-      archiveThread: (threadId) => refs.threadActions.archiveThread(threadId),
-      renameThread: (threadId, name) => refs.threadActions.renameThread(threadId, name).then(() => undefined),
-      reconnect: () => refs.reconnectActions.reconnectPanel(),
-    },
-    runtime: {
-      toggleFastMode: () => refs.runtimeSettings.toggleFastMode(),
-      toggleCollaborationMode: () => refs.runtimeSettings.toggleCollaborationMode(),
-      toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
-      requestModel: (model) => refs.runtimeSettings.requestModel(model),
-      resetModelToConfig: () => refs.runtimeSettings.resetModelToConfig(),
-      requestReasoningEffort: (effort) => refs.runtimeSettings.requestReasoningEffort(effort),
-      resetReasoningEffortToConfig: () => refs.runtimeSettings.resetReasoningEffortToConfig(),
-    },
-    goals: {
-      activeGoal: () => refs.goals.activeGoal(),
-      setObjective: (threadId, objective, tokenBudget) => refs.goals.setObjective(threadId, objective, tokenBudget),
-      setStatus: (threadId, goalStatus) => refs.goals.setStatus(threadId, goalStatus),
-      clear: (threadId) => refs.goals.clear(threadId),
-    },
-    status: {
-      addSystemMessage: status.addSystemMessage,
-      addStructuredSystemMessage: status.addStructuredSystemMessage,
-      setStatus: status.set,
-      statusSummaryLines: runtime.statusSummaryLines,
-      connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,
-      mcpStatusLines: runtime.mcpStatusLines,
-      modelStatusLines: runtime.modelStatusLines,
-      effortStatusLines: runtime.effortStatusLines,
-    },
+    codexInput,
+    startNewThread: thread.startNewThread,
+    startThreadForGoal,
+    resumeThread: thread.selectThread,
+    forkThread: (threadId) => refs.threadActions.forkThread(threadId),
+    rollbackThread: (threadId) => refs.threadActions.rollbackThread(threadId),
+    compactThread: (threadId) => refs.threadActions.compactThread(threadId),
+    archiveThread: (threadId) => refs.threadActions.archiveThread(threadId),
+    renameThread: (threadId, name) => refs.threadActions.renameThread(threadId, name).then(() => undefined),
+    reconnect: () => refs.reconnectActions.reconnectPanel(),
+    toggleFastMode: () => refs.runtimeSettings.toggleFastMode(),
+    toggleCollaborationMode: () => refs.runtimeSettings.toggleCollaborationMode(),
+    toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
+    requestModel: (model) => refs.runtimeSettings.requestModel(model),
+    resetModelToConfig: () => refs.runtimeSettings.resetModelToConfig(),
+    requestReasoningEffort: (effort) => refs.runtimeSettings.requestReasoningEffort(effort),
+    resetReasoningEffortToConfig: () => refs.runtimeSettings.resetReasoningEffortToConfig(),
+    activeGoal: () => refs.goals.activeGoal(),
+    setGoalObjective: (threadId, objective, tokenBudget) => refs.goals.setObjective(threadId, objective, tokenBudget),
+    setGoalStatus: (threadId, goalStatus) => refs.goals.setStatus(threadId, goalStatus),
+    clearGoal: (threadId) => refs.goals.clear(threadId),
+    addSystemMessage: status.addSystemMessage,
+    addStructuredSystemMessage: status.addStructuredSystemMessage,
+    setStatus: status.set,
+    statusSummaryLines: runtime.statusSummaryLines,
+    connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,
+    mcpStatusLines: runtime.mcpStatusLines,
+    modelStatusLines: runtime.modelStatusLines,
+    effortStatusLines: runtime.effortStatusLines,
   });
   const planImplementation = createPlanImplementation({
     stateStore,
-    connection: {
-      currentClient,
-      ensureConnected: client.ensureConnected,
-    },
-    submission: {
-      sendTurnText: (text) => turnSubmission.sendTurnText(text),
-    },
-    runtime: {
-      requestDefaultCollaborationModeForNextTurn: () => {
-        refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
-      },
+    currentClient,
+    ensureConnected: client.ensureConnected,
+    sendTurnText: (text) => turnSubmission.sendTurnText(text),
+    requestDefaultCollaborationModeForNextTurn: () => {
+      refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
     },
   });
 
@@ -252,7 +191,7 @@ export function createConversationSurfaceControllerGroup(
       openTurnDiff: (state) => void plugin.openTurnDiff(state),
     },
     requests: {
-      pendingSignature: messageStream.pendingRequestsSignature,
+      pendingSignature: surface.pendingRequestsSignature,
       pendingSnapshot: () => pendingRequests.snapshot(),
       pendingActions: () => pendingRequests.actions(),
       consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),

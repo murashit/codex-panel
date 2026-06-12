@@ -31,59 +31,64 @@ export type RestoredThreadLifecycleEvent =
   | { type: "loading-finished"; loading: Promise<void> }
   | { type: "cleared" };
 
-export class ChatViewDeferredTasks {
-  private readonly restoredThreadHydrationTask: DeferredTask;
-  private readonly renderTask: DeferredTask;
-  private readonly diagnosticsTask: DeferredTask;
-  private readonly appServerWarmupTask: DeferredTask;
+export interface ChatViewDeferredTasks {
+  scheduleRender(callback: () => void): void;
+  clearRender(): void;
+  scheduleDiagnostics(callback: () => void): void;
+  clearDiagnostics(): void;
+  scheduleRestoredThreadHydration(callback: () => void): void;
+  clearRestoredThreadHydration(): void;
+  scheduleAppServerWarmup(callback: () => void): void;
+  clearAppServerWarmup(): void;
+  clearAll(): void;
+}
 
-  constructor(getWindow: () => DeferredTaskWindow) {
-    this.renderTask = new DeferredTask(getWindow, 50);
-    this.diagnosticsTask = new DeferredTask(getWindow, 1_000);
-    this.restoredThreadHydrationTask = new DeferredTask(getWindow, 1_500);
-    this.appServerWarmupTask = new DeferredTask(getWindow, 0);
-  }
+export function createChatViewDeferredTasks(getWindow: () => DeferredTaskWindow): ChatViewDeferredTasks {
+  const renderTask = new DeferredTask(getWindow, 50);
+  const diagnosticsTask = new DeferredTask(getWindow, 1_000);
+  const restoredThreadHydrationTask = new DeferredTask(getWindow, 1_500);
+  const appServerWarmupTask = new DeferredTask(getWindow, 0);
 
-  scheduleRender(callback: () => void): void {
-    this.renderTask.schedule(() => {
-      callback();
-    });
-  }
+  return {
+    scheduleRender(callback): void {
+      renderTask.schedule(callback);
+    },
 
-  clearRender(): void {
-    this.renderTask.clear();
-  }
+    clearRender(): void {
+      renderTask.clear();
+    },
 
-  scheduleDiagnostics(callback: () => void): void {
-    this.diagnosticsTask.schedule(callback);
-  }
+    scheduleDiagnostics(callback): void {
+      diagnosticsTask.schedule(callback);
+    },
 
-  clearDiagnostics(): void {
-    this.diagnosticsTask.clear();
-  }
+    clearDiagnostics(): void {
+      diagnosticsTask.clear();
+    },
 
-  scheduleRestoredThreadHydration(callback: () => void): void {
-    this.restoredThreadHydrationTask.schedule(callback);
-  }
+    scheduleRestoredThreadHydration(callback): void {
+      restoredThreadHydrationTask.schedule(callback);
+    },
 
-  clearRestoredThreadHydration(): void {
-    this.restoredThreadHydrationTask.clear();
-  }
+    clearRestoredThreadHydration(): void {
+      restoredThreadHydrationTask.clear();
+    },
 
-  scheduleAppServerWarmup(callback: () => void): void {
-    this.appServerWarmupTask.schedule(callback);
-  }
+    scheduleAppServerWarmup(callback): void {
+      appServerWarmupTask.schedule(callback);
+    },
 
-  clearAppServerWarmup(): void {
-    this.appServerWarmupTask.clear();
-  }
+    clearAppServerWarmup(): void {
+      appServerWarmupTask.clear();
+    },
 
-  clearAll(): void {
-    this.clearRestoredThreadHydration();
-    this.clearAppServerWarmup();
-    this.clearDiagnostics();
-    this.clearRender();
-  }
+    clearAll(): void {
+      restoredThreadHydrationTask.clear();
+      appServerWarmupTask.clear();
+      diagnosticsTask.clear();
+      renderTask.clear();
+    },
+  };
 }
 
 export class ChatConnectionWorkTracker {

@@ -1,11 +1,6 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import type { RuntimeSnapshot } from "../runtime/snapshot";
-import type { ChatState, ChatStateStore } from "../state/reducer";
-import type { SharedServerMetadata } from "../../../domain/server/metadata";
-import type { Thread } from "../../../domain/threads/model";
-import type { CodexPanelSettings } from "../../../settings/model";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "./server-actions/diagnostics";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "./server-actions/metadata";
 import { createChatServerThreadActions } from "./server-actions/threads";
@@ -16,20 +11,10 @@ import type { GoalActions } from "../threads/goal-actions";
 import type { AutoTitleController } from "../threads/auto-title-controller";
 import { ChatInboundController } from "../protocol/inbound/controller";
 import type { ChatConnectionWorkTracker } from "../lifecycle";
+import type { ChatControllerCompositionPorts } from "../composition-ports";
+import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 
-interface ChatServerActionControllerPorts {
-  plugin: {
-    applyThreadListSnapshot: (threads: readonly Thread[]) => void;
-    publishAppServerMetadata: (metadata: SharedServerMetadata) => void;
-    vaultPath: string;
-  };
-  state: {
-    stateStore: ChatStateStore;
-  };
-  runtime: {
-    runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
-  };
-}
+type ChatServerActionControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state">;
 
 export function createChatServerActionControllers(
   context: ChatServerActionControllerPorts,
@@ -38,7 +23,7 @@ export function createChatServerActionControllers(
     goals: GoalActions;
   },
 ) {
-  const { plugin, runtime } = context;
+  const { plugin } = context;
   const { stateStore } = context.state;
   const currentClient = () => refs.connection.currentClient();
   const serverMetadata = createChatServerMetadataActions({
@@ -62,7 +47,7 @@ export function createChatServerActionControllers(
     stateStore,
     vaultPath: plugin.vaultPath,
     currentClient,
-    runtimeSnapshotForState: runtime.runtimeSnapshotForState,
+    runtimeSnapshotForState: runtimeSnapshotForChatState,
     publishThreadList: (threads) => {
       plugin.applyThreadListSnapshot(threads);
     },
@@ -74,14 +59,7 @@ export function createChatServerActionControllers(
   return { serverThreads, serverMetadata, serverDiagnostics };
 }
 
-interface ChatInboundControllerPorts {
-  plugin: {
-    notifyThreadArchived: (threadId: string) => void;
-    notifyThreadRenamed: (threadId: string, name: string | null) => void;
-  };
-  state: {
-    stateStore: ChatStateStore;
-  };
+type ChatInboundControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state"> & {
   render: {
     schedule: () => void;
   };
@@ -90,7 +68,7 @@ interface ChatInboundControllerPorts {
     refreshSkills: (forceReload?: boolean) => Promise<void>;
     publishAppServerMetadataSnapshot: () => void;
   };
-}
+};
 
 export function createChatInboundController(
   context: ChatInboundControllerPorts,
@@ -127,14 +105,7 @@ export function createChatInboundController(
   });
 }
 
-interface ChatConnectionControllerPorts {
-  plugin: {
-    publishAppServerIdentity: (userAgent: string | null) => void;
-    settings: CodexPanelSettings;
-  };
-  state: {
-    stateStore: ChatStateStore;
-  };
+type ChatConnectionControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state" | "liveState"> & {
   client: {
     setClient: (client: ReturnType<ConnectionManager["currentClient"]>) => void;
   };
@@ -153,14 +124,11 @@ interface ChatConnectionControllerPorts {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
   };
-  liveState: {
-    refresh: () => void;
-  };
   render: {
     now: () => void;
     schedule: () => void;
   };
-}
+};
 
 export function createChatConnectionControllers(
   context: ChatConnectionControllerPorts,
@@ -194,7 +162,9 @@ export function createChatConnectionControllers(
       resetThreadTurnPresence: thread.resetTurnPresence,
       setStatus: status.set,
       addSystemMessage: status.addSystemMessage,
-      publishAppServerIdentity: plugin.publishAppServerIdentity,
+      publishAppServerIdentity: (userAgent) => {
+        plugin.publishAppServerIdentity(userAgent);
+      },
       configuredCommand: () => plugin.settings.codexPath,
       refreshLiveState: liveState.refresh,
       render: render.now,
@@ -206,10 +176,7 @@ export function createChatConnectionControllers(
   };
 }
 
-interface ChatReconnectControllerGroupPorts {
-  state: {
-    stateStore: ChatStateStore;
-  };
+type ChatReconnectControllerGroupPorts = Pick<ChatControllerCompositionPorts, "state"> & {
   client: {
     clear: () => void;
     ensureConnected: () => Promise<void>;
@@ -229,7 +196,7 @@ interface ChatReconnectControllerGroupPorts {
   thread: {
     resumeThread: (threadId: string) => Promise<void>;
   };
-}
+};
 
 export function createChatReconnectControllerGroup(
   context: ChatReconnectControllerGroupPorts,

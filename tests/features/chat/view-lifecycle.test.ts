@@ -5,20 +5,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
-  ChatViewDeferredTasks,
+  createChatViewDeferredTasks,
   transitionChatConnectionLifecycle,
   transitionChatResumeLifecycle,
   transitionRestoredThreadLifecycle,
   type ActiveChatConnection,
 } from "../../../src/features/chat/lifecycle";
 
-describe("ChatViewDeferredTasks", () => {
+describe("createChatViewDeferredTasks", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
 
   it("coalesces scheduled renders", async () => {
-    const tasks = new ChatViewDeferredTasks(() => window);
+    const tasks = createChatViewDeferredTasks(() => window);
     const render = vi.fn();
 
     tasks.scheduleRender(render);
@@ -30,7 +30,7 @@ describe("ChatViewDeferredTasks", () => {
   });
 
   it("clears scheduled deferred work", async () => {
-    const tasks = new ChatViewDeferredTasks(() => window);
+    const tasks = createChatViewDeferredTasks(() => window);
     const render = vi.fn();
     const diagnostics = vi.fn();
     const hydration = vi.fn();

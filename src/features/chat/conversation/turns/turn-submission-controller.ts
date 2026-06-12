@@ -11,49 +11,21 @@ import {
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
 
-export interface TurnSubmissionConnectionPort {
+export interface TurnSubmissionControllerHost {
+  stateStore: ChatStateStore;
   vaultPath: string;
   currentClient: () => AppServerClient | null;
-}
-
-export interface TurnSubmissionRestoredThreadPort {
   ensureRestoredThreadLoaded: () => Promise<boolean>;
-}
-
-export interface TurnSubmissionThreadPort {
   startThread: (preview?: string) => Promise<unknown>;
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
-}
-
-export interface TurnSubmissionRuntimePort {
   applyPendingThreadSettings: () => Promise<boolean>;
-}
-
-export interface TurnSubmissionComposerPort {
   codexInput: (text: string) => CodexInput;
   setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
-}
-
-export interface TurnSubmissionViewPort {
   render: () => void;
   scheduleRender: () => void;
-}
-
-export interface TurnSubmissionStatusPort {
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
-}
-
-export interface TurnSubmissionControllerHost {
-  stateStore: ChatStateStore;
-  connection: TurnSubmissionConnectionPort;
-  restoredThread: TurnSubmissionRestoredThreadPort;
-  thread: TurnSubmissionThreadPort;
-  runtime: TurnSubmissionRuntimePort;
-  composer: TurnSubmissionComposerPort;
-  view: TurnSubmissionViewPort;
-  status: TurnSubmissionStatusPort;
 }
 
 export class TurnSubmissionController {
@@ -62,8 +34,8 @@ export class TurnSubmissionController {
   constructor(private readonly host: TurnSubmissionControllerHost) {}
 
   async sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadDisplay): Promise<void> {
-    if (!(await this.host.restoredThread.ensureRestoredThreadLoaded())) return;
-    const client = this.host.connection.currentClient();
+    if (!(await this.host.ensureRestoredThreadLoaded())) return;
+    const client = this.host.currentClient();
     if (!client) return;
 
     const initialState = submissionStateSnapshot(this.host.stateStore.getState());
@@ -75,16 +47,16 @@ export class TurnSubmissionController {
     let optimisticUserId: string | null = null;
     try {
       if (!initialState.activeThreadId) {
-        const threadResponse = await this.host.thread.startThread(text);
+        const threadResponse = await this.host.startThread(text);
         if (!threadResponse) return;
-        this.host.thread.notifyActiveThreadIdentityChanged();
-        this.host.thread.resetThreadTurnPresence(false);
+        this.host.notifyActiveThreadIdentityChanged();
+        this.host.resetThreadTurnPresence(false);
       }
       const activeThreadId = submissionStateSnapshot(this.host.stateStore.getState()).activeThreadId;
       if (!activeThreadId) return;
-      if (!(await this.host.runtime.applyPendingThreadSettings())) return;
+      if (!(await this.host.applyPendingThreadSettings())) return;
 
-      const codexInput = codexInputOverride ?? this.host.composer.codexInput(text);
+      const codexInput = codexInputOverride ?? this.host.codexInput(text);
       optimisticUserId = TurnSubmissionController.nextLocalItemId("local-user");
       const optimistic = optimisticTurnStart({
         id: optimisticUserId,
@@ -97,12 +69,12 @@ export class TurnSubmissionController {
         item: optimistic.item,
         pendingTurnStart: optimistic.pendingTurnStart,
       });
-      this.host.composer.setDraft("");
-      this.host.view.render();
+      this.host.setDraft("");
+      this.host.render();
 
       const response = await client.startTurn({
         threadId: activeThreadId,
-        cwd: this.host.connection.vaultPath,
+        cwd: this.host.vaultPath,
         input: codexInput,
         clientUserMessageId: optimisticUserId,
       });
@@ -125,7 +97,7 @@ export class TurnSubmissionController {
           pendingTurnStart: pendingStart,
         });
         this.host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
-        this.host.status.setStatus("Turn running...");
+        this.host.setStatus("Turn running...");
       }
     } catch (error) {
       const failedState = submissionStateSnapshot(this.host.stateStore.getState());
@@ -136,11 +108,11 @@ export class TurnSubmissionController {
           pendingTurnStart: failedState.pendingTurnStart,
         });
         this.host.stateStore.dispatch({ type: "turn/start-failed", displayItems });
-        this.host.composer.setDraft(text);
-        this.host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+        this.host.setDraft(text);
+        this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
       }
     }
-    this.host.view.scheduleRender();
+    this.host.scheduleRender();
   }
 
   private async steerCurrentTurn(
@@ -153,13 +125,13 @@ export class TurnSubmissionController {
     const threadId = state.activeThreadId;
     const expectedTurnId = state.activeTurnId;
     if (!threadId || !expectedTurnId) {
-      this.host.status.addSystemMessage("Current turn is not steerable yet.");
+      this.host.addSystemMessage("Current turn is not steerable yet.");
       return;
     }
 
-    const codexInput = codexInputOverride ?? this.host.composer.codexInput(text);
+    const codexInput = codexInputOverride ?? this.host.codexInput(text);
     const localSteerId = TurnSubmissionController.nextLocalItemId("local-steer");
-    this.host.composer.setDraft("", { clearSuggestions: true });
+    this.host.setDraft("", { clearSuggestions: true });
 
     try {
       await client.steerTurn(threadId, expectedTurnId, codexInput, localSteerId);
@@ -174,14 +146,14 @@ export class TurnSubmissionController {
           codexInput,
         }),
       });
-      this.host.status.setStatus("Steered current turn.");
+      this.host.setStatus("Steered current turn.");
     } catch (error) {
       if (!this.isCurrentTurn(threadId, expectedTurnId)) return;
-      this.host.composer.setDraft(text, { focus: true });
-      this.host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+      this.host.setDraft(text, { focus: true });
+      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
 
-    this.host.view.scheduleRender();
+    this.host.scheduleRender();
   }
 
   private isCurrentTurn(threadId: string, turnId: string): boolean {

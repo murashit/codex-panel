@@ -12,7 +12,7 @@ import type { Thread } from "../src/domain/threads/model";
 import type { SharedAppServerCache } from "../src/app-server/services/shared-cache";
 import type { SharedAppServerCacheContext } from "../src/app-server/services/shared-cache-state";
 import type { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
-import type { ThreadSurfaceCoordinator } from "../src/workspace/thread-surface-coordinator";
+import type { ThreadSurfaceActions } from "../src/workspace/thread-surface-actions";
 import { installObsidianDomShims } from "./support/dom";
 
 installObsidianDomShims();
@@ -21,8 +21,8 @@ function panels(plugin: CodexPanelPlugin): WorkspacePanelCoordinator {
   return (plugin as unknown as { panels: WorkspacePanelCoordinator }).panels;
 }
 
-function threadSurfaces(plugin: CodexPanelPlugin): ThreadSurfaceCoordinator {
-  return (plugin as unknown as { threadSurfaces: ThreadSurfaceCoordinator }).threadSurfaces;
+function threadSurfaces(plugin: CodexPanelPlugin): ThreadSurfaceActions {
+  return (plugin as unknown as { threadSurfaces: ThreadSurfaceActions }).threadSurfaces;
 }
 
 function sharedAppServerCache(plugin: CodexPanelPlugin): SharedAppServerCache {

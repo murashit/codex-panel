@@ -1,37 +1,28 @@
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import type { AppServerClient } from "../../../app-server/connection/client";
 import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
-import type { ArchiveExportAdapter } from "../../thread-export/archive-markdown";
-import { createChatThreadActions } from "./actions";
+import { archiveThread } from "./archive-actions";
 import { AutoTitleController } from "./auto-title-controller";
+import { compactThread } from "./compact-actions";
+import { forkThread, forkThreadFromTurn } from "./fork-actions";
 import { createGoalActions } from "./goal-actions";
 import { HistoryController } from "./history-controller";
 import { createIdentitySync } from "./identity-sync";
 import { RenameController } from "./rename-controller";
+import { renameThread } from "./rename-actions";
 import { ResumeController } from "./resume-controller";
+import { rollbackThread } from "./rollback-actions";
 import { createSelectionActions } from "./selection-actions";
 import { RestorationController } from "./restoration-controller";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatThreadActions, ChatThreadActionsHost } from "./action-context";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
-import type { CodexPanelSettings } from "../../../settings/model";
+import type { ChatControllerCompositionPorts } from "../composition-ports";
 
-interface ThreadControllerGroupPorts {
-  obsidian: {
-    archiveAdapter: () => ArchiveExportAdapter;
-  };
-  plugin: {
-    notifyThreadArchived: (threadId: string) => void;
-    notifyThreadRenamed: (threadId: string, name: string | null) => void;
-    openThreadInNewView: (threadId: string) => Promise<unknown>;
-    refreshSharedThreadListFromOpenSurface: () => void;
-    settings: CodexPanelSettings;
-    vaultPath: string;
-  };
-  state: {
-    stateStore: ChatStateStore;
-  };
+type ThreadControllerGroupPorts = Pick<
+  ChatControllerCompositionPorts,
+  "obsidian" | "plugin" | "state" | "lifecycle" | "thread" | "liveState"
+> & {
   client: {
-    getClient: () => AppServerClient | null;
+    getClient: ChatControllerCompositionPorts["client"]["getClient"];
     ensureConnected: () => Promise<void>;
   };
   lifecycle: {
@@ -39,7 +30,6 @@ interface ThreadControllerGroupPorts {
     resumeWork: ChatResumeWorkTracker;
     getOpened: () => boolean;
     getClosing: () => boolean;
-    clearDeferredRestoredThreadHydration: () => void;
   };
   thread: {
     selectThread: (threadId: string) => Promise<void>;
@@ -51,20 +41,14 @@ interface ThreadControllerGroupPorts {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
   };
-  liveState: {
-    refresh: () => void;
-  };
-  scroll: {
-    preservePosition: () => void;
-    forceBottom: () => void;
-  };
+  scroll: Pick<ChatControllerCompositionPorts["scroll"], "preservePosition" | "forceBottom">;
   render: {
     now: () => void;
   };
   composer: {
     setText: (text: string) => void;
   };
-}
+};
 
 export function createThreadControllerGroup(
   context: ThreadControllerGroupPorts,
@@ -111,7 +95,7 @@ export function createThreadControllerGroup(
     resumeWork.invalidate();
     history.invalidate();
   };
-  const actions = createChatThreadActions({
+  const threadActionHost: ChatThreadActionsHost = {
     stateStore,
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
@@ -133,7 +117,15 @@ export function createThreadControllerGroup(
     refreshSharedThreadListFromOpenSurface: () => {
       plugin.refreshSharedThreadListFromOpenSurface();
     },
-  });
+  };
+  const actions: ChatThreadActions = {
+    compactThread: (threadId) => compactThread(threadActionHost, threadId),
+    archiveThread: (threadId, saveMarkdown) => archiveThread(threadActionHost, threadId, saveMarkdown),
+    forkThread: (threadId) => forkThread(threadActionHost, threadId),
+    forkThreadFromTurn: (threadId, turnId, archiveSource) => forkThreadFromTurn(threadActionHost, threadId, turnId, archiveSource),
+    renameThread: (threadId, name) => renameThread(threadActionHost, threadId, name),
+    rollbackThread: (threadId) => rollbackThread(threadActionHost, threadId),
+  };
   const goals = createGoalActions({
     stateStore,
     currentClient,
@@ -165,7 +157,9 @@ export function createThreadControllerGroup(
     ensureConnected: client.ensureConnected,
     closing: lifecycle.getClosing,
     resetThreadTurnPresence,
-    clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
+    clearDeferredRestoredThreadHydration: () => {
+      restoration.clearHydration();
+    },
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     addSystemMessage: status.addSystemMessage,
     render: render.now,
@@ -181,7 +175,9 @@ export function createThreadControllerGroup(
     stateStore,
     restoration,
     invalidateResumeWork,
-    clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
+    clearDeferredRestoredThreadHydration: () => {
+      restoration.clearHydration();
+    },
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     refreshTabHeader: thread.refreshTabHeader,
@@ -207,20 +203,14 @@ function requireThreadController<T>(controller: T | null, name: string): T {
   return controller;
 }
 
-interface ThreadSelectionActionGroupPorts {
-  plugin: {
-    focusThreadInOpenView: (threadId: string) => Promise<boolean>;
-  };
-  state: {
-    stateStore: ChatStateStore;
-  };
+type ThreadSelectionActionGroupPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state"> & {
   status: {
     addSystemMessage: (text: string) => void;
   };
   thread: {
     resumeThread: (threadId: string) => Promise<void>;
   };
-}
+};
 
 export function createThreadSelectionActionGroup(
   context: ThreadSelectionActionGroupPorts,

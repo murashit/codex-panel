@@ -1,12 +1,16 @@
+import type { ComponentChild as UiNode } from "preact";
+import { h } from "preact";
+import { useEffect, useState } from "preact/hooks";
+
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import type { ChatThreadActions } from "../../threads/actions";
+import type { ChatThreadActions } from "../../threads/action-context";
 import { runtimeConfigSections, rateLimitSummary } from "../../display/status/runtime";
 import { connectionDiagnosticSections } from "../../display/status/diagnostics";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import type { ChatAction, ChatState, ChatStateStore } from "../../state/reducer";
-import type { ChatPanelShellState } from "../../ui/shell";
-import type { ToolbarThreadRow, ToolbarViewModel } from "../../ui/toolbar";
+import { useChatPanelShellState, type ChatPanelShellState } from "../../ui/shell";
+import { toolbarNode, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
 import type { ChatPanelToolbarPorts } from "./ports";
 
 export interface ToolbarViewModelInput {
@@ -27,7 +31,7 @@ export interface ConnectionDiagnosticsModelInput {
   configuredCommand: string;
 }
 
-export interface ToolbarPanelControllerHost {
+export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
   threadActions: ChatThreadActions;
   archiveConfirm: ToolbarArchiveConfirmState;
@@ -40,7 +44,20 @@ export interface ToolbarArchiveConfirmState {
   subscribe: (listener: () => void) => () => void;
 }
 
-export interface ToolbarOutsidePointerContext {
+export interface ToolbarPanelActions {
+  archiveConfirmId(): string | null;
+  onArchiveConfirmChange(listener: () => void): () => void;
+  toggleHistory(): void;
+  toggleChatActions(): void;
+  closeToolbarPanels(): void;
+  toggleStatus(): void;
+  closeForThreadSelection(): void;
+  startArchive(threadId: string): void;
+  archiveThread(threadId: string, saveMarkdown: boolean): Promise<void>;
+  closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void;
+}
+
+interface ToolbarOutsidePointerContext {
   target: EventTarget | null;
   viewWindow: ToolbarDomWindow | null;
   contains: (element: Element) => boolean;
@@ -49,7 +66,7 @@ export interface ToolbarOutsidePointerContext {
 
 type ToolbarDomWindow = Window & { Element: typeof Element };
 
-export function chatPanelToolbarViewModel(ports: ChatPanelToolbarPorts, shellState: ChatPanelShellState) {
+function chatPanelToolbarViewModel(ports: ChatPanelToolbarPorts, shellState: ChatPanelShellState) {
   const latestState = shellState.latestState();
   return toolbarViewModel({
     state: {
@@ -70,6 +87,40 @@ export function chatPanelToolbarViewModel(ports: ChatPanelToolbarPorts, shellSta
     archiveExportEnabled: ports.settings.archiveExportEnabled(),
     renameState: (threadId) => ports.view.toolbar.renameState(threadId),
   });
+}
+
+export function chatPanelToolbarRegionNode(ports: ChatPanelToolbarPorts): UiNode {
+  return h(ToolbarRegion, { ports });
+}
+
+function ToolbarRegion({ ports }: { ports: ChatPanelToolbarPorts }): UiNode {
+  const shellState = useChatPanelShellState();
+  useToolbarArchiveConfirmSubscription(ports);
+  useToolbarRenameSubscription(ports);
+  void shellState.renderVersion.value;
+  return toolbarNode(chatPanelToolbarViewModel(ports, shellState), ports.actions.toolbar);
+}
+
+function useToolbarArchiveConfirmSubscription(ports: ChatPanelToolbarPorts): void {
+  const [, setVersion] = useState(0);
+  useEffect(
+    () =>
+      ports.view.toolbar.archiveConfirmSubscribe(() => {
+        setVersion((version) => version + 1);
+      }),
+    [ports],
+  );
+}
+
+function useToolbarRenameSubscription(ports: ChatPanelToolbarPorts): void {
+  const [, setVersion] = useState(0);
+  useEffect(
+    () =>
+      ports.view.toolbar.renameSubscribe(() => {
+        setVersion((version) => version + 1);
+      }),
+    [ports],
+  );
 }
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
@@ -137,92 +188,85 @@ export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInpu
   });
 }
 
-export class ToolbarPanelController {
-  constructor(private readonly host: ToolbarPanelControllerHost) {}
+export function createToolbarPanelActions(host: ToolbarPanelActionsHost): ToolbarPanelActions {
+  const state = (): ChatState => host.stateStore.getState();
+  const dispatch = (action: ChatAction): void => {
+    host.stateStore.dispatch(action);
+  };
+  const hasOpenPanel = (): boolean => state().ui.toolbarPanel !== null;
+  const close = (): void => {
+    if (!hasOpenPanel()) return;
 
-  private get state(): ChatState {
-    return this.host.stateStore.getState();
-  }
+    dispatch({ type: "ui/panel-set", panel: null });
+    host.archiveConfirm.set(null);
+    host.scheduleRender();
+  };
 
-  private dispatch(action: ChatAction): void {
-    this.host.stateStore.dispatch(action);
-  }
+  return {
+    archiveConfirmId(): string | null {
+      return host.archiveConfirm.get();
+    },
 
-  archiveConfirmId(): string | null {
-    return this.host.archiveConfirm.get();
-  }
+    onArchiveConfirmChange(listener: () => void): () => void {
+      return host.archiveConfirm.subscribe(listener);
+    },
 
-  onArchiveConfirmChange(listener: () => void): () => void {
-    return this.host.archiveConfirm.subscribe(listener);
-  }
+    toggleHistory(): void {
+      dispatch({ type: "ui/panel-set", panel: "history", toggle: true });
+      host.scheduleRender();
+    },
 
-  toggleHistory(): void {
-    this.dispatch({ type: "ui/panel-set", panel: "history", toggle: true });
-    this.host.scheduleRender();
-  }
+    toggleChatActions(): void {
+      dispatch({ type: "ui/panel-set", panel: "chat-actions", toggle: true });
+      host.scheduleRender();
+    },
 
-  toggleChatActions(): void {
-    this.dispatch({ type: "ui/panel-set", panel: "chat-actions", toggle: true });
-    this.host.scheduleRender();
-  }
+    closeToolbarPanels(): void {
+      close();
+    },
 
-  closeToolbarPanels(): void {
-    this.close();
-  }
+    toggleStatus(): void {
+      dispatch({ type: "ui/panel-set", panel: "status-panel", toggle: true });
+      host.scheduleRender();
+    },
 
-  toggleStatus(): void {
-    this.dispatch({ type: "ui/panel-set", panel: "status-panel", toggle: true });
-    this.host.scheduleRender();
-  }
+    closeForThreadSelection(): void {
+      host.archiveConfirm.set(null);
+    },
 
-  closeForThreadSelection(): void {
-    this.host.archiveConfirm.set(null);
-  }
+    startArchive(threadId: string): void {
+      host.archiveConfirm.set(threadId);
+    },
 
-  startArchive(threadId: string): void {
-    this.host.archiveConfirm.set(threadId);
-  }
+    async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
+      if (host.archiveConfirm.get() === threadId) host.archiveConfirm.set(null);
+      await host.threadActions.archiveThread(threadId, saveMarkdown);
+      host.scheduleRender();
+    },
 
-  async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
-    if (this.host.archiveConfirm.get() === threadId) this.host.archiveConfirm.set(null);
-    await this.host.threadActions.archiveThread(threadId, saveMarkdown);
-    this.host.scheduleRender();
-  }
+    closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void {
+      if (!hasOpenPanel()) return;
 
-  closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void {
-    if (!this.hasOpenPanel()) return;
-
-    const target = context.target;
-    if (isToolbarElement(target, context.viewWindow)) {
-      const insideToolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
-      if (insideToolbarPanel && context.contains(insideToolbarPanel)) {
-        if (this.host.archiveConfirm.get() && !target.closest(".codex-panel__archive-confirm")) {
-          this.host.archiveConfirm.set(null);
+      const target = context.target;
+      if (isToolbarElement(target, context.viewWindow)) {
+        const insideToolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
+        if (insideToolbarPanel && context.contains(insideToolbarPanel)) {
+          if (host.archiveConfirm.get() && !target.closest(".codex-panel__archive-confirm")) {
+            host.archiveConfirm.set(null);
+          }
+          return;
         }
-        return;
       }
-    }
 
-    if (this.host.archiveConfirm.get()) {
-      this.host.archiveConfirm.set(null);
-    }
+      if (host.archiveConfirm.get()) {
+        host.archiveConfirm.set(null);
+      }
 
-    if (context.renameEditing) return;
+      if (context.renameEditing) return;
 
-    this.close();
-  }
-
-  private hasOpenPanel(): boolean {
-    return this.state.ui.toolbarPanel !== null;
-  }
-
-  private close(): void {
-    if (!this.hasOpenPanel()) return;
-
-    this.dispatch({ type: "ui/panel-set", panel: null });
-    this.host.archiveConfirm.set(null);
-    this.host.scheduleRender();
-  }
+      close();
+    },
+  };
 }
 
 function isToolbarElement(target: EventTarget | null, viewWindow: ToolbarDomWindow | null): target is Element {

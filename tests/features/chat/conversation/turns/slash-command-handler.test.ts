@@ -6,10 +6,6 @@ import { createChatState, createChatStateStore } from "../../../../../src/featur
 import {
   createSlashCommandHandler,
   type SlashCommandHandlerHost,
-  type SlashCommandGoalPort,
-  type SlashCommandRuntimePort,
-  type SlashCommandStatusPort,
-  type SlashCommandThreadPort,
 } from "../../../../../src/features/chat/conversation/turns/slash-command-handler";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
@@ -26,26 +22,17 @@ function thread(id: string, name: string | null = null): Thread {
   };
 }
 
-interface SlashCommandHostOverrides extends Partial<Omit<SlashCommandHandlerHost, "threads" | "runtime" | "goals" | "status">> {
-  threads?: Partial<SlashCommandThreadPort>;
-  runtime?: Partial<SlashCommandRuntimePort>;
-  goals?: Partial<SlashCommandGoalPort>;
-  status?: Partial<SlashCommandStatusPort>;
-}
+type SlashCommandHostOverrides = Partial<SlashCommandHandlerHost>;
 
 function createHost(overrides: SlashCommandHostOverrides = {}) {
-  const {
-    threads: threadOverrides,
-    runtime: runtimeOverrides,
-    goals: goalOverrides,
-    status: statusOverrides,
-    ...hostOverrides
-  } = overrides;
   const stateStore = createChatStateStore(createChatState());
   const threadTurnsList = vi.fn().mockResolvedValue({ data: [] });
   const client = { threadTurnsList } as unknown as AppServerClient;
   const compactThread = vi.fn().mockResolvedValue(undefined);
-  const threads: SlashCommandThreadPort = {
+  const host: SlashCommandHandlerHost = {
+    stateStore,
+    currentClient: () => client,
+    codexInput: vi.fn((text: string) => textInput(text)),
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
@@ -55,9 +42,6 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     archiveThread: vi.fn().mockResolvedValue(undefined),
     renameThread: vi.fn().mockResolvedValue(undefined),
     reconnect: vi.fn().mockResolvedValue(undefined),
-    ...threadOverrides,
-  };
-  const runtime: SlashCommandRuntimePort = {
     toggleFastMode: vi.fn(),
     toggleCollaborationMode: vi.fn(),
     toggleAutoReview: vi.fn(),
@@ -65,9 +49,10 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     resetModelToConfig: vi.fn(),
     requestReasoningEffort: vi.fn(),
     resetReasoningEffortToConfig: vi.fn(),
-    ...runtimeOverrides,
-  };
-  const status: SlashCommandStatusPort = {
+    activeGoal: vi.fn(() => stateStore.getState().activeThread.goal),
+    setGoalObjective: vi.fn().mockResolvedValue(true),
+    setGoalStatus: vi.fn().mockResolvedValue(true),
+    clearGoal: vi.fn().mockResolvedValue(true),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
     setStatus: vi.fn(),
@@ -76,24 +61,7 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     mcpStatusLines: vi.fn().mockResolvedValue([]),
     modelStatusLines: () => [],
     effortStatusLines: () => [],
-    ...statusOverrides,
-  };
-  const goals: SlashCommandGoalPort = {
-    activeGoal: vi.fn(() => stateStore.getState().activeThread.goal),
-    setObjective: vi.fn().mockResolvedValue(true),
-    setStatus: vi.fn().mockResolvedValue(true),
-    clear: vi.fn().mockResolvedValue(true),
-    ...goalOverrides,
-  };
-  const host: SlashCommandHandlerHost = {
-    stateStore,
-    currentClient: () => client,
-    codexInput: vi.fn((text: string) => textInput(text)),
-    threads,
-    runtime,
-    goals,
-    status,
-    ...hostOverrides,
+    ...overrides,
   };
   return { compactThread, host, stateStore, threadTurnsList };
 }
@@ -105,7 +73,7 @@ describe("createSlashCommandHandler", () => {
 
     const result = await controller.execute("clear", "");
 
-    expect(host.threads.startNewThread).toHaveBeenCalledOnce();
+    expect(host.startNewThread).toHaveBeenCalledOnce();
     expect(result).toBeUndefined();
   });
 
@@ -159,8 +127,8 @@ describe("createSlashCommandHandler", () => {
 
     await controller.execute("goal", "set Ship this");
 
-    expect(host.threads.startThreadForGoal).toHaveBeenCalledWith("Ship this");
-    expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
+    expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this");
+    expect(host.setGoalObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
   });
 
   it("runs reconnect even when there is no current app-server client", async () => {
@@ -169,7 +137,7 @@ describe("createSlashCommandHandler", () => {
 
     await controller.execute("reconnect", "");
 
-    expect(host.threads.reconnect).toHaveBeenCalledOnce();
+    expect(host.reconnect).toHaveBeenCalledOnce();
   });
 
   it("reports unreadable referenced threads", async () => {
@@ -184,6 +152,6 @@ describe("createSlashCommandHandler", () => {
 
     expect(threadTurnsList).toHaveBeenCalledWith("other", null, 20);
     expect(result).toBeUndefined();
-    expect(host.status.addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable conversation turns.");
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable conversation turns.");
   });
 });

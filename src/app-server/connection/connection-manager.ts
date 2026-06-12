@@ -1,7 +1,8 @@
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
+import type { ServerInitialization } from "../../domain/server/initialization";
 import { AppServerClient, type AppServerClientHandlers } from "./client";
-import { appServerInitializationFromResponse, type AppServerInitialization } from "../protocol/initialization";
+import { appServerInitializationFromResponse } from "../protocol/initialization";
 
 export interface ConnectionManagerHandlers {
   onNotification: (notification: ServerNotification) => void;
@@ -14,7 +15,7 @@ export type AppServerClientFactory = (codexPath: string, cwd: string, handlers: 
 
 type ConnectionLifecycleState =
   | { kind: "idle"; generation: number }
-  | { kind: "connecting"; generation: number; client: AppServerClient; promise: Promise<AppServerInitialization> }
+  | { kind: "connecting"; generation: number; client: AppServerClient; promise: Promise<ServerInitialization> }
   | { kind: "connected"; generation: number; client: AppServerClient }
   | { kind: "disconnected"; generation: number };
 
@@ -47,7 +48,7 @@ export class ConnectionManager {
     return Boolean(this.currentClient());
   }
 
-  async connect(): Promise<AppServerInitialization> {
+  async connect(): Promise<ServerInitialization> {
     const currentClient = this.currentClient();
     if (currentClient) {
       return appServerInitializationFromResponse(currentClient.initializeResponse);

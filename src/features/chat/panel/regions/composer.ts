@@ -1,3 +1,6 @@
+import type { ComponentChild as UiNode } from "preact";
+import { h } from "preact";
+
 import {
   autoReviewActive,
   currentModel,
@@ -18,6 +21,7 @@ import type {
   ComposerMetaViewModel,
   RuntimeChoice,
 } from "../../ui/composer";
+import { useChatPanelShellState } from "../../ui/shell";
 import { explicitThreadName } from "../../../../domain/threads/model";
 import type { ChatPanelComposerPorts, RestoredThreadTitleSnapshot } from "./ports";
 
@@ -31,6 +35,23 @@ export interface RuntimeComposerChoicesInput {
 
 export function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
+}
+
+export function chatPanelComposerRegionNode(node: () => UiNode): UiNode {
+  return h(ComposerRegion, { node });
+}
+
+function ComposerRegion({ node }: { node: () => UiNode }): UiNode {
+  const { connection, threadList, activeThread, runtime, turn, messageStream, composer, renderVersion } = useChatPanelShellState();
+  void connection.value;
+  void threadList.value;
+  void activeThread.value;
+  void runtime.value;
+  void turn.value;
+  void messageStream.value;
+  void composer.value;
+  void renderVersion.value;
+  return node();
 }
 
 export function chatPanelComposerPlaceholder(ports: ChatPanelComposerPorts): string {

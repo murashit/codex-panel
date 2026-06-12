@@ -1,67 +1,49 @@
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import type { ComponentChild as UiNode } from "preact";
-import type { ChatStateStore } from "../state/reducer";
-import type { CodexPanelSettings } from "../../../settings/model";
+import type { SharedServerMetadata } from "../../../domain/server/metadata";
+import type { Thread } from "../../../domain/threads/model";
 import type { ChatServerMetadataActions } from "../connection/server-actions/metadata";
 import type { ChatServerThreadActions } from "../connection/server-actions/threads";
 import type { ChatComposerController } from "../conversation/composer/controller";
-import type { ChatThreadActions } from "../threads/actions";
-import { scheduleAppServerWarmup } from "../connection/app-server-warmup";
+import type { ChatThreadActions } from "../threads/action-context";
 import { closeChatView, openChatView, type ChatViewLifecycleHost } from "./view-lifecycle";
-import { createToolbarArchiveConfirmState, ToolbarPanelController } from "./regions/toolbar";
-import { ChatViewRenderController } from "./view-render-controller";
+import { createToolbarArchiveConfirmState, createToolbarPanelActions } from "./regions/toolbar";
 import { applyChatViewState } from "./view-state";
 import type { MessageStreamRenderer } from "../ui/message-stream/renderer";
-import { applyCachedSharedAppServerState, type CachedSharedAppServerStateSource } from "./cached-app-server-state";
 import type { ChatViewDeferredTasks, RestoredThreadState } from "../lifecycle";
-import { createChatShellRenderPort } from "./shell-render";
+import type { ChatControllerCompositionPorts } from "../composition-ports";
+import { renderChatPanelShell } from "../ui/shell";
 
-interface ViewRenderControllerGroupPorts {
-  plugin: {
-    settings: CodexPanelSettings;
-  };
-  state: {
-    stateStore: ChatStateStore;
-  };
-  lifecycle: {
-    deferredTasks: ChatViewDeferredTasks;
-  };
-  render: {
-    panelRoot: () => HTMLElement | null;
-    toolbarNode: () => UiNode;
-    goalNode: () => UiNode;
-    messageStreamNode: () => UiNode;
-    composerNode: () => UiNode;
-  };
+export interface CachedSharedAppServerStateSource {
+  cachedThreadList: () => readonly Thread[] | null;
+  cachedAppServerMetadata: () => SharedServerMetadata | null;
 }
 
-export function createViewRenderControllerGroup(context: ViewRenderControllerGroupPorts) {
+type ChatViewRendererPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state" | "lifecycle" | "render">;
+
+export function createChatViewRenderer(context: ChatViewRendererPorts): () => void {
   const { plugin, render, lifecycle } = context;
   const { deferredTasks } = lifecycle;
 
-  return {
-    renderController: new ChatViewRenderController({
-      shell: createChatShellRenderPort(context.state.stateStore, {
-        showToolbar: () => plugin.settings.showToolbar,
-        toolbarNode: context.render.toolbarNode,
-        goalNode: context.render.goalNode,
-        messageStreamNode: context.render.messageStreamNode,
-        composerNode: context.render.composerNode,
-      }),
-      panelRoot: render.panelRoot,
-      clearScheduledRender: () => {
-        deferredTasks.clearRender();
-      },
-    }),
+  return () => {
+    deferredTasks.clearRender();
+    const root = render.panelRoot();
+    if (!root) return;
+    renderChatPanelShell(root, {
+      stateStore: context.state.stateStore,
+      showToolbar: plugin.settings.showToolbar,
+      toolbarNode: context.render.toolbarNode,
+      goalNode: context.render.goalNode,
+      messageStreamNode: context.render.messageStreamNode,
+      composerNode: context.render.composerNode,
+    });
   };
 }
 
-interface ConnectionLifecycleControllerGroupPorts {
-  obsidian: Pick<ChatViewLifecycleHost, "registerEvent" | "registerPointerDown">;
+type ConnectionLifecycleControllerGroupPorts = Pick<ChatControllerCompositionPorts, "plugin" | "liveState"> & {
+  obsidian: Pick<ChatViewLifecycleHost["events"], "registerEvent" | "registerPointerDown">;
   plugin: CachedSharedAppServerStateSource;
   client: {
     clear: () => void;
-    ensureConnected: () => Promise<void>;
   };
   lifecycle: {
     deferredTasks: ChatViewDeferredTasks;
@@ -83,7 +65,7 @@ interface ConnectionLifecycleControllerGroupPorts {
     refresh: () => void;
     deferRefresh: () => void;
   };
-}
+};
 
 export function createConnectionLifecycleControllerGroup(
   context: ConnectionLifecycleControllerGroupPorts,
@@ -98,53 +80,54 @@ export function createConnectionLifecycleControllerGroup(
   const { obsidian, plugin, lifecycle, render, liveState, client } = context;
   const { deferredTasks } = lifecycle;
 
-  const warmupHost = {
-    deferredTasks,
-    opened: lifecycle.getOpened,
-    closing: lifecycle.getClosing,
-    connected: () => refs.connection.isConnected(),
-    ensureConnected: client.ensureConnected,
-  };
-
   const viewLifecycleHost: ChatViewLifecycleHost = {
-    setOpened: lifecycle.setOpened,
-    setClosing: lifecycle.setClosing,
-    registerEvent: obsidian.registerEvent,
-    registerComposerNoteIndexInvalidation: (register) => {
-      refs.composerController.registerNoteIndexInvalidation(register);
+    lifecycle: {
+      setOpened: lifecycle.setOpened,
+      setClosing: lifecycle.setClosing,
+      invalidateConnectionWork: lifecycle.invalidateConnectionWork,
+      invalidateResumeWork: lifecycle.invalidateResumeWork,
+      clearDeferredTasks: () => {
+        deferredTasks.clearAll();
+      },
+      scheduleDeferredAppServerWarmup: lifecycle.scheduleDeferredAppServerWarmup,
+      scheduleDeferredRestoredThreadHydration: lifecycle.scheduleDeferredRestoredThreadHydration,
     },
-    registerPointerDown: obsidian.registerPointerDown,
-    applyCachedSharedAppServerState: () => {
-      applyCachedSharedAppServerState(plugin, refs.serverThreads, refs.serverMetadata);
+    events: {
+      registerEvent: obsidian.registerEvent,
+      registerComposerNoteIndexInvalidation: (register) => {
+        refs.composerController.registerNoteIndexInvalidation(register);
+      },
+      registerPointerDown: obsidian.registerPointerDown,
+      closeToolbarPanelOnOutsidePointer: render.closeToolbarPanelOnOutsidePointer,
     },
-    render: render.now,
-    scheduleDeferredAppServerWarmup: lifecycle.scheduleDeferredAppServerWarmup,
-    scheduleDeferredRestoredThreadHydration: lifecycle.scheduleDeferredRestoredThreadHydration,
-    closeToolbarPanelOnOutsidePointer: render.closeToolbarPanelOnOutsidePointer,
-    invalidateConnectionWork: lifecycle.invalidateConnectionWork,
-    invalidateResumeWork: lifecycle.invalidateResumeWork,
-    clearDeferredTasks: () => {
-      deferredTasks.clearAll();
+    render: {
+      panelRoot: render.panelRoot,
+      now: render.now,
     },
-    panelRoot: render.panelRoot,
-    disposeMessages: () => {
-      refs.messageStreamRenderer.dispose();
+    sharedState: {
+      applyCachedAppServerState: () => {
+        applyCachedSharedAppServerState(plugin, refs.serverThreads, refs.serverMetadata);
+      },
     },
-    disposeComposer: () => {
-      refs.composerController.dispose();
+    resources: {
+      disposeMessages: () => {
+        refs.messageStreamRenderer.dispose();
+      },
+      disposeComposer: () => {
+        refs.composerController.dispose();
+      },
+      disconnect: () => {
+        refs.connection.disconnect();
+      },
+      clearClient: client.clear,
     },
-    disconnect: () => {
-      refs.connection.disconnect();
+    liveState: {
+      refresh: liveState.refresh,
+      deferRefresh: liveState.deferRefresh,
     },
-    clearClient: client.clear,
-    refreshLiveState: liveState.refresh,
-    deferRefreshLiveState: liveState.deferRefresh,
   };
 
   return {
-    scheduleAppServerWarmup: () => {
-      scheduleAppServerWarmup(warmupHost);
-    },
     openView: () => {
       openChatView(viewLifecycleHost);
     },
@@ -154,10 +137,7 @@ export function createConnectionLifecycleControllerGroup(
   };
 }
 
-interface PanelUiControllerGroupPorts {
-  state: {
-    stateStore: ChatStateStore;
-  };
+type PanelUiControllerGroupPorts = Pick<ChatControllerCompositionPorts, "state"> & {
   lifecycle: {
     invalidateResumeWork: () => void;
     clearDeferredRestoredThreadHydration: () => void;
@@ -170,7 +150,7 @@ interface PanelUiControllerGroupPorts {
     clearRestoredLifecycle: () => void;
     restorePlaceholder: (restoredThread: RestoredThreadState) => void;
   };
-}
+};
 
 export function createPanelUiControllerGroup(
   context: PanelUiControllerGroupPorts,
@@ -188,7 +168,7 @@ export function createPanelUiControllerGroup(
     restoreThreadPlaceholder: thread.restorePlaceholder,
   };
 
-  const toolbarPanels = new ToolbarPanelController({
+  const toolbarPanels = createToolbarPanelActions({
     stateStore: context.state.stateStore,
     threadActions: refs.threadActions,
     archiveConfirm: createToolbarArchiveConfirmState(),
@@ -199,4 +179,15 @@ export function createPanelUiControllerGroup(
   };
 
   return { toolbarPanels, applyViewState };
+}
+
+function applyCachedSharedAppServerState(
+  source: CachedSharedAppServerStateSource,
+  serverThreads: ChatServerThreadActions,
+  serverMetadata: ChatServerMetadataActions,
+): void {
+  const threads = source.cachedThreadList();
+  if (threads) serverThreads.applyThreadList(threads);
+  const metadata = source.cachedAppServerMetadata();
+  if (metadata) serverMetadata.applyAppServerMetadata(metadata);
 }

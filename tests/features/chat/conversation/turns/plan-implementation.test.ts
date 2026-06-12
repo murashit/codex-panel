@@ -43,16 +43,10 @@ function createController({ client = {} as AppServerClient } = {}) {
   });
   const host: PlanImplementationHost = {
     stateStore,
-    connection: {
-      currentClient: () => client,
-      ensureConnected,
-    },
-    submission: {
-      sendTurnText,
-    },
-    runtime: {
-      requestDefaultCollaborationModeForNextTurn,
-    },
+    currentClient: () => client,
+    ensureConnected,
+    sendTurnText,
+    requestDefaultCollaborationModeForNextTurn,
   };
   return {
     controller: createPlanImplementation(host),
