@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../src/app-server/connection/client";
+import type {
+  AppServerClient,
+  AppServerClientHandlers,
+  AppServerStartStructuredTurnOptions,
+} from "../../../src/app-server/connection/client";
 import { modelMetadataFromCatalogModels, type CatalogModel } from "../../../src/app-server/protocol/catalog";
 import type { AppServerInitialization } from "../../../src/app-server/protocol/initialization";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";

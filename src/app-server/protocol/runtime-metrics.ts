@@ -41,7 +41,7 @@ export interface TokenUsageBreakdown {
   reasoningOutputTokens: number;
 }
 
-export function rateLimitSnapshotFromAppServerSnapshot(snapshot: AppServerRateLimitSnapshot): RateLimitSnapshot {
+function rateLimitSnapshotFromAppServerSnapshot(snapshot: AppServerRateLimitSnapshot): RateLimitSnapshot {
   return {
     limitId: snapshot.limitId,
     limitName: snapshot.limitName,

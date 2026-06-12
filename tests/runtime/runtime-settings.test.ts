@@ -12,10 +12,7 @@ import {
   modelOverrideMessage,
   reasoningEffortOverrideMessage,
 } from "../../src/features/chat/runtime/settings-copy";
-import {
-  parseModelOverride,
-  parseReasoningEffortOverride,
-} from "../../src/features/chat/conversation/turns/runtime-setting-commands";
+import { parseModelOverride, parseReasoningEffortOverride } from "../../src/features/chat/conversation/turns/runtime-setting-commands";
 import {
   autoReviewActive,
   currentApprovalsReviewer,
@@ -764,10 +761,7 @@ function snapshotConfig(snapshot: RuntimeSnapshot): RuntimeConfigSnapshot {
   return runtimeConfigOrDefault(snapshot.runtimeConfig);
 }
 
-function runtimeConfigFixture(
-  config: Record<string, unknown>,
-  layers: ConfigReadResult["layers"] = null,
-): RuntimeConfigSnapshot {
+function runtimeConfigFixture(config: Record<string, unknown>, layers: ConfigReadResult["layers"] = null): RuntimeConfigSnapshot {
   return runtimeConfigSnapshotFromAppServerConfig({
     config: config as ConfigReadResult["config"],
     origins: {},

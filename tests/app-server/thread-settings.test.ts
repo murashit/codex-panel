@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { appServerCollaborationMode, applyThreadSettingsValue, type ThreadSettingsUpdate } from "../../src/app-server/protocol/thread-settings";
+import {
+  appServerCollaborationMode,
+  applyThreadSettingsValue,
+  type ThreadSettingsUpdate,
+} from "../../src/app-server/protocol/thread-settings";
 import { appServerApprovalsReviewerOrNull, parseServiceTier } from "../../src/app-server/protocol/runtime-policy";
 
 describe("app-server thread settings", () => {

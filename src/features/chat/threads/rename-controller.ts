@@ -4,11 +4,7 @@ import { getThreadTitle } from "../../../domain/threads/model";
 import type { Thread } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
 import { generateThreadTitleWithCodex } from "../../thread-title/generation";
-import {
-  findThreadTitleContext,
-  THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE,
-  type ThreadTitleContext,
-} from "../../thread-title/model";
+import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE, type ThreadTitleContext } from "../../thread-title/model";
 import type { ChatState, ChatStateStore } from "../state/reducer";
 import { renameConnectedThread } from "./rename-actions";
 import { firstThreadTitleContextFromDisplayItems } from "./title-context";

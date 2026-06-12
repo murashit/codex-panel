@@ -49,12 +49,7 @@ async function syncThreadGoal(host: GoalActionsHost, threadId: string): Promise<
   }
 }
 
-async function setObjective(
-  host: GoalActionsHost,
-  threadId: string,
-  objective: string,
-  tokenBudget: number | null,
-): Promise<boolean> {
+async function setObjective(host: GoalActionsHost, threadId: string, objective: string, tokenBudget: number | null): Promise<boolean> {
   const trimmed = objective.trim();
   if (!trimmed) {
     host.addSystemMessage("Goal objective cannot be empty.");
@@ -104,12 +99,7 @@ async function setGoal(host: GoalActionsHost, threadId: string, params: ThreadGo
   }
 }
 
-function applyGoalIfActive(
-  host: GoalActionsHost,
-  threadId: string,
-  goal: ThreadGoal | null,
-  options: { reportChange: boolean },
-): boolean {
+function applyGoalIfActive(host: GoalActionsHost, threadId: string, goal: ThreadGoal | null, options: { reportChange: boolean }): boolean {
   const state = host.stateStore.getState();
   if (state.activeThread.id !== threadId) return false;
   const item = options.reportChange ? goalChangeItem(goalEventId(), state.activeThread.goal, goal) : null;

@@ -21,24 +21,9 @@ const removedChatStateEscapeHatchRestrictions = [
     message: "Use a named ChatAction instead of reintroducing the generic state patch escape hatch.",
   },
 ];
-const generatedAppServerSourceImportPatterns = [
-  "src/generated/app-server/**",
-  "../generated/app-server/**",
-  "../../generated/app-server/**",
-  "../../../generated/app-server/**",
-  "../../../../generated/app-server/**",
-  "../../../../../generated/app-server/**",
-  "../../../../../../generated/app-server/**",
-];
-const generatedAppServerTestImportPatterns = [
-  "src/generated/app-server/**",
-  "../src/generated/app-server/**",
-  "../../src/generated/app-server/**",
-  "../../../src/generated/app-server/**",
-  "../../../../src/generated/app-server/**",
-  "../../../../../src/generated/app-server/**",
-  "../../../../../../src/generated/app-server/**",
-];
+const generatedAppServerSourceImportPatterns = importBoundaryPatterns("generated/app-server", "src/generated/app-server", 6);
+const generatedAppServerTestImportPatterns = importBoundaryPatterns("src/generated/app-server", "src/generated/app-server", 6);
+const lowerLevelFeatureImportPatterns = importBoundaryPatterns("features", "src/features", 6);
 const generatedAppServerThreadImportRestrictions = [
   {
     selector:
@@ -99,17 +84,16 @@ const pureChatModelRestrictions = [
 ];
 const chatExternalDomBridgeFiles = [
   "src/features/chat/ui/message-stream/markdown-renderer.ts",
-  "src/features/chat/ui/message-stream/rendered-markdown-links.ts",
-  "src/features/chat/ui/message-virtualizer.ts",
+  "src/features/chat/ui/message-stream/virtualizer.ts",
 ];
 const chatPreactDomBridgeFiles = [
+  "src/features/chat/ui/goal.tsx",
   "src/features/chat/ui/message-stream/text-item-actions.tsx",
   "src/features/chat/ui/message-stream/text-item.tsx",
-  "src/features/chat/ui/message-stream/render.tsx",
+  "src/features/chat/ui/message-stream/tool-result.tsx",
+  "src/features/chat/ui/message-stream/viewport.tsx",
   "src/features/chat/ui/composer.tsx",
-  "src/features/chat/ui/goal-banner.tsx",
   "src/features/chat/ui/shell.tsx",
-  "src/features/chat/ui/tool-result.tsx",
   "src/features/chat/turn-diff/render.tsx",
 ];
 const chatImperativeDomBridgeFiles = [...chatExternalDomBridgeFiles, ...chatPreactDomBridgeFiles];
@@ -125,6 +109,16 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/ui-root.tsx",
 ];
 const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts"];
+const baseSourceSyntaxRestrictions = [
+  ...removedChatStateEscapeHatchRestrictions,
+  ...generatedAppServerThreadImportRestrictions,
+  ...unsafeIteratorRestrictions,
+  ...preactFormRestrictions,
+];
+const sourceSyntaxRestrictions = [...baseSourceSyntaxRestrictions, ...imperativeDomRestrictions];
+const domBridgeSyntaxRestrictions = baseSourceSyntaxRestrictions;
+const eventBridgeSyntaxRestrictions = [...baseSourceSyntaxRestrictions, ...imperativeDomWriteRestrictions];
+const pureChatModelSyntaxRestrictions = [...sourceSyntaxRestrictions, ...pureChatModelRestrictions];
 const codexPanelEslintPlugin = {
   rules: {
     "no-self-referential-initializer-callback": {
@@ -178,6 +172,17 @@ const codexPanelEslintPlugin = {
     },
   },
 };
+
+function importBoundaryPatterns(relativeTarget, absoluteTarget, maxParentDepth) {
+  const targets = [absoluteTarget, ...Array.from({ length: maxParentDepth }, (_, index) => `${"../".repeat(index + 1)}${relativeTarget}`)];
+  return targets.flatMap((target) => [target, `${target}/**`]);
+}
+
+function restrictedSyntaxRule(restrictions) {
+  return {
+    "no-restricted-syntax": ["error", ...restrictions],
+  };
+}
 
 function isChatStateMember(node) {
   if (!isMemberExpression(node)) return false;
@@ -328,7 +333,7 @@ export default defineConfig([
       "@typescript-eslint/no-unsafe-member-access": "off",
       "@typescript-eslint/no-unnecessary-type-assertion": "off",
       "@typescript-eslint/require-await": "off",
-      "no-restricted-syntax": ["error", ...generatedAppServerThreadImportRestrictions],
+      ...restrictedSyntaxRule(generatedAppServerThreadImportRestrictions),
     },
   },
   {
@@ -351,107 +356,48 @@ export default defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles, ...nonUiEventListenerFiles],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        ...removedChatStateEscapeHatchRestrictions,
-        ...generatedAppServerThreadImportRestrictions,
-        ...unsafeIteratorRestrictions,
-        ...imperativeDomRestrictions,
-        ...preactFormRestrictions,
-      ],
-    },
+    rules: restrictedSyntaxRule(sourceSyntaxRestrictions),
   },
   {
     files: ["src/features/chat/**/*.{ts,tsx}"],
     ignores: chatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        ...removedChatStateEscapeHatchRestrictions,
-        ...generatedAppServerThreadImportRestrictions,
-        ...unsafeIteratorRestrictions,
-        ...imperativeDomRestrictions,
-        ...preactFormRestrictions,
-      ],
+      ...restrictedSyntaxRule(sourceSyntaxRestrictions),
       "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },
   {
     files: chatImperativeDomBridgeFiles,
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        ...removedChatStateEscapeHatchRestrictions,
-        ...generatedAppServerThreadImportRestrictions,
-        ...unsafeIteratorRestrictions,
-        ...preactFormRestrictions,
-      ],
+      ...restrictedSyntaxRule(domBridgeSyntaxRestrictions),
       "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },
   {
     files: nonChatImperativeDomBridgeFiles,
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        ...removedChatStateEscapeHatchRestrictions,
-        ...generatedAppServerThreadImportRestrictions,
-        ...unsafeIteratorRestrictions,
-        ...preactFormRestrictions,
-      ],
-    },
+    rules: restrictedSyntaxRule(domBridgeSyntaxRestrictions),
   },
   {
     files: nonUiEventListenerFiles,
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        ...removedChatStateEscapeHatchRestrictions,
-        ...generatedAppServerThreadImportRestrictions,
-        ...unsafeIteratorRestrictions,
-        ...imperativeDomWriteRestrictions,
-        ...preactFormRestrictions,
-      ],
-    },
+    rules: restrictedSyntaxRule(eventBridgeSyntaxRestrictions),
   },
   {
     files: ["src/features/chat/state/reducer.ts", "src/features/chat/display/**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        ...removedChatStateEscapeHatchRestrictions,
-        ...generatedAppServerThreadImportRestrictions,
-        ...unsafeIteratorRestrictions,
-        ...imperativeDomRestrictions,
-        ...preactFormRestrictions,
-        ...pureChatModelRestrictions,
-      ],
+      ...restrictedSyntaxRule(pureChatModelSyntaxRestrictions),
       "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },
   {
-    files: ["src/app-server/**/*.{ts,tsx}", "src/domain/**/*.{ts,tsx}", "src/runtime/**/*.{ts,tsx}", "src/shared/**/*.{ts,tsx}"],
+    files: ["src/app-server/**/*.{ts,tsx}", "src/domain/**/*.{ts,tsx}", "src/shared/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
             {
-              group: [
-                "src/features",
-                "src/features/**",
-                "../features",
-                "../features/**",
-                "../../features",
-                "../../features/**",
-                "../../../features",
-                "../../../features/**",
-                "../../../../features",
-                "../../../../features/**",
-              ],
-              message:
-                "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, runtime, or app-server.",
+              group: lowerLevelFeatureImportPatterns,
+              message: "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, or app-server.",
             },
           ],
         },

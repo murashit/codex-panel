@@ -39,7 +39,14 @@ import type { TurnSteerResponse } from "../../generated/app-server/v2/TurnSteerR
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { CLIENT_VERSION } from "../../constants";
 import { StdioAppServerTransport, type AppServerTransport, type AppServerTransportHandlers } from "./transport";
-import type { ClientRequestMethod, ClientRequestParams, PendingRequest, RpcError, RpcInboundMessage, RpcOutboundMessage } from "./rpc-messages";
+import type {
+  ClientRequestMethod,
+  ClientRequestParams,
+  PendingRequest,
+  RpcError,
+  RpcInboundMessage,
+  RpcOutboundMessage,
+} from "./rpc-messages";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";

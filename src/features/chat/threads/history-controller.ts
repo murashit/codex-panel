@@ -58,7 +58,11 @@ export class HistoryController {
     if (this.state.activeThread.id !== threadId) return false;
     this.host.setThreadTurnPresence(response.data.length > 0);
     this.host.showLatestPageAtBottom();
-    this.dispatch({ type: "message-stream/items-replaced", items: displayItemsFromTurns(response.data), historyCursor: response.nextCursor });
+    this.dispatch({
+      type: "message-stream/items-replaced",
+      items: displayItemsFromTurns(response.data),
+      historyCursor: response.nextCursor,
+    });
     this.host.render();
     return true;
   }

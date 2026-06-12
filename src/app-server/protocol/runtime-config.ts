@@ -121,7 +121,7 @@ function asRecordOrNull(value: unknown): Record<string, unknown> | null {
 }
 
 function asConfigRecord(value: unknown): ConfigProjectionRecord {
-  return asRecord(value) as ConfigProjectionRecord;
+  return asRecord(value);
 }
 
 function selectedConfigProfile(layers: ConfigReadResult["layers"]): string | null {

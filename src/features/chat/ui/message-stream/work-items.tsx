@@ -1,7 +1,12 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useState } from "preact/hooks";
 
-import { activeAgentRunSummary, agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel } from "../../display/stream/agent-summary";
+import {
+  activeAgentRunSummary,
+  agentActivityMetaLabel,
+  agentMessagePreview,
+  agentRunSummaryLabel,
+} from "../../display/stream/agent-summary";
 import type {
   AgentDisplayItem,
   AgentRunSummary,

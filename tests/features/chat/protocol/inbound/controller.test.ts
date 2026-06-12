@@ -1231,7 +1231,9 @@ describe("ChatInboundController", () => {
       expect(fallbackStateWithoutClientId.messageStream.displayItems).toEqual([
         expect.objectContaining({ id: "server-u1", text: "fallback text" }),
       ]);
-      expect(fallbackStateWithoutClientId.messageStream.displayItems.some((item) => item.id === "local-user-without-client-id")).toBe(false);
+      expect(fallbackStateWithoutClientId.messageStream.displayItems.some((item) => item.id === "local-user-without-client-id")).toBe(
+        false,
+      );
     });
 
     it("keeps the observed steer message order when completed turns reconcile by client id", () => {
@@ -1483,7 +1485,11 @@ describe("ChatInboundController", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: updatedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({ kind: "goal", text: "updated: Finish well", objective: "Finish well" });
+      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+        kind: "goal",
+        text: "updated: Finish well",
+        objective: "Finish well",
+      });
 
       const pausedGoal = { ...updatedGoal, status: "paused", updatedAt: 3 } satisfies Extract<
         ServerNotification,
@@ -1493,7 +1499,11 @@ describe("ChatInboundController", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: pausedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({ kind: "goal", text: "paused: Finish well", objective: "Finish well" });
+      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+        kind: "goal",
+        text: "paused: Finish well",
+        objective: "Finish well",
+      });
 
       const resumedGoal = { ...pausedGoal, status: "active", updatedAt: 4 } satisfies Extract<
         ServerNotification,
@@ -1503,7 +1513,11 @@ describe("ChatInboundController", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: resumedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({ kind: "goal", text: "resumed: Finish well", objective: "Finish well" });
+      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+        kind: "goal",
+        text: "resumed: Finish well",
+        objective: "Finish well",
+      });
 
       const messageCount = state.messageStream.displayItems.length;
       controller.handleNotification({
@@ -1518,7 +1532,11 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
 
       expect(state.activeThread.goal).toBeNull();
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({ kind: "goal", text: "cleared: Finish well", objective: "Finish well" });
+      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+        kind: "goal",
+        text: "cleared: Finish well",
+        objective: "Finish well",
+      });
     });
 
     it("adds a goal event when a goal completes", () => {

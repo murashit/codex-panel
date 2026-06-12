@@ -15,15 +15,15 @@ import {
 } from "../../protocol/server-requests/user-input";
 
 export type PendingRequestId = RequestId;
-export type PendingRequestApprovalAction = ApprovalAction;
+type PendingRequestApprovalAction = ApprovalAction;
 
-export interface PendingRequestApprovalOption {
+interface PendingRequestApprovalOption {
   label: string;
   className: string;
   action: PendingRequestApprovalAction;
 }
 
-export interface PendingRequestDetailRow {
+interface PendingRequestDetailRow {
   key: string;
   value: string;
 }
@@ -36,7 +36,7 @@ export interface PendingApprovalViewModel {
   actions: PendingRequestApprovalOption[];
 }
 
-export interface PendingUserInputOptionViewModel {
+interface PendingUserInputOptionViewModel {
   label: string;
   description?: string | null;
 }
@@ -96,4 +96,3 @@ export function pendingUserInputViewModel(input: PendingUserInput): PendingUserI
     })),
   };
 }
-

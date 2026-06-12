@@ -27,7 +27,7 @@ interface ToolbarDiagnosticRow {
   level?: "normal" | "warning" | "error";
 }
 
-export interface ToolbarDiagnosticSection {
+interface ToolbarDiagnosticSection {
   title: string;
   rows: ToolbarDiagnosticRow[];
 }

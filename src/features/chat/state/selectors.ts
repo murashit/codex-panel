@@ -1,5 +1,12 @@
 import { activeTurnId as selectActiveTurnId, chatTurnBusy, pendingTurnStart } from "./reducer";
-import type { ChatActiveThreadState, ChatRuntimeState, ChatState, ChatMessageStreamState, ChatTurnState, PendingTurnStart } from "./reducer";
+import type {
+  ChatActiveThreadState,
+  ChatRuntimeState,
+  ChatState,
+  ChatMessageStreamState,
+  ChatTurnState,
+  PendingTurnStart,
+} from "./reducer";
 import type { Thread } from "../../../domain/threads/model";
 import type { DisplayItem } from "../display/types";
 

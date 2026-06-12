@@ -1,6 +1,0 @@
-{
-  "protocolAdapterFiles": [
-    "src/features/chat/protocol/display-items.ts",
-    "src/features/chat/protocol/inbound/notification-plan.ts"
-  ]
-}

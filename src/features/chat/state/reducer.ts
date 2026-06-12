@@ -46,7 +46,12 @@ import type {
   TurnStartFailedAction,
   UserInputDraftSetAction,
 } from "./actions";
-import { initialChatMessageStreamState, reduceMessageStreamSlice, type ChatMessageStreamState, type MessageStreamAction } from "./message-stream";
+import {
+  initialChatMessageStreamState,
+  reduceMessageStreamSlice,
+  type ChatMessageStreamState,
+  type MessageStreamAction,
+} from "./message-stream";
 import {
   initialChatRequestState,
   reduceRequestSlice,

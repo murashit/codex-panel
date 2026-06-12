@@ -30,7 +30,9 @@ function mergeChanges(previous: DisplayItem, next: DisplayItem): DisplayFileChan
 }
 
 export function appendAssistantDelta(items: readonly DisplayItem[], sourceItemId: string, turnId: string, delta: string): DisplayItem[] {
-  const index = items.findIndex((item) => item.sourceItemId === sourceItemId && item.kind === "message" && item.messageKind === "assistantResponse");
+  const index = items.findIndex(
+    (item) => item.sourceItemId === sourceItemId && item.kind === "message" && item.messageKind === "assistantResponse",
+  );
   if (index !== -1) {
     return items.map((item, itemIndex) =>
       itemIndex === index && item.kind === "message" && item.messageKind === "assistantResponse"

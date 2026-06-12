@@ -12,7 +12,7 @@ export const DIAGNOSTIC_PROBE_METHODS = [
 
 export type DiagnosticProbeMethod = (typeof DIAGNOSTIC_PROBE_METHODS)[number];
 type DiagnosticProbeStatus = "unknown" | "ok" | "failed";
-export type McpAuthStatus = "unsupported" | "notLoggedIn" | "bearerToken" | "oAuth";
+type McpAuthStatus = "unsupported" | "notLoggedIn" | "bearerToken" | "oAuth";
 export type McpServerStartupStatus = "starting" | "ready" | "failed" | "cancelled";
 
 export interface McpServerStatus {

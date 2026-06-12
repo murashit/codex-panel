@@ -111,7 +111,10 @@ export class ChatInboundController {
   }
 
   addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
-    this.dispatch({ type: "message-stream/system-item-added", item: createStructuredSystemItem(this.localItemId("system"), text, details) });
+    this.dispatch({
+      type: "message-stream/system-item-added",
+      item: createStructuredSystemItem(this.localItemId("system"), text, details),
+    });
   }
 
   addDedupedSystemMessage(text: string): void {

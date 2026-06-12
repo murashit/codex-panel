@@ -28,7 +28,7 @@ interface ChatPanelGoalActions {
   setEditingOpen: (open: boolean) => void;
 }
 
-export interface ChatPanelStatePort {
+interface ChatPanelStatePort {
   state: {
     chat: () => ChatState;
   };

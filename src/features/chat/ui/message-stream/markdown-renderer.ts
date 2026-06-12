@@ -52,7 +52,7 @@ export function bindRenderedWikiLinks(parent: HTMLElement, sourcePath: string, c
   });
 }
 
-export function bindRenderedMarkdownFileLinks(parent: HTMLElement, sourcePath: string, context: RenderedMarkdownLinkContext): void {
+function bindRenderedMarkdownFileLinks(parent: HTMLElement, sourcePath: string, context: RenderedMarkdownLinkContext): void {
   parent.querySelectorAll<HTMLAnchorElement>("a[href]:not(.internal-link)").forEach((link) => {
     const href = link.getAttribute("href") ?? "";
     const target = vaultFileLinkTarget(context.app, context.vaultPath, href);

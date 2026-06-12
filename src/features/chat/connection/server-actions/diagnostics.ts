@@ -73,11 +73,7 @@ async function refreshDiagnosticProbes(
           return `${String(count)} skills`;
         },
       ),
-      probeDiagnostic(
-        "account/rateLimits/read",
-        () => client.readAccountRateLimits(),
-        accountRateLimitsSummaryFromResponse,
-      ),
+      probeDiagnostic("account/rateLimits/read", () => client.readAccountRateLimits(), accountRateLimitsSummaryFromResponse),
     );
   }
 
@@ -148,10 +144,7 @@ async function mcpStatusLines(host: ChatServerDiagnosticsActionsHost): Promise<s
   try {
     const state = host.stateStore.getState();
     const response = await client.listMcpServerStatus(mcpServerStatusParams(state.activeThread.id));
-    return buildMcpStatusLines(
-      mcpServerStatusSummariesFromStatuses(response.data),
-      state.connection.appServerDiagnostics.mcpServers,
-    );
+    return buildMcpStatusLines(mcpServerStatusSummariesFromStatuses(response.data), state.connection.appServerDiagnostics.mcpServers);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return ["MCP servers", `Could not load MCP servers: ${message}`];

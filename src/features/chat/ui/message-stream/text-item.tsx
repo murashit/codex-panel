@@ -93,7 +93,13 @@ function CollapsibleTextItemContent({ item, context }: { item: TextDisplayItem; 
         .filter(Boolean)
         .join(" ")}
     >
-      <TextContent key={textItemContentKey(item)} item={item} context={context} contentRef={contentRef} collapsed={overflows && !expanded} />
+      <TextContent
+        key={textItemContentKey(item)}
+        item={item}
+        context={context}
+        contentRef={contentRef}
+        collapsed={overflows && !expanded}
+      />
       <details
         className="codex-panel__message-collapse-details"
         hidden={!overflows || expanded}

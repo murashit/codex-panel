@@ -9,7 +9,7 @@ const TASK_STATES = {
   completed: "completed",
 } as const satisfies ExecutionStateByStatus;
 
-export type TaskStepStatus = "pending" | "inProgress" | "completed";
+type TaskStepStatus = "pending" | "inProgress" | "completed";
 
 export interface TaskPlanStep {
   step: string;

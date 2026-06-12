@@ -21,7 +21,7 @@ export function transcriptEntriesFromTurnRecords(turns: readonly TurnRecord[]): 
   return turns.flatMap(transcriptEntriesFromTurnRecord);
 }
 
-export function conversationSummaryFromTurnRecord(turn: TurnRecord): ThreadConversationSummary {
+function conversationSummaryFromTurnRecord(turn: TurnRecord): ThreadConversationSummary {
   return conversationSummaryFromTranscriptEntries(transcriptEntriesFromTurnRecord(turn));
 }
 
@@ -42,7 +42,7 @@ export function completedConversationSummariesFromTurnRecords(turns: readonly Tu
   });
 }
 
-export function conversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
+function conversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
   return nonEmptyConversationSummaries(turns.map(conversationSummaryFromTurnRecord));
 }
 

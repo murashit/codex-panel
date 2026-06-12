@@ -31,9 +31,7 @@ type DynamicToolCallItem = Extract<TurnItem, { type: "dynamicToolCall" }>;
 type WebSearchItem = Extract<TurnItem, { type: "webSearch" }>;
 type ImageViewItem = Extract<TurnItem, { type: "imageView" }>;
 type ImageGenerationItem = Extract<TurnItem, { type: "imageGeneration" }>;
-type ReviewModeItem =
-  | Extract<TurnItem, { type: "enteredReviewMode" }>
-  | Extract<TurnItem, { type: "exitedReviewMode" }>;
+type ReviewModeItem = Extract<TurnItem, { type: "enteredReviewMode" }> | Extract<TurnItem, { type: "exitedReviewMode" }>;
 type ContextCompactionItem = Extract<TurnItem, { type: "contextCompaction" }>;
 type DisplayExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
@@ -693,7 +691,7 @@ export function dynamicToolCallExecutionState(status: string, success?: boolean 
   return success === true ? "completed" : null;
 }
 
-export function imageGenerationExecutionState(status: string): ExecutionState {
+function imageGenerationExecutionState(status: string): ExecutionState {
   return standardToolCallExecutionState(status);
 }
 

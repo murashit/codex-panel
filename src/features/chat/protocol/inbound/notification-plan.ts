@@ -21,7 +21,12 @@ import {
   completeReasoningItems,
   upsertDisplayItem,
 } from "../../state/message-stream-updates";
-import { displayItemFromTurnItem, displayItemsFromTurns, normalizeFileChanges, shouldSuppressLifecycleItem } from "../../display/turn-items";
+import {
+  displayItemFromTurnItem,
+  displayItemsFromTurns,
+  normalizeFileChanges,
+  shouldSuppressLifecycleItem,
+} from "../../display/turn-items";
 import { taskProgressDisplayItem } from "../../display/items/task-progress";
 import { createSystemItem } from "../../display/items/system";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../../display/types";

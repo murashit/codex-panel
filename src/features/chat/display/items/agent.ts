@@ -62,7 +62,7 @@ export function agentDisplayItem(item: DisplayCollabAgentToolCall, turnId?: stri
   };
 }
 
-export function agentActivitySummaryLabel(tool: string): string {
+function agentActivitySummaryLabel(tool: string): string {
   if (tool === "spawnAgent") return "Spawn agent";
   if (tool === "sendInput") return "Send input to agent";
   if (tool === "resumeAgent") return "Resume agent";

@@ -47,11 +47,7 @@ export function rollbackCandidateFromItems(items: readonly DisplayItem[]): Rollb
 
 export function isRollbackCandidateItem(item: DisplayItem, candidate: RollbackCandidate | null): boolean {
   return Boolean(
-    candidate &&
-      item.kind === "message" &&
-      item.role === "user" &&
-      item.id === candidate.displayItemId &&
-      item.turnId === candidate.turnId,
+    candidate && item.kind === "message" && item.role === "user" && item.id === candidate.displayItemId && item.turnId === candidate.turnId,
   );
 }
 
