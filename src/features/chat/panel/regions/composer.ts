@@ -5,12 +5,12 @@ import {
   fastModeActive,
   runtimeConfigOrDefault,
   supportedReasoningEfforts,
-} from "../../runtime/effective-settings";
+} from "../../runtime/effective";
 import { compactReasoningEffortLabel } from "../../conversation/turns/runtime-overrides";
 import { contextSummary } from "../../display/runtime-status";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "../../runtime/model";
+import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import type { ChatState } from "../../state/reducer";
 import type {
   ComposerContextMeterCellViewModel,

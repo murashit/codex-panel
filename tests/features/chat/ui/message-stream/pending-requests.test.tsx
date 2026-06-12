@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { PendingRequestSnapshot } from "../../../../../src/features/chat/state/selectors";
+import type { PendingRequestBlockSnapshot } from "../../../../../src/features/chat/conversation/pending-requests/snapshot";
 import type { PendingApproval } from "../../../../../src/features/chat/protocol/requests/approval";
 import type { PendingUserInput } from "../../../../../src/features/chat/protocol/requests/user-input";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
@@ -527,7 +527,7 @@ describe("pending request renderer decisions", () => {
           renderMarkdown: (element, text) => element.createDiv({ text }),
           pendingRequests: pendingRequestContext({
             signature: "approval:1",
-            snapshot: emptyPendingRequestSnapshot({ approvals: [pendingApproval()] }),
+            snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApproval()] }),
             consumeAutoFocus,
           }),
         }),
@@ -542,7 +542,7 @@ describe("pending request renderer decisions", () => {
   });
 
   it("does not build pending request nodes when no pending block is inserted", () => {
-    const pendingSnapshot = vi.fn(() => emptyPendingRequestSnapshot());
+    const pendingSnapshot = vi.fn(() => emptyPendingRequestBlockSnapshot());
     const consumeAutoFocus = vi.fn(() => true);
 
     const blocks = messageStreamBlocks({
@@ -587,7 +587,7 @@ describe("pending request renderer decisions", () => {
         ...baseContext,
         pendingRequests: pendingRequestContext({
           signature: "request:1",
-          snapshot: emptyPendingRequestSnapshot({ approvals: [pendingApproval()] }),
+          snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApproval()] }),
         }),
       }),
     );
@@ -603,13 +603,13 @@ describe("pending request renderer decisions", () => {
 
 function pendingRequestContext(options: {
   signature: string;
-  snapshot?: PendingRequestSnapshot | (() => PendingRequestSnapshot);
+  snapshot?: PendingRequestBlockSnapshot | (() => PendingRequestBlockSnapshot);
   actions?: ReturnType<typeof pendingRequestActions>;
   consumeAutoFocus?: () => boolean;
 }): PendingRequestBlockContext {
   const snapshot = options.snapshot;
   const snapshotFn =
-    typeof snapshot === "function" ? (snapshot as () => PendingRequestSnapshot) : () => snapshot ?? emptyPendingRequestSnapshot();
+    typeof snapshot === "function" ? (snapshot as () => PendingRequestBlockSnapshot) : () => snapshot ?? emptyPendingRequestBlockSnapshot();
   return {
     signature: options.signature,
     snapshot: snapshotFn,
@@ -618,7 +618,7 @@ function pendingRequestContext(options: {
   };
 }
 
-function emptyPendingRequestSnapshot(overrides: Partial<PendingRequestSnapshot> = {}): PendingRequestSnapshot {
+function emptyPendingRequestBlockSnapshot(overrides: Partial<PendingRequestBlockSnapshot> = {}): PendingRequestBlockSnapshot {
   return {
     approvals: [],
     pendingUserInputs: [],

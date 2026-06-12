@@ -1,4 +1,4 @@
-import type { ServerNotification, ServerRequest } from "../../../../app-server/types";
+import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/types";
 import type { McpServerStartupStatus } from "../../../../app-server/diagnostics";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { classifyAppServerLog } from "./app-server-logs";
@@ -6,9 +6,8 @@ import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } fr
 import { createStructuredSystemItem, createSystemItem } from "../../display/system";
 import type { DisplayDetailSection } from "../../display/types";
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "../requests/approval";
-import type { RequestId } from "../requests/model";
 import { userInputResponse, type PendingUserInput } from "../requests/user-input";
-import { createApprovalResultItem, createUserInputResultItem } from "../../pending-requests/view-model";
+import { createApprovalResultItem, createUserInputResultItem } from "../../conversation/pending-requests/result-items";
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
 

@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import type { ChatState } from "../../state/reducer";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "../../runtime/model";
+import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import type { SendShortcut } from "../../../../shared/ui/keyboard";
 import type { ToolbarActions } from "../../ui/toolbar";
 import type { ToolbarThreadRow } from "../../ui/toolbar";

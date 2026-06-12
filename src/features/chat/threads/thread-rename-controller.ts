@@ -13,6 +13,7 @@ import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 import { generateThreadTitleWithCodex } from "../../../app-server/thread-title-generation";
 import { completedConversationSummaryFromAppServerTurn } from "../../../app-server/turn-model";
 import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./thread-naming";
+import { renameConnectedThread } from "./thread-rename-actions";
 
 export interface ThreadRenameEditState {
   draft: string;
@@ -118,42 +119,8 @@ export class ThreadRenameController {
     const client = this.host.currentClient();
     if (!client) return;
 
-    try {
-      await client.setThreadName(threadId, title);
-      this.dispatch({
-        type: "thread-list/applied",
-        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
-      });
-      if (this.renameState === editingState) {
-        this.clear();
-      }
-      this.host.notifyThreadRenamed(threadId, title);
-    } catch (error) {
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      this.host.render();
-    }
-  }
-
-  async rename(threadId: string, value: string): Promise<void> {
-    const title = value.trim();
-    if (!title) return;
-
-    await this.host.ensureConnected();
-    const client = this.host.currentClient();
-    if (!client) return;
-
-    try {
-      await client.setThreadName(threadId, title);
-      this.dispatch({
-        type: "thread-list/applied",
-        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
-      });
-      this.host.notifyThreadRenamed(threadId, title);
-    } catch (error) {
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      this.host.render();
+    if (await renameConnectedThread(this.host, threadId, title)) {
+      if (this.renameState === editingState) this.clear();
     }
   }
 

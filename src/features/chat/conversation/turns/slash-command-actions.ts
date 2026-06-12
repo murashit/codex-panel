@@ -15,7 +15,7 @@ import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from ".
 import type { ThreadGoal, ThreadGoalStatus } from "../../../../app-server/thread-goal";
 import { submissionStateSnapshot } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
-import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective-settings";
+import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective";
 import { runtimeSnapshotForChatState } from "../../runtime/snapshot";
 
 export interface SlashCommandThreadPort {

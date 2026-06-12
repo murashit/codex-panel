@@ -6,7 +6,7 @@ import type { SharedAppServerMetadata } from "../../app-server/shared-cache-stat
 import type { ArchiveExportAdapter } from "../../domain/threads/export";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
-import type { RuntimeSnapshot } from "./runtime/model";
+import type { RuntimeSnapshot } from "./runtime/snapshot";
 import type { ChatState, ChatStateStore } from "./state/reducer";
 import type { ChatTurnDiffViewState } from "./turn-diff/model";
 import type { ChatMessageScrollIntentController } from "./ui/message-scroll-intent-controller";

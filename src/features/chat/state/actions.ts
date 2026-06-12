@@ -3,7 +3,7 @@ import type { Thread } from "../../../domain/threads/model";
 import { parseServiceTier, type ServiceTier } from "../../../app-server/runtime-policy";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../runtime/state";
-import type { CollaborationMode } from "../runtime/model";
+import type { CollaborationMode } from "../runtime/settings";
 import type { DisplayItem } from "../display/types";
 import type { PendingTurnStart } from "../conversation/turns/turn-state";
 

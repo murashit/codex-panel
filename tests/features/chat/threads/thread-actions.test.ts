@@ -249,6 +249,33 @@ describe("createChatThreadActions", () => {
     expect(host.notifyThreadArchived).not.toHaveBeenCalled();
   });
 
+  it("renames a thread and notifies shared surfaces", async () => {
+    const client = clientMock();
+    const host = hostMock({ client, displayItems: [] });
+    host.stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...panelThread("thread"), name: "Old" }] });
+    const controller = createChatThreadActions(host);
+
+    await expect(controller.renameThread("thread", " Slash command title ")).resolves.toBe(true);
+
+    expect(host.ensureConnected).toHaveBeenCalledOnce();
+    expect(client.setThreadName).toHaveBeenCalledWith("thread", "Slash command title");
+    expect(host.stateStore.getState().threadList.listedThreads[0]?.name).toBe("Slash command title");
+    expect(host.notifyThreadRenamed).toHaveBeenCalledWith("thread", "Slash command title");
+    expect(host.render).toHaveBeenCalledOnce();
+  });
+
+  it("ignores empty thread rename titles", async () => {
+    const client = clientMock();
+    const host = hostMock({ client, displayItems: [] });
+    const controller = createChatThreadActions(host);
+
+    await expect(controller.renameThread("thread", "   ")).resolves.toBe(false);
+
+    expect(host.ensureConnected).not.toHaveBeenCalled();
+    expect(client.setThreadName).not.toHaveBeenCalled();
+    expect(host.notifyThreadRenamed).not.toHaveBeenCalled();
+  });
+
   it("applies rollback response turns directly before refreshing the shell", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });

@@ -5,7 +5,7 @@ import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
 import type { ChatAction, ChatState, ChatStateStore } from "../../state/reducer";
 import type { ComposerBoundaryScrollAction } from "../../conversation/composer/boundary-scroll";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../message-virtualizer";
-import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./view-model";
+import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./ports";
 import { createMessageStreamContextPort } from "./ports";
 import { MarkdownMessageRenderer } from "./markdown-renderer";
 import { messageStreamBlocksNode, type MessageStreamRenderState } from "./render";

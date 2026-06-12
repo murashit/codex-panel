@@ -1,6 +1,6 @@
-import type { RequestId } from "./model";
+import type { RequestId } from "../../../../app-server/types";
 
-export type { RequestId } from "./model";
+export type { RequestId } from "../../../../app-server/types";
 
 interface UserInputRequestLike {
   id: RequestId;

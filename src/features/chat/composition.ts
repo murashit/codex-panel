@@ -1,24 +1,24 @@
 import { ConnectionManager } from "../../app-server/connection-manager";
-import type { ChatServerDiagnosticsActions } from "./protocol/client-actions/diagnostics-actions";
-import type { ChatServerMetadataActions } from "./protocol/client-actions/metadata-actions";
-import type { ChatServerThreadActions } from "./protocol/client-actions/thread-actions";
+import type { ChatServerDiagnosticsActions } from "./connection/server-actions/diagnostics";
+import type { ChatServerMetadataActions } from "./connection/server-actions/metadata";
+import type { ChatServerThreadActions } from "./connection/server-actions/threads";
 import type { ChatComposerController } from "./conversation/composer/controller";
 import type { ChatInboundController } from "./protocol/inbound/controller";
 import type { ChatThreadGoalActions } from "./threads/thread-goal-actions";
-import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "./runtime/runtime-settings-actions";
+import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "./runtime/settings-actions";
 import type { ChatThreadActions } from "./threads/thread-actions";
 import type { ThreadHistoryController } from "./threads/thread-history-controller";
 import type { ThreadRenameController } from "./threads/thread-rename-controller";
 import type { ToolbarPanelController } from "./panel/regions/toolbar";
 import type { ChatConnectionController } from "./connection/connection-controller";
 import type { ChatReconnectActions } from "./connection/reconnect-actions";
-import type { PendingRequestController } from "./pending-requests/controller";
+import type { PendingRequestController } from "./conversation/pending-requests/controller";
 import { rejectServerRequest, respondToServerRequest } from "./protocol/requests/server-request-responder";
 import type { ComposerSubmissionActions } from "./conversation/turns/composer-submission-actions";
 import type { RestoredThreadController } from "./threads/restored-thread-controller";
-import type { ThreadIdentityActions } from "./threads/thread-identity-actions";
+import type { ThreadIdentitySync } from "./threads/thread-identity-sync";
 import type { ThreadResumeController } from "./threads/thread-resume-controller";
-import type { ThreadSelectionActions } from "./threads/thread-selection-controller";
+import type { ThreadSelectionActions } from "./threads/thread-selection-actions";
 import type { ChatViewRenderController } from "./panel/view-render-controller";
 import type { ChatMessageRenderer } from "./ui/message-stream/renderer";
 import type { ChatControllerCompositionPorts } from "./composition-ports";
@@ -29,8 +29,8 @@ import {
   createChatInboundController,
   createChatReconnectControllerGroup,
 } from "./connection/composition";
-import { createThreadControllerGroup, createThreadSelectionControllerGroup } from "./threads/composition";
-import { createConversationSurfaceControllerGroup } from "./conversation/turns/composition";
+import { createThreadControllerGroup, createThreadSelectionActionGroup } from "./threads/composition";
+import { createConversationSurfaceControllerGroup } from "./conversation/composition";
 import {
   createConnectionLifecycleControllerGroup,
   createPanelUiControllerGroup,
@@ -57,7 +57,7 @@ export interface ChatViewControllers {
     resume: ThreadResumeController;
     actions: ChatThreadActions;
     restored: RestoredThreadController;
-    identity: ThreadIdentityActions;
+    identity: ThreadIdentitySync;
     rename: ThreadRenameController;
     selection: ThreadSelectionActions;
   };
@@ -221,7 +221,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       threadActions,
     },
   );
-  threadSelection = createThreadSelectionControllerGroup(
+  threadSelection = createThreadSelectionActionGroup(
     {
       plugin: {
         focusThreadInOpenView: (threadId) => ports.plugin.focusThreadInOpenView(threadId),
@@ -235,7 +235,9 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       status: actions.status,
     },
     {
-      toolbarPanels,
+      closeForThreadSelection: () => {
+        toolbarPanels.closeForThreadSelection();
+      },
     },
   ).threadSelection;
   const { reconnectActions } = createChatReconnectControllerGroup(

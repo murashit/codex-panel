@@ -14,8 +14,9 @@ import {
   runtimeConfigOrDefault,
   serviceTierLabel,
   supportedReasoningEfforts,
-} from "../runtime/effective-settings";
-import { collaborationModeLabel, pendingRuntimeSettingLabel, type RuntimeSnapshot } from "../runtime/model";
+} from "../runtime/effective";
+import type { RuntimeSnapshot } from "../runtime/snapshot";
+import { collaborationModeLabel, pendingRuntimeSettingLabel } from "../runtime/settings";
 
 export interface ContextSummary {
   label: string;

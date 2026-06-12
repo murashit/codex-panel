@@ -1,5 +1,32 @@
 import type { ChatAction, ChatState } from "../../state/reducer";
-import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./view-model";
+import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
+import type { DisplayItem } from "../../display/types";
+import type { ChatTurnDiffViewState } from "../../turn-diff/model";
+import type { PendingRequestMessageActions } from "../pending-request-message";
+
+export interface ChatMessageStreamActionPort {
+  rollbackThread: (threadId: string) => void;
+  forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
+  implementPlan: (item: DisplayItem) => void;
+  openTurnDiff: (state: ChatTurnDiffViewState) => void;
+}
+
+export interface ChatMessageStreamRequestPort {
+  pendingSignature: () => string;
+  pendingSnapshot: () => PendingRequestBlockSnapshot;
+  pendingActions: () => PendingRequestMessageActions;
+  consumePendingAutoFocus: () => boolean;
+}
+
+export interface ChatMessageStreamContextPort {
+  vaultPath: string;
+  setOpenDetail: (key: string, open: boolean) => void;
+  loadOlderTurns: () => void;
+  renderMarkdown: (element: HTMLElement, text: string) => void;
+  copyMessageText: (text: string) => void;
+  actions: ChatMessageStreamActionPort;
+  requests: ChatMessageStreamRequestPort;
+}
 
 export interface MessageStreamContextPortOptions {
   vaultPath: string;

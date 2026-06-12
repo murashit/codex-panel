@@ -1,17 +1,8 @@
 import { activeTurnId as selectActiveTurnId, chatTurnBusy, pendingTurnStart } from "./reducer";
 import type { ChatState, PendingTurnStart } from "./reducer";
 import type { Thread } from "../../../domain/threads/model";
-import type { PendingApproval } from "../protocol/requests/approval";
-import type { PendingUserInput } from "../protocol/requests/user-input";
 import type { DisplayItem } from "../display/types";
 import { implementPlanCandidateFromState } from "../display/action-candidates";
-
-export interface PendingRequestSnapshot {
-  approvals: readonly PendingApproval[];
-  pendingUserInputs: readonly PendingUserInput[];
-  userInputDrafts: ReadonlyMap<string, string>;
-  openDetails: ReadonlySet<string>;
-}
 
 export interface SubmissionStateSnapshot {
   activeThreadId: string | null;
@@ -20,15 +11,6 @@ export interface SubmissionStateSnapshot {
   listedThreads: readonly Thread[];
   displayItems: readonly DisplayItem[];
   pendingTurnStart: PendingTurnStart | null;
-}
-
-export function pendingRequestSnapshot(state: ChatState): PendingRequestSnapshot {
-  return {
-    approvals: state.requests.approvals,
-    pendingUserInputs: state.requests.pendingUserInputs,
-    userInputDrafts: state.requests.userInputDrafts,
-    openDetails: state.ui.openDetails,
-  };
 }
 
 export function activeThreadId(state: ChatState): string | null {

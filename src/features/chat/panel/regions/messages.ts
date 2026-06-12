@@ -1,4 +1,4 @@
-import { pendingRequestsSignature as requestStateSignature } from "../../pending-requests/view-model";
+import { pendingRequestsSignature as requestStateSignature } from "../../conversation/pending-requests/signatures";
 import type { ChatPanelMessagesPorts } from "./ports";
 
 export function chatPanelMessagesNode(ports: ChatPanelMessagesPorts) {

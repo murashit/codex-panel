@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import type { ChatTurnLifecycleState } from "../../state/reducer";
-import type { PendingRequestSnapshot } from "../../state/selectors";
+import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
 import type { DisplayItem } from "../../display/types";
 import type { PendingRequestMessageActions } from "../pending-request-message";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
@@ -57,7 +57,7 @@ export interface MessageStreamContext extends MessageStreamLayoutContext, Messag
 
 export interface PendingRequestBlockContext {
   signature: string;
-  snapshot: () => PendingRequestSnapshot;
+  snapshot: () => PendingRequestBlockSnapshot;
   actions: () => PendingRequestMessageActions;
   consumeAutoFocus: () => boolean;
 }

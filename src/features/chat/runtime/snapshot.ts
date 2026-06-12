@@ -1,5 +1,30 @@
 import type { ChatState } from "../state/reducer";
-import type { RuntimeSnapshot } from "./model";
+import type { ActivePermissionProfile, RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
+import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
+import type { ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../app-server/runtime-policy";
+import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
+import type { CollaborationMode, PendingRuntimeSetting, RequestedServiceTier } from "./settings";
+
+export interface RuntimeSnapshot {
+  runtimeConfig: RuntimeConfigSnapshot | null;
+  activeThreadId: string | null;
+  activeModel: string | null;
+  activeReasoningEffort: ReasoningEffort | null;
+  activeCollaborationMode: CollaborationMode;
+  activeServiceTier: ServiceTier | null;
+  activeApprovalPolicy: ApprovalPolicy | null;
+  activeApprovalsReviewer: ApprovalsReviewer | null;
+  activePermissionProfile: ActivePermissionProfile | null;
+  requestedModel: PendingRuntimeSetting<string>;
+  requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
+  requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
+  selectedCollaborationMode: CollaborationMode;
+  requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
+  tokenUsage: ThreadTokenUsage | null;
+  rateLimit: RateLimitSnapshot | null;
+  hasThreadTurns: boolean;
+  availableModels: readonly ModelMetadata[];
+}
 
 interface RuntimeSnapshotInput {
   runtimeConfig: ChatState["connection"]["runtimeConfig"];

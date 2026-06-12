@@ -5,12 +5,11 @@ import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import { createChatThreadActions } from "./thread-actions";
 import { createChatThreadGoalActions } from "./thread-goal-actions";
 import { ThreadHistoryController } from "./thread-history-controller";
-import { createThreadIdentityActions } from "./thread-identity-actions";
+import { createThreadIdentitySync } from "./thread-identity-sync";
 import { ThreadRenameController } from "./thread-rename-controller";
 import { ThreadResumeController } from "./thread-resume-controller";
-import { createThreadSelectionActions } from "./thread-selection-controller";
+import { createThreadSelectionActions } from "./thread-selection-actions";
 import { RestoredThreadController } from "./restored-thread-controller";
-import type { ToolbarPanelController } from "../panel/regions/toolbar";
 import type { ChatStateStore } from "../state/reducer";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { CodexPanelSettings } from "../../../settings/model";
@@ -169,7 +168,7 @@ export function createThreadControllerGroup(
         return response?.dataBase64 ?? "";
       }),
   });
-  const threadIdentity = createThreadIdentityActions({
+  const threadIdentity = createThreadIdentitySync({
     stateStore,
     restoredThread,
     invalidateResumeWork,
@@ -198,7 +197,7 @@ function requireThreadController<T>(controller: T | null, name: string): T {
   return controller;
 }
 
-interface ThreadSelectionControllerGroupPorts {
+interface ThreadSelectionActionGroupPorts {
   plugin: {
     focusThreadInOpenView: (threadId: string) => Promise<boolean>;
   };
@@ -213,10 +212,10 @@ interface ThreadSelectionControllerGroupPorts {
   };
 }
 
-export function createThreadSelectionControllerGroup(
-  context: ThreadSelectionControllerGroupPorts,
+export function createThreadSelectionActionGroup(
+  context: ThreadSelectionActionGroupPorts,
   refs: {
-    toolbarPanels: ToolbarPanelController;
+    closeForThreadSelection: () => void;
   },
 ) {
   const { plugin, thread, status } = context;
@@ -225,7 +224,7 @@ export function createThreadSelectionControllerGroup(
   const threadSelection = createThreadSelectionActions({
     stateStore,
     closeForThreadSelection: () => {
-      refs.toolbarPanels.closeForThreadSelection();
+      refs.closeForThreadSelection();
     },
     focusThreadInOpenView: (threadId) => plugin.focusThreadInOpenView(threadId),
     resumeThread: thread.resumeThread,

@@ -14,7 +14,7 @@ import {
   type CollaborationMode,
   type PendingRuntimeSetting,
   type RequestedServiceTier,
-} from "./model";
+} from "./settings";
 
 export interface ChatRuntimeState {
   activeModel: string | null;

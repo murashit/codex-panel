@@ -1,14 +1,14 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection-manager";
-import type { RuntimeSnapshot } from "../runtime/model";
+import type { RuntimeSnapshot } from "../runtime/snapshot";
 import type { ChatState, ChatStateStore } from "../state/reducer";
 import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
 import type { Thread } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
-import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../protocol/client-actions/diagnostics-actions";
-import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../protocol/client-actions/metadata-actions";
-import { createChatServerThreadActions } from "../protocol/client-actions/thread-actions";
+import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "./server-actions/diagnostics";
+import { createChatServerMetadataActions, type ChatServerMetadataActions } from "./server-actions/metadata";
+import { createChatServerThreadActions } from "./server-actions/threads";
 import { ChatConnectionController } from "./connection-controller";
 import { createChatReconnectActions } from "./reconnect-actions";
 import type { rejectServerRequest, respondToServerRequest } from "../protocol/requests/server-request-responder";

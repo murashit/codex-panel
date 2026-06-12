@@ -26,13 +26,14 @@ import {
   runtimeConfigOrDefault,
   serviceTierLabel,
   supportedReasoningEfforts,
-} from "../../src/features/chat/runtime/effective-settings";
-import { resetRuntimeSettingToConfig, setPendingRuntimeSetting, type RuntimeSnapshot } from "../../src/features/chat/runtime/model";
+} from "../../src/features/chat/runtime/effective";
+import type { RuntimeSnapshot } from "../../src/features/chat/runtime/snapshot";
+import { resetRuntimeSettingToConfig, setPendingRuntimeSetting } from "../../src/features/chat/runtime/settings";
 import {
   pendingThreadSettingsUpdate,
   requestedTurnCollaborationModeSettings,
   serviceTierRequestForThreadStart,
-} from "../../src/features/chat/runtime/turn-settings";
+} from "../../src/features/chat/runtime/thread-settings";
 import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/display/runtime-status";
 
 describe("runtime settings", () => {
