@@ -2,7 +2,7 @@ import { StaleConnectionError } from "../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../app-server/client";
 import type { AppServerInitialization } from "../../../app-server/initialization";
 import type { ChatStateStore } from "../state/reducer";
-import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../panel/lifecycle";
+import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../lifecycle";
 
 export interface ChatConnectionAdapter {
   connect(): Promise<AppServerInitialization>;

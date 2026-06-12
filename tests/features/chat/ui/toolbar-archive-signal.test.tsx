@@ -6,12 +6,11 @@ import { act } from "preact/test-utils";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { runtimeSnapshotForChatState } from "../../../../src/features/chat/runtime/snapshot";
-import { createToolbarArchiveConfirmState } from "../../../../src/features/chat/panel/toolbar-archive-confirm-state";
-import { ToolbarPanelController } from "../../../../src/features/chat/panel/toolbar-controller";
-import type { ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/ui-ports";
+import { createToolbarArchiveConfirmState, ToolbarPanelController } from "../../../../src/features/chat/panel/regions/toolbar";
+import type { ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/regions/ports";
 import type { ChatThreadActions } from "../../../../src/features/chat/threads/thread-actions";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
-import { chatPanelToolbarRegionNode } from "../../../../src/features/chat/ui/regions";
+import { chatPanelToolbarRegionNode } from "../../../../src/features/chat/panel/regions/render";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();

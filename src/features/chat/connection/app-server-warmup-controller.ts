@@ -1,4 +1,4 @@
-import type { ChatViewDeferredTasks } from "../panel/lifecycle";
+import type { ChatViewDeferredTasks } from "../lifecycle";
 
 export interface AppServerWarmupControllerHost {
   deferredTasks: ChatViewDeferredTasks;

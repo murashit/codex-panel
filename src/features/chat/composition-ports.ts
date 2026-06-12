@@ -1,18 +1,18 @@
 import type { App, Component, EventRef } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
-import type { AppServerClient } from "../../../app-server/client";
-import type { SharedAppServerMetadata } from "../../../app-server/shared-cache-state";
-import type { ArchiveExportAdapter } from "../../../domain/threads/export";
-import type { Thread } from "../../../domain/threads/model";
-import type { CodexPanelSettings } from "../../../settings/model";
-import type { RuntimeSnapshot } from "../runtime/model";
-import type { ChatState, ChatStateStore } from "../state/reducer";
-import type { ChatTurnDiffViewState } from "../turn-diff/model";
-import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
-import type { DisplayDetailSection, DisplayItem } from "../display/types";
+import type { AppServerClient } from "../../app-server/client";
+import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
+import type { ArchiveExportAdapter } from "../../domain/threads/export";
+import type { Thread } from "../../domain/threads/model";
+import type { CodexPanelSettings } from "../../settings/model";
+import type { RuntimeSnapshot } from "./runtime/model";
+import type { ChatState, ChatStateStore } from "./state/reducer";
+import type { ChatTurnDiffViewState } from "./turn-diff/model";
+import type { ChatMessageScrollIntentController } from "./ui/message-scroll-intent-controller";
+import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
-import type { ComposerMetaViewModel } from "./view-model/composer";
+import type { ComposerMetaViewModel } from "./ui/composer";
 
 export interface ChatControllerCompositionPorts {
   obsidian: ChatPanelObsidianContext;

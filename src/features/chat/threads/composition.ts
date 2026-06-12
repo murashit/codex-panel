@@ -10,9 +10,9 @@ import { ThreadRenameController } from "./thread-rename-controller";
 import { ThreadResumeController } from "./thread-resume-controller";
 import { createThreadSelectionActions } from "./thread-selection-controller";
 import { RestoredThreadController } from "./restored-thread-controller";
-import type { ToolbarPanelController } from "../panel/toolbar-controller";
+import type { ToolbarPanelController } from "../panel/regions/toolbar";
 import type { ChatStateStore } from "../state/reducer";
-import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../panel/lifecycle";
+import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { CodexPanelSettings } from "../../../settings/model";
 
 interface ThreadControllerGroupPorts {

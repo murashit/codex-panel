@@ -2,10 +2,9 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { createToolbarArchiveConfirmState } from "../../../../src/features/chat/panel/toolbar-archive-confirm-state";
-import { ToolbarPanelController } from "../../../../src/features/chat/panel/toolbar-controller";
-import type { ChatThreadActions } from "../../../../src/features/chat/threads/thread-actions";
+import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
+import { createToolbarArchiveConfirmState, ToolbarPanelController } from "../../../../../src/features/chat/panel/regions/toolbar";
+import type { ChatThreadActions } from "../../../../../src/features/chat/threads/thread-actions";
 
 describe("ToolbarPanelController", () => {
   it("tracks archive confirmation and delegates archive actions", async () => {

@@ -5,7 +5,7 @@ import { createChatState, createChatStateStore } from "../../../../src/features/
 import type { RestoredThreadController } from "../../../../src/features/chat/threads/restored-thread-controller";
 import { ThreadResumeController } from "../../../../src/features/chat/threads/thread-resume-controller";
 import type { ThreadHistoryController } from "../../../../src/features/chat/threads/thread-history-controller";
-import { ChatResumeWorkTracker } from "../../../../src/features/chat/panel/lifecycle";
+import { ChatResumeWorkTracker } from "../../../../src/features/chat/lifecycle";
 import type { AppServerThread } from "../../../../src/app-server/thread-model";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
 import type { ThreadTokenUsage } from "../../../../src/app-server/runtime-metrics";

@@ -18,25 +18,22 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
 } from "./display/runtime-status";
 import { runtimeSnapshotForChatState } from "./runtime/snapshot";
-import { activeThreadTitle as buildActiveThreadTitle, chatViewDisplayTitle } from "./panel/view-model/thread-title";
-import { connectionDiagnosticsModel } from "./panel/view-model/toolbar";
+import { codexPanelDisplayTitle, getThreadTitle } from "../../domain/threads/model";
+import { connectionDiagnosticsModel } from "./panel/regions/toolbar";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
-import { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./panel/lifecycle";
-import { ChatMessageScrollIntentController } from "./panel/message-scroll-intent-controller";
-import type { ChatControllerCompositionPorts } from "./panel/controller-ports";
-import { createChatViewControllers, type ChatViewControllers } from "./panel/composition";
-import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelStatePort, ChatPanelToolbarPorts } from "./panel/ui-ports";
-import {
-  chatPanelComposerMetaViewModel,
-  chatPanelComposerPlaceholder,
-  chatPanelPendingRequestsSignature,
-} from "./panel/region-view-models";
+import { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
+import { ChatMessageScrollIntentController } from "./ui/message-scroll-intent-controller";
+import type { ChatControllerCompositionPorts } from "./composition-ports";
+import { createChatViewControllers, type ChatViewControllers } from "./composition";
+import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelMessagesPorts, ChatPanelToolbarPorts } from "./panel/regions/ports";
+import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "./panel/regions/composer";
+import { chatPanelPendingRequestsSignature } from "./panel/regions/messages";
 import {
   chatPanelComposerRegionNode,
   chatPanelGoalRegionNode,
   chatPanelMessagesRegionNode,
   chatPanelToolbarRegionNode,
-} from "./ui/regions";
+} from "./panel/regions/render";
 
 type ChatPanelToolbarActions = ChatPanelToolbarPorts["actions"]["toolbar"];
 type ChatPanelToolbarState = ChatPanelToolbarPorts["view"]["toolbar"];
@@ -51,7 +48,7 @@ export class CodexChatView extends ItemView {
   private readonly messageScrollIntent: ChatMessageScrollIntentController;
   private readonly toolbarPorts: ChatPanelToolbarPorts;
   private readonly goalPorts: ChatPanelGoalPorts;
-  private readonly messagesPorts: ChatPanelStatePort;
+  private readonly messagesPorts: ChatPanelMessagesPorts;
   private readonly composerPorts: ChatPanelComposerPorts;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
@@ -169,7 +166,7 @@ export class CodexChatView extends ItemView {
         panelRoot: () => this.panelRoot(),
         toolbarNode: () => chatPanelToolbarRegionNode(this.toolbarPorts),
         goalNode: () => chatPanelGoalRegionNode(this.goalPorts),
-        messagesNode: () => chatPanelMessagesRegionNode(() => this.controllers.render.messages.renderNode()),
+        messagesNode: () => chatPanelMessagesRegionNode(this.messagesPorts),
         composerNode: () => chatPanelComposerRegionNode(() => this.controllers.composer.controller.renderNode()),
         closeToolbarPanelOnOutsidePointer: (event) => {
           this.closeToolbarPanelOnOutsidePointer(event);
@@ -236,7 +233,7 @@ export class CodexChatView extends ItemView {
   private createPanelRegionPorts(controllers: ChatViewControllers): {
     toolbar: ChatPanelToolbarPorts;
     goal: ChatPanelGoalPorts;
-    messages: ChatPanelStatePort;
+    messages: ChatPanelMessagesPorts;
     composer: ChatPanelComposerPorts;
   } {
     const state = {
@@ -275,6 +272,9 @@ export class CodexChatView extends ItemView {
       },
       messages: {
         state,
+        render: {
+          node: () => this.controllers.render.messages.renderNode(),
+        },
       },
       composer: {
         state,
@@ -422,7 +422,7 @@ export class CodexChatView extends ItemView {
   }
 
   override getDisplayText(): string {
-    return chatViewDisplayTitle(this.state, this.restoredThreadTitle());
+    return codexPanelDisplayTitle(this.state.activeThread.id, this.state.threadList.listedThreads, this.restoredThreadTitle());
   }
 
   override getIcon(): string {
@@ -593,7 +593,10 @@ export class CodexChatView extends ItemView {
   }
 
   private activeThreadTitle(): string | null {
-    return buildActiveThreadTitle(this.state);
+    const threadId = this.state.activeThread.id;
+    if (!threadId) return null;
+    const thread = this.state.threadList.listedThreads.find((item) => item.id === threadId);
+    return thread ? getThreadTitle(thread) : null;
   }
 
   private restoredThreadPlaceholder() {

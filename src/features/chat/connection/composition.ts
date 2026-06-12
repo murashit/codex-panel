@@ -15,7 +15,7 @@ import type { rejectServerRequest, respondToServerRequest } from "../protocol/re
 import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
 import type { ThreadRenameController } from "../threads/thread-rename-controller";
 import { ChatInboundController } from "../protocol/inbound/controller";
-import type { ChatConnectionWorkTracker } from "../panel/lifecycle";
+import type { ChatConnectionWorkTracker } from "../lifecycle";
 
 interface ChatServerActionControllerPorts {
   plugin: {

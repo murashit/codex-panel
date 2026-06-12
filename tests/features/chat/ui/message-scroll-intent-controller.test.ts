@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ChatMessageScrollIntentController } from "../../../../src/features/chat/panel/message-scroll-intent-controller";
+import { ChatMessageScrollIntentController } from "../../../../src/features/chat/ui/message-scroll-intent-controller";
 
 describe("ChatMessageScrollIntentController", () => {
   it("consumes one-shot scroll intents", () => {

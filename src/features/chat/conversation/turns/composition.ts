@@ -20,9 +20,9 @@ import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective-se
 import type { RuntimeSnapshot } from "../../runtime/model";
 import { ChatMessageRenderer } from "../../ui/message-stream/renderer";
 import type { DisplayDetailSection } from "../../display/types";
-import type { ChatMessageScrollIntentController } from "../../panel/message-scroll-intent-controller";
+import type { ChatMessageScrollIntentController } from "../../ui/message-scroll-intent-controller";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
-import type { ComposerMetaViewModel } from "../../panel/view-model/composer";
+import type { ComposerMetaViewModel } from "../../ui/composer";
 import type { CodexPanelSettings } from "../../../../settings/model";
 
 interface ConversationSurfaceControllerGroupPorts {

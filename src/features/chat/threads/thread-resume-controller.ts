@@ -5,7 +5,7 @@ import type { ChatStateStore } from "../state/reducer";
 import type { RestoredThreadController } from "./restored-thread-controller";
 import { resumedThreadActionFromAppServerResponse } from "./thread-resume";
 import type { ThreadHistoryController } from "./thread-history-controller";
-import type { ChatResumeWorkTracker, ActiveChatResume } from "../panel/lifecycle";
+import type { ChatResumeWorkTracker, ActiveChatResume } from "../lifecycle";
 
 export interface ThreadResumeControllerHost {
   stateStore: ChatStateStore;

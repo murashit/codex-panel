@@ -1,7 +1,7 @@
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import type { ChatState } from "../state/reducer";
 import type { DisplayItem } from "../display/types";
-import type { RestoredThreadState } from "./lifecycle";
+import type { RestoredThreadState } from "../lifecycle";
 
 export function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
   if (state.kind === "running") return { kind: "running", turnId: state.turnId };

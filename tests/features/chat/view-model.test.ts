@@ -7,21 +7,17 @@ import {
   type RuntimeConfigSnapshot,
 } from "../../../src/app-server/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
-import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/view-model/composer";
+import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/regions/composer";
 import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/display/runtime-status";
-import { runtimeComposerChoices } from "../../../src/features/chat/panel/view-model/composer";
+import { runtimeComposerChoices } from "../../../src/features/chat/panel/regions/composer";
 import { runtimeSnapshotForChatState } from "../../../src/features/chat/runtime/snapshot";
-import {
-  activeComposerThreadName,
-  activeThreadTitle,
-  chatViewDisplayTitle,
-} from "../../../src/features/chat/panel/view-model/thread-title";
-import { toolbarViewModel } from "../../../src/features/chat/panel/view-model/toolbar";
+import { toolbarViewModel } from "../../../src/features/chat/panel/regions/toolbar";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/domain/threads/model";
-import { chatPanelComposerMetaViewModel, chatPanelGoalProps } from "../../../src/features/chat/panel/region-view-models";
-import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/ui-ports";
+import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "../../../src/features/chat/panel/regions/composer";
+import { chatPanelGoalProps } from "../../../src/features/chat/panel/regions/goal";
+import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/regions/ports";
 import type { ThreadGoal } from "../../../src/app-server/thread-goal";
 
 describe("chat view model", () => {
@@ -323,19 +319,30 @@ describe("chat view model", () => {
     });
   });
 
-  it("derives active thread titles and composer placeholders", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-1";
-    state.threadList.listedThreads = [threadFixture("thread-1", "Active")];
-
-    expect(chatViewDisplayTitle(state, null)).toBe("Codex: Active");
-    expect(activeThreadTitle(state)).toBe("Active");
-    expect(activeComposerThreadName(state, null)).toBe("Active");
+  it("derives composer placeholders", () => {
     expect(composerPlaceholder("Active")).toBe("Ask Codex to work on “Active”...");
     expect(composerPlaceholder(null)).toBe("Ask Codex to work on this task...");
+  });
 
+  it("uses restored thread names for composer region placeholders when the listed thread has no explicit name", () => {
+    const state = createChatState();
+    state.activeThread.id = "thread-1";
     state.threadList.listedThreads = [threadFixture("thread-1", null)];
-    expect(activeComposerThreadName(state, { threadId: "thread-1", title: "Restored", explicitName: "Restored" })).toBe("Restored");
+
+    expect(
+      chatPanelComposerPlaceholder({
+        state: { chat: () => state },
+        thread: {
+          restoredPlaceholder: () => ({ threadId: "thread-1", title: "Restored", explicitName: "Restored" }),
+        },
+        runtime: {
+          snapshot: () => runtimeSnapshotFixture(state),
+          requestModel: async () => undefined,
+          requestReasoningEffort: async () => undefined,
+          resetReasoningEffortToConfig: async () => undefined,
+        },
+      } satisfies ChatPanelComposerPorts),
+    ).toBe("Ask Codex to work on “Restored”...");
   });
 });
 

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { RestoredThreadController } from "../../../../src/features/chat/threads/restored-thread-controller";
-import { ChatViewDeferredTasks } from "../../../../src/features/chat/panel/lifecycle";
+import { ChatViewDeferredTasks } from "../../../../src/features/chat/lifecycle";
 import { deferred } from "../../../support/async";
 
 describe("RestoredThreadController", () => {

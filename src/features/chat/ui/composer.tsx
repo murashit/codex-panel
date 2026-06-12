@@ -3,9 +3,39 @@ import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
-import type { ComposerMetaViewModel, RuntimeChoice } from "../panel/view-model/composer";
 import { IconButton } from "../../../shared/ui/components";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
+
+export interface ComposerMetaViewModel {
+  fatal: string | null;
+  context: ComposerContextMeterViewModel;
+  statusSummary: string;
+  model: string;
+  effort: string | null;
+  planActive: boolean;
+  autoReviewActive: boolean;
+  fastActive: boolean;
+  modelChoices?: RuntimeChoice[];
+  effortChoices?: RuntimeChoice[];
+}
+
+export interface RuntimeChoice {
+  label: string;
+  selected?: boolean;
+  disabled?: boolean;
+  meta?: string;
+  onClick: () => void;
+}
+
+export interface ComposerContextMeterCellViewModel {
+  text: string;
+  placeholder: boolean;
+}
+
+export interface ComposerContextMeterViewModel {
+  cells: ComposerContextMeterCellViewModel[];
+  percent: string;
+}
 
 export interface ComposerCallbacks {
   onInput: (value: string) => void;

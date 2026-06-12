@@ -12,37 +12,14 @@ import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../runtime/model";
 import type { ChatState } from "../../state/reducer";
-
-export interface ComposerMetaViewModel {
-  fatal: string | null;
-  context: ComposerContextMeterViewModel;
-  statusSummary: string;
-  model: string;
-  effort: string | null;
-  planActive: boolean;
-  autoReviewActive: boolean;
-  fastActive: boolean;
-  modelChoices?: RuntimeChoice[];
-  effortChoices?: RuntimeChoice[];
-}
-
-export interface RuntimeChoice {
-  label: string;
-  selected?: boolean;
-  disabled?: boolean;
-  meta?: string;
-  onClick: () => void;
-}
-
-export interface ComposerContextMeterCellViewModel {
-  text: string;
-  placeholder: boolean;
-}
-
-export interface ComposerContextMeterViewModel {
-  cells: ComposerContextMeterCellViewModel[];
-  percent: string;
-}
+import type {
+  ComposerContextMeterCellViewModel,
+  ComposerContextMeterViewModel,
+  ComposerMetaViewModel,
+  RuntimeChoice,
+} from "../../ui/composer";
+import { explicitThreadName } from "../../../../domain/threads/model";
+import type { ChatPanelComposerPorts, RestoredThreadTitleSnapshot } from "./ports";
 
 export interface RuntimeComposerChoicesInput {
   state: ChatState;
@@ -54,6 +31,25 @@ export interface RuntimeComposerChoicesInput {
 
 export function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
+}
+
+export function chatPanelComposerPlaceholder(ports: ChatPanelComposerPorts): string {
+  return composerPlaceholder(activeComposerThreadName(ports.state.chat(), ports.thread.restoredPlaceholder()));
+}
+
+export function chatPanelComposerMetaViewModel(ports: ChatPanelComposerPorts) {
+  const state = ports.state.chat();
+  const snapshot = ports.runtime.snapshot();
+  return {
+    ...composerMetaViewModel(state, snapshot),
+    ...runtimeComposerChoices({
+      state,
+      snapshot,
+      requestModel: (model) => void ports.runtime.requestModel(model),
+      requestReasoningEffort: (effort) => void ports.runtime.requestReasoningEffort(effort),
+      resetReasoningEffortToConfig: () => void ports.runtime.resetReasoningEffortToConfig(),
+    }),
+  };
 }
 
 export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapshot): ComposerMetaViewModel {
@@ -162,6 +158,15 @@ function composerStatusSummary(input: {
 
 function onOffLabel(active: boolean): string {
   return active ? "on" : "off";
+}
+
+function activeComposerThreadName(state: ChatState, restoredThread: RestoredThreadTitleSnapshot | null): string | null {
+  const threadId = state.activeThread.id;
+  if (!threadId) return null;
+  const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
+  const listedName = thread ? explicitThreadName(thread) : null;
+  if (listedName) return listedName;
+  return restoredThread?.threadId === threadId ? restoredThread.explicitName : null;
 }
 
 const CONTEXT_DOT_WIDTH = 4;

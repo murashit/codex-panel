@@ -2,11 +2,13 @@ import type { ComponentChild as UiNode } from "preact";
 import { useComputed } from "@preact/signals";
 import { useEffect, useState } from "preact/hooks";
 
-import { chatPanelGoalProps, chatPanelToolbarViewModel } from "../panel/region-view-models";
-import { goalBannerNode } from "./goal-banner";
-import { toolbarNode } from "./toolbar";
-import type { ChatPanelGoalPorts, ChatPanelToolbarPorts } from "../panel/ui-ports";
-import { useChatPanelShellState } from "./shell";
+import { goalBannerNode } from "../../ui/goal-banner";
+import { useChatPanelShellState } from "../../ui/shell";
+import { toolbarNode } from "../../ui/toolbar";
+import { chatPanelGoalProps } from "./goal";
+import { chatPanelMessagesNode } from "./messages";
+import type { ChatPanelGoalPorts, ChatPanelMessagesPorts, ChatPanelToolbarPorts } from "./ports";
+import { chatPanelToolbarViewModel } from "./toolbar";
 
 export function chatPanelToolbarRegionNode(ports: ChatPanelToolbarPorts): UiNode {
   return <ToolbarRegion ports={ports} />;
@@ -16,8 +18,8 @@ export function chatPanelGoalRegionNode(ports: ChatPanelGoalPorts): UiNode {
   return <GoalRegion ports={ports} />;
 }
 
-export function chatPanelMessagesRegionNode(node: () => UiNode): UiNode {
-  return <MessagesRegion node={node} />;
+export function chatPanelMessagesRegionNode(ports: ChatPanelMessagesPorts): UiNode {
+  return <MessagesRegion ports={ports} />;
 }
 
 export function chatPanelComposerRegionNode(node: () => UiNode): UiNode {
@@ -45,7 +47,7 @@ function GoalRegion({ ports }: { ports: ChatPanelGoalPorts }): UiNode {
   return goalBannerNode(props.value.goal, props.value.actions, props.value.options);
 }
 
-function MessagesRegion({ node }: { node: () => UiNode }): UiNode {
+function MessagesRegion({ ports }: { ports: ChatPanelMessagesPorts }): UiNode {
   const { activeThread, runtime, transcript, requests, turn, ui, renderVersion } = useChatPanelShellState();
   void activeThread.value;
   void runtime.value;
@@ -54,7 +56,7 @@ function MessagesRegion({ node }: { node: () => UiNode }): UiNode {
   void turn.value;
   void ui.value;
   void renderVersion.value;
-  return node();
+  return chatPanelMessagesNode(ports);
 }
 
 function ComposerRegion({ node }: { node: () => UiNode }): UiNode {

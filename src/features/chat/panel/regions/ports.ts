@@ -1,10 +1,16 @@
-import type { ChatState } from "../state/reducer";
-import type { ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "../runtime/model";
-import type { SendShortcut } from "../../../shared/ui/keyboard";
-import type { ToolbarActions } from "../ui/toolbar";
-import type { RestoredThreadTitleSnapshot } from "./view-model/thread-title";
-import type { ToolbarThreadRow } from "./view-model/toolbar";
+import type { ComponentChild as UiNode } from "preact";
+import type { ChatState } from "../../state/reducer";
+import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { RuntimeSnapshot } from "../../runtime/model";
+import type { SendShortcut } from "../../../../shared/ui/keyboard";
+import type { ToolbarActions } from "../../ui/toolbar";
+import type { ToolbarThreadRow } from "../../ui/toolbar";
+
+export interface RestoredThreadTitleSnapshot {
+  threadId: string;
+  title: string | null;
+  explicitName: string | null;
+}
 
 interface ChatPanelToolbarState {
   archiveConfirmId: () => string | null;
@@ -55,6 +61,12 @@ export interface ChatPanelGoalPorts extends ChatPanelStatePort {
   };
   actions: {
     goal: ChatPanelGoalActions;
+  };
+}
+
+export interface ChatPanelMessagesPorts extends ChatPanelStatePort {
+  render: {
+    node: () => UiNode;
   };
 }
 

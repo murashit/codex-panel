@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { scheduleAppServerWarmup } from "../../../../src/features/chat/connection/app-server-warmup-controller";
-import { ChatViewDeferredTasks } from "../../../../src/features/chat/panel/lifecycle";
+import { ChatViewDeferredTasks } from "../../../../src/features/chat/lifecycle";
 
 function createController({
   opened = true,

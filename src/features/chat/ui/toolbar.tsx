@@ -3,11 +3,47 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 
 import type { RuntimeConfigSection, RateLimitSummary } from "../display/runtime-status";
 import { IconButton } from "../../../shared/ui/components";
-import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/view-model/toolbar";
 
 type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;
 };
+
+export interface ToolbarThreadRow {
+  title: string;
+  threadId: string;
+  selected: boolean;
+  disabled: boolean;
+  canArchive: boolean;
+  archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
+  rename: {
+    draft: string;
+    generating: boolean;
+  } | null;
+}
+
+interface ToolbarDiagnosticRow {
+  label: string;
+  value: string;
+  level?: "normal" | "warning" | "error";
+}
+
+export interface ToolbarDiagnosticSection {
+  title: string;
+  rows: ToolbarDiagnosticRow[];
+}
+
+export interface ToolbarViewModel {
+  newChatDisabled: boolean;
+  chatActionsOpen: boolean;
+  historyOpen: boolean;
+  statusPanelOpen: boolean;
+  rateLimit: RateLimitSummary | null;
+  configSections: RuntimeConfigSection[];
+  openPanel: "history" | "chat-actions" | "status" | null;
+  threads: ToolbarThreadRow[];
+  connectLabel: string;
+  diagnostics: ToolbarDiagnosticSection[];
+}
 
 export interface ToolbarActions {
   startNewThread: () => void;

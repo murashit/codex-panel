@@ -5,7 +5,7 @@ import {
   type RestoredThreadPlaceholderState,
   type RestoredThreadState,
   type ChatViewDeferredTasks,
-} from "../panel/lifecycle";
+} from "../lifecycle";
 
 export interface RestoredThreadControllerHost {
   deferredTasks: ChatViewDeferredTasks;
