@@ -15,7 +15,7 @@ import {
   supportedReasoningEfforts,
 } from "../../runtime/effective";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import { collaborationModeLabel, pendingRuntimeSettingLabel } from "../../runtime/settings";
+import { collaborationModeLabel, pendingRuntimeSettingLabel } from "../../runtime/pending-settings";
 
 export interface ContextSummary {
   label: string;

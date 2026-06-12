@@ -7,7 +7,7 @@ import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { RuntimeSnapshot } from "./runtime/snapshot";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/settings";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/pending-settings";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./state/reducer";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";

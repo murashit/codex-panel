@@ -20,14 +20,14 @@ import {
   appendToolOutput,
   completeReasoningItems,
   upsertDisplayItem,
-} from "../../state/transcript-updates";
+} from "../../state/message-stream-updates";
 import { displayItemFromThreadItem, displayItemsFromTurns, normalizeFileChanges, shouldSuppressLifecycleItem } from "../../display/turn-items";
 import { taskProgressDisplayItem } from "../../display/items/task-progress";
 import { createSystemItem } from "../../display/items/system";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../../display/types";
 import { goalChangeItem } from "../../display/items/goal";
 import { hookRunDisplayItem } from "../../display/items/hook-run";
-import { attachHookRunsToTurn } from "../../state/transcript-updates";
+import { attachHookRunsToTurn } from "../../state/message-stream-updates";
 import {
   routeServerNotification,
   type DiagnosticStatusNotificationMethod,
@@ -119,23 +119,23 @@ const STREAM_UPDATE_PLANNERS = {
   "item/agentMessage/delta": (state, notification) => {
     const { params } = notification;
     const displayItems = appendAssistantDelta(
-      completeReasoningItems(state.transcript.displayItems, params.turnId),
+      completeReasoningItems(state.messageStream.displayItems, params.turnId),
       params.itemId,
       params.turnId,
       params.delta,
     );
-    return actionPlan({ type: "transcript/items-replaced", items: displayItems });
+    return actionPlan({ type: "message-stream/items-replaced", items: displayItems });
   },
   "item/plan/delta": (state, notification) => {
     const { params } = notification;
     return actionPlan({
-      type: "transcript/items-replaced",
-      items: appendPlanDelta(state.transcript.displayItems, params.itemId, params.turnId, params.delta),
+      type: "message-stream/items-replaced",
+      items: appendPlanDelta(state.messageStream.displayItems, params.itemId, params.turnId, params.delta),
     });
   },
   "turn/plan/updated": (_state, notification) =>
     actionPlan({
-      type: "transcript/item-upserted",
+      type: "message-stream/item-upserted",
       item: taskProgressDisplayItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
     }),
   "item/reasoning/summaryTextDelta": (state, notification) =>
@@ -148,9 +148,9 @@ const STREAM_UPDATE_PLANNERS = {
   "item/completed": (state, notification) => completedItemPlan(state, notification.params.item, notification.params.turnId),
   "item/commandExecution/outputDelta": (state, notification) =>
     actionPlan({
-      type: "transcript/items-replaced",
+      type: "message-stream/items-replaced",
       items: appendItemOutput(
-        state.transcript.displayItems,
+        state.messageStream.displayItems,
         notification.params.itemId,
         notification.params.turnId,
         notification.params.delta,
@@ -162,9 +162,9 @@ const STREAM_UPDATE_PLANNERS = {
     fileChangePlan(notification.params.itemId, notification.params.turnId, notification.params.changes, "inProgress"),
   "item/fileChange/outputDelta": (state, notification) =>
     actionPlan({
-      type: "transcript/items-replaced",
+      type: "message-stream/items-replaced",
       items: appendItemOutput(
-        state.transcript.displayItems,
+        state.messageStream.displayItems,
         notification.params.itemId,
         notification.params.turnId,
         notification.params.delta,
@@ -173,15 +173,15 @@ const STREAM_UPDATE_PLANNERS = {
       ),
     }),
   "turn/diff/updated": (_state, notification) =>
-    actionPlan({ type: "transcript/turn-diff-updated", turnId: notification.params.turnId, diff: notification.params.diff }),
+    actionPlan({ type: "message-stream/turn-diff-updated", turnId: notification.params.turnId, diff: notification.params.diff }),
   "hook/started": (state, notification) => hookRunPlan(state, notification.params.run, notification.params.turnId, "running"),
   "hook/completed": (state, notification) =>
     hookRunPlan(state, notification.params.run, notification.params.turnId, notification.params.run.status),
   "item/mcpToolCall/progress": (state, notification) =>
     actionPlan({
-      type: "transcript/items-replaced",
+      type: "message-stream/items-replaced",
       items: appendToolOutput(
-        state.transcript.displayItems,
+        state.messageStream.displayItems,
         notification.params.itemId,
         notification.params.turnId,
         notification.params.message,
@@ -192,10 +192,10 @@ const STREAM_UPDATE_PLANNERS = {
   "item/autoApprovalReview/completed": autoApprovalReviewPlan,
   guardianWarning: (state, notification, localItemId) => {
     const item = createReviewResultItem(localItemId("review"), notification.params.message);
-    if (isUnstructuredAutoReviewWarning(item) && hasStructuredAutoReviewResult(state.transcript.displayItems, activeTurnId(state))) {
+    if (isUnstructuredAutoReviewWarning(item) && hasStructuredAutoReviewResult(state.messageStream.displayItems, activeTurnId(state))) {
       return EMPTY_PLAN;
     }
-    return actionPlan({ type: "transcript/item-upserted", item });
+    return actionPlan({ type: "message-stream/item-upserted", item });
   },
 } satisfies ServerNotificationStatePlannerMap<StreamUpdateNotificationMethod>;
 
@@ -274,14 +274,14 @@ const THREAD_LIFECYCLE_PLANNERS = {
     if (state.activeThread.id !== notification.params.threadId) return EMPTY_PLAN;
     const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal: notification.params.goal }];
     const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, notification.params.goal);
-    if (item) actions.push({ type: "transcript/item-upserted", item });
+    if (item) actions.push({ type: "message-stream/item-upserted", item });
     return { actions, effects: [] };
   },
   "thread/goal/cleared": (state, notification, localItemId) => {
     if (state.activeThread.id !== notification.params.threadId) return EMPTY_PLAN;
     const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal: null }];
     const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, null);
-    if (item) actions.push({ type: "transcript/item-upserted", item });
+    if (item) actions.push({ type: "message-stream/item-upserted", item });
     return { actions, effects: [] };
   },
 } satisfies ServerNotificationStatePlannerMap<ThreadLifecycleNotificationMethod>;
@@ -390,31 +390,31 @@ function autoApprovalReviewPlan(
 ): ChatNotificationPlan {
   const reviewItem = createAutoReviewResultItem(notification.params);
   return actionPlan({
-    type: "transcript/items-replaced",
-    items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(state.transcript.displayItems), reviewItem),
+    type: "message-stream/items-replaced",
+    items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(state.messageStream.displayItems), reviewItem),
   });
 }
 
 function startedItemPlan(item: AppServerThreadItem, turnId: string): ChatNotificationPlan {
   if (shouldSuppressLifecycleItem(item)) return EMPTY_PLAN;
   const displayItem = displayItemFromThreadItem(item, turnId);
-  return displayItem ? actionPlan({ type: "transcript/item-upserted", item: displayItem }) : EMPTY_PLAN;
+  return displayItem ? actionPlan({ type: "message-stream/item-upserted", item: displayItem }) : EMPTY_PLAN;
 }
 
 function completedItemPlan(state: ChatState, item: AppServerThreadItem, turnId: string): ChatNotificationPlan {
   if (item.type === "userMessage") return EMPTY_PLAN;
   const displayItem = displayItemFromThreadItem(item, turnId);
   if (!displayItem) return EMPTY_PLAN;
-  let displayItems = upsertDisplayItem(state.transcript.displayItems, displayItem);
+  let displayItems = upsertDisplayItem(state.messageStream.displayItems, displayItem);
   if (displayItem.kind === "reasoning") {
     displayItems = completeReasoningItems(displayItems, turnId);
   }
-  return actionPlan({ type: "transcript/items-replaced", items: displayItems });
+  return actionPlan({ type: "message-stream/items-replaced", items: displayItems });
 }
 
 function fileChangePlan(itemId: string, turnId: string, changes: AppServerFileUpdateChange[], status: string): ChatNotificationPlan {
   return actionPlan({
-    type: "transcript/item-upserted",
+    type: "message-stream/item-upserted",
     item: {
       id: itemId,
       kind: "fileChange",
@@ -437,8 +437,8 @@ function appendToolTextPlan(
   kind: Extract<DisplayKind, "tool" | "hook" | "reasoning"> = "tool",
 ): ChatNotificationPlan {
   return actionPlan({
-    type: "transcript/items-replaced",
-    items: appendItemText(state.transcript.displayItems, itemId, turnId, label, delta, kind),
+    type: "message-stream/items-replaced",
+    items: appendItemText(state.messageStream.displayItems, itemId, turnId, label, delta, kind),
   });
 }
 
@@ -478,20 +478,20 @@ function hookRunTurnId(
 
 function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly DisplayItem[] {
   const pending = pendingTurnStartForState(state);
-  if (!pending) return state.transcript.displayItems;
-  return attachHookRunsToTurn(state.transcript.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
+  if (!pending) return state.messageStream.displayItems;
+  return attachHookRunsToTurn(state.messageStream.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }
 
 function reconciledCompletedTurnItems(state: ChatState, turn: AppServerTurn): readonly DisplayItem[] {
   const turnItems = displayItemsFromTurns([turn]);
-  if (turnItems.length === 0) return state.transcript.displayItems;
+  if (turnItems.length === 0) return state.messageStream.displayItems;
   const serverUserMessages = turnItems.filter(isUserMessage);
   const serverUserClientIds = new Set(serverUserMessages.map((item) => item.clientId).filter(isString));
   const serverUserMessagesByClientId = new Map(
     serverUserMessages.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
   );
   const serverUserFallbackTexts = serverUserClientIds.size > 0 ? new Set<string>() : new Set(serverUserMessages.map((item) => item.text));
-  const stateDisplayItems = state.transcript.displayItems.map(
+  const stateDisplayItems = state.messageStream.displayItems.map(
     (item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item,
   );
   let mergedTurnItems = stateDisplayItems
@@ -554,7 +554,7 @@ function isString(value: string | null | undefined): value is string {
 }
 
 function systemMessagePlan(message: { id: string; text: string }): ChatNotificationPlan {
-  return actionPlan({ type: "transcript/system-item-added", item: createSystemItem(message.id, message.text) });
+  return actionPlan({ type: "message-stream/system-item-added", item: createSystemItem(message.id, message.text) });
 }
 
 function actionPlan(action: ChatAction): ChatNotificationPlan {

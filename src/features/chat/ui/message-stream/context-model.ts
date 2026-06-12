@@ -13,17 +13,17 @@ import type { ChatMessageStreamContextPort } from "./ports";
 
 export function createMessageStreamContext(state: ChatState, port: ChatMessageStreamContextPort): MessageStreamContext {
   const busy = chatTurnBusy(state);
-  const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.transcript.displayItems);
-  const forkCandidates = busy ? [] : forkCandidatesFromItems(state.transcript.displayItems);
+  const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.messageStream.displayItems);
+  const forkCandidates = busy ? [] : forkCandidatesFromItems(state.messageStream.displayItems);
   const implementPlanCandidate = implementPlanCandidateFromState(state);
 
   return {
     activeThreadId: state.activeThread.id,
     turnLifecycle: state.turn.lifecycle,
-    historyCursor: state.transcript.historyCursor,
-    loadingHistory: state.transcript.loadingHistory,
-    displayItems: state.transcript.displayItems,
-    turnDiffs: state.transcript.turnDiffs,
+    historyCursor: state.messageStream.historyCursor,
+    loadingHistory: state.messageStream.loadingHistory,
+    displayItems: state.messageStream.displayItems,
+    turnDiffs: state.messageStream.turnDiffs,
     workspaceRoot: state.activeThread.cwd ?? port.vaultPath,
     openDetails: state.ui.openDetails,
     onDetailsToggle: port.setOpenDetail,

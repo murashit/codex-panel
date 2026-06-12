@@ -6,7 +6,7 @@ import {
   runtimeConfigOrDefault,
   supportedReasoningEfforts,
 } from "../../runtime/effective";
-import { compactReasoningEffortLabel } from "../../conversation/turns/runtime-overrides";
+import { compactReasoningEffortLabel } from "../../runtime/settings-copy";
 import { contextSummary } from "../../display/status/runtime";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";

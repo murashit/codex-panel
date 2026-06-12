@@ -4,13 +4,13 @@ import type { AppServerClient } from "../../../../../src/app-server/client";
 import type { CodexInput } from "../../../../../src/app-server/request-input";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import {
-  createSlashCommandActions,
-  type SlashCommandActionsHost,
+  createSlashCommandHandler,
+  type SlashCommandHandlerHost,
   type SlashCommandGoalPort,
   type SlashCommandRuntimePort,
   type SlashCommandStatusPort,
   type SlashCommandThreadPort,
-} from "../../../../../src/features/chat/conversation/turns/slash-command-actions";
+} from "../../../../../src/features/chat/conversation/turns/slash-command-handler";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -26,7 +26,7 @@ function thread(id: string, name: string | null = null): Thread {
   };
 }
 
-interface SlashCommandHostOverrides extends Partial<Omit<SlashCommandActionsHost, "threads" | "runtime" | "goals" | "status">> {
+interface SlashCommandHostOverrides extends Partial<Omit<SlashCommandHandlerHost, "threads" | "runtime" | "goals" | "status">> {
   threads?: Partial<SlashCommandThreadPort>;
   runtime?: Partial<SlashCommandRuntimePort>;
   goals?: Partial<SlashCommandGoalPort>;
@@ -85,7 +85,7 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     clear: vi.fn().mockResolvedValue(true),
     ...goalOverrides,
   };
-  const host: SlashCommandActionsHost = {
+  const host: SlashCommandHandlerHost = {
     stateStore,
     currentClient: () => client,
     codexInput: vi.fn((text: string) => textInput(text)),
@@ -98,10 +98,10 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
   return { compactThread, host, stateStore, threadTurnsList };
 }
 
-describe("createSlashCommandActions", () => {
+describe("createSlashCommandHandler", () => {
   it("executes slash commands against the current chat state", async () => {
     const { host } = createHost();
-    const controller = createSlashCommandActions(host);
+    const controller = createSlashCommandHandler(host);
 
     const result = await controller.execute("clear", "");
 
@@ -126,7 +126,7 @@ describe("createSlashCommandActions", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    const controller = createSlashCommandActions(host);
+    const controller = createSlashCommandHandler(host);
 
     await controller.execute("compact", "");
 
@@ -146,7 +146,7 @@ describe("createSlashCommandActions", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    const controller = createSlashCommandActions(host);
+    const controller = createSlashCommandHandler(host);
 
     await controller.execute("compact", "");
 
@@ -155,7 +155,7 @@ describe("createSlashCommandActions", () => {
 
   it("starts an empty panel before setting a slash command goal", async () => {
     const { host } = createHost();
-    const controller = createSlashCommandActions(host);
+    const controller = createSlashCommandHandler(host);
 
     await controller.execute("goal", "set Ship this");
 
@@ -165,7 +165,7 @@ describe("createSlashCommandActions", () => {
 
   it("runs reconnect even when there is no current app-server client", async () => {
     const { host } = createHost({ currentClient: () => null });
-    const controller = createSlashCommandActions(host);
+    const controller = createSlashCommandHandler(host);
 
     await controller.execute("reconnect", "");
 
@@ -178,7 +178,7 @@ describe("createSlashCommandActions", () => {
       type: "thread-list/applied",
       threads: [thread("other", "Other")],
     });
-    const controller = createSlashCommandActions(host);
+    const controller = createSlashCommandHandler(host);
 
     const result = await controller.execute("refer", "Other summarize");
 

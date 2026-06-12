@@ -1,7 +1,7 @@
 import type { ConnectionManager } from "../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../app-server/client";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
-import type { ArchiveExportAdapter } from "../../../domain/threads/export";
+import type { ArchiveExportAdapter } from "../../thread-export/archive-markdown";
 import { createChatThreadActions } from "./actions";
 import { AutoTitleController } from "./auto-title-controller";
 import { createGoalActions } from "./goal-actions";
@@ -140,7 +140,7 @@ export function createThreadControllerGroup(
     ensureConnected: client.ensureConnected,
     addSystemMessage: status.addSystemMessage,
     addGoalEvent: (item) => {
-      stateStore.dispatch({ type: "transcript/item-upserted", item });
+      stateStore.dispatch({ type: "message-stream/item-upserted", item });
     },
     render: render.now,
     refreshLiveState: liveState.refresh,

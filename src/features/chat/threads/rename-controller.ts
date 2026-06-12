@@ -168,7 +168,7 @@ export class RenameController {
     });
     return (
       context ??
-      (this.state.activeThread.id === threadId ? firstThreadTitleContextFromDisplayItems(this.state.transcript.displayItems) : null)
+      (this.state.activeThread.id === threadId ? firstThreadTitleContextFromDisplayItems(this.state.messageStream.displayItems) : null)
     );
   }
 

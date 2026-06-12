@@ -5,7 +5,7 @@ import { activeTurnId } from "../../state/reducer";
 import { displayBlocksForItems } from "../../display/stream/blocks";
 import type { ToolResultDisplayItem } from "../tool-result-view";
 import type { DisplayBlock, DisplayItem } from "../../display/types";
-import { userInputDraftKey, userInputOtherDraftKey } from "../../protocol/requests/user-input";
+import { userInputDraftKey, userInputOtherDraftKey } from "../../protocol/server-requests/user-input";
 import { pendingRequestBlockNode } from "../pending-request-block";
 import { toolResultNode } from "../tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "../work-items";

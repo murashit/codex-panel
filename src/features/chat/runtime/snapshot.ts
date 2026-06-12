@@ -3,7 +3,7 @@ import type { ActivePermissionProfile, RuntimeConfigSnapshot } from "../../../ap
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
 import type { ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../app-server/runtime-policy";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
-import type { CollaborationMode, PendingRuntimeSetting, RequestedServiceTier } from "./settings";
+import type { CollaborationMode, PendingRuntimeSetting, RequestedServiceTier } from "./pending-settings";
 
 export interface RuntimeSnapshot {
   runtimeConfig: RuntimeConfigSnapshot | null;
@@ -31,7 +31,7 @@ interface RuntimeSnapshotInput {
   activeThread: Pick<ChatState["activeThread"], "id" | "tokenUsage">;
   runtime: ChatState["runtime"];
   rateLimit: ChatState["connection"]["rateLimit"];
-  displayItems: ChatState["transcript"]["displayItems"];
+  displayItems: ChatState["messageStream"]["displayItems"];
   availableModels: ChatState["connection"]["availableModels"];
 }
 
@@ -64,7 +64,7 @@ export function runtimeSnapshotForChatState(state: ChatState): RuntimeSnapshot {
     activeThread: state.activeThread,
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,
-    displayItems: state.transcript.displayItems,
+    displayItems: state.messageStream.displayItems,
     availableModels: state.connection.availableModels,
   });
 }

@@ -199,7 +199,7 @@ describe("message stream rendering and message actions", () => {
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("/resume [thread]Resume a recent Codex thread.");
   });
 
-  it("renders goal events as collapsed tool-like transcript items", () => {
+  it("renders goal events as collapsed tool-like message stream items", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
       turnLifecycle: idleTurnLifecycle(),
@@ -719,7 +719,7 @@ describe("message stream rendering and message actions", () => {
       activeThread: { id: "thread" },
       turn: { lifecycle: { kind: "idle" as const } },
       runtime: { selectedCollaborationMode: "plan" as const },
-      transcript: {
+      messageStream: {
         displayItems: [
           firstPlan,
           {

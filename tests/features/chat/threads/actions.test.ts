@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/client";
 import type { AppServerThread } from "../../../../src/app-server/thread-model";
-import type { ArchiveExportAdapter } from "../../../../src/domain/threads/export";
+import type { ArchiveExportAdapter } from "../../../../src/features/thread-export/archive-markdown";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createChatThreadActions, type ChatThreadActionsHost } from "../../../../src/features/chat/threads/actions";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
@@ -290,13 +290,13 @@ describe("createChatThreadActions", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    host.stateStore.dispatch({ type: "transcript/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
+    host.stateStore.dispatch({ type: "message-stream/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
     const controller = createChatThreadActions(host);
 
     await controller.rollbackThread("source");
 
     expect(client.rollbackThread).toHaveBeenCalledWith("source");
-    expect(host.stateStore.getState().transcript.displayItems.slice(0, 2)).toMatchObject([
+    expect(host.stateStore.getState().messageStream.displayItems.slice(0, 2)).toMatchObject([
       { kind: "message", role: "user", text: "kept prompt", turnId: "kept-turn" },
       { kind: "message", role: "assistant", text: "kept answer", turnId: "kept-turn" },
     ]);
@@ -323,7 +323,7 @@ describe("createChatThreadActions", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    host.stateStore.dispatch({ type: "transcript/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
+    host.stateStore.dispatch({ type: "message-stream/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
     const controller = createChatThreadActions(host);
 
     const pendingRollback = controller.rollbackThread("source");
@@ -409,7 +409,7 @@ function hostMock({
   settings?: Partial<typeof DEFAULT_SETTINGS>;
 }) {
   const state = createChatState();
-  const stateStore = createChatStateStore({ ...state, transcript: { ...state.transcript, displayItems } });
+  const stateStore = createChatStateStore({ ...state, messageStream: { ...state.messageStream, displayItems } });
   return {
     stateStore,
     vaultPath: "/vault",

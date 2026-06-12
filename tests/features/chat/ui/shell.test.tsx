@@ -75,7 +75,7 @@ describe("ChatPanelShell", () => {
       store.dispatch({ type: "connection/status-set", status: "Working" });
       store.dispatch({ type: "ui/panel-set", panel: "status-panel" });
       store.dispatch({
-        type: "transcript/system-item-added",
+        type: "message-stream/system-item-added",
         item: { id: "system-1", kind: "system", role: "system", text: "Model set." },
       });
       await settleShellEffects();
@@ -292,7 +292,7 @@ describe("ChatPanelShell", () => {
 
     await act(async () => {
       store.dispatch({
-        type: "transcript/system-item-added",
+        type: "message-stream/system-item-added",
         item: { id: "system-1", kind: "system", role: "system", text: "Restored." },
       });
       await settleShellEffects();
@@ -479,8 +479,8 @@ function ShellGoal({ className }: { className?: string }) {
 }
 
 function ShellMessageCount({ className }: { className?: string }) {
-  const { transcript } = useChatPanelShellState();
-  return <div className={className}>{String(transcript.value.displayItems.length)}</div>;
+  const { messageStream } = useChatPanelShellState();
+  return <div className={className}>{String(messageStream.value.displayItems.length)}</div>;
 }
 
 function ShellComposerStatus() {
@@ -499,7 +499,7 @@ function useShellText(selector: "status" | "goal" | "message-count" | "composer-
     case "goal":
       return shellState.activeThread.value.goal?.objective ?? "no goal";
     case "message-count":
-      return String(shellState.transcript.value.displayItems.length);
+      return String(shellState.messageStream.value.displayItems.length);
     case "composer-status":
       return chatTurnBusy({ ...shellState.latestState(), turn: shellState.turn.value }) ? "busy" : "ready";
   }

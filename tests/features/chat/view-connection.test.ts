@@ -256,7 +256,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     expect((view as unknown as { state: ChatState }).state.activeThread.id).toBe("thread-new");
     expect((view as unknown as { state: ChatState }).state.activeThread.goal?.objective).toBe("Ship the feature");
-    expect((view as unknown as { state: ChatState }).state.transcript.displayItems).toContainEqual(
+    expect((view as unknown as { state: ChatState }).state.messageStream.displayItems).toContainEqual(
       expect.objectContaining({ kind: "goal", text: "set: Ship the feature", objective: "Ship the feature" }),
     );
     expect(view.containerEl.textContent).toContain("Ship the feature");
@@ -858,7 +858,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.threadTurnsList).not.toHaveBeenCalled();
     expect(view.containerEl.textContent).toContain("hello");
     expect(view.containerEl.textContent).toContain("done");
-    expect((view as unknown as { state: ChatState }).state.transcript.historyCursor).toBe("older-cursor");
+    expect((view as unknown as { state: ChatState }).state.messageStream.historyCursor).toBe("older-cursor");
   });
 
   it("ignores stale resume results when another thread is opened first", async () => {

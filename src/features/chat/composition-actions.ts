@@ -81,12 +81,12 @@ export function createChatControllerCompositionActions(
   const status = {
     set: ports.status.set,
     addSystemMessage: (text: string) => {
-      ports.state.stateStore.dispatch({ type: "transcript/system-item-added", item: ports.state.systemItem(text) });
+      ports.state.stateStore.dispatch({ type: "message-stream/system-item-added", item: ports.state.systemItem(text) });
       render.now();
     },
     addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => {
       ports.state.stateStore.dispatch({
-        type: "transcript/system-item-added",
+        type: "message-stream/system-item-added",
         item: ports.state.structuredSystemItem(text, details),
       });
       render.now();

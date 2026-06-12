@@ -5,8 +5,8 @@ import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
 import { createStructuredSystemItem, createSystemItem } from "../../display/items/system";
 import type { DisplayDetailSection } from "../../display/types";
-import { approvalResponse, type ApprovalAction, type PendingApproval } from "../requests/approval";
-import { userInputResponse, type PendingUserInput } from "../requests/user-input";
+import { approvalResponse, type ApprovalAction, type PendingApproval } from "../server-requests/approval";
+import { userInputResponse, type PendingUserInput } from "../server-requests/user-input";
 import { createApprovalResultItem, createUserInputResultItem } from "../../conversation/pending-requests/result-items";
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
@@ -107,15 +107,15 @@ export class ChatInboundController {
   }
 
   addSystemMessage(text: string): void {
-    this.dispatch({ type: "transcript/system-item-added", item: createSystemItem(this.localItemId("system"), text) });
+    this.dispatch({ type: "message-stream/system-item-added", item: createSystemItem(this.localItemId("system"), text) });
   }
 
   addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
-    this.dispatch({ type: "transcript/system-item-added", item: createStructuredSystemItem(this.localItemId("system"), text, details) });
+    this.dispatch({ type: "message-stream/system-item-added", item: createStructuredSystemItem(this.localItemId("system"), text, details) });
   }
 
   addDedupedSystemMessage(text: string): void {
-    this.dispatch({ type: "transcript/deduped-log-added", text, item: createSystemItem(this.localItemId("system"), text) });
+    this.dispatch({ type: "message-stream/deduped-log-added", text, item: createSystemItem(this.localItemId("system"), text) });
   }
 
   private queueApprovalRequest(approval: PendingApproval): void {

@@ -3,7 +3,7 @@ import type { ServiceTierRequest } from "../../../app-server/thread-settings";
 import { currentModel, currentReasoningEffort, fastServiceTierRequestValue } from "./effective";
 import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
 import type { RuntimeSnapshot } from "./snapshot";
-import type { PendingRuntimeSetting } from "./settings";
+import type { PendingRuntimeSetting } from "./pending-settings";
 
 export type TurnCollaborationModeWarning = "missing-model";
 

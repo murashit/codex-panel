@@ -2,7 +2,7 @@ import { Notice } from "obsidian";
 
 import { threadFromAppServerThread } from "../../../app-server/thread-model";
 import { transcriptEntriesFromAppServerTurn } from "../../../app-server/turn-model";
-import { exportArchivedThreadMarkdown } from "../../../domain/threads/export";
+import { exportArchivedThreadMarkdown } from "../../thread-export/archive-markdown";
 import { chatTurnBusy } from "../state/reducer";
 import type { ChatThreadActionsHost } from "./action-context";
 import { threadActionState } from "./action-context";

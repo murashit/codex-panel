@@ -22,8 +22,8 @@ describe("HistoryController", () => {
     first.resolve(threadTurnsResponse([], "first-cursor"));
     await firstLoad;
 
-    expect(stateStore.getState().transcript.historyCursor).toBe("second-cursor");
-    expect(stateStore.getState().transcript.loadingHistory).toBe(false);
+    expect(stateStore.getState().messageStream.historyCursor).toBe("second-cursor");
+    expect(stateStore.getState().messageStream.loadingHistory).toBe(false);
   });
 
   it("ignores a history load that is invalidated while pending", async () => {
@@ -33,15 +33,15 @@ describe("HistoryController", () => {
     });
 
     const loading = loader.loadLatest();
-    expect(stateStore.getState().transcript.loadingHistory).toBe(true);
+    expect(stateStore.getState().messageStream.loadingHistory).toBe(true);
 
     loader.invalidate();
     pending.resolve(threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "stale-cursor"));
     await loading;
 
-    expect(stateStore.getState().transcript.displayItems).toEqual([]);
-    expect(stateStore.getState().transcript.historyCursor).toBeNull();
-    expect(stateStore.getState().transcript.loadingHistory).toBe(false);
+    expect(stateStore.getState().messageStream.displayItems).toEqual([]);
+    expect(stateStore.getState().messageStream.historyCursor).toBeNull();
+    expect(stateStore.getState().messageStream.loadingHistory).toBe(false);
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -53,10 +53,10 @@ describe("HistoryController", () => {
 
     expect(applied).toBe(true);
     expect(threadTurnsList).not.toHaveBeenCalled();
-    expect(stateStore.getState().transcript.displayItems).toEqual([
+    expect(stateStore.getState().messageStream.displayItems).toEqual([
       expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" }),
     ]);
-    expect(stateStore.getState().transcript.historyCursor).toBe("older");
+    expect(stateStore.getState().messageStream.historyCursor).toBe("older");
     expect(showLatestPageAtBottom).toHaveBeenCalledOnce();
   });
 
@@ -66,23 +66,23 @@ describe("HistoryController", () => {
     const applied = loader.applyLatestPage("other", threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "older"));
 
     expect(applied).toBe(false);
-    expect(stateStore.getState().transcript.displayItems).toEqual([]);
-    expect(stateStore.getState().transcript.historyCursor).toBeNull();
+    expect(stateStore.getState().messageStream.displayItems).toEqual([]);
+    expect(stateStore.getState().messageStream.historyCursor).toBeNull();
   });
 
-  it("loads older history without coupling transcript replacement to bottom pin state", async () => {
+  it("loads older history without coupling message stream replacement to bottom pin state", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue(threadTurnsResponse([turnFixture([assistantMessage("older", "Older")])], "next"));
     const { loader, stateStore, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom } = historyFixture({ threadTurnsList });
-    stateStore.dispatch({ type: "transcript/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
+    stateStore.dispatch({ type: "message-stream/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
 
     await loader.loadOlder();
 
     expect(threadTurnsList).toHaveBeenCalledWith("thread", "cursor", 20);
-    expect(stateStore.getState().transcript.displayItems.map((item) => item.id)).toEqual(["older", "current"]);
-    expect(stateStore.getState().transcript.historyCursor).toBe("next");
+    expect(stateStore.getState().messageStream.displayItems.map((item) => item.id)).toEqual(["older", "current"]);
+    expect(stateStore.getState().messageStream.historyCursor).toBe("next");
     expect(keepCurrentScrollPosition).toHaveBeenCalledOnce();
     expect(showLatestPageAtBottom).not.toHaveBeenCalled();
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "transcript/items-replaced" }));
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "message-stream/items-replaced" }));
   });
 });
 

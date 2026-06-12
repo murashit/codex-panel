@@ -8,9 +8,9 @@ import {
   approvalTitle,
   type ApprovalAction,
   type PendingApproval,
-} from "../protocol/requests/approval";
-import type { PendingUserInput } from "../protocol/requests/user-input";
-import { questionDefaultAnswer } from "../protocol/requests/user-input";
+} from "../protocol/server-requests/approval";
+import type { PendingUserInput } from "../protocol/server-requests/user-input";
+import { questionDefaultAnswer } from "../protocol/server-requests/user-input";
 import { createWorkMessageClassName } from "./work-message";
 
 type PendingUserInputRequestId = PendingUserInput["requestId"];

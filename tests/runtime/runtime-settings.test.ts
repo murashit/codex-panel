@@ -10,10 +10,12 @@ import {
   compactModelLabel,
   compactReasoningEffortLabel,
   modelOverrideMessage,
+  reasoningEffortOverrideMessage,
+} from "../../src/features/chat/runtime/settings-copy";
+import {
   parseModelOverride,
   parseReasoningEffortOverride,
-  reasoningEffortOverrideMessage,
-} from "../../src/features/chat/conversation/turns/runtime-overrides";
+} from "../../src/features/chat/conversation/turns/runtime-setting-commands";
 import {
   autoReviewActive,
   currentApprovalsReviewer,
@@ -28,12 +30,12 @@ import {
   supportedReasoningEfforts,
 } from "../../src/features/chat/runtime/effective";
 import type { RuntimeSnapshot } from "../../src/features/chat/runtime/snapshot";
-import { resetRuntimeSettingToConfig, setPendingRuntimeSetting } from "../../src/features/chat/runtime/settings";
+import { resetRuntimeSettingToConfig, setPendingRuntimeSetting } from "../../src/features/chat/runtime/pending-settings";
 import {
   pendingThreadSettingsUpdate,
   requestedTurnCollaborationModeSettings,
   serviceTierRequestForThreadStart,
-} from "../../src/features/chat/runtime/thread-settings";
+} from "../../src/features/chat/runtime/thread-settings-update";
 import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/display/status/runtime";
 
 describe("runtime settings", () => {

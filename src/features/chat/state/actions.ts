@@ -3,7 +3,7 @@ import type { Thread } from "../../../domain/threads/model";
 import { parseServiceTier, type ServiceTier } from "../../../app-server/runtime-policy";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../runtime/state";
-import type { CollaborationMode } from "../runtime/settings";
+import type { CollaborationMode } from "../runtime/pending-settings";
 import type { DisplayItem } from "../display/types";
 import type { PendingTurnStart } from "../conversation/turns/turn-state";
 
@@ -102,8 +102,8 @@ export interface TurnStartFailedAction {
   displayItems: readonly DisplayItem[];
 }
 
-export interface TranscriptItemAddedAction {
-  type: "transcript/item-added";
+export interface MessageStreamItemAddedAction {
+  type: "message-stream/item-added";
   item: DisplayItem;
 }
 

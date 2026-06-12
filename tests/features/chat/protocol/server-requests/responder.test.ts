@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/client";
-import { rejectServerRequest, respondToServerRequest } from "../../../../../src/features/chat/protocol/requests/server-request-responder";
+import { rejectServerRequest, respondToServerRequest } from "../../../../../src/features/chat/protocol/server-requests/responder";
 
 describe("server request responder", () => {
   it("responds through the current app-server client", () => {

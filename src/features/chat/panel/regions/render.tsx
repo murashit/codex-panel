@@ -48,10 +48,10 @@ function GoalRegion({ ports }: { ports: ChatPanelGoalPorts }): UiNode {
 }
 
 function MessagesRegion({ ports }: { ports: ChatPanelMessagesPorts }): UiNode {
-  const { activeThread, runtime, transcript, requests, turn, ui, renderVersion } = useChatPanelShellState();
+  const { activeThread, runtime, messageStream, requests, turn, ui, renderVersion } = useChatPanelShellState();
   void activeThread.value;
   void runtime.value;
-  void transcript.value;
+  void messageStream.value;
   void requests.value;
   void turn.value;
   void ui.value;
@@ -60,13 +60,13 @@ function MessagesRegion({ ports }: { ports: ChatPanelMessagesPorts }): UiNode {
 }
 
 function ComposerRegion({ node }: { node: () => UiNode }): UiNode {
-  const { connection, threadList, activeThread, runtime, turn, transcript, composer, renderVersion } = useChatPanelShellState();
+  const { connection, threadList, activeThread, runtime, turn, messageStream, composer, renderVersion } = useChatPanelShellState();
   void connection.value;
   void threadList.value;
   void activeThread.value;
   void runtime.value;
   void turn.value;
-  void transcript.value;
+  void messageStream.value;
   void composer.value;
   void renderVersion.value;
   return node();

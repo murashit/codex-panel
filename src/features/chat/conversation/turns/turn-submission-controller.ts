@@ -9,7 +9,7 @@ import {
   localUserMessageItemFromInput,
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
-} from "./turn-submission";
+} from "./optimistic-turn-start";
 
 export interface TurnSubmissionConnectionPort {
   vaultPath: string;
@@ -165,7 +165,7 @@ export class TurnSubmissionController {
       await client.steerTurn(threadId, expectedTurnId, codexInput, localSteerId);
       if (!this.isCurrentTurn(threadId, expectedTurnId)) return;
       this.host.stateStore.dispatch({
-        type: "transcript/item-added",
+        type: "message-stream/item-added",
         item: localUserMessageItemFromInput({
           id: localSteerId,
           text,

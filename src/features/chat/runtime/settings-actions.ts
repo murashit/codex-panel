@@ -8,10 +8,10 @@ import {
   pendingThreadSettingsUpdate as buildPendingThreadSettingsUpdate,
   type PendingThreadSettingsUpdate,
   type TurnCollaborationModeWarning,
-} from "./thread-settings";
+} from "./thread-settings-update";
 import type { RuntimeSnapshot } from "./snapshot";
-import { nextCollaborationMode, type CollaborationMode, type RequestedServiceTier } from "./settings";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../conversation/turns/runtime-overrides";
+import { nextCollaborationMode, type CollaborationMode, type RequestedServiceTier } from "./pending-settings";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "./settings-copy";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 
 const COLLABORATION_MODE_WARNING_MESSAGES: Record<TurnCollaborationModeWarning, string> = {

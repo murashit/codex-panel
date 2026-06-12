@@ -8,7 +8,7 @@ import {
   approvalTitle,
   toPendingApproval,
   type CommandApprovalDecision,
-} from "../../../../../src/features/chat/protocol/requests/approval";
+} from "../../../../../src/features/chat/protocol/server-requests/approval";
 import type { ServerRequest } from "../../../../../src/app-server/types";
 
 function expectPresent<T>(value: T | null | undefined): T {

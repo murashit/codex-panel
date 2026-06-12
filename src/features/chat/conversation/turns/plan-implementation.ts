@@ -18,26 +18,26 @@ interface PlanImplementationRuntimePort {
   requestDefaultCollaborationModeForNextTurn(): void;
 }
 
-export interface PlanImplementationActionsHost {
+export interface PlanImplementationHost {
   stateStore: ChatStateStore;
   connection: PlanImplementationConnectionPort;
   submission: PlanImplementationSubmissionPort;
   runtime: PlanImplementationRuntimePort;
 }
 
-export interface PlanImplementationActions {
+export interface PlanImplementation {
   canImplement: (item: DisplayItem) => boolean;
   implement: (item: DisplayItem) => Promise<void>;
 }
 
-export function createPlanImplementationActions(host: PlanImplementationActionsHost): PlanImplementationActions {
+export function createPlanImplementation(host: PlanImplementationHost): PlanImplementation {
   return {
     canImplement: (item) => canImplementPlan(host.stateStore.getState(), item),
     implement: (item) => implementPlan(host, item),
   };
 }
 
-async function implementPlan(host: PlanImplementationActionsHost, item: DisplayItem): Promise<void> {
+async function implementPlan(host: PlanImplementationHost, item: DisplayItem): Promise<void> {
   if (!canImplementPlan(host.stateStore.getState(), item)) return;
   await host.connection.ensureConnected();
   if (!host.connection.currentClient() || !activeThreadId(host.stateStore.getState())) return;

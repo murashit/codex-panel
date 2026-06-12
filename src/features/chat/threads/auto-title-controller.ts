@@ -45,7 +45,7 @@ export class AutoTitleController {
     if (this.attemptedThreadIds.has(threadId) || this.inFlightThreadIds.has(threadId)) return;
     const context =
       threadTitleContextFromConversationSummary(completedSummary) ??
-      threadTitleContextFromDisplayItems(turnId, this.state.transcript.displayItems);
+      threadTitleContextFromDisplayItems(turnId, this.state.messageStream.displayItems);
     if (!context) return;
 
     this.attemptedThreadIds.add(threadId);

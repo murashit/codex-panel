@@ -10,7 +10,7 @@ import {
   appendPlanDelta,
   appendToolOutput,
   upsertDisplayItem,
-} from "../../../../src/features/chat/state/transcript-updates";
+} from "../../../../src/features/chat/state/message-stream-updates";
 import {
   taskProgressDisplayItem,
   taskProgressExecutionState,

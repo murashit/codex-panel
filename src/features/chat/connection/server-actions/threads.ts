@@ -2,7 +2,7 @@ import { listThreads } from "../../../../app-server/resource-operations";
 import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import { runtimeConfigOrDefault } from "../../runtime/effective";
-import { serviceTierRequestForThreadStart } from "../../runtime/thread-settings";
+import { serviceTierRequestForThreadStart } from "../../runtime/thread-settings-update";
 import { resumedThreadActionFromAppServerResponse } from "../../threads/resume";
 import type { ChatServerActionHost } from "./host";
 import type { ChatState } from "../../state/reducer";

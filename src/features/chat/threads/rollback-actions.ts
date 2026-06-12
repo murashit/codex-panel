@@ -15,7 +15,7 @@ export async function rollbackThread(host: ChatThreadActionsHost, threadId: stri
   const client = host.currentClient();
   if (!client) return;
 
-  const candidate = rollbackCandidateFromItems(threadActionState(host).transcript.displayItems);
+  const candidate = rollbackCandidateFromItems(threadActionState(host).messageStream.displayItems);
   if (!candidate) {
     host.addSystemMessage("No completed turn to roll back.");
     return;
@@ -36,7 +36,7 @@ export async function rollbackThread(host: ChatThreadActionsHost, threadId: stri
       }),
     );
     threadActionDispatch(host, {
-      type: "transcript/items-replaced",
+      type: "message-stream/items-replaced",
       items: displayItemsFromTurns(response.thread.turns),
       historyCursor: null,
       loadingHistory: false,

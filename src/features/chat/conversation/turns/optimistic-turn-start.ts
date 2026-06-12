@@ -1,7 +1,7 @@
 import type { PendingTurnStart } from "../../state/reducer";
 import type { DisplayFileMention, DisplayItem, MessageDisplayItem } from "../../display/types";
 import { fileMentionsFromInput, userMessageDisplayText } from "../../display/items/user-message";
-import { attachHookRunsToTurn } from "../../state/transcript-updates";
+import { attachHookRunsToTurn } from "../../state/message-stream-updates";
 import type { CodexInput } from "../../../../app-server/request-input";
 
 export interface LocalUserMessageParams {

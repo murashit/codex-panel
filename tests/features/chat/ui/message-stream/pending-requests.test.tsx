@@ -3,8 +3,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PendingRequestBlockSnapshot } from "../../../../../src/features/chat/conversation/pending-requests/snapshot";
-import type { PendingApproval } from "../../../../../src/features/chat/protocol/requests/approval";
-import type { PendingUserInput } from "../../../../../src/features/chat/protocol/requests/user-input";
+import type { PendingApproval } from "../../../../../src/features/chat/protocol/server-requests/approval";
+import type { PendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 import { changeInputValue } from "../../../../support/dom";

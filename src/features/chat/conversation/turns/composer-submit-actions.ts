@@ -34,7 +34,7 @@ interface ComposerScrollPort {
   followBottom: () => void;
 }
 
-export interface ComposerSubmissionActionsHost {
+export interface ComposerSubmitActionsHost {
   stateStore: ChatStateStore;
   composer: ComposerDraftPort;
   slashCommands: ComposerSlashCommandPort;
@@ -44,17 +44,17 @@ export interface ComposerSubmissionActionsHost {
   scroll: ComposerScrollPort;
 }
 
-export interface ComposerSubmissionActions {
+export interface ComposerSubmitActions {
   submit: () => Promise<void>;
 }
 
-export function createComposerSubmissionActions(host: ComposerSubmissionActionsHost): ComposerSubmissionActions {
+export function createComposerSubmitActions(host: ComposerSubmitActionsHost): ComposerSubmitActions {
   return {
     submit: () => submitComposer(host),
   };
 }
 
-async function submitComposer(host: ComposerSubmissionActionsHost): Promise<void> {
+async function submitComposer(host: ComposerSubmitActionsHost): Promise<void> {
   const draft = host.composer.trimmedDraft;
   const state = submissionStateSnapshot(host.stateStore.getState());
   if (state.busy && state.activeThreadId && state.activeTurnId && draft.length === 0) {
@@ -64,7 +64,7 @@ async function submitComposer(host: ComposerSubmissionActionsHost): Promise<void
   await sendMessage(host);
 }
 
-async function sendMessage(host: ComposerSubmissionActionsHost): Promise<void> {
+async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
   const text = host.composer.trimmedDraft;
   if (!text) return;
 
@@ -89,7 +89,7 @@ async function sendMessage(host: ComposerSubmissionActionsHost): Promise<void> {
   await host.turnSubmission.sendTurnText(text);
 }
 
-async function interruptTurn(host: ComposerSubmissionActionsHost): Promise<void> {
+async function interruptTurn(host: ComposerSubmitActionsHost): Promise<void> {
   const state = submissionStateSnapshot(host.stateStore.getState());
   const turnId = state.activeTurnId;
   const client = host.connection.currentClient();

@@ -24,7 +24,7 @@ export async function forkThreadFromTurn(
   if (!client) return;
 
   const initialActiveThreadId = threadActionState(host).activeThread.id;
-  const turnsToDrop = turnId ? turnsAfterTurnId(threadActionState(host).transcript.displayItems, turnId) : 0;
+  const turnsToDrop = turnId ? turnsAfterTurnId(threadActionState(host).messageStream.displayItems, turnId) : 0;
   if (turnsToDrop === null) {
     host.addSystemMessage("Could not find the selected turn to fork.");
     return;

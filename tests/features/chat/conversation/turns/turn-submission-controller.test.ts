@@ -193,7 +193,7 @@ describe("TurnSubmissionController", () => {
     expect(
       stateStore
         .getState()
-        .transcript.displayItems.some((item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up"),
+        .messageStream.displayItems.some((item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up"),
     ).toBe(true);
   });
 
@@ -254,7 +254,7 @@ describe("TurnSubmissionController", () => {
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.composer.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(host.status.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
-    expect(stateStore.getState().transcript.displayItems).toEqual([]);
+    expect(stateStore.getState().messageStream.displayItems).toEqual([]);
   });
 
   it("does not restore stale steer drafts or report stale steer failures after the active turn changes", async () => {

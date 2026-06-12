@@ -9,7 +9,7 @@ import type { Diagnostics } from "../../../app-server/diagnostics";
 import { createAppServerDiagnostics } from "../../../app-server/diagnostics";
 import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
-import type { CollaborationMode } from "../runtime/settings";
+import type { CollaborationMode } from "../runtime/pending-settings";
 import {
   commitPendingThreadSettingsRuntimeState,
   clearRequestedApprovalsReviewerRuntimeState,
@@ -25,10 +25,10 @@ import {
   setSelectedCollaborationModeRuntimeState,
   type ChatRuntimeState,
 } from "../runtime/state";
-import type { RequestedServiceTier } from "../runtime/settings";
+import type { RequestedServiceTier } from "../runtime/pending-settings";
 import type { RequestId } from "../../../app-server/types";
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
-import { upsertDisplayItem } from "./transcript-updates";
+import { upsertDisplayItem } from "./message-stream-updates";
 import type { DisplayItem } from "../display/types";
 import type {
   ActiveThreadResumedAction,
@@ -40,13 +40,13 @@ import type {
   ConnectionInitializedAction,
   DetailOpenSetAction,
   ThreadListAppliedAction,
-  TranscriptItemAddedAction,
+  MessageStreamItemAddedAction,
   TurnOptimisticStartedAction,
   TurnStartAcknowledgedAction,
   TurnStartFailedAction,
   UserInputDraftSetAction,
 } from "./actions";
-import { initialChatTranscriptState, reduceTranscriptSlice, type ChatTranscriptState, type TranscriptAction } from "./transcript";
+import { initialChatMessageStreamState, reduceMessageStreamSlice, type ChatMessageStreamState, type MessageStreamAction } from "./message-stream";
 import {
   initialChatRequestState,
   reduceRequestSlice,
@@ -70,7 +70,7 @@ export {
   type ChatTurnState,
   type PendingTurnStart,
 } from "../conversation/turns/turn-state";
-export type { ChatTranscriptState } from "./transcript";
+export type { ChatMessageStreamState } from "./message-stream";
 
 interface ChatConnectionState {
   status: string;
@@ -114,7 +114,7 @@ export interface ChatState {
   activeThread: ChatActiveThreadState;
   runtime: ChatRuntimeState;
   turn: ChatTurnState;
-  transcript: ChatTranscriptState;
+  messageStream: ChatMessageStreamState;
   requests: ChatRequestState;
   composer: ChatComposerState;
   ui: ChatUiState;
@@ -239,8 +239,8 @@ type ChatSliceAction =
   | RuntimeAction
   | RequestAction
   | UserInputDraftSetAction
-  | TranscriptAction
-  | TranscriptItemAddedAction
+  | MessageStreamAction
+  | MessageStreamItemAddedAction
   | ComposerAction
   | UiAction;
 
@@ -251,7 +251,7 @@ export function createChatState(): ChatState {
     activeThread: initialActiveThreadState(),
     runtime: initialRuntimeState(),
     turn: initialTurnState(),
-    transcript: initialTranscriptState(),
+    messageStream: initialMessageStreamState(),
     requests: initialRequestState(),
     composer: initialComposerState(),
     ui: initialUiState(),
@@ -366,8 +366,8 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       activePermissionProfile: action.activePermissionProfile,
     },
     turn: initialTurnState(),
-    transcript: {
-      ...initialTranscriptState(),
+    messageStream: {
+      ...initialMessageStreamState(),
       displayItems: action.displayItems ?? [],
     },
     requests: initialRequestState(),
@@ -409,8 +409,8 @@ function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, actio
         ...state.runtime,
         ...initialActiveChatRuntimeState(),
       },
-      transcript: {
-        ...initialTranscriptState(),
+      messageStream: {
+        ...initialMessageStreamState(),
         displayItems: [],
       },
       ui: initialUiState(),
@@ -424,9 +424,9 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
     activeThread: { ...state.activeThread, id: action.threadId },
     turn: { lifecycle },
     connection: { ...state.connection, status: "Turn running..." },
-    transcript: {
-      ...state.transcript,
-      displayItems: action.displayItems ?? state.transcript.displayItems,
+    messageStream: {
+      ...state.messageStream,
+      displayItems: action.displayItems ?? state.messageStream.displayItems,
     },
   });
 }
@@ -436,7 +436,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    transcript: { ...state.transcript, displayItems: action.displayItems },
+    messageStream: { ...state.messageStream, displayItems: action.displayItems },
     connection: { ...state.connection, status: `Turn ${action.status}.` },
   });
 }
@@ -452,9 +452,9 @@ function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOpt
   });
   return patchChatState(state, {
     turn: { lifecycle },
-    transcript: {
-      ...state.transcript,
-      displayItems: [...state.transcript.displayItems, action.item],
+    messageStream: {
+      ...state.messageStream,
+      displayItems: [...state.messageStream.displayItems, action.item],
     },
   });
 }
@@ -467,7 +467,7 @@ function reduceTurnStartAcknowledgedTransition(state: ChatState, action: TurnSta
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    transcript: { ...state.transcript, displayItems: action.displayItems },
+    messageStream: { ...state.messageStream, displayItems: action.displayItems },
   });
 }
 
@@ -476,15 +476,15 @@ function reduceTurnStartFailedTransition(state: ChatState, action: TurnStartFail
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    transcript: { ...state.transcript, displayItems: action.displayItems },
+    messageStream: { ...state.messageStream, displayItems: action.displayItems },
   });
 }
 
 function reducePendingStartHookUpsertedTransition(state: ChatState, action: PendingStartHookUpsertedAction): ChatState {
   return patchChatState(state, {
-    transcript: {
-      ...state.transcript,
-      displayItems: upsertDisplayItem(state.transcript.displayItems, action.item),
+    messageStream: {
+      ...state.messageStream,
+      displayItems: upsertDisplayItem(state.messageStream.displayItems, action.item),
     },
     turn: {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, {
@@ -498,12 +498,12 @@ function reducePendingStartHookUpsertedTransition(state: ChatState, action: Pend
 function reduceRequestResolvedTransition(state: ChatState, action: RequestResolvedAction): ChatState {
   const requests = resolveChatRequest(state.requests, action.requestId);
   if (requests === state.requests) return state;
-  const displayItems = action.resultItem ? [...state.transcript.displayItems, action.resultItem] : state.transcript.displayItems;
+  const displayItems = action.resultItem ? [...state.messageStream.displayItems, action.resultItem] : state.messageStream.displayItems;
   return patchChatState(state, {
     requests,
     ui: clearResolvedRequestDetailOpenState(state.ui, action.requestId),
-    transcript: {
-      ...state.transcript,
+    messageStream: {
+      ...state.messageStream,
       displayItems,
     },
   });
@@ -517,7 +517,7 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
     runtime: reduceRuntimeSlice(state.runtime, action),
     turn: state.turn,
     requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
-    transcript: isTranscriptAction(action) ? reduceTranscriptSlice(state.transcript, action) : state.transcript,
+    messageStream: isMessageStreamAction(action) ? reduceMessageStreamSlice(state.messageStream, action) : state.messageStream,
     composer: reduceComposerSlice(state.composer, action),
     ui: reduceUiSlice(state.ui, action),
   });
@@ -649,7 +649,7 @@ function clearActiveThreadState(state: ChatState): ChatState {
         ...state.runtime,
         ...initialActiveChatRuntimeState(),
       },
-      transcript: initialTranscriptState(),
+      messageStream: initialMessageStreamState(),
       composer: initialComposerState(),
       ui: initialUiState(),
     }),
@@ -710,8 +710,8 @@ function initialTurnState(): ChatTurnState {
   return initialChatTurnState();
 }
 
-function initialTranscriptState(): ChatTranscriptState {
-  return initialChatTranscriptState();
+function initialMessageStreamState(): ChatMessageStreamState {
+  return initialChatMessageStreamState();
 }
 
 function initialRequestState(): ChatRequestState {
@@ -748,12 +748,12 @@ function cloneChatState(state: ChatState): ChatState {
     activeThread: { ...state.activeThread },
     runtime: { ...state.runtime },
     turn: { lifecycle: state.turn.lifecycle },
-    transcript: {
-      displayItems: [...state.transcript.displayItems],
-      turnDiffs: new Map(state.transcript.turnDiffs),
-      historyCursor: state.transcript.historyCursor,
-      loadingHistory: state.transcript.loadingHistory,
-      reportedLogs: new Set(state.transcript.reportedLogs),
+    messageStream: {
+      displayItems: [...state.messageStream.displayItems],
+      turnDiffs: new Map(state.messageStream.turnDiffs),
+      historyCursor: state.messageStream.historyCursor,
+      loadingHistory: state.messageStream.loadingHistory,
+      reportedLogs: new Set(state.messageStream.reportedLogs),
     },
     requests: {
       approvals: [...state.requests.approvals],
@@ -771,8 +771,8 @@ function cloneChatState(state: ChatState): ChatState {
   };
 }
 
-function isTranscriptAction(action: ChatSliceAction): action is TranscriptAction {
-  return action.type.startsWith("transcript/");
+function isMessageStreamAction(action: ChatSliceAction): action is MessageStreamAction {
+  return action.type.startsWith("message-stream/");
 }
 
 function setPanelSlice(state: ChatUiState, panel: "history" | "chat-actions" | "status-panel" | null, toggle: boolean): ChatUiState {

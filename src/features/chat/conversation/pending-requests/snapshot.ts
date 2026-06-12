@@ -1,6 +1,6 @@
 import type { ChatState } from "../../state/reducer";
-import type { PendingApproval } from "../../protocol/requests/approval";
-import type { PendingUserInput } from "../../protocol/requests/user-input";
+import type { PendingApproval } from "../../protocol/server-requests/approval";
+import type { PendingUserInput } from "../../protocol/server-requests/user-input";
 
 export interface PendingRequestBlockSnapshot {
   approvals: readonly PendingApproval[];

@@ -3,7 +3,7 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { AppServerClient } from "../../app-server/client";
 import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
-import type { ArchiveExportAdapter } from "../../domain/threads/export";
+import type { ArchiveExportAdapter } from "../thread-export/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { RuntimeSnapshot } from "./runtime/snapshot";

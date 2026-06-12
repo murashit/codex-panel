@@ -1,6 +1,6 @@
 import type { ServerNotification, ServerRequest } from "../../../../app-server/types";
-import { toPendingApproval, type PendingApproval } from "../requests/approval";
-import { toPendingUserInput, type PendingUserInput } from "../requests/user-input";
+import { toPendingApproval, type PendingApproval } from "../server-requests/approval";
+import { toPendingUserInput, type PendingUserInput } from "../server-requests/user-input";
 
 export interface ActiveRouteScope {
   activeThreadId: string | null;

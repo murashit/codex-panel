@@ -2,8 +2,8 @@ import { vi } from "vitest";
 import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 
-import type { PendingApproval } from "../../../../../src/features/chat/protocol/requests/approval";
-import type { PendingUserInput } from "../../../../../src/features/chat/protocol/requests/user-input";
+import type { PendingApproval } from "../../../../../src/features/chat/protocol/server-requests/approval";
+import type { PendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
 import { pendingRequestBlockNode, type PendingRequestBlockActions } from "../../../../../src/features/chat/ui/pending-request-block";
 import type { ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";

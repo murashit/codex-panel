@@ -11,7 +11,7 @@ import { createChatServerMetadataActions, type ChatServerMetadataActions } from 
 import { createChatServerThreadActions } from "./server-actions/threads";
 import { ChatConnectionController } from "./connection-controller";
 import { createChatReconnectActions } from "./reconnect-actions";
-import type { rejectServerRequest, respondToServerRequest } from "../protocol/requests/server-request-responder";
+import type { rejectServerRequest, respondToServerRequest } from "../protocol/server-requests/responder";
 import type { GoalActions } from "../threads/goal-actions";
 import type { AutoTitleController } from "../threads/auto-title-controller";
 import { ChatInboundController } from "../protocol/inbound/controller";

@@ -7,7 +7,7 @@ import { threadFromAppServerThread } from "../../app-server/thread-model";
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
-import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
+import { exportArchivedThreadMarkdown } from "../thread-export/archive-markdown";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import { completedConversationSummaryFromAppServerTurn, transcriptEntriesFromAppServerTurn } from "../../app-server/turn-model";
 import { generateThreadTitleWithCodex } from "../thread-title/generation";

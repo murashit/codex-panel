@@ -7,9 +7,9 @@ import { activeTurnId, type ChatState, type ChatStateStore } from "../state/redu
 import type { ChatReconnectActions } from "../connection/reconnect-actions";
 import { PendingRequestController } from "./pending-requests/controller";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import { createComposerSubmissionActions } from "./turns/composer-submission-actions";
-import { createPlanImplementationActions } from "./turns/plan-implementation-actions";
-import { createSlashCommandActions } from "./turns/slash-command-actions";
+import { createComposerSubmitActions } from "./turns/composer-submit-actions";
+import { createPlanImplementation } from "./turns/plan-implementation";
+import { createSlashCommandHandler } from "./turns/slash-command-handler";
 import { TurnSubmissionController } from "./turns/turn-submission-controller";
 import type { ChatThreadActions } from "../threads/actions";
 import type { GoalActions } from "../threads/goal-actions";
@@ -168,7 +168,7 @@ export function createConversationSurfaceControllerGroup(
       addSystemMessage: status.addSystemMessage,
     },
   });
-  const slashCommands = createSlashCommandActions({
+  const slashCommands = createSlashCommandHandler({
     stateStore,
     currentClient,
     codexInput: (text) => composerController.codexInput(text),
@@ -212,7 +212,7 @@ export function createConversationSurfaceControllerGroup(
       effortStatusLines: runtime.effortStatusLines,
     },
   });
-  const planImplementation = createPlanImplementationActions({
+  const planImplementation = createPlanImplementation({
     stateStore,
     connection: {
       currentClient,
@@ -258,7 +258,7 @@ export function createConversationSurfaceControllerGroup(
       consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
     },
   });
-  const composerSubmission = createComposerSubmissionActions({
+  const composerSubmit = createComposerSubmitActions({
     stateStore,
     composer: composerController,
     slashCommands,
@@ -276,7 +276,7 @@ export function createConversationSurfaceControllerGroup(
     },
   });
   composerController.setActionHandlers({
-    submit: () => void composerSubmission.submit(),
+    submit: () => void composerSubmit.submit(),
     threadScrollFromComposer: (action) => {
       messageRenderer.scrollFromComposer(action);
     },
@@ -286,6 +286,6 @@ export function createConversationSurfaceControllerGroup(
     pendingRequests,
     messageRenderer,
     composerController,
-    composerSubmission,
+    composerSubmit,
   };
 }

@@ -4,9 +4,9 @@ import type { AppServerClient } from "../../../../../src/app-server/client";
 import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import { implementPlanCandidateFromState } from "../../../../../src/features/chat/state/selectors";
 import {
-  createPlanImplementationActions,
-  type PlanImplementationActionsHost,
-} from "../../../../../src/features/chat/conversation/turns/plan-implementation-actions";
+  createPlanImplementation,
+  type PlanImplementationHost,
+} from "../../../../../src/features/chat/conversation/turns/plan-implementation";
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 
 const planItem = (id: string): DisplayItem => ({
@@ -41,7 +41,7 @@ function createController({ client = {} as AppServerClient } = {}) {
   const requestDefaultCollaborationModeForNextTurn = vi.fn(() => {
     stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
   });
-  const host: PlanImplementationActionsHost = {
+  const host: PlanImplementationHost = {
     stateStore,
     connection: {
       currentClient: () => client,
@@ -55,7 +55,7 @@ function createController({ client = {} as AppServerClient } = {}) {
     },
   };
   return {
-    controller: createPlanImplementationActions(host),
+    controller: createPlanImplementation(host),
     ensureConnected,
     requestDefaultCollaborationModeForNextTurn,
     sendTurnText,
@@ -63,7 +63,7 @@ function createController({ client = {} as AppServerClient } = {}) {
   };
 }
 
-describe("createPlanImplementationActions", () => {
+describe("createPlanImplementation", () => {
   it("finds the latest proposed plan only when the thread is idle and in plan mode", () => {
     const stateStore = createChatStateStore(createChatState());
     const first = planItem("first");

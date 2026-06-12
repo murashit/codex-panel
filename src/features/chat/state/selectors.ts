@@ -1,5 +1,5 @@
 import { activeTurnId as selectActiveTurnId, chatTurnBusy, pendingTurnStart } from "./reducer";
-import type { ChatActiveThreadState, ChatRuntimeState, ChatState, ChatTranscriptState, ChatTurnState, PendingTurnStart } from "./reducer";
+import type { ChatActiveThreadState, ChatRuntimeState, ChatState, ChatMessageStreamState, ChatTurnState, PendingTurnStart } from "./reducer";
 import type { Thread } from "../../../domain/threads/model";
 import type { DisplayItem } from "../display/types";
 
@@ -25,7 +25,7 @@ export function listedThreads(state: ChatState): readonly Thread[] {
 }
 
 export function displayItemsEmpty(state: ChatState): boolean {
-  return state.transcript.displayItems.length === 0;
+  return state.messageStream.displayItems.length === 0;
 }
 
 export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapshot {
@@ -34,7 +34,7 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
     activeTurnId: selectActiveTurnId(state),
     busy: chatTurnBusy(state),
     listedThreads: state.threadList.listedThreads,
-    displayItems: state.transcript.displayItems,
+    displayItems: state.messageStream.displayItems,
     pendingTurnStart: pendingTurnStart(state),
   };
 }
@@ -47,12 +47,12 @@ export function implementPlanCandidateFromState(state: {
   activeThread: Pick<ChatActiveThreadState, "id">;
   turn: ChatTurnState;
   runtime: Pick<ChatRuntimeState, "selectedCollaborationMode">;
-  transcript: Pick<ChatTranscriptState, "displayItems">;
+  messageStream: Pick<ChatMessageStreamState, "displayItems">;
 }): DisplayItem | null {
   if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
     return null;
   }
   return (
-    [...state.transcript.displayItems].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null
+    [...state.messageStream.displayItems].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null
   );
 }

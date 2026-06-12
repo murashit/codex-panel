@@ -559,7 +559,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("drops stale same-key measurements when force-bottom replaces the transcript", () => {
+  it("drops stale same-key measurements when force-bottom replaces the message stream", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
@@ -601,7 +601,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("renders the new transcript from the end after force-bottom replaces a long reading position", () => {
+  it("renders the new message stream from the end after force-bottom replaces a long reading position", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 

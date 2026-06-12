@@ -58,7 +58,7 @@ export interface SlashCommandGoalPort {
   clear: (threadId: string) => Promise<boolean>;
 }
 
-export interface SlashCommandActionsHost {
+export interface SlashCommandHandlerHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   codexInput: (text: string) => CodexInput;
@@ -68,18 +68,18 @@ export interface SlashCommandActionsHost {
   status: SlashCommandStatusPort;
 }
 
-export interface SlashCommandActions {
+export interface SlashCommandHandler {
   execute: (command: SlashCommandName, args: string) => Promise<SlashCommandExecutionResult | undefined>;
 }
 
-export function createSlashCommandActions(host: SlashCommandActionsHost): SlashCommandActions {
+export function createSlashCommandHandler(host: SlashCommandHandlerHost): SlashCommandHandler {
   return {
     execute: (command, args) => executeSlashCommand(host, command, args),
   };
 }
 
 async function executeSlashCommand(
-  host: SlashCommandActionsHost,
+  host: SlashCommandHandlerHost,
   command: SlashCommandName,
   args: string,
 ): Promise<SlashCommandExecutionResult | undefined> {
@@ -136,7 +136,7 @@ function supportedReasoningEfforts(state: ReturnType<ChatStateStore["getState"]>
 }
 
 async function referencedThreadInput(
-  host: SlashCommandActionsHost,
+  host: SlashCommandHandlerHost,
   client: AppServerClient,
   thread: Thread,
   message: string,

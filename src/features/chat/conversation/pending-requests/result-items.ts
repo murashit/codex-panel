@@ -5,9 +5,9 @@ import {
   approvalTitle,
   type ApprovalAction,
   type PendingApproval,
-} from "../../protocol/requests/approval";
+} from "../../protocol/server-requests/approval";
 import type { DisplayDetailSection, DisplayItem } from "../../display/types";
-import type { PendingUserInput } from "../../protocol/requests/user-input";
+import type { PendingUserInput } from "../../protocol/server-requests/user-input";
 import { definedProp } from "../../../../utils";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): DisplayItem {

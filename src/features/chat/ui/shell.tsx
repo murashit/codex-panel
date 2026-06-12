@@ -10,7 +10,7 @@ export interface ChatPanelShellState {
   activeThread: Signal<ChatState["activeThread"]>;
   runtime: Signal<ChatState["runtime"]>;
   turn: Signal<ChatState["turn"]>;
-  transcript: Signal<ChatState["transcript"]>;
+  messageStream: Signal<ChatState["messageStream"]>;
   requests: Signal<ChatState["requests"]>;
   composer: Signal<ChatState["composer"]>;
   ui: Signal<ChatState["ui"]>;
@@ -86,7 +86,7 @@ function createShellState(initialState: ChatState, latestState: () => ChatState)
     activeThread: signal(initialState.activeThread),
     runtime: signal(initialState.runtime),
     turn: signal(initialState.turn),
-    transcript: signal(initialState.transcript),
+    messageStream: signal(initialState.messageStream),
     requests: signal(initialState.requests),
     composer: signal(initialState.composer),
     ui: signal(initialState.ui),
@@ -101,7 +101,7 @@ function syncShellState(shellState: ChatPanelShellState, nextState: ChatState): 
   if (shellState.activeThread.value !== nextState.activeThread) shellState.activeThread.value = nextState.activeThread;
   if (shellState.runtime.value !== nextState.runtime) shellState.runtime.value = nextState.runtime;
   if (shellState.turn.value !== nextState.turn) shellState.turn.value = nextState.turn;
-  if (shellState.transcript.value !== nextState.transcript) shellState.transcript.value = nextState.transcript;
+  if (shellState.messageStream.value !== nextState.messageStream) shellState.messageStream.value = nextState.messageStream;
   if (shellState.requests.value !== nextState.requests) shellState.requests.value = nextState.requests;
   if (shellState.composer.value !== nextState.composer) shellState.composer.value = nextState.composer;
   if (shellState.ui.value !== nextState.ui) shellState.ui.value = nextState.ui;

@@ -7,10 +7,10 @@ import {
   localUserMessageItemFromInput,
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
-} from "../../../../../src/features/chat/conversation/turns/turn-submission";
+} from "../../../../../src/features/chat/conversation/turns/optimistic-turn-start";
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
 
-describe("chat turn submission helpers", () => {
+describe("optimistic turn start helpers", () => {
   it("builds local user messages without sharing mentioned file arrays", () => {
     const mentionedFiles = [{ name: "Note", path: "Note.md" }];
     const item = localUserMessageItem({ id: "local", text: "hello", mentionedFiles });

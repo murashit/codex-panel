@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/client";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
-import { createComposerSubmissionActions } from "../../../../../src/features/chat/conversation/turns/composer-submission-actions";
+import { createComposerSubmitActions } from "../../../../../src/features/chat/conversation/turns/composer-submit-actions";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
 function thread(id: string): Thread {
@@ -24,7 +24,7 @@ function createController(draft: string) {
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const execute = vi.fn().mockResolvedValue(undefined);
   const followBottom = vi.fn();
-  const controller = createComposerSubmissionActions({
+  const controller = createComposerSubmitActions({
     stateStore,
     composer: {
       get trimmedDraft() {
@@ -47,7 +47,7 @@ function createController(draft: string) {
   return { controller, execute, followBottom, interruptTurn, sendTurnText, setDraft, stateStore };
 }
 
-describe("createComposerSubmissionActions", () => {
+describe("createComposerSubmitActions", () => {
   it("sends plain drafts as turn text", async () => {
     const { controller, followBottom, sendTurnText } = createController("hello");
 

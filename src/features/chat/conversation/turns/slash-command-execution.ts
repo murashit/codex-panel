@@ -13,12 +13,8 @@ import {
   type SlashCommandSubcommandDefinition,
 } from "../composer/slash-commands";
 import type { DisplayDetailSection, DisplayDetailMetaRow } from "../../display/types";
-import {
-  modelOverrideMessage,
-  parseModelOverride,
-  parseReasoningEffortOverride,
-  reasoningEffortOverrideMessage,
-} from "./runtime-overrides";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/settings-copy";
+import { parseModelOverride, parseReasoningEffortOverride } from "./runtime-setting-commands";
 
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;

@@ -14,8 +14,8 @@ import type { ToolbarPanelController } from "./panel/regions/toolbar";
 import type { ChatConnectionController } from "./connection/connection-controller";
 import type { ChatReconnectActions } from "./connection/reconnect-actions";
 import type { PendingRequestController } from "./conversation/pending-requests/controller";
-import { rejectServerRequest, respondToServerRequest } from "./protocol/requests/server-request-responder";
-import type { ComposerSubmissionActions } from "./conversation/turns/composer-submission-actions";
+import { rejectServerRequest, respondToServerRequest } from "./protocol/server-requests/responder";
+import type { ComposerSubmitActions } from "./conversation/turns/composer-submit-actions";
 import type { RestorationController } from "./threads/restoration-controller";
 import type { IdentitySync } from "./threads/identity-sync";
 import type { ResumeController } from "./threads/resume-controller";
@@ -75,7 +75,7 @@ export interface ChatViewControllers {
   };
   composer: {
     controller: ChatComposerController;
-    submission: ComposerSubmissionActions;
+    submission: ComposerSubmitActions;
   };
   render: {
     controller: ChatViewRenderController;
@@ -429,7 +429,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       history,
     },
   );
-  const { pendingRequests, composerSubmission } = conversationControllers;
+  const { pendingRequests, composerSubmit } = conversationControllers;
   const { messageRenderer } = conversationControllers;
   composerController = conversationControllers.composerController;
   const { scheduleAppServerWarmup, openView, closeView } = createConnectionLifecycleControllerGroup(
@@ -513,7 +513,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     },
     composer: {
       controller: composerController,
-      submission: composerSubmission,
+      submission: composerSubmit,
     },
     render: {
       controller: renderController,

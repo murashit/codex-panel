@@ -318,7 +318,7 @@ function repinMessageVirtualizerToBottomIfPinned(runtime: MessageVirtualizerRunt
 function resetMessageVirtualizerMeasurements(runtime: MessageVirtualizerRuntime): void {
   const container = runtime.container;
   if (!container) return;
-  // A hidden Obsidian pane can leave TanStack measurements stale while the transcript state is still valid.
+  // A hidden Obsidian pane can leave TanStack measurements stale while the message stream state is still valid.
   // Reset only the virtualizer runtime, then measure the still-rendered blocks.
   resetMessageVirtualizer(runtime, container);
   runtime.onVirtualizerChange?.();

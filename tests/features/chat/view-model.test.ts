@@ -89,7 +89,7 @@ describe("chat view model", () => {
   it("uses a neutral composer context indicator when usage is unavailable", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";
-    state.transcript.displayItems = [
+    state.messageStream.displayItems = [
       {
         id: "item",
         turnId: "turn-1",
