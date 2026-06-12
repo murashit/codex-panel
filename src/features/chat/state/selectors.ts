@@ -1,8 +1,7 @@
 import { activeTurnId as selectActiveTurnId, chatTurnBusy, pendingTurnStart } from "./reducer";
-import type { ChatState, PendingTurnStart } from "./reducer";
+import type { ChatActiveThreadState, ChatRuntimeState, ChatState, ChatTranscriptState, ChatTurnState, PendingTurnStart } from "./reducer";
 import type { Thread } from "../../../domain/threads/model";
 import type { DisplayItem } from "../display/types";
-import { implementPlanCandidateFromState } from "../display/action-candidates";
 
 export interface SubmissionStateSnapshot {
   activeThreadId: string | null;
@@ -42,4 +41,18 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
 
 export function canImplementPlan(state: ChatState, item: DisplayItem): boolean {
   return item.id === implementPlanCandidateFromState(state)?.id;
+}
+
+export function implementPlanCandidateFromState(state: {
+  activeThread: Pick<ChatActiveThreadState, "id">;
+  turn: ChatTurnState;
+  runtime: Pick<ChatRuntimeState, "selectedCollaborationMode">;
+  transcript: Pick<ChatTranscriptState, "displayItems">;
+}): DisplayItem | null {
+  if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
+    return null;
+  }
+  return (
+    [...state.transcript.displayItems].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null
+  );
 }

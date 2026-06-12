@@ -28,7 +28,7 @@ import {
 import type { RequestedServiceTier } from "../runtime/settings";
 import type { RequestId } from "../../../app-server/types";
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
-import { upsertDisplayItem } from "../display/stream-updates";
+import { upsertDisplayItem } from "./transcript-updates";
 import type { DisplayItem } from "../display/types";
 import type {
   ActiveThreadResumedAction,

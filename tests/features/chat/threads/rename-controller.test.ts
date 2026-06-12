@@ -1,0 +1,257 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
+import { RenameController } from "../../../../src/features/chat/threads/rename-controller";
+import type { AppServerClient } from "../../../../src/app-server/client";
+import type { Thread } from "../../../../src/domain/threads/model";
+import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
+import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { deferred } from "../../../support/async";
+
+describe("RenameController", () => {
+  it("notifies subscribers without rerendering after updating a controlled rename draft", () => {
+    const { controller, render } = controllerFixture();
+    const listener = vi.fn();
+    controller.subscribe(listener);
+
+    controller.start("thread");
+    controller.updateDraft("thread", "New name");
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(render).not.toHaveBeenCalled();
+    expect(controller.editState("thread")).toEqual({ draft: "New name", generating: false });
+  });
+
+  it("notifies subscribers when inline rename state changes", () => {
+    const { controller } = controllerFixture();
+    const listener = vi.fn();
+    const unsubscribe = controller.subscribe(listener);
+
+    controller.start("thread");
+    controller.updateDraft("thread", "New name");
+    unsubscribe();
+    controller.cancel("thread");
+
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("applies generated rename drafts and clears the generating state", async () => {
+    const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
+    const { controller } = controllerFixture({ generateThreadTitle });
+
+    controller.start("thread");
+    await controller.autoNameDraft("thread");
+
+    expect(generateThreadTitle).toHaveBeenCalledOnce();
+    expect(controller.editState("thread")).toEqual({ draft: "Generated title", generating: false });
+  });
+
+  it("does not revive rename generation after cancellation while connection is pending", async () => {
+    const connection = deferred<undefined>();
+    const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
+    const { controller } = controllerFixture({
+      ensureConnected: vi.fn(() => connection.promise),
+      generateThreadTitle,
+    });
+
+    controller.start("thread");
+    const autoName = controller.autoNameDraft("thread");
+    controller.cancel("thread");
+    connection.resolve(undefined);
+    await autoName;
+
+    expect(generateThreadTitle).not.toHaveBeenCalled();
+    expect(controller.editState("thread")).toBeNull();
+  });
+
+  it("does not save after cancellation while connection is pending", async () => {
+    const connection = deferred<undefined>();
+    const setThreadName = vi.fn().mockResolvedValue({});
+    const client = fakeClient({ setThreadName });
+    const { controller } = controllerFixture({
+      ensureConnected: vi.fn(() => connection.promise),
+      currentClient: () => client,
+    });
+
+    controller.start("thread");
+    const save = controller.save("thread", "Saved title");
+    controller.cancel("thread");
+    connection.resolve(undefined);
+    await save;
+
+    expect(setThreadName).not.toHaveBeenCalled();
+    expect(controller.editState("thread")).toBeNull();
+  });
+
+  it("does not clear a newer inline rename when an older save finishes", async () => {
+    const saved = deferred<object>();
+    const setThreadName = vi.fn(() => saved.promise);
+    const { controller, stateStore, notifyThreadRenamed } = controllerFixture({
+      currentClient: () => fakeClient({ setThreadName }),
+    });
+
+    controller.start("thread");
+    const save = controller.save("thread", "Saved title");
+    await flushPromises();
+
+    controller.cancel("thread");
+    controller.start("thread");
+    controller.updateDraft("thread", "New draft");
+    saved.resolve({});
+    await save;
+
+    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Saved title");
+    expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
+    expect(controller.editState("thread")).toEqual({ draft: "New draft", generating: false });
+  });
+
+  it("keeps an edited draft when auto-name generation finishes later", async () => {
+    const generatedTitle = deferred<string | null>();
+    const { controller } = controllerFixture({
+      generateThreadTitle: vi.fn(() => generatedTitle.promise),
+    });
+
+    controller.start("thread");
+    const autoName = controller.autoNameDraft("thread");
+    await flushPromises();
+
+    expect(controller.editState("thread")).toEqual({ draft: "Thread preview", generating: true });
+
+    controller.updateDraft("thread", "Manual draft");
+    generatedTitle.resolve("Generated title");
+    await autoName;
+
+    expect(controller.editState("thread")).toEqual({ draft: "Manual draft", generating: false });
+  });
+
+  it("does not let an older auto-name request finish a newer generation", async () => {
+    const firstGeneratedTitle = deferred<string | null>();
+    const secondGeneratedTitle = deferred<string | null>();
+    const generateThreadTitle = vi.fn().mockReturnValueOnce(firstGeneratedTitle.promise).mockReturnValueOnce(secondGeneratedTitle.promise);
+    const { controller } = controllerFixture({ generateThreadTitle });
+
+    controller.start("thread");
+    const firstAutoName = controller.autoNameDraft("thread");
+    await flushPromises();
+    controller.cancel("thread");
+    controller.start("thread");
+    const secondAutoName = controller.autoNameDraft("thread");
+    await flushPromises();
+
+    firstGeneratedTitle.resolve("Old generated title");
+    await firstAutoName;
+
+    expect(controller.editState("thread")).toEqual({ draft: "Thread preview", generating: true });
+
+    secondGeneratedTitle.resolve("New generated title");
+    await secondAutoName;
+
+    expect(controller.editState("thread")).toEqual({ draft: "New generated title", generating: false });
+  });
+
+  it("does not apply a completed auto-name after the thread leaves the list", async () => {
+    const generatedTitle = deferred<string | null>();
+    const setThreadName = vi.fn().mockResolvedValue({});
+    const { controller, stateStore, notifyThreadRenamed } = controllerFixture({
+      currentClient: () => fakeClient({ setThreadName }),
+      generateThreadTitle: vi.fn(() => generatedTitle.promise),
+    });
+
+    controller.maybeAutoNameThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
+    await flushPromises();
+
+    stateStore.dispatch({ type: "thread-list/applied", threads: [] });
+    generatedTitle.resolve("Generated title");
+    await flushPromises();
+
+    expect(setThreadName).not.toHaveBeenCalled();
+    expect(notifyThreadRenamed).not.toHaveBeenCalled();
+  });
+
+  it("does not overwrite a manual name when auto-name save finishes later", async () => {
+    const savedName = deferred<object>();
+    const setThreadName = vi.fn(() => savedName.promise);
+    const { controller, stateStore, notifyThreadRenamed } = controllerFixture({
+      currentClient: () => fakeClient({ setThreadName }),
+      generateThreadTitle: vi.fn().mockResolvedValue("Generated title"),
+    });
+
+    controller.maybeAutoNameThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
+    await flushPromises();
+    expect(setThreadName).toHaveBeenCalledWith("thread", "Generated title");
+
+    stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...threadFixture("thread"), name: "Manual title" }] });
+    savedName.resolve({});
+    await flushPromises();
+
+    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Manual title");
+    expect(notifyThreadRenamed).not.toHaveBeenCalled();
+  });
+});
+
+function controllerFixture(
+  overrides: Partial<ConstructorParameters<typeof RenameController>[0]> = {},
+): ConstructorParameters<typeof RenameController>[0] & { controller: RenameController; render: ReturnType<typeof vi.fn> } {
+  const stateStore = createChatStateStore();
+  stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
+  const render = vi.fn();
+  const host = {
+    stateStore,
+    vaultPath: "/vault",
+    settings: () => DEFAULT_SETTINGS,
+    ensureConnected: vi.fn().mockResolvedValue(undefined),
+    currentClient: () => fakeClient(),
+    render,
+    addSystemMessage: vi.fn(),
+    notifyThreadRenamed: vi.fn(),
+    ...overrides,
+  } satisfies ConstructorParameters<typeof RenameController>[0];
+  return { ...host, controller: new RenameController(host), render };
+}
+
+function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
+  return {
+    setThreadName: options.setThreadName ?? vi.fn().mockResolvedValue({}),
+    threadTurnsList: vi.fn().mockResolvedValue({
+      data: [turnFixture([userMessage("user", "Please name this."), assistantMessage("assistant", "Done.")])],
+      nextCursor: null,
+    }),
+  } as unknown as AppServerClient;
+}
+
+function threadFixture(id: string): Thread {
+  return {
+    id,
+    preview: "Thread preview",
+    createdAt: 1,
+    updatedAt: 1,
+    name: null,
+    archived: false,
+  };
+}
+
+function turnFixture(items: AppServerThreadItem[]): AppServerTurn {
+  return {
+    id: "turn",
+    items,
+    itemsView: "full",
+    status: "completed",
+    error: null,
+    startedAt: 1,
+    completedAt: 2,
+    durationMs: 1000,
+  };
+}
+
+function userMessage(id: string, text: string): AppServerThreadItem {
+  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
+}
+
+function assistantMessage(id: string, text: string): AppServerThreadItem {
+  return { type: "agentMessage", id, text, phase: null, memoryCitation: null };
+}
+
+async function flushPromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}

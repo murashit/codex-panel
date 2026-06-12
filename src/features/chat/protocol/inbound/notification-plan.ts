@@ -11,7 +11,7 @@ import type { ServerNotification } from "../../../../app-server/types";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
-import { createAutoReviewResultItem, createReviewResultItem } from "../../display/review";
+import { createAutoReviewResultItem, createReviewResultItem } from "../../display/items/review-result";
 import {
   appendAssistantDelta,
   appendItemOutput,
@@ -20,13 +20,14 @@ import {
   appendToolOutput,
   completeReasoningItems,
   upsertDisplayItem,
-} from "../../display/stream-updates";
-import { displayItemFromThreadItem, displayItemsFromTurns, normalizeFileChanges, shouldSuppressLifecycleItem } from "../display-items";
-import { planProgressDisplayItem } from "../../display/plan";
-import { createSystemItem } from "../../display/system";
+} from "../../state/transcript-updates";
+import { displayItemFromThreadItem, displayItemsFromTurns, normalizeFileChanges, shouldSuppressLifecycleItem } from "../../display/turn-items";
+import { taskProgressDisplayItem } from "../../display/items/task-progress";
+import { createSystemItem } from "../../display/items/system";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../../display/types";
-import { goalChangeItem } from "../../display/goal-messages";
-import { attachHookRunsToTurn, hookRunDisplayItem } from "../../display/hooks";
+import { goalChangeItem } from "../../display/items/goal";
+import { hookRunDisplayItem } from "../../display/items/hook-run";
+import { attachHookRunsToTurn } from "../../state/transcript-updates";
 import {
   routeServerNotification,
   type DiagnosticStatusNotificationMethod,
@@ -135,7 +136,7 @@ const STREAM_UPDATE_PLANNERS = {
   "turn/plan/updated": (_state, notification) =>
     actionPlan({
       type: "transcript/item-upserted",
-      item: planProgressDisplayItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
+      item: taskProgressDisplayItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
     }),
   "item/reasoning/summaryTextDelta": (state, notification) =>
     appendToolTextPlan(state, notification.params.itemId, notification.params.turnId, "reasoning", notification.params.delta, "reasoning"),
@@ -420,7 +421,7 @@ function fileChangePlan(itemId: string, turnId: string, changes: AppServerFileUp
       role: "tool",
       text: `File change ${status}`,
       turnId,
-      itemId,
+      sourceItemId: itemId,
       status,
       changes: normalizeFileChanges(changes),
     },
@@ -553,7 +554,7 @@ function isString(value: string | null | undefined): value is string {
 }
 
 function systemMessagePlan(message: { id: string; text: string }): ChatNotificationPlan {
-  return actionPlan({ type: "transcript/system-message-added", item: createSystemItem(message.id, message.text) });
+  return actionPlan({ type: "transcript/system-item-added", item: createSystemItem(message.id, message.text) });
 }
 
 function actionPlan(action: ChatAction): ChatNotificationPlan {

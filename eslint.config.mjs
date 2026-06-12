@@ -103,8 +103,8 @@ const chatExternalDomBridgeFiles = [
   "src/features/chat/ui/message-virtualizer.ts",
 ];
 const chatPreactDomBridgeFiles = [
-  "src/features/chat/ui/message-stream/message-actions.tsx",
-  "src/features/chat/ui/message-stream/message-item.tsx",
+  "src/features/chat/ui/message-stream/text-item-actions.tsx",
+  "src/features/chat/ui/message-stream/text-item.tsx",
   "src/features/chat/ui/message-stream/render.tsx",
   "src/features/chat/ui/composer.tsx",
   "src/features/chat/ui/goal-banner.tsx",

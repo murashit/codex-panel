@@ -25,7 +25,7 @@ interface DisplayBase {
   role: DisplayRole;
   text: string;
   turnId?: string;
-  itemId?: string;
+  sourceItemId?: string;
   executionState?: ExecutionState;
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ChatInboundController } from "../../../../../src/features/chat/protocol/inbound/controller";
-import { attachHookRunsToTurn } from "../../../../../src/features/chat/display/hooks";
+import { attachHookRunsToTurn } from "../../../../../src/features/chat/state/transcript-updates";
 import {
   activeTurnId,
   chatReducer,
@@ -1105,7 +1105,7 @@ describe("ChatInboundController", () => {
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello", turnId: "turn-active" },
         {
           id: "a1",
-          itemId: "a1",
+          sourceItemId: "a1",
           kind: "message",
           role: "assistant",
           messageKind: "assistantResponse",
@@ -1241,7 +1241,7 @@ describe("ChatInboundController", () => {
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "start", turnId: "turn-active" },
         {
           id: "a1",
-          itemId: "a1",
+          sourceItemId: "a1",
           kind: "message",
           role: "assistant",
           messageKind: "assistantResponse",

@@ -47,9 +47,9 @@ describe("pending request renderer decisions", () => {
       pendingRequestActions({ resolveUserInput }),
     );
 
-    expect(parent.querySelectorAll(".codex-panel__pending-request-message")).toHaveLength(1);
-    expect(parent.querySelector(".codex-panel__pending-request-message")?.classList.contains("codex-panel__work-message")).toBe(true);
-    expect(parent.querySelector(".codex-panel__pending-request-message")?.classList.contains("codex-panel__work-message--warning")).toBe(
+    expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
+    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__work-message")).toBe(true);
+    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__work-message--warning")).toBe(
       true,
     );
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")?.textContent).toBe("Submit");
@@ -202,7 +202,7 @@ describe("pending request renderer decisions", () => {
       pendingRequestActions(),
     );
 
-    expect(parent.querySelectorAll(".codex-panel__pending-request-message")).toHaveLength(1);
+    expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
     expect(parent.querySelectorAll(".codex-panel__pending-request-card")).toHaveLength(2);
     expect(parent.querySelectorAll(".codex-panel__pending-request-body")).toHaveLength(2);
     expect(parent.querySelector(".codex-panel__approval-body")).toBeNull();

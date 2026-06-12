@@ -2,7 +2,7 @@ import type { ChatAction, ChatState } from "../../state/reducer";
 import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
 import type { DisplayItem } from "../../display/types";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
-import type { PendingRequestMessageActions } from "../pending-request-message";
+import type { PendingRequestBlockActions } from "../pending-request-block";
 
 export interface ChatMessageStreamActionPort {
   rollbackThread: (threadId: string) => void;
@@ -14,7 +14,7 @@ export interface ChatMessageStreamActionPort {
 export interface ChatMessageStreamRequestPort {
   pendingSignature: () => string;
   pendingSnapshot: () => PendingRequestBlockSnapshot;
-  pendingActions: () => PendingRequestMessageActions;
+  pendingActions: () => PendingRequestBlockActions;
   consumePendingAutoFocus: () => boolean;
 }
 

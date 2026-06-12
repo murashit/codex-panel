@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { McpServerStatusSummary } from "../../../src/app-server/diagnostics";
-import { mcpStatusLines } from "../../../src/features/chat/display/diagnostics";
+import { mcpStatusLines } from "../../../src/features/chat/display/status/diagnostics";
 
 function mcpServer(overrides: Partial<McpServerStatusSummary> = {}): McpServerStatusSummary {
   return {

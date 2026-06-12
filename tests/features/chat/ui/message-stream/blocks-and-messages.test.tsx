@@ -5,7 +5,7 @@ import { act } from "preact/test-utils";
 import { MarkdownRenderer } from "obsidian";
 
 import type { DisplayItem } from "../../../../../src/features/chat/display/types";
-import { implementPlanCandidateFromState } from "../../../../../src/features/chat/display/action-candidates";
+import { implementPlanCandidateFromState } from "../../../../../src/features/chat/state/selectors";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { deferred } from "../../../../support/async";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
@@ -133,7 +133,7 @@ describe("message stream rendering and message actions", () => {
               rows: [
                 { key: "status", value: "approved" },
                 { key: "action", value: "apply patch" },
-                { key: "files", value: "src/display/tool-view.ts\nsrc/ui/message-stream.ts" },
+                { key: "files", value: "src/ui/tool-result-view.ts\nsrc/ui/message-stream.ts" },
               ],
             },
           ],
@@ -154,7 +154,7 @@ describe("message stream rendering and message actions", () => {
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusapproved");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("actionapply patch");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain(
-      "filessrc/display/tool-view.ts\nsrc/ui/message-stream.ts",
+      "filessrc/ui/tool-result-view.ts\nsrc/ui/message-stream.ts",
     );
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
   });
@@ -633,7 +633,7 @@ describe("message stream rendering and message actions", () => {
   it("hides copy action for the active assistant message while a turn is running", () => {
     const item = {
       id: "a-running",
-      itemId: "a-running",
+      sourceItemId: "a-running",
       kind: "message",
       role: "assistant",
       messageKind: "assistantResponse",
@@ -841,7 +841,7 @@ describe("message stream rendering and message actions", () => {
           details.dispatchEvent(new Event("toggle"));
         });
       }
-      expect(openDetails.has("message:u1:expanded")).toBe(true);
+      expect(openDetails.has("text-item:u1:expanded")).toBe(true);
       expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(false);
       expect(details?.hidden).toBe(true);
       expect(onDetailsToggle).toHaveBeenCalled();
@@ -849,10 +849,10 @@ describe("message stream rendering and message actions", () => {
       void act(() => {
         document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
       });
-      expect(openDetails.has("message:u1:expanded")).toBe(false);
+      expect(openDetails.has("text-item:u1:expanded")).toBe(false);
       expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
       expect(details?.hidden).toBe(false);
-      expect(onDetailsToggle).toHaveBeenCalledWith("message:u1:expanded", false);
+      expect(onDetailsToggle).toHaveBeenCalledWith("text-item:u1:expanded", false);
 
       element.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
       expect(copyText).toHaveBeenCalledWith("full copied text");

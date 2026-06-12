@@ -2,14 +2,14 @@ import type { ConnectionManager } from "../../../app-server/connection-manager";
 import type { AppServerClient } from "../../../app-server/client";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
-import { createChatThreadActions } from "./thread-actions";
-import { createChatThreadGoalActions } from "./thread-goal-actions";
-import { ThreadHistoryController } from "./thread-history-controller";
-import { createThreadIdentitySync } from "./thread-identity-sync";
-import { ThreadRenameController } from "./thread-rename-controller";
-import { ThreadResumeController } from "./thread-resume-controller";
-import { createThreadSelectionActions } from "./thread-selection-actions";
-import { RestoredThreadController } from "./restored-thread-controller";
+import { createChatThreadActions } from "./actions";
+import { createGoalActions } from "./goal-actions";
+import { HistoryController } from "./history-controller";
+import { createIdentitySync } from "./identity-sync";
+import { RenameController } from "./rename-controller";
+import { ResumeController } from "./resume-controller";
+import { createSelectionActions } from "./selection-actions";
+import { RestorationController } from "./restoration-controller";
 import type { ChatStateStore } from "../state/reducer";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { CodexPanelSettings } from "../../../settings/model";
@@ -76,7 +76,7 @@ export function createThreadControllerGroup(
   const currentClient = client.getClient;
   const { deferredTasks, resumeWork } = lifecycle;
 
-  const threadRename = new ThreadRenameController({
+  const rename = new RenameController({
     stateStore,
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
@@ -87,9 +87,9 @@ export function createThreadControllerGroup(
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
   });
   const resetThreadTurnPresence = (hadTurns: boolean) => {
-    threadRename.resetThreadTurnPresence(hadTurns);
+    rename.resetThreadTurnPresence(hadTurns);
   };
-  const history = new ThreadHistoryController({
+  const history = new HistoryController({
     stateStore,
     currentClient,
     render: render.now,
@@ -102,7 +102,7 @@ export function createThreadControllerGroup(
     resumeWork.invalidate();
     history.invalidate();
   };
-  const threadActions = createChatThreadActions({
+  const actions = createChatThreadActions({
     stateStore,
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
@@ -125,7 +125,7 @@ export function createThreadControllerGroup(
       plugin.refreshSharedThreadListFromOpenSurface();
     },
   });
-  const goals = createChatThreadGoalActions({
+  const goals = createGoalActions({
     stateStore,
     currentClient,
     ensureConnected: client.ensureConnected,
@@ -136,22 +136,22 @@ export function createThreadControllerGroup(
     render: render.now,
     refreshLiveState: liveState.refresh,
   });
-  let threadResume: ThreadResumeController | null = null;
-  const restoredThread = new RestoredThreadController({
+  let resume: ResumeController | null = null;
+  const restoration = new RestorationController({
     deferredTasks,
     opened: lifecycle.getOpened,
-    resumeThread: (threadId) => requireThreadController(threadResume, "thread resume controller").resumeThread(threadId),
+    resumeThread: (threadId) => requireThreadController(resume, "resume controller").resumeThread(threadId),
     invalidateResumeWork,
     stateStore,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
   });
-  threadResume = new ThreadResumeController({
+  resume = new ResumeController({
     stateStore,
     vaultPath: plugin.vaultPath,
     resumeWork,
     history,
-    restoredThread,
+    restoration,
     currentClient,
     ensureConnected: client.ensureConnected,
     closing: lifecycle.getClosing,
@@ -168,9 +168,9 @@ export function createThreadControllerGroup(
         return response?.dataBase64 ?? "";
       }),
   });
-  const threadIdentity = createThreadIdentitySync({
+  const identity = createIdentitySync({
     stateStore,
-    restoredThread,
+    restoration,
     invalidateResumeWork,
     clearDeferredRestoredThreadHydration: lifecycle.clearDeferredRestoredThreadHydration,
     resetThreadTurnPresence,
@@ -182,12 +182,12 @@ export function createThreadControllerGroup(
 
   return {
     history,
-    threadActions,
+    actions,
     goals,
-    restoredThread,
-    threadResume: requireThreadController(threadResume, "thread resume controller"),
-    threadIdentity,
-    threadRename,
+    restoration,
+    resume: requireThreadController(resume, "resume controller"),
+    identity,
+    rename,
     invalidateResumeWork,
   };
 }
@@ -221,7 +221,7 @@ export function createThreadSelectionActionGroup(
   const { plugin, thread, status } = context;
   const stateStore = context.state.stateStore;
 
-  const threadSelection = createThreadSelectionActions({
+  const selection = createSelectionActions({
     stateStore,
     closeForThreadSelection: () => {
       refs.closeForThreadSelection();
@@ -231,5 +231,5 @@ export function createThreadSelectionActionGroup(
     addSystemMessage: status.addSystemMessage,
   });
 
-  return { threadSelection };
+  return { selection };
 }

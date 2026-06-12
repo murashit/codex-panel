@@ -11,10 +11,9 @@ import { createComposerSubmissionActions } from "./turns/composer-submission-act
 import { createPlanImplementationActions } from "./turns/plan-implementation-actions";
 import { createSlashCommandActions } from "./turns/slash-command-actions";
 import { TurnSubmissionController } from "./turns/turn-submission-controller";
-import type { ChatThreadActions } from "../threads/thread-actions";
-import type { ChatThreadGoalActions } from "../threads/thread-goal-actions";
-import type { ThreadHistoryController } from "../threads/thread-history-controller";
-import type { ThreadRenameController } from "../threads/thread-rename-controller";
+import type { ChatThreadActions } from "../threads/actions";
+import type { GoalActions } from "../threads/goal-actions";
+import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
 import { currentModel, runtimeConfigOrDefault } from "../runtime/effective";
 import type { RuntimeSnapshot } from "../runtime/snapshot";
@@ -94,10 +93,9 @@ export function createConversationSurfaceControllerGroup(
     serverThreads: ChatServerThreadActions;
     runtimeSettings: ChatRuntimeSettingsActions;
     threadActions: ChatThreadActions;
-    threadRename: ThreadRenameController;
     reconnectActions: ChatReconnectActions;
-    goals: ChatThreadGoalActions;
-    history: ThreadHistoryController;
+    goals: GoalActions;
+    history: HistoryController;
   },
 ) {
   const { plugin, state, render, messages, composerView, runtime, thread, liveState, status, lifecycle, client, scroll } = context;

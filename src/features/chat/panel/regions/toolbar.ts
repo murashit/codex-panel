@@ -1,8 +1,8 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import type { ChatThreadActions } from "../../threads/thread-actions";
-import { runtimeConfigSections, rateLimitSummary } from "../../display/runtime-status";
-import { connectionDiagnosticSections } from "../../display/diagnostics";
+import type { ChatThreadActions } from "../../threads/actions";
+import { runtimeConfigSections, rateLimitSummary } from "../../display/status/runtime";
+import { connectionDiagnosticSections } from "../../display/status/diagnostics";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import type { ChatAction, ChatState, ChatStateStore } from "../../state/reducer";
 import type { ChatPanelShellState } from "../../ui/shell";

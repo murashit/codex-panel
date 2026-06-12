@@ -3,7 +3,7 @@ import type { McpServerStartupStatus } from "../../../../app-server/diagnostics"
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
-import { createStructuredSystemItem, createSystemItem } from "../../display/system";
+import { createStructuredSystemItem, createSystemItem } from "../../display/items/system";
 import type { DisplayDetailSection } from "../../display/types";
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "../requests/approval";
 import { userInputResponse, type PendingUserInput } from "../requests/user-input";
@@ -107,11 +107,11 @@ export class ChatInboundController {
   }
 
   addSystemMessage(text: string): void {
-    this.dispatch({ type: "transcript/system-message-added", item: createSystemItem(this.localItemId("system"), text) });
+    this.dispatch({ type: "transcript/system-item-added", item: createSystemItem(this.localItemId("system"), text) });
   }
 
   addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
-    this.dispatch({ type: "transcript/system-message-added", item: createStructuredSystemItem(this.localItemId("system"), text, details) });
+    this.dispatch({ type: "transcript/system-item-added", item: createStructuredSystemItem(this.localItemId("system"), text, details) });
   }
 
   addDedupedSystemMessage(text: string): void {

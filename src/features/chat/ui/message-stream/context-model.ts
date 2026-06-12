@@ -1,13 +1,13 @@
 import type { ChatState } from "../../state/reducer";
 import { chatTurnBusy } from "../../state/reducer";
 import type { DisplayItem } from "../../display/types";
+import { implementPlanCandidateFromState } from "../../state/selectors";
 import {
   forkCandidatesFromItems,
-  implementPlanCandidateFromState,
   isForkCandidateItem,
   isRollbackCandidateItem,
   rollbackCandidateFromItems,
-} from "../../display/action-candidates";
+} from "../../display/item-actions";
 import type { MessageStreamContext } from "./context";
 import type { ChatMessageStreamContextPort } from "./ports";
 

@@ -1,4 +1,4 @@
-import { upsertDisplayItem } from "../display/stream-updates";
+import { upsertDisplayItem } from "./transcript-updates";
 import type { DisplayItem } from "../display/types";
 
 export interface ChatTranscriptState {
@@ -11,7 +11,7 @@ export interface ChatTranscriptState {
 
 export type TranscriptAction =
   | { type: "transcript/item-added"; item: DisplayItem }
-  | { type: "transcript/system-message-added"; item: DisplayItem }
+  | { type: "transcript/system-item-added"; item: DisplayItem }
   | { type: "transcript/deduped-log-added"; text: string; item: DisplayItem }
   | { type: "transcript/history-loading-set"; loading: boolean }
   | {
@@ -36,7 +36,7 @@ export function initialChatTranscriptState(): ChatTranscriptState {
 export function reduceTranscriptSlice(state: ChatTranscriptState, action: TranscriptAction): ChatTranscriptState {
   switch (action.type) {
     case "transcript/item-added":
-    case "transcript/system-message-added":
+    case "transcript/system-item-added":
       return patchObject(state, { displayItems: [...state.displayItems, action.item] });
     case "transcript/deduped-log-added":
       if (state.reportedLogs.has(action.text)) return state;

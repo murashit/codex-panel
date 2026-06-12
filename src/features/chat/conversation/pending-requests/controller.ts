@@ -3,7 +3,7 @@ import type { ApprovalAction, PendingApproval } from "../../protocol/requests/ap
 import type { ChatInboundController } from "../../protocol/inbound/controller";
 import { pendingRequestFocusSignature } from "./signatures";
 import { pendingRequestBlockSnapshot, type PendingRequestBlockSnapshot } from "./snapshot";
-import type { PendingRequestMessageActions } from "../../ui/pending-request-message";
+import type { PendingRequestBlockActions } from "../../ui/pending-request-block";
 import { answersForPendingUserInput, type PendingUserInput } from "../../protocol/requests/user-input";
 
 export interface PendingRequestControllerHost {
@@ -16,7 +16,7 @@ export interface PendingRequestControllerHost {
 
 export class PendingRequestController {
   private lastFocusSignature = "";
-  private readonly messageActions: PendingRequestMessageActions = {
+  private readonly blockActions: PendingRequestBlockActions = {
     resolveApproval: (approval, action) => {
       this.resolveApproval(approval, action);
     },
@@ -40,8 +40,8 @@ export class PendingRequestController {
     return pendingRequestBlockSnapshot(this.host.stateStore.getState());
   }
 
-  actions(): PendingRequestMessageActions {
-    return this.messageActions;
+  actions(): PendingRequestBlockActions {
+    return this.blockActions;
   }
 
   resolveApproval(approval: PendingApproval, action: ApprovalAction): void {

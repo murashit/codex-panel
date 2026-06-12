@@ -34,7 +34,7 @@ import {
   requestedTurnCollaborationModeSettings,
   serviceTierRequestForThreadStart,
 } from "../../src/features/chat/runtime/thread-settings";
-import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/display/runtime-status";
+import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/display/status/runtime";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {

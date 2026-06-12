@@ -11,7 +11,7 @@ import {
   type McpServerStatusSummary,
 } from "../../../../app-server/diagnostics";
 import type { SharedAppServerMetadata } from "../../../../app-server/shared-cache-state";
-import { mcpStatusLines as buildMcpStatusLines } from "../../display/diagnostics";
+import { mcpStatusLines as buildMcpStatusLines } from "../../display/status/diagnostics";
 import { cloneAppServerDiagnostics, type ChatServerActionHost } from "./host";
 
 interface RefreshDiagnosticProbesOptions {

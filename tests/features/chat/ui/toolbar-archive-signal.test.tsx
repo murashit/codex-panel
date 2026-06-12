@@ -8,7 +8,7 @@ import { createChatStateStore } from "../../../../src/features/chat/state/reduce
 import { runtimeSnapshotForChatState } from "../../../../src/features/chat/runtime/snapshot";
 import { createToolbarArchiveConfirmState, ToolbarPanelController } from "../../../../src/features/chat/panel/regions/toolbar";
 import type { ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/regions/ports";
-import type { ChatThreadActions } from "../../../../src/features/chat/threads/thread-actions";
+import type { ChatThreadActions } from "../../../../src/features/chat/threads/actions";
 import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
 import { chatPanelToolbarRegionNode } from "../../../../src/features/chat/panel/regions/render";
 import { installObsidianDomShims } from "../../../support/dom";

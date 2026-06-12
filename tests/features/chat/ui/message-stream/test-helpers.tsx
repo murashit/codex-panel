@@ -4,7 +4,7 @@ import { act } from "preact/test-utils";
 
 import type { PendingApproval } from "../../../../../src/features/chat/protocol/requests/approval";
 import type { PendingUserInput } from "../../../../../src/features/chat/protocol/requests/user-input";
-import { pendingRequestMessageNode, type PendingRequestMessageActions } from "../../../../../src/features/chat/ui/pending-request-message";
+import { pendingRequestBlockNode, type PendingRequestBlockActions } from "../../../../../src/features/chat/ui/pending-request-block";
 import type { ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
@@ -93,11 +93,11 @@ export function unmountUiRootInAct(parent: HTMLElement): void {
   });
 }
 
-export function renderPendingRequestNode(parent: HTMLElement, ...args: Parameters<typeof pendingRequestMessageNode>): void {
-  renderUiRootInAct(parent, pendingRequestMessageNode(...args));
+export function renderPendingRequestNode(parent: HTMLElement, ...args: Parameters<typeof pendingRequestBlockNode>): void {
+  renderUiRootInAct(parent, pendingRequestBlockNode(...args));
 }
 
-export function pendingRequestActions(overrides: Partial<PendingRequestMessageActions> = {}): PendingRequestMessageActions {
+export function pendingRequestActions(overrides: Partial<PendingRequestBlockActions> = {}): PendingRequestBlockActions {
   return {
     resolveApproval: vi.fn(),
     resolveUserInput: vi.fn(),

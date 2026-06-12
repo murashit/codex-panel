@@ -2,21 +2,21 @@ import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useState } from "preact/hooks";
 
 import { activeTurnId } from "../../state/reducer";
-import { displayBlocksForItems } from "../../display/blocks";
-import type { ToolResultDisplayItem } from "../../display/tool-view";
+import { displayBlocksForItems } from "../../display/stream/blocks";
+import type { ToolResultDisplayItem } from "../tool-result-view";
 import type { DisplayBlock, DisplayItem } from "../../display/types";
 import { userInputDraftKey, userInputOtherDraftKey } from "../../protocol/requests/user-input";
-import { pendingRequestMessageNode } from "../pending-request-message";
+import { pendingRequestBlockNode } from "../pending-request-block";
 import { toolResultNode } from "../tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "../work-items";
-import type { MessageStreamBlock, MessageStreamContext, RenderableTextItem } from "./context";
-import { messageItemNode } from "./message-item";
+import type { MessageStreamBlock, MessageStreamContext, TextDisplayItem } from "./context";
+import { textItemNode } from "./text-item";
 
 function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLifecycle">): string | null {
   return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 
-function isRenderableTextItem(item: DisplayItem): item is RenderableTextItem {
+function isTextDisplayItem(item: DisplayItem): item is TextDisplayItem {
   return item.kind === "message" || item.kind === "system" || item.kind === "userInputResult";
 }
 
@@ -37,7 +37,7 @@ function isRenderableWorkItem(item: DisplayItem): item is WorkItemDisplayItem {
 }
 
 function displayItemNode(item: DisplayItem, context: MessageStreamContext): UiNode {
-  if (isRenderableTextItem(item)) return messageItemNode(item, context);
+  if (isTextDisplayItem(item)) return textItemNode(item, context);
   if (isRenderableToolResultItem(item)) return toolResultNode(item, context);
   if (isRenderableWorkItem(item)) return workItemNode(item, context);
 }
@@ -89,7 +89,7 @@ function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | nu
     const snapshot = context.pendingRequests.snapshot();
     blocks.push({
       key: "pending-requests",
-      node: pendingRequestMessageNode(
+      node: pendingRequestBlockNode(
         snapshot.approvals,
         snapshot.pendingUserInputs,
         {

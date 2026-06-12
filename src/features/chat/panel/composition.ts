@@ -5,7 +5,7 @@ import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatServerMetadataActions } from "../connection/server-actions/metadata";
 import type { ChatServerThreadActions } from "../connection/server-actions/threads";
 import type { ChatComposerController } from "../conversation/composer/controller";
-import type { ChatThreadActions } from "../threads/thread-actions";
+import type { ChatThreadActions } from "../threads/actions";
 import { scheduleAppServerWarmup } from "../connection/app-server-warmup";
 import { closeChatView, openChatView, type ChatViewLifecycleHost } from "./view-lifecycle";
 import { createToolbarArchiveConfirmState, ToolbarPanelController } from "./regions/toolbar";

@@ -1,5 +1,5 @@
 import { jsonPreview } from "../../../../utils";
-import { permissionRows } from "../../display/permission-rows";
+import { permissionRows } from "../../display/details/permission-rows";
 import type { RequestId } from "../../../../app-server/types";
 
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";

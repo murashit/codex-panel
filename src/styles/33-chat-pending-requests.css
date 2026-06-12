@@ -1,4 +1,4 @@
-.codex-panel__pending-request-message {
+.codex-panel__pending-request-block {
   display: flex;
   flex-direction: column;
   gap: var(--codex-panel-item-gap);

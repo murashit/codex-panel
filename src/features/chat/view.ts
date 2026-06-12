@@ -12,12 +12,12 @@ import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } f
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
 import type { CodexChatHost } from "./chat-host";
-import { createStructuredSystemItem, createSystemItem } from "./display/system";
+import { createStructuredSystemItem, createSystemItem } from "./display/items/system";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
   statusSummaryLines as buildStatusSummaryLines,
-} from "./display/runtime-status";
+} from "./display/status/runtime";
 import { runtimeSnapshotForChatState } from "./runtime/snapshot";
 import { codexPanelDisplayTitle, getThreadTitle } from "../../domain/threads/model";
 import { connectionDiagnosticsModel } from "./panel/regions/toolbar";
@@ -574,19 +574,19 @@ export class CodexChatView extends ItemView {
   }
 
   private async ensureRestoredThreadLoaded(): Promise<boolean> {
-    return this.controllers.thread.restored.ensureLoaded();
+    return this.controllers.thread.restoration.ensureLoaded();
   }
 
   private isRestoredThreadPending(threadId: string): boolean {
-    return this.controllers.thread.restored.isPending(threadId);
+    return this.controllers.thread.restoration.isPending(threadId);
   }
 
   private scheduleDeferredRestoredThreadHydration(): void {
-    this.controllers.thread.restored.scheduleHydration();
+    this.controllers.thread.restoration.scheduleHydration();
   }
 
   private clearDeferredRestoredThreadHydration(): void {
-    this.controllers.thread.restored.clearHydration();
+    this.controllers.thread.restoration.clearHydration();
   }
 
   private scheduleDeferredAppServerWarmup(): void {
@@ -601,11 +601,11 @@ export class CodexChatView extends ItemView {
   }
 
   private restoredThreadPlaceholder() {
-    return this.controllers.thread.restored.placeholder();
+    return this.controllers.thread.restoration.placeholder();
   }
 
   private restoredThreadTitle(): string | null {
-    return this.controllers.thread.restored.title();
+    return this.controllers.thread.restoration.title();
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {

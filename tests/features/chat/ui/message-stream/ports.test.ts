@@ -6,7 +6,7 @@ import { createMessageStreamContextPort } from "../../../../../src/features/chat
 describe("message stream context port", () => {
   it("closes other fork action details before opening a fork action detail", () => {
     const state = createChatState();
-    state.ui.openDetails = new Set(["message:fork-actions:old", "message:u1:expanded"]);
+    state.ui.openDetails = new Set(["message:fork-actions:old", "text-item:u1:expanded"]);
     const dispatched: ChatAction[] = [];
 
     const port = createMessageStreamContextPort({
@@ -78,8 +78,8 @@ describe("message stream context port", () => {
       },
     });
 
-    port.setOpenDetail("message:u1:expanded", true);
+    port.setOpenDetail("text-item:u1:expanded", true);
 
-    expect(dispatched).toEqual([{ type: "ui/detail-open-set", key: "message:u1:expanded", open: true }]);
+    expect(dispatched).toEqual([{ type: "ui/detail-open-set", key: "text-item:u1:expanded", open: true }]);
   });
 });

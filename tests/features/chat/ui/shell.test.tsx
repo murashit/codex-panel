@@ -75,7 +75,7 @@ describe("ChatPanelShell", () => {
       store.dispatch({ type: "connection/status-set", status: "Working" });
       store.dispatch({ type: "ui/panel-set", panel: "status-panel" });
       store.dispatch({
-        type: "transcript/system-message-added",
+        type: "transcript/system-item-added",
         item: { id: "system-1", kind: "system", role: "system", text: "Model set." },
       });
       await settleShellEffects();
@@ -292,7 +292,7 @@ describe("ChatPanelShell", () => {
 
     await act(async () => {
       store.dispatch({
-        type: "transcript/system-message-added",
+        type: "transcript/system-item-added",
         item: { id: "system-1", kind: "system", role: "system", text: "Restored." },
       });
       await settleShellEffects();

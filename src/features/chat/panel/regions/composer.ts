@@ -7,7 +7,7 @@ import {
   supportedReasoningEfforts,
 } from "../../runtime/effective";
 import { compactReasoningEffortLabel } from "../../conversation/turns/runtime-overrides";
-import { contextSummary } from "../../display/runtime-status";
+import { contextSummary } from "../../display/status/runtime";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";

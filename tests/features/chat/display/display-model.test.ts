@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { activeAgentRunSummary, collabAgentStateExecutionState } from "../../../../src/features/chat/display/agent";
-import { displayBlocksForItems } from "../../../../src/features/chat/display/blocks";
+import { collabAgentStateExecutionState } from "../../../../src/features/chat/display/items/agent";
+import { activeAgentRunSummary } from "../../../../src/features/chat/display/stream/agent-summary";
+import { displayBlocksForItems } from "../../../../src/features/chat/display/stream/blocks";
 import {
   appendAssistantDelta,
   appendItemOutput,
@@ -9,22 +10,22 @@ import {
   appendPlanDelta,
   appendToolOutput,
   upsertDisplayItem,
-} from "../../../../src/features/chat/display/stream-updates";
+} from "../../../../src/features/chat/state/transcript-updates";
 import {
-  normalizeProposedPlanMarkdown,
-  planProgressDisplayItem,
+  taskProgressDisplayItem,
   taskProgressExecutionState,
-} from "../../../../src/features/chat/display/plan";
-import { pathRelativeToRoot } from "../../../../src/features/chat/display/paths";
-import { permissionRows } from "../../../../src/features/chat/display/permission-rows";
-import { autoReviewExecutionState, createAutoReviewResultItem, createReviewResultItem } from "../../../../src/features/chat/display/review";
+} from "../../../../src/features/chat/display/items/task-progress";
+import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/display/items/proposed-plan";
+import { pathRelativeToRoot } from "../../../../src/features/chat/display/details/path-labels";
+import { permissionRows } from "../../../../src/features/chat/display/details/permission-rows";
+import { autoReviewExecutionState, createAutoReviewResultItem, createReviewResultItem } from "../../../../src/features/chat/display/items/review-result";
 import {
   commandExecutionState,
   dynamicToolCallExecutionState,
   mcpToolCallExecutionState,
   patchApplyExecutionState,
-} from "../../../../src/features/chat/protocol/display-items";
-import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/protocol/display-items";
+} from "../../../../src/features/chat/display/turn-items";
+import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/display/turn-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import type { Thread } from "../../../../src/domain/threads/model";
@@ -244,7 +245,7 @@ describe("thread item conversion preserves app-server semantics", () => {
 
   it("formats structured plan progress as task progress", () => {
     expect(
-      planProgressDisplayItem("t1", "Working plan", [
+      taskProgressDisplayItem("t1", "Working plan", [
         { step: "Inspect code", status: "completed" },
         { step: "Patch UI", status: "inProgress" },
         { step: "Run tests", status: "pending" },
@@ -829,7 +830,7 @@ describe("thread item conversion preserves app-server semantics", () => {
       kind: "contextCompaction",
       text: "Context compaction",
       turnId: "t1",
-      itemId: "compact-1",
+      sourceItemId: "compact-1",
     });
   });
 
@@ -920,14 +921,14 @@ describe("streaming updates target item identity without mutating history", () =
     const items: DisplayItem[] = [
       {
         id: "a1",
-        itemId: "a1",
+        sourceItemId: "a1",
         kind: "message",
         role: "assistant",
         text: "hello",
         messageKind: "assistantResponse",
         messageState: "completed",
       },
-      { id: "tool1", itemId: "tool1", kind: "tool", role: "tool", text: "tool" },
+      { id: "tool1", sourceItemId: "tool1", kind: "tool", role: "tool", text: "tool" },
     ];
 
     const updated = appendAssistantDelta(items, "a1", "t1", " world");
@@ -939,10 +940,10 @@ describe("streaming updates target item identity without mutating history", () =
   });
 
   it("appends tool text and output without mutating existing display items", () => {
-    const tool: DisplayItem = { id: "tool1", itemId: "tool1", kind: "tool", role: "tool", text: "plan: " };
+    const tool: DisplayItem = { id: "tool1", sourceItemId: "tool1", kind: "tool", role: "tool", text: "plan: " };
     const command: DisplayItem = {
       id: "cmd1",
-      itemId: "cmd1",
+      sourceItemId: "cmd1",
       kind: "command",
       role: "tool",
       text: "Command running",
@@ -1570,7 +1571,7 @@ describe("execution state uses typed status adapters before rendered text", () =
   it("does not overwrite streamed output with an empty completed item", () => {
     const streamed: DisplayItem = {
       id: "c1",
-      itemId: "c1",
+      sourceItemId: "c1",
       kind: "command",
       role: "tool",
       text: "Command running",
@@ -1581,7 +1582,7 @@ describe("execution state uses typed status adapters before rendered text", () =
     };
     const completed: DisplayItem = {
       id: "c1",
-      itemId: "c1",
+      sourceItemId: "c1",
       kind: "command",
       role: "tool",
       text: "npm test",

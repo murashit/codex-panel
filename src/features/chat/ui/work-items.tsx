@@ -1,8 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useState } from "preact/hooks";
 
-import { activeAgentRunSummary, agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel } from "../display/agent";
-import { taskStatusMarker } from "../display/plan";
+import { activeAgentRunSummary, agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel } from "../display/stream/agent-summary";
 import type {
   AgentDisplayItem,
   AgentRunSummary,
@@ -75,6 +74,12 @@ function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): UiNode {
       )}
     </WorkMessage>
   );
+}
+
+function taskStatusMarker(status: TaskProgressDisplayItem["steps"][number]["status"]): string {
+  if (status === "completed") return "[x]";
+  if (status === "inProgress") return "[>]";
+  return "[ ]";
 }
 
 function ContextCompactionItem({ item, context }: { item: ContextCompactionDisplayItem; context: WorkItemContext }): UiNode {

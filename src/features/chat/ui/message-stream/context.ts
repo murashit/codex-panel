@@ -3,7 +3,7 @@ import type { ComponentChild as UiNode } from "preact";
 import type { ChatTurnLifecycleState } from "../../state/reducer";
 import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
 import type { DisplayItem } from "../../display/types";
-import type { PendingRequestMessageActions } from "../pending-request-message";
+import type { PendingRequestBlockActions } from "../pending-request-block";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 
 export interface MessageStreamBlock {
@@ -11,18 +11,18 @@ export interface MessageStreamBlock {
   node: UiNode;
 }
 
-export type RenderableTextItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
+export type TextDisplayItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
 
-export interface MessageDetailStateContext {
+export interface TextItemDetailStateContext {
   openDetails: ReadonlySet<string>;
   onDetailsToggle?: (key: string, open: boolean) => void;
 }
 
-export interface MessageContentContext extends MessageDetailStateContext {
+export interface TextItemContentContext extends TextItemDetailStateContext {
   renderMarkdown: (parent: HTMLElement, text: string) => void;
 }
 
-export interface MessageActionContext extends MessageDetailStateContext {
+export interface TextItemActionContext extends TextItemDetailStateContext {
   turnLifecycle: ChatTurnLifecycleState;
   copyText?: (text: string) => void;
   canImplementPlanItem?: (item: DisplayItem) => boolean;
@@ -33,7 +33,7 @@ export interface MessageActionContext extends MessageDetailStateContext {
   onForkItem?: (item: DisplayItem, archiveSource: boolean) => void;
 }
 
-export interface MessageMetadataContext extends MessageDetailStateContext {
+export interface TextItemMetadataContext extends TextItemDetailStateContext {
   activeThreadId: string | null;
   workspaceRoot?: string | null;
   openTurnDiff?: (state: ChatTurnDiffViewState) => void;
@@ -51,13 +51,13 @@ interface MessageStreamLayoutContext {
   pendingRequests?: PendingRequestBlockContext;
 }
 
-export interface MessageItemContext extends MessageContentContext, MessageActionContext, MessageMetadataContext {}
+export interface TextItemContext extends TextItemContentContext, TextItemActionContext, TextItemMetadataContext {}
 
-export interface MessageStreamContext extends MessageStreamLayoutContext, MessageItemContext {}
+export interface MessageStreamContext extends MessageStreamLayoutContext, TextItemContext {}
 
 export interface PendingRequestBlockContext {
   signature: string;
   snapshot: () => PendingRequestBlockSnapshot;
-  actions: () => PendingRequestMessageActions;
+  actions: () => PendingRequestBlockActions;
   consumeAutoFocus: () => boolean;
 }

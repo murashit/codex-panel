@@ -4,21 +4,21 @@ import type { ChatServerMetadataActions } from "./connection/server-actions/meta
 import type { ChatServerThreadActions } from "./connection/server-actions/threads";
 import type { ChatComposerController } from "./conversation/composer/controller";
 import type { ChatInboundController } from "./protocol/inbound/controller";
-import type { ChatThreadGoalActions } from "./threads/thread-goal-actions";
+import type { GoalActions } from "./threads/goal-actions";
 import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "./runtime/settings-actions";
-import type { ChatThreadActions } from "./threads/thread-actions";
-import type { ThreadHistoryController } from "./threads/thread-history-controller";
-import type { ThreadRenameController } from "./threads/thread-rename-controller";
+import type { ChatThreadActions } from "./threads/actions";
+import type { HistoryController } from "./threads/history-controller";
+import type { RenameController } from "./threads/rename-controller";
 import type { ToolbarPanelController } from "./panel/regions/toolbar";
 import type { ChatConnectionController } from "./connection/connection-controller";
 import type { ChatReconnectActions } from "./connection/reconnect-actions";
 import type { PendingRequestController } from "./conversation/pending-requests/controller";
 import { rejectServerRequest, respondToServerRequest } from "./protocol/requests/server-request-responder";
 import type { ComposerSubmissionActions } from "./conversation/turns/composer-submission-actions";
-import type { RestoredThreadController } from "./threads/restored-thread-controller";
-import type { ThreadIdentitySync } from "./threads/thread-identity-sync";
-import type { ThreadResumeController } from "./threads/thread-resume-controller";
-import type { ThreadSelectionActions } from "./threads/thread-selection-actions";
+import type { RestorationController } from "./threads/restoration-controller";
+import type { IdentitySync } from "./threads/identity-sync";
+import type { ResumeController } from "./threads/resume-controller";
+import type { SelectionActions } from "./threads/selection-actions";
 import type { ChatViewRenderController } from "./panel/view-render-controller";
 import type { ChatMessageRenderer } from "./ui/message-stream/renderer";
 import type { ChatControllerCompositionPorts } from "./composition-ports";
@@ -53,17 +53,17 @@ export interface ChatViewControllers {
     diagnostics: ChatServerDiagnosticsActions;
   };
   thread: {
-    history: ThreadHistoryController;
-    resume: ThreadResumeController;
+    history: HistoryController;
+    resume: ResumeController;
     actions: ChatThreadActions;
-    restored: RestoredThreadController;
-    identity: ThreadIdentitySync;
-    rename: ThreadRenameController;
-    selection: ThreadSelectionActions;
+    restoration: RestorationController;
+    identity: IdentitySync;
+    rename: RenameController;
+    selection: SelectionActions;
   };
   runtime: {
     settings: ChatRuntimeSettingsActions;
-    goals: ChatThreadGoalActions;
+    goals: GoalActions;
   };
   requests: {
     pending: PendingRequestController;
@@ -105,7 +105,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     },
   });
   let connectionController: ChatConnectionController | null = null;
-  let threadSelection: ThreadSelectionActions | null = null;
+  let selection: SelectionActions | null = null;
   let composerController: ChatComposerController | null = null;
   const actions = createChatControllerCompositionActions(
     {
@@ -121,7 +121,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       ensureConnected: () => requireComposedController(connectionController, "connection controller").ensureConnected(),
       refreshThreads: () => requireComposedController(connectionController, "connection controller").refreshThreads(),
       refreshSkills: (forceReload) => requireComposedController(connectionController, "connection controller").refreshSkills(forceReload),
-      selectThread: (threadId) => requireComposedController(threadSelection, "thread selection actions").selectThread(threadId),
+      selectThread: (threadId) => requireComposedController(selection, "selection actions").selectThread(threadId),
       setComposerText: (text) => {
         requireComposedController(composerController, "composer controller").setDraft(text, { focus: true });
       },
@@ -182,8 +182,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       connection,
     },
   );
-  const { history, threadActions, goals, threadIdentity } = threadControllers;
-  const { restoredThread, threadResume, threadRename } = threadControllers;
+  const { history, actions: threadActions, goals, identity, restoration, resume, rename } = threadControllers;
   const lifecycleActions = {
     deferredTasks: ports.lifecycle.deferredTasks,
     resumeWork: ports.lifecycle.resumeWork,
@@ -210,10 +209,10 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       render: actions.render,
       thread: {
         restorePlaceholder: (restoredThreadState) => {
-          restoredThread.restore(restoredThreadState);
+          restoration.restore(restoredThreadState);
         },
         clearRestoredLifecycle: () => {
-          restoredThread.clear();
+          restoration.clear();
         },
       },
     },
@@ -221,7 +220,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       threadActions,
     },
   );
-  threadSelection = createThreadSelectionActionGroup(
+  selection = createThreadSelectionActionGroup(
     {
       plugin: {
         focusThreadInOpenView: (threadId) => ports.plugin.focusThreadInOpenView(threadId),
@@ -230,7 +229,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
         stateStore: ports.state.stateStore,
       },
       thread: {
-        resumeThread: (threadId) => threadResume.resumeThread(threadId),
+        resumeThread: (threadId) => resume.resumeThread(threadId),
       },
       status: actions.status,
     },
@@ -239,7 +238,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
         toolbarPanels.closeForThreadSelection();
       },
     },
-  ).threadSelection;
+  ).selection;
   const { reconnectActions } = createChatReconnectControllerGroup(
     {
       state: {
@@ -250,7 +249,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       render: actions.render,
       status: actions.status,
       thread: {
-        resumeThread: (threadId) => threadResume.resumeThread(threadId),
+        resumeThread: (threadId) => resume.resumeThread(threadId),
       },
     },
     {
@@ -309,7 +308,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     {
       serverMetadata,
       serverDiagnostics,
-      threadRename,
+      rename,
       respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
       rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
     },
@@ -331,7 +330,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
         loadSharedThreadList: ports.thread.loadSharedThreadList,
         refreshTabHeader: ports.thread.refreshTabHeader,
         resetTurnPresence: (hadTurns) => {
-          threadRename.resetThreadTurnPresence(hadTurns);
+          rename.resetThreadTurnPresence(hadTurns);
         },
       },
       status: actions.status,
@@ -399,7 +398,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
         selectThread: actions.thread.selectThread,
         notifyIdentityChanged: ports.thread.notifyIdentityChanged,
         resetTurnPresence: (hadTurns) => {
-          threadRename.resetThreadTurnPresence(hadTurns);
+          rename.resetThreadTurnPresence(hadTurns);
         },
       },
       status: actions.status,
@@ -423,7 +422,6 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       serverThreads,
       runtimeSettings,
       threadActions,
-      threadRename,
       reconnectActions,
       goals,
       history,
@@ -493,12 +491,12 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     },
     thread: {
       history,
-      resume: threadResume,
+      resume,
       actions: threadActions,
-      restored: restoredThread,
-      identity: threadIdentity,
-      rename: threadRename,
-      selection: threadSelection,
+      restoration,
+      identity,
+      rename,
+      selection,
     },
     runtime: {
       settings: runtimeSettings,
