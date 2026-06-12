@@ -70,6 +70,74 @@ describe("development scripts", () => {
     );
   });
 
+  it("reads app-server initialize flags from the connection client in API baseline checks", async () => {
+    const cwd = await tempWorkspace();
+    const binDir = path.join(cwd, "bin");
+    await mkdir(binDir, { recursive: true });
+    await mkdir(path.join(cwd, "scripts"), { recursive: true });
+    await mkdir(path.join(cwd, "src", "app-server", "connection"), { recursive: true });
+
+    await writeJson(path.join(cwd, "package.json"), {
+      version: "1.0.0",
+      devDependencies: {
+        obsidian: "~1.12.3",
+      },
+    });
+    await writeJson(path.join(cwd, "package-lock.json"), {
+      packages: {
+        "node_modules/obsidian": {
+          version: "1.12.3",
+        },
+      },
+    });
+    await writeJson(path.join(cwd, "manifest.json"), {
+      minAppVersion: "1.12.0",
+    });
+    await writeJson(path.join(cwd, "versions.json"), {
+      "1.0.0": "1.12.0",
+    });
+    await writeFile(
+      path.join(cwd, "README.md"),
+      [
+        "## Compatibility",
+        "",
+        "| Key | Version | Notes |",
+        "| --- | --- | --- |",
+        "| `codex.testedCliVersion` | `0.139.0` | Tested CLI. |",
+        "| `obsidian.minAppVersion` | `1.12.0` | Minimum app version. |",
+      ].join("\n"),
+    );
+    await writeFile(
+      path.join(cwd, "scripts", "generate-app-server-types.mjs"),
+      'run("codex", ["app-server", "generate-ts", "--experimental"]);\n',
+    );
+    await writeFile(
+      path.join(cwd, "src", "app-server", "connection", "client.ts"),
+      [
+        'const init = await this.request("initialize", {',
+        "  capabilities: {",
+        "    experimentalApi: true,",
+        "    requestAttestation: false,",
+        "  },",
+        "});",
+      ].join("\n"),
+    );
+
+    const codexBin = path.join(binDir, "codex");
+    await writeFile(codexBin, "#!/usr/bin/env node\nconsole.log('codex 0.139.0');\n");
+    await chmod(codexBin, 0o755);
+
+    const result = runNodeScript("scripts/api-baseline.mjs", ["--json"], cwd, {
+      PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+    });
+
+    expect(result.status).toBe(0);
+    const report = JSON.parse(result.stdout);
+    expect(report.codex.initializeExperimentalApi).toBe(true);
+    expect(report.codex.initializeRequestAttestationDisabled).toBe(true);
+    expect(report.failures).toEqual([]);
+  });
+
   it("keeps files unchanged when format check finds unformatted content", async () => {
     const cwd = await tempWorkspace();
     await mkdir(path.join(cwd, "src"), { recursive: true });

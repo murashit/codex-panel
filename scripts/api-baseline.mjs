@@ -117,7 +117,7 @@ const packageLockJson = await readJson("package-lock.json");
 const manifestJson = await readJson("manifest.json");
 const versionsJson = await readJson("versions.json");
 const readme = await readFile("README.md", "utf8");
-const clientSource = await readFile("src/app-server/client.ts", "utf8");
+const clientSource = await readFile("src/app-server/connection/client.ts", "utf8");
 const appServerGenerateSource = await readFile("scripts/generate-app-server-types.mjs", "utf8");
 const readmeBaselines = readCompatibilityBaselines(readme);
 
