@@ -6,9 +6,9 @@ import {
   createSettingsDynamicSectionLifecycle,
   transitionSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
-} from "../../src/settings/data";
+} from "../../src/settings/lifecycle";
 
-describe("settings data", () => {
+describe("settings lifecycle", () => {
   it("tracks settings data refresh lifecycle", () => {
     const idle = { kind: "idle" } as const;
 

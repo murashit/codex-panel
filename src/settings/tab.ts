@@ -16,7 +16,7 @@ import {
   transitionSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
   type SettingsDataRefreshLifecycleState,
-} from "./data";
+} from "./lifecycle";
 import { loadHookData, loadSettingsData } from "./app-server-data";
 import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
 import type { CodexPanelSettings } from "./model";
