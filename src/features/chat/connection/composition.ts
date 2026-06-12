@@ -13,7 +13,7 @@ import { ChatConnectionController } from "./connection-controller";
 import { createChatReconnectActions } from "./reconnect-actions";
 import type { rejectServerRequest, respondToServerRequest } from "../protocol/requests/server-request-responder";
 import type { GoalActions } from "../threads/goal-actions";
-import type { RenameController } from "../threads/rename-controller";
+import type { AutoTitleController } from "../threads/auto-title-controller";
 import { ChatInboundController } from "../protocol/inbound/controller";
 import type { ChatConnectionWorkTracker } from "../lifecycle";
 
@@ -97,7 +97,7 @@ export function createChatInboundController(
   refs: {
     serverMetadata: ChatServerMetadataActions;
     serverDiagnostics: ChatServerDiagnosticsActions;
-    rename: RenameController;
+    autoTitle: AutoTitleController;
     respondToServerRequest: (requestId: Parameters<typeof respondToServerRequest>[1], result: unknown) => boolean;
     rejectServerRequest: (requestId: Parameters<typeof rejectServerRequest>[1], code: number, message: string) => boolean;
   },
@@ -114,7 +114,7 @@ export function createChatInboundController(
     refreshSkills: (forceReload) => void thread.refreshSkills(forceReload),
     publishAppServerMetadata: thread.publishAppServerMetadataSnapshot,
     maybeNameThread: (threadId, turnId, completedSummary) => {
-      refs.rename.maybeAutoNameThread(threadId, turnId, completedSummary);
+      refs.autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
     },
     notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),

@@ -9,9 +9,9 @@ import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import { exportArchivedThreadMarkdown } from "../../domain/threads/export";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import { findThreadNamingContext, THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/naming";
-import { generateThreadTitleWithCodex } from "../../app-server/thread-title-generation";
 import { completedConversationSummaryFromAppServerTurn, transcriptEntriesFromAppServerTurn } from "../../app-server/turn-model";
+import { generateThreadTitleWithCodex } from "../thread-title/generation";
+import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../thread-title/model";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
   completedThreadAutoNameState,
@@ -327,7 +327,7 @@ export class CodexThreadsView extends ItemView {
       if (this.renameStates.get(threadId) !== generatingState) return;
       if (!this.client) return;
       const client = this.client;
-      const context = await findThreadNamingContext({
+      const context = await findThreadTitleContext({
         threadId,
         readTurns: async (id, cursor, limit, sortDirection) => {
           const response = await client.threadTurnsList(id, cursor, limit, sortDirection);
@@ -340,7 +340,7 @@ export class CodexThreadsView extends ItemView {
           };
         },
       });
-      if (!context) throw new Error(THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE);
+      if (!context) throw new Error(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
       const title = await generateThreadTitleWithCodex(this.plugin.settings.codexPath, this.plugin.vaultPath, context, {
         threadNamingModel: this.plugin.settings.threadNamingModel,
         threadNamingEffort: this.plugin.settings.threadNamingEffort,

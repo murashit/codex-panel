@@ -148,45 +148,6 @@ describe("RenameController", () => {
 
     expect(controller.editState("thread")).toEqual({ draft: "New generated title", generating: false });
   });
-
-  it("does not apply a completed auto-name after the thread leaves the list", async () => {
-    const generatedTitle = deferred<string | null>();
-    const setThreadName = vi.fn().mockResolvedValue({});
-    const { controller, stateStore, notifyThreadRenamed } = controllerFixture({
-      currentClient: () => fakeClient({ setThreadName }),
-      generateThreadTitle: vi.fn(() => generatedTitle.promise),
-    });
-
-    controller.maybeAutoNameThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
-    await flushPromises();
-
-    stateStore.dispatch({ type: "thread-list/applied", threads: [] });
-    generatedTitle.resolve("Generated title");
-    await flushPromises();
-
-    expect(setThreadName).not.toHaveBeenCalled();
-    expect(notifyThreadRenamed).not.toHaveBeenCalled();
-  });
-
-  it("does not overwrite a manual name when auto-name save finishes later", async () => {
-    const savedName = deferred<object>();
-    const setThreadName = vi.fn(() => savedName.promise);
-    const { controller, stateStore, notifyThreadRenamed } = controllerFixture({
-      currentClient: () => fakeClient({ setThreadName }),
-      generateThreadTitle: vi.fn().mockResolvedValue("Generated title"),
-    });
-
-    controller.maybeAutoNameThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
-    await flushPromises();
-    expect(setThreadName).toHaveBeenCalledWith("thread", "Generated title");
-
-    stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...threadFixture("thread"), name: "Manual title" }] });
-    savedName.resolve({});
-    await flushPromises();
-
-    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Manual title");
-    expect(notifyThreadRenamed).not.toHaveBeenCalled();
-  });
 });
 
 function controllerFixture(

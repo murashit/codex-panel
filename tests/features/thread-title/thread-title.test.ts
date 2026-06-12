@@ -1,29 +1,26 @@
-// @vitest-environment jsdom
-
 import { describe, expect, it } from "vitest";
 
-import {
-  findThreadNamingContext,
-  namingContextFromConversationSummary,
-  namingPrompt,
-  normalizeGeneratedTitle,
-  titleFromGeneratedText,
-} from "../../../../src/domain/threads/naming";
+import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../src/app-server/client";
+import { modelMetadataFromAppServerModels, type AppServerModel } from "../../../src/app-server/catalog-model";
+import type { AppServerInitialization } from "../../../src/app-server/initialization";
+import type { AppServerThread } from "../../../src/app-server/thread-model";
+import type { AppServerThreadItem, AppServerTurn } from "../../../src/app-server/turn-model";
+import type { RequestId, ServerNotification } from "../../../src/app-server/types";
 import {
   generateThreadTitleWithCodex,
-  titleFromNamingTurn,
-  threadNamingRuntimeOverride,
-  validatedThreadNamingRuntimeOverride,
-  type ThreadNamingClient,
-  type ThreadNamingClientFactory,
-} from "../../../../src/app-server/thread-title-generation";
-import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "../../../../src/features/chat/threads/naming";
-import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../../../src/app-server/client";
-import type { AppServerInitialization } from "../../../../src/app-server/initialization";
-import type { RequestId, ServerNotification } from "../../../../src/app-server/types";
-import type { AppServerThread } from "../../../../src/app-server/thread-model";
-import type { AppServerThreadItem, AppServerTurn } from "../../../../src/app-server/turn-model";
-import { modelMetadataFromAppServerModels, type AppServerModel } from "../../../../src/app-server/catalog-model";
+  threadTitleFromGenerationTurn,
+  threadTitleRuntimeOverride,
+  validatedThreadTitleRuntimeOverride,
+  type ThreadTitleClient,
+  type ThreadTitleClientFactory,
+} from "../../../src/features/thread-title/generation";
+import {
+  findThreadTitleContext,
+  normalizeGeneratedThreadTitle,
+  threadTitleContextFromConversationSummary,
+  threadTitleFromGeneratedText,
+  threadTitlePrompt,
+} from "../../../src/features/thread-title/model";
 
 type InitializeResponse = AppServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
@@ -32,10 +29,10 @@ type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThr
 type Turn = AppServerTurn;
 type TurnStartResponse = Awaited<ReturnType<AppServerClient["startStructuredTurn"]>>;
 
-describe("thread naming", () => {
-  it("builds naming context from a conversation summary", () => {
+describe("thread title", () => {
+  it("builds title context from a conversation summary", () => {
     expect(
-      namingContextFromConversationSummary({
+      threadTitleContextFromConversationSummary({
         userText: "Codex Panelに自動命名を付けたい",
         assistantText: "実装方針をまとめました。",
       }),
@@ -45,90 +42,13 @@ describe("thread naming", () => {
     });
   });
 
-  it("does not build naming context for incomplete summaries", () => {
-    expect(namingContextFromConversationSummary({ userText: "hello", assistantText: null })).toBeNull();
+  it("does not build title context for incomplete summaries", () => {
+    expect(threadTitleContextFromConversationSummary({ userText: "hello", assistantText: null })).toBeNull();
   });
 
-  it("extracts naming context from streamed display items when completed turn items are not loaded", () => {
-    expect(
-      namingContextFromDisplayItems("turn", [
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "自動命名を直したい", turnId: "turn" },
-        {
-          id: "a1",
-          kind: "message",
-          role: "assistant",
-          text: "原因を直しました。",
-          turnId: "turn",
-          messageKind: "assistantResponse",
-          messageState: "completed",
-        },
-      ]),
-    ).toEqual({
-      userRequest: "自動命名を直したい",
-      assistantResponse: "原因を直しました。",
-    });
-  });
-
-  it("uses the first usable displayed turn as a resumed-history fallback", () => {
-    expect(
-      firstNamingContextFromDisplayItems([
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "本文だけのturn", turnId: "turn-1" },
-        { id: "u2", kind: "message", messageKind: "user", role: "user", text: "履歴から命名したい", turnId: "turn-2" },
-        {
-          id: "a2",
-          kind: "message",
-          role: "assistant",
-          text: "表示済み履歴から候補を作ります。",
-          turnId: "turn-2",
-          messageKind: "assistantResponse",
-          messageState: "completed",
-        },
-        { id: "u3", kind: "message", messageKind: "user", role: "user", text: "後続turn", turnId: "turn-3" },
-        {
-          id: "a3",
-          kind: "message",
-          role: "assistant",
-          text: "後続応答",
-          turnId: "turn-3",
-          messageKind: "assistantResponse",
-          messageState: "completed",
-        },
-      ]),
-    ).toEqual({
-      userRequest: "履歴から命名したい",
-      assistantResponse: "表示済み履歴から候補を作ります。",
-    });
-  });
-
-  it("uses a preceding goal event objective when the first completed turn has no user item", () => {
-    expect(
-      namingContextFromDisplayItems("turn", [
-        {
-          id: "goal",
-          kind: "goal",
-          role: "tool",
-          text: "Goal set.",
-          objective: "ゴールから始めたスレッドを命名したい",
-        },
-        {
-          id: "a1",
-          kind: "message",
-          role: "assistant",
-          text: "ゴール内容に基づいて実装しました。",
-          turnId: "turn",
-          messageKind: "assistantResponse",
-          messageState: "completed",
-        },
-      ]),
-    ).toEqual({
-      userRequest: "ゴールから始めたスレッドを命名したい",
-      assistantResponse: "ゴール内容に基づいて実装しました。",
-    });
-  });
-
-  it("scans older thread pages until it finds a usable naming context", async () => {
+  it("scans older thread pages until it finds a usable title context", async () => {
     const calls: { cursor: string | null; limit: number; sortDirection: string }[] = [];
-    const context = await findThreadNamingContext({
+    const context = await findThreadTitleContext({
       threadId: "thread",
       pageLimit: 2,
       maxPages: 3,
@@ -157,29 +77,9 @@ describe("thread naming", () => {
     ]);
   });
 
-  it("finds the first visible display item naming context", () => {
-    expect(
-      firstNamingContextFromDisplayItems([
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "表示済み履歴から命名したい", turnId: "visible" },
-        {
-          id: "a1",
-          kind: "message",
-          role: "assistant",
-          text: "表示済み履歴を使います。",
-          turnId: "visible",
-          messageKind: "assistantResponse",
-          messageState: "completed",
-        },
-      ]),
-    ).toEqual({
-      userRequest: "表示済み履歴から命名したい",
-      assistantResponse: "表示済み履歴を使います。",
-    });
-  });
-
   it("parses structured title responses", () => {
     expect(
-      titleFromNamingTurn(
+      threadTitleFromGenerationTurn(
         turn([
           {
             type: "agentMessage",
@@ -194,17 +94,17 @@ describe("thread naming", () => {
   });
 
   it("normalizes generated titles", () => {
-    expect(normalizeGeneratedTitle('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
-    expect(normalizeGeneratedTitle("")).toBeNull();
-    expect(normalizeGeneratedTitle("x".repeat(80))).toHaveLength(40);
+    expect(normalizeGeneratedThreadTitle('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
+    expect(normalizeGeneratedThreadTitle("")).toBeNull();
+    expect(normalizeGeneratedThreadTitle("x".repeat(80))).toHaveLength(40);
   });
 
   it("parses generated title text", () => {
-    expect(titleFromGeneratedText('```json\n{"title":"Codex Panelの自動命名"}\n```')).toBe("Codex Panelの自動命名");
+    expect(threadTitleFromGeneratedText('```json\n{"title":"Codex Panelの自動命名"}\n```')).toBe("Codex Panelの自動命名");
   });
 
   it("asks the model to infer the title language from the initial request", () => {
-    const prompt = namingPrompt({
+    const prompt = threadTitlePrompt({
       userRequest: "Please fix the automatic thread naming behavior.",
       assistantResponse: "I found the prompt and adjusted it.",
     });
@@ -218,29 +118,29 @@ describe("thread naming", () => {
     expect(prompt).not.toContain("English words");
   });
 
-  it("uses explicit naming runtime overrides", () => {
-    expect(threadNamingRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" })).toEqual({
+  it("uses explicit title runtime overrides", () => {
+    expect(threadTitleRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" })).toEqual({
       model: "gpt-5.4-mini",
       effort: "minimal",
     });
   });
 
-  it("omits naming runtime overrides that are set to Codex default", () => {
-    expect(threadNamingRuntimeOverride({ threadNamingModel: null, threadNamingEffort: null })).toEqual({});
+  it("omits title runtime overrides that are set to Codex default", () => {
+    expect(threadTitleRuntimeOverride({ threadNamingModel: null, threadNamingEffort: null })).toEqual({});
   });
 
-  it("omits an explicit naming effort when the selected model does not support it", () => {
+  it("omits an explicit title effort when the selected model does not support it", () => {
     expect(
-      validatedThreadNamingRuntimeOverride(
+      validatedThreadTitleRuntimeOverride(
         { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
         modelMetadataFromAppServerModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
       ),
     ).toEqual({ model: "gpt-5.4-mini" });
   });
 
-  it("keeps an explicit naming effort when the selected model supports it", () => {
+  it("keeps an explicit title effort when the selected model supports it", () => {
     expect(
-      validatedThreadNamingRuntimeOverride(
+      validatedThreadTitleRuntimeOverride(
         { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" },
         modelMetadataFromAppServerModels([model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])]),
       ),
@@ -248,7 +148,7 @@ describe("thread naming", () => {
   });
 
   it("keeps pre-acknowledgement completion when title notifications arrive before turn/start resolves", async () => {
-    const { clientFactory } = fakeThreadNamingClientFactory((fake) => {
+    const { clientFactory } = fakeThreadTitleClientFactory((fake) => {
       fake.startStructuredTurnImpl = async () => {
         fake.emit(completedItemNotification("thread", "turn", assistantMessage("answer", '{"title":"Early title"}')));
         fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
@@ -256,13 +156,13 @@ describe("thread naming", () => {
       };
     });
 
-    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", namingContext(), runtimeSettings(), clientFactory)).resolves.toBe(
+    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), clientFactory)).resolves.toBe(
       "Early title",
     );
   });
 });
 
-function namingContext() {
+function titleContext() {
   return {
     userRequest: "Please name this.",
     assistantResponse: "Done.",
@@ -276,22 +176,22 @@ function runtimeSettings() {
   };
 }
 
-function fakeThreadNamingClientFactory(configure?: (client: FakeThreadNamingClient) => void): {
-  clientFactory: ThreadNamingClientFactory;
-  client: { current: FakeThreadNamingClient | null };
+function fakeThreadTitleClientFactory(configure?: (client: FakeThreadTitleClient) => void): {
+  clientFactory: ThreadTitleClientFactory;
+  client: { current: FakeThreadTitleClient | null };
 } {
-  const client: { current: FakeThreadNamingClient | null } = { current: null };
+  const client: { current: FakeThreadTitleClient | null } = { current: null };
   return {
     client,
     clientFactory: (_codexPath, _cwd, handlers) => {
-      client.current = new FakeThreadNamingClient(handlers);
+      client.current = new FakeThreadTitleClient(handlers);
       configure?.(client.current);
       return client.current;
     },
   };
 }
 
-class FakeThreadNamingClient implements ThreadNamingClient {
+class FakeThreadTitleClient implements ThreadTitleClient {
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
 
   constructor(private readonly handlers: AppServerClientHandlers) {}

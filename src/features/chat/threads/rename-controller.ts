@@ -1,19 +1,17 @@
 import type { AppServerClient } from "../../../app-server/client";
-import { getThreadTitle } from "../../../domain/threads/model";
-import {
-  findThreadNamingContext,
-  namingContextFromConversationSummary,
-  THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE,
-  type ThreadNamingContext,
-} from "../../../domain/threads/naming";
-import type { Thread } from "../../../domain/threads/model";
-import type { ThreadConversationSummary } from "../../../domain/threads/transcript";
-import type { CodexPanelSettings } from "../../../settings/model";
-import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
-import { generateThreadTitleWithCodex } from "../../../app-server/thread-title-generation";
 import { completedConversationSummaryFromAppServerTurn } from "../../../app-server/turn-model";
-import { firstNamingContextFromDisplayItems, namingContextFromDisplayItems } from "./naming";
+import { getThreadTitle } from "../../../domain/threads/model";
+import type { Thread } from "../../../domain/threads/model";
+import type { CodexPanelSettings } from "../../../settings/model";
+import { generateThreadTitleWithCodex } from "../../thread-title/generation";
+import {
+  findThreadTitleContext,
+  THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE,
+  type ThreadTitleContext,
+} from "../../thread-title/model";
+import type { ChatState, ChatStateStore } from "../state/reducer";
 import { renameConnectedThread } from "./rename-actions";
+import { firstThreadTitleContextFromDisplayItems } from "./title-context";
 
 export interface RenameEditState {
   draft: string;
@@ -43,13 +41,10 @@ export interface RenameControllerHost {
   render: () => void;
   addSystemMessage: (text: string) => void;
   notifyThreadRenamed: (threadId: string, name: string) => void;
-  generateThreadTitle?: (context: ThreadNamingContext) => Promise<string | null>;
+  generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null>;
 }
 
 export class RenameController {
-  private activeThreadHadTurns = false;
-  private readonly autoNameAttemptedThreadIds = new Set<string>();
-  private readonly autoNameInFlightThreadIds = new Set<string>();
   private readonly listeners = new Set<() => void>();
   private nextRenameGenerationId = 1;
   private renameState: RenameLifecycleState = { kind: "idle" };
@@ -58,14 +53,6 @@ export class RenameController {
 
   private get state(): ChatState {
     return this.host.stateStore.getState();
-  }
-
-  private dispatch(action: ChatAction): void {
-    this.host.stateStore.dispatch(action);
-  }
-
-  resetThreadTurnPresence(hadTurns: boolean): void {
-    this.activeThreadHadTurns = hadTurns;
   }
 
   editState(threadId: string): RenameEditState | null {
@@ -144,7 +131,7 @@ export class RenameController {
 
     try {
       const context = await this.resolveNamingContext(threadId);
-      if (!context) throw new Error(THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE);
+      if (!context) throw new Error(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
       const title = await this.generateTitle(context);
       if (!title) throw new Error("Codex did not return a usable thread title.");
       this.setRenameState(
@@ -163,48 +150,10 @@ export class RenameController {
     }
   }
 
-  maybeAutoNameThread(threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null): void {
-    const hadTurnsBeforeThisCompletion = this.activeThreadHadTurns;
-    this.activeThreadHadTurns = true;
-
-    if (hadTurnsBeforeThisCompletion || !completedSummary) return;
-    if (this.threadHasName(threadId)) return;
-    if (this.autoNameAttemptedThreadIds.has(threadId) || this.autoNameInFlightThreadIds.has(threadId)) return;
-    const context =
-      namingContextFromConversationSummary(completedSummary) ?? namingContextFromDisplayItems(turnId, this.state.transcript.displayItems);
-    if (!context) return;
-
-    this.autoNameAttemptedThreadIds.add(threadId);
-    this.autoNameInFlightThreadIds.add(threadId);
-    void this.generateAndSetName(threadId, context);
-  }
-
-  private async generateAndSetName(threadId: string, context: ThreadNamingContext): Promise<void> {
-    try {
-      const title = await this.generateTitle(context);
-      if (!title || !this.threadCanReceiveGeneratedName(threadId)) return;
-
-      const client = this.host.currentClient();
-      if (!client) return;
-      await client.setThreadName(threadId, title);
-      if (!this.threadCanReceiveGeneratedName(threadId)) return;
-      this.dispatch({
-        type: "thread-list/applied",
-        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
-      });
-      this.host.notifyThreadRenamed(threadId, title);
-    } catch {
-      // Auto-naming is best-effort metadata. Leave the thread preview untouched on failure.
-    } finally {
-      this.autoNameInFlightThreadIds.delete(threadId);
-      this.host.render();
-    }
-  }
-
-  private async resolveNamingContext(threadId: string): Promise<ThreadNamingContext | null> {
+  private async resolveNamingContext(threadId: string): Promise<ThreadTitleContext | null> {
     const client = this.host.currentClient();
     if (!client) return null;
-    const context = await findThreadNamingContext({
+    const context = await findThreadTitleContext({
       threadId,
       readTurns: async (id, cursor, limit, sortDirection) => {
         const response = await client.threadTurnsList(id, cursor, limit, sortDirection);
@@ -218,11 +167,12 @@ export class RenameController {
       },
     });
     return (
-      context ?? (this.state.activeThread.id === threadId ? firstNamingContextFromDisplayItems(this.state.transcript.displayItems) : null)
+      context ??
+      (this.state.activeThread.id === threadId ? firstThreadTitleContextFromDisplayItems(this.state.transcript.displayItems) : null)
     );
   }
 
-  private async generateTitle(context: ThreadNamingContext): Promise<string | null> {
+  private async generateTitle(context: ThreadTitleContext): Promise<string | null> {
     if (this.host.generateThreadTitle) return this.host.generateThreadTitle(context);
     const settings = this.host.settings();
     return generateThreadTitleWithCodex(settings.codexPath, this.host.vaultPath, context, {
@@ -249,15 +199,6 @@ export class RenameController {
     const next = transitionRenameLifecycle(this.renameState, { type: "generation-finished", threadId, generatingState });
     if (next === this.renameState) return;
     this.setRenameState(next);
-  }
-
-  private threadHasName(threadId: string): boolean {
-    return Boolean(this.thread(threadId)?.name?.trim());
-  }
-
-  private threadCanReceiveGeneratedName(threadId: string): boolean {
-    const thread = this.thread(threadId);
-    return Boolean(thread && !thread.name?.trim());
   }
 
   private thread(threadId: string): Thread | undefined {

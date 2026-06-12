@@ -7,6 +7,7 @@ import type { ChatInboundController } from "./protocol/inbound/controller";
 import type { GoalActions } from "./threads/goal-actions";
 import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "./runtime/settings-actions";
 import type { ChatThreadActions } from "./threads/actions";
+import type { AutoTitleController } from "./threads/auto-title-controller";
 import type { HistoryController } from "./threads/history-controller";
 import type { RenameController } from "./threads/rename-controller";
 import type { ToolbarPanelController } from "./panel/regions/toolbar";
@@ -59,6 +60,7 @@ export interface ChatViewControllers {
     restoration: RestorationController;
     identity: IdentitySync;
     rename: RenameController;
+    autoTitle: AutoTitleController;
     selection: SelectionActions;
   };
   runtime: {
@@ -182,7 +184,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       connection,
     },
   );
-  const { history, actions: threadActions, goals, identity, restoration, resume, rename } = threadControllers;
+  const { history, actions: threadActions, goals, identity, restoration, resume, rename, autoTitle } = threadControllers;
   const lifecycleActions = {
     deferredTasks: ports.lifecycle.deferredTasks,
     resumeWork: ports.lifecycle.resumeWork,
@@ -308,7 +310,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
     {
       serverMetadata,
       serverDiagnostics,
-      rename,
+      autoTitle,
       respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
       rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
     },
@@ -330,7 +332,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
         loadSharedThreadList: ports.thread.loadSharedThreadList,
         refreshTabHeader: ports.thread.refreshTabHeader,
         resetTurnPresence: (hadTurns) => {
-          rename.resetThreadTurnPresence(hadTurns);
+          autoTitle.resetThreadTurnPresence(hadTurns);
         },
       },
       status: actions.status,
@@ -398,7 +400,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
         selectThread: actions.thread.selectThread,
         notifyIdentityChanged: ports.thread.notifyIdentityChanged,
         resetTurnPresence: (hadTurns) => {
-          rename.resetThreadTurnPresence(hadTurns);
+          autoTitle.resetThreadTurnPresence(hadTurns);
         },
       },
       status: actions.status,
@@ -496,6 +498,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
       restoration,
       identity,
       rename,
+      autoTitle,
       selection,
     },
     runtime: {

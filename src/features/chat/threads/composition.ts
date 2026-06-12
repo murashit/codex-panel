@@ -3,6 +3,7 @@ import type { AppServerClient } from "../../../app-server/client";
 import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
 import type { ArchiveExportAdapter } from "../../../domain/threads/export";
 import { createChatThreadActions } from "./actions";
+import { AutoTitleController } from "./auto-title-controller";
 import { createGoalActions } from "./goal-actions";
 import { HistoryController } from "./history-controller";
 import { createIdentitySync } from "./identity-sync";
@@ -86,8 +87,16 @@ export function createThreadControllerGroup(
     addSystemMessage: status.addSystemMessage,
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
   });
+  const autoTitle = new AutoTitleController({
+    stateStore,
+    vaultPath: plugin.vaultPath,
+    settings: () => plugin.settings,
+    currentClient,
+    render: render.now,
+    notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
+  });
   const resetThreadTurnPresence = (hadTurns: boolean) => {
-    rename.resetThreadTurnPresence(hadTurns);
+    autoTitle.resetThreadTurnPresence(hadTurns);
   };
   const history = new HistoryController({
     stateStore,
@@ -188,6 +197,7 @@ export function createThreadControllerGroup(
     resume: requireThreadController(resume, "resume controller"),
     identity,
     rename,
+    autoTitle,
     invalidateResumeWork,
   };
 }

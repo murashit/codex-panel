@@ -1,15 +1,15 @@
-import type { ThreadNamingContext } from "../../../domain/threads/naming";
+import type { ThreadTitleContext } from "../../thread-title/model";
 import { truncate } from "../../../utils";
 import { isCompletedTurnOutcomeMessage } from "../display/predicates";
 import type { DisplayItem } from "../display/types";
 
 const MAX_CONTEXT_CHARS = 4_000;
 
-export function namingContextFromDisplayItems(turnId: string, items: readonly DisplayItem[]): ThreadNamingContext | null {
+export function threadTitleContextFromDisplayItems(turnId: string, items: readonly DisplayItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
   const userRequest =
     turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ??
-    precedingUnscopedNamingSeed(turnId, items) ??
+    precedingUnscopedTitleSeed(turnId, items) ??
     "";
   const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeMessage)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
@@ -19,18 +19,18 @@ export function namingContextFromDisplayItems(turnId: string, items: readonly Di
   };
 }
 
-export function firstNamingContextFromDisplayItems(items: readonly DisplayItem[]): ThreadNamingContext | null {
+export function firstThreadTitleContextFromDisplayItems(items: readonly DisplayItem[]): ThreadTitleContext | null {
   const turnIds = new Set<string>();
   for (const item of items) {
     if (!item.turnId || turnIds.has(item.turnId)) continue;
     turnIds.add(item.turnId);
-    const context = namingContextFromDisplayItems(item.turnId, items);
+    const context = threadTitleContextFromDisplayItems(item.turnId, items);
     if (context) return context;
   }
   return null;
 }
 
-function precedingUnscopedNamingSeed(turnId: string, items: readonly DisplayItem[]): string | null {
+function precedingUnscopedTitleSeed(turnId: string, items: readonly DisplayItem[]): string | null {
   const firstTurnItemIndex = items.findIndex((item) => item.turnId === turnId);
   if (firstTurnItemIndex < 1) return null;
   for (let index = firstTurnItemIndex - 1; index >= 0; index -= 1) {

@@ -1,32 +1,32 @@
+import type { ThreadConversationSummary } from "../../domain/threads/transcript";
 import { truncate } from "../../utils";
-import type { ThreadConversationSummary } from "./transcript";
 
 const MAX_CONTEXT_CHARS = 4_000;
 const MAX_TITLE_CHARS = 40;
 const DEFAULT_CONTEXT_PAGE_LIMIT = 20;
 const DEFAULT_CONTEXT_MAX_PAGES = 5;
 
-export const THREAD_NAMING_CONTEXT_UNAVAILABLE_MESSAGE =
+export const THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE =
   "Auto-name needs completed history or visible resumed history with both user and assistant text.";
 
-export interface ThreadNamingContext {
+export interface ThreadTitleContext {
   userRequest: string;
   assistantResponse: string;
 }
 
-interface ThreadNamingContextPage {
+interface ThreadTitleContextPage {
   data: ThreadConversationSummary[];
   nextCursor: string | null;
 }
 
-export type ThreadNamingContextPageReader = (
+export type ThreadTitleContextPageReader = (
   threadId: string,
   cursor: string | null,
   limit: number,
   sortDirection: "asc" | "desc",
-) => Promise<ThreadNamingContextPage>;
+) => Promise<ThreadTitleContextPage>;
 
-export function namingContextFromConversationSummary(summary: ThreadConversationSummary): ThreadNamingContext | null {
+export function threadTitleContextFromConversationSummary(summary: ThreadConversationSummary): ThreadTitleContext | null {
   if (!summary.userText || !summary.assistantText) return null;
 
   return {
@@ -35,12 +35,12 @@ export function namingContextFromConversationSummary(summary: ThreadConversation
   };
 }
 
-export async function findThreadNamingContext(options: {
+export async function findThreadTitleContext(options: {
   threadId: string;
-  readTurns: ThreadNamingContextPageReader;
+  readTurns: ThreadTitleContextPageReader;
   pageLimit?: number;
   maxPages?: number;
-}): Promise<ThreadNamingContext | null> {
+}): Promise<ThreadTitleContext | null> {
   const pageLimit = options.pageLimit ?? DEFAULT_CONTEXT_PAGE_LIMIT;
   const maxPages = options.maxPages ?? DEFAULT_CONTEXT_MAX_PAGES;
   let cursor: string | null = null;
@@ -48,7 +48,7 @@ export async function findThreadNamingContext(options: {
   for (let page = 0; page < maxPages; page += 1) {
     const response = await options.readTurns(options.threadId, cursor, pageLimit, "asc");
     for (const summary of response.data) {
-      const context = namingContextFromConversationSummary(summary);
+      const context = threadTitleContextFromConversationSummary(summary);
       if (context) return context;
     }
     if (!response.nextCursor) break;
@@ -58,7 +58,7 @@ export async function findThreadNamingContext(options: {
   return null;
 }
 
-export function normalizeGeneratedTitle(value: unknown): string | null {
+export function normalizeGeneratedThreadTitle(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const title = value
     .trim()
@@ -73,11 +73,11 @@ export function normalizeGeneratedTitle(value: unknown): string | null {
   return title.length > MAX_TITLE_CHARS ? title.slice(0, MAX_TITLE_CHARS).trimEnd() : title;
 }
 
-export function titleFromGeneratedText(text: string): string | null {
-  return normalizeGeneratedTitle(extractTitleFromModelText(text));
+export function threadTitleFromGeneratedText(text: string): string | null {
+  return normalizeGeneratedThreadTitle(extractTitleFromModelText(text));
 }
 
-export function namingPrompt(context: ThreadNamingContext): string {
+export function threadTitlePrompt(context: ThreadTitleContext): string {
   return [
     "Create a thread title for the following Codex thread.",
     "",
