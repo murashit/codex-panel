@@ -4,10 +4,10 @@ import {
   type EphemeralStructuredTurnClientFactory,
   type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
-} from "../../app-server/ephemeral-structured-turn";
-import { lastAgentMessageTextFromTurnRecord } from "../../app-server/turn";
+} from "../../app-server/services/ephemeral-structured-turn";
+import { lastAgentMessageTextFromTurnRecord } from "../../app-server/protocol/turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import { modelMetadataFromCatalogModels } from "../../app-server/catalog";
+import { modelMetadataFromCatalogModels } from "../../app-server/protocol/catalog";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/catalog/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { threadActivationSnapshotFromAppServerResponse } from "../../src/app-server/thread-activation";
+import { threadActivationSnapshotFromAppServerResponse } from "../../src/app-server/services/thread-activation";
 import type { ThreadResumeResponse } from "../../src/generated/app-server/v2/ThreadResumeResponse";
 import type { Thread as ThreadRecord } from "../../src/generated/app-server/v2/Thread";
 

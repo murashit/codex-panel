@@ -9,7 +9,7 @@ import {
   toPendingApproval,
   type CommandApprovalDecision,
 } from "../../../../../src/features/chat/protocol/server-requests/approval";
-import type { ServerRequest } from "../../../../../src/app-server/types";
+import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

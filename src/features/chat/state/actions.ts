@@ -1,6 +1,6 @@
-import type { AppServerInitialization } from "../../../app-server/initialization";
+import type { AppServerInitialization } from "../../../app-server/protocol/initialization";
 import type { Thread } from "../../../domain/threads/model";
-import { parseServiceTier, type ServiceTier } from "../../../app-server/runtime-policy";
+import { parseServiceTier, type ServiceTier } from "../../../app-server/protocol/runtime-policy";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../runtime/state";
 import type { CollaborationMode } from "../runtime/pending-settings";

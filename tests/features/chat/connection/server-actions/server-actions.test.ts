@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/client";
-import type { McpServerStatus } from "../../../../../src/app-server/diagnostics";
-import { emptyRuntimeConfigSnapshot } from "../../../../../src/app-server/runtime-config";
-import type { RateLimitSnapshot } from "../../../../../src/app-server/runtime-metrics";
-import { threadFromThreadRecord } from "../../../../../src/app-server/thread";
+import type { AppServerClient } from "../../../../../src/app-server/connection/client";
+import type { McpServerStatus } from "../../../../../src/app-server/protocol/diagnostics";
+import { emptyRuntimeConfigSnapshot } from "../../../../../src/app-server/protocol/runtime-config";
+import type { RateLimitSnapshot } from "../../../../../src/app-server/protocol/runtime-metrics";
+import { threadFromThreadRecord } from "../../../../../src/app-server/protocol/thread";
 import { createChatServerDiagnosticsActions } from "../../../../../src/features/chat/connection/server-actions/diagnostics";
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/connection/server-actions/metadata";
 import { createChatServerThreadActions } from "../../../../../src/features/chat/connection/server-actions/threads";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
-import type { CatalogModel, CatalogSkillMetadata } from "../../../../../src/app-server/catalog";
+import type { CatalogModel, CatalogSkillMetadata } from "../../../../../src/app-server/protocol/catalog";
 
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startThread"]>>;
 

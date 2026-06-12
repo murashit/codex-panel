@@ -1,4 +1,4 @@
-import { codexTextInputWithMentions, type RequestMention } from "../../../../app-server/request-input";
+import { codexTextInputWithMentions, type RequestMention } from "../../../../app-server/protocol/request-input";
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import { parseObsidianWikiLink } from "../../../../shared/obsidian/wikilinks";
 

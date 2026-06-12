@@ -1,7 +1,7 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
-import { listThreads } from "../../app-server/resource-operations";
-import { withShortLivedAppServerClient } from "../../app-server/short-lived-client";
+import { listThreads } from "../../app-server/services/resource-operations";
+import { withShortLivedAppServerClient } from "../../app-server/connection/short-lived-client";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";

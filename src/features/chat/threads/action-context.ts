@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../../app-server/client";
+import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ArchiveExportAdapter } from "../../thread-export/archive-markdown";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";

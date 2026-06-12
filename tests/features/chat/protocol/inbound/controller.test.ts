@@ -12,9 +12,9 @@ import {
   type ChatState,
   type ChatStateStore,
 } from "../../../../../src/features/chat/state/reducer";
-import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/types";
+import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
-import type { TurnRecord } from "../../../../../src/app-server/turn";
+import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
 

@@ -1,6 +1,6 @@
-import type { RequestId } from "../../../../app-server/types";
+import type { RequestId } from "../../../../app-server/connection/rpc-messages";
 
-export type { RequestId } from "../../../../app-server/types";
+export type { RequestId } from "../../../../app-server/connection/rpc-messages";
 
 interface UserInputRequestLike {
   id: RequestId;

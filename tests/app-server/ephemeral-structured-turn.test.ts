@@ -6,12 +6,12 @@ import {
   runEphemeralStructuredTurn,
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnClientFactory,
-} from "../../src/app-server/ephemeral-structured-turn";
+} from "../../src/app-server/services/ephemeral-structured-turn";
 import type {
   AppServerClientHandlers,
   AppServerStartEphemeralThreadOptions,
   AppServerStartStructuredTurnOptions,
-} from "../../src/app-server/client";
+} from "../../src/app-server/connection/client";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
 import type { RequestId } from "../../src/generated/app-server/RequestId";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
@@ -20,7 +20,7 @@ import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelL
 import type { Thread as ThreadRecord } from "../../src/generated/app-server/v2/Thread";
 import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
 import type { TurnStartResponse } from "../../src/generated/app-server/v2/TurnStartResponse";
-import type { TurnItem, TurnRecord } from "../../src/app-server/turn";
+import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
 
 describe("runEphemeralStructuredTurn", () => {
   it("fills completed turn items from item completion notifications", async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../src/app-server/client";
-import type { ThreadGoal } from "../../../../src/app-server/thread-goal";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import type { ThreadGoal } from "../../../../src/app-server/protocol/thread-goal";
 import { createGoalActions } from "../../../../src/features/chat/threads/goal-actions";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { deferred } from "../../../support/async";

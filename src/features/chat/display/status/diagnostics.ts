@@ -1,4 +1,4 @@
-import { DIAGNOSTIC_PROBE_METHODS, appServerIdentity, appServerPlatform } from "../../../../app-server/diagnostics";
+import { DIAGNOSTIC_PROBE_METHODS, appServerIdentity, appServerPlatform } from "../../../../app-server/protocol/diagnostics";
 import { CLIENT_VERSION } from "../../../../constants";
 import type {
   Diagnostics,
@@ -6,7 +6,7 @@ import type {
   DiagnosticProbeResult,
   McpServerDiagnostic,
   McpServerStatusSummary,
-} from "../../../../app-server/diagnostics";
+} from "../../../../app-server/protocol/diagnostics";
 
 interface DiagnosticRow {
   label: string;

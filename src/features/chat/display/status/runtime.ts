@@ -1,5 +1,5 @@
-import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../app-server/runtime-metrics";
-import type { RuntimeConfigSnapshot } from "../../../../app-server/runtime-config";
+import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../app-server/protocol/runtime-metrics";
+import type { RuntimeConfigSnapshot } from "../../../../app-server/protocol/runtime-config";
 import { jsonPreview } from "../../../../utils";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import { defaultEffortForModelMetadata } from "../../../../domain/catalog/metadata";

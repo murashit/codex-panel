@@ -1,5 +1,5 @@
-import type { AppServerClient } from "../../../app-server/client";
-import type { ThreadTurnsPage } from "../../../app-server/turn-history";
+import type { AppServerClient } from "../../../app-server/connection/client";
+import type { ThreadTurnsPage } from "../../../app-server/protocol/turn-history";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 import { displayItemsFromTurns } from "../display/turn-items";
 

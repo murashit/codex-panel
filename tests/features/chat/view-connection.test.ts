@@ -4,11 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/chat-host";
-import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
-import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/runtime-config";
-import { threadFromThreadRecord, type ThreadRecord } from "../../../src/app-server/thread";
+import { createAppServerDiagnostics } from "../../../src/app-server/protocol/diagnostics";
+import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/protocol/runtime-config";
+import { threadFromThreadRecord, type ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
-import type { ServerNotification } from "../../../src/app-server/types";
+import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
@@ -34,7 +34,7 @@ const connectionMock = vi.hoisted(() => {
   };
 });
 
-vi.mock("../../../src/app-server/connection-manager", () => {
+vi.mock("../../../src/app-server/connection/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {

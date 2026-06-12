@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../../../app-server/client";
+import type { AppServerClient } from "../../../../app-server/connection/client";
 import {
   diagnosticProbeError,
   diagnosticProbeOk,
@@ -9,8 +9,9 @@ import {
   type DiagnosticProbeMethod,
   type McpServerStartupStatus,
   type McpServerStatusSummary,
-} from "../../../../app-server/diagnostics";
-import type { SharedAppServerMetadata } from "../../../../app-server/shared-cache-state";
+} from "../../../../app-server/protocol/diagnostics";
+import { accountRateLimitsSummaryFromResponse } from "../../../../app-server/protocol/runtime-metrics";
+import type { SharedAppServerMetadata } from "../../../../app-server/services/shared-cache-state";
 import { mcpStatusLines as buildMcpStatusLines } from "../../display/status/diagnostics";
 import { cloneAppServerDiagnostics, type ChatServerActionHost } from "./host";
 
@@ -75,7 +76,7 @@ async function refreshDiagnosticProbes(
       probeDiagnostic(
         "account/rateLimits/read",
         () => client.readAccountRateLimits(),
-        (response) => (response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available"),
+        accountRateLimitsSummaryFromResponse,
       ),
     );
   }

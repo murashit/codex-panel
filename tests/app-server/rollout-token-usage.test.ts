@@ -5,7 +5,7 @@ import {
   recoverRolloutTokenUsage,
   ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES,
   ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS,
-} from "../../src/app-server/rollout-token-usage";
+} from "../../src/app-server/services/rollout-token-usage";
 
 describe("rollout token usage recovery", () => {
   it("parses the last valid token_count event", () => {

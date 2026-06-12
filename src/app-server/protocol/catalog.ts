@@ -1,5 +1,5 @@
-import type { AppServerHookOperation } from "./client";
-import type { HookItem, ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
+import type { AppServerHookOperation } from "../connection/client";
+import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 
 export interface CatalogModel {
   id: string;

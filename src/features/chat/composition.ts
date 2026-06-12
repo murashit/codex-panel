@@ -1,4 +1,4 @@
-import { ConnectionManager } from "../../app-server/connection-manager";
+import { ConnectionManager } from "../../app-server/connection/connection-manager";
 import type { ChatServerDiagnosticsActions } from "./connection/server-actions/diagnostics";
 import type { ChatServerMetadataActions } from "./connection/server-actions/metadata";
 import type { ChatServerThreadActions } from "./connection/server-actions/threads";

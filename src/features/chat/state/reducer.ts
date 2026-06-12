@@ -1,14 +1,14 @@
-import type { AppServerInitialization } from "../../../app-server/initialization";
+import type { AppServerInitialization } from "../../../app-server/protocol/initialization";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import type { ModelMetadata, SkillMetadata } from "../../../domain/catalog/metadata";
-import type { ThreadGoal } from "../../../app-server/thread-goal";
-import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import type { ApprovalsReviewer } from "../../../app-server/runtime-policy";
-import type { Diagnostics } from "../../../app-server/diagnostics";
-import { createAppServerDiagnostics } from "../../../app-server/diagnostics";
-import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
-import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
+import type { ThreadGoal } from "../../../app-server/protocol/thread-goal";
+import type { ThreadSettingsUpdate } from "../../../app-server/protocol/thread-settings";
+import type { ApprovalsReviewer } from "../../../app-server/protocol/runtime-policy";
+import type { Diagnostics } from "../../../app-server/protocol/diagnostics";
+import { createAppServerDiagnostics } from "../../../app-server/protocol/diagnostics";
+import type { RuntimeConfigSnapshot } from "../../../app-server/protocol/runtime-config";
+import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/protocol/runtime-metrics";
 import type { CollaborationMode } from "../runtime/pending-settings";
 import {
   commitPendingThreadSettingsRuntimeState,
@@ -26,7 +26,7 @@ import {
   type ChatRuntimeState,
 } from "../runtime/state";
 import type { RequestedServiceTier } from "../runtime/pending-settings";
-import type { RequestId } from "../../../app-server/types";
+import type { RequestId } from "../../../app-server/connection/rpc-messages";
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
 import { upsertDisplayItem } from "./message-stream-updates";
 import type { DisplayItem } from "../display/types";

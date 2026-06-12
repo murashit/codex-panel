@@ -6,7 +6,7 @@ import {
   createAppServerDiagnostics,
   upsertMcpServerDiagnostic,
   upsertMcpServerStatusDiagnostics,
-} from "../../../src/app-server/diagnostics";
+} from "../../../src/app-server/protocol/diagnostics";
 import { connectionDiagnosticSections, hasDiagnosticIssue } from "../../../src/features/chat/display/status/diagnostics";
 
 describe("connection diagnostics", () => {

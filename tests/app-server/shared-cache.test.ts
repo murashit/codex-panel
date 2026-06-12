@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppServerDiagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../src/app-server/diagnostics";
-import { SharedAppServerCache } from "../../src/app-server/shared-cache";
-import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/app-server/runtime-config";
-import type { SharedAppServerCacheContext, SharedAppServerMetadata } from "../../src/app-server/shared-cache-state";
+import { createAppServerDiagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../src/app-server/protocol/diagnostics";
+import { SharedAppServerCache } from "../../src/app-server/services/shared-cache";
+import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
+import type { SharedAppServerCacheContext, SharedAppServerMetadata } from "../../src/app-server/services/shared-cache-state";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 
 describe("SharedAppServerCache", () => {

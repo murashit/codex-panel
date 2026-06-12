@@ -1,8 +1,8 @@
-import type { Diagnostics } from "./diagnostics";
-import type { RateLimitSnapshot } from "./runtime-metrics";
-import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "./runtime-config";
-import type { Thread } from "../domain/threads/model";
-import type { ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
+import type { Diagnostics } from "../protocol/diagnostics";
+import type { RateLimitSnapshot } from "../protocol/runtime-metrics";
+import { cloneRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../protocol/runtime-config";
+import type { Thread } from "../../domain/threads/model";
+import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 
 export interface SharedAppServerMetadata {
   runtimeConfig: RuntimeConfigSnapshot | null;

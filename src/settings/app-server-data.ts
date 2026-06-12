@@ -1,5 +1,5 @@
-import type { AppServerClient } from "../app-server/client";
-import { listHookData, listModelMetadata, listThreads, type HookData } from "../app-server/resource-operations";
+import type { AppServerClient } from "../app-server/connection/client";
+import { listHookData, listModelMetadata, listThreads, type HookData } from "../app-server/services/resource-operations";
 import type { ModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AppServerClient } from "../../src/app-server/client";
-import { ConnectionManager, StaleConnectionError } from "../../src/app-server/connection-manager";
-import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/transport";
-import type { RpcOutboundMessage } from "../../src/app-server/types";
+import { AppServerClient } from "../../src/app-server/connection/client";
+import { ConnectionManager, StaleConnectionError } from "../../src/app-server/connection/connection-manager";
+import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
+import type { RpcOutboundMessage } from "../../src/app-server/connection/rpc-messages";
 
 class SilentTransport implements AppServerTransport {
   readonly sent: RpcOutboundMessage[] = [];

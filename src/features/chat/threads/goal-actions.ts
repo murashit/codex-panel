@@ -1,11 +1,11 @@
-import type { AppServerClient } from "../../../app-server/client";
+import type { AppServerClient } from "../../../app-server/connection/client";
 import {
   appServerThreadGoalUserHistoryItem,
   threadGoalFromAppServerGoal,
   type ThreadGoal,
   type ThreadGoalStatus,
   type ThreadGoalUpdate,
-} from "../../../app-server/thread-goal";
+} from "../../../app-server/protocol/thread-goal";
 import type { ChatStateStore } from "../state/reducer";
 import type { GoalDisplayItem } from "../display/types";
 import { goalChangeItem } from "../display/items/goal";

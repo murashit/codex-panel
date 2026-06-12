@@ -10,7 +10,7 @@ import {
   transitionChatTurnLifecycleState,
   type ChatState,
 } from "../../../src/features/chat/state/reducer";
-import type { ThreadGoal } from "../../../src/app-server/thread-goal";
+import type { ThreadGoal } from "../../../src/app-server/protocol/thread-goal";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/domain/threads/model";
 

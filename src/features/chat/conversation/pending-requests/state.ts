@@ -1,5 +1,5 @@
 import type { PendingApproval } from "../../protocol/server-requests/approval";
-import type { RequestId } from "../../../../app-server/types";
+import type { RequestId } from "../../../../app-server/connection/rpc-messages";
 import { userInputDraftKey, userInputOtherDraftKey, type PendingUserInput } from "../../protocol/server-requests/user-input";
 
 export interface ChatRequestState {

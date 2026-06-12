@@ -1,4 +1,4 @@
-import type { ThreadTokenUsage, TokenUsageBreakdown } from "./runtime-metrics";
+import type { ThreadTokenUsage, TokenUsageBreakdown } from "../protocol/runtime-metrics";
 
 export const ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS = 2_000;
 export const ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES = 12 * 1024 * 1024;

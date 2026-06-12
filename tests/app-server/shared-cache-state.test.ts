@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createAppServerDiagnostics } from "../../src/app-server/diagnostics";
-import type { RateLimitSnapshot } from "../../src/app-server/runtime-metrics";
-import { emptyRuntimeConfigSnapshot } from "../../src/app-server/runtime-config";
+import { createAppServerDiagnostics } from "../../src/app-server/protocol/diagnostics";
+import type { RateLimitSnapshot } from "../../src/app-server/protocol/runtime-metrics";
+import { emptyRuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
 import {
   applySharedAppServerMetadata,
   applySharedModels,
@@ -13,7 +13,7 @@ import {
   createSharedAppServerState,
   sharedAppServerCacheContextIsComplete,
   type SharedAppServerCacheContext,
-} from "../../src/app-server/shared-cache-state";
+} from "../../src/app-server/services/shared-cache-state";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 

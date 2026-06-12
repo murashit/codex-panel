@@ -1,12 +1,12 @@
-import { modelMetadataFromCatalogModels } from "../../app-server/catalog";
+import { modelMetadataFromCatalogModels } from "../../app-server/protocol/catalog";
 import {
   runEphemeralStructuredTurn,
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnClientFactory,
   type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
-} from "../../app-server/ephemeral-structured-turn";
-import { conversationSummaryFromTurnRecord, type TurnRecord } from "../../app-server/turn";
+} from "../../app-server/services/ephemeral-structured-turn";
+import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../../app-server/protocol/turn";
 import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/catalog/runtime-overrides";
 import { threadTitleFromGeneratedText, threadTitlePrompt, type ThreadTitleContext } from "./model";
@@ -73,7 +73,7 @@ export interface ThreadTitleRuntimeOverride {
 }
 
 export function threadTitleFromGenerationTurn(turn: TurnRecord): string | null {
-  const response = conversationSummaryFromTurnRecord(turn).assistantText;
+  const response = conversationAssistantTextFromTurnRecord(turn);
   return response ? threadTitleFromGeneratedText(response) : null;
 }
 

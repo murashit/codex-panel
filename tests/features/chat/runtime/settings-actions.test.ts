@@ -4,8 +4,8 @@ import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } fro
 import { createChatState, createChatStateStore, type ChatState } from "../../../../src/features/chat/state/reducer";
 import { runtimeSnapshotForChatState } from "../../../../src/features/chat/runtime/snapshot";
 import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/state/actions";
-import type { AppServerClient } from "../../../../src/app-server/client";
-import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/runtime-config";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 
 describe("createChatRuntimeSettingsActions", () => {

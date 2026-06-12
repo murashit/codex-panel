@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { TurnRecord } from "../../../src/app-server/turn";
+import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type * as ThreadTitleGeneratorModule from "../../../src/features/thread-title/generation";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -31,7 +31,7 @@ const namingMock = vi.hoisted(() => ({
   generateThreadTitleWithCodex: vi.fn(),
 }));
 
-vi.mock("../../../src/app-server/connection-manager", () => {
+vi.mock("../../../src/app-server/connection/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {

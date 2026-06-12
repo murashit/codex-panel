@@ -7,7 +7,7 @@ import {
   type ApprovalsReviewer,
   type ServiceTier,
 } from "./runtime-policy";
-import { normalizeReasoningEffort, type ReasoningEffort } from "../domain/catalog/metadata";
+import { normalizeReasoningEffort, type ReasoningEffort } from "../../domain/catalog/metadata";
 
 type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
 type Verbosity = "low" | "medium" | "high";

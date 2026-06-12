@@ -1,7 +1,7 @@
 import type { ChatState } from "../state/reducer";
-import type { ActivePermissionProfile, RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
-import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/runtime-metrics";
-import type { ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../app-server/runtime-policy";
+import type { ActivePermissionProfile, RuntimeConfigSnapshot } from "../../../app-server/protocol/runtime-config";
+import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../app-server/protocol/runtime-metrics";
+import type { ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../app-server/protocol/runtime-policy";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { CollaborationMode, PendingRuntimeSetting, RequestedServiceTier } from "./pending-settings";
 

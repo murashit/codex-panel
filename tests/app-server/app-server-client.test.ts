@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AppServerClient } from "../../src/app-server/client";
-import type { AppServerRpcError, AppServerStartStructuredTurnOptions, AppServerStartTurnOptions } from "../../src/app-server/client";
-import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/transport";
-import type { RpcOutboundMessage } from "../../src/app-server/types";
+import { AppServerClient } from "../../src/app-server/connection/client";
+import type { AppServerRpcError, AppServerStartStructuredTurnOptions, AppServerStartTurnOptions } from "../../src/app-server/connection/client";
+import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
+import type { RpcOutboundMessage } from "../../src/app-server/connection/rpc-messages";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
 import manifest from "../../manifest.json";

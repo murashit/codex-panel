@@ -3,16 +3,16 @@ import {
   type AppServerClientHandlers,
   type AppServerStartEphemeralThreadOptions,
   type AppServerStartStructuredTurnOptions,
-} from "./client";
-import { abortablePromise, throwIfAbortSignalAborted } from "../shared/lifecycle/abortable";
-import type { InitializeResponse } from "../generated/app-server/InitializeResponse";
-import type { RequestId } from "../generated/app-server/RequestId";
-import type { ServerNotification } from "../generated/app-server/ServerNotification";
-import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
-import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
-import type { ThreadStartResponse } from "../generated/app-server/v2/ThreadStartResponse";
-import type { TurnStartResponse } from "../generated/app-server/v2/TurnStartResponse";
-import type { TurnItem, TurnRecord } from "./turn";
+} from "../connection/client";
+import { abortablePromise, throwIfAbortSignalAborted } from "../../shared/lifecycle/abortable";
+import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
+import type { RequestId } from "../../generated/app-server/RequestId";
+import type { ServerNotification } from "../../generated/app-server/ServerNotification";
+import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
+import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
+import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
+import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
+import type { TurnItem, TurnRecord } from "../protocol/turn";
 
 export type StructuredTurnOutputSchema = JsonValue;
 

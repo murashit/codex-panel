@@ -1,4 +1,4 @@
-import type { Thread } from "../domain/threads/model";
+import type { Thread } from "../../domain/threads/model";
 
 export interface ThreadRecord {
   id: string;

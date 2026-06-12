@@ -1,6 +1,6 @@
-import type { Thread } from "../domain/threads/model";
-import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "./runtime-policy";
-import { threadFromThreadRecord, type ThreadRecord } from "./thread";
+import type { Thread } from "../../domain/threads/model";
+import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../protocol/runtime-policy";
+import { threadFromThreadRecord, type ThreadRecord } from "../protocol/thread";
 
 export interface ThreadActivationSnapshot {
   thread: Thread;

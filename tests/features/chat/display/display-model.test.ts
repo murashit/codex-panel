@@ -29,7 +29,7 @@ import { displayItemFromTurnItem, displayItemsFromTurns } from "../../../../src/
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import type { Thread } from "../../../../src/domain/threads/model";
-import type { TurnItem, TurnRecord } from "../../../../src/app-server/turn";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

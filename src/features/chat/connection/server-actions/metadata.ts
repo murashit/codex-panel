@@ -1,8 +1,11 @@
-import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../../../app-server/diagnostics";
-import { listModelMetadata, listSkillCatalog } from "../../../../app-server/resource-operations";
-import { runtimeConfigSnapshotFromAppServerConfig } from "../../../../app-server/runtime-config";
-import { rateLimitSnapshotFromAppServerSnapshot } from "../../../../app-server/runtime-metrics";
-import type { SharedAppServerMetadata } from "../../../../app-server/shared-cache-state";
+import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../../../app-server/protocol/diagnostics";
+import { listModelMetadata, listSkillCatalog } from "../../../../app-server/services/resource-operations";
+import { runtimeConfigSnapshotFromAppServerConfig } from "../../../../app-server/protocol/runtime-config";
+import {
+  accountRateLimitsSummaryFromResponse,
+  rateLimitSnapshotFromAccountRateLimitsResponse,
+} from "../../../../app-server/protocol/runtime-metrics";
+import type { SharedAppServerMetadata } from "../../../../app-server/services/shared-cache-state";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
 import { cloneAppServerDiagnostics, type ChatServerActionHost } from "./host";
 
@@ -263,15 +266,9 @@ async function loadRateLimitFromClient(
 ): Promise<RateLimitMetadataResult> {
   try {
     const response = await client.readAccountRateLimits();
-    const rateLimitsByLimitId = response.rateLimitsByLimitId;
-    const codexRateLimit = rateLimitsByLimitId && Object.hasOwn(rateLimitsByLimitId, "codex") ? rateLimitsByLimitId["codex"] : undefined;
-    const rateLimit = codexRateLimit ?? response.rateLimits;
     return {
-      data: rateLimitSnapshotFromAppServerSnapshot(rateLimit),
-      probe: diagnosticProbeOk(
-        "account/rateLimits/read",
-        response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available",
-      ),
+      data: rateLimitSnapshotFromAccountRateLimitsResponse(response),
+      probe: diagnosticProbeOk("account/rateLimits/read", accountRateLimitsSummaryFromResponse(response)),
     };
   } catch (error) {
     return { data: null, probe: diagnosticProbeError("account/rateLimits/read", error) };

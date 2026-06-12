@@ -1,8 +1,9 @@
-import type { RateLimitSnapshot as AppServerRateLimitSnapshot } from "../generated/app-server/v2/RateLimitSnapshot";
-import type { RateLimitWindow as AppServerRateLimitWindow } from "../generated/app-server/v2/RateLimitWindow";
-import type { SpendControlLimitSnapshot as AppServerSpendControlLimitSnapshot } from "../generated/app-server/v2/SpendControlLimitSnapshot";
-import type { ThreadTokenUsage as AppServerThreadTokenUsage } from "../generated/app-server/v2/ThreadTokenUsage";
-import type { TokenUsageBreakdown as AppServerTokenUsageBreakdown } from "../generated/app-server/v2/TokenUsageBreakdown";
+import type { GetAccountRateLimitsResponse as AppServerAccountRateLimitsResponse } from "../../generated/app-server/v2/GetAccountRateLimitsResponse";
+import type { RateLimitSnapshot as AppServerRateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
+import type { RateLimitWindow as AppServerRateLimitWindow } from "../../generated/app-server/v2/RateLimitWindow";
+import type { SpendControlLimitSnapshot as AppServerSpendControlLimitSnapshot } from "../../generated/app-server/v2/SpendControlLimitSnapshot";
+import type { ThreadTokenUsage as AppServerThreadTokenUsage } from "../../generated/app-server/v2/ThreadTokenUsage";
+import type { TokenUsageBreakdown as AppServerTokenUsageBreakdown } from "../../generated/app-server/v2/TokenUsageBreakdown";
 
 export interface RateLimitSnapshot {
   limitId: string | null;
@@ -51,12 +52,26 @@ export function rateLimitSnapshotFromAppServerSnapshot(snapshot: AppServerRateLi
   };
 }
 
+export function rateLimitSnapshotFromAccountRateLimitsResponse(response: AppServerAccountRateLimitsResponse): RateLimitSnapshot {
+  return rateLimitSnapshotFromAppServerSnapshot(accountRateLimitSnapshotFromResponse(response));
+}
+
+export function accountRateLimitsSummaryFromResponse(response: AppServerAccountRateLimitsResponse): string {
+  return response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available";
+}
+
 export function threadTokenUsageFromAppServerUsage(usage: AppServerThreadTokenUsage): ThreadTokenUsage {
   return {
     total: tokenUsageBreakdownFromAppServerBreakdown(usage.total),
     last: tokenUsageBreakdownFromAppServerBreakdown(usage.last),
     modelContextWindow: usage.modelContextWindow,
   };
+}
+
+function accountRateLimitSnapshotFromResponse(response: AppServerAccountRateLimitsResponse): AppServerRateLimitSnapshot {
+  const snapshots = response.rateLimitsByLimitId;
+  const codexRateLimit = snapshots && Object.hasOwn(snapshots, "codex") ? snapshots["codex"] : undefined;
+  return codexRateLimit ?? response.rateLimits;
 }
 
 function rateLimitWindowFromAppServerWindow(window: AppServerRateLimitWindow): RateLimitWindow {

@@ -4,7 +4,7 @@ import {
   runtimeConfigSnapshotFromAppServerConfig,
   type ConfigReadResult,
   type RuntimeConfigSnapshot,
-} from "../../src/app-server/runtime-config";
+} from "../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import {
   compactModelLabel,

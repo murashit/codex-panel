@@ -1,4 +1,4 @@
-import type { ThreadGoal, ThreadGoalStatus } from "../../../../app-server/thread-goal";
+import type { ThreadGoal, ThreadGoalStatus } from "../../../../app-server/protocol/thread-goal";
 import { truncate } from "../../../../utils";
 import type { GoalDisplayItem } from "../types";
 

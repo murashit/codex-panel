@@ -1,6 +1,6 @@
 import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
-import type { AppServerClient } from "../../app-server/client";
+import type { AppServerClient } from "../../app-server/connection/client";
 import { VIEW_TYPE_CODEX_PANEL } from "../../constants";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
@@ -10,7 +10,7 @@ import type { RuntimeSnapshot } from "./runtime/snapshot";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/pending-settings";
 import { chatTurnBusy, createChatStateStore, type ChatState, type ChatAction } from "./state/reducer";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
+import type { SharedAppServerMetadata } from "../../app-server/services/shared-cache-state";
 import type { CodexChatHost } from "./chat-host";
 import { createStructuredSystemItem, createSystemItem } from "./display/items/system";
 import {

@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../../../app-server/client";
+import type { AppServerClient } from "../../../../app-server/connection/client";
 import { activeThreadId, canImplementPlan } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
 import type { DisplayItem } from "../../display/types";

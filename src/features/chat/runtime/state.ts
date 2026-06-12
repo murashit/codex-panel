@@ -4,8 +4,8 @@ import {
   type ApprovalPolicy,
   type ApprovalsReviewer,
   type ServiceTier,
-} from "../../../app-server/runtime-policy";
-import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
+} from "../../../app-server/protocol/runtime-policy";
+import type { ThreadSettingsUpdate } from "../../../app-server/protocol/thread-settings";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import {
   resetRuntimeSettingToConfig,

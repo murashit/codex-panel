@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppServerDiagnostics } from "../../../src/app-server/diagnostics";
+import { createAppServerDiagnostics } from "../../../src/app-server/protocol/diagnostics";
 import {
   runtimeConfigSnapshotFromAppServerConfig,
   type ConfigReadResult,
   type RuntimeConfigSnapshot,
-} from "../../../src/app-server/runtime-config";
+} from "../../../src/app-server/protocol/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
 import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/regions/composer";
 import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/display/status/runtime";
@@ -18,7 +18,7 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "../../../src/features/chat/panel/regions/composer";
 import { chatPanelGoalProps } from "../../../src/features/chat/panel/regions/goal";
 import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/regions/ports";
-import type { ThreadGoal } from "../../../src/app-server/thread-goal";
+import type { ThreadGoal } from "../../../src/app-server/protocol/thread-goal";
 
 describe("chat view model", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {

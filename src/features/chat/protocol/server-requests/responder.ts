@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../../../app-server/client";
+import type { AppServerClient } from "../../../../app-server/connection/client";
 
 type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
 type RejectRequestId = Parameters<AppServerClient["rejectServerRequest"]>[0];

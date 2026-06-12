@@ -1,5 +1,5 @@
-import type { AppServerClient } from "../../../app-server/client";
-import type { ThreadTokenUsage } from "../../../app-server/runtime-metrics";
+import type { AppServerClient } from "../../../app-server/connection/client";
+import type { ThreadTokenUsage } from "../../../app-server/protocol/runtime-metrics";
 import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
 import type { RestorationController } from "./restoration-controller";

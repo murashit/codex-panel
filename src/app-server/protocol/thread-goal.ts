@@ -1,6 +1,6 @@
-import type { ThreadGoal as AppServerThreadGoal } from "../generated/app-server/v2/ThreadGoal";
-import type { ThreadGoalStatus as AppServerThreadGoalStatus } from "../generated/app-server/v2/ThreadGoalStatus";
-import type { JsonValue } from "../generated/app-server/serde_json/JsonValue";
+import type { ThreadGoal as AppServerThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
+import type { ThreadGoalStatus as AppServerThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
+import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
 
 export type ThreadGoalStatus = "active" | "paused" | "blocked" | "usageLimited" | "budgetLimited" | "complete";
 

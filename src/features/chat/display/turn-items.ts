@@ -1,9 +1,9 @@
-import type { DisplayDetailSection, DisplayFileChange, DisplayItem, ExecutionState } from "./types";
-import type { HistoricalTurn } from "../../../app-server/turn-history";
-import type { FileUpdateChange, TurnItem } from "../../../app-server/turn";
+import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem, ExecutionState } from "./types";
+import type { HistoricalTurn } from "../../../app-server/protocol/turn-history";
+import type { FileUpdateChange, TurnItem } from "../../../app-server/protocol/turn";
 import { definedProp, truncate } from "../../../utils";
-import { referencedThreadDisplayFromPrompt } from "../../../domain/threads/reference";
-import { turnUserItemText } from "../../../app-server/turn";
+import { referencedThreadDisplayFromPrompt, type ReferencedThreadDisplay } from "../../../domain/threads/reference";
+import { turnUserItemText } from "../../../app-server/protocol/turn";
 import { agentDisplayItem } from "./items/agent";
 import { pathRelativeToRoot } from "./details/path-labels";
 import { normalizeProposedPlanMarkdown } from "./items/proposed-plan";
@@ -37,6 +37,54 @@ type ReviewModeItem =
 type ContextCompactionItem = Extract<TurnItem, { type: "contextCompaction" }>;
 type DisplayExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
+interface BaseDisplayData {
+  id: string;
+}
+
+interface UserMessageDisplayData extends BaseDisplayData {
+  text: string;
+  displayText: string;
+  clientId: string | null;
+  mentionedFiles: DisplayFileMention[];
+  referencedThread: {
+    text: string;
+    displayText: string;
+    reference: ReferencedThreadDisplay;
+  } | null;
+}
+
+interface MessageDisplayData extends BaseDisplayData {
+  text: string;
+}
+
+interface ToolDisplayData extends BaseDisplayData {
+  text: string;
+  toolLabel?: string;
+  status?: string;
+  output?: string;
+  details?: DisplayDetailSection[];
+  executionState?: ExecutionState;
+  summaryPath?: boolean;
+}
+
+interface CommandDisplayData extends BaseDisplayData {
+  actionLabel: string;
+  text: string;
+  command: string;
+  cwd: string;
+  status: string;
+  exitCode?: number;
+  durationMs?: number;
+  output: string;
+  executionState: ExecutionState;
+}
+
+interface FileChangeDisplayData extends BaseDisplayData {
+  text: string;
+  status: string;
+  changes: DisplayFileChange[];
+  executionState: ExecutionState;
+}
 
 const COMMAND_STATES = {
   inProgress: "running",
@@ -109,102 +157,153 @@ export function displayItemFromTurnItem(item: TurnItem, turnId?: string): Displa
 }
 
 function userMessageDisplayItem(item: UserMessageItem, turnId?: string): DisplayItem {
+  return userMessageDisplayItemFromData(userMessageDisplayDataFromItem(item), turnId);
+}
+
+function userMessageDisplayDataFromItem(item: UserMessageItem): UserMessageDisplayData {
   const text = turnUserItemText(item);
-  const displayText = userMessageDisplayText(text, item.content);
-  const mentionedFiles = fileMentionsFromInput(item.content);
   const referencedThread = referencedThreadDisplayFromPrompt(text);
-  if (referencedThread) {
+  return {
+    id: item.id,
+    text,
+    displayText: userMessageDisplayText(text, item.content),
+    clientId: item.clientId,
+    mentionedFiles: fileMentionsFromInput(item.content),
+    referencedThread: referencedThread
+      ? {
+          text: referencedThread.text,
+          displayText: userMessageDisplayText(referencedThread.text, item.content),
+          reference: referencedThread.reference,
+        }
+      : null,
+  };
+}
+
+function userMessageDisplayItemFromData(data: UserMessageDisplayData, turnId?: string): DisplayItem {
+  if (data.referencedThread) {
     return {
-      id: item.id,
+      id: data.id,
       kind: "message",
       messageKind: "user",
       role: "user",
-      text: userMessageDisplayText(referencedThread.text, item.content),
-      copyText: referencedThread.text,
-      referencedThread: referencedThread.reference,
+      text: data.referencedThread.displayText,
+      copyText: data.referencedThread.text,
+      referencedThread: data.referencedThread.reference,
       ...definedProp("turnId", turnId),
-      ...definedProp("clientId", item.clientId),
-      sourceItemId: item.id,
-      ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
+      ...definedProp("clientId", data.clientId),
+      sourceItemId: data.id,
+      ...(data.mentionedFiles.length > 0 ? { mentionedFiles: data.mentionedFiles } : {}),
     };
   }
   return {
-    id: item.id,
+    id: data.id,
     kind: "message",
     messageKind: "user",
     role: "user",
-    text: displayText,
-    copyText: text,
+    text: data.displayText,
+    copyText: data.text,
     ...definedProp("turnId", turnId),
-    ...definedProp("clientId", item.clientId),
-    sourceItemId: item.id,
-    ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
+    ...definedProp("clientId", data.clientId),
+    sourceItemId: data.id,
+    ...(data.mentionedFiles.length > 0 ? { mentionedFiles: data.mentionedFiles } : {}),
   };
 }
 
 function agentMessageDisplayItem(item: AgentMessageItem, turnId?: string): DisplayItem {
+  return assistantResponseDisplayItemFromData(agentMessageDisplayDataFromItem(item), turnId);
+}
+
+function agentMessageDisplayDataFromItem(item: AgentMessageItem): MessageDisplayData {
+  return { id: item.id, text: item.text };
+}
+
+function assistantResponseDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
   return {
-    id: item.id,
+    id: data.id,
     kind: "message",
     messageKind: "assistantResponse",
     role: "assistant",
-    text: item.text,
-    copyText: item.text,
+    text: data.text,
+    copyText: data.text,
     ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
+    sourceItemId: data.id,
     messageState: "completed",
   };
 }
 
 function planDisplayItem(item: PlanItem, turnId?: string): DisplayItem {
+  return proposedPlanDisplayItemFromData(planDisplayDataFromItem(item), turnId);
+}
+
+function planDisplayDataFromItem(item: PlanItem): MessageDisplayData {
   const text = normalizeProposedPlanMarkdown(item.text);
+  return { id: item.id, text };
+}
+
+function proposedPlanDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
   return {
-    id: item.id,
+    id: data.id,
     kind: "message",
     messageKind: "proposedPlan",
     role: "assistant",
-    text,
-    copyText: text,
+    text: data.text,
+    copyText: data.text,
     ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
+    sourceItemId: data.id,
     messageState: "completed",
   };
 }
 
 function hookPromptDisplayItem(item: HookPromptItem, turnId?: string): DisplayItem {
+  return hookPromptDisplayItemFromData(hookPromptDisplayDataFromItem(item), turnId);
+}
+
+function hookPromptDisplayDataFromItem(item: HookPromptItem): MessageDisplayData {
+  return { id: item.id, text: item.fragments.map((fragment) => fragment.text).join("\n\n") || "Hook prompt" };
+}
+
+function hookPromptDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
   return {
-    id: item.id,
+    id: data.id,
     kind: "hook",
     role: "tool",
-    text: item.fragments.map((fragment) => fragment.text).join("\n\n") || "Hook prompt",
+    text: data.text,
     ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
+    sourceItemId: data.id,
   };
 }
 
 function reasoningDisplayItem(item: ReasoningItem, turnId?: string): DisplayItem {
+  return reasoningDisplayItemFromData(reasoningDisplayDataFromItem(item), turnId);
+}
+
+function reasoningDisplayDataFromItem(item: ReasoningItem): MessageDisplayData {
+  return { id: item.id, text: reasoningText(item) };
+}
+
+function reasoningDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
   return {
-    id: item.id,
+    id: data.id,
     kind: "reasoning",
     role: "tool",
-    text: reasoningText(item),
+    text: data.text,
     ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
+    sourceItemId: data.id,
   };
 }
 
 function mcpToolCallDisplayItem(item: McpToolCallItem, turnId?: string): DisplayItem {
+  return toolDisplayItemFromData(mcpToolCallDisplayDataFromItem(item), turnId);
+}
+
+function mcpToolCallDisplayDataFromItem(item: McpToolCallItem): ToolDisplayData {
   const name = `${item.server}.${item.tool}`;
   const target = jsonTargetLabel(item.arguments);
   const failure = item.error?.message ? truncate(item.error.message, 96) : failedStatusLabel(item.status);
   return {
     id: item.id,
-    kind: "tool",
-    role: "tool",
     text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
     toolLabel: name,
-    ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
     status: item.status,
     details: jsonDetails([
       ["Arguments JSON", item.arguments],
@@ -216,18 +315,35 @@ function mcpToolCallDisplayItem(item: McpToolCallItem, turnId?: string): Display
   };
 }
 
+function toolDisplayItemFromData(data: ToolDisplayData, turnId?: string): DisplayItem {
+  return {
+    id: data.id,
+    kind: "tool",
+    role: "tool",
+    text: data.text,
+    ...definedProp("toolLabel", data.toolLabel),
+    ...definedProp("summaryPath", data.summaryPath),
+    ...definedProp("turnId", turnId),
+    sourceItemId: data.id,
+    ...definedProp("status", data.status),
+    ...definedProp("details", data.details),
+    ...definedProp("output", data.output),
+    ...("executionState" in data ? { executionState: data.executionState } : {}),
+  };
+}
+
 function dynamicToolCallDisplayItem(item: DynamicToolCallItem, turnId?: string): DisplayItem {
+  return toolDisplayItemFromData(dynamicToolCallDisplayDataFromItem(item), turnId);
+}
+
+function dynamicToolCallDisplayDataFromItem(item: DynamicToolCallItem): ToolDisplayData {
   const name = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
   const target = jsonTargetLabel(item.arguments);
   const failure = item.success === false ? "failed" : failedStatusLabel(item.status);
   return {
     id: item.id,
-    kind: "tool",
-    role: "tool",
     text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
     toolLabel: name,
-    ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
     status: item.status,
     details: jsonDetails([
       ["Arguments JSON", item.arguments],
@@ -239,43 +355,43 @@ function dynamicToolCallDisplayItem(item: DynamicToolCallItem, turnId?: string):
 }
 
 function webSearchDisplayItem(item: WebSearchItem, turnId?: string): DisplayItem {
+  return toolDisplayItemFromData(webSearchDisplayDataFromItem(item), turnId);
+}
+
+function webSearchDisplayDataFromItem(item: WebSearchItem): ToolDisplayData {
   return {
     id: item.id,
-    kind: "tool",
-    role: "tool",
     text: webSearchSummary(item),
     toolLabel: "web search",
-    ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
     details: webSearchDetails(item),
     output: "",
   };
 }
 
 function imageViewDisplayItem(item: ImageViewItem, turnId?: string): DisplayItem {
+  return toolDisplayItemFromData(imageViewDisplayDataFromItem(item), turnId);
+}
+
+function imageViewDisplayDataFromItem(item: ImageViewItem): ToolDisplayData {
   return {
     id: item.id,
-    kind: "tool",
-    role: "tool",
     text: compactToolSummary(null, item.path),
     toolLabel: "imageView",
     summaryPath: true,
-    ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
   };
 }
 
 function imageGenerationDisplayItem(item: ImageGenerationItem, turnId?: string): DisplayItem {
+  return toolDisplayItemFromData(imageGenerationDisplayDataFromItem(item), turnId);
+}
+
+function imageGenerationDisplayDataFromItem(item: ImageGenerationItem): ToolDisplayData {
   const target = item.savedPath ?? item.result;
   return {
     id: item.id,
-    kind: "tool",
-    role: "tool",
     text: compactToolSummary(null, target, statusQualifier(item.status, failedStatusLabel(item.status))),
     toolLabel: "imageGeneration",
     summaryPath: Boolean(item.savedPath),
-    ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
     status: item.status,
     details: [
       ...bodyDetail("Saved path", item.savedPath),
@@ -288,26 +404,34 @@ function imageGenerationDisplayItem(item: ImageGenerationItem, turnId?: string):
 }
 
 function reviewModeDisplayItem(item: ReviewModeItem, turnId?: string): DisplayItem {
+  return toolDisplayItemFromData(reviewModeDisplayDataFromItem(item), turnId);
+}
+
+function reviewModeDisplayDataFromItem(item: ReviewModeItem): ToolDisplayData {
   return {
     id: item.id,
-    kind: "tool",
-    role: "tool",
     text: item.type === "enteredReviewMode" ? "Entered review mode" : "Exited review mode",
     toolLabel: item.type,
-    ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
     output: item.review,
   };
 }
 
 function contextCompactionDisplayItem(item: ContextCompactionItem, turnId?: string): DisplayItem {
+  return contextCompactionDisplayItemFromData(contextCompactionDisplayDataFromItem(item), turnId);
+}
+
+function contextCompactionDisplayDataFromItem(item: ContextCompactionItem): MessageDisplayData {
+  return { id: item.id, text: "Context compaction" };
+}
+
+function contextCompactionDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
   return {
-    id: item.id,
+    id: data.id,
     kind: "contextCompaction",
     role: "tool",
-    text: "Context compaction",
+    text: data.text,
     ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
+    sourceItemId: data.id,
   };
 }
 
@@ -452,6 +576,10 @@ function webSearchDetails(item: WebSearchItem): DisplayDetailSection[] {
 }
 
 function commandDisplayItem(item: CommandExecutionItem, turnId?: string): DisplayItem {
+  return commandDisplayItemFromData(commandDisplayDataFromItem(item), turnId);
+}
+
+function commandDisplayDataFromItem(item: CommandExecutionItem): CommandDisplayData {
   const exitCode = typeof item.exitCode === "number" ? item.exitCode : undefined;
   const durationMs = typeof item.durationMs === "number" ? item.durationMs : undefined;
   const target = commandTargetLabel(item);
@@ -461,12 +589,8 @@ function commandDisplayItem(item: CommandExecutionItem, turnId?: string): Displa
       : statusQualifier(item.status, failedStatusLabel(item.status));
   return {
     id: item.id,
-    kind: "command",
-    role: "tool",
     actionLabel: commandActionLabel(item),
     text: compactToolSummary(null, target, qualifier),
-    ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
     command: item.command,
     cwd: item.cwd,
     status: item.status,
@@ -477,19 +601,52 @@ function commandDisplayItem(item: CommandExecutionItem, turnId?: string): Displa
   };
 }
 
+function commandDisplayItemFromData(data: CommandDisplayData, turnId?: string): DisplayItem {
+  return {
+    id: data.id,
+    kind: "command",
+    role: "tool",
+    actionLabel: data.actionLabel,
+    text: data.text,
+    ...definedProp("turnId", turnId),
+    sourceItemId: data.id,
+    command: data.command,
+    cwd: data.cwd,
+    status: data.status,
+    ...definedProp("exitCode", data.exitCode),
+    ...definedProp("durationMs", data.durationMs),
+    output: data.output,
+    executionState: data.executionState,
+  };
+}
+
 function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): DisplayItem {
+  return fileChangeDisplayItemFromData(fileChangeDisplayDataFromItem(item), turnId);
+}
+
+function fileChangeDisplayDataFromItem(item: FileChangeItem): FileChangeDisplayData {
   const changes = normalizeFileChanges(item.changes);
   const qualifier = statusQualifier(item.status, failedStatusLabel(item.status));
   return {
     id: item.id,
-    kind: "fileChange",
-    role: "tool",
     text: compactToolSummary(null, fileChangeTargetLabel(changes), qualifier),
-    ...definedProp("turnId", turnId),
-    sourceItemId: item.id,
     status: item.status,
     changes,
     executionState: patchApplyExecutionState(item.status),
+  };
+}
+
+function fileChangeDisplayItemFromData(data: FileChangeDisplayData, turnId?: string): DisplayItem {
+  return {
+    id: data.id,
+    kind: "fileChange",
+    role: "tool",
+    text: data.text,
+    ...definedProp("turnId", turnId),
+    sourceItemId: data.id,
+    status: data.status,
+    changes: data.changes,
+    executionState: data.executionState,
   };
 }
 

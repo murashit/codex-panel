@@ -1,4 +1,4 @@
-import type { ServerNotification, ServerRequest } from "../../../../app-server/types";
+import type { ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import { toPendingApproval, type PendingApproval } from "../server-requests/approval";
 import { toPendingUserInput, type PendingUserInput } from "../server-requests/user-input";
 

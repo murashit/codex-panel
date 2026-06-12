@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/client";
-import type { CodexInput } from "../../../../../src/app-server/request-input";
+import type { AppServerClient } from "../../../../../src/app-server/connection/client";
+import type { CodexInput } from "../../../../../src/app-server/protocol/request-input";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import {
   TurnSubmissionController,

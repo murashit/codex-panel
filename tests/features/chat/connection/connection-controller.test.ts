@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../src/app-server/client";
-import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/runtime-config";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import {
   ChatConnectionController,

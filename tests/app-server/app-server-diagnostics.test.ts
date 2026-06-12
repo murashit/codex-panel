@@ -9,8 +9,8 @@ import {
   createAppServerDiagnostics,
   shortErrorMessage,
   upsertMcpServerDiagnostic,
-} from "../../src/app-server/diagnostics";
-import type { InitializeDiagnostics } from "../../src/app-server/diagnostics";
+} from "../../src/app-server/protocol/diagnostics";
+import type { InitializeDiagnostics } from "../../src/app-server/protocol/diagnostics";
 
 describe("app-server diagnostics", () => {
   it("formats initialize metadata", () => {

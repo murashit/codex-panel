@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../src/app-server/client";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import type { RestorationController } from "../../../../src/features/chat/threads/restoration-controller";
 import { ResumeController } from "../../../../src/features/chat/threads/resume-controller";
 import type { HistoryController } from "../../../../src/features/chat/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/lifecycle";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
-import type { ThreadTokenUsage } from "../../../../src/app-server/runtime-metrics";
-import type { TurnItem, TurnRecord } from "../../../../src/app-server/turn";
+import type { ThreadTokenUsage } from "../../../../src/app-server/protocol/runtime-metrics";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 
 type ThreadResumeResponse = Awaited<ReturnType<AppServerClient["resumeThread"]>>;
 

@@ -10,7 +10,7 @@ import {
   pendingRequestFocusSignature,
   pendingRequestsSignature,
 } from "../../../../../src/features/chat/conversation/pending-requests/signatures";
-import type { ServerRequest } from "../../../../../src/app-server/types";
+import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

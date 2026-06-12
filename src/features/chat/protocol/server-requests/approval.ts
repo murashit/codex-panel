@@ -1,6 +1,6 @@
 import { jsonPreview } from "../../../../utils";
 import { permissionRows } from "../../display/details/permission-rows";
-import type { RequestId } from "../../../../app-server/types";
+import type { RequestId } from "../../../../app-server/connection/rpc-messages";
 
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
 export type CommandApprovalDecision =

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../src/app-server/client";
-import type { ThreadRecord } from "../../../../src/app-server/thread";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ArchiveExportAdapter } from "../../../../src/features/thread-export/archive-markdown";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createChatThreadActions, type ChatThreadActionsHost } from "../../../../src/features/chat/threads/actions";

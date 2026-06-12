@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/client";
+import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import { createComposerSubmitActions } from "../../../../../src/features/chat/conversation/turns/composer-submit-actions";
 import type { Thread } from "../../../../../src/domain/threads/model";

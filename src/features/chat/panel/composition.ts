@@ -1,4 +1,4 @@
-import type { ConnectionManager } from "../../../app-server/connection-manager";
+import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { ComponentChild as UiNode } from "preact";
 import type { ChatStateStore } from "../state/reducer";
 import type { CodexPanelSettings } from "../../../settings/model";

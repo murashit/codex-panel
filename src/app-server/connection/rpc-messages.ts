@@ -1,8 +1,8 @@
-import type { ClientNotification } from "../generated/app-server/ClientNotification";
-import type { ClientRequest } from "../generated/app-server/ClientRequest";
-import type { RequestId } from "../generated/app-server/RequestId";
-import type { ServerNotification } from "../generated/app-server/ServerNotification";
-import type { ServerRequest } from "../generated/app-server/ServerRequest";
+import type { ClientNotification } from "../../generated/app-server/ClientNotification";
+import type { ClientRequest } from "../../generated/app-server/ClientRequest";
+import type { RequestId } from "../../generated/app-server/RequestId";
+import type { ServerNotification } from "../../generated/app-server/ServerNotification";
+import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 
 export type { RequestId, ServerNotification, ServerRequest };
 

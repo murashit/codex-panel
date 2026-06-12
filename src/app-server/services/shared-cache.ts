@@ -1,5 +1,5 @@
-import type { Thread } from "../domain/threads/model";
-import type { ModelMetadata } from "../domain/catalog/metadata";
+import type { Thread } from "../../domain/threads/model";
+import type { ModelMetadata } from "../../domain/catalog/metadata";
 import {
   applySharedAppServerMetadata,
   applySharedModels,

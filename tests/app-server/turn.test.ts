@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   chronologicalConversationSummariesFromTurnRecords,
+  completedConversationSummariesFromTurnRecords,
   completedConversationSummaryFromTurnRecord,
+  conversationAssistantTextFromTurnRecord,
   lastAgentMessageTextFromTurnRecord,
+  transcriptEntriesFromTurnRecords,
   transcriptEntriesFromTurnRecord,
   type TurnItem,
   type TurnRecord,
-} from "../../src/app-server/turn";
+} from "../../src/app-server/protocol/turn";
 
 describe("app-server turn records", () => {
   it("projects readable transcript entries without command log items", () => {
@@ -44,6 +47,16 @@ describe("app-server turn records", () => {
     ).toBeNull();
   });
 
+  it("projects completed summaries from turn lists without exposing filtering logic to callers", () => {
+    expect(
+      completedConversationSummariesFromTurnRecords([
+        turn([userMessage("u1", "依頼"), agentMessage("a1", "回答")], { id: "completed" }),
+        turn([userMessage("u2", "失敗した依頼"), agentMessage("a2", "失敗した回答")], { id: "failed", status: "failed" }),
+        turn([commandItem("cmd")], { id: "empty" }),
+      ]),
+    ).toEqual([{ userText: "依頼", assistantText: "回答" }]);
+  });
+
   it("returns chronological summaries and drops turns without conversation text", () => {
     expect(
       chronologicalConversationSummariesFromTurnRecords([
@@ -55,6 +68,22 @@ describe("app-server turn records", () => {
       { userText: "先の依頼", assistantText: "先の回答" },
       { userText: "後の依頼", assistantText: "後の回答" },
     ]);
+  });
+
+  it("projects transcript entries from turn lists", () => {
+    expect(
+      transcriptEntriesFromTurnRecords([
+        turn([userMessage("u1", "先の依頼")], { id: "turn-1", startedAt: 10 }),
+        turn([agentMessage("a1", "後の回答")], { id: "turn-2", startedAt: 20, completedAt: 25 }),
+      ]),
+    ).toEqual([
+      { kind: "user", text: "先の依頼", timestamp: 10 },
+      { kind: "assistant", text: "後の回答", timestamp: 25 },
+    ]);
+  });
+
+  it("extracts assistant-like conversation text for generated turn consumers", () => {
+    expect(conversationAssistantTextFromTurnRecord(turn([userMessage("u1", "依頼"), planItem("p1", "計画")]))).toBe("計画");
   });
 
   it("extracts the final non-empty agent message text from a turn", () => {

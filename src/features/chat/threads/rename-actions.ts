@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../../app-server/client";
+import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatStateStore } from "../state/reducer";
 
 export interface ThreadRenameActionsHost {

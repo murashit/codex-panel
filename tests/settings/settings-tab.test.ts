@@ -2,10 +2,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/catalog";
-import type { ThreadRecord } from "../../src/app-server/thread";
+import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
+import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
-import { modelMetadataFromCatalogModels } from "../../src/app-server/catalog";
+import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import { archivedThreadDisplayTitle, type Thread } from "../../src/domain/threads/model";
 import { notices } from "../mocks/obsidian";
@@ -18,7 +18,7 @@ const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
   withShortLivedAppServerClientMock: vi.fn(),
 }));
 
-vi.mock("../../src/app-server/short-lived-client", () => ({
+vi.mock("../../src/app-server/connection/short-lived-client", () => ({
   withShortLivedAppServerClient: withShortLivedAppServerClientMock,
 }));
 

@@ -5,7 +5,7 @@ import {
   codexTextInputWithMentions,
   toAppServerUserInput,
   type CodexInput,
-} from "../../src/app-server/request-input";
+} from "../../src/app-server/protocol/request-input";
 
 describe("app-server request input", () => {
   it("builds text input with mentions and skills", () => {

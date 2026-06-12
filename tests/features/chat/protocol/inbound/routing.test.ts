@@ -7,7 +7,7 @@ import {
   routeServerNotification,
   routeServerRequest,
 } from "../../../../../src/features/chat/protocol/inbound/routing";
-import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/types";
+import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ThreadGoal } from "../../../../../src/app-server/thread-goal";
+import type { ThreadGoal } from "../../../../../src/app-server/protocol/thread-goal";
 import { goalChangeItem } from "../../../../../src/features/chat/display/items/goal";
 
 describe("goal display items", () => {

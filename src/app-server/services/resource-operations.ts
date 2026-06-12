@@ -1,13 +1,13 @@
-import type { AppServerClient } from "./client";
+import type { AppServerClient } from "../connection/client";
 import {
   appServerHookOperationFromHookItem,
   hookItemsFromCatalogHooks,
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
-} from "./catalog";
-import { threadFromThreadRecord, threadsFromThreadRecords } from "./thread";
-import type { HookItem, ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
-import type { Thread } from "../domain/threads/model";
+} from "../protocol/catalog";
+import { threadFromThreadRecord, threadsFromThreadRecords } from "../protocol/thread";
+import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
+import type { Thread } from "../../domain/threads/model";
 
 export interface HookData {
   hooks: HookItem[];

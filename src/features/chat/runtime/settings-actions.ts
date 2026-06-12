@@ -1,7 +1,7 @@
-import type { AppServerClient } from "../../../app-server/client";
-import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
-import type { ApprovalsReviewer } from "../../../app-server/runtime-policy";
-import type { ThreadSettingsUpdate } from "../../../app-server/thread-settings";
+import type { AppServerClient } from "../../../app-server/connection/client";
+import type { RuntimeConfigSnapshot } from "../../../app-server/protocol/runtime-config";
+import type { ApprovalsReviewer } from "../../../app-server/protocol/runtime-policy";
+import type { ThreadSettingsUpdate } from "../../../app-server/protocol/thread-settings";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import { autoReviewActive, fastModeActive, runtimeConfigOrDefault } from "./effective";
 import {

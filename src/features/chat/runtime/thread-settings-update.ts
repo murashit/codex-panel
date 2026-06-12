@@ -1,7 +1,7 @@
-import { applyThreadSettingsValue, appServerCollaborationMode, type ThreadSettingsUpdate } from "../../../app-server/thread-settings";
-import type { ServiceTierRequest } from "../../../app-server/thread-settings";
+import { applyThreadSettingsValue, appServerCollaborationMode, type ThreadSettingsUpdate } from "../../../app-server/protocol/thread-settings";
+import type { ServiceTierRequest } from "../../../app-server/protocol/thread-settings";
 import { currentModel, currentReasoningEffort, fastServiceTierRequestValue } from "./effective";
-import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
+import type { RuntimeConfigSnapshot } from "../../../app-server/protocol/runtime-config";
 import type { RuntimeSnapshot } from "./snapshot";
 import type { PendingRuntimeSetting } from "./pending-settings";
 

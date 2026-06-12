@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../../app-server/client";
+import type { AppServerClient } from "../../../app-server/connection/client";
 import type { Thread } from "../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../domain/threads/transcript";
 import type { CodexPanelSettings } from "../../../settings/model";

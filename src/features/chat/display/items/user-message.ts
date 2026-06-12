@@ -1,4 +1,4 @@
-import type { CodexInput, CodexInputItem } from "../../../../app-server/request-input";
+import type { CodexInput, CodexInputItem } from "../../../../app-server/protocol/request-input";
 import type { DisplayFileMention } from "../types";
 
 type TextRange = [number, number];

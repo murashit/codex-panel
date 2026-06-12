@@ -1,13 +1,13 @@
-import type { FileUpdateChange as GeneratedFileUpdateChange } from "../generated/app-server/v2/FileUpdateChange";
-import type { ThreadItem as GeneratedTurnItem } from "../generated/app-server/v2/ThreadItem";
-import type { Turn as GeneratedTurnRecord } from "../generated/app-server/v2/Turn";
-import type { UserInput } from "../generated/app-server/v2/UserInput";
+import type { FileUpdateChange as GeneratedFileUpdateChange } from "../../generated/app-server/v2/FileUpdateChange";
+import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
+import type { Turn as GeneratedTurnRecord } from "../../generated/app-server/v2/Turn";
+import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import {
   conversationSummaryFromTranscriptEntries,
   nonEmptyConversationSummaries,
   type ThreadConversationSummary,
   type ThreadTranscriptEntry,
-} from "../domain/threads/transcript";
+} from "../../domain/threads/transcript";
 
 export type FileUpdateChange = GeneratedFileUpdateChange;
 export type TurnItem = GeneratedTurnItem;
@@ -17,8 +17,16 @@ export function transcriptEntriesFromTurnRecord(turn: TurnRecord): ThreadTranscr
   return turn.items.flatMap((item) => transcriptEntriesFromTurnItem(item, turn));
 }
 
+export function transcriptEntriesFromTurnRecords(turns: readonly TurnRecord[]): ThreadTranscriptEntry[] {
+  return turns.flatMap(transcriptEntriesFromTurnRecord);
+}
+
 export function conversationSummaryFromTurnRecord(turn: TurnRecord): ThreadConversationSummary {
   return conversationSummaryFromTranscriptEntries(transcriptEntriesFromTurnRecord(turn));
+}
+
+export function conversationAssistantTextFromTurnRecord(turn: TurnRecord): string | null {
+  return conversationSummaryFromTurnRecord(turn).assistantText;
 }
 
 export function completedConversationSummaryFromTurnRecord(turn: TurnRecord): ThreadConversationSummary | null {
@@ -27,8 +35,19 @@ export function completedConversationSummaryFromTurnRecord(turn: TurnRecord): Th
   return summary.userText && summary.assistantText ? summary : null;
 }
 
+export function completedConversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
+  return turns.flatMap((turn) => {
+    const summary = completedConversationSummaryFromTurnRecord(turn);
+    return summary ? [summary] : [];
+  });
+}
+
+export function conversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
+  return nonEmptyConversationSummaries(turns.map(conversationSummaryFromTurnRecord));
+}
+
 export function chronologicalConversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
-  return nonEmptyConversationSummaries(chronologicalTurnRecords(turns).map(conversationSummaryFromTurnRecord));
+  return conversationSummariesFromTurnRecords(chronologicalTurnRecords(turns));
 }
 
 export function turnUserItemText(item: Extract<TurnItem, { type: "userMessage" }>): string {

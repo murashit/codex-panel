@@ -1,4 +1,4 @@
-import type { UserInput } from "../generated/app-server/v2/UserInput";
+import type { UserInput } from "../../generated/app-server/v2/UserInput";
 
 export interface RequestMention {
   name: string;

@@ -1,5 +1,5 @@
-import type { AppServerClient } from "../../../../app-server/client";
-import type { Diagnostics } from "../../../../app-server/diagnostics";
+import type { AppServerClient } from "../../../../app-server/connection/client";
+import type { Diagnostics } from "../../../../app-server/protocol/diagnostics";
 import type { ChatStateStore } from "../../state/reducer";
 
 export interface ChatServerActionHost {

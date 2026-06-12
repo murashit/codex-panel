@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../src/app-server/client";
-import { listHookData, listSkillCatalog, listThreads } from "../../src/app-server/resource-operations";
+import type { AppServerClient } from "../../src/app-server/connection/client";
+import { listHookData, listSkillCatalog, listThreads } from "../../src/app-server/services/resource-operations";
 
 describe("app-server resource operations", () => {
   it("maps listed threads to domain threads with archive state", async () => {

@@ -1,8 +1,8 @@
 import type { App, Component, EventRef } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
-import type { AppServerClient } from "../../app-server/client";
-import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
+import type { AppServerClient } from "../../app-server/connection/client";
+import type { SharedAppServerMetadata } from "../../app-server/services/shared-cache-state";
 import type { ArchiveExportAdapter } from "../thread-export/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";

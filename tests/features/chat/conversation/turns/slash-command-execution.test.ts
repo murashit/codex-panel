@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ThreadGoal } from "../../../../../src/app-server/thread-goal";
+import type { ThreadGoal } from "../../../../../src/app-server/protocol/thread-goal";
 import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../../src/features/chat/conversation/composer/slash-commands";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import {

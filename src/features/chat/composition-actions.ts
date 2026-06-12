@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../app-server/client";
+import type { AppServerClient } from "../../app-server/connection/client";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ChatStateStore } from "./state/reducer";
 import type { ChatViewRenderController } from "./panel/view-render-controller";

@@ -1,5 +1,5 @@
-import type { AppServerClient } from "../../../app-server/client";
-import { completedConversationSummaryFromTurnRecord } from "../../../app-server/turn";
+import type { AppServerClient } from "../../../app-server/connection/client";
+import { completedConversationSummariesFromTurnRecords } from "../../../app-server/protocol/turn";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { Thread } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
@@ -158,10 +158,7 @@ export class RenameController {
       readTurns: async (id, cursor, limit, sortDirection) => {
         const response = await client.threadTurnsList(id, cursor, limit, sortDirection);
         return {
-          data: response.data.flatMap((turn) => {
-            const summary = completedConversationSummaryFromTurnRecord(turn);
-            return summary ? [summary] : [];
-          }),
+          data: completedConversationSummariesFromTurnRecords(response.data),
           nextCursor: response.nextCursor,
         };
       },

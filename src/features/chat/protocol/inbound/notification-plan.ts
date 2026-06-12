@@ -1,13 +1,13 @@
 import { activeThreadSettingsAppliedAction } from "../../state/actions";
-import type { McpServerStartupStatus } from "../../../../app-server/diagnostics";
-import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/runtime-metrics";
+import type { McpServerStartupStatus } from "../../../../app-server/protocol/diagnostics";
+import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/protocol/runtime-metrics";
 import {
   completedConversationSummaryFromTurnRecord,
   type FileUpdateChange,
   type TurnItem,
   type TurnRecord,
-} from "../../../../app-server/turn";
-import type { ServerNotification } from "../../../../app-server/types";
+} from "../../../../app-server/protocol/turn";
+import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";

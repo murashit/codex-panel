@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createAppServerDiagnostics } from "../../../../src/app-server/diagnostics";
-import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/runtime-config";
+import { createAppServerDiagnostics } from "../../../../src/app-server/protocol/diagnostics";
+import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
 import { applyCachedSharedAppServerState } from "../../../../src/features/chat/panel/cached-app-server-state";
-import type { SharedAppServerMetadata } from "../../../../src/app-server/shared-cache-state";
+import type { SharedAppServerMetadata } from "../../../../src/app-server/services/shared-cache-state";
 import type { Thread } from "../../../../src/domain/threads/model";
 
 describe("cached app-server state", () => {

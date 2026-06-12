@@ -1,7 +1,7 @@
 import type { App, EventRef } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 
-import type { CodexInput } from "../../../../app-server/request-input";
+import type { CodexInput } from "../../../../app-server/protocol/request-input";
 import { isComposerSendKey, type SendShortcut } from "../../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../../shared/ui/textarea-caret";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";

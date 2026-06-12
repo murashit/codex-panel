@@ -5,7 +5,7 @@ import {
   hookItemsFromCatalogHooks,
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
-} from "../../src/app-server/catalog";
+} from "../../src/app-server/protocol/catalog";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { SkillMetadata } from "../../src/generated/app-server/v2/SkillMetadata";

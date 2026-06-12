@@ -1,6 +1,6 @@
-import type { ConnectionManager } from "../../../app-server/connection-manager";
-import type { AppServerClient } from "../../../app-server/client";
-import { recoverRolloutTokenUsage } from "../../../app-server/rollout-token-usage";
+import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import type { AppServerClient } from "../../../app-server/connection/client";
+import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
 import type { ArchiveExportAdapter } from "../../thread-export/archive-markdown";
 import { createChatThreadActions } from "./actions";
 import { AutoTitleController } from "./auto-title-controller";

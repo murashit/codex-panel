@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { RenameController } from "../../../../src/features/chat/threads/rename-controller";
-import type { AppServerClient } from "../../../../src/app-server/client";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { Thread } from "../../../../src/domain/threads/model";
-import type { TurnItem, TurnRecord } from "../../../../src/app-server/turn";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 

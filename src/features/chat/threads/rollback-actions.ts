@@ -1,4 +1,4 @@
-import { threadFromThreadRecord } from "../../../app-server/thread";
+import { threadFromThreadRecord } from "../../../app-server/protocol/thread";
 import { rollbackCandidateFromItems } from "../display/item-actions";
 import { displayItemsFromTurns } from "../display/turn-items";
 import { chatTurnBusy } from "../state/reducer";

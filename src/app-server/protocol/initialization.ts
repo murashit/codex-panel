@@ -1,4 +1,4 @@
-import type { InitializeResponse as AppServerInitializeResponse } from "../generated/app-server/InitializeResponse";
+import type { InitializeResponse as AppServerInitializeResponse } from "../../generated/app-server/InitializeResponse";
 
 export interface AppServerInitialization {
   userAgent: string;

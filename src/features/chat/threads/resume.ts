@@ -1,8 +1,8 @@
-import { parseServiceTier } from "../../../app-server/runtime-policy";
+import { parseServiceTier } from "../../../app-server/protocol/runtime-policy";
 import { upsertThread } from "../../../domain/threads/model";
 import { normalizeReasoningEffort } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
-import { threadActivationSnapshotFromAppServerResponse, type ThreadActivationSnapshot } from "../../../app-server/thread-activation";
+import { threadActivationSnapshotFromAppServerResponse, type ThreadActivationSnapshot } from "../../../app-server/services/thread-activation";
 import type { ChatRuntimeState } from "../runtime/state";
 import type { DisplayItem } from "../display/types";
 import type { ActiveThreadResumedAction } from "../state/actions";

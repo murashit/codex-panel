@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { appServerCollaborationMode, applyThreadSettingsValue, type ThreadSettingsUpdate } from "../../src/app-server/thread-settings";
-import { appServerApprovalsReviewerOrNull, parseServiceTier } from "../../src/app-server/runtime-policy";
+import { appServerCollaborationMode, applyThreadSettingsValue, type ThreadSettingsUpdate } from "../../src/app-server/protocol/thread-settings";
+import { appServerApprovalsReviewerOrNull, parseServiceTier } from "../../src/app-server/protocol/runtime-policy";
 
 describe("app-server thread settings", () => {
   it("applies defined thread setting values and omits undefined values", () => {

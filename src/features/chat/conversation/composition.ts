@@ -1,6 +1,6 @@
 import type { App, Component } from "obsidian";
 
-import type { AppServerClient } from "../../../app-server/client";
+import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatServerThreadActions } from "../connection/server-actions/threads";
 import { ChatComposerController } from "./composer/controller";
 import { activeTurnId, type ChatState, type ChatStateStore } from "../state/reducer";

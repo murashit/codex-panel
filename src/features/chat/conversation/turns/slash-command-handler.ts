@@ -1,6 +1,6 @@
-import type { AppServerClient } from "../../../../app-server/client";
-import { codexTextInputWithAttachments, type CodexInput } from "../../../../app-server/request-input";
-import { chronologicalConversationSummariesFromTurnRecords } from "../../../../app-server/turn";
+import type { AppServerClient } from "../../../../app-server/connection/client";
+import { codexTextInputWithAttachments, type CodexInput } from "../../../../app-server/protocol/request-input";
+import { chronologicalConversationSummariesFromTurnRecords } from "../../../../app-server/protocol/turn";
 import { referencedThreadPromptBundle, referencedThreadTurns, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
 import {
@@ -12,7 +12,7 @@ import type { SlashCommandName } from "../composer/slash-commands";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
-import type { ThreadGoal, ThreadGoalStatus } from "../../../../app-server/thread-goal";
+import type { ThreadGoal, ThreadGoalStatus } from "../../../../app-server/protocol/thread-goal";
 import { submissionStateSnapshot } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
 import { currentModel, runtimeConfigOrDefault } from "../../runtime/effective";
