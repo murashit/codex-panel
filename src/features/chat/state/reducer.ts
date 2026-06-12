@@ -28,7 +28,6 @@ import {
 import type { RequestedServiceTier } from "../runtime/pending-settings";
 import type { RequestId } from "../../../app-server/connection/rpc-messages";
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
-import { upsertDisplayItem } from "./message-stream-updates";
 import type { DisplayItem } from "../display/types";
 import type {
   ActiveThreadResumedAction,
@@ -48,7 +47,12 @@ import type {
 } from "./actions";
 import {
   initialChatMessageStreamState,
+  messageStreamDisplayItems,
+  messageStreamStartActiveSegment,
+  messageStreamWithActiveTurnItems,
+  messageStreamWithDisplayItems,
   reduceMessageStreamSlice,
+  type ChatMessageStreamActiveSegment,
   type ChatMessageStreamState,
   type MessageStreamAction,
 } from "./message-stream";
@@ -371,10 +375,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       activePermissionProfile: action.activePermissionProfile,
     },
     turn: initialTurnState(),
-    messageStream: {
-      ...initialMessageStreamState(),
-      displayItems: action.displayItems ?? [],
-    },
+    messageStream: initialMessageStreamState(action.displayItems ?? []),
     requests: initialRequestState(),
     composer: initialComposerState(),
     ui: initialUiState(),
@@ -414,10 +415,7 @@ function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, actio
         ...state.runtime,
         ...initialActiveChatRuntimeState(),
       },
-      messageStream: {
-        ...initialMessageStreamState(),
-        displayItems: [],
-      },
+      messageStream: initialMessageStreamState(),
       ui: initialUiState(),
     }),
   );
@@ -429,10 +427,9 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
     activeThread: { ...state.activeThread, id: action.threadId },
     turn: { lifecycle },
     connection: { ...state.connection, status: "Turn running..." },
-    messageStream: {
-      ...state.messageStream,
-      displayItems: action.displayItems ?? state.messageStream.displayItems,
-    },
+    messageStream: action.displayItems
+      ? messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.displayItems)
+      : messageStreamStartActiveSegment(state.messageStream, action.turnId, []),
   });
 }
 
@@ -441,7 +438,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: { ...state.messageStream, displayItems: action.displayItems },
+    messageStream: messageStreamWithDisplayItems(state.messageStream, action.displayItems),
     connection: { ...state.connection, status: `Turn ${action.status}.` },
   });
 }
@@ -457,10 +454,7 @@ function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOpt
   });
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: {
-      ...state.messageStream,
-      displayItems: [...state.messageStream.displayItems, action.item],
-    },
+    messageStream: messageStreamStartActiveSegment(state.messageStream, null, [action.item]),
   });
 }
 
@@ -472,7 +466,7 @@ function reduceTurnStartAcknowledgedTransition(state: ChatState, action: TurnSta
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: { ...state.messageStream, displayItems: action.displayItems },
+    messageStream: messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.displayItems),
   });
 }
 
@@ -481,16 +475,13 @@ function reduceTurnStartFailedTransition(state: ChatState, action: TurnStartFail
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: { ...state.messageStream, displayItems: action.displayItems },
+    messageStream: messageStreamWithDisplayItems(state.messageStream, action.displayItems),
   });
 }
 
 function reducePendingStartHookUpsertedTransition(state: ChatState, action: PendingStartHookUpsertedAction): ChatState {
   return patchChatState(state, {
-    messageStream: {
-      ...state.messageStream,
-      displayItems: upsertDisplayItem(state.messageStream.displayItems, action.item),
-    },
+    messageStream: reduceMessageStreamSlice(state.messageStream, { type: "message-stream/item-upserted", item: action.item }),
     turn: {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, {
         type: "pending-start-hook-upserted",
@@ -503,14 +494,12 @@ function reducePendingStartHookUpsertedTransition(state: ChatState, action: Pend
 function reduceRequestResolvedTransition(state: ChatState, action: RequestResolvedAction): ChatState {
   const requests = resolveChatRequest(state.requests, action.requestId);
   if (requests === state.requests) return state;
-  const displayItems = action.resultItem ? [...state.messageStream.displayItems, action.resultItem] : state.messageStream.displayItems;
   return patchChatState(state, {
     requests,
     ui: clearResolvedRequestDetailOpenState(state.ui, action.requestId),
-    messageStream: {
-      ...state.messageStream,
-      displayItems,
-    },
+    messageStream: action.resultItem
+      ? reduceMessageStreamSlice(state.messageStream, { type: "message-stream/item-added", item: action.resultItem })
+      : state.messageStream,
   });
 }
 
@@ -641,6 +630,7 @@ function clearActiveTurnState(state: ChatState): ChatState {
     turn: {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
     },
+    messageStream: messageStreamWithDisplayItems(state.messageStream, messageStreamDisplayItems(state.messageStream)),
     requests: initialRequestState(),
     ui: clearAllRequestDetailOpenState(state.ui),
   });
@@ -715,8 +705,8 @@ function initialTurnState(): ChatTurnState {
   return initialChatTurnState();
 }
 
-function initialMessageStreamState(): ChatMessageStreamState {
-  return initialChatMessageStreamState();
+function initialMessageStreamState(items: readonly DisplayItem[] = []): ChatMessageStreamState {
+  return initialChatMessageStreamState(items);
 }
 
 function initialRequestState(): ChatRequestState {
@@ -753,13 +743,7 @@ function cloneChatState(state: ChatState): ChatState {
     activeThread: { ...state.activeThread },
     runtime: { ...state.runtime },
     turn: { lifecycle: state.turn.lifecycle },
-    messageStream: {
-      displayItems: [...state.messageStream.displayItems],
-      turnDiffs: new Map(state.messageStream.turnDiffs),
-      historyCursor: state.messageStream.historyCursor,
-      loadingHistory: state.messageStream.loadingHistory,
-      reportedLogs: new Set(state.messageStream.reportedLogs),
-    },
+    messageStream: cloneMessageStreamState(state.messageStream),
     requests: {
       approvals: [...state.requests.approvals],
       pendingUserInputs: [...state.requests.pendingUserInputs],
@@ -773,6 +757,27 @@ function cloneChatState(state: ChatState): ChatState {
       openDetails: new Set(state.ui.openDetails),
       toolbarPanel: state.ui.toolbarPanel,
     },
+  };
+}
+
+function cloneMessageStreamState(state: ChatMessageStreamState): ChatMessageStreamState {
+  const legacyItems = !state.activeSegment && state.stableItems.length === 0 ? state.displayItems : [];
+  const next = initialChatMessageStreamState(legacyItems.length > 0 ? [...legacyItems] : [...state.stableItems]);
+  next.activeSegment = cloneActiveSegment(state.activeSegment);
+  next.turnDiffs = new Map(state.turnDiffs);
+  next.historyCursor = state.historyCursor;
+  next.loadingHistory = state.loadingHistory;
+  next.reportedLogs = new Set(state.reportedLogs);
+  return next;
+}
+
+function cloneActiveSegment(segment: ChatMessageStreamActiveSegment | null): ChatMessageStreamActiveSegment | null {
+  if (!segment) return null;
+  return {
+    turnId: segment.turnId,
+    items: [...segment.items],
+    indexById: new Map(segment.indexById),
+    indexBySourceItemId: new Map(segment.indexBySourceItemId),
   };
 }
 

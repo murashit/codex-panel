@@ -11,6 +11,7 @@ import { MarkdownMessageRenderer } from "./markdown-renderer";
 import { messageStreamViewportNode, type MessageStreamViewportState } from "./viewport";
 import type { DisplayItem } from "../../display/types";
 import { implementPlanCandidateFromState } from "../../state/selectors";
+import { messageStreamActiveItems, messageStreamDisplayItems, messageStreamStableItems } from "../../state/message-stream";
 import {
   forkCandidatesFromItems,
   isForkCandidateItem,
@@ -105,8 +106,9 @@ export class MessageStreamRenderer {
 
   private messageStreamContext(state: ChatState, port: ChatMessageStreamContextPort): MessageStreamContext {
     const busy = chatTurnBusy(state);
-    const rollbackCandidate = busy ? null : rollbackCandidateFromItems(state.messageStream.displayItems);
-    const forkCandidates = busy ? [] : forkCandidatesFromItems(state.messageStream.displayItems);
+    const displayItems = messageStreamDisplayItems(state.messageStream);
+    const rollbackCandidate = busy ? null : rollbackCandidateFromItems(displayItems);
+    const forkCandidates = busy ? [] : forkCandidatesFromItems(displayItems);
     const implementPlanCandidate = implementPlanCandidateFromState(state);
 
     return {
@@ -114,7 +116,9 @@ export class MessageStreamRenderer {
       turnLifecycle: state.turn.lifecycle,
       historyCursor: state.messageStream.historyCursor,
       loadingHistory: state.messageStream.loadingHistory,
-      displayItems: state.messageStream.displayItems,
+      displayItems,
+      stableItems: messageStreamStableItems(state.messageStream),
+      activeItems: messageStreamActiveItems(state.messageStream),
       turnDiffs: state.messageStream.turnDiffs,
       workspaceRoot: state.activeThread.cwd ?? port.vaultPath,
       openDetails: state.ui.openDetails,

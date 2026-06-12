@@ -3,6 +3,7 @@ import type { TurnItem } from "../../../app-server/protocol/turn";
 import type { ThreadTurnsPage } from "../../../domain/threads/history";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 import { displayItemsFromTurns } from "../display/turn-items";
+import { messageStreamDisplayItems } from "../state/message-stream";
 
 export interface HistoryControllerHost {
   stateStore: ChatStateStore;
@@ -79,12 +80,13 @@ export class HistoryController {
       const response = await client.threadTurnsList(threadId, cursor, 20);
       if (this.isStale(load)) return;
       const current = this.state;
+      const currentItems = messageStreamDisplayItems(current.messageStream);
       const olderItems = displayItemsFromTurns(response.data);
-      const existingIds = new Set(current.messageStream.displayItems.map((item) => item.id));
+      const existingIds = new Set(currentItems.map((item) => item.id));
       this.host.keepCurrentScrollPosition();
       this.dispatch({
         type: "message-stream/items-replaced",
-        items: [...olderItems.filter((item) => !existingIds.has(item.id)), ...current.messageStream.displayItems],
+        items: [...olderItems.filter((item) => !existingIds.has(item.id)), ...currentItems],
         historyCursor: response.nextCursor,
       });
     } catch (error) {

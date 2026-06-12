@@ -10,6 +10,7 @@ import {
   transitionChatTurnLifecycleState,
   type ChatState,
 } from "../../../src/features/chat/state/reducer";
+import { messageStreamDisplayItems } from "../../../src/features/chat/state/message-stream";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { DisplayItem } from "../../../src/features/chat/display/types";
 import type { Thread } from "../../../src/domain/threads/model";
@@ -260,6 +261,54 @@ describe("chatReducer", () => {
       kind: "idle",
     });
     expect(transitionChatTurnLifecycleState(running, { type: "completed", turnId: "turn" })).toEqual({ kind: "idle" });
+  });
+
+  it("appends streaming assistant deltas into the active segment without replacing stable history", () => {
+    const state = createChatState();
+    state.messageStream.displayItems = [message("history")];
+    const running = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn" });
+
+    const next = chatReducer(running, {
+      type: "message-stream/assistant-delta-appended",
+      itemId: "assistant",
+      turnId: "turn",
+      delta: "hello",
+    });
+
+    expect(next.messageStream.stableItems).toBe(running.messageStream.stableItems);
+    expect(next.messageStream.activeSegment?.items).toEqual([expect.objectContaining({ id: "assistant", text: "hello", turnId: "turn" })]);
+    expect(messageStreamDisplayItems(next.messageStream)).toEqual([
+      message("history"),
+      expect.objectContaining({ id: "assistant", text: "hello" }),
+    ]);
+  });
+
+  it("updates repeated streaming output through the active source-item index", () => {
+    let state = createChatState();
+    state = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn" });
+    state = chatReducer(state, {
+      type: "message-stream/item-output-appended",
+      itemId: "cmd",
+      turnId: "turn",
+      delta: "one",
+      kind: "command",
+      fallbackText: "Command running",
+    });
+
+    const firstActiveItems = state.messageStream.activeSegment?.items;
+    const next = chatReducer(state, {
+      type: "message-stream/item-output-appended",
+      itemId: "cmd",
+      turnId: "turn",
+      delta: "two",
+      kind: "command",
+      fallbackText: "Command running",
+    });
+
+    expect(next.messageStream.activeSegment?.items).toHaveLength(1);
+    expect(next.messageStream.activeSegment?.indexBySourceItemId.get("cmd")).toBe(0);
+    expect(next.messageStream.activeSegment?.items).not.toBe(firstActiveItems);
+    expect(next.messageStream.activeSegment?.items[0]).toMatchObject({ id: "cmd", output: "onetwo" });
   });
 
   it("clears running state when a turn start fails", () => {

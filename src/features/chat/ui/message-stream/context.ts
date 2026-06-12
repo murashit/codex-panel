@@ -45,6 +45,8 @@ interface MessageStreamLayoutContext {
   historyCursor: string | null;
   loadingHistory: boolean;
   displayItems: readonly DisplayItem[];
+  stableItems?: readonly DisplayItem[];
+  activeItems?: readonly DisplayItem[];
   turnDiffs?: ReadonlyMap<string, string>;
   workspaceRoot?: string | null;
   loadOlderTurns: () => void;

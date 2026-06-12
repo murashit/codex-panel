@@ -52,7 +52,7 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
     });
   }
 
-  if (context.displayItems.length === 0) {
+  if (messageStreamBlockItemsEmpty(context)) {
     blocks.push({
       key: "empty",
       node: <EmptyMessage />,
@@ -60,8 +60,7 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
     return blocks;
   }
 
-  const streamItems = activeTurn ? withoutActiveTaskProgress(context.displayItems, activeTurn) : context.displayItems;
-  for (const block of displayBlocksForItems(streamItems, activeTurn, context.workspaceRoot, context.turnDiffs)) {
+  for (const block of displayBlocksForContext(context, activeTurn)) {
     if (block.type === "item") {
       blocks.push({
         key: `item:${block.item.id}`,
@@ -78,6 +77,26 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
   blocks.push(...bottomLiveBlocks(context, activeTurn));
 
   return blocks;
+}
+
+function messageStreamBlockItemsEmpty(context: MessageStreamContext): boolean {
+  if (!context.stableItems && !context.activeItems) return context.displayItems.length === 0;
+  return (context.stableItems?.length ?? 0) === 0 && (context.activeItems?.length ?? 0) === 0;
+}
+
+function displayBlocksForContext(context: MessageStreamContext, activeTurn: string | null): DisplayBlock[] {
+  if (!activeTurn || !context.stableItems || !context.activeItems) {
+    const streamItems = activeTurn ? withoutActiveTaskProgress(context.displayItems, activeTurn) : context.displayItems;
+    return displayBlocksForItems(streamItems, activeTurn, context.workspaceRoot, context.turnDiffs);
+  }
+  const stableBlocks = displayBlocksForItems(context.stableItems, activeTurn, context.workspaceRoot, context.turnDiffs);
+  const activeBlocks = displayBlocksForItems(
+    withoutActiveTaskProgress(context.activeItems, activeTurn),
+    activeTurn,
+    context.workspaceRoot,
+    context.turnDiffs,
+  );
+  return [...stableBlocks, ...activeBlocks];
 }
 
 function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | null): MessageStreamBlock[] {
@@ -104,9 +123,10 @@ function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | nu
 }
 
 function activeTurnLiveBlocks(context: MessageStreamContext, activeTurn: string): MessageStreamBlock[] {
-  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(context.displayItems, activeTurn);
+  const items = context.activeItems ?? context.displayItems;
+  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(items, activeTurn);
   const agentSummary = agentSummaryAnchorId ? activeAgentRunSummaryBlock(context) : null;
-  const blocks = context.displayItems.flatMap((item): MessageStreamBlock[] => {
+  const blocks = items.flatMap((item): MessageStreamBlock[] => {
     if (item.kind === "taskProgress" && item.turnId === activeTurn) {
       return [
         {

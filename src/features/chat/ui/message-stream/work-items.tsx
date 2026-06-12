@@ -29,6 +29,7 @@ export type WorkItemDisplayItem = TaskProgressDisplayItem | AgentDisplayItem | R
 export interface WorkItemContext {
   turnLifecycle: ChatTurnLifecycleState;
   displayItems: readonly DisplayItem[];
+  activeItems?: readonly DisplayItem[];
   openDetails: ReadonlySet<string>;
   onDetailsToggle?: (key: string, open: boolean) => void;
 }
@@ -38,7 +39,7 @@ function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">):
 }
 
 export function activeAgentRunSummaryBlock(context: WorkItemContext): AgentRunSummary | null {
-  return activeAgentRunSummary(context.displayItems, workItemsActiveTurnId(context));
+  return activeAgentRunSummary(context.activeItems ?? context.displayItems, workItemsActiveTurnId(context));
 }
 
 export function agentRunSummaryNode(summary: AgentRunSummary): UiNode {
@@ -255,6 +256,8 @@ function isReasoningActive(item: ReasoningDisplayItem, context: WorkItemContext)
   const activeTurn = workItemsActiveTurnId(context);
   if (!activeTurn || item.turnId !== activeTurn) return false;
   if (item.executionState === "completed") return false;
-  const latestActiveTurnItem = [...context.displayItems].reverse().find((candidate) => candidate.turnId === activeTurn);
+  const latestActiveTurnItem = [...(context.activeItems ?? context.displayItems)]
+    .reverse()
+    .find((candidate) => candidate.turnId === activeTurn);
   return latestActiveTurnItem?.id === item.id;
 }

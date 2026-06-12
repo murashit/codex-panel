@@ -4,6 +4,8 @@ import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../domain/runtim
 import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../domain/runtime/policy";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ActiveCollaborationMode, CollaborationMode, PendingRuntimeSetting, RequestedServiceTier } from "./pending-settings";
+import type { DisplayItem } from "../display/types";
+import { messageStreamDisplayItems } from "../state/message-stream";
 
 export interface RuntimeSnapshot {
   runtimeConfig: RuntimeConfigSnapshot | null;
@@ -31,7 +33,7 @@ interface RuntimeSnapshotInput {
   activeThread: Pick<ChatState["activeThread"], "id" | "tokenUsage">;
   runtime: ChatState["runtime"];
   rateLimit: ChatState["connection"]["rateLimit"];
-  displayItems: ChatState["messageStream"]["displayItems"];
+  displayItems: readonly DisplayItem[];
   availableModels: ChatState["connection"]["availableModels"];
 }
 
@@ -64,7 +66,7 @@ export function runtimeSnapshotForChatState(state: ChatState): RuntimeSnapshot {
     activeThread: state.activeThread,
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,
-    displayItems: state.messageStream.displayItems,
+    displayItems: messageStreamDisplayItems(state.messageStream),
     availableModels: state.connection.availableModels,
   });
 }

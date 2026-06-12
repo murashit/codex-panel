@@ -1,6 +1,7 @@
 import { inheritedForkThreadName } from "../../../domain/threads/model";
 import { chatTurnBusy } from "../state/reducer";
 import { turnsAfterTurnId } from "../display/item-actions";
+import { messageStreamDisplayItems } from "../state/message-stream";
 import { archiveThreadOnServer } from "./archive-actions";
 import type { ChatThreadActionsHost } from "./action-context";
 import { threadActionState, threadActionStillTargetsOriginalPanel } from "./action-context";
@@ -24,7 +25,7 @@ export async function forkThreadFromTurn(
   if (!client) return;
 
   const initialActiveThreadId = threadActionState(host).activeThread.id;
-  const turnsToDrop = turnId ? turnsAfterTurnId(threadActionState(host).messageStream.displayItems, turnId) : 0;
+  const turnsToDrop = turnId ? turnsAfterTurnId(messageStreamDisplayItems(threadActionState(host).messageStream), turnId) : 0;
   if (turnsToDrop === null) {
     host.addSystemMessage("Could not find the selected turn to fork.");
     return;

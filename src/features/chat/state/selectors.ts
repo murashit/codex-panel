@@ -9,6 +9,7 @@ import type {
 } from "./reducer";
 import type { Thread } from "../../../domain/threads/model";
 import type { DisplayItem } from "../display/types";
+import { messageStreamDisplayItems, messageStreamIsEmpty } from "./message-stream";
 
 export interface SubmissionStateSnapshot {
   activeThreadId: string | null;
@@ -32,7 +33,7 @@ export function listedThreads(state: ChatState): readonly Thread[] {
 }
 
 export function displayItemsEmpty(state: ChatState): boolean {
-  return state.messageStream.displayItems.length === 0;
+  return messageStreamIsEmpty(state.messageStream);
 }
 
 export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapshot {
@@ -41,7 +42,7 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
     activeTurnId: selectActiveTurnId(state),
     busy: chatTurnBusy(state),
     listedThreads: state.threadList.listedThreads,
-    displayItems: state.messageStream.displayItems,
+    displayItems: messageStreamDisplayItems(state.messageStream),
     pendingTurnStart: pendingTurnStart(state),
   };
 }
@@ -54,12 +55,20 @@ export function implementPlanCandidateFromState(state: {
   activeThread: Pick<ChatActiveThreadState, "id">;
   turn: ChatTurnState;
   runtime: Pick<ChatRuntimeState, "selectedCollaborationMode">;
-  messageStream: Pick<ChatMessageStreamState, "displayItems">;
+  messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment"> | Pick<ChatMessageStreamState, "displayItems">;
 }): DisplayItem | null {
   if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
     return null;
   }
   return (
-    [...state.messageStream.displayItems].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null
+    [...selectorDisplayItems(state.messageStream)]
+      .reverse()
+      .find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null
   );
+}
+
+function selectorDisplayItems(
+  messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment"> | Pick<ChatMessageStreamState, "displayItems">,
+): readonly DisplayItem[] {
+  return "stableItems" in messageStream ? messageStreamDisplayItems(messageStream) : messageStream.displayItems;
 }

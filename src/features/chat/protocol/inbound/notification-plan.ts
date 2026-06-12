@@ -12,15 +12,7 @@ import type { ThreadConversationSummary } from "../../../../domain/threads/trans
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
 import { createAutoReviewResultItem, createReviewResultItem } from "../../display/items/review-result";
-import {
-  appendAssistantDelta,
-  appendItemOutput,
-  appendItemText,
-  appendPlanDelta,
-  appendToolOutput,
-  completeReasoningItems,
-  upsertDisplayItem,
-} from "../../state/message-stream-updates";
+import { completeReasoningItems, upsertDisplayItem } from "../../state/message-stream-updates";
 import {
   displayItemFromTurnItem,
   displayItemsFromTurns,
@@ -33,6 +25,7 @@ import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../../display
 import { goalChangeItem } from "../../display/items/goal";
 import { hookRunDisplayItem } from "../../display/items/hook-run";
 import { attachHookRunsToTurn } from "../../state/message-stream-updates";
+import { messageStreamDisplayItems } from "../../state/message-stream";
 import {
   routeServerNotification,
   type DiagnosticStatusNotificationMethod,
@@ -121,21 +114,23 @@ const USER_VISIBLE_NOTICE_PLANNERS = {
 } satisfies ServerNotificationLocalPlannerMap<UserVisibleNoticeNotificationMethod>;
 
 const STREAM_UPDATE_PLANNERS = {
-  "item/agentMessage/delta": (state, notification) => {
-    const { params } = notification;
-    const displayItems = appendAssistantDelta(
-      completeReasoningItems(state.messageStream.displayItems, params.turnId),
-      params.itemId,
-      params.turnId,
-      params.delta,
-    );
-    return actionPlan({ type: "message-stream/items-replaced", items: displayItems });
-  },
-  "item/plan/delta": (state, notification) => {
+  "item/agentMessage/delta": (_state, notification) => {
     const { params } = notification;
     return actionPlan({
-      type: "message-stream/items-replaced",
-      items: appendPlanDelta(state.messageStream.displayItems, params.itemId, params.turnId, params.delta),
+      type: "message-stream/assistant-delta-appended",
+      itemId: params.itemId,
+      turnId: params.turnId,
+      delta: params.delta,
+      completeReasoning: true,
+    });
+  },
+  "item/plan/delta": (_state, notification) => {
+    const { params } = notification;
+    return actionPlan({
+      type: "message-stream/plan-delta-appended",
+      itemId: params.itemId,
+      turnId: params.turnId,
+      delta: params.delta,
     });
   },
   "turn/plan/updated": (_state, notification) =>
@@ -151,53 +146,47 @@ const STREAM_UPDATE_PLANNERS = {
     appendToolTextPlan(state, notification.params.itemId, notification.params.turnId, "reasoning", "", "reasoning"),
   "item/started": (_state, notification) => startedItemPlan(notification.params.item, notification.params.turnId),
   "item/completed": (state, notification) => completedItemPlan(state, notification.params.item, notification.params.turnId),
-  "item/commandExecution/outputDelta": (state, notification) =>
+  "item/commandExecution/outputDelta": (_state, notification) =>
     actionPlan({
-      type: "message-stream/items-replaced",
-      items: appendItemOutput(
-        state.messageStream.displayItems,
-        notification.params.itemId,
-        notification.params.turnId,
-        notification.params.delta,
-        "command",
-        "Command running",
-      ),
+      type: "message-stream/item-output-appended",
+      itemId: notification.params.itemId,
+      turnId: notification.params.turnId,
+      delta: notification.params.delta,
+      kind: "command",
+      fallbackText: "Command running",
     }),
   "item/fileChange/patchUpdated": (_state, notification) =>
     fileChangePlan(notification.params.itemId, notification.params.turnId, notification.params.changes, "inProgress"),
-  "item/fileChange/outputDelta": (state, notification) =>
+  "item/fileChange/outputDelta": (_state, notification) =>
     actionPlan({
-      type: "message-stream/items-replaced",
-      items: appendItemOutput(
-        state.messageStream.displayItems,
-        notification.params.itemId,
-        notification.params.turnId,
-        notification.params.delta,
-        "fileChange",
-        "File change inProgress",
-      ),
+      type: "message-stream/item-output-appended",
+      itemId: notification.params.itemId,
+      turnId: notification.params.turnId,
+      delta: notification.params.delta,
+      kind: "fileChange",
+      fallbackText: "File change inProgress",
     }),
   "turn/diff/updated": (_state, notification) =>
     actionPlan({ type: "message-stream/turn-diff-updated", turnId: notification.params.turnId, diff: notification.params.diff }),
   "hook/started": (state, notification) => hookRunPlan(state, notification.params.run, notification.params.turnId, "running"),
   "hook/completed": (state, notification) =>
     hookRunPlan(state, notification.params.run, notification.params.turnId, notification.params.run.status),
-  "item/mcpToolCall/progress": (state, notification) =>
+  "item/mcpToolCall/progress": (_state, notification) =>
     actionPlan({
-      type: "message-stream/items-replaced",
-      items: appendToolOutput(
-        state.messageStream.displayItems,
-        notification.params.itemId,
-        notification.params.turnId,
-        notification.params.message,
-        "mcp progress",
-      ),
+      type: "message-stream/tool-output-appended",
+      itemId: notification.params.itemId,
+      turnId: notification.params.turnId,
+      delta: notification.params.message,
+      fallbackLabel: "mcp progress",
     }),
   "item/autoApprovalReview/started": autoApprovalReviewPlan,
   "item/autoApprovalReview/completed": autoApprovalReviewPlan,
   guardianWarning: (state, notification, localItemId) => {
     const item = createReviewResultItem(localItemId("review"), notification.params.message);
-    if (isUnstructuredAutoReviewWarning(item) && hasStructuredAutoReviewResult(state.messageStream.displayItems, activeTurnId(state))) {
+    if (
+      isUnstructuredAutoReviewWarning(item) &&
+      hasStructuredAutoReviewResult(messageStreamDisplayItems(state.messageStream), activeTurnId(state))
+    ) {
       return EMPTY_PLAN;
     }
     return actionPlan({ type: "message-stream/item-upserted", item });
@@ -396,7 +385,7 @@ function autoApprovalReviewPlan(
   const reviewItem = createAutoReviewResultItem(notification.params);
   return actionPlan({
     type: "message-stream/items-replaced",
-    items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(state.messageStream.displayItems), reviewItem),
+    items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(messageStreamDisplayItems(state.messageStream)), reviewItem),
   });
 }
 
@@ -410,11 +399,13 @@ function completedItemPlan(state: ChatState, item: TurnItem, turnId: string): Ch
   if (item.type === "userMessage") return EMPTY_PLAN;
   const displayItem = displayItemFromTurnItem(item, turnId);
   if (!displayItem) return EMPTY_PLAN;
-  let displayItems = upsertDisplayItem(state.messageStream.displayItems, displayItem);
-  if (displayItem.kind === "reasoning") {
-    displayItems = completeReasoningItems(displayItems, turnId);
-  }
-  return actionPlan({ type: "message-stream/items-replaced", items: displayItems });
+  return {
+    actions: [
+      { type: "message-stream/item-upserted", item: displayItem },
+      ...(displayItem.kind === "reasoning" ? ([{ type: "message-stream/reasoning-completed", turnId }] satisfies ChatAction[]) : []),
+    ],
+    effects: [],
+  };
 }
 
 function fileChangePlan(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): ChatNotificationPlan {
@@ -434,7 +425,7 @@ function fileChangePlan(itemId: string, turnId: string, changes: FileUpdateChang
 }
 
 function appendToolTextPlan(
-  state: ChatState,
+  _state: ChatState,
   itemId: string,
   turnId: string,
   label: string,
@@ -442,8 +433,12 @@ function appendToolTextPlan(
   kind: Extract<DisplayKind, "tool" | "hook" | "reasoning"> = "tool",
 ): ChatNotificationPlan {
   return actionPlan({
-    type: "message-stream/items-replaced",
-    items: appendItemText(state.messageStream.displayItems, itemId, turnId, label, delta, kind),
+    type: "message-stream/item-text-appended",
+    itemId,
+    turnId,
+    label,
+    delta,
+    kind,
   });
 }
 
@@ -483,22 +478,22 @@ function hookRunTurnId(
 
 function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly DisplayItem[] {
   const pending = pendingTurnStartForState(state);
-  if (!pending) return state.messageStream.displayItems;
-  return attachHookRunsToTurn(state.messageStream.displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
+  const displayItems = messageStreamDisplayItems(state.messageStream);
+  if (!pending) return displayItems;
+  return attachHookRunsToTurn(displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }
 
 function reconciledCompletedTurnItems(state: ChatState, turn: TurnRecord): readonly DisplayItem[] {
   const turnItems = displayItemsFromTurns([turn]);
-  if (turnItems.length === 0) return state.messageStream.displayItems;
+  const displayItems = messageStreamDisplayItems(state.messageStream);
+  if (turnItems.length === 0) return displayItems;
   const serverUserMessages = turnItems.filter(isUserMessage);
   const serverUserClientIds = new Set(serverUserMessages.map((item) => item.clientId).filter(isString));
   const serverUserMessagesByClientId = new Map(
     serverUserMessages.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
   );
   const serverUserFallbackTexts = serverUserClientIds.size > 0 ? new Set<string>() : new Set(serverUserMessages.map((item) => item.text));
-  const stateDisplayItems = state.messageStream.displayItems.map(
-    (item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item,
-  );
+  const stateDisplayItems = displayItems.map((item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item);
   let mergedTurnItems = stateDisplayItems
     .filter((item) => item.turnId === turn.id)
     .filter((item) => !isOptimisticUserMessage(item, serverUserClientIds, serverUserFallbackTexts));

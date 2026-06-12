@@ -6,6 +6,7 @@ import type { CodexPanelSettings } from "../../../settings/model";
 import { generateThreadTitleWithCodex } from "../../thread-title/generation";
 import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE, type ThreadTitleContext } from "../../thread-title/model";
 import type { ChatState, ChatStateStore } from "../state/reducer";
+import { messageStreamDisplayItems } from "../state/message-stream";
 import { renameConnectedThread } from "./rename-actions";
 import { firstThreadTitleContextFromDisplayItems } from "./title-context";
 
@@ -155,7 +156,9 @@ export class RenameController {
     });
     return (
       context ??
-      (this.state.activeThread.id === threadId ? firstThreadTitleContextFromDisplayItems(this.state.messageStream.displayItems) : null)
+      (this.state.activeThread.id === threadId
+        ? firstThreadTitleContextFromDisplayItems(messageStreamDisplayItems(this.state.messageStream))
+        : null)
     );
   }
 

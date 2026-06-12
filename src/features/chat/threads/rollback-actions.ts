@@ -2,6 +2,7 @@ import { rollbackThread as rollbackThreadOnAppServer } from "../../../app-server
 import { rollbackCandidateFromItems } from "../display/item-actions";
 import { displayItemsFromTurns } from "../display/turn-items";
 import { chatTurnBusy } from "../state/reducer";
+import { messageStreamDisplayItems } from "../state/message-stream";
 import type { ChatThreadActionsHost } from "./action-context";
 import { threadActionDispatch, threadActionState, threadActionStillTargetsPanel } from "./action-context";
 import { resumedThreadActionFromActiveRuntime } from "./resume";
@@ -15,7 +16,7 @@ export async function rollbackThread(host: ChatThreadActionsHost, threadId: stri
   const client = host.currentClient();
   if (!client) return;
 
-  const candidate = rollbackCandidateFromItems(threadActionState(host).messageStream.displayItems);
+  const candidate = rollbackCandidateFromItems(messageStreamDisplayItems(threadActionState(host).messageStream));
   if (!candidate) {
     host.addSystemMessage("No completed turn to roll back.");
     return;

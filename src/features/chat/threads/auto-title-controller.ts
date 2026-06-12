@@ -5,6 +5,7 @@ import type { CodexPanelSettings } from "../../../settings/model";
 import { generateThreadTitleWithCodex } from "../../thread-title/generation";
 import { threadTitleContextFromConversationSummary, type ThreadTitleContext } from "../../thread-title/model";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
+import { messageStreamDisplayItems } from "../state/message-stream";
 import { threadTitleContextFromDisplayItems } from "./title-context";
 
 export interface AutoTitleControllerHost {
@@ -45,7 +46,7 @@ export class AutoTitleController {
     if (this.attemptedThreadIds.has(threadId) || this.inFlightThreadIds.has(threadId)) return;
     const context =
       threadTitleContextFromConversationSummary(completedSummary) ??
-      threadTitleContextFromDisplayItems(turnId, this.state.messageStream.displayItems);
+      threadTitleContextFromDisplayItems(turnId, messageStreamDisplayItems(this.state.messageStream));
     if (!context) return;
 
     this.attemptedThreadIds.add(threadId);
