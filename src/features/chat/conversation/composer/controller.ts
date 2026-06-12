@@ -5,7 +5,7 @@ import type { CodexInput } from "../../../../app-server/request-input";
 import { isComposerSendKey, type SendShortcut } from "../../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../../shared/ui/textarea-caret";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
-import type { ComposerMetaViewModel } from "../../panel/view-model/types";
+import type { ComposerMetaViewModel } from "../../panel/view-model/composer";
 import { composerShellNode, syncComposerHeight, type ComposerCallbacks } from "../../ui/composer";
 import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "./boundary-scroll";
 import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./obsidian-context";

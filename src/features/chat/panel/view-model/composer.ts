@@ -4,12 +4,53 @@ import {
   currentReasoningEffort,
   fastModeActive,
   runtimeConfigOrDefault,
+  supportedReasoningEfforts,
 } from "../../runtime/effective-settings";
 import { compactReasoningEffortLabel } from "../../conversation/turns/runtime-overrides";
-import { contextSummary } from "../../runtime/status-summary";
+import { contextSummary } from "../../display/runtime-status";
+import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
+import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../runtime/model";
 import type { ChatState } from "../../state/reducer";
-import type { ComposerContextMeterCellViewModel, ComposerContextMeterViewModel, ComposerMetaViewModel } from "./types";
+
+export interface ComposerMetaViewModel {
+  fatal: string | null;
+  context: ComposerContextMeterViewModel;
+  statusSummary: string;
+  model: string;
+  effort: string | null;
+  planActive: boolean;
+  autoReviewActive: boolean;
+  fastActive: boolean;
+  modelChoices?: RuntimeChoice[];
+  effortChoices?: RuntimeChoice[];
+}
+
+export interface RuntimeChoice {
+  label: string;
+  selected?: boolean;
+  disabled?: boolean;
+  meta?: string;
+  onClick: () => void;
+}
+
+export interface ComposerContextMeterCellViewModel {
+  text: string;
+  placeholder: boolean;
+}
+
+export interface ComposerContextMeterViewModel {
+  cells: ComposerContextMeterCellViewModel[];
+  percent: string;
+}
+
+export interface RuntimeComposerChoicesInput {
+  state: ChatState;
+  snapshot: RuntimeSnapshot;
+  requestModel: (model: string) => void;
+  requestReasoningEffort: (effort: ReasoningEffort) => void;
+  resetReasoningEffortToConfig: () => void;
+}
 
 export function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
@@ -55,6 +96,49 @@ export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapsho
     autoReviewActive: reviewActive,
     fastActive,
   };
+}
+
+export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
+  modelChoices: RuntimeChoice[];
+  effortChoices: RuntimeChoice[];
+} {
+  const config = runtimeConfigOrDefault(input.state.connection.runtimeConfig);
+  const activeModel = currentModel(input.snapshot, config);
+  const models = sortedModelMetadata(input.state.connection.availableModels);
+  const modelChoices: RuntimeChoice[] = models.slice(0, 12).map((model) => ({
+    label: model.model,
+    selected: activeModel === model.model,
+    onClick: () => {
+      input.requestModel(model.model);
+    },
+  }));
+  if (models.length === 0) {
+    modelChoices.push({
+      label: "No model list available.",
+      disabled: true,
+      onClick: () => undefined,
+    });
+  }
+
+  const activeEffort = currentReasoningEffort(input.snapshot, config);
+  const effortChoices: RuntimeChoice[] = [
+    {
+      label: "Codex default",
+      selected: activeEffort === null,
+      onClick: () => {
+        input.resetReasoningEffortToConfig();
+      },
+    },
+    ...supportedReasoningEfforts(input.snapshot, config).map((effort) => ({
+      label: effort,
+      selected: activeEffort === effort,
+      onClick: () => {
+        input.requestReasoningEffort(effort);
+      },
+    })),
+  ];
+
+  return { modelChoices, effortChoices };
 }
 
 function composerStatusSummary(input: {

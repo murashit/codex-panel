@@ -1,4 +1,4 @@
-import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem } from "../display/types";
+import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem, ExecutionState } from "../display/types";
 import type { CodexInput, CodexInputItem } from "../../../app-server/request-input";
 import type { AppServerFileUpdateChange, AppServerThreadItem, AppServerTurn } from "../../../app-server/turn-model";
 import { definedProp, truncate } from "../../../utils";
@@ -7,13 +7,6 @@ import { appServerUserItemText } from "../../../app-server/turn-model";
 import { agentDisplayItem } from "../display/agent";
 import { pathRelativeToRoot } from "../display/paths";
 import { normalizeProposedPlanMarkdown } from "../display/plan";
-import {
-  commandExecutionState,
-  dynamicToolCallExecutionState,
-  imageGenerationExecutionState,
-  mcpToolCallExecutionState,
-  patchApplyExecutionState,
-} from "../display/state";
 import {
   bodyDetail,
   compactToolSummary,
@@ -42,6 +35,28 @@ type ReviewModeItem =
   | Extract<AppServerThreadItem, { type: "exitedReviewMode" }>;
 type ContextCompactionItem = Extract<AppServerThreadItem, { type: "contextCompaction" }>;
 type TextRange = [number, number];
+type DisplayExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
+
+const COMMAND_STATES = {
+  inProgress: "running",
+  completed: "completed",
+  failed: "failed",
+  declined: "failed",
+} as const satisfies ExecutionStateByStatus;
+
+const PATCH_STATES = {
+  inProgress: "running",
+  completed: "completed",
+  failed: "failed",
+  declined: "failed",
+} as const satisfies ExecutionStateByStatus;
+
+const STANDARD_TOOL_STATES = {
+  inProgress: "running",
+  completed: "completed",
+  failed: "failed",
+} as const satisfies ExecutionStateByStatus;
 
 export function displayItemsFromTurns(turns: readonly AppServerTurn[]): DisplayItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
@@ -601,4 +616,39 @@ function pathRelativeToWorkspace(path: string, workspaceRoot?: string | null): s
 
 function assertNever(_item: never): null {
   return null;
+}
+
+export function commandExecutionState(status: string, exitCode?: number): ExecutionState {
+  if (typeof exitCode === "number" && exitCode !== 0) return "failed";
+  const state = executionStateFromStatus(status, COMMAND_STATES);
+  if (state) return state;
+  if (typeof exitCode === "number") return "completed";
+  return null;
+}
+
+export function patchApplyExecutionState(status: string): ExecutionState {
+  return executionStateFromStatus(status, PATCH_STATES);
+}
+
+export function mcpToolCallExecutionState(status: string): ExecutionState {
+  return standardToolCallExecutionState(status);
+}
+
+export function dynamicToolCallExecutionState(status: string, success?: boolean | null): ExecutionState {
+  if (success === false) return "failed";
+  const state = standardToolCallExecutionState(status);
+  if (state) return state;
+  return success === true ? "completed" : null;
+}
+
+export function imageGenerationExecutionState(status: string): ExecutionState {
+  return standardToolCallExecutionState(status);
+}
+
+function standardToolCallExecutionState(status: string): ExecutionState {
+  return executionStateFromStatus(status, STANDARD_TOOL_STATES);
+}
+
+function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
+  return states[status] ?? null;
 }

@@ -1,6 +1,6 @@
 import { jsonPreview } from "../../../utils";
 
-export interface DetailRow {
+interface DetailRow {
   key: string;
   value: string;
 }
@@ -49,7 +49,7 @@ export function permissionRows(permissions: DisplayPermissionProfile): DetailRow
   return rows;
 }
 
-export function addOptional(rows: DetailRow[], key: string, value: unknown): void {
+function addOptional(rows: DetailRow[], key: string, value: unknown): void {
   if (value === null || value === undefined) return;
   if (Array.isArray(value) && value.length === 0) return;
   rows.push({ key, value: stringValue(value) });
@@ -63,10 +63,6 @@ function stringValue(value: unknown, fallback = ""): string {
   }
   if (value === null || value === undefined) return fallback;
   return jsonPreview(value);
-}
-
-export function nonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function fileSystemPathLabel(path: DisplayFileSystemPath): string {

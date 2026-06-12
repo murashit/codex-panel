@@ -1,7 +1,7 @@
 import type { ChatState } from "../../state/reducer";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../message-virtualizer";
-import { messageStreamBlocks } from "./blocks";
-import { createMessageStreamContext, type ChatMessageStreamContextPort } from "./context-builder";
+import { messageStreamBlocks } from "./stream-blocks";
+import { createMessageStreamContext, type ChatMessageStreamContextPort } from "./view-model";
 import type { MessageStreamRenderState } from "./render";
 
 export interface MessageStreamRenderStateOptions {

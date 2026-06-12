@@ -1,10 +1,28 @@
 import type { AgentDisplayItem, AgentRunSummary, AgentRunSummaryAgent, AgentStateDisplay, DisplayItem, ExecutionState } from "./types";
-import { definedProp } from "../../../utils";
-import { agentActivitySummaryLabel, agentMessagePreview } from "./labels";
-import { collabAgentStateExecutionState, collabAgentToolCallExecutionState } from "./state";
+import { definedProp, truncate } from "../../../utils";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
 type AgentRunState = "running" | "completed" | "failed";
+type DisplayExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
+
+const AGENT_STATES = {
+  pendingInit: "running",
+  running: "running",
+  inProgress: "running",
+  completed: "completed",
+  shutdown: "completed",
+  interrupted: "failed",
+  errored: "failed",
+  notFound: "failed",
+  failed: "failed",
+} as const satisfies ExecutionStateByStatus;
+
+const STANDARD_TOOL_STATES = {
+  inProgress: "running",
+  completed: "completed",
+  failed: "failed",
+} as const satisfies ExecutionStateByStatus;
 
 interface DisplayCollabAgentToolCall {
   id: string;
@@ -44,6 +62,24 @@ export function agentDisplayItem(item: DisplayCollabAgentToolCall, turnId?: stri
     agents,
     executionState: collabAgentExecutionState(item.tool, item.status, item.receiverThreadIds, agents),
   };
+}
+
+export function agentActivitySummaryLabel(tool: string): string {
+  if (tool === "spawnAgent") return "Spawn agent";
+  if (tool === "sendInput") return "Send input to agent";
+  if (tool === "resumeAgent") return "Resume agent";
+  if (tool === "wait") return "Wait for agent";
+  if (tool === "closeAgent") return "Close agent";
+  return `Agent ${tool}`;
+}
+
+export function agentActivityMetaLabel(tool: string): string {
+  if (tool === "spawnAgent") return "spawn";
+  if (tool === "sendInput") return "send input";
+  if (tool === "resumeAgent") return "resume";
+  if (tool === "wait") return "wait";
+  if (tool === "closeAgent") return "close";
+  return tool;
 }
 
 export function activeAgentRunSummary(items: readonly DisplayItem[], activeTurnId: string | null): AgentRunSummary | null {
@@ -86,6 +122,24 @@ export function activeAgentRunSummary(items: readonly DisplayItem[], activeTurnI
   return summary;
 }
 
+export function agentRunSummaryLabel(summary: AgentRunSummary): string {
+  const parts: string[] = [];
+  if (summary.failed > 0) parts.push(`${String(summary.failed)} failed`);
+  if (summary.running > 0) parts.push(`${String(summary.running)} running`);
+  if (summary.completed > 0) parts.push(`${String(summary.completed)} done`);
+  return `Agents ${parts.join(", ")}`;
+}
+
+export function agentMessagePreview(message: string | null, maxLength: number): string | null {
+  if (!message) return null;
+  const firstLine = message
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (!firstLine) return null;
+  return truncate(firstLine.replace(/\s+/g, " "), maxLength);
+}
+
 function agentStatesDisplay(states: DisplayCollabAgentToolCall["agentsStates"]): AgentStateDisplay[] {
   return Object.entries(states)
     .map(([threadId, state]) => ({
@@ -111,4 +165,16 @@ function collabAgentExecutionState(tool: string, status: string, receiverThreadI
 
 function agentRunState(status: string): AgentRunState {
   return collabAgentStateExecutionState(status) ?? "running";
+}
+
+export function collabAgentStateExecutionState(status: string): ExecutionState {
+  return executionStateFromStatus(status, AGENT_STATES);
+}
+
+function collabAgentToolCallExecutionState(status: string): ExecutionState {
+  return executionStateFromStatus(status, STANDARD_TOOL_STATES);
+}
+
+function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
+  return states[status] ?? null;
 }

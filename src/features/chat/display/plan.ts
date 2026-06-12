@@ -1,10 +1,29 @@
-import type { DisplayItem } from "./types";
-import { taskStatusMarker, type TaskStepStatus } from "./labels";
-import { taskProgressExecutionState } from "./state";
+import type { DisplayItem, ExecutionState } from "./types";
+
+type DisplayExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
+
+const TASK_STATES = {
+  pending: "running",
+  inProgress: "running",
+  completed: "completed",
+} as const satisfies ExecutionStateByStatus;
+
+export type TaskStepStatus = "pending" | "inProgress" | "completed";
 
 export interface TaskPlanStep {
   step: string;
   status: TaskStepStatus;
+}
+
+export function taskStatusMarker(status: TaskStepStatus): string {
+  if (status === "completed") return "[x]";
+  if (status === "inProgress") return "[>]";
+  return "[ ]";
+}
+
+export function taskProgressExecutionState(status: string): ExecutionState {
+  return executionStateFromStatus(status, TASK_STATES);
 }
 
 export function normalizeProposedPlanMarkdown(text: string): string {
@@ -31,4 +50,8 @@ export function planProgressDisplayItem(turnId: string, explanation: string | nu
     status,
     executionState: taskProgressExecutionState(status),
   };
+}
+
+function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
+  return states[status] ?? null;
 }

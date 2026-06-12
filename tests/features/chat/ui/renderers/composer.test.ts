@@ -9,7 +9,7 @@ import {
   type ComposerCallbacks,
 } from "../../../../../src/features/chat/ui/composer";
 import type { ComposerSuggestion } from "../../../../../src/features/chat/conversation/composer/suggestions";
-import type { ComposerMetaViewModel } from "../../../../../src/features/chat/panel/view-model/types";
+import type { ComposerMetaViewModel } from "../../../../../src/features/chat/panel/view-model/composer";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";

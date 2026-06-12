@@ -110,7 +110,7 @@ const chatPreactDomBridgeFiles = [
   "src/features/chat/ui/goal-banner.tsx",
   "src/features/chat/ui/shell.tsx",
   "src/features/chat/ui/tool-result.tsx",
-  "src/features/chat/ui/turn-diff.tsx",
+  "src/features/chat/turn-diff/render.tsx",
 ];
 const chatImperativeDomBridgeFiles = [...chatExternalDomBridgeFiles, ...chatPreactDomBridgeFiles];
 const nonChatImperativeDomBridgeFiles = [

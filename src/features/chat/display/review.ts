@@ -1,7 +1,17 @@
-import { permissionRows } from "./permission-details";
-import type { DisplayItem } from "./types";
+import { permissionRows } from "./permission-rows";
+import type { DisplayItem, ExecutionState } from "./types";
 import { pathsRelativeToRoot } from "./paths";
-import { autoReviewExecutionState } from "./state";
+
+type DisplayExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
+
+const AUTO_REVIEW_STATES = {
+  inProgress: "running",
+  approved: "completed",
+  denied: "failed",
+  timedOut: "failed",
+  aborted: "failed",
+} as const satisfies ExecutionStateByStatus;
 
 type AutoReviewNotification = AutoReviewStartedNotification | AutoReviewCompletedNotification;
 
@@ -176,4 +186,12 @@ function autoReviewActionLabel(action: AutoReviewAction): string {
   if (action.type === "networkAccess") return `${action.protocol}://${action.host}:${String(action.port)}`;
   if (action.type === "mcpToolCall") return `${action.server}.${action.toolName}`;
   return action.reason ?? "permission request";
+}
+
+export function autoReviewExecutionState(status: string): ExecutionState {
+  return executionStateFromStatus(status, AUTO_REVIEW_STATES);
+}
+
+function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
+  return states[status] ?? null;
 }

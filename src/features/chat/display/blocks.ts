@@ -1,7 +1,6 @@
 import type { DisplayBlock, DisplayItem, DisplayKind } from "./types";
 import { isCompletedTurnOutcomeMessage } from "./turn-outcome-message";
 import { pathRelativeToRoot } from "./paths";
-import { executionState } from "./state";
 
 const STEERING_ACTIVITY_LABEL = "steer";
 const STEERING_ACTIVITY_KIND = "userSteered";
@@ -62,7 +61,7 @@ export function displayBlocksForItems(
 }
 
 function shouldShowDisplayItem(item: DisplayItem): boolean {
-  return item.kind !== "reasoning" || executionState(item) !== "completed" || item.text.trim().length > 0;
+  return item.kind !== "reasoning" || item.executionState !== "completed" || item.text.trim().length > 0;
 }
 
 function isSteeringUserMessage(item: DisplayItem, seenUserMessagesByTurn: Map<string, number>): boolean {

@@ -8,12 +8,8 @@ import {
 } from "../../../src/app-server/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
 import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/view-model/composer";
-import {
-  effortStatusLines,
-  runtimeComposerChoices,
-  modelStatusLines,
-  statusSummaryLines,
-} from "../../../src/features/chat/panel/view-model/runtime";
+import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/display/runtime-status";
+import { runtimeComposerChoices } from "../../../src/features/chat/panel/view-model/composer";
 import { runtimeSnapshotForChatState } from "../../../src/features/chat/runtime/snapshot";
 import {
   activeComposerThreadName,
@@ -24,7 +20,7 @@ import { toolbarViewModel } from "../../../src/features/chat/panel/view-model/to
 import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/domain/threads/model";
-import { chatPanelComposerMetaViewModel, chatPanelGoalProps } from "../../../src/features/chat/ui/region-view-models";
+import { chatPanelComposerMetaViewModel, chatPanelGoalProps } from "../../../src/features/chat/panel/region-view-models";
 import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/ui-ports";
 import type { ThreadGoal } from "../../../src/app-server/thread-goal";
 
@@ -186,7 +182,7 @@ describe("chat view model", () => {
     state.connection.availableModels = [modelFixture("gpt-5.5")];
     const snapshot = runtimeSnapshotFixture(state);
 
-    expect(statusSummaryLines({ activeThreadId: state.activeThread.id, snapshot })[1]).toBe("Thread: thread-1");
+    expect(statusSummaryLines({ activeThreadId: state.activeThread.id, snapshot, nowMs: 0 })[1]).toBe("Thread: thread-1");
     expect(
       modelStatusLines({
         runtimeConfig: state.connection.runtimeConfig,

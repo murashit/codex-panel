@@ -4,7 +4,7 @@ import type { ChatTurnLifecycleState } from "../../state/reducer";
 import type { PendingRequestSnapshot } from "../../state/selectors";
 import type { DisplayItem } from "../../display/types";
 import type { PendingRequestMessageActions } from "../pending-request-message";
-import type { ChatTurnDiffViewState } from "../turn-diff";
+import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 
 export interface MessageStreamBlock {
   key: string;

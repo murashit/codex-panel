@@ -8,11 +8,11 @@ import type { Thread } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { RuntimeSnapshot } from "../runtime/model";
 import type { ChatState, ChatStateStore } from "../state/reducer";
-import type { ChatTurnDiffViewState } from "../ui/turn-diff";
+import type { ChatTurnDiffViewState } from "../turn-diff/model";
 import type { ChatMessageScrollIntentController } from "../panel/message-scroll-intent-controller";
 import type { DisplayDetailSection, DisplayItem } from "../display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
-import type { ComposerMetaViewModel } from "./view-model/types";
+import type { ComposerMetaViewModel } from "./view-model/composer";
 
 export interface ChatControllerCompositionPorts {
   obsidian: ChatPanelObsidianContext;

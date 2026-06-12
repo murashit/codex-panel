@@ -1,18 +1,18 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useState } from "preact/hooks";
 
-import { activeAgentRunSummary } from "../display/agent";
-import { executionState } from "../display/state";
+import { activeAgentRunSummary, agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel } from "../display/agent";
+import { taskStatusMarker } from "../display/plan";
 import type {
   AgentDisplayItem,
   AgentRunSummary,
   AgentRunSummaryAgent,
   ContextCompactionDisplayItem,
   DisplayItem,
+  ExecutionState,
   ReasoningDisplayItem,
   TaskProgressDisplayItem,
 } from "../display/types";
-import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel, taskStatusMarker } from "../display/labels";
 import { activeTurnId, type ChatTurnLifecycleState } from "../state/reducer";
 import { createWorkMessageClassName } from "./work-message";
 import { shortThreadId, truncate } from "../../../utils";
@@ -59,7 +59,7 @@ function AgentRunSummaryItem({ summary }: { summary: AgentRunSummary }): UiNode 
 
 function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): UiNode {
   return (
-    <WorkMessage label="tasks" className="codex-panel__task-progress" state={executionState(item)}>
+    <WorkMessage label="tasks" className="codex-panel__task-progress" state={item.executionState ?? null}>
       {item.explanation ? <div className="codex-panel__tool-summary">{item.explanation}</div> : null}
       {item.steps.length === 0 ? (
         <div className="codex-panel__tool-summary">Plan updated</div>
@@ -93,7 +93,11 @@ function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkIte
     setDetailsOpen(context.openDetails.has(detailsKey));
   }, [context.openDetails, detailsKey]);
   return (
-    <WorkMessage label="agent" className={`codex-panel__agent-activity${detailsOpen ? " is-open" : ""}`} state={executionState(item)}>
+    <WorkMessage
+      label="agent"
+      className={`codex-panel__agent-activity${detailsOpen ? " is-open" : ""}`}
+      state={item.executionState ?? null}
+    >
       <div className="codex-panel__tool-summary codex-panel__agent-activity-summary">{agentSummaryText(item)}</div>
       <details
         className="codex-panel__output codex-panel__agent-details"
@@ -169,7 +173,7 @@ function WorkMessage({
 }: {
   label: string;
   className: string;
-  state: ReturnType<typeof executionState>;
+  state: ExecutionState;
   children: UiNode;
 }): UiNode {
   const classes = [createWorkMessageClassName(className), state ? `codex-panel__execution codex-panel__execution--${state}` : ""]
@@ -240,7 +244,7 @@ function isLongAgentMessage(message: string): boolean {
 function isReasoningActive(item: ReasoningDisplayItem, context: WorkItemContext): boolean {
   const activeTurn = workItemsActiveTurnId(context);
   if (!activeTurn || item.turnId !== activeTurn) return false;
-  if (executionState(item) === "completed") return false;
+  if (item.executionState === "completed") return false;
   const latestActiveTurnItem = [...context.displayItems].reverse().find((candidate) => candidate.turnId === activeTurn);
   return latestActiveTurnItem?.id === item.id;
 }

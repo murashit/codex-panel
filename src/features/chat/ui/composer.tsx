@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
-import type { ComposerMetaViewModel, RuntimeChoice } from "../panel/view-model/types";
+import type { ComposerMetaViewModel, RuntimeChoice } from "../panel/view-model/composer";
 import { IconButton } from "../../../shared/ui/components";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 

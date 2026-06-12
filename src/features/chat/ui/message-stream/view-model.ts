@@ -9,7 +9,7 @@ import {
   isRollbackCandidateItem,
   rollbackCandidateFromItems,
 } from "../../display/action-candidates";
-import type { ChatTurnDiffViewState } from "../turn-diff";
+import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 import type { PendingRequestMessageActions } from "../pending-request-message";
 import type { MessageStreamContext } from "./context";
 

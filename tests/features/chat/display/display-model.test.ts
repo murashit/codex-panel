@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { activeAgentRunSummary } from "../../../../src/features/chat/display/agent";
+import { activeAgentRunSummary, collabAgentStateExecutionState } from "../../../../src/features/chat/display/agent";
 import { displayBlocksForItems } from "../../../../src/features/chat/display/blocks";
 import {
   appendAssistantDelta,
@@ -10,20 +10,20 @@ import {
   appendToolOutput,
   upsertDisplayItem,
 } from "../../../../src/features/chat/display/stream-updates";
-import { normalizeProposedPlanMarkdown, planProgressDisplayItem } from "../../../../src/features/chat/display/plan";
-import { pathRelativeToRoot } from "../../../../src/features/chat/display/paths";
-import { permissionRows } from "../../../../src/features/chat/display/permission-details";
-import { createAutoReviewResultItem, createReviewResultItem } from "../../../../src/features/chat/display/review";
 import {
-  autoReviewExecutionState,
-  collabAgentStateExecutionState,
+  normalizeProposedPlanMarkdown,
+  planProgressDisplayItem,
+  taskProgressExecutionState,
+} from "../../../../src/features/chat/display/plan";
+import { pathRelativeToRoot } from "../../../../src/features/chat/display/paths";
+import { permissionRows } from "../../../../src/features/chat/display/permission-rows";
+import { autoReviewExecutionState, createAutoReviewResultItem, createReviewResultItem } from "../../../../src/features/chat/display/review";
+import {
   commandExecutionState,
   dynamicToolCallExecutionState,
-  executionState,
   mcpToolCallExecutionState,
   patchApplyExecutionState,
-  taskProgressExecutionState,
-} from "../../../../src/features/chat/display/state";
+} from "../../../../src/features/chat/protocol/display-items";
 import { displayItemFromThreadItem, displayItemsFromTurns } from "../../../../src/features/chat/protocol/display-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
@@ -1555,17 +1555,16 @@ describe("execution state uses typed status adapters before rendered text", () =
 
   it("does not infer unknown status strings with broad matching", () => {
     expect(patchApplyExecutionState("done_with_errors")).toBeNull();
-    expect(
-      executionState({
-        id: "c1",
-        kind: "command",
-        role: "tool",
-        text: "Command",
-        command: "npm test",
-        cwd: "/vault",
-        status: "done_with_errors",
-      }),
-    ).toBeNull();
+    const item: DisplayItem = {
+      id: "c1",
+      kind: "command",
+      role: "tool",
+      text: "Command",
+      command: "npm test",
+      cwd: "/vault",
+      status: "done_with_errors",
+    };
+    expect(item.executionState ?? null).toBeNull();
   });
 
   it("does not overwrite streamed output with an empty completed item", () => {

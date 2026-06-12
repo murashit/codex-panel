@@ -1,12 +1,69 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import { runtimeConfigSections, rateLimitSummary } from "../../runtime/status-summary";
+import { runtimeConfigSections, rateLimitSummary } from "../../display/runtime-status";
+import type { RuntimeConfigSection, RateLimitSummary } from "../../display/runtime-status";
 import { connectionDiagnosticSections } from "../../display/diagnostics";
-import type { ConnectionDiagnosticsModelInput, ToolbarThreadRow, ToolbarViewModel, ToolbarViewModelInput } from "./types";
+import type { RuntimeSnapshot } from "../../runtime/model";
+import type { ChatState } from "../../state/reducer";
+
+export interface ToolbarThreadRow {
+  title: string;
+  threadId: string;
+  selected: boolean;
+  disabled: boolean;
+  canArchive: boolean;
+  archiveConfirm?: { active: boolean; defaultSaveMarkdown: boolean };
+  rename: {
+    draft: string;
+    generating: boolean;
+  } | null;
+}
+
+interface ToolbarDiagnosticRow {
+  label: string;
+  value: string;
+  level?: "normal" | "warning" | "error";
+}
+
+export interface ToolbarDiagnosticSection {
+  title: string;
+  rows: ToolbarDiagnosticRow[];
+}
+
+export interface ToolbarViewModel {
+  newChatDisabled: boolean;
+  chatActionsOpen: boolean;
+  historyOpen: boolean;
+  statusPanelOpen: boolean;
+  rateLimit: RateLimitSummary | null;
+  configSections: RuntimeConfigSection[];
+  openPanel: "history" | "chat-actions" | "status" | null;
+  threads: ToolbarThreadRow[];
+  connectLabel: string;
+  diagnostics: ToolbarDiagnosticSection[];
+}
+
+export interface ToolbarViewModelInput {
+  state: ChatState;
+  snapshot: RuntimeSnapshot;
+  connected: boolean;
+  turnBusy: boolean;
+  vaultPath: string;
+  configuredCommand: string;
+  archiveConfirmThreadId: string | null;
+  archiveExportEnabled: boolean;
+  renameState: (threadId: string) => ToolbarThreadRow["rename"];
+}
+
+export interface ConnectionDiagnosticsModelInput {
+  state: ChatState;
+  connected: boolean;
+  configuredCommand: string;
+}
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
-  const limit = rateLimitSummary(snapshot);
+  const limit = rateLimitSummary(snapshot, Date.now());
   const historyOpen = state.ui.toolbarPanel === "history";
   const chatActionsOpen = state.ui.toolbarPanel === "chat-actions";
   const statusPanelOpen = state.ui.toolbarPanel === "status-panel";

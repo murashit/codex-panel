@@ -1,6 +1,11 @@
 import { codexPanelDisplayTitle, explicitThreadName, getThreadTitle } from "../../../../domain/threads/model";
 import type { ChatState } from "../../state/reducer";
-import type { RestoredThreadTitleSnapshot } from "./types";
+
+export interface RestoredThreadTitleSnapshot {
+  threadId: string;
+  title: string | null;
+  explicitName: string | null;
+}
 
 export function chatViewDisplayTitle(state: ChatState, restoredThreadTitle: string | null): string {
   return codexPanelDisplayTitle(state.activeThread.id, state.threadList.listedThreads, restoredThreadTitle);

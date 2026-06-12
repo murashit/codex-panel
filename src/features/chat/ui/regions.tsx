@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { useComputed } from "@preact/signals";
 import { useEffect, useState } from "preact/hooks";
 
-import { chatPanelGoalProps, chatPanelToolbarViewModel } from "./region-view-models";
+import { chatPanelGoalProps, chatPanelToolbarViewModel } from "../panel/region-view-models";
 import { goalBannerNode } from "./goal-banner";
 import { toolbarNode } from "./toolbar";
 import type { ChatPanelGoalPorts, ChatPanelToolbarPorts } from "../panel/ui-ports";

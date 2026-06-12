@@ -16,7 +16,7 @@ import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
   statusSummaryLines as buildStatusSummaryLines,
-} from "./panel/view-model/runtime";
+} from "./display/runtime-status";
 import { runtimeSnapshotForChatState } from "./runtime/snapshot";
 import { activeThreadTitle as buildActiveThreadTitle, chatViewDisplayTitle } from "./panel/view-model/thread-title";
 import { connectionDiagnosticsModel } from "./panel/view-model/toolbar";
@@ -26,7 +26,11 @@ import { ChatMessageScrollIntentController } from "./panel/message-scroll-intent
 import type { ChatControllerCompositionPorts } from "./panel/controller-ports";
 import { createChatViewControllers, type ChatViewControllers } from "./panel/composition";
 import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelStatePort, ChatPanelToolbarPorts } from "./panel/ui-ports";
-import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder, chatPanelPendingRequestsSignature } from "./ui/region-view-models";
+import {
+  chatPanelComposerMetaViewModel,
+  chatPanelComposerPlaceholder,
+  chatPanelPendingRequestsSignature,
+} from "./panel/region-view-models";
 import {
   chatPanelComposerRegionNode,
   chatPanelGoalRegionNode,
@@ -639,6 +643,7 @@ export class CodexChatView extends ItemView {
     return buildStatusSummaryLines({
       activeThreadId: this.state.activeThread.id,
       snapshot: this.runtimeSnapshot(),
+      nowMs: Date.now(),
     });
   }
 

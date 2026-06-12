@@ -1,5 +1,4 @@
 import { pathRelativeToRoot } from "./paths";
-import { executionState } from "./state";
 import { definedProp } from "../../../utils";
 import type {
   ApprovalResultDisplayItem,
@@ -157,7 +156,7 @@ function toolView(
     summary,
     detailsKey,
     details,
-    state: executionState(item),
+    state: item.executionState ?? null,
   };
 }
 

@@ -33,7 +33,7 @@ import {
   requestedTurnCollaborationModeSettings,
   serviceTierRequestForThreadStart,
 } from "../../src/features/chat/runtime/turn-settings";
-import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/runtime/status-summary";
+import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/display/runtime-status";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {
@@ -660,6 +660,7 @@ describe("runtime settings", () => {
             rateLimitReachedType: "rate_limit_reached",
           },
         }),
+        0,
       ),
     ).toMatchObject({
       rows: [{ percent: 95, resetLabel: null }],
@@ -678,6 +679,7 @@ describe("runtime settings", () => {
             rateLimitReachedType: null,
           },
         }),
+        0,
       ),
     ).toMatchObject({
       rows: [

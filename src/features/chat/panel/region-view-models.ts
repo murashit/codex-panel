@@ -2,13 +2,13 @@ import { pendingRequestsSignature as requestStateSignature } from "../pending-re
 import {
   composerMetaViewModel as buildComposerMetaViewModel,
   composerPlaceholder as buildComposerPlaceholder,
-} from "../panel/view-model/composer";
-import { runtimeComposerChoices } from "../panel/view-model/runtime";
-import { activeComposerThreadName as buildActiveComposerThreadName } from "../panel/view-model/thread-title";
-import { toolbarViewModel as buildToolbarViewModel } from "../panel/view-model/toolbar";
-import type { GoalBannerActions, GoalBannerOptions } from "./goal-banner";
-import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelStatePort, ChatPanelToolbarPorts } from "../panel/ui-ports";
-import type { ChatPanelShellState } from "./shell";
+  runtimeComposerChoices,
+} from "./view-model/composer";
+import { activeComposerThreadName as buildActiveComposerThreadName } from "./view-model/thread-title";
+import { toolbarViewModel as buildToolbarViewModel } from "./view-model/toolbar";
+import type { GoalBannerActions, GoalBannerOptions } from "../ui/goal-banner";
+import type { ChatPanelComposerPorts, ChatPanelGoalPorts, ChatPanelStatePort, ChatPanelToolbarPorts } from "./ui-ports";
+import type { ChatPanelShellState } from "../ui/shell";
 
 export function chatPanelToolbarViewModel(ports: ChatPanelToolbarPorts, shellState: ChatPanelShellState) {
   const latestState = shellState.latestState();

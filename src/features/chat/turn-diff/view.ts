@@ -1,15 +1,15 @@
 import { ItemView, type ViewStateResult } from "obsidian";
 
-import { VIEW_TYPE_CODEX_TURN_DIFF } from "../../constants";
-import { copyTextWithNotice } from "../../shared/ui/clipboard";
-import { unmountUiRoot } from "../../shared/ui/ui-root";
+import { VIEW_TYPE_CODEX_TURN_DIFF } from "../../../constants";
+import { copyTextWithNotice } from "../../../shared/ui/clipboard";
+import { unmountUiRoot } from "../../../shared/ui/ui-root";
 import {
   isPersistedChatTurnDiffViewState,
   persistedChatTurnDiffViewState,
-  renderChatTurnDiffView,
   type PersistedChatTurnDiffViewState,
   type ChatTurnDiffViewState,
-} from "./ui/turn-diff";
+} from "./model";
+import { renderChatTurnDiffView } from "./render";
 
 export class CodexChatTurnDiffView extends ItemView {
   private metadata: PersistedChatTurnDiffViewState | null = null;

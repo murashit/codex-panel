@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, type ChatAction } from "../../../../../src/features/chat/state/reducer";
-import { createMessageStreamContextPort } from "../../../../../src/features/chat/ui/message-stream/context-port";
+import { createMessageStreamContextPort } from "../../../../../src/features/chat/ui/message-stream/ports";
 
 describe("message stream context port", () => {
   it("closes other fork action details before opening a fork action detail", () => {

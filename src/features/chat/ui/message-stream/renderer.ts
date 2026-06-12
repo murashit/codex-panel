@@ -5,11 +5,11 @@ import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
 import type { ChatAction, ChatState, ChatStateStore } from "../../state/reducer";
 import type { ComposerBoundaryScrollAction } from "../../conversation/composer/boundary-scroll";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../message-virtualizer";
-import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./context-builder";
-import { createMessageStreamContextPort } from "./context-port";
+import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./view-model";
+import { createMessageStreamContextPort } from "./ports";
 import { MarkdownMessageRenderer } from "./markdown-renderer";
 import { messageStreamBlocksNode, type MessageStreamRenderState } from "./render";
-import { createMessageStreamRenderState } from "./render-state";
+import { createMessageStreamRenderState } from "./render-model";
 
 interface ChatMessageRendererObsidianPort {
   app: App;

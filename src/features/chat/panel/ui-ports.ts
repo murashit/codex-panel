@@ -3,8 +3,8 @@ import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../runtime/model";
 import type { SendShortcut } from "../../../shared/ui/keyboard";
 import type { ToolbarActions } from "../ui/toolbar";
-import type { ToolbarThreadRow } from "./view-model/types";
-import type { RestoredThreadTitleSnapshot } from "./view-model/types";
+import type { RestoredThreadTitleSnapshot } from "./view-model/thread-title";
+import type { ToolbarThreadRow } from "./view-model/toolbar";
 
 interface ChatPanelToolbarState {
   archiveConfirmId: () => string | null;

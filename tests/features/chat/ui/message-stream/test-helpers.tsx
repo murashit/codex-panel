@@ -6,7 +6,7 @@ import type { PendingApproval } from "../../../../../src/features/chat/protocol/
 import type { PendingUserInput } from "../../../../../src/features/chat/protocol/requests/user-input";
 import { pendingRequestMessageNode, type PendingRequestMessageActions } from "../../../../../src/features/chat/ui/pending-request-message";
 import type { ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
-import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/blocks";
+import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
 import { messageStreamBlocksNode } from "../../../../../src/features/chat/ui/message-stream/render";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";

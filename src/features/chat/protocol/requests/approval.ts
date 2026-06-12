@@ -1,4 +1,5 @@
-import { addOptional, nonEmptyString, permissionRows } from "../../display/permission-details";
+import { jsonPreview } from "../../../../utils";
+import { permissionRows } from "../../display/permission-rows";
 import type { RequestId } from "./model";
 
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
@@ -314,4 +315,24 @@ function grantedPermissions(requested: PermissionsApprovalParams["permissions"])
   if (requested.network) granted.network = requested.network;
   if (requested.fileSystem) granted.fileSystem = requested.fileSystem;
   return granted;
+}
+
+function addOptional(rows: { key: string; value: string }[], key: string, value: unknown): void {
+  if (value === null || value === undefined) return;
+  if (Array.isArray(value) && value.length === 0) return;
+  rows.push({ key, value: stringValue(value) });
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+  if (Array.isArray(value) && value.every((item) => typeof item === "string" || typeof item === "number" || typeof item === "boolean")) {
+    return value.join("\n");
+  }
+  if (value === null || value === undefined) return fallback;
+  return jsonPreview(value);
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }

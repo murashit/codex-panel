@@ -1,5 +1,5 @@
 import type { ChatAction, ChatState } from "../../state/reducer";
-import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./context-builder";
+import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./view-model";
 
 export interface MessageStreamContextPortOptions {
   vaultPath: string;

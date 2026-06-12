@@ -1,9 +1,9 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, TargetedKeyboardEvent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import type { RuntimeConfigSection, RateLimitSummary } from "../runtime/status-summary";
+import type { RuntimeConfigSection, RateLimitSummary } from "../display/runtime-status";
 import { IconButton } from "../../../shared/ui/components";
-import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/view-model/types";
+import type { ToolbarDiagnosticSection, ToolbarThreadRow, ToolbarViewModel } from "../panel/view-model/toolbar";
 
 type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;

@@ -1,8 +1,7 @@
 import { type ComponentChild as UiNode, type Ref } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { executionState } from "../../display/state";
-import type { DisplayItem } from "../../display/types";
+import type { DisplayItem, ExecutionState } from "../../display/types";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../message-content-events";
 import type { MessageContentContext, MessageItemContext, RenderableTextItem } from "./context";
 import { MessageRole } from "./message-actions";
@@ -18,7 +17,7 @@ function MessageItem({ item, context }: { item: RenderableTextItem; context: Mes
   const collapsible = isCollapsibleUserMessage(item);
   const details = "details" in item ? item.details : undefined;
   return (
-    <div className={`${messageClass(item)}${executionClassName(executionState(item))}`}>
+    <div className={`${messageClass(item)}${executionClassName(item.executionState ?? null)}`}>
       <MessageRole item={item} context={context} />
       {collapsible ? (
         <CollapsibleMessageContent item={item} context={context} />
@@ -168,7 +167,7 @@ function contentRenderMode(item: RenderableTextItem): "markdown" | "text" {
   return item.messageKind === "proposedPlan" && item.messageState === "streaming" ? "text" : "markdown";
 }
 
-function executionClassName(state: ReturnType<typeof executionState>): string {
+function executionClassName(state: ExecutionState): string {
   return state ? ` codex-panel__execution codex-panel__execution--${state}` : "";
 }
 

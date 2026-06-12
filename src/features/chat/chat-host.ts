@@ -1,7 +1,7 @@
 import type { Thread } from "../../domain/threads/model";
 import type { SharedAppServerMetadata } from "../../app-server/shared-cache-state";
 import type { CodexPanelSettings } from "../../settings/model";
-import type { ChatTurnDiffViewState } from "./ui/turn-diff";
+import type { ChatTurnDiffViewState } from "./turn-diff/model";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;

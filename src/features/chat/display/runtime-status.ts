@@ -3,6 +3,7 @@ import type { RuntimeConfigSnapshot } from "../../../app-server/runtime-config";
 import { jsonPreview } from "../../../utils";
 import { sortedModelMetadata } from "../../../domain/catalog/metadata";
 import { defaultEffortForModelMetadata } from "../../../domain/catalog/metadata";
+import type { ChatState } from "../state/reducer";
 import {
   currentApprovalsReviewer,
   currentApprovalPolicy,
@@ -12,8 +13,9 @@ import {
   fastModeLabel,
   runtimeConfigOrDefault,
   serviceTierLabel,
-} from "./effective-settings";
-import { collaborationModeLabel, pendingRuntimeSettingLabel, type RuntimeSnapshot } from "./model";
+  supportedReasoningEfforts,
+} from "../runtime/effective-settings";
+import { collaborationModeLabel, pendingRuntimeSettingLabel, type RuntimeSnapshot } from "../runtime/model";
 
 export interface ContextSummary {
   label: string;
@@ -41,6 +43,25 @@ interface RateLimitSummaryRow {
 export interface RuntimeConfigSection {
   title: string;
   rows: { key: string; value: string }[];
+}
+
+export interface StatusSummaryLinesInput {
+  activeThreadId: ChatState["activeThread"]["id"];
+  snapshot: RuntimeSnapshot;
+  nowMs: number;
+}
+
+export interface ModelStatusLinesInput {
+  runtimeConfig: ChatState["connection"]["runtimeConfig"];
+  requestedModel: ChatState["runtime"]["requestedModel"];
+  snapshot: RuntimeSnapshot;
+  collaborationModeLabel: string;
+}
+
+export interface EffortStatusLinesInput {
+  runtimeConfig: ChatState["connection"]["runtimeConfig"];
+  requestedReasoningEffort: ChatState["runtime"]["requestedReasoningEffort"];
+  snapshot: RuntimeSnapshot;
 }
 
 const CODEX_DEFAULT_LABEL = "(Codex default)";
@@ -86,7 +107,7 @@ export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null
   };
 }
 
-export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs = Date.now()): RateLimitSummary | null {
+export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs: number): RateLimitSummary | null {
   const rateLimit = snapshot.rateLimit;
   if (!rateLimit) return null;
 
@@ -176,6 +197,38 @@ export function runtimeConfigSections(snapshot: RuntimeSnapshot, vaultPath: stri
   ];
 }
 
+export function statusSummaryLines(input: StatusSummaryLinesInput): string[] {
+  const context = contextSummary(input.snapshot);
+  const limit = rateLimitSummary(input.snapshot, input.nowMs);
+  return [
+    "Thread status",
+    `Thread: ${input.activeThreadId ?? "(none)"}`,
+    context ? context.title : "Context: not available",
+    ...(limit ? usageLimitStatusLines(limit) : ["Usage limits: not available"]),
+  ];
+}
+
+export function modelStatusLines(input: ModelStatusLinesInput): string[] {
+  const config = runtimeConfigOrDefault(input.runtimeConfig);
+  return [
+    `Model: ${currentModel(input.snapshot, config) ?? CODEX_DEFAULT_LABEL}`,
+    `Override: ${pendingRuntimeSettingLabel(input.requestedModel)}`,
+    `Provider: ${stringValue(config.modelProvider, CODEX_DEFAULT_LABEL)}`,
+    `Effort: ${currentReasoningEffort(input.snapshot, config) ?? CODEX_DEFAULT_LABEL}`,
+    `Mode: ${input.collaborationModeLabel}`,
+    `Service tier: ${serviceTierLabel(input.snapshot, config)}`,
+  ];
+}
+
+export function effortStatusLines(input: EffortStatusLinesInput): string[] {
+  const config = runtimeConfigOrDefault(input.runtimeConfig);
+  return [
+    `Effort: ${currentReasoningEffort(input.snapshot, config) ?? CODEX_DEFAULT_LABEL}`,
+    `Override: ${pendingRuntimeSettingLabel(input.requestedReasoningEffort)}`,
+    `Supported: ${supportedReasoningEfforts(input.snapshot, config).join(", ")}`,
+  ];
+}
+
 function contextUsageTokens(usage: ThreadTokenUsage): number {
   return usage.last.inputTokens > 0 ? usage.last.inputTokens : usage.last.totalTokens;
 }
@@ -200,6 +253,10 @@ function activeRuntimeValueLabel(value: string | null): string {
 function activePermissionProfileLabel(profile: RuntimeSnapshot["activePermissionProfile"]): string {
   if (!profile) return NOT_REPORTED_LABEL;
   return profile.extends ? `${profile.id} extends ${profile.extends}` : profile.id;
+}
+
+function usageLimitStatusLines(limit: RateLimitSummary): string[] {
+  return ["Usage limits", ...limit.rows.map((row) => `${row.label}: ${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`)];
 }
 
 function rateLimitWindowSummary(
@@ -262,7 +319,7 @@ function formatRateLimitDuration(minutes: number): string {
 }
 
 function formatRateLimitReset(resetsAt: number): string {
-  return new Date(resetsAt * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(resetsAt * 1000);
 }
 
 function formatRateLimitRemaining(resetsAt: number, nowMs: number): string {

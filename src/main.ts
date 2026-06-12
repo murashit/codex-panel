@@ -4,14 +4,14 @@ import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DI
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
 import { CodexChatView } from "./features/chat/view";
 import type { CodexChatHost } from "./features/chat/chat-host";
-import { CodexChatTurnDiffView } from "./features/chat/chat-turn-diff-view";
+import { CodexChatTurnDiffView } from "./features/chat/turn-diff/view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
 import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";
 import { SharedAppServerCache } from "./app-server/shared-cache";
 import type { SharedAppServerCacheContext } from "./app-server/shared-cache-state";
 import { DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData, type CodexPanelSettings } from "./settings/model";
 import { CodexPanelSettingTab, type CodexPanelSettingTabHost } from "./settings/tab";
-import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/ui/turn-diff";
+import { persistedChatTurnDiffViewState, type ChatTurnDiffViewState } from "./features/chat/turn-diff/model";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 import { ThreadSurfaceCoordinator } from "./workspace/thread-surface-coordinator";
 
