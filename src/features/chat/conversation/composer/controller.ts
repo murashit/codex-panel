@@ -30,6 +30,7 @@ export interface ChatComposerControllerOptions {
   composerPlaceholder: (state: ChatPanelComposerShellState) => string;
   composerMeta: (state: ChatPanelComposerShellState) => ComposerMetaViewModel;
   currentModelForSuggestions: () => string | null;
+  threadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
   togglePlan: () => void;
   toggleAutoReview: () => void;
   toggleFast: () => void;
@@ -37,22 +38,16 @@ export interface ChatComposerControllerOptions {
   onHeightChange: () => void;
 }
 
-export interface ChatComposerActionHandlers {
+export interface ChatComposerRenderActions {
   submit: () => void;
-  threadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
 }
 
 export class ChatComposerController {
   private composer: HTMLTextAreaElement | null = null;
   private noteCandidatesCache: { sourcePath: string; notes: NoteCandidate[] } | null = null;
   private noteEventsRegistered = false;
-  private actionHandlers: ChatComposerActionHandlers | null = null;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
-
-  setActionHandlers(handlers: ChatComposerActionHandlers): void {
-    this.actionHandlers = handlers;
-  }
 
   private get state(): ChatState {
     return this.options.stateStore.getState();
@@ -78,7 +73,7 @@ export class ChatComposerController {
     registerEvent(this.options.app.vault.on("modify", invalidate));
   }
 
-  renderState(state: ChatPanelComposerShellState): ComposerShellProps {
+  renderState(state: ChatPanelComposerShellState, actions: ChatComposerRenderActions): ComposerShellProps {
     return {
       viewId: this.options.viewId,
       draft: state.composer.draft,
@@ -87,7 +82,7 @@ export class ChatComposerController {
       normalPlaceholder: this.options.composerPlaceholder(state),
       suggestions: state.composer.suggestions,
       selectedSuggestionIndex: state.composer.suggestSelected,
-      callbacks: this.composerCallbacks(),
+      callbacks: this.composerCallbacks(actions),
       meta: this.options.composerMeta(state),
       onComposer: this.setComposerElement,
     };
@@ -178,7 +173,7 @@ export class ChatComposerController {
     if (!action) return false;
 
     event.preventDefault();
-    this.currentActionHandlers().threadScrollFromComposer(action);
+    this.options.threadScrollFromComposer(action);
     return true;
   }
 
@@ -300,12 +295,7 @@ export class ChatComposerController {
     return this.noteCandidatesCache.notes;
   }
 
-  private currentActionHandlers(): ChatComposerActionHandlers {
-    if (!this.actionHandlers) throw new Error("ChatComposerController action handlers have not been attached.");
-    return this.actionHandlers;
-  }
-
-  private composerCallbacks(): ComposerCallbacks {
+  private composerCallbacks(actions: ChatComposerRenderActions): ComposerCallbacks {
     return {
       onInput: (value) => {
         this.handleInput(value);
@@ -322,11 +312,11 @@ export class ChatComposerController {
         }
         if (isComposerSendKey(event, this.options.sendShortcut())) {
           event.preventDefault();
-          this.currentActionHandlers().submit();
+          actions.submit();
         }
       },
       onSendOrInterrupt: () => {
-        this.currentActionHandlers().submit();
+        actions.submit();
       },
       onHeightChange: () => {
         this.options.onHeightChange();

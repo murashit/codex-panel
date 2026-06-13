@@ -330,7 +330,7 @@ function shellProps(store: ReturnType<typeof createChatStateStore>) {
 interface TestShellParts {
   parts: ChatPanelShellParts;
   composerRenderState: ReturnType<
-    typeof vi.fn<(state: ChatPanelComposerShellState) => ReturnType<ChatPanelShellParts["composer"]["renderState"]>>
+    typeof vi.fn<(state: ChatPanelComposerShellState) => ReturnType<ChatPanelShellParts["composer"]["controller"]["renderState"]>>
   >;
   messageStreamRenderState: ReturnType<
     typeof vi.fn<(state: ChatPanelMessageStreamShellState) => ReturnType<ChatPanelShellParts["messageStream"]["renderState"]>>
@@ -401,7 +401,12 @@ function trackedShellParts(): TestShellParts {
         renderState: messageStreamRenderState,
       },
       composer: {
-        renderState: composerRenderState,
+        controller: {
+          renderState: composerRenderState,
+        },
+        actions: {
+          submit: vi.fn(),
+        },
       },
     },
     composerRenderState,

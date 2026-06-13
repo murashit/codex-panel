@@ -30,7 +30,11 @@ import { runtimeSnapshotForShellState } from "./runtime-snapshot";
 type ComposerMetaState = Pick<ChatState, "connection" | "runtime">;
 
 export interface ChatPanelComposerController {
-  renderState(state: ChatPanelComposerShellState): ComposerShellProps;
+  renderState(state: ChatPanelComposerShellState, actions: ChatPanelComposerActions): ComposerShellProps;
+}
+
+export interface ChatPanelComposerActions {
+  submit: () => void;
 }
 
 export interface RuntimeComposerChoicesInput {
@@ -45,9 +49,15 @@ export function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
 }
 
-export function ChatPanelComposer({ controller }: { controller: ChatPanelComposerController }): UiNode {
+export function ChatPanelComposer({
+  controller,
+  actions,
+}: {
+  controller: ChatPanelComposerController;
+  actions: ChatPanelComposerActions;
+}): UiNode {
   const state = composerStateFromShellState(useChatPanelShellState());
-  return h(ComposerShell, controller.renderState(state));
+  return h(ComposerShell, controller.renderState(state, actions));
 }
 
 export function chatPanelComposerPlaceholder(surface: ChatPanelComposerSurface, state: ChatPanelComposerShellState): string {

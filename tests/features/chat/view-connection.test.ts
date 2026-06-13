@@ -39,15 +39,16 @@ vi.mock("../../../src/app-server/connection/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {
-    private handlers: { onNotification: (notification: ServerNotification) => void; onExit: () => void } | null = null;
-
-    setHandlers(handlers: {
-      onNotification: (notification: ServerNotification) => void;
-      onServerRequest: (request: unknown) => void;
-      onLog: (message: string) => void;
-      onExit: () => void;
-    }): void {
-      this.handlers = handlers;
+    constructor(
+      _codexPath: () => string,
+      _cwd: string,
+      private readonly handlers: {
+        onNotification: (notification: ServerNotification) => void;
+        onServerRequest: (request: unknown) => void;
+        onLog: (message: string) => void;
+        onExit: () => void;
+      },
+    ) {
       connectionMock.state.onNotification = handlers.onNotification;
       connectionMock.state.onExit = handlers.onExit;
     }
@@ -81,7 +82,7 @@ vi.mock("../../../src/app-server/connection/connection-manager", () => {
 
     exit(): void {
       connectionMock.state.connected = false;
-      this.handlers?.onExit();
+      this.handlers.onExit();
     }
   }
 

@@ -1,30 +1,24 @@
 import type { App, Component } from "obsidian";
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatServerThreadActions } from "../connection/server-actions/threads";
-import { ChatComposerController } from "./composer/controller";
-import { activeTurnId, type ChatStateStore } from "../state/reducer";
+import { type ChatStateStore } from "../state/reducer";
 import type { ChatReconnectActions } from "../connection/reconnect-actions";
 import { PendingRequestController } from "./pending-requests/controller";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import { createComposerSubmitActions } from "./turns/composer-submit-actions";
-import { createPlanImplementation } from "./turns/plan-implementation";
-import { createSlashCommandHandler } from "./turns/slash-command-handler";
-import { TurnSubmissionController } from "./turns/turn-submission-controller";
 import type { ChatThreadActions } from "../threads/action-context";
 import type { GoalActions } from "../threads/goal-actions";
 import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
-import { currentModel, runtimeConfigOrDefault } from "../runtime/effective";
-import { runtimeSnapshotForChatState } from "../runtime/snapshot";
-import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
-import { MessageStreamScrollBridge } from "../panel/surface/message-stream-scroll";
 import type { DisplayDetailSection } from "../display/types";
 import type { ChatMessageScrollIntentState } from "../ui/message-stream/scroll-intent-state";
 import type { ComposerMetaViewModel } from "../ui/composer";
 import type { ChatPanelComposerShellState } from "../ui/shell-state";
 import type { CodexChatHost } from "../chat-host";
+import { createConversationComposer } from "./composer/composition";
+import { createConversationMessageStreamPresenter } from "./message-stream/composition";
+import { createConversationTurnActions } from "./turns/composition";
 
-interface ConversationControllersContext {
+interface ConversationPartsContext {
   obsidian: {
     app: App;
     owner: Component;
@@ -74,8 +68,8 @@ interface ConversationControllersContext {
   };
 }
 
-export function createConversationControllers(
-  context: ConversationControllersContext,
+export function createConversationParts(
+  context: ConversationPartsContext,
   refs: {
     controller: ChatInboundController;
     serverThreads: ChatServerThreadActions;
@@ -90,41 +84,27 @@ export function createConversationControllers(
   const { app, owner, viewId } = context.obsidian;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
-  const { messageScrollIntent } = lifecycle;
-  const messageStreamScrollBridge = new MessageStreamScrollBridge();
 
-  const composerController = new ChatComposerController({
-    app,
-    stateStore,
-    viewId,
-    sendShortcut: () => plugin.settings.sendShortcut,
-    scrollThreadFromComposerEdges: () => plugin.settings.scrollThreadFromComposerEdges,
-    canInterrupt: (state) => {
-      return state.turn.lifecycle.kind !== "idle" && Boolean(state.activeThread.id && activeTurnId(state));
+  const composer = createConversationComposer(
+    {
+      app,
+      plugin,
+      stateStore,
+      viewId,
+      surface: {
+        composerPlaceholder: surface.composerPlaceholder,
+        composerMetaViewModel: surface.composerMetaViewModel,
+      },
+      liveState: {
+        refresh: liveState.refresh,
+      },
     },
-    composerPlaceholder: surface.composerPlaceholder,
-    composerMeta: surface.composerMetaViewModel,
-    currentModelForSuggestions: () => {
-      const current = stateStore.getState();
-      return currentModel(runtimeSnapshotForChatState(current), runtimeConfigOrDefault(current.connection.runtimeConfig));
+    {
+      runtimeSettings: refs.runtimeSettings,
     },
-    togglePlan: () => void refs.runtimeSettings.toggleCollaborationMode(),
-    toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
-    toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
-    onDraftChange: liveState.refresh,
-    onHeightChange: () => {
-      messageStreamScrollBridge.repinMessageStreamToBottomIfPinned();
-    },
-  });
-  const codexInput = (text: string) => composerController.codexInput(text);
-  const setComposerDraft = (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => {
-    composerController.setDraft(text, options);
-  };
-  const startThread = (preview?: string) => refs.serverThreads.startThread(preview);
-  const startThreadForGoal = async (objective: string) => {
-    const response = await refs.serverThreads.startThread(objective, { syncGoal: false });
-    return response?.threadId ?? null;
-  };
+  );
+  const composerController = composer.controller;
+  const messageStreamScrollBridge = composer.scrollBridge;
 
   const pendingRequests = new PendingRequestController({
     stateStore,
@@ -133,125 +113,63 @@ export function createConversationControllers(
     refreshLiveState: liveState.refresh,
   });
 
-  const turnSubmission = new TurnSubmissionController({
-    stateStore,
-    vaultPath: plugin.vaultPath,
-    currentClient,
-    ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
-    startThread,
-    notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
-    resetThreadTurnPresence: thread.resetTurnPresence,
-    applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
-    codexInput,
-    setDraft: setComposerDraft,
-    setStatus: status.set,
-    addSystemMessage: status.addSystemMessage,
-  });
-  const slashCommands = createSlashCommandHandler({
-    stateStore,
-    currentClient,
-    codexInput,
-    startNewThread: thread.startNewThread,
-    startThreadForGoal,
-    resumeThread: thread.selectThread,
-    forkThread: (threadId) => refs.threadActions.forkThread(threadId),
-    rollbackThread: (threadId) => refs.threadActions.rollbackThread(threadId),
-    compactThread: (threadId) => refs.threadActions.compactThread(threadId),
-    archiveThread: (threadId) => refs.threadActions.archiveThread(threadId),
-    renameThread: (threadId, name) => refs.threadActions.renameThread(threadId, name).then(() => undefined),
-    reconnect: () => refs.reconnectActions.reconnectPanel(),
-    toggleFastMode: () => refs.runtimeSettings.toggleFastMode(),
-    toggleCollaborationMode: () => refs.runtimeSettings.toggleCollaborationMode(),
-    toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
-    requestModel: (model) => refs.runtimeSettings.requestModel(model),
-    resetModelToConfig: () => refs.runtimeSettings.resetModelToConfig(),
-    requestReasoningEffort: (effort) => refs.runtimeSettings.requestReasoningEffort(effort),
-    resetReasoningEffortToConfig: () => refs.runtimeSettings.resetReasoningEffortToConfig(),
-    activeGoal: () => refs.goals.activeGoal(),
-    setGoalObjective: (threadId, objective, tokenBudget) => refs.goals.setObjective(threadId, objective, tokenBudget),
-    setGoalStatus: (threadId, goalStatus) => refs.goals.setStatus(threadId, goalStatus),
-    clearGoal: (threadId) => refs.goals.clear(threadId),
-    addSystemMessage: status.addSystemMessage,
-    addStructuredSystemMessage: status.addStructuredSystemMessage,
-    setStatus: status.set,
-    statusSummaryLines: runtime.statusSummaryLines,
-    connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,
-    mcpStatusLines: runtime.mcpStatusLines,
-    modelStatusLines: runtime.modelStatusLines,
-    effortStatusLines: runtime.effortStatusLines,
-  });
-  const planImplementation = createPlanImplementation({
-    stateStore,
-    currentClient,
-    ensureConnected: client.ensureConnected,
-    sendTurnText: (text) => turnSubmission.sendTurnText(text),
-    requestDefaultCollaborationModeForNextTurn: () => {
-      refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
-    },
-  });
-
-  const messageStreamPresenter = new MessageStreamPresenter({
-    obsidian: {
-      app,
-      owner,
-    },
-    state: {
-      store: stateStore,
-    },
-    workspace: {
+  const turnActions = createConversationTurnActions(
+    {
       vaultPath: plugin.vaultPath,
-    },
-    scroll: {
-      consumeIntent: () => messageScrollIntent.consumeIntent(),
-      registerVirtualizer: messageStreamScrollBridge.registerVirtualizer,
-      dispose: () => {
-        messageStreamScrollBridge.dispose();
+      stateStore,
+      client: {
+        currentClient,
+        ensureConnected: client.ensureConnected,
+      },
+      status,
+      runtime,
+      thread,
+      composer: {
+        codexInput: composer.codexInput,
+        trimmedDraft: () => composerController.trimmedDraft,
+        setDraft: composer.setDraft,
+      },
+      scroll: {
+        followBottom: scroll.followBottom,
       },
     },
-    history: {
-      loadOlderTurns: () => void refs.history.loadOlder(),
+    {
+      serverThreads: refs.serverThreads,
+      runtimeSettings: refs.runtimeSettings,
+      threadActions: refs.threadActions,
+      reconnectActions: refs.reconnectActions,
+      goals: refs.goals,
     },
-    actions: {
-      rollbackThread: (threadId) => void refs.threadActions.rollbackThread(threadId),
-      forkThreadFromTurn: (threadId, turnId, archiveSource) => void refs.threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
-      implementPlan: (item) => void planImplementation.implement(item),
-      openTurnDiff: (state) => void plugin.openTurnDiff(state),
+  );
+
+  const messageStreamPresenter = createConversationMessageStreamPresenter(
+    {
+      obsidian: {
+        app,
+        owner,
+      },
+      plugin,
+      stateStore,
+      lifecycle,
+      scroll: {
+        bridge: messageStreamScrollBridge,
+      },
+      surface: {
+        pendingRequestsSignature: surface.pendingRequestsSignature,
+      },
     },
-    requests: {
-      pendingSignature: surface.pendingRequestsSignature,
-      pendingSnapshot: () => pendingRequests.snapshot(),
-      pendingActions: () => pendingRequests.actions(),
-      consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
+    {
+      history: refs.history,
+      threadActions: refs.threadActions,
+      pendingRequests,
+      planImplementation: turnActions.planImplementation,
     },
-  });
-  const composerSubmit = createComposerSubmitActions({
-    stateStore,
-    composer: composerController,
-    slashCommands,
-    turnSubmission,
-    connection: {
-      currentClient,
-      ensureConnected: client.ensureConnected,
-    },
-    status: {
-      setStatus: status.set,
-      addSystemMessage: status.addSystemMessage,
-    },
-    scroll: {
-      followBottom: scroll.followBottom,
-    },
-  });
-  composerController.setActionHandlers({
-    submit: () => void composerSubmit.submit(),
-    threadScrollFromComposer: (action) => {
-      messageStreamScrollBridge.scrollFromComposer(action);
-    },
-  });
+  );
 
   return {
     pendingRequests,
     messageStreamPresenter,
     composerController,
-    composerSubmit,
+    composerSubmit: turnActions.composerSubmit,
   };
 }

@@ -16,7 +16,7 @@ import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions }
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "./connection/server-actions/metadata";
 import { createChatServerThreadActions, type ChatServerThreadActions } from "./connection/server-actions/threads";
 import type { ChatComposerController } from "./conversation/composer/controller";
-import { createConversationControllers } from "./conversation/composition";
+import { createConversationParts } from "./conversation/composition";
 import type { PendingRequestController } from "./conversation/pending-requests/controller";
 import type { ComposerSubmitActions } from "./conversation/turns/composer-submit-actions";
 import { createStructuredSystemItem, createSystemItem } from "./display/items/system";
@@ -63,7 +63,7 @@ import type { RenameController } from "./threads/rename-controller";
 import type { RestorationController } from "./threads/restoration-controller";
 import type { ResumeController } from "./threads/resume-controller";
 import type { SelectionActions } from "./threads/selection-actions";
-import { createThreadSelectionActions, createThreadServices } from "./threads/services";
+import { createThreadParts, createThreadSelectionActions } from "./threads/composition";
 import type { MessageStreamPresenter } from "./panel/surface/message-stream-presenter";
 import { pendingRequestsSignature } from "./conversation/pending-requests/signatures";
 import { createChatPanelSurface } from "./panel/surface/create-surface";
@@ -292,16 +292,29 @@ export class ChatPanelSession {
   }
 
   private createSessionParts(): ChatPanelSessionParts {
-    const connection = new ConnectionManager(() => this.environment.plugin.settings.codexPath, this.environment.plugin.vaultPath);
+    const connection = new ConnectionManager(() => this.environment.plugin.settings.codexPath, this.environment.plugin.vaultPath, {
+      onNotification: (notification) => {
+        this.parts.inbound.controller.handleNotification(notification);
+        this.refreshLiveState();
+      },
+      onServerRequest: (request) => {
+        this.parts.inbound.controller.handleServerRequest(request);
+        this.refreshLiveState();
+      },
+      onLog: (message) => {
+        this.parts.inbound.controller.handleAppServerLog(message);
+      },
+      onExit: () => {
+        this.parts.connection.controller.handleExit();
+      },
+    });
     const sideEffects = this.createSideEffects();
-    let connectionController: ChatConnectionController | null = null;
-    let selection: SelectionActions | null = null;
     const currentClient = () => this.client;
-    const ensureConnected = () => requireSessionPart(connectionController, "connection controller").ensureConnected();
-    const refreshThreads = () => requireSessionPart(connectionController, "connection controller").refreshThreads();
-    const refreshSkills = (forceReload?: boolean) =>
-      requireSessionPart(connectionController, "connection controller").refreshSkills(forceReload);
-    const selectThread = (threadId: string) => requireSessionPart(selection, "selection actions").selectThread(threadId);
+    const ensureConnected = () => this.parts.connection.controller.ensureConnected();
+    const refreshThreads = () => this.parts.connection.controller.refreshThreads();
+    const refreshSkills = (forceReload?: boolean) => this.parts.connection.controller.refreshSkills(forceReload);
+    const selectThread = (threadId: string) => this.parts.thread.selection.selectThread(threadId);
+    const resumeRestoredThread = (threadId: string) => this.parts.thread.resume.resumeThread(threadId);
 
     const runtimeSettings = createChatRuntimeSettingsActions({
       stateStore: this.stateStore,
@@ -310,7 +323,7 @@ export class ChatPanelSession {
       collaborationModeLabel: () => this.collaborationModeLabel(),
       addSystemMessage: sideEffects.status.addSystemMessage,
     });
-    const threadControllers = createThreadServices(
+    const threadParts = createThreadParts(
       {
         obsidian: {
           archiveAdapter: this.environment.obsidian.archiveAdapter,
@@ -332,6 +345,7 @@ export class ChatPanelSession {
         status: sideEffects.status,
         thread: {
           selectThread,
+          resumeRestoredThread,
           refreshThreads,
           notifyIdentityChanged: () => {
             this.notifyActiveThreadIdentityChanged();
@@ -359,12 +373,12 @@ export class ChatPanelSession {
         connection,
       },
     );
-    const { history, actions: threadActions, goals, identity, restoration, resume, rename, autoTitle } = threadControllers;
+    const { history, actions: threadActions, goals, identity, restoration, resume, rename, autoTitle } = threadParts;
     const toolbarPanels = createToolbarPanelActions({
       stateStore: this.stateStore,
       threadActions,
     });
-    selection = createThreadSelectionActions(
+    const selection = createThreadSelectionActions(
       {
         plugin: this.environment.plugin,
         state: {
@@ -380,7 +394,7 @@ export class ChatPanelSession {
           toolbarPanels.closeForThreadSelection();
         },
       },
-    ).selection;
+    );
 
     const reconnectActions = createChatReconnectActions({
       stateStore: this.stateStore,
@@ -458,7 +472,7 @@ export class ChatPanelSession {
       respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
       rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
     });
-    connectionController = new ChatConnectionController({
+    const connectionController = new ChatConnectionController({
       stateStore: this.stateStore,
       connection,
       connectionWork: this.connectionWork,
@@ -504,23 +518,6 @@ export class ChatPanelSession {
       },
     });
 
-    connection.setHandlers({
-      onNotification: (notification) => {
-        inboundController.handleNotification(notification);
-        this.refreshLiveState();
-      },
-      onServerRequest: (request) => {
-        inboundController.handleServerRequest(request);
-        this.refreshLiveState();
-      },
-      onLog: (message) => {
-        inboundController.handleAppServerLog(message);
-      },
-      onExit: () => {
-        requireSessionPart(connectionController, "connection controller").handleExit();
-      },
-    });
-
     const surface = createChatPanelSurface(
       {
         settings: this.environment.plugin.settings,
@@ -543,7 +540,7 @@ export class ChatPanelSession {
         goals,
       },
     );
-    const conversationControllers = createConversationControllers(
+    const conversationParts = createConversationParts(
       {
         obsidian: {
           app: this.environment.obsidian.app,
@@ -614,8 +611,8 @@ export class ChatPanelSession {
         history,
       },
     );
-    const { pendingRequests, composerSubmit, messageStreamPresenter } = conversationControllers;
-    const composerController = conversationControllers.composerController;
+    const { pendingRequests, composerSubmit, messageStreamPresenter } = conversationParts;
+    const composerController = conversationParts.composerController;
 
     return {
       connection: {
@@ -770,7 +767,12 @@ export class ChatPanelSession {
         toolbar: this.parts.surface.toolbar,
         goal: this.parts.surface.goal,
         messageStream: this.parts.render.messageStreamPresenter,
-        composer: this.parts.composer.controller,
+        composer: {
+          controller: this.parts.composer.controller,
+          actions: {
+            submit: () => void this.parts.composer.submission.submit(),
+          },
+        },
       },
     });
   }
@@ -894,9 +896,4 @@ export class ChatPanelSession {
   private structuredSystemItem(text: string, details: DisplayDetailSection[]): DisplayItem {
     return createStructuredSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text, details);
   }
-}
-
-function requireSessionPart<T>(part: T | null, name: string): T {
-  if (!part) throw new Error(`Chat panel session did not initialize ${name}.`);
-  return part;
 }

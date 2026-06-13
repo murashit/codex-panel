@@ -4,7 +4,7 @@ import type { App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 
-import { ChatComposerController } from "../../../../../src/features/chat/conversation/composer/controller";
+import { ChatComposerController, type ChatComposerRenderActions } from "../../../../../src/features/chat/conversation/composer/controller";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
 import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
@@ -13,8 +13,13 @@ import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
 
-function renderComposerController(parent: HTMLElement, controller: ChatComposerController, stateStore: ChatStateStore): void {
-  renderUiRoot(parent, h(ComposerShell, controller.renderState(stateStore.getState())));
+function renderComposerController(
+  parent: HTMLElement,
+  controller: ChatComposerController,
+  stateStore: ChatStateStore,
+  actions: ChatComposerRenderActions = { submit: vi.fn() },
+): void {
+  renderUiRoot(parent, h(ComposerShell, controller.renderState(stateStore.getState(), actions)));
 }
 
 describe("ChatComposerController", () => {
@@ -32,6 +37,7 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
       composerPlaceholder: (_state) => "Ask Codex to work on this task...",
       composerMeta: (_state) => ({
@@ -87,6 +93,7 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
       composerPlaceholder: (_state) => "Ask Codex to work on this task...",
       composerMeta: (_state) => ({
@@ -149,6 +156,7 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
       composerPlaceholder: (_state) => "Ask Codex to work on this task...",
       composerMeta: (_state) => ({
@@ -204,6 +212,7 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
       composerPlaceholder: (_state) => "Ask Codex to work on this task...",
       composerMeta: (_state) => ({
@@ -241,7 +250,7 @@ describe("ChatComposerController", () => {
     expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.classList.contains("is-active")).toBe(false);
   });
 
-  it("delegates submit events through attached action handlers", () => {
+  it("delegates submit events through render actions", () => {
     const stateStore = createChatStateStore();
     stateStore.dispatch({ type: "composer/draft-set", draft: "hello" });
     const parent = document.createElement("div");
@@ -252,6 +261,7 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
       composerPlaceholder: (_state) => "Ask Codex to work on this task...",
       composerMeta: (_state) => ({
@@ -279,12 +289,8 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    controller.setActionHandlers({
-      submit,
-      threadScrollFromComposer: vi.fn(),
-    });
 
-    renderComposerController(parent, controller, stateStore);
+    renderComposerController(parent, controller, stateStore, { submit });
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
 
     expect(submit).toHaveBeenCalledOnce();
@@ -300,6 +306,7 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
       composerPlaceholder: (_state) => "Ask Codex to work on this task...",
       composerMeta: (_state) => ({
