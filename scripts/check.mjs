@@ -8,6 +8,7 @@ const checks = [
   { local: "lint:ts", ci: "lint:ts:ci", localPhase: "parallel" },
   { local: "lint:css", ci: "lint:css", localPhase: "parallel" },
   { local: "lint:css:usage:check", ci: null, localPhase: "parallel" },
+  { local: "lint:deps", ci: "lint:deps", localPhase: "parallel" },
   { local: "format:check", ci: "format:check:ci", localPhase: "parallel" },
   { local: "build:styles:check", ci: "build:styles:check", localPhase: "parallel" },
   { local: "unused", ci: "unused", localPhase: "parallel" },

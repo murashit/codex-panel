@@ -16,6 +16,7 @@ describe("development scripts", () => {
         "test:ci": 'node -e "process.exit(0)"',
         "lint:ts:ci": 'node -e "process.exit(0)"',
         "lint:css": 'node -e "process.exit(0)"',
+        "lint:deps": 'node -e "process.exit(0)"',
         "format:check:ci": 'node -e "process.exit(0)"',
         build: 'node -e "process.exit(0)"',
       },
@@ -156,6 +157,34 @@ describe("development scripts", () => {
     await expect(readFile(sourcePath, "utf8")).resolves.toBe(source);
   });
 
+  it("detects runtime import cycles", async () => {
+    const cwd = await tempWorkspace();
+    await writeImportCycleFixture(cwd, {
+      "src/a.ts": 'import { b } from "./b";\nexport const a = b;\n',
+      "src/b.ts": 'import { a } from "./a";\nexport const b = a;\n',
+    });
+
+    const result = runNodeScript("scripts/check-import-cycles.mjs", [], cwd);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("found 1 cycle");
+    expect(result.stderr).toContain("src/a.ts -> src/b.ts -> src/a.ts");
+  });
+
+  it("detects type-only import cycles", async () => {
+    const cwd = await tempWorkspace();
+    await writeImportCycleFixture(cwd, {
+      "src/a.ts": 'import type { B } from "./b";\nexport interface A { b?: B }\n',
+      "src/b.ts": 'import type { A } from "./a";\nexport interface B { a?: A }\n',
+    });
+
+    const result = runNodeScript("scripts/check-import-cycles.mjs", [], cwd);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("found 1 cycle");
+    expect(result.stderr).toContain("src/a.ts -> src/b.ts -> src/a.ts");
+  });
+
   it("fails release prepare before changing version files when release notes already exist", async () => {
     const cwd = await tempWorkspace();
     await mkdir(path.join(cwd, ".github", "release-notes"), { recursive: true });
@@ -184,6 +213,24 @@ describe("development scripts", () => {
 
 async function tempWorkspace(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), "codex-panel-scripts-"));
+}
+
+async function writeImportCycleFixture(cwd: string, files: Record<string, string>): Promise<void> {
+  await writeJson(path.join(cwd, "tsconfig.json"), {
+    compilerOptions: {
+      target: "ES2022",
+      module: "ESNext",
+      moduleResolution: "Bundler",
+      verbatimModuleSyntax: true,
+      strict: true,
+    },
+    include: ["src/**/*.ts"],
+  });
+
+  for (const [file, source] of Object.entries(files)) {
+    await mkdir(path.dirname(path.join(cwd, file)), { recursive: true });
+    await writeFile(path.join(cwd, file), source);
+  }
 }
 
 function runNodeScript(script: string, args: string[] = [], cwd = repoRoot, env: NodeJS.ProcessEnv = {}) {
