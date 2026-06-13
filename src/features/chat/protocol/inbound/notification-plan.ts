@@ -8,22 +8,24 @@ import {
   type TurnRecord,
 } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
+import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
 import { createAutoReviewResultItem, createReviewResultItem } from "../../display/items/review-result";
 import { completeReasoningItems, upsertDisplayItem } from "../../state/message-stream-updates";
-import {
-  displayItemFromTurnItem,
-  displayItemsFromTurns,
-  normalizeFileChanges,
-  shouldSuppressLifecycleItem,
-} from "../../display/turn-items";
+import { displayItemFromTurnItem, displayItemsFromTurns, shouldSuppressLifecycleItem } from "../../display/turn-items";
 import { taskProgressDisplayItem } from "../../display/items/task-progress";
 import { createSystemItem } from "../../display/items/system";
 import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../../display/types";
 import { goalChangeItem } from "../../display/items/goal";
 import { hookRunDisplayItem } from "../../display/items/hook-run";
+import {
+  STREAMED_COMMAND_RUNNING_TEXT,
+  STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
+  STREAMED_MCP_PROGRESS_LABEL,
+  streamingFileChangeDisplayItem,
+} from "../../display/items/streaming";
 import { attachHookRunsToTurn } from "../../state/message-stream-updates";
 import { messageStreamDisplayItems } from "../../state/message-stream";
 import {
@@ -58,6 +60,7 @@ export interface ChatNotificationPlan {
 export type LocalItemIdFactory = (prefix: string) => string;
 
 const EMPTY_PLAN: ChatNotificationPlan = { actions: [], effects: [] };
+const MESSAGE_CONTEXT_COMPACTED = "Context compacted.";
 
 type ServerNotificationPlanner<M extends ServerNotification["method"]> = (
   notification: Extract<ServerNotification, { method: M }>,
@@ -105,7 +108,7 @@ const DIAGNOSTIC_STATUS_PLANNERS = {
 } satisfies ServerNotificationPlannerMap<DiagnosticStatusNotificationMethod>;
 
 const USER_VISIBLE_NOTICE_PLANNERS = {
-  "thread/compacted": (_notification, localItemId) => systemMessagePlan({ id: localItemId("system"), text: "Context compacted." }),
+  "thread/compacted": (_notification, localItemId) => systemMessagePlan({ id: localItemId("system"), text: MESSAGE_CONTEXT_COMPACTED }),
   "model/rerouted": jsonNoticePlan,
   deprecationNotice: jsonNoticePlan,
   error: jsonNoticePlan,
@@ -153,7 +156,7 @@ const STREAM_UPDATE_PLANNERS = {
       turnId: notification.params.turnId,
       delta: notification.params.delta,
       kind: "command",
-      fallbackText: "Command running",
+      fallbackText: STREAMED_COMMAND_RUNNING_TEXT,
     }),
   "item/fileChange/patchUpdated": (_state, notification) =>
     fileChangePlan(notification.params.itemId, notification.params.turnId, notification.params.changes, "inProgress"),
@@ -164,7 +167,7 @@ const STREAM_UPDATE_PLANNERS = {
       turnId: notification.params.turnId,
       delta: notification.params.delta,
       kind: "fileChange",
-      fallbackText: "File change inProgress",
+      fallbackText: STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
     }),
   "turn/diff/updated": (_state, notification) =>
     actionPlan({ type: "message-stream/turn-diff-updated", turnId: notification.params.turnId, diff: notification.params.diff }),
@@ -177,7 +180,7 @@ const STREAM_UPDATE_PLANNERS = {
       itemId: notification.params.itemId,
       turnId: notification.params.turnId,
       delta: notification.params.message,
-      fallbackLabel: "mcp progress",
+      fallbackLabel: STREAMED_MCP_PROGRESS_LABEL,
     }),
   "item/autoApprovalReview/started": autoApprovalReviewPlan,
   "item/autoApprovalReview/completed": autoApprovalReviewPlan,
@@ -244,10 +247,7 @@ const THREAD_LIFECYCLE_PLANNERS = {
   }),
   "thread/unarchived": () => ({ actions: [], effects: [{ type: "refresh-threads" }] }),
   "thread/name/updated": (state, notification) => {
-    const name =
-      typeof notification.params.threadName === "string" && notification.params.threadName.trim()
-        ? notification.params.threadName.trim()
-        : null;
+    const name = normalizeExplicitThreadName(notification.params.threadName);
     return {
       actions: [
         {
@@ -411,16 +411,7 @@ function completedItemPlan(state: ChatState, item: TurnItem, turnId: string): Ch
 function fileChangePlan(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): ChatNotificationPlan {
   return actionPlan({
     type: "message-stream/item-upserted",
-    item: {
-      id: itemId,
-      kind: "fileChange",
-      role: "tool",
-      text: `File change ${status}`,
-      turnId,
-      sourceItemId: itemId,
-      status,
-      changes: normalizeFileChanges(changes),
-    },
+    item: streamingFileChangeDisplayItem(itemId, turnId, changes, status),
   });
 }
 

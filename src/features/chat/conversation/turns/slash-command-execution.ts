@@ -3,7 +3,7 @@ import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/go
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
+import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import {
   slashCommandDefinition,
   slashCommandHelpSections,
@@ -13,7 +13,15 @@ import {
   type SlashCommandSubcommandDefinition,
 } from "../composer/slash-commands";
 import type { DisplayDetailSection, DisplayDetailMetaRow } from "../../display/types";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/settings-copy";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/messages";
+import { currentThreadReferenceMessage } from "./messages";
+import {
+  finishBeforeArchivingThreadsMessage,
+  interruptBeforeRollbackMessage,
+  noActiveThreadToCompactMessage,
+  noActiveThreadToForkMessage,
+  noActiveThreadToRollbackMessage,
+} from "../../threads/messages";
 import { parseModelOverride, parseReasoningEffortOverride } from "./runtime-setting-commands";
 
 export interface SlashCommandExecutionContext {
@@ -54,13 +62,13 @@ export interface SlashCommandExecutionContext {
 export interface SlashCommandExecutionResult {
   sendText?: string;
   sendInput?: CodexInput;
-  referencedThread?: ReferencedThreadDisplay;
+  referencedThread?: ReferencedThreadMetadata;
   composerDraft?: string;
 }
 
 export interface ThreadReferenceInput {
   input: CodexInput;
-  referencedThread: ReferencedThreadDisplay;
+  referencedThread: ReferencedThreadMetadata;
 }
 
 export async function executeSlashCommand(
@@ -106,7 +114,7 @@ export async function executeSlashCommand(
       return;
     }
     if (thread.thread.id === context.activeThreadId) {
-      context.addSystemMessage("Use the current thread directly instead of referencing it.");
+      context.addSystemMessage(currentThreadReferenceMessage());
       return;
     }
     const reference = await context.referThread(thread.thread, parsed.message);
@@ -116,7 +124,7 @@ export async function executeSlashCommand(
 
   if (command === "fork") {
     if (!context.activeThreadId) {
-      context.addSystemMessage("No active thread to fork.");
+      context.addSystemMessage(noActiveThreadToForkMessage());
       return;
     }
     await context.forkThread(context.activeThreadId);
@@ -125,11 +133,11 @@ export async function executeSlashCommand(
 
   if (command === "rollback") {
     if (!context.activeThreadId) {
-      context.addSystemMessage("No active thread to roll back.");
+      context.addSystemMessage(noActiveThreadToRollbackMessage());
       return;
     }
     if (context.busy) {
-      context.addSystemMessage("Interrupt the current turn before rolling back.");
+      context.addSystemMessage(interruptBeforeRollbackMessage());
       return;
     }
     await context.rollbackThread(context.activeThreadId);
@@ -138,7 +146,7 @@ export async function executeSlashCommand(
 
   if (command === "compact") {
     if (!context.activeThreadId) {
-      context.addSystemMessage("No active thread to compact.");
+      context.addSystemMessage(noActiveThreadToCompactMessage());
       return;
     }
     await context.compactThread(context.activeThreadId);
@@ -147,7 +155,7 @@ export async function executeSlashCommand(
 
   if (command === "archive") {
     if (context.busy) {
-      context.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
+      context.addSystemMessage(finishBeforeArchivingThreadsMessage());
       return;
     }
 

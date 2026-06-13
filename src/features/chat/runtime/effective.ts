@@ -51,10 +51,6 @@ export function supportedReasoningEfforts(snapshot: RuntimeSnapshot, config: Run
   return supportedEffortsForModelMetadata(findModelMetadataByIdOrName(snapshot.availableModels, model));
 }
 
-export function serviceTierLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
-  return currentServiceTier(snapshot, config) ?? "(Codex default)";
-}
-
 export function fastModeActive(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): boolean {
   return isFastServiceTier(currentServiceTier(snapshot, config), currentModelServiceTiers(snapshot, config));
 }
@@ -64,13 +60,6 @@ export function isFastServiceTier(value: string | null | undefined, serviceTiers
   if (value === "fast") return true;
   if (serviceTiers.length === 0) return value === "priority";
   return serviceTiers.some((tier) => tier.id === value && tier.name.trim().toLowerCase() === "fast");
-}
-
-export function fastModeLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
-  if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off") return "off";
-  if (fastModeActive(snapshot, config)) return "on";
-  const serviceTier = currentServiceTier(snapshot, config);
-  return serviceTier ? "off" : "Codex default";
 }
 
 export function fastRuntimeServiceTierRequestValue(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {

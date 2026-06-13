@@ -1,6 +1,6 @@
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { Thread } from "../../domain/threads/model";
-import { getThreadTitle } from "../../domain/threads/model";
+import { explicitThreadName, getThreadTitle } from "../../domain/threads/model";
 
 type ThreadsLiveStatus = "needs-input" | "approval" | "running" | "draft" | "offline" | "open";
 
@@ -54,7 +54,7 @@ export function threadRows(
         selected,
         rename: {
           active: rename !== undefined,
-          draft: rename?.draft ?? thread.name ?? getThreadTitle(thread),
+          draft: rename?.draft ?? explicitThreadName(thread) ?? getThreadTitle(thread),
           generating: rename?.kind === "generating",
         },
         archiveConfirm: {

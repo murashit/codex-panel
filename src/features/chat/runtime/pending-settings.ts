@@ -22,13 +22,3 @@ export function nextCollaborationMode(mode: CollaborationMode): CollaborationMod
 export function effectiveCollaborationMode(mode: ActiveCollaborationMode): CollaborationMode {
   return mode ?? "default";
 }
-
-export function collaborationModeLabel(mode: CollaborationMode): string {
-  return mode === "plan" ? "Plan" : "Default";
-}
-
-export function pendingRuntimeSettingLabel<T>(setting: PendingRuntimeSetting<T>): string {
-  if (setting.kind === "set") return String(setting.value);
-  if (setting.kind === "resetToConfig") return "(reset to config)";
-  return "(none)";
-}

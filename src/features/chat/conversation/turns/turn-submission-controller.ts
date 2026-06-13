@@ -1,8 +1,9 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
-import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
+import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import { submissionStateSnapshot } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
+import { currentTurnNotSteerableMessage, STATUS_STEERED_CURRENT_TURN, STATUS_TURN_RUNNING } from "./messages";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
@@ -31,7 +32,7 @@ export class TurnSubmissionController {
 
   constructor(private readonly host: TurnSubmissionControllerHost) {}
 
-  async sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadDisplay): Promise<void> {
+  async sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadMetadata): Promise<void> {
     if (!(await this.host.ensureRestoredThreadLoaded())) return;
     const client = this.host.currentClient();
     if (!client) return;
@@ -94,7 +95,7 @@ export class TurnSubmissionController {
           pendingTurnStart: pendingStart,
         });
         this.host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
-        this.host.setStatus("Turn running...");
+        this.host.setStatus(STATUS_TURN_RUNNING);
       }
     } catch (error) {
       const failedState = submissionStateSnapshot(this.host.stateStore.getState());
@@ -115,13 +116,13 @@ export class TurnSubmissionController {
     client: AppServerClient,
     text: string,
     codexInputOverride?: CodexInput,
-    referencedThread?: ReferencedThreadDisplay,
+    referencedThread?: ReferencedThreadMetadata,
   ): Promise<void> {
     const state = submissionStateSnapshot(this.host.stateStore.getState());
     const threadId = state.activeThreadId;
     const expectedTurnId = state.activeTurnId;
     if (!threadId || !expectedTurnId) {
-      this.host.addSystemMessage("Current turn is not steerable yet.");
+      this.host.addSystemMessage(currentTurnNotSteerableMessage());
       return;
     }
 
@@ -142,7 +143,7 @@ export class TurnSubmissionController {
           codexInput,
         }),
       });
-      this.host.setStatus("Steered current turn.");
+      this.host.setStatus(STATUS_STEERED_CURRENT_TURN);
     } catch (error) {
       if (!this.isCurrentTurn(threadId, expectedTurnId)) return;
       this.host.setDraft(text, { focus: true });

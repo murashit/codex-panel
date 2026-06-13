@@ -6,6 +6,7 @@ import {
   type RestoredThreadState,
   type ChatViewDeferredTasks,
 } from "../lifecycle";
+import { STATUS_THREAD_READY_TO_RESUME } from "./messages";
 
 export interface RestorationControllerHost {
   deferredTasks: ChatViewDeferredTasks;
@@ -47,7 +48,7 @@ export class RestorationController {
       restoredThread,
     });
     this.host.stateStore.dispatch({ type: "active-thread/restored-placeholder", threadId: restoredThread.threadId });
-    this.host.setStatus("Thread ready to resume.");
+    this.host.setStatus(STATUS_THREAD_READY_TO_RESUME);
     this.host.refreshTabHeader();
     this.scheduleHydration();
   }

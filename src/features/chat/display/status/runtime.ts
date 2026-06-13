@@ -6,16 +6,22 @@ import { defaultEffortForModelMetadata } from "../../../../domain/catalog/metada
 import {
   currentApprovalsReviewer,
   currentApprovalPolicy,
+  currentServiceTier,
   currentModel,
   currentReasoningEffort,
   autoReviewActive,
-  fastModeLabel,
+  fastModeActive,
   runtimeConfigOrDefault,
-  serviceTierLabel,
   supportedReasoningEfforts,
 } from "../../runtime/effective";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import { collaborationModeLabel, effectiveCollaborationMode, pendingRuntimeSettingLabel } from "../../runtime/pending-settings";
+import { effectiveCollaborationMode } from "../../runtime/pending-settings";
+import {
+  collaborationModeLabel,
+  fastModeLabel as formatFastModeLabel,
+  pendingRuntimeSettingLabel,
+  serviceTierLabel as formatServiceTierLabel,
+} from "../../runtime/messages";
 
 export interface ContextSummary {
   label: string;
@@ -66,6 +72,18 @@ export interface EffortStatusLinesInput {
 
 const CODEX_DEFAULT_LABEL = "(Codex default)";
 const NOT_REPORTED_LABEL = "(not reported)";
+
+export function serviceTierLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
+  return formatServiceTierLabel(currentServiceTier(snapshot, config));
+}
+
+export function fastModeLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
+  return formatFastModeLabel({
+    requestedOff: snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off",
+    active: fastModeActive(snapshot, config),
+    serviceTier: currentServiceTier(snapshot, config),
+  });
+}
 
 export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null {
   const usage = snapshot.tokenUsage;

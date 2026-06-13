@@ -1,11 +1,5 @@
-import {
-  approvalActionKind,
-  approvalDetails,
-  approvalResultSummary,
-  approvalTitle,
-  type ApprovalAction,
-  type PendingApproval,
-} from "../../protocol/server-requests/approval";
+import { approvalActionKind, type ApprovalAction, type PendingApproval } from "../../protocol/server-requests/approval";
+import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval-view";
 import type { DisplayDetailSection, DisplayItem } from "../../display/types";
 import type { PendingUserInput } from "../../protocol/server-requests/user-input";
 import { definedProp } from "../../../../utils";

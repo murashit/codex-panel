@@ -4,6 +4,7 @@ import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../do
 import type { ChatStateStore } from "../state/reducer";
 import type { GoalDisplayItem } from "../display/types";
 import { goalChangeItem } from "../display/items/goal";
+import { emptyGoalObjectiveMessage } from "./messages";
 
 export interface GoalActionsHost {
   stateStore: ChatStateStore;
@@ -45,7 +46,7 @@ async function syncThreadGoal(host: GoalActionsHost, threadId: string): Promise<
 async function setObjective(host: GoalActionsHost, threadId: string, objective: string, tokenBudget: number | null): Promise<boolean> {
   const trimmed = objective.trim();
   if (!trimmed) {
-    host.addSystemMessage("Goal objective cannot be empty.");
+    host.addSystemMessage(emptyGoalObjectiveMessage());
     return false;
   }
   const current = host.stateStore.getState().activeThread.goal;

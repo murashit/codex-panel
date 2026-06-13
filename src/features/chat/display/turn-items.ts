@@ -2,12 +2,11 @@ import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, Displ
 import type { HistoricalTurn } from "../../../domain/threads/history";
 import type { FileUpdateChange, TurnItem } from "../../../app-server/protocol/turn";
 import { definedProp, truncate } from "../../../utils";
-import { referencedThreadDisplayFromPrompt, type ReferencedThreadDisplay } from "../../../domain/threads/reference";
+import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../domain/threads/reference";
 import { turnUserItemText } from "../../../app-server/protocol/turn";
 import { agentDisplayItem } from "./items/agent";
 import { pathRelativeToRoot } from "./details/path-labels";
-import { normalizeProposedPlanMarkdown } from "./items/proposed-plan";
-import { fileMentionsFromInput, userMessageDisplayText } from "./items/user-message";
+import { fileMentionsFromInput, normalizeProposedPlanMarkdown, userMessageDisplayText } from "./items/message-content";
 import {
   bodyDetail,
   compactToolSummary,
@@ -47,7 +46,7 @@ interface UserMessageDisplayData extends BaseDisplayData {
   referencedThread: {
     text: string;
     displayText: string;
-    reference: ReferencedThreadDisplay;
+    reference: ReferencedThreadMetadata;
   } | null;
 }
 
@@ -160,7 +159,7 @@ function userMessageDisplayItem(item: UserMessageItem, turnId?: string): Display
 
 function userMessageDisplayDataFromItem(item: UserMessageItem): UserMessageDisplayData {
   const text = turnUserItemText(item);
-  const referencedThread = referencedThreadDisplayFromPrompt(text);
+  const referencedThread = referencedThreadMetadataFromPrompt(text);
   return {
     id: item.id,
     text,

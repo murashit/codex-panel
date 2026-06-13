@@ -1,6 +1,7 @@
 import { upsertDisplayItem } from "./message-stream-updates";
-import type { DisplayItem } from "../display/types";
-import { normalizeProposedPlanMarkdown } from "../display/items/proposed-plan";
+import type { DisplayItem, MessageDisplayItem } from "../display/types";
+import { normalizeProposedPlanMarkdown } from "../display/items/message-content";
+import { streamedItemOutputDisplayItem, streamedTextDisplayItem, streamedToolOutputDisplayItem } from "../display/items/streaming";
 
 export interface ChatMessageStreamActiveSegment {
   turnId: string | null;
@@ -16,6 +17,12 @@ export interface ChatMessageStreamState {
   historyCursor: string | null;
   loadingHistory: boolean;
   reportedLogs: ReadonlySet<string>;
+}
+
+export interface MessageStreamRollbackCandidate {
+  turnId: string;
+  displayItemId: string;
+  text: string;
 }
 
 export type MessageStreamAction =
@@ -84,6 +91,36 @@ export function messageStreamActiveItems(state: Pick<ChatMessageStreamState, "ac
 
 export function messageStreamIsEmpty(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): boolean {
   return state.stableItems.length === 0 && (!state.activeSegment || state.activeSegment.items.length === 0);
+}
+
+export function messageStreamTurnIds(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): string[] {
+  return orderedTurnIds(messageStreamDisplayItems(state));
+}
+
+export function messageStreamTurnsAfterTurnId(
+  state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">,
+  turnId: string,
+): number | null {
+  const turnIds = messageStreamTurnIds(state);
+  const index = turnIds.indexOf(turnId);
+  return index === -1 ? null : turnIds.length - index - 1;
+}
+
+export function messageStreamRollbackCandidate(
+  state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">,
+): MessageStreamRollbackCandidate | null {
+  const items = messageStreamDisplayItems(state);
+  const lastTurnId = latestTurnId(items);
+  if (!lastTurnId) return null;
+
+  const userMessage = items.find((item): item is MessageDisplayItem => isUserMessageForTurn(item, lastTurnId));
+  if (!userMessage) return null;
+
+  return {
+    turnId: lastTurnId,
+    displayItemId: userMessage.id,
+    text: userMessage.text,
+  };
 }
 
 export function messageStreamWithDisplayItems(
@@ -264,12 +301,13 @@ function appendItemTextToMessageStream(
       return replaceActiveSegmentItem(segment, index, (item) => ({ ...item, text: `${item.text}${delta}` }));
     }
     return appendActiveSegmentItem(segment, {
-      id: sourceItemId,
-      kind,
-      role: "tool",
-      text: `${label}: ${delta}`,
-      turnId,
-      sourceItemId,
+      ...streamedTextDisplayItem({
+        id: sourceItemId,
+        kind,
+        label,
+        delta,
+        turnId,
+      }),
     });
   });
 }
@@ -290,16 +328,15 @@ function appendToolOutputToMessageStream(
           : item,
       );
     }
-    return appendActiveSegmentItem(segment, {
-      id: sourceItemId,
-      kind: "tool",
-      role: "tool",
-      text: "details",
-      toolLabel: fallbackLabel,
-      turnId,
-      sourceItemId,
-      output: delta,
-    });
+    return appendActiveSegmentItem(
+      segment,
+      streamedToolOutputDisplayItem({
+        id: sourceItemId,
+        turnId,
+        output: delta,
+        fallbackLabel,
+      }),
+    );
   });
 }
 
@@ -318,27 +355,16 @@ function appendItemOutputToMessageStream(
         item.kind === "command" || item.kind === "fileChange" ? { ...item, output: `${item.output ?? ""}${delta}` } : item,
       );
     }
-    return appendActiveSegmentItem(segment, {
-      id: sourceItemId,
-      kind,
-      role: "tool",
-      text: fallbackText,
-      turnId,
-      sourceItemId,
-      output: delta,
-      ...(kind === "fileChange"
-        ? {
-            status: "inProgress",
-            changes: [],
-            executionState: "running",
-          }
-        : {
-            command: fallbackText,
-            cwd: "(unknown)",
-            status: "running",
-            executionState: "running",
-          }),
-    } as DisplayItem);
+    return appendActiveSegmentItem(
+      segment,
+      streamedItemOutputDisplayItem({
+        id: sourceItemId,
+        kind,
+        turnId,
+        output: delta,
+        fallbackText,
+      }),
+    );
   });
 }
 
@@ -441,6 +467,28 @@ function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string
     next.delete(turnId);
   }
   return next;
+}
+
+function orderedTurnIds(items: readonly DisplayItem[]): string[] {
+  const turnIds: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (!item.turnId || seen.has(item.turnId)) continue;
+    seen.add(item.turnId);
+    turnIds.push(item.turnId);
+  }
+  return turnIds;
+}
+
+function latestTurnId(items: readonly DisplayItem[]): string | null {
+  for (const item of [...items].reverse()) {
+    if (item.turnId) return item.turnId;
+  }
+  return null;
+}
+
+function isUserMessageForTurn(item: DisplayItem, turnId: string): item is MessageDisplayItem {
+  return item.kind === "message" && item.role === "user" && item.turnId === turnId;
 }
 
 function patchObject<T extends object>(current: T, patch: Partial<T>): T {

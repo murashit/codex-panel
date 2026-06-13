@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import type { Thread } from "../../../src/domain/threads/model";
 import {
   completedThreadAutoNameState,
   editingThreadRenameState,
   generatedThreadAutoNameState,
   startedThreadAutoNameState,
+  threadRows,
   updatedThreadRenameState,
 } from "../../../src/features/threads-view/state";
 
@@ -39,4 +41,21 @@ describe("threads view rename state", () => {
     expect(generated).toEqual({ kind: "generating", draft: "Generated title", originalDraft: "Original draft" });
     expect(completedThreadAutoNameState(generated ?? undefined, generating)).toEqual({ kind: "editing", draft: "Generated title" });
   });
+
+  it("initializes rename drafts from normalized explicit thread names", () => {
+    expect(threadRows([thread({ name: "  Saved   name  ", preview: "Preview" })], [], new Map())[0]?.rename.draft).toBe("Saved name");
+    expect(threadRows([thread({ name: "  ", preview: "Preview title" })], [], new Map())[0]?.rename.draft).toBe("Preview title");
+  });
 });
+
+function thread(overrides: Partial<Thread> = {}): Thread {
+  return {
+    id: "thread",
+    preview: "",
+    name: null,
+    archived: false,
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  };
+}

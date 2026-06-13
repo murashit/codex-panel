@@ -1,9 +1,9 @@
-import type { ChatThreadActions } from "../threads/action-context";
+import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
-  threadActions: ChatThreadActions;
+  threadActions: ThreadManagementActions;
 }
 
 export interface ToolbarPanelActions {

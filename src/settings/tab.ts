@@ -10,8 +10,8 @@ import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata } from "../domain/catalog/metadata";
-import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { errorMessage } from "../utils";
+import { archivedThreadDisplayTitle } from "./archived-thread-title";
 import {
   createSettingsDynamicSectionLifecycle,
   transitionSettingsDynamicSectionLifecycle,

@@ -3,6 +3,7 @@ import { Notice } from "obsidian";
 import type { AppServerClient } from "../../app-server/connection/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection/connection-manager";
 import { listThreads, readCompletedConversationSummariesPage, readThreadForArchiveExport } from "../../app-server/services/threads";
+import { normalizeExplicitThreadName } from "../../domain/threads/model";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
@@ -291,7 +292,7 @@ export class CodexThreadsSession {
   private async saveRename(threadId: string, value: string): Promise<void> {
     const editingState = this.renameStates.get(threadId);
     if (!editingState || editingState.kind === "generating") return;
-    const name = value.trim();
+    const name = normalizeExplicitThreadName(value);
     if (!name) {
       this.cancelRename(threadId);
       return;

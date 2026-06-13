@@ -1,5 +1,6 @@
 import { canSwitchToThread } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
+import { finishBeforeSwitchingThreadsMessage } from "./messages";
 
 export interface SelectionActionsHost {
   stateStore: ChatStateStore;
@@ -17,7 +18,7 @@ export interface SelectionActions {
 export function createSelectionActions(host: SelectionActionsHost): SelectionActions {
   const selectThread = async (threadId: string): Promise<void> => {
     if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
-      host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
+      host.addSystemMessage(finishBeforeSwitchingThreadsMessage());
       return;
     }
 

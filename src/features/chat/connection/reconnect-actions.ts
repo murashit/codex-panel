@@ -1,5 +1,6 @@
 import { activeThreadId } from "../state/selectors";
 import type { ChatConnectionPhase, ChatStateStore } from "../state/reducer";
+import { STATUS_RECONNECTING } from "./messages";
 
 export interface ChatReconnectActionsHost {
   stateStore: ChatStateStore;
@@ -31,7 +32,7 @@ async function reconnectPanel(host: ChatReconnectActionsHost): Promise<void> {
   host.clearDeferredDiagnostics();
   host.reconnect();
   host.stateStore.dispatch({ type: "turn/scoped-cleared" });
-  host.setStatus("Reconnecting...", { kind: "connecting" });
+  host.setStatus(STATUS_RECONNECTING, { kind: "connecting" });
 
   await host.ensureConnected();
   if (!threadId) return;

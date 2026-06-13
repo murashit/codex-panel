@@ -3,7 +3,7 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatStateStore } from "../state/reducer";
 import type { CodexChatHost } from "../chat-host";
 import { AutoTitleController } from "./auto-title-controller";
-import { RenameController } from "./rename-controller";
+import { ThreadRenameEditorController } from "./rename-editor-controller";
 
 export interface ThreadNamingPartsContext {
   plugin: CodexChatHost;
@@ -22,14 +22,14 @@ export interface ThreadNamingPartsRefs {
 }
 
 export interface ThreadNamingParts {
-  rename: RenameController;
+  rename: ThreadRenameEditorController;
   autoTitle: AutoTitleController;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
 }
 
 export function createThreadNamingParts(context: ThreadNamingPartsContext, refs: ThreadNamingPartsRefs): ThreadNamingParts {
   const { plugin, stateStore, client, status } = context;
-  const rename = new RenameController({
+  const rename = new ThreadRenameEditorController({
     stateStore,
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,

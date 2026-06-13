@@ -1,5 +1,6 @@
-import { normalizeProposedPlanMarkdown } from "../display/items/proposed-plan";
-import { isAssistantAuthoredMessage } from "../display/predicates";
+import { normalizeProposedPlanMarkdown } from "../display/items/message-content";
+import { isAssistantAuthoredMessage } from "../display/item-selectors";
+import { streamedItemOutputDisplayItem, streamedTextDisplayItem, streamedToolOutputDisplayItem } from "../display/items/streaming";
 import type { AssistantAuthoredMessageDisplayItem, DisplayFileChange, DisplayItem, DisplayKind } from "../display/types";
 
 export function upsertDisplayItem(items: readonly DisplayItem[], next: DisplayItem): DisplayItem[] {
@@ -122,17 +123,7 @@ export function appendItemText(
   if (index !== -1) {
     return items.map((item, itemIndex) => (itemIndex === index ? { ...item, text: `${item.text}${delta}` } : item));
   }
-  return [
-    ...items,
-    {
-      id: sourceItemId,
-      kind,
-      role: "tool",
-      text: `${label}: ${delta}`,
-      turnId,
-      sourceItemId,
-    },
-  ];
+  return [...items, streamedTextDisplayItem({ id: sourceItemId, kind, label, delta, turnId })];
 }
 
 export function appendToolOutput(
@@ -150,19 +141,7 @@ export function appendToolOutput(
         : item,
     );
   }
-  return [
-    ...items,
-    {
-      id: sourceItemId,
-      kind: "tool",
-      role: "tool",
-      text: "details",
-      toolLabel: fallbackLabel,
-      turnId,
-      sourceItemId,
-      output: delta,
-    },
-  ];
+  return [...items, streamedToolOutputDisplayItem({ id: sourceItemId, turnId, output: delta, fallbackLabel })];
 }
 
 export function appendItemOutput(
@@ -181,30 +160,7 @@ export function appendItemOutput(
         : item,
     );
   }
-  return [
-    ...items,
-    {
-      id: sourceItemId,
-      kind,
-      role: "tool",
-      text: fallbackText,
-      turnId,
-      sourceItemId,
-      output: delta,
-      ...(kind === "fileChange"
-        ? {
-            status: "inProgress",
-            changes: [],
-            executionState: "running",
-          }
-        : {
-            command: fallbackText,
-            cwd: "(unknown)",
-            status: "running",
-            executionState: "running",
-          }),
-    },
-  ] as DisplayItem[];
+  return [...items, streamedItemOutputDisplayItem({ id: sourceItemId, kind, turnId, output: delta, fallbackText })] as DisplayItem[];
 }
 
 export function attachHookRunsToTurn(

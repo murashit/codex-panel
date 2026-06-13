@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  codexPanelDisplayTitle,
   explicitThreadName,
   getThreadTitle,
   inheritedForkThreadName,
+  normalizeExplicitThreadName,
   upsertThread,
   type Thread,
 } from "../../../src/domain/threads/model";
@@ -14,13 +14,6 @@ describe("thread helpers", () => {
     expect(getThreadTitle(thread({ name: "  Named   thread  ", preview: "Preview" }))).toBe("Named thread");
     expect(getThreadTitle(thread({ name: "  ", preview: "  Preview   only  " }))).toBe("Preview only");
     expect(getThreadTitle(thread({ id: "thread-id", name: null, preview: "" }))).toBe("thread-id");
-  });
-
-  it("formats Codex panel display titles from the active thread", () => {
-    expect(codexPanelDisplayTitle(null, [])).toBe("Codex");
-    expect(codexPanelDisplayTitle("thread-named", [thread({ id: "thread-named", name: "作業メモ" })])).toBe("Codex: 作業メモ");
-    expect(codexPanelDisplayTitle("thread-preview", [thread({ id: "thread-preview", preview: "初回依頼" })])).toBe("Codex: 初回依頼");
-    expect(codexPanelDisplayTitle("019e061e-0000-7000-8000-000000000001", [])).toBe("Codex: 019e061e");
   });
 
   it("inherits only explicit thread names for forked threads", () => {
@@ -36,6 +29,13 @@ describe("thread helpers", () => {
     expect(explicitThreadName(thread({ name: "  ", preview: "Preview" }))).toBeNull();
     expect(explicitThreadName(thread({ name: null, preview: "Preview" }))).toBeNull();
     expect(explicitThreadName(thread({ name: null, preview: "", id: "thread-id" }))).toBeNull();
+  });
+
+  it("normalizes explicit thread name values", () => {
+    expect(normalizeExplicitThreadName("  Rename   thread  ")).toBe("Rename thread");
+    expect(normalizeExplicitThreadName("  ")).toBeNull();
+    expect(normalizeExplicitThreadName(null)).toBeNull();
+    expect(normalizeExplicitThreadName(undefined)).toBeNull();
   });
 
   it("upserts resumed thread metadata without reordering existing rows", () => {

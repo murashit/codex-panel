@@ -3,11 +3,12 @@ import type { ConnectionManager } from "../../../../app-server/connection/connec
 import type { ChatConnectionController } from "../../connection/connection-controller";
 import type { ChatReconnectActions } from "../../connection/reconnect-actions";
 import type { ChatInboundController } from "../../protocol/inbound/controller";
-import type { ChatThreadActions } from "../../threads/action-context";
+import type { ThreadManagementActions } from "../../threads/thread-management-actions";
 import type { ToolbarPanelActions } from "../toolbar-actions";
-import type { RenameController } from "../../threads/rename-controller";
+import type { ThreadRenameEditorController } from "../../threads/rename-editor-controller";
 import type { SelectionActions } from "../../threads/selection-actions";
 import type { ChatStateStore } from "../../state/reducer";
+import { noActiveThreadToCompactMessage } from "../../threads/messages";
 import type { ChatPanelToolbarSurface } from "./model";
 
 export interface ChatPanelToolbarSurfaceHost {
@@ -22,9 +23,9 @@ export interface ChatPanelToolbarSurfaceDependencies {
   connectionController: ChatConnectionController;
   reconnectActions: ChatReconnectActions;
   inboundController: ChatInboundController;
-  threadActions: ChatThreadActions;
+  threadActions: ThreadManagementActions;
   toolbarPanels: ToolbarPanelActions;
-  rename: RenameController;
+  rename: ThreadRenameEditorController;
   selection: SelectionActions;
 }
 
@@ -110,7 +111,7 @@ async function compactConversation(
 ): Promise<void> {
   const threadId = state.activeThread.id;
   if (!threadId) {
-    deps.inboundController.addSystemMessage("No active thread to compact.");
+    deps.inboundController.addSystemMessage(noActiveThreadToCompactMessage());
     return;
   }
   await deps.threadActions.compactThread(threadId);

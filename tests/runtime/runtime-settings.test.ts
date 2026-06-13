@@ -11,7 +11,7 @@ import {
   compactReasoningEffortLabel,
   modelOverrideMessage,
   reasoningEffortOverrideMessage,
-} from "../../src/features/chat/runtime/settings-copy";
+} from "../../src/features/chat/runtime/messages";
 import { parseModelOverride, parseReasoningEffortOverride } from "../../src/features/chat/conversation/turns/runtime-setting-commands";
 import {
   autoReviewActive,
@@ -21,9 +21,7 @@ import {
   currentServiceTier,
   fastModeActive,
   fastRuntimeServiceTierRequestValue,
-  fastModeLabel,
   runtimeConfigOrDefault,
-  serviceTierLabel,
   supportedReasoningEfforts,
 } from "../../src/features/chat/runtime/effective";
 import type { RuntimeSnapshot } from "../../src/features/chat/runtime/snapshot";
@@ -33,7 +31,13 @@ import {
   requestedTurnCollaborationModeSettings,
   serviceTierRequestForThreadStart,
 } from "../../src/features/chat/runtime/thread-settings-update";
-import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/display/status/runtime";
+import {
+  contextSummary,
+  fastModeLabel,
+  runtimeConfigSections,
+  rateLimitSummary,
+  serviceTierLabel,
+} from "../../src/features/chat/display/status/runtime";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {

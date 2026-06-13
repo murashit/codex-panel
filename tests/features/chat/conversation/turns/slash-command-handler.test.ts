@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { CodexInput } from "../../../../../src/app-server/protocol/request-input";
+import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import {
   createSlashCommandHandler,
@@ -154,4 +155,44 @@ describe("createSlashCommandHandler", () => {
     expect(result).toBeUndefined();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable conversation turns.");
   });
+
+  it("sets chat-owned status copy for readable referenced threads", async () => {
+    const { host, stateStore, threadTurnsList } = createHost();
+    stateStore.dispatch({
+      type: "thread-list/applied",
+      threads: [thread("019abcde-0000-7000-8000-000000000001", "Other")],
+    });
+    threadTurnsList.mockResolvedValue({
+      data: [turn([userMessage("u1", "元の依頼"), agentMessage("a1", "回答")])],
+      nextCursor: null,
+    });
+    const controller = createSlashCommandHandler(host);
+
+    const result = await controller.execute("refer", "Other summarize");
+
+    expect(result?.sendText).toBe("summarize");
+    expect(host.setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
+  });
 });
+
+function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
+  return {
+    id: "turn",
+    items,
+    itemsView: "full",
+    status: "completed",
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    durationMs: null,
+    ...overrides,
+  };
+}
+
+function userMessage(id: string, text: string): TurnItem {
+  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
+}
+
+function agentMessage(id: string, text: string): TurnItem {
+  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
+}

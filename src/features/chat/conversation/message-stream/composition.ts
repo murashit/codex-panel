@@ -5,7 +5,7 @@ import type { DisplayItem } from "../../display/types";
 import { MessageStreamPresenter } from "../../panel/surface/message-stream-presenter";
 import type { MessageStreamScrollBridge } from "../../panel/surface/message-stream-scroll";
 import type { ChatStateStore } from "../../state/reducer";
-import type { ChatThreadActions } from "../../threads/action-context";
+import type { ThreadManagementActions } from "../../threads/thread-management-actions";
 import type { HistoryController } from "../../threads/history-controller";
 import type { ChatMessageScrollIntentState } from "../../ui/message-stream/scroll-intent-state";
 import type { PendingRequestController } from "../pending-requests/controller";
@@ -31,7 +31,7 @@ export interface ConversationMessageStreamContext {
 
 export interface ConversationMessageStreamRefs {
   history: HistoryController;
-  threadActions: ChatThreadActions;
+  threadActions: ThreadManagementActions;
   pendingRequests: PendingRequestController;
   planImplementation: PlanImplementation;
 }

@@ -1,6 +1,6 @@
 import { shortThreadId } from "../../utils";
 import { getThreadTitle, type Thread } from "../../domain/threads/model";
-import { referencedThreadDisplayFromPrompt } from "../../domain/threads/reference";
+import { referencedThreadMetadataFromPrompt } from "../../domain/threads/reference";
 import type { ThreadTranscriptEntry } from "../../domain/threads/transcript";
 
 export interface ArchiveExportAdapter {
@@ -125,7 +125,7 @@ function markdownLinesFromTranscriptEntry(entry: ThreadTranscriptEntry): string[
   switch (entry.kind) {
     case "user": {
       const heading = timestampedHeading("User", entry.timestamp);
-      const referenced = referencedThreadDisplayFromPrompt(entry.text);
+      const referenced = referencedThreadMetadataFromPrompt(entry.text);
       if (referenced) {
         return [
           heading,

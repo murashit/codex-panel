@@ -7,16 +7,18 @@ import { autoReviewActive, fastModeActive, runtimeConfigOrDefault } from "./effe
 import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
-  type TurnCollaborationModeWarning,
 } from "./thread-settings-update";
 import type { RuntimeSnapshot } from "./snapshot";
 import { nextCollaborationMode, type CollaborationMode, type RequestedServiceTier } from "./pending-settings";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "./settings-copy";
+import {
+  autoReviewToggleMessage,
+  collaborationModeToggleMessage,
+  collaborationModeWarningMessage,
+  fastModeToggleMessage,
+  modelOverrideMessage,
+  reasoningEffortOverrideMessage,
+} from "./messages";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
-
-const COLLABORATION_MODE_WARNING_MESSAGES: Record<TurnCollaborationModeWarning, string> = {
-  "missing-model": "No effective model is available. Sending without a mode override.",
-};
 
 interface ApplyPendingThreadSettingsResult {
   ok: boolean;
@@ -196,18 +198,6 @@ function autoReviewReviewerForState(state: AutoReviewState): ApprovalsReviewer {
   return state === "enabled" ? "auto_review" : "user";
 }
 
-function fastModeToggleMessage(state: FastModeState): string {
-  return state === "enabled" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.";
-}
-
-function collaborationModeToggleMessage(mode: CollaborationMode): string {
-  return mode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.";
-}
-
-function autoReviewToggleMessage(state: AutoReviewState): string {
-  return state === "enabled" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.";
-}
-
 function pendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): PendingRuntimeSettingsPatch {
   const { snapshot, config } = runtimeProjection(host);
   const { update, collaborationModeWarning } = buildPendingRuntimeSettingsPatch(snapshot, config);
@@ -262,10 +252,6 @@ function runtimeProjection(host: RuntimeSettingsActionsHost): {
     snapshot: host.runtimeSnapshotForState(current),
     config: runtimeConfigOrDefault(current.connection.runtimeConfig),
   };
-}
-
-function collaborationModeWarningMessage(warning: TurnCollaborationModeWarning): string {
-  return COLLABORATION_MODE_WARNING_MESSAGES[warning];
 }
 
 function state(host: RuntimeSettingsActionsHost): ChatState {

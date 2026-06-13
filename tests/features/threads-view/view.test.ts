@@ -314,7 +314,7 @@ describe("CodexThreadsView", () => {
     const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
     expect(input).not.toBeNull();
     if (!input) return;
-    changeInputValue(input, "Renamed thread");
+    changeInputValue(input, "  Renamed   thread  ");
     view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.dispatchEvent(new FocusEvent("blur"));
 
     await waitForAsyncWork(() => {

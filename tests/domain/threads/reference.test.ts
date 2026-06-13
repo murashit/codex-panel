@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
 import {
-  referencedThreadDisplayFromPrompt,
+  referencedThreadMetadataFromPrompt,
   referencedThreadPromptBundle,
   referencedThreadPrompt,
 } from "../../../src/domain/threads/reference";
@@ -35,7 +35,7 @@ describe("thread reference context", () => {
   it("extracts display text and metadata from a reference prompt", () => {
     const prompt = referencedThreadPrompt(thread(), [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
 
-    expect(referencedThreadDisplayFromPrompt(prompt)).toEqual({
+    expect(referencedThreadMetadataFromPrompt(prompt)).toEqual({
       text: "この続きです",
       reference: {
         threadId: "019abcde-0000-7000-8000-000000000001",
@@ -48,7 +48,7 @@ describe("thread reference context", () => {
 
   it("does not parse the old line-based reference prompt format", () => {
     expect(
-      referencedThreadDisplayFromPrompt(
+      referencedThreadMetadataFromPrompt(
         [
           "[Codex Panel referenced thread]",
           "Title: 参照元",
@@ -72,7 +72,7 @@ describe("thread reference context", () => {
 
   it("rejects malformed or unsupported reference envelopes", () => {
     expect(
-      referencedThreadDisplayFromPrompt(
+      referencedThreadMetadataFromPrompt(
         [
           "[Codex Panel referenced thread v1]",
           "{not-json}",
@@ -88,7 +88,7 @@ describe("thread reference context", () => {
     ).toBeNull();
 
     expect(
-      referencedThreadDisplayFromPrompt(
+      referencedThreadMetadataFromPrompt(
         [
           "[Codex Panel referenced thread v1]",
           '{"version":2,"threadId":"thread-ref","title":"参照元","includedTurns":1,"turnLimit":20}',
@@ -108,7 +108,6 @@ describe("thread reference context", () => {
     const source = thread();
     const input = referencedThreadPromptBundle(source, [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
 
-    expect(input.status).toBe("Referencing 019abcde (1/20 turns).");
     expect(input.referencedThread).toMatchObject({ threadId: source.id, title: "参照元", includedTurns: 1 });
     expect(input.prompt).toContain("Current user request:\nこの続きです");
   });

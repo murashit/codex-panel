@@ -5,7 +5,7 @@ import type { ChatReconnectActions } from "../../connection/reconnect-actions";
 import type { DisplayDetailSection } from "../../display/types";
 import type { ChatRuntimeSettingsActions } from "../../runtime/settings-actions";
 import type { ChatStateStore } from "../../state/reducer";
-import type { ChatThreadActions } from "../../threads/action-context";
+import type { ThreadManagementActions } from "../../threads/thread-management-actions";
 import type { GoalActions } from "../../threads/goal-actions";
 import { createComposerSubmitActions, type ComposerSubmitActions } from "./composer-submit-actions";
 import { createPlanImplementation, type PlanImplementation } from "./plan-implementation";
@@ -51,7 +51,7 @@ export interface ConversationTurnActionsContext {
 export interface ConversationTurnActionsRefs {
   serverThreads: ChatServerThreadActions;
   runtimeSettings: ChatRuntimeSettingsActions;
-  threadActions: ChatThreadActions;
+  threadActions: ThreadManagementActions;
   reconnectActions: ChatReconnectActions;
   goals: GoalActions;
 }

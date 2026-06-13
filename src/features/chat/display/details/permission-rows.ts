@@ -5,7 +5,7 @@ interface DetailRow {
   value: string;
 }
 
-interface DisplayPermissionProfile {
+export interface DisplayPermissionProfile {
   network?: { enabled?: boolean | null } | null;
   fileSystem?: {
     entries?: readonly { path: DisplayFileSystemPath; access?: unknown }[] | null;

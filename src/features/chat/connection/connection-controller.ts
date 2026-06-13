@@ -3,6 +3,13 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ServerInitialization } from "../../../domain/server/initialization";
 import type { ChatConnectionPhase, ChatStateStore } from "../state/reducer";
 import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../lifecycle";
+import {
+  missingCommandConnectionErrorMessage,
+  STATUS_CONNECTED,
+  STATUS_CONNECTION_FAILED,
+  STATUS_CONNECTION_STARTING,
+  STATUS_CONNECTION_STOPPED,
+} from "./messages";
 
 export interface ChatConnectionAdapter {
   connect(): Promise<ServerInitialization>;
@@ -68,7 +75,7 @@ export class ChatConnectionController {
     this.invalidate();
     this.host.invalidateResumeWork();
     this.host.publishAppServerIdentity(null);
-    this.host.setStatus("Codex app-server stopped.", { kind: "disconnected", message: "Codex app-server stopped." });
+    this.host.setStatus(STATUS_CONNECTION_STOPPED, { kind: "disconnected", message: STATUS_CONNECTION_STOPPED });
     this.host.stateStore.dispatch({ type: "connection/scoped-cleared" });
     this.host.resetThreadTurnPresence(false);
     this.host.refreshLiveState();
@@ -109,7 +116,7 @@ export class ChatConnectionController {
 
   private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
     this.host.publishAppServerIdentity(null);
-    this.host.setStatus("Starting Codex app-server...", { kind: "connecting" });
+    this.host.setStatus(STATUS_CONNECTION_STARTING, { kind: "connecting" });
     try {
       const initialization = await this.host.connection.connect();
       if (this.host.connectionWork.isStale(connection)) return;
@@ -123,12 +130,12 @@ export class ChatConnectionController {
       if (this.host.connectionWork.isStale(connection)) return;
       this.host.scheduleDeferredDiagnostics();
       this.host.refreshTabHeader();
-      this.host.setStatus("Connected.", { kind: "connected" });
+      this.host.setStatus(STATUS_CONNECTED, { kind: "connected" });
     } catch (error) {
       if (this.host.connectionWork.isStale(connection)) return;
       if (error instanceof StaleConnectionError) return;
       const message = connectionErrorMessage(error, this.host.configuredCommand());
-      this.host.setStatus("Connection failed.", { kind: "failed", message });
+      this.host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
       this.host.addSystemMessage(message);
       this.host.notifyConnectionFailed();
     }
@@ -138,7 +145,7 @@ export class ChatConnectionController {
 function connectionErrorMessage(error: unknown, configuredCommand: string): string {
   const message = error instanceof Error ? error.message : String(error);
   if (!isMissingCommandError(error)) return message;
-  return `Could not start Codex app-server because the configured command was not found: ${configuredCommand}. Check the Codex command path in settings. (${message})`;
+  return missingCommandConnectionErrorMessage(message, configuredCommand);
 }
 
 function isMissingCommandError(error: unknown): boolean {

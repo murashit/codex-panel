@@ -1,4 +1,4 @@
-import type { ReferencedThreadDisplay } from "../../../domain/threads/reference";
+import type { ReferencedThreadMetadata } from "../../../domain/threads/reference";
 
 export type DisplayKind =
   | "message"
@@ -45,7 +45,7 @@ interface MessageDisplayBase extends DisplayBase {
   role: "user" | "assistant";
   clientId?: string;
   copyText?: string;
-  referencedThread?: ReferencedThreadDisplay;
+  referencedThread?: ReferencedThreadMetadata;
   mentionedFiles?: DisplayFileMention[];
   editedFiles?: string[];
   turnDiff?: DisplayTurnDiff;

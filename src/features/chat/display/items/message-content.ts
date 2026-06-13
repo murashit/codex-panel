@@ -14,6 +14,13 @@ export function fileMentionsFromInput(input: readonly CodexInputItem[]): Display
   return mentions;
 }
 
+export function normalizeProposedPlanMarkdown(text: string): string {
+  return text
+    .replace(/^\s*<proposed_plan>\s*\n?/i, "")
+    .replace(/\n?\s*<\/proposed_plan>\s*$/i, "")
+    .trim();
+}
+
 export function userMessageDisplayText(text: string, input: CodexInput): string {
   const names = resolvedSkillNames(input);
   if (names.length === 0) return text;

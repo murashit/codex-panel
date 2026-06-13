@@ -14,15 +14,14 @@ import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-render
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
 import type { DisplayItem } from "../../display/types";
 import { implementPlanCandidateFromState } from "../../state/selectors";
-import { messageStreamActiveItems, messageStreamDisplayItems, messageStreamStableItems } from "../../state/message-stream";
+import { type ForkCandidate, forkCandidatesFromItems, isForkCandidateItem, isRollbackCandidateItem } from "../../display/item-selectors";
 import {
-  type ForkCandidate,
-  forkCandidatesFromItems,
-  isForkCandidateItem,
-  isRollbackCandidateItem,
-  type RollbackCandidate,
-  rollbackCandidateFromItems,
-} from "../../display/item-actions";
+  messageStreamActiveItems,
+  messageStreamDisplayItems,
+  messageStreamRollbackCandidate,
+  messageStreamStableItems,
+  type MessageStreamRollbackCandidate,
+} from "../../state/message-stream";
 import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
 import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../../ui/shell-state";
@@ -123,7 +122,7 @@ export interface MessageStreamStateProjection {
   disclosures: ChatDisclosureUiState;
   forkActionsItemId: string | null;
   implementPlanCandidate: DisplayItem | null;
-  rollbackCandidate: RollbackCandidate | null;
+  rollbackCandidate: MessageStreamRollbackCandidate | null;
   forkCandidates: readonly ForkCandidate[];
 }
 
@@ -233,7 +232,7 @@ export function messageStreamContextFromState(
 export function messageStreamStateProjection(state: ChatPanelMessageStreamShellState, vaultPath: string): MessageStreamStateProjection {
   const busy = chatTurnBusy(state);
   const displayItems = messageStreamDisplayItems(state.messageStream);
-  const rollbackCandidate = busy ? null : rollbackCandidateFromItems(displayItems);
+  const rollbackCandidate = busy ? null : messageStreamRollbackCandidate(state.messageStream);
   const forkCandidates = busy ? [] : forkCandidatesFromItems(displayItems);
   const implementPlanCandidate = implementPlanCandidateFromState(state);
 

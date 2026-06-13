@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import { readCompletedConversationSummariesPage } from "../../../app-server/services/threads";
-import { getThreadTitle } from "../../../domain/threads/model";
+import { getThreadTitle, normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { Thread } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
 import { generateThreadTitleWithCodex } from "../../thread-title/generation";
@@ -14,7 +14,7 @@ import {
   type ChatStateStore,
 } from "../state/reducer";
 import { messageStreamDisplayItems } from "../state/message-stream";
-import { renameConnectedThread } from "./rename-actions";
+import { renameConnectedThread } from "./thread-management-actions";
 import { firstThreadTitleContextFromDisplayItems } from "./title-context";
 
 export interface RenameEditState {
@@ -22,7 +22,7 @@ export interface RenameEditState {
   generating: boolean;
 }
 
-export interface RenameControllerHost {
+export interface ThreadRenameEditorControllerHost {
   stateStore: ChatStateStore;
   vaultPath: string;
   settings: () => CodexPanelSettings;
@@ -33,10 +33,10 @@ export interface RenameControllerHost {
   generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null>;
 }
 
-export class RenameController {
+export class ThreadRenameEditorController {
   private nextRenameGenerationId = 1;
 
-  constructor(private readonly host: RenameControllerHost) {}
+  constructor(private readonly host: ThreadRenameEditorControllerHost) {}
 
   private get state(): ChatState {
     return this.host.stateStore.getState();
@@ -79,7 +79,7 @@ export class RenameController {
   async save(threadId: string, value: string): Promise<void> {
     if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId || this.renameState.kind === "generating") return;
     const editingState = this.renameState;
-    const title = value.trim();
+    const title = normalizeExplicitThreadName(value);
     if (!title) {
       this.cancel(threadId);
       return;

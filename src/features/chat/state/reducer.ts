@@ -69,6 +69,7 @@ import {
   type ChatTurnState,
   type PendingTurnStart,
 } from "../conversation/turns/turn-state";
+import { STATUS_TURN_RUNNING, turnCompletedStatus } from "../conversation/turns/messages";
 
 export {
   activeTurnId,
@@ -495,7 +496,7 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
   return patchChatState(state, {
     activeThread: { ...state.activeThread, id: action.threadId },
     turn: { lifecycle },
-    connection: { ...state.connection, statusText: "Turn running..." },
+    connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
     messageStream: action.displayItems
       ? messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.displayItems)
       : messageStreamStartActiveSegment(state.messageStream, action.turnId, []),
@@ -508,7 +509,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   return patchChatState(state, {
     turn: { lifecycle },
     messageStream: messageStreamWithDisplayItems(state.messageStream, action.displayItems),
-    connection: { ...state.connection, statusText: `Turn ${action.status}.` },
+    connection: { ...state.connection, statusText: turnCompletedStatus(action.status) },
   });
 }
 

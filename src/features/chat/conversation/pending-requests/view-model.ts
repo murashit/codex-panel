@@ -1,12 +1,6 @@
 import type { RequestId } from "../../../../app-server/connection/rpc-messages";
-import {
-  approvalActionOptions,
-  approvalDetails,
-  approvalSummary,
-  approvalTitle,
-  type ApprovalAction,
-  type PendingApproval,
-} from "../../protocol/server-requests/approval";
+import { approvalActionOptions, approvalDetails, approvalSummary, approvalTitle, type ApprovalActionOption } from "./approval-view";
+import { type ApprovalAction, type PendingApproval } from "../../protocol/server-requests/approval";
 import {
   questionDefaultAnswer,
   userInputDraftKey,
@@ -17,11 +11,7 @@ import {
 export type PendingRequestId = RequestId;
 type PendingRequestApprovalAction = ApprovalAction;
 
-interface PendingRequestApprovalOption {
-  label: string;
-  className: string;
-  action: PendingRequestApprovalAction;
-}
+type PendingRequestApprovalOption = ApprovalActionOption;
 
 interface PendingRequestDetailRow {
   key: string;

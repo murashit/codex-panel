@@ -12,7 +12,7 @@ import {
   upsertDisplayItem,
 } from "../../../../src/features/chat/state/message-stream-updates";
 import { taskProgressDisplayItem, taskProgressExecutionState } from "../../../../src/features/chat/display/items/task-progress";
-import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/display/items/proposed-plan";
+import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/display/items/message-content";
 import { pathRelativeToRoot } from "../../../../src/features/chat/display/details/path-labels";
 import { permissionRows } from "../../../../src/features/chat/display/details/permission-rows";
 import {

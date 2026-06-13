@@ -1,6 +1,6 @@
 import type { PendingTurnStart } from "../../state/reducer";
 import type { DisplayFileMention, DisplayItem, MessageDisplayItem } from "../../display/types";
-import { fileMentionsFromInput, userMessageDisplayText } from "../../display/items/user-message";
+import { fileMentionsFromInput, userMessageDisplayText } from "../../display/items/message-content";
 import { attachHookRunsToTurn } from "../../state/message-stream-updates";
 import type { CodexInput } from "../../../../domain/chat/input";
 

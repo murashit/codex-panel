@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  approvalActionOptions,
-  approvalDetails,
   approvalResponse,
-  approvalSummary,
-  approvalTitle,
   toPendingApproval,
   type CommandApprovalDecision,
 } from "../../../../../src/features/chat/protocol/server-requests/approval";
+import {
+  approvalActionOptions,
+  approvalDetails,
+  approvalSummary,
+  approvalTitle,
+} from "../../../../../src/features/chat/conversation/pending-requests/approval-view";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {

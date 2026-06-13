@@ -1,5 +1,5 @@
 import type { DisplayBlock, DisplayItem, DisplayKind } from "../types";
-import { isCompletedTurnOutcomeMessage } from "../predicates";
+import { isCompletedTurnOutcomeMessage } from "../item-selectors";
 import { pathRelativeToRoot } from "../details/path-labels";
 
 const STEERING_ACTIVITY_LABEL = "steer";

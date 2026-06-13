@@ -1332,7 +1332,7 @@ describe("ChatInboundController", () => {
 
       controller.handleNotification({
         method: "thread/name/updated",
-        params: { threadId: "thread-active", threadName: "Codex Panel自動命名" },
+        params: { threadId: "thread-active", threadName: "  Codex   Panel自動命名  " },
       } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>);
 
       expect(state.threadList.listedThreads[0]?.name).toBe("Codex Panel自動命名");

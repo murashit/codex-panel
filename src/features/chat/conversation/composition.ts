@@ -5,7 +5,7 @@ import { type ChatStateStore } from "../state/reducer";
 import type { ChatReconnectActions } from "../connection/reconnect-actions";
 import { PendingRequestController } from "./pending-requests/controller";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import type { ChatThreadActions } from "../threads/action-context";
+import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { GoalActions } from "../threads/goal-actions";
 import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
@@ -76,7 +76,7 @@ export function createConversationParts(
     controller: ChatInboundController;
     serverThreads: ChatServerThreadActions;
     runtimeSettings: ChatRuntimeSettingsActions;
-    threadActions: ChatThreadActions;
+    threadActions: ThreadManagementActions;
     reconnectActions: ChatReconnectActions;
     goals: GoalActions;
     history: HistoryController;

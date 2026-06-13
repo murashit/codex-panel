@@ -5,7 +5,8 @@ import type { ChatStateStore } from "../../state/reducer";
 import { parseSlashCommand } from "../composer/suggestions";
 import type { SlashCommandExecutionResult } from "./slash-command-execution";
 import type { SlashCommandName } from "../composer/slash-commands";
-import type { ReferencedThreadDisplay } from "../../../../domain/threads/reference";
+import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import { STATUS_INTERRUPT_REQUESTED } from "./messages";
 
 export interface ComposerSubmitActionsHost {
   stateStore: ChatStateStore;
@@ -17,7 +18,7 @@ export interface ComposerSubmitActionsHost {
     execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined>;
   };
   turnSubmission: {
-    sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadDisplay): Promise<void>;
+    sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadMetadata): Promise<void>;
   };
   connection: {
     ensureConnected: () => Promise<void>;
@@ -84,7 +85,7 @@ async function interruptTurn(host: ComposerSubmitActionsHost): Promise<void> {
   if (!client || !state.activeThreadId || !turnId) return;
   try {
     await client.interruptTurn(state.activeThreadId, turnId);
-    host.status.setStatus("Interrupt requested.");
+    host.status.setStatus(STATUS_INTERRUPT_REQUESTED);
   } catch (error) {
     host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
   }

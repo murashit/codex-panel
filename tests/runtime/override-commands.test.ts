@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { collaborationModeLabel, nextCollaborationMode } from "../../src/features/chat/runtime/pending-settings";
+import { collaborationModeLabel } from "../../src/features/chat/runtime/messages";
+import { nextCollaborationMode } from "../../src/features/chat/runtime/pending-settings";
 
 describe("runtime collaboration mode", () => {
   it("toggles between Default and Plan mode", () => {

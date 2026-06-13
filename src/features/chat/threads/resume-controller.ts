@@ -6,6 +6,7 @@ import type { RestorationController } from "./restoration-controller";
 import { resumedThreadActionFromAppServerResponse } from "./resume";
 import type { HistoryController } from "./history-controller";
 import type { ChatResumeWorkTracker, ActiveChatResume } from "../lifecycle";
+import { finishBeforeSwitchingThreadsMessage, resumedThreadMessage } from "./messages";
 
 export interface ResumeControllerHost {
   stateStore: ChatStateStore;
@@ -30,7 +31,7 @@ export class ResumeController {
 
   async resumeThread(threadId: string): Promise<void> {
     if (!canSwitchToThread(this.host.stateStore.getState(), threadId)) {
-      this.host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
+      this.host.addSystemMessage(finishBeforeSwitchingThreadsMessage());
       return;
     }
     const resume = this.host.resumeWork.begin(threadId);
@@ -54,7 +55,7 @@ export class ResumeController {
       if (this.isStale(resume)) return;
       const renderFallbackMessage = displayItemsEmpty(this.host.stateStore.getState());
       if (renderFallbackMessage) {
-        this.host.addSystemMessage(`Resumed thread ${response.thread.id}`);
+        this.host.addSystemMessage(resumedThreadMessage(response.thread.id));
       }
       this.host.refreshLiveState();
     } catch (error) {

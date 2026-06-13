@@ -1,6 +1,6 @@
 import type { ThreadTitleContext } from "../../thread-title/model";
 import { truncate } from "../../../utils";
-import { isCompletedTurnOutcomeMessage } from "../display/predicates";
+import { isCompletedTurnOutcomeMessage } from "../display/item-selectors";
 import type { DisplayItem } from "../display/types";
 
 const MAX_CONTEXT_CHARS = 4_000;

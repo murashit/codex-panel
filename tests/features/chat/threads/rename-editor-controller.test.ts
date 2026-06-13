@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { RenameController } from "../../../../src/features/chat/threads/rename-controller";
+import { ThreadRenameEditorController } from "../../../../src/features/chat/threads/rename-editor-controller";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
-describe("RenameController", () => {
+describe("ThreadRenameEditorController", () => {
   it("stores controlled rename drafts in chat UI state", () => {
     const { controller } = controllerFixture();
 
@@ -84,7 +84,7 @@ describe("RenameController", () => {
     });
 
     controller.start("thread");
-    const save = controller.save("thread", "Saved title");
+    const save = controller.save("thread", " Saved   title ");
     await flushPromises();
 
     controller.cancel("thread");
@@ -93,6 +93,7 @@ describe("RenameController", () => {
     saved.resolve({});
     await save;
 
+    expect(setThreadName).toHaveBeenCalledWith("thread", "Saved title");
     expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Saved title");
     expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
     expect(controller.editState("thread")).toEqual({ draft: "New draft", generating: false });
@@ -144,8 +145,8 @@ describe("RenameController", () => {
 });
 
 function controllerFixture(
-  overrides: Partial<ConstructorParameters<typeof RenameController>[0]> = {},
-): ConstructorParameters<typeof RenameController>[0] & { controller: RenameController } {
+  overrides: Partial<ConstructorParameters<typeof ThreadRenameEditorController>[0]> = {},
+): ConstructorParameters<typeof ThreadRenameEditorController>[0] & { controller: ThreadRenameEditorController } {
   const stateStore = createChatStateStore();
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
   const host = {
@@ -157,8 +158,8 @@ function controllerFixture(
     addSystemMessage: vi.fn(),
     notifyThreadRenamed: vi.fn(),
     ...overrides,
-  } satisfies ConstructorParameters<typeof RenameController>[0];
-  return { ...host, controller: new RenameController(host) };
+  } satisfies ConstructorParameters<typeof ThreadRenameEditorController>[0];
+  return { ...host, controller: new ThreadRenameEditorController(host) };
 }
 
 function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {

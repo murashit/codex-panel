@@ -4,7 +4,7 @@ import { ConnectionManager, type ConnectionManagerHandlers } from "../../app-ser
 import type { AppServerClient } from "../../app-server/connection/client";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
-import { codexPanelDisplayTitle, getThreadTitle } from "../../domain/threads/model";
+import { getThreadTitle } from "../../domain/threads/model";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { ArchiveExportAdapter } from "../thread-export/archive-markdown";
@@ -19,6 +19,7 @@ import type { ChatComposerController } from "./conversation/composer/controller"
 import { createConversationParts } from "./conversation/composition";
 import type { ComposerSubmitActions } from "./conversation/turns/composer-submit-actions";
 import { createStructuredSystemItem, createSystemItem } from "./display/items/system";
+import { codexPanelDisplayTitle } from "./threads/title-display";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import {
   effortStatusLines as buildEffortStatusLines,
@@ -39,7 +40,7 @@ import { connectionDiagnosticsModel } from "./panel/surface/toolbar";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
 import { ChatInboundController } from "./protocol/inbound/controller";
 import { rejectServerRequest, respondToServerRequest } from "./protocol/server-requests/responder";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/pending-settings";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/messages";
 import { createChatRuntimeSettingsActions } from "./runtime/settings-actions";
 import { runtimeSnapshotForChatState, type RuntimeSnapshot } from "./runtime/snapshot";
 import { chatPanelComposerProjection } from "./panel/surface/composer";
@@ -57,7 +58,7 @@ import type { GoalActions } from "./threads/goal-actions";
 import type { AutoTitleController } from "./threads/auto-title-controller";
 import type { HistoryController } from "./threads/history-controller";
 import type { IdentitySync } from "./threads/identity-sync";
-import type { RenameController } from "./threads/rename-controller";
+import type { ThreadRenameEditorController } from "./threads/rename-editor-controller";
 import type { RestorationController } from "./threads/restoration-controller";
 import type { ResumeController } from "./threads/resume-controller";
 import type { SelectionActions } from "./threads/selection-actions";
@@ -101,7 +102,7 @@ interface ChatPanelSessionParts {
     resume: ResumeController;
     restoration: RestorationController;
     identity: IdentitySync;
-    rename: RenameController;
+    rename: ThreadRenameEditorController;
   };
   toolbar: {
     panels: ToolbarPanelActions;
@@ -392,7 +393,7 @@ export class ChatPanelSession {
         connection,
       },
     );
-    const { history, actions: threadActions, goals, identity, restoration, resume, rename, autoTitle } = threadParts;
+    const { history, managementActions: threadActions, goals, identity, restoration, resume, rename, autoTitle } = threadParts;
     resumeRef.set(resume);
     restorationRef.set(restoration);
     const toolbarPanels = createToolbarPanelActions({

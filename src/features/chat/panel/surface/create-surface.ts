@@ -5,9 +5,9 @@ import type { ChatConnectionController } from "../../connection/connection-contr
 import type { ChatReconnectActions } from "../../connection/reconnect-actions";
 import type { ChatInboundController } from "../../protocol/inbound/controller";
 import type { ChatServerThreadActions } from "../../connection/server-actions/threads";
-import type { ChatThreadActions } from "../../threads/action-context";
+import type { ThreadManagementActions } from "../../threads/thread-management-actions";
 import type { ToolbarPanelActions } from "../toolbar-actions";
-import type { RenameController } from "../../threads/rename-controller";
+import type { ThreadRenameEditorController } from "../../threads/rename-editor-controller";
 import type { SelectionActions } from "../../threads/selection-actions";
 import type { ChatRuntimeSettingsActions } from "../../runtime/settings-actions";
 import type { GoalActions } from "../../threads/goal-actions";
@@ -29,9 +29,9 @@ export interface ChatPanelSurfaceDependencies {
   reconnectActions: ChatReconnectActions;
   inboundController: ChatInboundController;
   serverThreads: ChatServerThreadActions;
-  threadActions: ChatThreadActions;
+  threadActions: ThreadManagementActions;
   toolbarPanels: ToolbarPanelActions;
-  rename: RenameController;
+  rename: ThreadRenameEditorController;
   selection: SelectionActions;
   runtimeSettings: ChatRuntimeSettingsActions;
   goals: GoalActions;

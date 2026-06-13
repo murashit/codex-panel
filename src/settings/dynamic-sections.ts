@@ -2,8 +2,8 @@ import { Setting } from "obsidian";
 
 import type { HookItem } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
-import { archivedThreadDisplayTitle } from "../domain/threads/model";
 import { shortThreadId } from "../utils";
+import { archivedThreadDisplayTitle } from "./archived-thread-title";
 
 export interface ArchivedThreadSectionState {
   exportEnabled: boolean;

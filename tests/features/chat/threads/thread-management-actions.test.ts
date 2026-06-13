@@ -4,12 +4,15 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ArchiveExportAdapter } from "../../../../src/features/thread-export/archive-markdown";
 import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { archiveThread } from "../../../../src/features/chat/threads/archive-actions";
-import { compactThread } from "../../../../src/features/chat/threads/compact-actions";
-import { forkThreadFromTurn } from "../../../../src/features/chat/threads/fork-actions";
-import { renameThread } from "../../../../src/features/chat/threads/rename-actions";
-import { rollbackThread as rollbackThreadAction } from "../../../../src/features/chat/threads/rollback-actions";
-import type { ChatThreadActions, ChatThreadActionsHost } from "../../../../src/features/chat/threads/action-context";
+import {
+  archiveThread,
+  compactThread,
+  forkThreadFromTurn,
+  renameThread,
+  rollbackThread as rollbackThreadAction,
+  type ThreadManagementActions,
+  type ThreadManagementActionsHost,
+} from "../../../../src/features/chat/threads/thread-management-actions";
 import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { notices } from "../../../mocks/obsidian";
@@ -22,7 +25,7 @@ type MockArchiveExportAdapter = ArchiveExportAdapter & {
   write: ReturnType<typeof vi.fn<ArchiveExportAdapter["write"]>>;
 };
 
-describe("chat thread actions", () => {
+describe("thread management actions", () => {
   beforeEach(() => {
     notices.length = 0;
   });
@@ -30,7 +33,7 @@ describe("chat thread actions", () => {
   it("requests thread compaction and reports the shared status", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: [] });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await controller.compactThread("source");
 
@@ -56,7 +59,7 @@ describe("chat thread actions", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     const pendingCompact = controller.compactThread("source");
     await waitForAsyncWork(() => {
@@ -94,7 +97,7 @@ describe("chat thread actions", () => {
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
       },
     });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await controller.archiveThread("source");
 
@@ -126,7 +129,7 @@ describe("chat thread actions", () => {
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
       },
     });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await controller.archiveThread("source");
 
@@ -139,7 +142,7 @@ describe("chat thread actions", () => {
   it("forks from a selected turn by dropping later turns on the fork", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-1", false);
 
@@ -164,7 +167,7 @@ describe("chat thread actions", () => {
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
       },
     });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
@@ -183,7 +186,7 @@ describe("chat thread actions", () => {
     const client = clientMock();
     client.archiveThread.mockRejectedValue(new Error("archive failed"));
     const host = hostMock({ client, displayItems: turnItems() });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
@@ -198,7 +201,7 @@ describe("chat thread actions", () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
     host.openThreadInCurrentPanel.mockRejectedValue(new Error("resume failed"));
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
@@ -228,7 +231,7 @@ describe("chat thread actions", () => {
       threads: [{ ...panelThread("source"), name: "Source name" }],
       threadsLoaded: true,
     });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     const pendingFork = controller.forkThreadFromTurn("source", null, true);
     await waitForAsyncWork(() => {
@@ -259,9 +262,9 @@ describe("chat thread actions", () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: [] });
     host.stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...panelThread("thread"), name: "Old" }] });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
-    await expect(controller.renameThread("thread", " Slash command title ")).resolves.toBe(true);
+    await expect(controller.renameThread("thread", " Slash   command title ")).resolves.toBe(true);
 
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(client.setThreadName).toHaveBeenCalledWith("thread", "Slash command title");
@@ -272,7 +275,7 @@ describe("chat thread actions", () => {
   it("ignores empty thread rename titles", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: [] });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await expect(controller.renameThread("thread", "   ")).resolves.toBe(false);
 
@@ -296,7 +299,7 @@ describe("chat thread actions", () => {
       activePermissionProfile: null,
     });
     host.stateStore.dispatch({ type: "message-stream/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     await controller.rollbackThread("source");
 
@@ -327,7 +330,7 @@ describe("chat thread actions", () => {
       activePermissionProfile: null,
     });
     host.stateStore.dispatch({ type: "message-stream/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
-    const controller = chatThreadActions(host);
+    const controller = threadManagementActions(host);
 
     const pendingRollback = controller.rollbackThread("source");
     await waitForAsyncWork(() => {
@@ -400,7 +403,7 @@ function clientMock() {
   };
 }
 
-function chatThreadActions(host: ChatThreadActionsHost): ChatThreadActions {
+function threadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
   return {
     compactThread: (threadId) => compactThread(host, threadId),
     archiveThread: (threadId, saveMarkdown) => archiveThread(host, threadId, saveMarkdown),
@@ -442,7 +445,7 @@ function hostMock({
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshThreads: vi.fn().mockResolvedValue(undefined),
     refreshSharedThreadListFromOpenSurface: vi.fn(),
-  } satisfies ChatThreadActionsHost;
+  } satisfies ThreadManagementActionsHost;
 }
 
 function archiveAdapterMock(overrides: Partial<MockArchiveExportAdapter> = {}): MockArchiveExportAdapter {

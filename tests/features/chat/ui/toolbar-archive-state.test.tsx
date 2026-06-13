@@ -7,7 +7,7 @@ import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
 import type { ChatPanelSurface, ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/model";
-import type { ChatThreadActions } from "../../../../src/features/chat/threads/action-context";
+import type { ThreadManagementActions } from "../../../../src/features/chat/threads/thread-management-actions";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/ui/shell";
 import { installObsidianDomShims } from "../../../support/dom";
 
@@ -20,7 +20,7 @@ describe("chat toolbar archive confirmation state", () => {
     const container = document.createElement("div");
     const toolbarActions = createToolbarPanelActions({
       stateStore: store,
-      threadActions: { archiveThread: vi.fn() } as unknown as ChatThreadActions,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
     });
     store.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread-1", "Thread one")] });
     store.dispatch({ type: "ui/panel-set", panel: "history" });

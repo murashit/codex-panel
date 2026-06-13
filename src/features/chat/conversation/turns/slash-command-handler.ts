@@ -3,6 +3,7 @@ import { codexTextInputWithAttachments, type CodexInput } from "../../../../doma
 import { readReferencedThreadConversationSummaries } from "../../../../app-server/services/threads";
 import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
+import { referencedThreadStatus, referencedThreadUnreadableMessage } from "./messages";
 import {
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionContext,
@@ -72,12 +73,12 @@ async function referencedThreadInput(
   try {
     const turns = await readReferencedThreadConversationSummaries(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
     if (turns.length === 0) {
-      host.addSystemMessage("Referenced thread has no readable conversation turns.");
+      host.addSystemMessage(referencedThreadUnreadableMessage());
       return null;
     }
     const reference = referencedThreadPromptBundle(thread, turns, message);
     const messageInput = host.codexInput(message);
-    host.setStatus(reference.status);
+    host.setStatus(referencedThreadStatus(thread, turns.length));
     return {
       input: codexTextInputWithAttachments(reference.prompt, messageInput),
       referencedThread: reference.referencedThread,

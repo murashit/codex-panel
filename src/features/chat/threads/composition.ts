@@ -7,7 +7,7 @@ import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle"
 import type { ChatStateStore } from "../state/reducer";
 import type { CodexChatHost } from "../chat-host";
 import { createThreadNamingParts } from "./naming-parts";
-import { createThreadActions } from "./action-parts";
+import { createThreadManagementActions } from "./thread-management-actions";
 import { createThreadLifecycleParts } from "./lifecycle-parts";
 
 interface ThreadPartsContext {
@@ -79,7 +79,7 @@ export function createThreadParts(
   );
   const { rename, autoTitle, resetThreadTurnPresence } = naming;
 
-  const actions = createThreadActions({
+  const managementActions = createThreadManagementActions({
     obsidian,
     plugin,
     stateStore,
@@ -128,7 +128,7 @@ export function createThreadParts(
 
   return {
     history,
-    actions,
+    managementActions,
     goals,
     restoration,
     resume,

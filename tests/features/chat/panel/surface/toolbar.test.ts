@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import { createToolbarPanelActions } from "../../../../../src/features/chat/panel/toolbar-actions";
-import type { ChatThreadActions } from "../../../../../src/features/chat/threads/action-context";
+import type { ThreadManagementActions } from "../../../../../src/features/chat/threads/thread-management-actions";
 
 describe("createToolbarPanelActions", () => {
   it("tracks archive confirmation and delegates archive actions", async () => {
@@ -12,7 +12,7 @@ describe("createToolbarPanelActions", () => {
     const archiveThread = vi.fn().mockResolvedValue(undefined);
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread } as unknown as ChatThreadActions,
+      threadActions: { archiveThread } as unknown as ThreadManagementActions,
     });
 
     actions.startArchive("thread");
@@ -28,7 +28,7 @@ describe("createToolbarPanelActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const actions = createToolbarPanelActions({
       stateStore,
-      threadActions: { archiveThread: vi.fn() } as unknown as ChatThreadActions,
+      threadActions: { archiveThread: vi.fn() } as unknown as ThreadManagementActions,
     });
     actions.toggleHistory();
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");

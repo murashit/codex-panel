@@ -1,10 +1,9 @@
-import { shortThreadId } from "../../utils";
 import { getThreadTitle, type Thread } from "./model";
 import type { ThreadConversationSummary } from "./transcript";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
 
-export interface ReferencedThreadDisplay {
+export interface ReferencedThreadMetadata {
   threadId: string;
   title: string;
   includedTurns: number;
@@ -13,18 +12,17 @@ export interface ReferencedThreadDisplay {
 
 interface ReferencedThreadEnvelope {
   version: 1;
-  reference: ReferencedThreadDisplay;
+  reference: ReferencedThreadMetadata;
   visibleText: string;
 }
 
 export interface ReferencedThreadPromptBundle {
   prompt: string;
-  referencedThread: ReferencedThreadDisplay;
-  status: string;
+  referencedThread: ReferencedThreadMetadata;
 }
 
 export function referencedThreadPrompt(thread: Thread, turns: readonly ThreadConversationSummary[], userRequest: string): string {
-  const reference = referencedThreadDisplay(thread, turns.length);
+  const reference = referencedThreadMetadata(thread, turns.length);
   const envelope = referencedThreadEnvelope(reference, userRequest);
 
   return [
@@ -46,11 +44,7 @@ export function referencedThreadPrompt(thread: Thread, turns: readonly ThreadCon
   ].join("\n");
 }
 
-function referencedThreadStatus(thread: Thread, count: number): string {
-  return `Referencing ${shortThreadId(thread.id)} (${String(count)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`;
-}
-
-function referencedThreadDisplay(thread: Thread, count: number): ReferencedThreadDisplay {
+function referencedThreadMetadata(thread: Thread, count: number): ReferencedThreadMetadata {
   return {
     threadId: thread.id,
     title: getThreadTitle(thread),
@@ -67,12 +61,11 @@ export function referencedThreadPromptBundle(
   const prompt = referencedThreadPrompt(thread, [...turns], userRequest);
   return {
     prompt,
-    referencedThread: referencedThreadDisplay(thread, turns.length),
-    status: referencedThreadStatus(thread, turns.length),
+    referencedThread: referencedThreadMetadata(thread, turns.length),
   };
 }
 
-export function referencedThreadDisplayFromPrompt(text: string): { text: string; reference: ReferencedThreadDisplay } | null {
+export function referencedThreadMetadataFromPrompt(text: string): { text: string; reference: ReferencedThreadMetadata } | null {
   const envelope = referencedThreadEnvelopeFromPrompt(text);
   return envelope ? { text: envelope.visibleText, reference: envelope.reference } : null;
 }
@@ -88,7 +81,7 @@ interface ReferencedThreadEnvelopeMetadata {
   turnLimit: number;
 }
 
-function referencedThreadEnvelope(reference: ReferencedThreadDisplay, visibleText: string): ReferencedThreadEnvelope {
+function referencedThreadEnvelope(reference: ReferencedThreadMetadata, visibleText: string): ReferencedThreadEnvelope {
   return {
     version: 1,
     reference,

@@ -7,6 +7,13 @@ import { createStructuredSystemItem, createSystemItem } from "../../display/item
 import type { DisplayDetailSection } from "../../display/types";
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "../server-requests/approval";
 import { userInputResponse, type PendingUserInput } from "../server-requests/user-input";
+import {
+  cannotCancelUserInputMessage,
+  cannotRejectServerRequestMessage,
+  cannotSendApprovalResponseMessage,
+  cannotSendUserInputMessage,
+  userCancelledInputRequestMessage,
+} from "../../conversation/pending-requests/messages";
 import { createApprovalResultItem, createUserInputResultItem } from "../../conversation/pending-requests/result-items";
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
@@ -78,7 +85,7 @@ export class ChatInboundController {
   resolveApproval(approval: PendingApproval, action: ApprovalAction): void {
     if (!this.state.requests.approvals.includes(approval)) return;
     if (!this.actions.respondToServerRequest(approval.requestId, approvalResponse(approval, action))) {
-      this.addSystemMessage("Could not send approval response because Codex app-server is not connected.");
+      this.addSystemMessage(cannotSendApprovalResponseMessage());
       return;
     }
     this.dispatch({ type: "request/resolved", requestId: approval.requestId, resultItem: createApprovalResultItem(approval, action) });
@@ -87,7 +94,7 @@ export class ChatInboundController {
   resolveUserInput(input: PendingUserInput, answers: Record<string, string>): void {
     if (!this.state.requests.pendingUserInputs.includes(input)) return;
     if (!this.actions.respondToServerRequest(input.requestId, userInputResponse(input, answers))) {
-      this.addSystemMessage("Could not send user input because Codex app-server is not connected.");
+      this.addSystemMessage(cannotSendUserInputMessage());
       return;
     }
     this.dispatch({
@@ -99,8 +106,8 @@ export class ChatInboundController {
 
   cancelUserInput(input: PendingUserInput): void {
     if (!this.state.requests.pendingUserInputs.includes(input)) return;
-    if (!this.actions.rejectServerRequest(input.requestId, -32000, "User cancelled input request.")) {
-      this.addSystemMessage("Could not cancel user input because Codex app-server is not connected.");
+    if (!this.actions.rejectServerRequest(input.requestId, -32000, userCancelledInputRequestMessage())) {
+      this.addSystemMessage(cannotCancelUserInputMessage());
       return;
     }
     this.dispatch({ type: "request/resolved", requestId: input.requestId, resultItem: createUserInputResultItem(input, {}, "cancelled") });
@@ -149,7 +156,7 @@ export class ChatInboundController {
   private rejectServerRequest(request: ServerRequest, message: string): void {
     this.addSystemMessage(message);
     if (!this.actions.rejectServerRequest(request.id, -32601, message)) {
-      this.addSystemMessage("Could not reject app-server request because Codex app-server is not connected.");
+      this.addSystemMessage(cannotRejectServerRequestMessage());
     }
   }
 
