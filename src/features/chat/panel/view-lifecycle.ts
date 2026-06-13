@@ -29,7 +29,6 @@ export interface ChatViewLifecycleHost {
     disposeMessages: () => void;
     disposeComposer: () => void;
     disconnect: () => void;
-    clearClient: () => void;
   };
   liveState: {
     refresh: () => void;
@@ -63,7 +62,6 @@ export function closeChatView(host: ChatViewLifecycleHost): void {
   host.resources.disposeComposer();
   unmountChatPanelShell(panelRoot);
   host.resources.disconnect();
-  host.resources.clearClient();
   host.liveState.refresh();
   host.liveState.deferRefresh();
 }

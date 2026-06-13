@@ -41,7 +41,6 @@ function createHost(overrides: Partial<ChatViewLifecycleHost> = {}) {
       disposeMessages: vi.fn(),
       disposeComposer: vi.fn(),
       disconnect: vi.fn(),
-      clearClient: vi.fn(),
     },
     liveState: {
       refresh: vi.fn(),
@@ -84,7 +83,6 @@ describe("chat view lifecycle", () => {
     expect(host.resources.disposeComposer).toHaveBeenCalledOnce();
     expect(unmountChatPanelShell).toHaveBeenCalledWith(root);
     expect(host.resources.disconnect).toHaveBeenCalledOnce();
-    expect(host.resources.clearClient).toHaveBeenCalledOnce();
     expect(host.liveState.refresh).toHaveBeenCalledOnce();
     expect(host.liveState.deferRefresh).toHaveBeenCalledOnce();
   });

@@ -33,16 +33,12 @@ function createController({ connected = false, client = {} as AppServerClient } 
   const diagnostics = {
     refreshPublishedDiagnosticProbes,
   } satisfies ChatConnectionDiagnosticsActions;
-  const setClient = vi.fn((next: AppServerClient | null) => {
-    currentClient = next;
-  });
   const host = {
     stateStore,
     connection,
     connectionWork: new ChatConnectionWorkTracker(),
     metadata,
     diagnostics,
-    setClient,
     invalidateResumeWork: vi.fn(),
     loadSharedThreadList: vi.fn().mockResolvedValue(undefined),
     scheduleDeferredDiagnostics: vi.fn(),
@@ -122,7 +118,6 @@ describe("ChatConnectionController", () => {
       message: "Codex app-server stopped.",
     });
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
-    expect(host.setClient).toHaveBeenCalledWith(null);
     expect(host.refreshLiveState).toHaveBeenCalledOnce();
     expect(stateStore.getState()).toMatchObject({
       threadList: {

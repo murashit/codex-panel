@@ -25,7 +25,6 @@ export interface ChatConnectionControllerHost {
   connectionWork: ChatConnectionWorkTracker;
   metadata: ChatConnectionMetadataActions;
   diagnostics: ChatConnectionDiagnosticsActions;
-  setClient: (client: AppServerClient | null) => void;
   invalidateResumeWork: () => void;
   loadSharedThreadList: () => Promise<void>;
   scheduleDeferredDiagnostics: () => void;
@@ -48,7 +47,6 @@ export class ChatConnectionController {
     if (connecting?.promise) return connecting.promise;
 
     if (this.host.connection.isConnected()) {
-      this.host.setClient(this.host.connection.currentClient());
       return;
     }
 
@@ -73,12 +71,10 @@ export class ChatConnectionController {
     this.host.setStatus("Codex app-server stopped.", { kind: "disconnected", message: "Codex app-server stopped." });
     this.host.stateStore.dispatch({ type: "connection/scoped-cleared" });
     this.host.resetThreadTurnPresence(false);
-    this.host.setClient(null);
     this.host.refreshLiveState();
   }
 
   async refreshThreads(): Promise<void> {
-    this.host.setClient(this.host.connection.currentClient());
     if (!this.host.connection.currentClient()) return;
     try {
       await this.host.loadSharedThreadList();
@@ -107,7 +103,6 @@ export class ChatConnectionController {
   }
 
   async refreshSkills(forceReload = false): Promise<void> {
-    this.host.setClient(this.host.connection.currentClient());
     if (!this.host.connection.currentClient()) return;
     await this.host.metadata.refreshPublishedSkills(forceReload);
   }
@@ -121,7 +116,6 @@ export class ChatConnectionController {
       this.host.publishAppServerIdentity(initialization.userAgent);
       this.host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
       const client = this.host.connection.currentClient();
-      this.host.setClient(client);
       if (!client) throw new Error("Codex app-server connection did not initialize.");
       await this.host.metadata.refreshPublishedAppServerMetadata();
       if (this.host.connectionWork.isStale(connection)) return;
