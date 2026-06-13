@@ -100,45 +100,64 @@ Rollback restores the latest prompt in the Codex thread. It does not undo file e
 
 ### Obsidian commands
 
+The command palette entries are ordered by the workflow they support: opening panels, finding threads, managing the active chat, and editing note text.
+
 | Command                            | What it does                                                                                                                       |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **Codex Panel: Open panel**        | Open or focus a Codex panel.                                                                                                       |
 | **Codex Panel: Open new panel**    | Open another Codex panel.                                                                                                          |
-| **Codex Panel: Open threads view** | Open the left sidebar thread list.                                                                                                 |
 | **Codex Panel: Open thread...**    | Search non-archived threads from a picker. Press `Enter` to open in the current panel, or `Cmd/Ctrl+Enter` to open in a new panel. |
+| **Codex Panel: Open threads view** | Open the left sidebar thread list.                                                                                                 |
 | **Codex Panel: Start new chat**    | Clear the current panel for a fresh Codex thread.                                                                                  |
 | **Codex Panel: Rewrite selection** | Rewrite selected Markdown note text with Codex and review a selection-scoped diff before applying it.                              |
 
 ### Slash commands
 
-Use `/help` in the composer to show the available slash commands.
+Use `/help` in the composer to show the available slash commands. The list below follows the same groups shown in help.
 
-| Command                       | What it does                                                       |
-| ----------------------------- | ------------------------------------------------------------------ |
-| `/clear`                      | Clear the current panel and start a fresh Codex thread.            |
-| `/resume [thread]`            | Resume a recent Codex thread.                                      |
-| `/reconnect`                  | Reconnect to `codex app-server` and resume the active thread.      |
-| `/refer <thread> <message>`   | Send a message with recent turns from another non-archived thread. |
-| `/fork`                       | Fork the active Codex thread.                                      |
-| `/rollback`                   | Roll back the latest turn and restore its prompt.                  |
-| `/compact`                    | Compact the current thread context.                                |
-| `/archive <thread>`           | Archive the selected Codex thread.                                 |
-| `/rename <thread> <name>`     | Rename the selected Codex thread.                                  |
-| `/auto-review`                | Toggle approval auto-review.                                       |
-| `/fast`                       | Toggle fast service tier for subsequent turns.                     |
-| `/plan [message]`             | Toggle Plan mode, optionally with a message.                       |
-| `/goal`                       | Show the current thread goal.                                      |
-| `/goal set <objective>`       | Create or update the current thread goal.                          |
-| `/goal edit`                  | Load the current thread goal into the composer.                    |
-| `/goal pause`                 | Pause the current thread goal.                                     |
-| `/goal resume`                | Resume the current thread goal.                                    |
-| `/goal clear`                 | Clear the current thread goal.                                     |
-| `/status`                     | Show current thread, context, and usage limits.                    |
-| `/doctor`                     | Show Codex CLI and Codex App Server diagnostics.                   |
-| `/mcp`                        | Show MCP servers reported by Codex App Server.                     |
-| `/model [model\|default]`     | Show or set the model for subsequent turns.                        |
-| `/reasoning [level\|default]` | Show or set reasoning effort for subsequent turns.                 |
-| `/help`                       | Show available slash commands.                                     |
+#### Panel actions
+
+| Command                   | What it does                                                  |
+| ------------------------- | ------------------------------------------------------------- |
+| `/clear`                  | Clear the current panel and start a fresh Codex thread.       |
+| `/resume [thread]`        | Resume a recent Codex thread.                                 |
+| `/reconnect`              | Reconnect to `codex app-server` and resume the active thread. |
+| `/fork`                   | Fork the active Codex thread.                                 |
+| `/rollback`               | Roll back the latest turn and restore its prompt.             |
+| `/compact`                | Compact the current thread context.                           |
+| `/archive <thread>`       | Archive the selected Codex thread.                            |
+| `/rename <thread> <name>` | Rename the selected Codex thread.                             |
+
+#### Thread settings
+
+| Command                       | What it does                                       |
+| ----------------------------- | -------------------------------------------------- |
+| `/auto-review`                | Toggle approval auto-review.                       |
+| `/fast`                       | Toggle fast service tier for subsequent turns.     |
+| `/plan [message]`             | Toggle Plan mode, optionally with a message.       |
+| `/goal`                       | Show the current thread goal.                      |
+| `/goal set <objective>`       | Create or update the current thread goal.          |
+| `/goal edit`                  | Load the current thread goal into the composer.    |
+| `/goal pause`                 | Pause the current thread goal.                     |
+| `/goal resume`                | Resume the current thread goal.                    |
+| `/goal clear`                 | Clear the current thread goal.                     |
+| `/model [model\|default]`     | Show or set the model for subsequent turns.        |
+| `/reasoning [level\|default]` | Show or set reasoning effort for subsequent turns. |
+
+#### Diagnostics
+
+| Command   | What it does                                     |
+| --------- | ------------------------------------------------ |
+| `/status` | Show current thread, context, and usage limits.  |
+| `/doctor` | Show Codex CLI and Codex App Server diagnostics. |
+| `/mcp`    | Show MCP servers reported by Codex App Server.   |
+| `/help`   | Show available slash commands.                   |
+
+#### Composition
+
+| Command                     | What it does                                                       |
+| --------------------------- | ------------------------------------------------------------------ |
+| `/refer <thread> <message>` | Send a message with recent turns from another non-archived thread. |
 
 ## Privacy and security
 
