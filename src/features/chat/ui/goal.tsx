@@ -171,7 +171,6 @@ export function GoalPanel({
               <textarea
                 ref={objectiveRef}
                 className="codex-panel-ui__text-input codex-panel__goal-objective-input"
-                aria-label="Goal objective"
                 value={objective}
                 onInput={(event) => {
                   actions.onObjectiveDraftChange(event.currentTarget.value);

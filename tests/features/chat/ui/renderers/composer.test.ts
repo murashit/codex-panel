@@ -104,7 +104,7 @@ describe("ComposerShell decisions", () => {
     );
 
     expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Refactor terminal streaming”...");
-    expect(composer.getAttribute("aria-label")).toBe("Message");
+    expect(composer.getAttribute("aria-label")).toBeNull();
 
     mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on “Renamed thread”...", [], 0, callbacks);
 
@@ -480,7 +480,7 @@ describe("ComposerShell decisions", () => {
 
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
     expect(composer.getAttribute("placeholder")).toBe("Add steering message...");
-    expect(composer.getAttribute("aria-label")).toBe("Steering message");
+    expect(composer.getAttribute("aria-label")).toBeNull();
     expect(sendButton?.classList.contains("is-interrupt")).toBe(true);
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");

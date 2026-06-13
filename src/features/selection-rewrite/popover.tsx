@@ -181,7 +181,6 @@ export class SelectionRewritePopover {
   private createElements(): SelectionRewriteElements {
     const root = activeDocument.body.createDiv({ cls: "codex-panel-selection-rewrite" });
     root.setAttr("role", "dialog");
-    root.setAttr("aria-label", "Rewrite selection");
     const elements: SelectionRewriteElements = { root, instruction: null, applyButton: null };
     this.renderView(elements);
     return elements;
@@ -488,7 +487,6 @@ function SelectionRewritePopoverView({
           <textarea
             ref={instructionRef}
             className="codex-panel-ui__text-input codex-panel-selection-rewrite__instruction"
-            aria-label="Rewrite instruction"
             disabled={generating}
             onInput={(event) => {
               onInstructionInput(event.currentTarget.value);

@@ -75,7 +75,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setName("Codex executable")
       .setDesc("Path used to start `codex app-server`. Use an absolute path if Obsidian cannot find `codex`.")
       .addText((text) => {
-        text.inputEl.ariaLabel = "Codex executable";
         text
           .setPlaceholder(DEFAULT_CODEX_PATH)
           .setValue(this.plugin.settings.codexPath)
@@ -103,7 +102,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         "Choose how the composer sends messages. Shift+Enter inserts a newline when Enter sends. Obsidian hotkeys may intercept Cmd/Ctrl+Enter.",
       )
       .addDropdown((dropdown) => {
-        dropdown.selectEl.ariaLabel = "Send shortcut";
         dropdown.addOption("enter", SEND_SHORTCUT_LABELS.enter);
         dropdown.addOption("mod-enter", SEND_SHORTCUT_LABELS["mod-enter"]);
         dropdown.setValue(this.plugin.settings.sendShortcut).onChange(async (value) => {
@@ -130,7 +128,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.threadNamingModel;
         const options = this.modelMetadata();
-        dropdown.selectEl.ariaLabel = "Automatic thread naming model";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.some((model) => model.model === current || model.id === current)) {
           dropdown.addOption(current, `${current} (saved)`);
@@ -150,7 +147,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.threadNamingEffort;
         const options = this.effortOptions(this.plugin.settings.threadNamingModel);
-        dropdown.selectEl.ariaLabel = "Automatic thread naming effort";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.includes(current)) {
           dropdown.addOption(current, `${current} (saved)`);
@@ -170,7 +166,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.rewriteSelectionModel;
         const options = this.modelMetadata();
-        dropdown.selectEl.ariaLabel = "Selection rewrite model";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.some((model) => model.model === current || model.id === current)) {
           dropdown.addOption(current, `${current} (saved)`);
@@ -190,7 +185,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         const current = this.plugin.settings.rewriteSelectionEffort;
         const options = this.effortOptions(this.plugin.settings.rewriteSelectionModel);
-        dropdown.selectEl.ariaLabel = "Selection rewrite effort";
         dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
         if (current && !options.includes(current)) {
           dropdown.addOption(current, `${current} (saved)`);

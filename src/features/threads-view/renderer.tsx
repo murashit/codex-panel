@@ -216,7 +216,6 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
             ref={inputRef}
             className="codex-panel-ui__nav-inline-input codex-panel-threads__rename-input"
             type="text"
-            aria-label="Thread name"
             value={row.rename.draft}
             onInput={(event) => {
               actions.updateRename(row.thread.id, event.currentTarget.value);

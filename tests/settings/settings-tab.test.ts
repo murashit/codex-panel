@@ -86,8 +86,8 @@ describe("settings tab", () => {
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    expect(inputForSetting(tab, "Codex executable")?.getAttribute("aria-label")).toBe("Codex executable");
-    const shortcut = tab.containerEl.querySelector<HTMLSelectElement>('select[aria-label="Send shortcut"]');
+    expect(inputForSetting(tab, "Codex executable")?.getAttribute("aria-label")).toBeNull();
+    const shortcut = selectForSetting(tab, "Send shortcut");
     if (!shortcut) throw new Error("Missing send shortcut dropdown");
 
     shortcut.value = "mod-enter";
@@ -143,9 +143,9 @@ describe("settings tab", () => {
     const filename = inputForSetting(tab, "Saved note filename");
     const tags = inputForSetting(tab, "Saved note tags");
     if (!toggle || !folder || !filename || !tags) throw new Error("Missing archive export controls");
-    expect(folder.getAttribute("aria-label")).toBe("Saved note folder");
-    expect(filename.getAttribute("aria-label")).toBe("Saved note filename");
-    expect(tags.getAttribute("aria-label")).toBe("Saved note tags");
+    expect(folder.getAttribute("aria-label")).toBeNull();
+    expect(filename.getAttribute("aria-label")).toBeNull();
+    expect(tags.getAttribute("aria-label")).toBeNull();
 
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));
@@ -340,8 +340,8 @@ describe("settings tab", () => {
 
     tab.display();
 
-    expect(selectOptions(tab, "Automatic thread naming effort")).toEqual(["Codex default", "saved-custom-effort (saved)", "extreme"]);
-    expect(selectOptions(tab, "Selection rewrite effort")).toEqual(["Codex default", "extreme"]);
+    expect(selectOptions(tab, "Automatic thread naming", 1)).toEqual(["Codex default", "saved-custom-effort (saved)", "extreme"]);
+    expect(selectOptions(tab, "Selection rewrite", 1)).toEqual(["Codex default", "extreme"]);
   });
 
   it("keeps successful sections when one settings data request fails", async () => {
@@ -596,14 +596,23 @@ function clickButtonByLabel(tab: CodexPanelSettingTab, label: string): void {
 }
 
 function inputForSetting(tab: CodexPanelSettingTab, name: string): HTMLInputElement | null {
-  const setting = Array.from(tab.containerEl.querySelectorAll(".setting-item")).find(
-    (element) => element.querySelector(".setting-item-name")?.textContent === name,
-  );
-  return setting?.querySelector("input") ?? null;
+  return settingElement(tab, name)?.querySelector("input") ?? null;
 }
 
-function selectOptions(tab: CodexPanelSettingTab, ariaLabel: string): string[] {
-  const select = tab.containerEl.querySelector<HTMLSelectElement>(`select[aria-label="${ariaLabel}"]`);
-  if (!select) throw new Error(`Missing select: ${ariaLabel}`);
+function settingElement(tab: CodexPanelSettingTab, name: string): Element | null {
+  return (
+    Array.from(tab.containerEl.querySelectorAll(".setting-item")).find(
+      (element) => element.querySelector(".setting-item-name")?.textContent === name,
+    ) ?? null
+  );
+}
+
+function selectForSetting(tab: CodexPanelSettingTab, name: string): HTMLSelectElement | null {
+  return settingElement(tab, name)?.querySelector("select") ?? null;
+}
+
+function selectOptions(tab: CodexPanelSettingTab, name: string, index = 0): string[] {
+  const select = settingElement(tab, name)?.querySelectorAll<HTMLSelectElement>("select")[index] ?? null;
+  if (!select) throw new Error(`Missing select: ${name}`);
   return Array.from(select.options).map((option) => option.textContent);
 }

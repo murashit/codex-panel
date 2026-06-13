@@ -198,7 +198,6 @@ function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): 
                   .filter(Boolean)
                   .join(" ")}
                 role="progressbar"
-                aria-label={row.title}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={row.percent}
@@ -419,7 +418,6 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
               className="codex-panel-ui__nav-inline-input codex-panel__thread-rename-input"
               type="text"
               value={draft}
-              aria-label={`Rename ${thread.title}`}
               onInput={(event) => {
                 actions.updateRenameDraft(thread.threadId, event.currentTarget.value);
               }}

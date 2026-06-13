@@ -261,7 +261,7 @@ describe("selection rewrite popover", () => {
 
     openPopover(popover);
     const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
-    expect(instruction.getAttribute("aria-label")).toBe("Rewrite instruction");
+    expect(instruction.getAttribute("aria-label")).toBeNull();
     void act(() => {
       setTextareaValue(instruction, "Make it concise.");
       instruction.dispatchEvent(new Event("input", { bubbles: true }));

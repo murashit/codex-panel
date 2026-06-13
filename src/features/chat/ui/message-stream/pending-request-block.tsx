@@ -232,7 +232,6 @@ function UserInputQuestions({
                   })}
                   {question.isOther ? (
                     <OtherUserInputOption
-                      questionText={question.question}
                       groupName={`codex-panel-${String(input.requestId)}-${question.id}`}
                       current={current}
                       optionLabels={new Set(question.options.map((option) => option.label))}
@@ -243,13 +242,7 @@ function UserInputQuestions({
                   ) : null}
                 </>
               ) : (
-                <FreeformUserInput
-                  questionText={question.question}
-                  isSecret={question.isSecret}
-                  current={current}
-                  question={question}
-                  actions={actions}
-                />
+                <FreeformUserInput isSecret={question.isSecret} current={current} question={question} actions={actions} />
               )}
             </div>
           </div>
@@ -260,7 +253,6 @@ function UserInputQuestions({
 }
 
 function OtherUserInputOption({
-  questionText,
   groupName,
   current,
   optionLabels,
@@ -268,7 +260,6 @@ function OtherUserInputOption({
   userInputDrafts,
   actions,
 }: {
-  questionText: string;
   groupName: string;
   current: string;
   optionLabels: ReadonlySet<string>;
@@ -324,7 +315,6 @@ function OtherUserInputOption({
       <input
         className="codex-panel__user-input-text codex-panel__user-input-other-text"
         type="text"
-        aria-label={`Other answer: ${questionText}`}
         value={inputValue}
         tabIndex={otherSelected ? 0 : -1}
         placeholder="Other answer"
@@ -341,13 +331,11 @@ function OtherUserInputOption({
 }
 
 function FreeformUserInput({
-  questionText,
   isSecret,
   current,
   question,
   actions,
 }: {
-  questionText: string;
   isSecret: boolean;
   current: string;
   question: PendingUserInputQuestionViewModel;
@@ -357,7 +345,6 @@ function FreeformUserInput({
     <input
       className="codex-panel__user-input-text"
       type={isSecret ? "password" : "text"}
-      aria-label={questionText}
       value={current}
       onInput={(event) => {
         actions.setUserInputDraft(question.draftKey, event.currentTarget.value);

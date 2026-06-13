@@ -119,7 +119,6 @@ export function ComposerShell({
           className="codex-panel-ui__text-input codex-panel__composer-input"
           placeholder={sendMode.canInterrupt ? "Add steering message..." : normalPlaceholder}
           role="combobox"
-          aria-label={sendMode.canInterrupt ? "Steering message" : "Message"}
           aria-autocomplete="list"
           aria-expanded={suggestions.length > 0 ? "true" : "false"}
           aria-controls={`${viewId}-composer-suggestions`}
