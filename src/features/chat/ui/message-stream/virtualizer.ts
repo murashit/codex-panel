@@ -1,4 +1,11 @@
-import { elementScroll, observeElementOffset, observeElementRect, Virtualizer, type VirtualItem } from "@tanstack/virtual-core";
+import {
+  elementScroll,
+  observeElementOffset,
+  observeElementRect,
+  Virtualizer,
+  type VirtualItem,
+  type VirtualizerOptions,
+} from "@tanstack/virtual-core";
 import { useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import type { MessageStreamBlock } from "./context";
@@ -6,14 +13,19 @@ import type { MessageStreamBlock } from "./context";
 export type MessageStreamScrollIntent = "auto" | "force-bottom" | "follow-bottom" | "preserve";
 type MessageScrollDirection = -1 | 1;
 
-interface MessageVirtualizerRenderPlan {
-  generation: number;
-  shouldScrollToBottom: boolean;
-}
-
 interface MessageVirtualizerMeasurePlan {
   shouldSettleAtEnd: boolean;
 }
+
+interface MessageVirtualizerReadingAnchor {
+  key: unknown;
+  top: number;
+}
+
+type MessageVirtualizerScrollMode =
+  | { kind: "free" }
+  | { kind: "follow-end" }
+  | { kind: "preserve-anchor"; anchor: MessageVirtualizerReadingAnchor | null };
 
 const MESSAGE_BOTTOM_THRESHOLD = 4;
 const MESSAGE_BLOCK_ESTIMATE_SIZE = 96;
@@ -37,16 +49,16 @@ interface MessageVirtualizerRuntime {
   virtualizer: Virtualizer<HTMLElement, HTMLElement>;
   cleanupVirtualizer: (() => void) | null;
   blocks: readonly MessageStreamBlock[];
-  commitGeneration: number;
-  bottomReconcileCommitGeneration: number | null;
-  renderGeneration: number;
+  pendingBottomReconcileAfterCommit: boolean;
+  pendingBottomReconcileRequiresSettle: boolean;
   onVirtualizerChange: (() => void) | null;
-  followEndIntent: boolean;
-  preserveReadingAnchor: boolean;
+  scrollMode: MessageVirtualizerScrollMode;
   viewportMeasurementsInvalid: boolean;
   viewportRestoreFrame: number | null;
+  virtualizerChangeFrame: number | null;
   settleScrollToEndFrame: number | null;
   settleScrollToEndAttemptsRemaining: number;
+  bottomScrollTargetOffset: number | null;
   userScrollIntentUntil: number;
 }
 
@@ -145,16 +157,16 @@ function createMessageVirtualizerRuntime(): MessageVirtualizerRuntime {
     blocks: [],
     virtualizer: null as never,
     cleanupVirtualizer: null,
-    commitGeneration: 0,
-    bottomReconcileCommitGeneration: null,
-    renderGeneration: 0,
+    pendingBottomReconcileAfterCommit: false,
+    pendingBottomReconcileRequiresSettle: false,
     onVirtualizerChange: null,
-    followEndIntent: false,
-    preserveReadingAnchor: false,
+    scrollMode: { kind: "free" },
     viewportMeasurementsInvalid: false,
     viewportRestoreFrame: null,
+    virtualizerChangeFrame: null,
     settleScrollToEndFrame: null,
     settleScrollToEndAttemptsRemaining: 0,
+    bottomScrollTargetOffset: null,
     userScrollIntentUntil: 0,
   };
   runtime.virtualizer = new Virtualizer(messageVirtualizerOptions(runtime));
@@ -162,18 +174,20 @@ function createMessageVirtualizerRuntime(): MessageVirtualizerRuntime {
   return runtime;
 }
 
-function prepareMessageVirtualizerRender(
+function renderMessageVirtualizer(
   runtime: MessageVirtualizerRuntime,
   container: HTMLElement,
   intent: MessageStreamScrollIntent,
   blocks: readonly MessageStreamBlock[],
-): MessageVirtualizerRenderPlan {
+): void {
   attachMessageVirtualizer(runtime, container);
   handleMessageVirtualizerViewportElement(runtime, container);
 
   const appendingBlocks = blocks.length > runtime.blocks.length;
   const shouldFollowAppend =
-    intent === "auto" && appendingBlocks && (runtime.followEndIntent || isMessageVirtualizerObservedAtEnd(runtime, container));
+    intent === "auto" &&
+    appendingBlocks &&
+    (hasMessageVirtualizerFollowEndIntent(runtime) || isMessageVirtualizerObservedAtEnd(runtime, container));
   runtime.blocks = blocks;
   const shouldScrollToBottom = blocks.length > 0 && (intent === "force-bottom" || intent === "follow-bottom" || shouldFollowAppend);
   if (intent === "preserve") {
@@ -183,35 +197,16 @@ function prepareMessageVirtualizerRender(
   updateMessageVirtualizerOptions(runtime);
   updateMessageVirtualizer(runtime.virtualizer);
 
-  return {
-    generation: ++runtime.renderGeneration,
-    shouldScrollToBottom,
-  };
-}
-
-function completeMessageVirtualizerRender(runtime: MessageVirtualizerRuntime, plan: MessageVirtualizerRenderPlan): void {
-  if (plan.generation !== runtime.renderGeneration) return;
-
-  updateMessageVirtualizer(runtime.virtualizer);
-  if (plan.shouldScrollToBottom) {
+  if (shouldScrollToBottom) {
     requestMessageVirtualizerScrollToEnd(runtime);
     return;
   }
 }
 
-function renderMessageVirtualizer(
-  runtime: MessageVirtualizerRuntime,
-  container: HTMLElement,
-  intent: MessageStreamScrollIntent,
-  blocks: readonly MessageStreamBlock[],
-): void {
-  completeMessageVirtualizerRender(runtime, prepareMessageVirtualizerRender(runtime, container, intent, blocks));
-}
-
 function getMessageVirtualizerTotalSize(runtime: MessageVirtualizerRuntime): number {
   const totalSize = runtime.virtualizer.getTotalSize();
   const container = runtime.container;
-  if (!container || !runtime.preserveReadingAnchor) return totalSize;
+  if (!container || !isMessageVirtualizerPreservingReadingAnchor(runtime)) return totalSize;
   return Math.max(totalSize, container.scrollTop + container.clientHeight + MESSAGE_BOTTOM_THRESHOLD + 1);
 }
 
@@ -222,7 +217,8 @@ function getMessageVirtualizerItems(runtime: MessageVirtualizerRuntime): Virtual
 function measureMessageVirtualizerElement(runtime: MessageVirtualizerRuntime, element: HTMLElement | null): void {
   const plan = prepareMessageVirtualizerMeasurement(runtime);
   runtime.virtualizer.measureElement(element);
-  if (element && plan.shouldSettleAtEnd) requestMessageVirtualizerScrollToEnd(runtime);
+  restoreMessageVirtualizerReadingAnchor(runtime);
+  if (element && plan.shouldSettleAtEnd) requestMessageVirtualizerScrollToEnd(runtime, { forceSettle: true });
 }
 
 function prepareMessageVirtualizerMeasurement(runtime: MessageVirtualizerRuntime): MessageVirtualizerMeasurePlan {
@@ -234,15 +230,15 @@ function prepareMessageVirtualizerMeasurement(runtime: MessageVirtualizerRuntime
 }
 
 function reconcileMessageVirtualizerBottomAfterCommit(runtime: MessageVirtualizerRuntime): void {
-  runtime.commitGeneration += 1;
-  const reconcileGeneration = runtime.bottomReconcileCommitGeneration;
-  if (reconcileGeneration === null || reconcileGeneration > runtime.commitGeneration) return;
-  runtime.bottomReconcileCommitGeneration = null;
+  if (!runtime.pendingBottomReconcileAfterCommit) return;
+  const forceSettle = runtime.pendingBottomReconcileRequiresSettle;
+  runtime.pendingBottomReconcileAfterCommit = false;
+  runtime.pendingBottomReconcileRequiresSettle = false;
   if (!runtime.container || !hasMessageVirtualizerFollowEndIntent(runtime)) return;
   runtime.virtualizer.getTotalSize();
   runtime.virtualizer.scrollToEnd();
   reconcileMessageVirtualizerDomEnd(runtime);
-  scheduleSettledMessageVirtualizerScrollToEnd(runtime);
+  scheduleSettledMessageVirtualizerScrollToEnd(runtime, { force: forceSettle });
 }
 
 function measureRenderedMessageBlocks(runtime: MessageVirtualizerRuntime): void {
@@ -303,30 +299,30 @@ function hasPendingMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerRunt
 }
 
 function markMessageVirtualizerFollowEndIntent(runtime: MessageVirtualizerRuntime): void {
-  runtime.followEndIntent = true;
-  runtime.preserveReadingAnchor = false;
+  runtime.scrollMode = { kind: "follow-end" };
   updateMessageVirtualizerOptions(runtime);
 }
 
 function clearMessageVirtualizerFollowEndIntent(runtime: MessageVirtualizerRuntime): void {
-  runtime.followEndIntent = false;
+  if (runtime.scrollMode.kind === "follow-end") runtime.scrollMode = { kind: "free" };
 }
 
 function markMessageVirtualizerReadingAnchorIntent(runtime: MessageVirtualizerRuntime): void {
-  runtime.followEndIntent = false;
-  runtime.preserveReadingAnchor = true;
+  if (runtime.scrollMode.kind !== "preserve-anchor") {
+    runtime.scrollMode = { kind: "preserve-anchor", anchor: null };
+  }
   updateMessageVirtualizerOptions(runtime);
 }
 
 function resetMessageVirtualizerScrollIntent(runtime: MessageVirtualizerRuntime): void {
-  runtime.followEndIntent = false;
-  runtime.preserveReadingAnchor = false;
+  runtime.scrollMode = { kind: "free" };
   updateMessageVirtualizerOptions(runtime);
 }
 
 function cancelPendingMessageVirtualizerBottomFollow(runtime: MessageVirtualizerRuntime): void {
   cancelSettledMessageVirtualizerScrollToEnd(runtime);
-  runtime.bottomReconcileCommitGeneration = null;
+  runtime.pendingBottomReconcileAfterCommit = false;
+  runtime.pendingBottomReconcileRequiresSettle = false;
 }
 
 function setMessageVirtualizerChangeHandler(runtime: MessageVirtualizerRuntime, callback: (() => void) | null): void {
@@ -352,7 +348,7 @@ function resetMessageVirtualizerMeasurements(runtime: MessageVirtualizerRuntime)
   // A hidden Obsidian pane can leave TanStack measurements stale while the message stream state is still valid.
   // Reset only the virtualizer runtime, then measure the still-rendered blocks.
   resetMessageVirtualizer(runtime, container);
-  runtime.onVirtualizerChange?.();
+  notifyMessageVirtualizerChange(runtime);
   measureRenderedMessageBlocks(runtime);
 }
 
@@ -403,13 +399,13 @@ function scrollMessageVirtualizerByPage(runtime: MessageVirtualizerRuntime, dire
 
 function disposeMessageVirtualizer(runtime: MessageVirtualizerRuntime): void {
   cancelViewportRestoreMessageVirtualizerReset(runtime);
+  cancelDeferredMessageVirtualizerChange(runtime);
   cancelPendingMessageVirtualizerBottomFollow(runtime);
   runtime.cleanupVirtualizer?.();
   runtime.cleanupVirtualizer = null;
   runtime.container = null;
   runtime.blocks = [];
-  runtime.commitGeneration = 0;
-  runtime.renderGeneration = 0;
+  runtime.pendingBottomReconcileAfterCommit = false;
   runtime.onVirtualizerChange = null;
   resetMessageVirtualizerScrollIntent(runtime);
   runtime.viewportMeasurementsInvalid = false;
@@ -425,12 +421,12 @@ function attachMessageVirtualizer(runtime: MessageVirtualizerRuntime, container:
 
 function detachMessageVirtualizer(runtime: MessageVirtualizerRuntime): void {
   cancelViewportRestoreMessageVirtualizerReset(runtime);
+  cancelDeferredMessageVirtualizerChange(runtime);
   cancelPendingMessageVirtualizerBottomFollow(runtime);
   runtime.cleanupVirtualizer?.();
   runtime.cleanupVirtualizer = null;
   runtime.container = null;
   runtime.blocks = [];
-  runtime.renderGeneration = 0;
   resetMessageVirtualizerScrollIntent(runtime);
   runtime.viewportMeasurementsInvalid = false;
   runtime.userScrollIntentUntil = 0;
@@ -438,6 +434,7 @@ function detachMessageVirtualizer(runtime: MessageVirtualizerRuntime): void {
 
 function resetMessageVirtualizer(runtime: MessageVirtualizerRuntime, container: HTMLElement): void {
   cancelViewportRestoreMessageVirtualizerReset(runtime);
+  cancelDeferredMessageVirtualizerChange(runtime);
   cancelSettledMessageVirtualizerScrollToEnd(runtime);
   runtime.cleanupVirtualizer?.();
   runtime.cleanupVirtualizer = null;
@@ -449,7 +446,7 @@ function resetMessageVirtualizer(runtime: MessageVirtualizerRuntime, container: 
   updateMessageVirtualizer(runtime.virtualizer);
 }
 
-function messageVirtualizerOptions(runtime: MessageVirtualizerRuntime) {
+function messageVirtualizerOptions(runtime: MessageVirtualizerRuntime): VirtualizerOptions<HTMLElement, HTMLElement> {
   const paddingBlock = messageBlockPadding(runtime.container);
   return {
     count: runtime.blocks.length,
@@ -463,19 +460,22 @@ function messageVirtualizerOptions(runtime: MessageVirtualizerRuntime) {
     scrollEndThreshold: MESSAGE_BOTTOM_THRESHOLD,
     paddingStart: paddingBlock,
     paddingEnd: paddingBlock,
-    // Obsidian/Electron can report ResizeObserver loop warnings during resume when message rendering mutates the DOM heavily.
-    // Deferring measurement keeps those resume measurements from feeding back into the same observer delivery.
-    useAnimationFrameWithResizeObserver: true,
     overscan: 8,
     observeElementRect: (instance: Virtualizer<HTMLElement, HTMLElement>, callback: (rect: { width: number; height: number }) => void) =>
       observeMessageVirtualizerElementRect(runtime, instance, callback),
     observeElementOffset: (instance: Virtualizer<HTMLElement, HTMLElement>, callback: (offset: number, isScrolling: boolean) => void) =>
       observeMessageVirtualizerElementOffset(runtime, instance, callback),
-    scrollToFn: elementScroll,
+    scrollToFn: (offset, options, instance) => {
+      scrollMessageVirtualizerElement(runtime, offset, options, instance);
+    },
     measureElement: (element: HTMLElement, entry: ResizeObserverEntry | undefined, instance: Virtualizer<HTMLElement, HTMLElement>) =>
       measureMessageElement(runtime, element, entry, instance),
-    onChange: () => {
-      runtime.onVirtualizerChange?.();
+    onChange: (_instance: Virtualizer<HTMLElement, HTMLElement>, sync: boolean) => {
+      if (sync) {
+        notifyMessageVirtualizerChange(runtime);
+      } else {
+        scheduleDeferredMessageVirtualizerChange(runtime);
+      }
     },
   };
 }
@@ -510,18 +510,46 @@ function handleMessageVirtualizerObservedOffset(
   const element = instance.scrollElement;
   if (!element) return;
   if (isMessageVirtualizerObservedOffsetAtEnd(runtime, instance, element, offset)) {
-    if (runtime.preserveReadingAnchor && instance.scrollDirection === "backward") return;
+    if (isMessageVirtualizerPreservingReadingAnchor(runtime) && instance.scrollDirection === "backward") return;
     markMessageVirtualizerFollowEndIntent(runtime);
     return;
   }
   if (!userIntendedMessageVirtualizerScroll(runtime, element)) return;
   markMessageVirtualizerReadingAnchorIntent(runtime);
   cancelPendingMessageVirtualizerBottomFollow(runtime);
+  captureMessageVirtualizerReadingAnchor(runtime);
 }
 
 function updateMessageVirtualizerOptions(runtime: MessageVirtualizerRuntime): void {
   runtime.virtualizer.setOptions(messageVirtualizerOptions(runtime));
   configureMessageVirtualizerSizeAdjustment(runtime);
+}
+
+function notifyMessageVirtualizerChange(runtime: MessageVirtualizerRuntime): void {
+  cancelDeferredMessageVirtualizerChange(runtime);
+  runtime.onVirtualizerChange?.();
+}
+
+function scheduleDeferredMessageVirtualizerChange(runtime: MessageVirtualizerRuntime): void {
+  const container = runtime.container;
+  if (!container) {
+    notifyMessageVirtualizerChange(runtime);
+    return;
+  }
+  if (runtime.virtualizerChangeFrame !== null) return;
+  runtime.virtualizerChangeFrame = container.win.requestAnimationFrame(() => {
+    runtime.virtualizerChangeFrame = null;
+    if (runtime.container !== container) return;
+    notifyMessageVirtualizerChange(runtime);
+  });
+}
+
+function cancelDeferredMessageVirtualizerChange(runtime: MessageVirtualizerRuntime): void {
+  const container = runtime.container;
+  if (container && runtime.virtualizerChangeFrame !== null) {
+    container.win.cancelAnimationFrame(runtime.virtualizerChangeFrame);
+  }
+  runtime.virtualizerChangeFrame = null;
 }
 
 function configureMessageVirtualizerSizeAdjustment(runtime: MessageVirtualizerRuntime): void {
@@ -530,44 +558,95 @@ function configureMessageVirtualizerSizeAdjustment(runtime: MessageVirtualizerRu
     shouldAdjustMessageScrollPositionOnItemSizeChange(runtime, item, delta, instance);
 }
 
+function scrollMessageVirtualizerElement(
+  runtime: MessageVirtualizerRuntime,
+  offset: number,
+  options: Parameters<VirtualizerOptions<HTMLElement, HTMLElement>["scrollToFn"]>[1],
+  instance: Virtualizer<HTMLElement, HTMLElement>,
+): void {
+  // A bottom scroll can be clamped until the DOM scroll range catches up; remember the requested offset so the
+  // settle loop can distinguish a real mismatch from an already-stable bottom.
+  if (hasMessageVirtualizerFollowEndIntent(runtime)) {
+    runtime.bottomScrollTargetOffset =
+      runtime.settleScrollToEndFrame === null || runtime.bottomScrollTargetOffset === null
+        ? offset
+        : Math.max(runtime.bottomScrollTargetOffset, offset);
+  }
+  elementScroll(offset, options, instance);
+}
+
 function scrollMessageVirtualizerBy(runtime: MessageVirtualizerRuntime, delta: number): void {
   const container = runtime.container;
   if (!container) return;
-  clearMessageVirtualizerFollowEndIntent(runtime);
-  cancelPendingMessageVirtualizerBottomFollow(runtime);
   syncMessageVirtualizerScrollOffset(runtime);
-  markMessageVirtualizerReadingAnchorIntent(runtime);
   const currentScrollSize = Math.max(container.scrollHeight, runtime.virtualizer.getTotalSize());
   const currentScrollEnd = Math.max(0, currentScrollSize - container.clientHeight);
   const targetOffset = Math.max(0, Math.min(container.scrollTop + delta, currentScrollEnd));
+  const targetAtEnd = delta > 0 && currentScrollEnd - targetOffset <= MESSAGE_BOTTOM_THRESHOLD;
+  if (Math.abs(container.scrollTop - targetOffset) <= 1) {
+    if (targetAtEnd) markMessageVirtualizerFollowEndIntent(runtime);
+    return;
+  }
+
+  clearMessageVirtualizerFollowEndIntent(runtime);
+  cancelPendingMessageVirtualizerBottomFollow(runtime);
+  markMessageVirtualizerReadingAnchorIntent(runtime);
   runtime.virtualizer.scrollToOffset(targetOffset);
   syncMessageVirtualizerScrollOffset(runtime);
+  updateMessageVirtualizer(runtime.virtualizer);
+  notifyMessageVirtualizerChange(runtime);
+  if (targetAtEnd) {
+    markMessageVirtualizerFollowEndIntent(runtime);
+  } else {
+    captureMessageVirtualizerReadingAnchor(runtime);
+  }
 }
 
 function hasMessageVirtualizerFollowEndIntent(runtime: MessageVirtualizerRuntime): boolean {
-  return runtime.followEndIntent;
+  return runtime.scrollMode.kind === "follow-end";
 }
 
-function requestMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerRuntime): void {
+function isMessageVirtualizerPreservingReadingAnchor(runtime: MessageVirtualizerRuntime): boolean {
+  return runtime.scrollMode.kind === "preserve-anchor";
+}
+
+function requestMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerRuntime, options: { forceSettle?: boolean } = {}): void {
   markMessageVirtualizerFollowEndIntent(runtime);
   runtime.virtualizer.getTotalSize();
   runtime.virtualizer.scrollToEnd();
   reconcileMessageVirtualizerDomEnd(runtime);
-  scheduleMessageVirtualizerBottomReconcileAfterCommit(runtime);
-  scheduleSettledMessageVirtualizerScrollToEnd(runtime);
+  scheduleMessageVirtualizerBottomReconcileAfterCommit(runtime, options);
+  scheduleSettledMessageVirtualizerScrollToEnd(runtime, { force: options.forceSettle === true });
 }
 
-function scheduleMessageVirtualizerBottomReconcileAfterCommit(runtime: MessageVirtualizerRuntime): void {
-  runtime.bottomReconcileCommitGeneration = runtime.commitGeneration + 1;
+function scheduleMessageVirtualizerBottomReconcileAfterCommit(
+  runtime: MessageVirtualizerRuntime,
+  options: { forceSettle?: boolean } = {},
+): void {
+  runtime.pendingBottomReconcileAfterCommit = true;
+  if (options.forceSettle === true) runtime.pendingBottomReconcileRequiresSettle = true;
 }
 
-function scheduleSettledMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerRuntime): void {
+function scheduleSettledMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerRuntime, options: { force?: boolean } = {}): void {
   const container = runtime.container;
   if (!container) return;
+  if (options.force !== true && !shouldSettleMessageVirtualizerScrollToEnd(runtime, container)) {
+    cancelSettledMessageVirtualizerScrollToEnd(runtime);
+    return;
+  }
   // scrollToEnd can be clamped before the virtualizer height reaches the DOM; keep a bounded post-render settle.
   runtime.settleScrollToEndAttemptsRemaining = MESSAGE_SCROLL_TO_END_SETTLE_ATTEMPTS;
   if (runtime.settleScrollToEndFrame !== null) return;
   scheduleSettledMessageVirtualizerScrollToEndFrame(runtime, container, 2);
+}
+
+function shouldSettleMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerRuntime, container: HTMLElement): boolean {
+  const domEnd = scrollEnd(container.scrollHeight, container.clientHeight);
+  if (Math.abs(container.scrollTop - domEnd) > MESSAGE_BOTTOM_THRESHOLD) return true;
+  const scrollTarget = runtime.bottomScrollTargetOffset ?? runtime.virtualizer.scrollOffset;
+  if (scrollTarget !== null && Math.abs(container.scrollTop - scrollTarget) > MESSAGE_BOTTOM_THRESHOLD) return true;
+  // Hidden/resumed panes can start with rendered blocks but no scroll range yet; give the DOM a few frames to expose it.
+  return runtime.blocks.length > 0 && container.scrollHeight <= container.clientHeight;
 }
 
 function scheduleSettledMessageVirtualizerScrollToEndFrame(
@@ -595,6 +674,8 @@ function scheduleSettledMessageVirtualizerScrollToEndFrame(
     runtime.settleScrollToEndAttemptsRemaining = Math.max(0, runtime.settleScrollToEndAttemptsRemaining - 1);
     if (runtime.settleScrollToEndAttemptsRemaining > 0 && !isElementAtEnd(container, totalSize, MESSAGE_BOTTOM_THRESHOLD)) {
       scheduleSettledMessageVirtualizerScrollToEndFrame(runtime, container, 1);
+    } else {
+      runtime.bottomScrollTargetOffset = null;
     }
   });
 }
@@ -613,6 +694,7 @@ function cancelSettledMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerR
   }
   runtime.settleScrollToEndFrame = null;
   runtime.settleScrollToEndAttemptsRemaining = 0;
+  runtime.bottomScrollTargetOffset = null;
 }
 
 function messageBlockPadding(element: HTMLElement | null): number {
@@ -652,6 +734,10 @@ function isElementAtEnd(element: HTMLElement, fallbackScrollSize: number, thresh
   return scrollSize - element.clientHeight - element.scrollTop <= threshold;
 }
 
+function scrollEnd(scrollSize: number, viewportSize: number): number {
+  return Math.max(0, scrollSize - viewportSize);
+}
+
 function isMessageVirtualizerObservedOffsetAtEnd(
   runtime: MessageVirtualizerRuntime,
   instance: Virtualizer<HTMLElement, HTMLElement>,
@@ -681,7 +767,11 @@ function measureMessageElement(
 ): number {
   const box = entry?.borderBoxSize[0];
   const size = box ? Math.round(box.blockSize) : element.offsetHeight || instance.options.estimateSize(instance.indexFromElement(element));
-  if (entry && hasMessageVirtualizerFollowEndIntent(runtime)) scheduleMessageVirtualizerBottomReconcileAfterCommit(runtime);
+  if (entry && hasMessageVirtualizerFollowEndIntent(runtime)) {
+    // ResizeObserver measurements arrive while TanStack and DOM heights are still converging, so keep the bounded settle.
+    scheduleMessageVirtualizerBottomReconcileAfterCommit(runtime, { forceSettle: true });
+    scheduleSettledMessageVirtualizerScrollToEnd(runtime, { force: true });
+  }
   return size;
 }
 
@@ -694,7 +784,9 @@ function shouldAdjustMessageScrollPositionOnItemSizeChange(
   const scrollOffset = instance.scrollOffset ?? 0;
   if (!hasMessageVirtualizerFollowEndIntent(runtime)) {
     if (instance.scrollDirection === "backward") return false;
-    return runtime.preserveReadingAnchor && shouldPreserveMessageScrollAnchorOnItemSizeChange(item, delta, scrollOffset);
+    return (
+      isMessageVirtualizerPreservingReadingAnchor(runtime) && shouldPreserveMessageScrollAnchorOnItemSizeChange(item, delta, scrollOffset)
+    );
   }
   if (runtime.container && !isMessageVirtualizerObservedAtEnd(runtime, runtime.container)) return false;
   return item.start < scrollOffset && instance.scrollDirection !== "backward";
@@ -704,6 +796,39 @@ function shouldPreserveMessageScrollAnchorOnItemSizeChange(item: VirtualItem, de
   if (delta === 0) return false;
   const previousEnd = item.end - delta;
   return previousEnd <= scrollOffset;
+}
+
+function captureMessageVirtualizerReadingAnchor(runtime: MessageVirtualizerRuntime): void {
+  const container = runtime.container;
+  if (!container || runtime.scrollMode.kind !== "preserve-anchor") {
+    return;
+  }
+  const scrollOffset = container.scrollTop;
+  const anchor = runtime.virtualizer.getVirtualItems().find((item) => item.end > scrollOffset);
+  runtime.scrollMode = {
+    kind: "preserve-anchor",
+    anchor: anchor ? { key: anchor.key, top: anchor.start - scrollOffset } : null,
+  };
+}
+
+function restoreMessageVirtualizerReadingAnchor(runtime: MessageVirtualizerRuntime): void {
+  const container = runtime.container;
+  const mode = runtime.scrollMode;
+  if (!container || mode.kind !== "preserve-anchor" || !mode.anchor) return;
+  const anchor = mode.anchor;
+
+  const item = runtime.virtualizer.getVirtualItems().find((candidate) => Object.is(candidate.key, anchor.key));
+  if (!item) return;
+
+  const scrollSize = Math.max(container.scrollHeight, runtime.virtualizer.getTotalSize());
+  const scrollEnd = Math.max(0, scrollSize - container.clientHeight);
+  const targetOffset = Math.max(0, Math.min(item.start - anchor.top, scrollEnd));
+  if (Math.abs(container.scrollTop - targetOffset) <= 1) return;
+
+  runtime.virtualizer.scrollToOffset(targetOffset);
+  syncMessageVirtualizerScrollOffset(runtime);
+  updateMessageVirtualizer(runtime.virtualizer);
+  notifyMessageVirtualizerChange(runtime);
 }
 
 function textLineHeight(element: HTMLElement): number {

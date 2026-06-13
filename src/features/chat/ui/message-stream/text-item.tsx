@@ -129,7 +129,6 @@ function TextContent({ item, context, contentRef, collapsed = false }: TextConte
     const content = localRef.current;
     if (!content) return;
     const currentContext = contextRef.current;
-    content.replaceChildren();
     if (rendersMarkdown) {
       currentContext.renderMarkdown(content, text);
     } else {
@@ -158,7 +157,7 @@ function TextContent({ item, context, contentRef, collapsed = false }: TextConte
 }
 
 function textItemContentKey(item: TextDisplayItem): string {
-  return `${item.id}\u001f${contentRenderMode(item)}\u001f${item.text}`;
+  return `${item.id}\u001f${contentRenderMode(item)}`;
 }
 
 function contentRenderMode(item: TextDisplayItem): "markdown" | "text" {

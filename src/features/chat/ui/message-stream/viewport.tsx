@@ -95,9 +95,6 @@ function MessageStreamBlockHost({
       if (!element) return;
       const remeasure = () => {
         if (blockRef.current === element && element.isConnected) measureBlock(element);
-        element.win.requestAnimationFrame(() => {
-          if (blockRef.current === element && element.isConnected) measureBlock(element);
-        });
       };
       element.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, remeasure);
       cleanupContentRenderedListener.current = () => {

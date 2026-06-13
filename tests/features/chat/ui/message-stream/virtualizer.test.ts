@@ -394,6 +394,43 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
+  it("defers ResizeObserver-triggered rerenders until the next animation frame", () => {
+    withResizeObserverEntries((resizeElement, flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      let renderCount = 0;
+      const controller = createMessageStreamVirtualizerDriver(container, {
+        onRender: () => {
+          renderCount += 1;
+        },
+      });
+      const command = measuredElement("command", 1, 100);
+
+      container.dataset["testTotalSize"] = "300";
+      controller.render(
+        [
+          { key: "first", node: null },
+          { key: "command", node: null },
+        ],
+        "follow-bottom",
+      );
+      controller.getTotalSize();
+      measureVirtualItem(controller, "first", 0, 200);
+      controller.measureElement(command);
+      void act(flushFrames);
+      const settledRenderCount = renderCount;
+
+      container.dataset["testTotalSize"] = "450";
+      resizeElement(command, 250);
+
+      expect(renderCount).toBe(settledRenderCount);
+
+      void act(flushFrames);
+
+      expect(renderCount).toBeGreaterThan(settledRenderCount);
+      controller.dispose();
+    });
+  });
+
   it("uses the pre-render bottom position when appending after an item resize", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 160 });
     const controller = createMessageStreamVirtualizerDriver(container);
@@ -553,6 +590,39 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
+  it("keeps bottom-following intent when composer edge scrolling is already at the bottom", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    container.style.lineHeight = "18px";
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["first"], [300], "force-bottom");
+    expect(container.scrollTop).toBe(200);
+
+    controller.scrollByTextLines(1);
+    expect(container.scrollTop).toBe(200);
+
+    renderVirtualItems(controller, container, ["first", "second"], [300, 140], "auto");
+    expect(container.scrollTop).toBe(340);
+    controller.dispose();
+  });
+
+  it("repins when composer edge scrolling reaches the bottom", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    container.style.lineHeight = "18px";
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["first"], [300], "force-bottom");
+    userScrollTo(container, 180);
+
+    controller.scrollByTextLines(1);
+    expect(container.scrollTop).toBe(200);
+
+    container.dataset["testTotalSize"] = "340";
+    controller.repinToBottomIfPinned();
+    expect(container.scrollTop).toBe(240);
+    controller.dispose();
+  });
+
   it("scrolls by text lines from the rendered bottom before a scroll event settles", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     container.style.lineHeight = "18px";
@@ -578,7 +648,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("does not compound composer edge scrolling with backward remeasurements", () => {
+  it("preserves the visible anchor when composer edge scrolling measures earlier items", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
@@ -589,11 +659,12 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.scrollByTextLines(-1);
     container.dispatchEvent(new Event("scroll"));
     expect(container.scrollTop).toBe(584);
+    const anchorBefore = virtualItemTop(controller, container, "third");
 
     container.dataset["testTotalSize"] = "980";
     measureVirtualItem(controller, "first", 0, 500);
 
-    expect(container.scrollTop).toBe(584);
+    expect(virtualItemTop(controller, container, "third")).toBe(anchorBefore);
     controller.dispose();
   });
 
@@ -640,7 +711,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("keeps a composer PageUp target when newly measured items shrink the total size", () => {
+  it("preserves the visible anchor when composer PageUp measurements shrink earlier items", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
     const keys = numberedKeys("item", 50);
@@ -654,6 +725,8 @@ describe("TestMessageStreamVirtualizer", () => {
 
     controller.scrollByPage(-1);
     expect(container.scrollTop).toBe(4620);
+    const anchorKey = firstVisibleVirtualItemKey(controller, container, keys);
+    const anchorBefore = virtualItemTop(controller, container, anchorKey);
 
     for (const item of controller.getVirtualItems()) {
       measureVirtualItem(controller, keys[item.index] ?? "", item.index, 20);
@@ -662,11 +735,11 @@ describe("TestMessageStreamVirtualizer", () => {
     clampScrollTop(container);
     container.dispatchEvent(new Event("scroll"));
 
-    expect(container.scrollTop).toBe(4620);
+    expect(virtualItemTop(controller, container, anchorKey)).toBe(anchorBefore);
     controller.dispose();
   });
 
-  it("keeps repeated composer line scrolling near the bottom when measurements shrink", () => {
+  it("keeps repeated composer line scrolling anchored when measurements shrink", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
@@ -681,6 +754,8 @@ describe("TestMessageStreamVirtualizer", () => {
 
     controller.scrollByTextLines(-1);
     expect(container.scrollTop).toBe(4624);
+    const anchorKey = firstVisibleVirtualItemKey(controller, container, keys);
+    const anchorBefore = virtualItemTop(controller, container, anchorKey);
 
     for (const item of controller.getVirtualItems()) {
       measureVirtualItem(controller, keys[item.index] ?? "", item.index, 20);
@@ -689,8 +764,9 @@ describe("TestMessageStreamVirtualizer", () => {
     clampScrollTop(container);
     container.dispatchEvent(new Event("scroll"));
 
+    expect(virtualItemTop(controller, container, anchorKey)).toBe(anchorBefore);
     controller.scrollByTextLines(-1);
-    expect(container.scrollTop).toBe(4588);
+    expect(virtualItemTop(controller, container, anchorKey)).toBe(anchorBefore + 36);
     controller.dispose();
   });
 
@@ -777,6 +853,18 @@ function renderVirtualItems(
   container.dispatchEvent(new Event("scroll"));
 }
 
+function firstVisibleVirtualItemKey(controller: MessageStreamVirtualizerDriver, container: HTMLElement, keys: string[]): string {
+  const firstItem = controller.getVirtualItems().find((item) => item.end > container.scrollTop);
+  if (!firstItem) throw new Error("Expected a rendered virtual item.");
+  return keys[firstItem.index] ?? "";
+}
+
+function virtualItemTop(controller: MessageStreamVirtualizerDriver, container: HTMLElement, key: string): number {
+  const item = controller.getVirtualItems().find((candidate) => candidate.key === key);
+  if (!item) throw new Error(`Expected virtual item ${key}.`);
+  return item.start - container.scrollTop;
+}
+
 function userScrollTo(container: HTMLElement, scrollTop: number): void {
   container.dispatchEvent(new Event("wheel"));
   container.scrollTop = scrollTop;
@@ -822,7 +910,10 @@ interface MessageStreamVirtualizerDriver extends MessageStreamVirtualizerHandle 
   dispose(): void;
 }
 
-function createMessageStreamVirtualizerDriver(container: HTMLElement): MessageStreamVirtualizerDriver {
+function createMessageStreamVirtualizerDriver(
+  container: HTMLElement,
+  options: { onRender?: () => void } = {},
+): MessageStreamVirtualizerDriver {
   const host = document.createElement("div");
   document.body.appendChild(host);
   let view: MessageStreamVirtualizerView | null = null;
@@ -837,6 +928,7 @@ function createMessageStreamVirtualizerDriver(container: HTMLElement): MessageSt
             blocks: renderBlocks,
             container,
             intent,
+            ...(options.onRender ? { onRender: options.onRender } : {}),
             onHandle: (next) => (handle = next),
             onView: (next) => (view = next),
           }),
@@ -875,15 +967,18 @@ function VirtualizerHarness({
   blocks,
   container,
   intent,
+  onRender,
   onHandle,
   onView,
 }: {
   blocks: readonly MessageStreamBlock[];
   container: HTMLElement;
   intent: "auto" | "force-bottom" | "follow-bottom" | "preserve";
+  onRender?: () => void;
   onHandle: (handle: MessageStreamVirtualizerHandle | null) => void;
   onView: (view: MessageStreamVirtualizerView) => void;
 }) {
+  onRender?.();
   const scrollElementRef = useRef<HTMLElement | null>(container);
   const intentRef = useRef(intent);
   intentRef.current = intent;

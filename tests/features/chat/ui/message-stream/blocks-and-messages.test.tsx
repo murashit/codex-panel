@@ -471,7 +471,8 @@ describe("message stream rendering and message actions", () => {
   it("updates keyed message content", () => {
     const parent = document.createElement("div");
     const renderMarkdown = (element: HTMLElement, text: string) => {
-      element.createDiv({ text: `markdown:${text}` });
+      const rendered = element.createDiv({ text: `markdown:${text}` });
+      element.replaceChildren(rendered);
     };
     const baseContext = {
       activeThreadId: "thread",
@@ -529,7 +530,90 @@ describe("message stream rendering and message actions", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("ignores stale async markdown renders after streaming content is replaced", async () => {
+  it("keeps rendered markdown content while replacement rendering is pending", async () => {
+    const parent = document.createElement("div");
+    const secondRender = deferred<undefined>();
+    const renderMarkdown = vi.spyOn(MarkdownRenderer, "render");
+    renderMarkdown
+      .mockImplementationOnce((_app, text: string, element: HTMLElement) => {
+        element.textContent = `rendered:${text}`;
+        return Promise.resolve();
+      })
+      .mockImplementationOnce((_app, text: string, element: HTMLElement) =>
+        secondRender.promise.then(() => {
+          element.textContent = `rendered:${text}`;
+        }),
+      );
+    const markdownRenderer = new MarkdownMessageRenderer({
+      app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
+      owner: {} as never,
+      vaultPath: "/vault",
+    });
+    const baseContext = {
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element: HTMLElement, text: string) => {
+        markdownRenderer.renderMarkdown(element, text);
+      },
+    };
+
+    renderMessageStreamBlocksInAct(
+      parent,
+      messageStreamBlocks({
+        ...baseContext,
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "old",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
+        ],
+      }),
+    );
+    await Promise.resolve();
+    const content = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-content"));
+    expect(content.textContent).toBe("rendered:old");
+
+    renderMessageStreamBlocksInAct(
+      parent,
+      messageStreamBlocks({
+        ...baseContext,
+        displayItems: [
+          {
+            id: "a1",
+            kind: "message",
+            role: "assistant",
+            text: "new",
+            turnId: "turn-1",
+            messageKind: "assistantResponse",
+            messageState: "completed",
+          },
+        ],
+      }),
+    );
+    const contentAfterUpdate = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-content"));
+    expect(contentAfterUpdate).toBe(content);
+    expect(contentAfterUpdate.textContent).toBe("rendered:old");
+
+    secondRender.resolve(undefined);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(contentAfterUpdate.textContent).toBe("rendered:new");
+    renderMarkdown.mockRestore();
+    unmountUiRootInAct(parent);
+  });
+
+  it("ignores stale async markdown renders after streaming content updates", async () => {
     const parent = document.createElement("div");
     const firstRender = deferred<undefined>();
     const renderMarkdown = vi.spyOn(MarkdownRenderer, "render");
@@ -604,7 +688,7 @@ describe("message stream rendering and message actions", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(staleContent.isConnected).toBe(false);
+    expect(staleContent.isConnected).toBe(true);
     expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("fresh:new");
     renderMarkdown.mockRestore();
     unmountUiRootInAct(parent);
