@@ -9,7 +9,7 @@ import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../state/reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../../ui/shell-state";
 import { Toolbar, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
-import type { ChatPanelToolbarPorts } from "./ports";
+import type { ChatPanelToolbarSurface } from "./model";
 import { runtimeSnapshotForToolbarShellState } from "./runtime-snapshot";
 
 type ToolbarState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "ui">;
@@ -31,22 +31,22 @@ export interface ConnectionDiagnosticsModelInput {
   configuredCommand: string;
 }
 
-function chatPanelToolbarViewModel(ports: ChatPanelToolbarPorts, state: ChatPanelToolbarShellState) {
+function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, state: ChatPanelToolbarShellState) {
   return toolbarViewModel({
     state,
     snapshot: runtimeSnapshotForToolbarShellState(state),
-    connected: ports.state.connected(),
-    nowMs: ports.state.nowMs(),
+    connected: surface.state.connected(),
+    nowMs: surface.state.nowMs(),
     turnBusy: chatTurnBusy(state),
-    vaultPath: ports.settings.vaultPath(),
-    configuredCommand: ports.settings.configuredCommand(),
-    archiveExportEnabled: ports.settings.archiveExportEnabled(),
+    vaultPath: surface.settings.vaultPath(),
+    configuredCommand: surface.settings.configuredCommand(),
+    archiveExportEnabled: surface.settings.archiveExportEnabled(),
   });
 }
 
-export function ChatPanelToolbar({ ports }: { ports: ChatPanelToolbarPorts }): UiNode {
+export function ChatPanelToolbar({ surface }: { surface: ChatPanelToolbarSurface }): UiNode {
   const state = toolbarStateFromShellState(useChatPanelShellState());
-  return h(Toolbar, { model: chatPanelToolbarViewModel(ports, state), actions: ports.actions.toolbar });
+  return h(Toolbar, { model: chatPanelToolbarViewModel(surface, state), actions: surface.actions.toolbar });
 }
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {

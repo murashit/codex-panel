@@ -20,7 +20,7 @@ interface ChatPanelGoalActions {
   closeEditor: () => void;
 }
 
-export interface ChatPanelToolbarPorts {
+export interface ChatPanelToolbarSurface {
   state: {
     connected: () => boolean;
     nowMs: () => number;
@@ -35,7 +35,7 @@ export interface ChatPanelToolbarPorts {
   };
 }
 
-export interface ChatPanelGoalPorts {
+export interface ChatPanelGoalSurface {
   settings: {
     sendShortcut: () => SendShortcut;
   };
@@ -44,7 +44,7 @@ export interface ChatPanelGoalPorts {
   };
 }
 
-export interface ChatPanelComposerPorts {
+export interface ChatPanelComposerSurface {
   thread: {
     restoredPlaceholder: () => RestoredThreadTitleSnapshot | null;
   };
@@ -55,8 +55,8 @@ export interface ChatPanelComposerPorts {
   };
 }
 
-export interface ChatPanelSurfacePorts {
-  toolbar: ChatPanelToolbarPorts;
-  goal: ChatPanelGoalPorts;
-  composer: ChatPanelComposerPorts;
+export interface ChatPanelSurface {
+  toolbar: ChatPanelToolbarSurface;
+  goal: ChatPanelGoalSurface;
+  composer: ChatPanelComposerSurface;
 }

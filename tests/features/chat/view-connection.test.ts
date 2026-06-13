@@ -6,13 +6,11 @@ import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/chat-host";
 import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/protocol/runtime-config";
-import { threadFromThreadRecord, type ThreadRecord } from "../../../src/app-server/protocol/thread";
-import type { ChatState } from "../../../src/features/chat/state/reducer";
+import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
-import { chatStateDisplayItems } from "./support/message-stream";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 
@@ -21,6 +19,7 @@ const connectionMock = vi.hoisted(() => {
     client: null as Record<string, unknown> | null,
     connectCalls: 0,
     connected: false,
+    onNotification: null as ((notification: ServerNotification) => void) | null,
     onExit: null as (() => void) | null,
   };
 
@@ -30,6 +29,7 @@ const connectionMock = vi.hoisted(() => {
       state.client = null;
       state.connectCalls = 0;
       state.connected = false;
+      state.onNotification = null;
       state.onExit = null;
     },
   };
@@ -39,10 +39,16 @@ vi.mock("../../../src/app-server/connection/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {
-    private handlers: { onExit: () => void } | null = null;
+    private handlers: { onNotification: (notification: ServerNotification) => void; onExit: () => void } | null = null;
 
-    setHandlers(handlers: { onExit: () => void }): void {
+    setHandlers(handlers: {
+      onNotification: (notification: ServerNotification) => void;
+      onServerRequest: (request: unknown) => void;
+      onLog: (message: string) => void;
+      onExit: () => void;
+    }): void {
       this.handlers = handlers;
+      connectionMock.state.onNotification = handlers.onNotification;
       connectionMock.state.onExit = handlers.onExit;
     }
 
@@ -155,12 +161,15 @@ describe("CodexChatView connection lifecycle", () => {
       host: chatHost({ refreshThreadList }),
     });
 
+    await view.onOpen();
     await view.connect();
 
     expect(refreshThreadList).toHaveBeenCalledOnce();
-    expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual(
-      threads.map((thread) => threadFromThreadRecord(thread)),
-    );
+    expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: false, cursor: null, limit: 100 });
+    requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("Restored thread");
+    });
   });
 
   it("publishes app-server metadata after connecting", async () => {
@@ -255,11 +264,7 @@ describe("CodexChatView connection lifecycle", () => {
         },
       ]);
     });
-    expect((view as unknown as { state: ChatState }).state.activeThread.id).toBe("thread-new");
-    expect((view as unknown as { state: ChatState }).state.activeThread.goal?.objective).toBe("Ship the feature");
-    expect(chatStateDisplayItems((view as unknown as { state: ChatState }).state)).toContainEqual(
-      expect.objectContaining({ kind: "goal", text: "set: Ship the feature", objective: "Ship the feature" }),
-    );
+    expect(view.openPanelSnapshot()).toMatchObject({ threadId: "thread-new" });
     expect(view.containerEl.textContent).toContain("Ship the feature");
   });
 
@@ -298,13 +303,14 @@ describe("CodexChatView connection lifecycle", () => {
     await waitForAsyncWork(() => {
       expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
     });
+    connectionMock.state.connected = false;
     connectionMock.state.onExit?.();
 
     config.resolve({});
     await connecting;
 
     expect(client.listThreads).not.toHaveBeenCalled();
-    expect((view as unknown as { state: { connection: { phase: { kind: string } } } }).state.connection.phase.kind).toBe("disconnected");
+    expect(view.openPanelSnapshot()).toMatchObject({ connected: false });
   });
 
   it("restores the active thread from workspace state and hydrates it after a delay", async () => {
@@ -376,9 +382,10 @@ describe("CodexChatView connection lifecycle", () => {
     expect(client.listSkills).toHaveBeenCalledOnce();
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: false, cursor: null, limit: 100 });
-    expect((view as unknown as { state: { threadList: { listedThreads: unknown[] } } }).state.threadList.listedThreads).toEqual([
-      threadFromThreadRecord(threadFixture("thread-1")),
-    ]);
+    requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("Restored thread");
+    });
   });
 
   it("applies cached shared thread list and metadata when opened", async () => {
@@ -401,18 +408,14 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.onOpen();
 
-    const state = (
-      view as unknown as {
-        state: {
-          threadList: { listedThreads: unknown[] };
-          connection: { runtimeConfig: unknown; availableModels: unknown[]; availableSkills: unknown[] };
-        };
-      }
-    ).state;
-    expect(state.threadList.listedThreads).toEqual([cachedThread]);
-    expect(state.connection.runtimeConfig).toEqual({ ...emptyRuntimeConfigSnapshot(), model: "gpt-cached" });
-    expect(state.connection.availableModels).toEqual([]);
-    expect(state.connection.availableSkills).toEqual([{ name: "writer", enabled: true }]);
+    requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("Restored thread");
+    });
+    requiredButton(view.containerEl, '[aria-label="Show Codex status and settings"]').click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("gpt-cached");
+    });
   });
 
   it("hydrates a focused restored thread immediately", async () => {
@@ -469,17 +472,13 @@ describe("CodexChatView connection lifecycle", () => {
       expect(client.startTurn).toHaveBeenCalled();
     });
 
-    const controller = (
-      view as unknown as { controllers: { inbound: { controller: { handleNotification: (notification: ServerNotification) => void } } } }
-    ).controllers.inbound.controller;
-    controller.handleNotification(turnStartedNotification("thread-1", "turn-1"));
-    controller.handleNotification(turnCompletedNotification("thread-1", "turn-1"));
-    expect((view as unknown as { state: ChatState }).state.turn.lifecycle).toEqual({ kind: "idle" });
+    connectionMock.state.onNotification?.(turnStartedNotification("thread-1", "turn-1"));
+    connectionMock.state.onNotification?.(turnCompletedNotification("thread-1", "turn-1"));
+    expect(view.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
 
     startTurn.resolve({ turn: { id: "turn-1" } });
     await flushAsyncTicks();
 
-    expect((view as unknown as { state: ChatState }).state.turn.lifecycle).toEqual({ kind: "idle" });
     expect(view.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
   });
 
@@ -642,22 +641,26 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView({ host });
 
+    await view.onOpen();
     await view.connect();
     await view.openThread("source");
-    await (
-      view as unknown as {
-        controllers: {
-          thread: { actions: { forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => Promise<void> } };
-        };
-      }
-    ).controllers.thread.actions.forkThreadFromTurn("source", "turn-1", true);
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("done");
+    });
+    requiredButton(view.containerEl, ".codex-panel__fork-message").click();
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector(".codex-panel__fork-and-archive-message")).not.toBeNull();
+    });
+    requiredButton(view.containerEl, ".codex-panel__fork-and-archive-message").click();
 
-    expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
-    expect(client.archiveThread).toHaveBeenCalledWith("source");
-    expect(client.resumeThread).toHaveBeenLastCalledWith("forked", "/vault");
-    expect(view.getState()).toEqual({ version: 1, threadId: "forked", threadTitle: "Restored thread" });
-    expect(view.openPanelSnapshot()).toMatchObject({ threadId: "forked" });
-    expect(notifyThreadArchived).toHaveBeenCalledWith("source");
+    await waitForAsyncWork(() => {
+      expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
+      expect(client.archiveThread).toHaveBeenCalledWith("source");
+      expect(client.resumeThread).toHaveBeenLastCalledWith("forked", "/vault");
+      expect(view.getState()).toEqual({ version: 1, threadId: "forked", threadTitle: "Restored thread" });
+      expect(view.openPanelSnapshot()).toMatchObject({ threadId: "forked" });
+      expect(notifyThreadArchived).toHaveBeenCalledWith("source");
+    });
   });
 
   it("clears the active thread when another view archives it", async () => {
@@ -882,7 +885,6 @@ describe("CodexChatView connection lifecycle", () => {
       expect(view.containerEl.textContent).toContain("hello");
       expect(view.containerEl.textContent).toContain("done");
     });
-    expect((view as unknown as { state: ChatState }).state.messageStream.historyCursor).toBe("older-cursor");
   });
 
   it("ignores stale resume results when another thread is opened first", async () => {

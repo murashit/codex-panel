@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
 import type { ChatStateStore } from "../state/reducer";
-import type { ChatPanelGoalPorts, ChatPanelToolbarPorts } from "../panel/surface/ports";
+import type { ChatPanelGoalSurface, ChatPanelToolbarSurface } from "../panel/surface/model";
 import { ChatPanelToolbar } from "../panel/surface/toolbar";
 import { ChatPanelGoal } from "../panel/surface/goal";
 import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "../panel/surface/message-stream";
@@ -9,8 +9,8 @@ import { ChatPanelComposer, type ChatPanelComposerController } from "../panel/su
 import { ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState, type ChatPanelShellState } from "./shell-state";
 
 export interface ChatPanelShellParts {
-  toolbar: ChatPanelToolbarPorts;
-  goal: ChatPanelGoalPorts;
+  toolbar: ChatPanelToolbarSurface;
+  goal: ChatPanelGoalSurface;
   messageStream: ChatPanelMessageStreamPresenter;
   composer: ChatPanelComposerController;
 }
@@ -102,12 +102,12 @@ function ChatPanelShell({ showToolbar, parts, shellState }: ChatPanelShellProps 
     <ChatPanelShellStateContext.Provider value={shellState}>
       {showToolbar ? (
         <div className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
-          <ChatPanelToolbar ports={parts.toolbar} />
+          <ChatPanelToolbar surface={parts.toolbar} />
         </div>
       ) : null}
       <div className="codex-panel__body" data-codex-panel-shell-region="body">
         <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
-          <ChatPanelGoal ports={parts.goal} />
+          <ChatPanelGoal surface={parts.goal} />
         </div>
         <ChatPanelMessageStream presenter={parts.messageStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">

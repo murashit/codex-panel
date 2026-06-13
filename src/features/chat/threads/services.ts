@@ -1,5 +1,7 @@
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import type { AppServerClient } from "../../../app-server/connection/client";
 import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
+import type { ArchiveExportAdapter } from "../../thread-export/archive-markdown";
 import { archiveThread } from "./archive-actions";
 import { AutoTitleController } from "./auto-title-controller";
 import { compactThread } from "./compact-actions";
@@ -15,11 +17,19 @@ import { createSelectionActions } from "./selection-actions";
 import { RestorationController } from "./restoration-controller";
 import type { ChatThreadActions, ChatThreadActionsHost } from "./action-context";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
-import type { ChatControllerPorts } from "../controller-ports";
+import type { ChatStateStore } from "../state/reducer";
+import type { CodexChatHost } from "../chat-host";
 
-type ThreadControllerGroupPorts = Pick<ChatControllerPorts, "obsidian" | "plugin" | "state" | "lifecycle" | "thread" | "liveState"> & {
+interface ThreadServicesContext {
+  obsidian: {
+    archiveAdapter: () => ArchiveExportAdapter;
+  };
+  plugin: CodexChatHost;
+  state: {
+    stateStore: ChatStateStore;
+  };
   client: {
-    getClient: ChatControllerPorts["client"]["getClient"];
+    getClient: () => AppServerClient | null;
     ensureConnected: () => Promise<void>;
   };
   lifecycle: {
@@ -38,14 +48,20 @@ type ThreadControllerGroupPorts = Pick<ChatControllerPorts, "obsidian" | "plugin
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
   };
-  scroll: Pick<ChatControllerPorts["scroll"], "preservePosition" | "forceBottom">;
+  liveState: {
+    refresh: () => void;
+  };
+  scroll: {
+    preservePosition: () => void;
+    forceBottom: () => void;
+  };
   composer: {
     setText: (text: string) => void;
   };
-};
+}
 
-export function createThreadControllerGroup(
-  context: ThreadControllerGroupPorts,
+export function createThreadServices(
+  context: ThreadServicesContext,
   refs: {
     connection: ConnectionManager;
   },
@@ -190,17 +206,21 @@ function requireThreadController<T>(controller: T | null, name: string): T {
   return controller;
 }
 
-type ThreadSelectionActionGroupPorts = Pick<ChatControllerPorts, "plugin" | "state"> & {
+interface ThreadSelectionActionsContext {
+  plugin: CodexChatHost;
+  state: {
+    stateStore: ChatStateStore;
+  };
   status: {
     addSystemMessage: (text: string) => void;
   };
   thread: {
     resumeThread: (threadId: string) => Promise<void>;
   };
-};
+}
 
-export function createThreadSelectionActionGroup(
-  context: ThreadSelectionActionGroupPorts,
+export function createThreadSelectionActions(
+  context: ThreadSelectionActionsContext,
   refs: {
     closeForThreadSelection: () => void;
   },

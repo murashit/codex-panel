@@ -6,8 +6,8 @@ import { createChatState, createChatStateStore } from "../../../../src/features/
 import {
   ChatConnectionController,
   type ChatConnectionAdapter,
-  type ChatConnectionDiagnosticsPort,
-  type ChatConnectionMetadataPort,
+  type ChatConnectionDiagnosticsActions,
+  type ChatConnectionMetadataActions,
 } from "../../../../src/features/chat/connection/connection-controller";
 import { ChatConnectionWorkTracker } from "../../../../src/features/chat/lifecycle";
 
@@ -29,10 +29,10 @@ function createController({ connected = false, client = {} as AppServerClient } 
   const metadata = {
     refreshPublishedAppServerMetadata,
     refreshPublishedSkills,
-  } satisfies ChatConnectionMetadataPort;
+  } satisfies ChatConnectionMetadataActions;
   const diagnostics = {
     refreshPublishedDiagnosticProbes,
-  } satisfies ChatConnectionDiagnosticsPort;
+  } satisfies ChatConnectionDiagnosticsActions;
   const setClient = vi.fn((next: AppServerClient | null) => {
     currentClient = next;
   });

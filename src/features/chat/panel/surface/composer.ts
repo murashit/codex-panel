@@ -24,7 +24,7 @@ import type {
 import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
 import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../../ui/shell-state";
 import { explicitThreadName } from "../../../../domain/threads/model";
-import type { ChatPanelComposerPorts, RestoredThreadTitleSnapshot } from "./ports";
+import type { ChatPanelComposerSurface, RestoredThreadTitleSnapshot } from "./model";
 import { runtimeSnapshotForShellState } from "./runtime-snapshot";
 
 type ComposerMetaState = Pick<ChatState, "connection" | "runtime">;
@@ -50,12 +50,12 @@ export function ChatPanelComposer({ controller }: { controller: ChatPanelCompose
   return h(ComposerShell, controller.renderState(state));
 }
 
-export function chatPanelComposerPlaceholder(ports: ChatPanelComposerPorts, state: ChatPanelComposerShellState): string {
-  return composerPlaceholder(activeComposerThreadName(state, ports.thread.restoredPlaceholder()));
+export function chatPanelComposerPlaceholder(surface: ChatPanelComposerSurface, state: ChatPanelComposerShellState): string {
+  return composerPlaceholder(activeComposerThreadName(state, surface.thread.restoredPlaceholder()));
 }
 
 export function chatPanelComposerMetaViewModel(
-  ports: ChatPanelComposerPorts,
+  surface: ChatPanelComposerSurface,
   state: ChatPanelComposerShellState,
 ): ComposerMetaViewModel & {
   modelChoices: RuntimeChoice[];
@@ -67,9 +67,9 @@ export function chatPanelComposerMetaViewModel(
     ...runtimeComposerChoices({
       state,
       snapshot,
-      requestModel: (model) => void ports.runtime.requestModel(model),
-      requestReasoningEffort: (effort) => void ports.runtime.requestReasoningEffort(effort),
-      resetReasoningEffortToConfig: () => void ports.runtime.resetReasoningEffortToConfig(),
+      requestModel: (model) => void surface.runtime.requestModel(model),
+      requestReasoningEffort: (effort) => void surface.runtime.requestReasoningEffort(effort),
+      resetReasoningEffortToConfig: () => void surface.runtime.resetReasoningEffortToConfig(),
     }),
   };
 }

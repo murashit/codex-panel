@@ -10,12 +10,12 @@ export interface ChatConnectionAdapter {
   isConnected(): boolean;
 }
 
-export interface ChatConnectionMetadataPort {
+export interface ChatConnectionMetadataActions {
   refreshPublishedAppServerMetadata: () => Promise<unknown>;
   refreshPublishedSkills: (forceReload?: boolean) => Promise<void>;
 }
 
-export interface ChatConnectionDiagnosticsPort {
+export interface ChatConnectionDiagnosticsActions {
   refreshPublishedDiagnosticProbes: () => Promise<void>;
 }
 
@@ -23,8 +23,8 @@ export interface ChatConnectionControllerHost {
   stateStore: ChatStateStore;
   connection: ChatConnectionAdapter;
   connectionWork: ChatConnectionWorkTracker;
-  metadata: ChatConnectionMetadataPort;
-  diagnostics: ChatConnectionDiagnosticsPort;
+  metadata: ChatConnectionMetadataActions;
+  diagnostics: ChatConnectionDiagnosticsActions;
   setClient: (client: AppServerClient | null) => void;
   invalidateResumeWork: () => void;
   loadSharedThreadList: () => Promise<void>;

@@ -7,7 +7,7 @@ import { createChatStateStore } from "../../../../src/features/chat/state/reduce
 import { messageStreamDisplayItems } from "../../../../src/features/chat/state/message-stream";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/ui/shell";
 import type { ChatPanelComposerShellState, ChatPanelMessageStreamShellState } from "../../../../src/features/chat/ui/shell-state";
-import type { ChatPanelSurfacePorts } from "../../../../src/features/chat/panel/surface/ports";
+import type { ChatPanelSurface } from "../../../../src/features/chat/panel/surface/model";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -344,7 +344,7 @@ function shellParts(): ChatPanelShellParts {
 
 function trackedShellParts(): TestShellParts {
   const toolbarConnected = vi.fn(() => false);
-  const ports = surfacePorts({ toolbarConnected });
+  const surface = surfaceFixture({ toolbarConnected });
   const messageStreamRenderState = vi.fn((state: ChatPanelMessageStreamShellState) => ({
     blocks: [
       {
@@ -395,8 +395,8 @@ function trackedShellParts(): TestShellParts {
   }));
   return {
     parts: {
-      toolbar: ports.toolbar,
-      goal: ports.goal,
+      toolbar: surface.toolbar,
+      goal: surface.goal,
       messageStream: {
         renderState: messageStreamRenderState,
       },
@@ -410,7 +410,7 @@ function trackedShellParts(): TestShellParts {
   };
 }
 
-function surfacePorts(options: { toolbarConnected?: () => boolean } = {}): ChatPanelSurfacePorts {
+function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): ChatPanelSurface {
   return {
     toolbar: {
       state: {

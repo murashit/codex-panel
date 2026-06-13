@@ -6,7 +6,7 @@ import { act } from "preact/test-utils";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
-import type { ChatPanelSurfacePorts, ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/surface/ports";
+import type { ChatPanelSurface, ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/model";
 import type { ChatThreadActions } from "../../../../src/features/chat/threads/action-context";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/ui/shell";
 import { installObsidianDomShims } from "../../../support/dom";
@@ -50,7 +50,7 @@ describe("chat toolbar archive confirmation state", () => {
   });
 });
 
-function toolbarPorts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelToolbarPorts {
+function toolbarSurface(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelToolbarSurface {
   return {
     state: {
       connected: () => false,
@@ -87,10 +87,10 @@ function toolbarPorts(store: ReturnType<typeof createChatStateStore>, toolbarAct
 }
 
 function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelShellParts {
-  const ports = surfacePorts(store, toolbarActions);
+  const surface = surfaceFixture(store, toolbarActions);
   return {
-    toolbar: ports.toolbar,
-    goal: ports.goal,
+    toolbar: surface.toolbar,
+    goal: surface.goal,
     messageStream: {
       renderState: () => ({
         blocks: [],
@@ -141,9 +141,9 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActio
   };
 }
 
-function surfacePorts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelSurfacePorts {
+function surfaceFixture(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelSurface {
   return {
-    toolbar: toolbarPorts(store, toolbarActions),
+    toolbar: toolbarSurface(store, toolbarActions),
     goal: {
       settings: { sendShortcut: () => "enter" },
       actions: {

@@ -18,7 +18,7 @@ import {
   MessageStreamPresenter,
 } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import { MessageStreamScrollBridge } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
-import { createMessageStreamContextPort } from "../../../../../src/features/chat/panel/surface/message-stream-ports";
+import { createMessageStreamSurfaceContext } from "../../../../../src/features/chat/panel/surface/message-stream-context";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import {
   bindRenderedWikiLinks,
@@ -68,9 +68,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
     expect(projection.forkActionsItemId).toBeNull();
   });
 
-  it("wires message stream disclosure actions through the context port", () => {
+  it("wires message stream disclosure actions through the surface context", () => {
     const store = createChatStateStore(createChatState());
-    const port = createMessageStreamContextPort({
+    const surfaceContext = createMessageStreamSurfaceContext({
       vaultPath: "/vault",
       dispatch: (action) => {
         store.dispatch(action);
@@ -97,7 +97,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    const context = messageStreamContextFromState(store.getState(), port);
+    const context = messageStreamContextFromState(store.getState(), surfaceContext);
     if (!context.onDisclosureToggle) throw new Error("Expected message stream disclosure action");
     context.onDisclosureToggle("textDetails", "message:details", true);
 

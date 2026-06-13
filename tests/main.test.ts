@@ -264,12 +264,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
     const firstView = firstLeaf.view as CodexChatView;
     const connectFirst = vi.spyOn(firstView, "connect").mockResolvedValue(undefined);
-    const focusFirst = vi.spyOn(firstView, "focusComposer").mockImplementation(() => undefined);
+    const focusFirst = vi.spyOn(firstView, "focusThread").mockResolvedValue(undefined);
     const activeLeaf = leaf();
     activeLeaf.view = chatView(CodexChatView, activeLeaf);
     const activeView = activeLeaf.view as CodexChatView;
     const connectActive = vi.spyOn(activeView, "connect").mockResolvedValue(undefined);
-    const focusActive = vi.spyOn(activeView, "focusComposer").mockImplementation(() => undefined);
+    const focusActive = vi.spyOn(activeView, "focusThread").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, activeLeaf]);
     (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(activeView);
 

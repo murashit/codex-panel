@@ -1,6 +1,8 @@
+import type { App, Component } from "obsidian";
+import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatServerThreadActions } from "../connection/server-actions/threads";
 import { ChatComposerController } from "./composer/controller";
-import { activeTurnId } from "../state/reducer";
+import { activeTurnId, type ChatStateStore } from "../state/reducer";
 import type { ChatReconnectActions } from "../connection/reconnect-actions";
 import { PendingRequestController } from "./pending-requests/controller";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
@@ -16,15 +18,42 @@ import { currentModel, runtimeConfigOrDefault } from "../runtime/effective";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import { MessageStreamScrollBridge } from "../panel/surface/message-stream-scroll";
-import type { ChatControllerPorts } from "../controller-ports";
 import type { DisplayDetailSection } from "../display/types";
+import type { ChatMessageScrollIntentState } from "../ui/message-stream/scroll-intent-state";
+import type { ComposerMetaViewModel } from "../ui/composer";
+import type { ChatPanelComposerShellState } from "../ui/shell-state";
+import type { CodexChatHost } from "../chat-host";
 
-type ConversationSurfaceControllerGroupPorts = Pick<
-  ChatControllerPorts,
-  "obsidian" | "plugin" | "state" | "lifecycle" | "surface" | "runtime" | "liveState"
-> & {
+interface ConversationControllersContext {
+  obsidian: {
+    app: App;
+    owner: Component;
+    viewId: string;
+  };
+  plugin: CodexChatHost;
+  state: {
+    stateStore: ChatStateStore;
+  };
+  lifecycle: {
+    messageScrollIntent: ChatMessageScrollIntentState;
+  };
+  surface: {
+    pendingRequestsSignature: () => string;
+    composerPlaceholder: (state: ChatPanelComposerShellState) => string;
+    composerMetaViewModel: (state: ChatPanelComposerShellState) => ComposerMetaViewModel;
+  };
+  runtime: {
+    connectionDiagnosticDetails: () => DisplayDetailSection[];
+    modelStatusLines: () => string[];
+    effortStatusLines: () => string[];
+    statusSummaryLines: () => string[];
+    mcpStatusLines: () => Promise<string[]>;
+  };
+  liveState: {
+    refresh: () => void;
+  };
   client: {
-    getClient: ChatControllerPorts["client"]["getClient"];
+    getClient: () => AppServerClient | null;
     ensureConnected: () => Promise<void>;
   };
   status: {
@@ -32,21 +61,21 @@ type ConversationSurfaceControllerGroupPorts = Pick<
     addSystemMessage: (text: string) => void;
     addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   };
-  scroll: Pick<ChatControllerPorts["scroll"], "forceBottom" | "followBottom">;
+  scroll: {
+    forceBottom: () => void;
+    followBottom: () => void;
+  };
   thread: {
-    ensureRestoredThreadLoaded: ChatControllerPorts["thread"]["ensureRestoredThreadLoaded"];
-    startNewThread: ChatControllerPorts["thread"]["startNewThread"];
+    ensureRestoredThreadLoaded: () => Promise<boolean>;
+    startNewThread: () => Promise<void>;
     selectThread: (threadId: string) => Promise<void>;
     notifyIdentityChanged: () => void;
     resetTurnPresence: (hadTurns: boolean) => void;
   };
-  runtime: ChatControllerPorts["runtime"] & {
-    mcpStatusLines: () => Promise<string[]>;
-  };
-};
+}
 
-export function createConversationSurfaceControllerGroup(
-  context: ConversationSurfaceControllerGroupPorts,
+export function createConversationControllers(
+  context: ConversationControllersContext,
   refs: {
     controller: ChatInboundController;
     serverThreads: ChatServerThreadActions;

@@ -17,7 +17,7 @@ import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/domain/threads/model";
 import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
 import { chatPanelGoalProps } from "../../../src/features/chat/panel/surface/goal";
-import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/surface/ports";
+import type { ChatPanelComposerSurface, ChatPanelGoalSurface } from "../../../src/features/chat/panel/surface/model";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import { setChatStateDisplayItems } from "./support/message-stream";
 
@@ -251,7 +251,7 @@ describe("chat view model", () => {
     state.activeThread.goal = goalFixture("thread-rendered");
     const statuses: [string, string][] = [];
     const clears: string[] = [];
-    const ports = {
+    const surface = {
       settings: {
         sendShortcut: () => "enter",
       },
@@ -270,9 +270,9 @@ describe("chat view model", () => {
           closeEditor: () => undefined,
         },
       },
-    } satisfies ChatPanelGoalPorts;
+    } satisfies ChatPanelGoalSurface;
 
-    const props = chatPanelGoalProps(ports, state);
+    const props = chatPanelGoalProps(surface, state);
     state.activeThread.id = "thread-current";
     props.actions.onPause();
     props.actions.onResume();
@@ -300,7 +300,7 @@ describe("chat view model", () => {
           requestReasoningEffort: async () => undefined,
           resetReasoningEffortToConfig: async () => undefined,
         },
-      } satisfies ChatPanelComposerPorts,
+      } satisfies ChatPanelComposerSurface,
       state,
     );
 
@@ -336,7 +336,7 @@ describe("chat view model", () => {
             requestReasoningEffort: async () => undefined,
             resetReasoningEffortToConfig: async () => undefined,
           },
-        } satisfies ChatPanelComposerPorts,
+        } satisfies ChatPanelComposerSurface,
         state,
       ),
     ).toBe("Ask Codex to work on “Restored”...");

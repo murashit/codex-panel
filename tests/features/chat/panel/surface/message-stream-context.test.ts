@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ChatAction } from "../../../../../src/features/chat/state/reducer";
-import { createMessageStreamContextPort } from "../../../../../src/features/chat/panel/surface/message-stream-ports";
+import { createMessageStreamSurfaceContext } from "../../../../../src/features/chat/panel/surface/message-stream-context";
 
-describe("message stream context port", () => {
+describe("message stream surface context", () => {
   it("sets the active fork action item explicitly", () => {
     const dispatched: ChatAction[] = [];
 
-    const port = createMessageStreamContextPort({
+    const context = createMessageStreamSurfaceContext({
       vaultPath: "/vault",
       dispatch: (action) => {
         dispatched.push(action);
@@ -34,7 +34,7 @@ describe("message stream context port", () => {
       },
     });
 
-    port.setForkActionsItem("new");
+    context.setForkActionsItem("new");
 
     expect(dispatched).toEqual([{ type: "ui/message-fork-actions-set", itemId: "new" }]);
   });
@@ -42,7 +42,7 @@ describe("message stream context port", () => {
   it("sets typed disclosure bucket entries", () => {
     const dispatched: ChatAction[] = [];
 
-    const port = createMessageStreamContextPort({
+    const context = createMessageStreamSurfaceContext({
       vaultPath: "/vault",
       dispatch: (action) => {
         dispatched.push(action);
@@ -69,7 +69,7 @@ describe("message stream context port", () => {
       },
     });
 
-    port.setDisclosureOpen("userMessageExpanded", "u1", true);
+    context.setDisclosureOpen("userMessageExpanded", "u1", true);
 
     expect(dispatched).toEqual([{ type: "ui/disclosure-set", bucket: "userMessageExpanded", id: "u1", open: true }]);
   });

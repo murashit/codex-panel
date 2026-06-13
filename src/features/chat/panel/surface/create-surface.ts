@@ -1,7 +1,17 @@
 import type { CodexPanelSettings } from "../../../../settings/model";
-import type { ChatViewControllers } from "../../controllers";
+import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
 import { type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
-import type { RestoredThreadTitleSnapshot, ChatPanelSurfacePorts } from "./ports";
+import type { ChatConnectionController } from "../../connection/connection-controller";
+import type { ChatReconnectActions } from "../../connection/reconnect-actions";
+import type { ChatInboundController } from "../../protocol/inbound/controller";
+import type { ChatServerThreadActions } from "../../connection/server-actions/threads";
+import type { ChatThreadActions } from "../../threads/action-context";
+import type { ToolbarPanelActions } from "../toolbar-actions";
+import type { RenameController } from "../../threads/rename-controller";
+import type { SelectionActions } from "../../threads/selection-actions";
+import type { ChatRuntimeSettingsActions } from "../../runtime/settings-actions";
+import type { GoalActions } from "../../threads/goal-actions";
+import type { RestoredThreadTitleSnapshot, ChatPanelSurface } from "./model";
 
 export interface ChatPanelSurfaceHost {
   settings: CodexPanelSettings;
@@ -11,7 +21,21 @@ export interface ChatPanelSurfaceHost {
   startNewThread: () => Promise<void>;
 }
 
-export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controllers: ChatViewControllers): ChatPanelSurfacePorts {
+export interface ChatPanelSurfaceDependencies {
+  connection: ConnectionManager;
+  connectionController: ChatConnectionController;
+  reconnectActions: ChatReconnectActions;
+  inboundController: ChatInboundController;
+  serverThreads: ChatServerThreadActions;
+  threadActions: ChatThreadActions;
+  toolbarPanels: ToolbarPanelActions;
+  rename: RenameController;
+  selection: SelectionActions;
+  runtimeSettings: ChatRuntimeSettingsActions;
+  goals: GoalActions;
+}
+
+export function createChatPanelSurface(host: ChatPanelSurfaceHost, deps: ChatPanelSurfaceDependencies): ChatPanelSurface {
   const dispatch = (action: ChatAction): void => {
     host.stateStore.dispatch(action);
   };
@@ -29,7 +53,7 @@ export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controll
   return {
     toolbar: {
       state: {
-        connected: () => controllers.connection.manager.isConnected(),
+        connected: () => deps.connection.isConnected(),
         nowMs: () => Date.now(),
       },
       settings: {
@@ -43,49 +67,49 @@ export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controll
             void host.startNewThread();
           },
           toggleChatActions: () => {
-            controllers.toolbar.panels.toggleChatActions();
+            deps.toolbarPanels.toggleChatActions();
           },
           compactConversation: () => {
-            void compactConversation(host.stateStore.getState(), controllers);
+            void compactConversation(host.stateStore.getState(), deps);
           },
           setGoal: () => {
             startGoalEditing({ closeToolbarPanel: true });
           },
           toggleHistory: () => {
-            controllers.toolbar.panels.toggleHistory();
+            deps.toolbarPanels.toggleHistory();
           },
           toggleStatusPanel: () => {
-            controllers.toolbar.panels.toggleStatus();
+            deps.toolbarPanels.toggleStatus();
           },
           connect: () => {
-            void controllers.connection.reconnect.reconnectPanel();
+            void deps.reconnectActions.reconnectPanel();
           },
           refreshStatus: () => {
-            void controllers.connection.controller.refreshStatusPanel();
+            void deps.connectionController.refreshStatusPanel();
           },
           resumeThread: (threadId) => {
-            void controllers.thread.selection.selectThreadFromToolbar(threadId);
+            void deps.selection.selectThreadFromToolbar(threadId);
           },
           startArchiveThread: (threadId) => {
-            controllers.toolbar.panels.startArchive(threadId);
+            deps.toolbarPanels.startArchive(threadId);
           },
           archiveThread: (threadId, saveMarkdown) => {
-            void controllers.toolbar.panels.archiveThread(threadId, saveMarkdown);
+            void deps.toolbarPanels.archiveThread(threadId, saveMarkdown);
           },
           startRenameThread: (threadId) => {
-            controllers.thread.rename.start(threadId);
+            deps.rename.start(threadId);
           },
           updateRenameDraft: (threadId, value) => {
-            controllers.thread.rename.updateDraft(threadId, value);
+            deps.rename.updateDraft(threadId, value);
           },
           saveRenameThread: (threadId, value) => {
-            void controllers.thread.rename.save(threadId, value);
+            void deps.rename.save(threadId, value);
           },
           cancelRenameThread: (threadId) => {
-            controllers.thread.rename.cancel(threadId);
+            deps.rename.cancel(threadId);
           },
           autoNameThread: (threadId) => {
-            void controllers.thread.rename.autoNameDraft(threadId);
+            void deps.rename.autoNameDraft(threadId);
           },
         },
       },
@@ -96,9 +120,9 @@ export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controll
       },
       actions: {
         goal: {
-          saveObjective: (objective, tokenBudget) => saveGoalObjective(host.stateStore.getState(), controllers, objective, tokenBudget),
-          setStatus: (threadId, status) => controllers.runtime.goals.setStatus(threadId, status),
-          clear: (threadId) => controllers.runtime.goals.clear(threadId),
+          saveObjective: (objective, tokenBudget) => saveGoalObjective(host.stateStore.getState(), deps, objective, tokenBudget),
+          setStatus: (threadId, status) => deps.goals.setStatus(threadId, status),
+          clear: (threadId) => deps.goals.clear(threadId),
           startEditing: (threadId, objective, tokenBudget) => {
             dispatch({ type: "ui/goal-editor-started", threadId, objective, tokenBudget });
           },
@@ -119,40 +143,40 @@ export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controll
         restoredPlaceholder: host.restoredThreadPlaceholder,
       },
       runtime: {
-        requestModel: (model) => controllers.runtime.settings.requestModelFromUi(model),
-        requestReasoningEffort: (effort) => controllers.runtime.settings.requestReasoningEffortFromUi(effort),
-        resetReasoningEffortToConfig: () => controllers.runtime.settings.resetReasoningEffortToConfigFromUi(),
+        requestModel: (model) => deps.runtimeSettings.requestModelFromUi(model),
+        requestReasoningEffort: (effort) => deps.runtimeSettings.requestReasoningEffortFromUi(effort),
+        resetReasoningEffortToConfig: () => deps.runtimeSettings.resetReasoningEffortToConfigFromUi(),
       },
     },
   };
 }
 
-async function compactConversation(state: ChatState, controllers: ChatViewControllers): Promise<void> {
+async function compactConversation(state: ChatState, deps: ChatPanelSurfaceDependencies): Promise<void> {
   const threadId = state.activeThread.id;
   if (!threadId) {
-    controllers.inbound.controller.addSystemMessage("No active thread to compact.");
+    deps.inboundController.addSystemMessage("No active thread to compact.");
     return;
   }
-  await controllers.thread.actions.compactThread(threadId);
+  await deps.threadActions.compactThread(threadId);
 }
 
 async function saveGoalObjective(
   state: ChatState,
-  controllers: ChatViewControllers,
+  deps: ChatPanelSurfaceDependencies,
   objective: string,
   tokenBudget: number | null,
 ): Promise<void> {
   let threadId = state.activeThread.id;
   if (!threadId) {
     try {
-      await controllers.connection.controller.ensureConnected();
-      const response = await controllers.serverActions.threads.startThread(objective, { syncGoal: false });
+      await deps.connectionController.ensureConnected();
+      const response = await deps.serverThreads.startThread(objective, { syncGoal: false });
       threadId = response?.threadId ?? null;
     } catch (error) {
-      controllers.inbound.controller.addSystemMessage(error instanceof Error ? error.message : String(error));
+      deps.inboundController.addSystemMessage(error instanceof Error ? error.message : String(error));
       return;
     }
   }
   if (!threadId) return;
-  void controllers.runtime.goals.setObjective(threadId, objective, tokenBudget);
+  void deps.goals.setObjective(threadId, objective, tokenBudget);
 }

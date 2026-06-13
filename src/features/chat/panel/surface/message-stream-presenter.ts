@@ -2,8 +2,8 @@ import type { App, Component } from "obsidian";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
 import { chatTurnBusy, type ChatAction, type ChatDisclosureUiState, type ChatStateStore } from "../../state/reducer";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
-import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./message-stream-ports";
-import { createMessageStreamContextPort } from "./message-stream-ports";
+import type { ChatMessageStreamActions, ChatMessageStreamRequests, ChatMessageStreamSurfaceContext } from "./message-stream-context";
+import { createMessageStreamSurfaceContext } from "./message-stream-context";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
 import type { MessageStreamViewportState } from "../../ui/message-stream/viewport";
 import type { DisplayItem } from "../../display/types";
@@ -21,37 +21,37 @@ import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
 import type { ChatPanelMessageStreamShellState } from "../../ui/shell-state";
 
-interface MessageStreamPresenterObsidianPort {
+interface MessageStreamPresenterObsidianContext {
   app: App;
   owner: Component;
 }
 
-interface MessageStreamPresenterStatePort {
+interface MessageStreamPresenterStateContext {
   store: ChatStateStore;
 }
 
-interface MessageStreamPresenterWorkspacePort {
+interface MessageStreamPresenterWorkspaceContext {
   vaultPath: string;
 }
 
-interface MessageStreamPresenterScrollPort {
+interface MessageStreamPresenterScrollContext {
   consumeIntent: () => MessageStreamScrollIntent;
   registerVirtualizer: (virtualizer: MessageStreamVirtualizerHandle) => () => void;
   dispose: () => void;
 }
 
-interface MessageStreamPresenterHistoryPort {
+interface MessageStreamPresenterHistoryContext {
   loadOlderTurns: () => void;
 }
 
 export interface MessageStreamPresenterOptions {
-  obsidian: MessageStreamPresenterObsidianPort;
-  state: MessageStreamPresenterStatePort;
-  workspace: MessageStreamPresenterWorkspacePort;
-  scroll: MessageStreamPresenterScrollPort;
-  history: MessageStreamPresenterHistoryPort;
-  actions: ChatMessageStreamActionPort;
-  requests: ChatMessageStreamRequestPort;
+  obsidian: MessageStreamPresenterObsidianContext;
+  state: MessageStreamPresenterStateContext;
+  workspace: MessageStreamPresenterWorkspaceContext;
+  scroll: MessageStreamPresenterScrollContext;
+  history: MessageStreamPresenterHistoryContext;
+  actions: ChatMessageStreamActions;
+  requests: ChatMessageStreamRequests;
 }
 
 export interface MessageStreamStateProjection {
@@ -92,14 +92,14 @@ export class MessageStreamPresenter {
 
   private renderStateFor(state: ChatPanelMessageStreamShellState): MessageStreamViewportState {
     return {
-      blocks: messageStreamBlocks(messageStreamContextFromState(state, this.messageStreamPort())),
+      blocks: messageStreamBlocks(messageStreamContextFromState(state, this.messageStreamSurfaceContext())),
       consumeScrollIntent: this.options.scroll.consumeIntent,
       registerVirtualizer: this.options.scroll.registerVirtualizer,
     };
   }
 
-  private messageStreamPort(): ChatMessageStreamContextPort {
-    return createMessageStreamContextPort({
+  private messageStreamSurfaceContext(): ChatMessageStreamSurfaceContext {
+    return createMessageStreamSurfaceContext({
       vaultPath: this.options.workspace.vaultPath,
       dispatch: (action) => {
         this.dispatch(action);
@@ -127,9 +127,9 @@ export class MessageStreamPresenter {
 
 export function messageStreamContextFromState(
   state: ChatPanelMessageStreamShellState,
-  port: ChatMessageStreamContextPort,
+  context: ChatMessageStreamSurfaceContext,
 ): MessageStreamContext {
-  const projection = messageStreamStateProjection(state, port.vaultPath);
+  const projection = messageStreamStateProjection(state, context.vaultPath);
 
   return {
     activeThreadId: projection.activeThreadId,
@@ -142,34 +142,34 @@ export function messageStreamContextFromState(
     turnDiffs: projection.turnDiffs,
     workspaceRoot: projection.workspaceRoot,
     disclosures: projection.disclosures,
-    onDisclosureToggle: port.setDisclosureOpen,
+    onDisclosureToggle: context.setDisclosureOpen,
     forkActionsItemId: projection.forkActionsItemId,
-    onForkActionsToggle: port.setForkActionsItem,
-    loadOlderTurns: port.loadOlderTurns,
-    renderMarkdown: port.renderMarkdown,
-    copyText: port.copyMessageText,
+    onForkActionsToggle: context.setForkActionsItem,
+    loadOlderTurns: context.loadOlderTurns,
+    renderMarkdown: context.renderMarkdown,
+    copyText: context.copyMessageText,
     canImplementPlanItem: (item: DisplayItem) => item.id === projection.implementPlanCandidate?.id,
     onImplementPlanItem: (item) => {
-      port.actions.implementPlan(item);
+      context.actions.implementPlan(item);
     },
     canRollbackItem: (item: DisplayItem) => isRollbackCandidateItem(item, projection.rollbackCandidate),
     onRollbackItem: () => {
-      if (projection.activeThreadId) port.actions.rollbackThread(projection.activeThreadId);
+      if (projection.activeThreadId) context.actions.rollbackThread(projection.activeThreadId);
     },
     canForkItem: (item: DisplayItem) => isForkCandidateItem(item, projection.forkCandidates),
     onForkItem: (item, archiveSource) => {
       if (projection.activeThreadId && item.turnId) {
-        port.actions.forkThreadFromTurn(projection.activeThreadId, item.turnId, archiveSource);
+        context.actions.forkThreadFromTurn(projection.activeThreadId, item.turnId, archiveSource);
       }
     },
     openTurnDiff: (turnDiffState) => {
-      port.actions.openTurnDiff(turnDiffState);
+      context.actions.openTurnDiff(turnDiffState);
     },
     pendingRequests: {
-      signature: port.requests.pendingSignature(),
-      snapshot: port.requests.pendingSnapshot,
-      actions: port.requests.pendingActions,
-      consumeAutoFocus: port.requests.consumePendingAutoFocus,
+      signature: context.requests.pendingSignature(),
+      snapshot: context.requests.pendingSnapshot,
+      actions: context.requests.pendingActions,
+      consumeAutoFocus: context.requests.consumePendingAutoFocus,
     },
   };
 }

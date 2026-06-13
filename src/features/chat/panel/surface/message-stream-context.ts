@@ -4,42 +4,42 @@ import type { PendingRequestBlockActions } from "../../conversation/pending-requ
 import type { DisplayItem } from "../../display/types";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 
-export interface ChatMessageStreamActionPort {
+export interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
   forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
   implementPlan: (item: DisplayItem) => void;
   openTurnDiff: (state: ChatTurnDiffViewState) => void;
 }
 
-export interface ChatMessageStreamRequestPort {
+export interface ChatMessageStreamRequests {
   pendingSignature: () => string;
   pendingSnapshot: () => PendingRequestBlockSnapshot;
   pendingActions: () => PendingRequestBlockActions;
   consumePendingAutoFocus: () => boolean;
 }
 
-export interface ChatMessageStreamContextPort {
+export interface ChatMessageStreamSurfaceContext {
   vaultPath: string;
   setDisclosureOpen: (bucket: ChatDisclosureBucket, id: string, open: boolean) => void;
   setForkActionsItem: (itemId: string | null) => void;
   loadOlderTurns: () => void;
   renderMarkdown: (element: HTMLElement, text: string) => void;
   copyMessageText: (text: string) => void;
-  actions: ChatMessageStreamActionPort;
-  requests: ChatMessageStreamRequestPort;
+  actions: ChatMessageStreamActions;
+  requests: ChatMessageStreamRequests;
 }
 
-export interface MessageStreamContextPortOptions {
+export interface MessageStreamSurfaceContextOptions {
   vaultPath: string;
   dispatch: (action: ChatAction) => void;
   loadOlderTurns: () => void;
   renderMarkdown: (element: HTMLElement, text: string) => void;
   copyMessageText: (text: string) => void;
-  actions: ChatMessageStreamActionPort;
-  requests: ChatMessageStreamRequestPort;
+  actions: ChatMessageStreamActions;
+  requests: ChatMessageStreamRequests;
 }
 
-export function createMessageStreamContextPort(options: MessageStreamContextPortOptions): ChatMessageStreamContextPort {
+export function createMessageStreamSurfaceContext(options: MessageStreamSurfaceContextOptions): ChatMessageStreamSurfaceContext {
   return {
     vaultPath: options.vaultPath,
     setDisclosureOpen: (bucket, id, open) => {
