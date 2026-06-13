@@ -1,92 +1,24 @@
-import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
+import { ItemView, type WorkspaceLeaf } from "obsidian";
 
-import type { AppServerClient } from "../../app-server/connection/client";
-import { ConnectionManager, StaleConnectionError } from "../../app-server/connection/connection-manager";
-import { listThreads, readCompletedConversationSummariesPage, readThreadForArchiveExport } from "../../app-server/services/threads";
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
 import type { Thread } from "../../domain/threads/model";
-import type { CodexPanelSettings } from "../../settings/model";
-import { exportArchivedThreadMarkdown } from "../thread-export/archive-markdown";
-import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import { generateThreadTitleWithCodex } from "../thread-title/generation";
-import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../thread-title/model";
-import { renderThreadsView, unmountThreadsView } from "./renderer";
-import {
-  completedThreadAutoNameState,
-  editingThreadRenameState,
-  generatedThreadAutoNameState,
-  startedThreadAutoNameState,
-  threadRows,
-  updatedThreadRenameState,
-  type ThreadsGeneratingRenameState,
-  type ThreadsRenameState,
-} from "./state";
-import {
-  createThreadsViewDeferredTasks,
-  transitionThreadsViewConnectionLifecycle,
-  transitionThreadsViewRefreshLifecycle,
-  type ActiveThreadsViewConnection,
-  type ActiveThreadsViewRefresh,
-  type ThreadsViewDeferredTasks,
-  type ThreadsViewConnectionLifecycleState,
-  type ThreadsViewRefreshLifecycleState,
-} from "./view-lifecycle";
+import { CodexThreadsSession, type CodexThreadsHost } from "./session";
 
-export interface CodexThreadsHost {
-  readonly settings: CodexPanelSettings;
-  readonly vaultPath: string;
-  openNewPanel(): Promise<unknown>;
-  openThreadInAvailableView(threadId: string): Promise<void>;
-  getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
-  notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-  notifyThreadRenamed(threadId: string, name: string | null): void;
-  publishAppServerIdentity(userAgent: string | null): void;
-  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-  cachedThreadList(): readonly Thread[] | null;
-}
-
-type ThreadsViewStatus =
-  | { kind: "idle" }
-  | { kind: "loading"; message: string }
-  | { kind: "empty"; message: string }
-  | { kind: "log"; message: string }
-  | { kind: "error"; message: string };
+export type { CodexThreadsHost } from "./session";
 
 export class CodexThreadsView extends ItemView {
-  private readonly connection: ConnectionManager;
-  private readonly deferredTasks: ThreadsViewDeferredTasks;
-  private client: AppServerClient | null = null;
-  private connectionLifecycle: ThreadsViewConnectionLifecycleState = { kind: "idle" };
-  private refreshLifecycle: ThreadsViewRefreshLifecycleState = { kind: "idle" };
-  private status: ThreadsViewStatus = { kind: "idle" };
-  private threads: readonly Thread[] = [];
-  private readonly renameStates = new Map<string, ThreadsRenameState>();
-  private archiveConfirmThreadId: string | null = null;
+  private readonly session: CodexThreadsSession;
 
-  constructor(
-    leaf: WorkspaceLeaf,
-    private readonly plugin: CodexThreadsHost,
-  ) {
+  constructor(leaf: WorkspaceLeaf, plugin: CodexThreadsHost) {
     super(leaf);
-    this.deferredTasks = createThreadsViewDeferredTasks(() => this.containerEl.win);
-    this.connection = new ConnectionManager(() => this.plugin.settings.codexPath, this.plugin.vaultPath, {
-      onNotification: () => {
-        this.scheduleRefresh();
+    this.session = new CodexThreadsSession({
+      root: this.containerEl,
+      host: plugin,
+      registerPointerDown: (handler) => {
+        this.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
       },
-      onServerRequest: (request) => {
-        this.connection.currentClient()?.rejectServerRequest(request.id, -32601, "Codex Threads view does not handle server requests.");
-      },
-      onLog: (message) => {
-        this.status = { kind: "log", message };
-        this.render();
-      },
-      onExit: () => {
-        this.client = null;
-        this.invalidateConnectionWork();
-        this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
-        this.status = { kind: "error", message: "Codex app-server stopped." };
-        this.render();
-      },
+      archiveAdapter: () => this.app.vault.adapter,
+      viewWindow: () => this.containerEl.doc.defaultView,
     });
   }
 
@@ -103,296 +35,22 @@ export class CodexThreadsView extends ItemView {
   }
 
   override async onOpen(): Promise<void> {
-    this.registerDomEvent(this.containerEl.doc, "pointerdown", (event) => {
-      this.cancelArchiveConfirmOnOutsidePointer(event);
-    });
-    const cachedThreads = this.plugin.cachedThreadList();
-    if (cachedThreads) {
-      this.threads = cachedThreads;
-    }
-    this.render();
-    void this.refresh();
+    this.session.open();
   }
 
   override async onClose(): Promise<void> {
-    this.invalidateConnectionWork();
-    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
-    this.deferredTasks.clearAll();
-    this.plugin.publishAppServerIdentity(null);
-    this.connection.disconnect();
-    this.client = null;
-    unmountThreadsView(this.containerEl);
+    this.session.close();
   }
 
-  async refresh(): Promise<void> {
-    const refresh = this.startRefresh();
-    this.status = this.threads.length === 0 ? { kind: "loading", message: "Loading threads..." } : { kind: "idle" };
-    this.render();
-    try {
-      await this.ensureConnected();
-      if (this.isStaleRefresh(refresh) || !this.client) return;
-      const threads = await this.plugin.refreshThreadList(async () => {
-        if (!this.client) return [];
-        return listThreads(this.client, this.plugin.vaultPath);
-      });
-      if (this.isStaleRefresh(refresh)) return;
-      this.threads = threads;
-      this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
-    } catch (error) {
-      if (error instanceof StaleConnectionError) return;
-      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
-    } finally {
-      this.finishRefresh(refresh);
-    }
-  }
-
-  private startRefresh(): ActiveThreadsViewRefresh {
-    const refresh: ActiveThreadsViewRefresh = { kind: "loading" };
-    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "started", refresh });
-    return refresh;
-  }
-
-  private finishRefresh(refresh: ActiveThreadsViewRefresh): void {
-    if (this.isStaleRefresh(refresh)) return;
-    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "finished", refresh });
-    this.render();
-  }
-
-  private isStaleRefresh(refresh: ActiveThreadsViewRefresh): boolean {
-    return this.refreshLifecycle !== refresh;
-  }
-
-  private async ensureConnected(): Promise<void> {
-    const connecting = this.activeConnection();
-    if (connecting?.promise) return connecting.promise;
-
-    if (this.connection.isConnected()) {
-      this.client = this.connection.currentClient();
-      return;
-    }
-
-    const connection = this.beginConnectionWork();
-    this.plugin.publishAppServerIdentity(null);
-    const promise = this.connection
-      .connect()
-      .then((initialization) => {
-        if (this.isStaleConnectionWork(connection)) throw new StaleConnectionError();
-        this.plugin.publishAppServerIdentity(initialization.userAgent);
-        this.client = this.connection.currentClient();
-      })
-      .finally(() => {
-        this.connectionLifecycle = transitionThreadsViewConnectionLifecycle(this.connectionLifecycle, {
-          type: "finished",
-          connection,
-          promise,
-        });
-      });
-    connection.promise = promise;
-    return promise;
-  }
-
-  private beginConnectionWork(): ActiveThreadsViewConnection {
-    const connection: ActiveThreadsViewConnection = { kind: "connecting", promise: null };
-    this.connectionLifecycle = transitionThreadsViewConnectionLifecycle(this.connectionLifecycle, { type: "started", connection });
-    return connection;
-  }
-
-  private invalidateConnectionWork(): void {
-    this.connectionLifecycle = transitionThreadsViewConnectionLifecycle(this.connectionLifecycle, { type: "invalidated" });
-  }
-
-  private activeConnection(): ActiveThreadsViewConnection | null {
-    return this.connectionLifecycle.kind === "connecting" ? this.connectionLifecycle : null;
-  }
-
-  private isStaleConnectionWork(connection: ActiveThreadsViewConnection): boolean {
-    return this.connectionLifecycle !== connection;
-  }
-
-  private render(): void {
-    renderThreadsView(
-      this.containerEl,
-      {
-        status: threadsViewStatusText(this.status),
-        loading: this.refreshLifecycle.kind === "loading",
-        rows: threadRows(
-          this.threads,
-          this.plugin.getOpenPanelSnapshots(),
-          this.renameStates,
-          this.archiveConfirmThreadId,
-          this.plugin.settings.archiveExportEnabled,
-        ),
-      },
-      {
-        refresh: () => void this.refresh(),
-        openNewPanel: () => void this.openNewPanel(),
-        openThread: (threadId) => void this.openThread(threadId),
-        startRename: (threadId, value) => {
-          this.startRename(threadId, value);
-        },
-        updateRename: (threadId, value) => {
-          this.updateRename(threadId, value);
-        },
-        saveRename: (threadId, value) => void this.saveRename(threadId, value),
-        cancelRename: (threadId) => {
-          this.cancelRename(threadId);
-        },
-        autoNameThread: (threadId) => void this.autoNameThread(threadId),
-        startArchive: (threadId) => {
-          this.startArchive(threadId);
-        },
-        archiveThread: (threadId, saveMarkdown) => void this.archiveThread(threadId, saveMarkdown),
-      },
-    );
-  }
-
-  private scheduleRender(): void {
-    this.deferredTasks.scheduleRender(() => {
-      this.render();
-    });
+  refresh(): Promise<void> {
+    return this.session.refresh();
   }
 
   refreshLiveState(): void {
-    this.scheduleRender();
+    this.session.refreshLiveState();
   }
 
   applyThreadListSnapshot(threads: readonly Thread[]): void {
-    this.threads = threads;
-    this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
-    this.render();
+    this.session.applyThreadListSnapshot(threads);
   }
-
-  private scheduleRefresh(): void {
-    this.deferredTasks.scheduleRefresh(() => {
-      void this.refresh();
-    });
-  }
-
-  private async openThread(threadId: string): Promise<void> {
-    this.archiveConfirmThreadId = null;
-    await this.plugin.openThreadInAvailableView(threadId);
-  }
-
-  private async openNewPanel(): Promise<void> {
-    await this.plugin.openNewPanel();
-  }
-
-  private startRename(threadId: string, value: string): void {
-    this.archiveConfirmThreadId = null;
-    this.renameStates.set(threadId, editingThreadRenameState(value));
-    this.render();
-  }
-
-  private updateRename(threadId: string, value: string): void {
-    this.renameStates.set(threadId, updatedThreadRenameState(this.renameStates.get(threadId), value));
-    this.render();
-  }
-
-  private cancelRename(threadId: string): void {
-    this.renameStates.delete(threadId);
-    this.render();
-  }
-
-  private async saveRename(threadId: string, value: string): Promise<void> {
-    const editingState = this.renameStates.get(threadId);
-    if (!editingState || editingState.kind === "generating") return;
-    const name = value.trim();
-    if (!name) {
-      this.cancelRename(threadId);
-      return;
-    }
-    try {
-      await this.ensureConnected();
-      if (this.renameStates.get(threadId) !== editingState) return;
-      if (!this.client) return;
-      await this.client.setThreadName(threadId, name);
-      this.renameStates.delete(threadId);
-      this.plugin.notifyThreadRenamed(threadId, name);
-    } catch (error) {
-      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
-      this.render();
-    }
-  }
-
-  private async autoNameThread(threadId: string): Promise<void> {
-    const generatingState = startedThreadAutoNameState(this.renameStates.get(threadId));
-    if (!generatingState) return;
-    this.renameStates.set(threadId, generatingState);
-    this.render();
-
-    try {
-      await this.ensureConnected();
-      if (this.renameStates.get(threadId) !== generatingState) return;
-      if (!this.client) return;
-      const client = this.client;
-      const context = await findThreadTitleContext({
-        threadId,
-        readTurns: (id, cursor, limit, sortDirection) => readCompletedConversationSummariesPage(client, id, cursor, limit, sortDirection),
-      });
-      if (!context) throw new Error(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
-      const title = await generateThreadTitleWithCodex(this.plugin.settings.codexPath, this.plugin.vaultPath, context, {
-        threadNamingModel: this.plugin.settings.threadNamingModel,
-        threadNamingEffort: this.plugin.settings.threadNamingEffort,
-      });
-      if (!title) throw new Error("Codex did not return a usable thread title.");
-      const renamedState = generatedThreadAutoNameState(this.renameStates.get(threadId), generatingState, title);
-      if (renamedState) this.renameStates.set(threadId, renamedState);
-    } catch (error) {
-      if (this.renameStates.get(threadId) === generatingState) {
-        this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
-      }
-    } finally {
-      this.finishAutoNameThread(threadId, generatingState);
-    }
-  }
-
-  private startArchive(threadId: string): void {
-    this.archiveConfirmThreadId = threadId;
-    this.render();
-  }
-
-  private cancelArchiveConfirmOnOutsidePointer(event: PointerEvent): void {
-    if (!this.archiveConfirmThreadId) return;
-    const target = event.target;
-    const viewWindow = this.containerEl.doc.defaultView;
-    if (viewWindow && target instanceof viewWindow.Element) {
-      const archiveConfirm = target.closest(".codex-panel-threads__archive-confirm");
-      if (archiveConfirm && this.containerEl.contains(archiveConfirm)) return;
-    }
-    this.archiveConfirmThreadId = null;
-    this.render();
-  }
-
-  private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
-    try {
-      await this.ensureConnected();
-      if (!this.client) return;
-      if (saveMarkdown) {
-        const result = await exportArchivedThreadMarkdown(
-          await readThreadForArchiveExport(this.client, threadId),
-          { ...this.plugin.settings, vaultPath: this.plugin.vaultPath },
-          this.app.vault.adapter,
-        );
-        new Notice(`Saved archived thread to ${result.path}.`);
-      }
-      await this.client.archiveThread(threadId);
-      if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
-      this.renameStates.delete(threadId);
-      this.plugin.notifyThreadArchived(threadId, { closeOpenPanels: true });
-    } catch (error) {
-      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
-      this.render();
-    }
-  }
-
-  private finishAutoNameThread(threadId: string, generatingState: ThreadsGeneratingRenameState): void {
-    const nextState = completedThreadAutoNameState(this.renameStates.get(threadId), generatingState);
-    if (!nextState) return;
-    this.renameStates.set(threadId, nextState);
-    this.render();
-  }
-}
-
-function threadsViewStatusText(status: ThreadsViewStatus): string | null {
-  return status.kind === "idle" ? null : status.message;
 }
