@@ -7,7 +7,6 @@ export interface ThreadRenameActionsHost {
   currentClient: () => AppServerClient | null;
   addSystemMessage: (text: string) => void;
   notifyThreadRenamed: (threadId: string, name: string) => void;
-  render: () => void;
 }
 
 export async function renameThread(host: ThreadRenameActionsHost, threadId: string, value: string): Promise<boolean> {
@@ -35,7 +34,5 @@ export async function renameConnectedThread(host: ThreadRenameActionsHost, threa
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return false;
-  } finally {
-    host.render();
   }
 }

@@ -103,7 +103,6 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
       ({
         threadTurnsList: options.threadTurnsList,
       }) as unknown as AppServerClient,
-    render: vi.fn(),
     addSystemMessage,
     keepCurrentScrollPosition,
     showLatestPageAtBottom,

@@ -1,5 +1,4 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useLayoutEffect, useState } from "preact/hooks";
 
 import {
   activeAgentRunSummary,
@@ -18,6 +17,7 @@ import type {
   TaskProgressDisplayItem,
 } from "../../display/types";
 import { activeTurnId, type ChatTurnLifecycleState } from "../../state/reducer";
+import type { ChatDisclosureUiState } from "../../state/reducer";
 import { createWorkMessageClassName } from "./work-message";
 import { shortThreadId, truncate } from "../../../../utils";
 
@@ -30,8 +30,8 @@ export interface WorkItemContext {
   turnLifecycle: ChatTurnLifecycleState;
   displayItems: readonly DisplayItem[];
   activeItems?: readonly DisplayItem[];
-  openDetails: ReadonlySet<string>;
-  onDetailsToggle?: (key: string, open: boolean) => void;
+  disclosures: ChatDisclosureUiState;
+  onDisclosureToggle?: (bucket: "agentDetails", id: string, open: boolean) => void;
 }
 
 function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">): string | null {
@@ -98,11 +98,7 @@ function ContextCompactionItem({ item, context }: { item: ContextCompactionDispl
 }
 
 function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkItemContext }): UiNode {
-  const detailsKey = `${item.id}:agent-details`;
-  const [detailsOpen, setDetailsOpen] = useState(context.openDetails.has(detailsKey));
-  useLayoutEffect(() => {
-    setDetailsOpen(context.openDetails.has(detailsKey));
-  }, [context.openDetails, detailsKey]);
+  const detailsOpen = context.disclosures.agentDetails.has(item.id);
   return (
     <WorkMessage
       label="agent"
@@ -114,9 +110,7 @@ function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkIte
         className="codex-panel__output codex-panel__agent-details"
         open={detailsOpen}
         onToggle={(event) => {
-          const nextOpen = event.currentTarget.open;
-          setDetailsOpen(nextOpen);
-          context.onDetailsToggle?.(detailsKey, nextOpen);
+          context.onDisclosureToggle?.("agentDetails", item.id, event.currentTarget.open);
         }}
       >
         <summary tabIndex={-1}>Details</summary>

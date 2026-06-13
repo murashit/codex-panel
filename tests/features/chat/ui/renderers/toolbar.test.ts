@@ -18,7 +18,7 @@ function mountToolbar(parent: HTMLElement, model: ToolbarViewModel, actions: Too
   renderUiRoot(parent, h(Toolbar, { model, actions }));
 }
 
-describe("toolbar renderer decisions", () => {
+describe("Toolbar decisions", () => {
   it("renders toolbar controls as Obsidian-style action buttons", () => {
     const parent = document.createElement("div");
     const startNewThread = vi.fn();

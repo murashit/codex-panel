@@ -6,9 +6,9 @@ import type { ChatServerThreadActions } from "../connection/server-actions/threa
 import type { ChatComposerController } from "../conversation/composer/controller";
 import type { ChatThreadActions } from "../threads/action-context";
 import { closeChatView, openChatView, type ChatViewLifecycleHost } from "./view-lifecycle";
-import { createToolbarArchiveConfirmState, createToolbarPanelActions } from "./toolbar-actions";
+import { createToolbarPanelActions } from "./toolbar-actions";
 import { applyChatViewState } from "./view-state";
-import type { MessageStreamRenderer } from "./surface/message-stream-renderer";
+import type { MessageStreamPresenter } from "./surface/message-stream-presenter";
 import type { ChatViewDeferredTasks, RestoredThreadState } from "../lifecycle";
 import type { ChatControllerPorts } from "../controller-ports";
 import { renderChatPanelShell } from "../ui/shell";
@@ -18,20 +18,18 @@ export interface CachedSharedAppServerStateSource {
   cachedAppServerMetadata: () => SharedServerMetadata | null;
 }
 
-type ChatViewRendererPorts = Pick<ChatControllerPorts, "plugin" | "state" | "lifecycle" | "render">;
+type ChatShellRendererPorts = Pick<ChatControllerPorts, "plugin" | "state" | "render">;
 
-export function createChatViewRenderer(context: ChatViewRendererPorts): () => void {
-  const { plugin, render, lifecycle } = context;
-  const { deferredTasks } = lifecycle;
+export function createChatShellRenderer(context: ChatShellRendererPorts): () => void {
+  const { plugin, render } = context;
 
   return () => {
-    deferredTasks.clearRender();
     const root = render.panelRoot();
     if (!root) return;
     renderChatPanelShell(root, {
       stateStore: context.state.stateStore,
       showToolbar: plugin.settings.showToolbar,
-      slots: context.render.shellSlots(),
+      parts: context.render.shellParts(),
     });
   };
 }
@@ -56,7 +54,7 @@ type ConnectionLifecycleControllerGroupPorts = Pick<ChatControllerPorts, "plugin
   render: {
     panelRoot: () => HTMLElement | null;
     closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
-    now: () => void;
+    mountOrRepairShell: () => void;
   };
   liveState: {
     refresh: () => void;
@@ -69,7 +67,7 @@ export function createConnectionLifecycleControllerGroup(
   refs: {
     connection: ConnectionManager;
     composerController: ChatComposerController;
-    messageStreamRenderer: MessageStreamRenderer;
+    messageStreamPresenter: MessageStreamPresenter;
     serverThreads: ChatServerThreadActions;
     serverMetadata: ChatServerMetadataActions;
   },
@@ -99,7 +97,7 @@ export function createConnectionLifecycleControllerGroup(
     },
     render: {
       panelRoot: render.panelRoot,
-      now: render.now,
+      mountOrRepairShell: render.mountOrRepairShell,
     },
     sharedState: {
       applyCachedAppServerState: () => {
@@ -108,7 +106,7 @@ export function createConnectionLifecycleControllerGroup(
     },
     resources: {
       disposeMessages: () => {
-        refs.messageStreamRenderer.dispose();
+        refs.messageStreamPresenter.dispose();
       },
       disposeComposer: () => {
         refs.composerController.dispose();
@@ -140,9 +138,6 @@ type PanelUiControllerGroupPorts = Pick<ChatControllerPorts, "state"> & {
     clearDeferredRestoredThreadHydration: () => void;
     scheduleDeferredAppServerWarmup: () => void;
   };
-  render: {
-    schedule: () => void;
-  };
   thread: {
     clearRestoredLifecycle: () => void;
     restorePlaceholder: (restoredThread: RestoredThreadState) => void;
@@ -155,7 +150,7 @@ export function createPanelUiControllerGroup(
     threadActions: ChatThreadActions;
   },
 ) {
-  const { lifecycle, render, thread } = context;
+  const { lifecycle, thread } = context;
 
   const viewStateHost = {
     invalidateResumeWork: lifecycle.invalidateResumeWork,
@@ -168,8 +163,6 @@ export function createPanelUiControllerGroup(
   const toolbarPanels = createToolbarPanelActions({
     stateStore: context.state.stateStore,
     threadActions: refs.threadActions,
-    archiveConfirm: createToolbarArchiveConfirmState(),
-    scheduleRender: render.schedule,
   });
   const applyViewState = (state: unknown) => {
     applyChatViewState(viewStateHost, state);

@@ -6,12 +6,14 @@ import type { DisplayItem } from "../../../../../src/features/chat/display/types
 import { topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
+  emptyDisclosures,
   expectPresent,
   idleTurnLifecycle,
   messageStreamBlocks,
   renderMessageBlockElement,
   renderMessageStreamBlocksInAct,
   runningTurnLifecycle,
+  testDisclosures,
   unmountUiRootInAct,
 } from "./test-helpers";
 
@@ -37,7 +39,8 @@ describe("work log renderer decisions", () => {
           ],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -81,7 +84,8 @@ describe("work log renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      openDetails: new Set(["turn:turn:activity"]),
+      disclosures: testDisclosures({ activityGroups: ["turn"] }),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     }).find((item) => item.key === "activity:turn-turn-activity");
@@ -110,7 +114,8 @@ describe("work log renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -138,7 +143,8 @@ describe("work log renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [item] satisfies DisplayItem[],
-      openDetails: new Set<string>(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
@@ -169,7 +175,8 @@ describe("work log renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -196,7 +203,8 @@ describe("work log renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -234,7 +242,8 @@ describe("work log renderer decisions", () => {
           ],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -289,7 +298,8 @@ describe("work log renderer decisions", () => {
           messageState: "completed",
         },
       ],
-      openDetails: new Set(["turn:turn:activity", "hook-1"]),
+      disclosures: testDisclosures({ activityGroups: ["turn"], toolResults: ["hook-1"] }),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -326,7 +336,8 @@ describe("work log renderer decisions", () => {
           status: "inProgress",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -383,7 +394,8 @@ describe("work log renderer decisions", () => {
           agents: [{ threadId: "running", status: "running", message: "Inspecting renderer" }],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: {
@@ -392,7 +404,7 @@ describe("work log renderer decisions", () => {
           approvals: [],
           pendingUserInputs: [],
           userInputDrafts: new Map(),
-          openDetails: new Set(),
+          approvalDetails: new Set(),
         }),
         actions: () => ({
           resolveApproval: vi.fn(),
@@ -448,7 +460,8 @@ describe("work log renderer decisions", () => {
           status: "inProgress",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -505,7 +518,8 @@ describe("work log renderer decisions", () => {
           agents: [{ threadId: "child", status: "running", message: "Inspecting renderer" }],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -542,7 +556,8 @@ describe("work log renderer decisions", () => {
           agents: [{ threadId: "child", status: "completed", message: "Done" }],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -584,7 +599,8 @@ describe("work log renderer decisions", () => {
           agents: [],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -598,7 +614,7 @@ describe("work log renderer decisions", () => {
   it("collapses long agent output away from the agent status row", () => {
     const longMessage = `Done\n${"a".repeat(180)}`;
     const threadId = "019e061e-0046-7653-a362-86de9a47cb5c";
-    const onDetailsToggle = vi.fn();
+    const onDisclosureToggle = vi.fn();
     const block = messageStreamBlocks({
       activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
@@ -621,8 +637,9 @@ describe("work log renderer decisions", () => {
           agents: [{ threadId, status: "completed", message: longMessage }],
         },
       ],
-      openDetails: new Set(),
-      onDetailsToggle,
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
+      onDisclosureToggle,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -639,7 +656,7 @@ describe("work log renderer decisions", () => {
     const details = element.querySelector("details");
     expect(details?.hasAttribute("open")).toBe(false);
     details?.dispatchEvent(new Event("toggle"));
-    expect(onDetailsToggle).toHaveBeenCalled();
+    expect(onDisclosureToggle).toHaveBeenCalledWith("agentDetails", "agent-1", false);
   });
 
   it("renders a compact live agent summary while subagents are running", () => {
@@ -668,7 +685,8 @@ describe("work log renderer decisions", () => {
           ],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -695,7 +713,8 @@ describe("work log renderer decisions", () => {
         historyCursor: null,
         loadingHistory: false,
         displayItems: [item],
-        openDetails: new Set(),
+        disclosures: emptyDisclosures(),
+        forkActionsItemId: null,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
       }),
@@ -718,7 +737,8 @@ describe("work log renderer decisions", () => {
         historyCursor: null,
         loadingHistory: false,
         displayItems: [item],
-        openDetails: new Set(),
+        disclosures: emptyDisclosures(),
+        forkActionsItemId: null,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
       }),
@@ -755,7 +775,8 @@ describe("work log renderer decisions", () => {
           agents: [{ threadId: "done", status: "completed", message: null }],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -789,7 +810,8 @@ describe("work log renderer decisions", () => {
           ],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });

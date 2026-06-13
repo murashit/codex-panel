@@ -15,31 +15,27 @@ export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controll
   const dispatch = (action: ChatAction): void => {
     host.stateStore.dispatch(action);
   };
-  const render = (): void => {
-    controllers.render.now();
-  };
-  const setGoalEditingOpen = (open: boolean, { closeToolbarPanel = false }: { closeToolbarPanel?: boolean } = {}): void => {
+  const startGoalEditing = ({ closeToolbarPanel = false }: { closeToolbarPanel?: boolean } = {}): void => {
     if (closeToolbarPanel) dispatch({ type: "ui/panel-set", panel: null });
-    dispatch({ type: "ui/detail-open-set", key: "goal:editor", open });
-    render();
+    const goal = host.stateStore.getState().activeThread.goal;
+    dispatch({
+      type: "ui/goal-editor-started",
+      threadId: goal?.threadId ?? null,
+      objective: goal?.objective ?? "",
+      tokenBudget: goal?.tokenBudget ?? null,
+    });
   };
 
   return {
     toolbar: {
       state: {
         connected: () => controllers.connection.manager.isConnected(),
+        nowMs: () => Date.now(),
       },
       settings: {
         vaultPath: () => host.vaultPath,
         configuredCommand: () => host.settings.codexPath,
         archiveExportEnabled: () => host.settings.archiveExportEnabled,
-      },
-      view: {
-        toolbar: {
-          archiveConfirm: controllers.toolbar.panels.archiveConfirm,
-          renameState: (threadId) => controllers.thread.rename.editState(threadId),
-          renameVersion: controllers.thread.rename.version,
-        },
       },
       actions: {
         toolbar: {
@@ -53,7 +49,7 @@ export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controll
             void compactConversation(host.stateStore.getState(), controllers);
           },
           setGoal: () => {
-            setGoalEditingOpen(true, { closeToolbarPanel: true });
+            startGoalEditing({ closeToolbarPanel: true });
           },
           toggleHistory: () => {
             controllers.toolbar.panels.toggleHistory();
@@ -103,8 +99,17 @@ export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controll
           saveObjective: (objective, tokenBudget) => saveGoalObjective(host.stateStore.getState(), controllers, objective, tokenBudget),
           setStatus: (threadId, status) => controllers.runtime.goals.setStatus(threadId, status),
           clear: (threadId) => controllers.runtime.goals.clear(threadId),
-          setEditingOpen: (open) => {
-            setGoalEditingOpen(open);
+          startEditing: (threadId, objective, tokenBudget) => {
+            dispatch({ type: "ui/goal-editor-started", threadId, objective, tokenBudget });
+          },
+          updateObjectiveDraft: (objective) => {
+            dispatch({ type: "ui/goal-editor-draft-updated", objective });
+          },
+          setObjectiveExpanded: (threadId, expanded) => {
+            dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: threadId, open: expanded });
+          },
+          closeEditor: () => {
+            dispatch({ type: "ui/goal-editor-closed" });
           },
         },
       },
@@ -126,7 +131,6 @@ async function compactConversation(state: ChatState, controllers: ChatViewContro
   const threadId = state.activeThread.id;
   if (!threadId) {
     controllers.inbound.controller.addSystemMessage("No active thread to compact.");
-    controllers.render.now();
     return;
   }
   await controllers.thread.actions.compactThread(threadId);
@@ -146,7 +150,6 @@ async function saveGoalObjective(
       threadId = response?.threadId ?? null;
     } catch (error) {
       controllers.inbound.controller.addSystemMessage(error instanceof Error ? error.message : String(error));
-      controllers.render.now();
       return;
     }
   }

@@ -1,12 +1,18 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import { signal } from "@preact/signals";
 import { readCompletedConversationSummariesPage } from "../../../app-server/services/threads";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { Thread } from "../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../settings/model";
 import { generateThreadTitleWithCodex } from "../../thread-title/generation";
 import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE, type ThreadTitleContext } from "../../thread-title/model";
-import type { ChatState, ChatStateStore } from "../state/reducer";
+import {
+  renameGenerationStillActive,
+  type ChatAction,
+  type ChatRenameGeneratingUiState,
+  type ChatRenameUiState,
+  type ChatState,
+  type ChatStateStore,
+} from "../state/reducer";
 import { messageStreamDisplayItems } from "../state/message-stream";
 import { renameConnectedThread } from "./rename-actions";
 import { firstThreadTitleContextFromDisplayItems } from "./title-context";
@@ -16,41 +22,32 @@ export interface RenameEditState {
   generating: boolean;
 }
 
-type RenameLifecycleState =
-  | { kind: "idle" }
-  | { kind: "editing"; threadId: string; draft: string }
-  | { kind: "generating"; threadId: string; draft: string; originalDraft: string; generationId: number };
-type RenameGeneratingState = Extract<RenameLifecycleState, { kind: "generating" }>;
-type RenameLifecycleEvent =
-  | { type: "started"; threadId: string; draft: string }
-  | { type: "draft-updated"; threadId: string; draft: string }
-  | { type: "cancelled"; threadId: string }
-  | { type: "generation-started"; threadId: string; originalDraft: string; generationId: number }
-  | { type: "generation-succeeded"; generatingState: RenameGeneratingState; draft: string }
-  | { type: "generation-finished"; threadId: string; generatingState: RenameGeneratingState }
-  | { type: "cleared" };
-
 export interface RenameControllerHost {
   stateStore: ChatStateStore;
   vaultPath: string;
   settings: () => CodexPanelSettings;
   ensureConnected: () => Promise<void>;
   currentClient: () => AppServerClient | null;
-  render: () => void;
   addSystemMessage: (text: string) => void;
   notifyThreadRenamed: (threadId: string, name: string) => void;
   generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null>;
 }
 
 export class RenameController {
-  readonly version = signal(0);
   private nextRenameGenerationId = 1;
-  private renameState: RenameLifecycleState = { kind: "idle" };
 
   constructor(private readonly host: RenameControllerHost) {}
 
   private get state(): ChatState {
     return this.host.stateStore.getState();
+  }
+
+  private get renameState(): ChatRenameUiState {
+    return this.state.ui.rename;
+  }
+
+  private dispatch(action: ChatAction): void {
+    this.host.stateStore.dispatch(action);
   }
 
   editState(threadId: string): RenameEditState | null {
@@ -68,19 +65,15 @@ export class RenameController {
   start(threadId: string): void {
     const thread = this.thread(threadId);
     if (!thread) return;
-    this.setRenameState(transitionRenameLifecycle(this.renameState, { type: "started", threadId, draft: getThreadTitle(thread) }));
+    this.dispatch({ type: "ui/rename-started", threadId, draft: getThreadTitle(thread) });
   }
 
   updateDraft(threadId: string, value: string): void {
-    const next = transitionRenameLifecycle(this.renameState, { type: "draft-updated", threadId, draft: value });
-    if (next === this.renameState) return;
-    this.setRenameState(next);
+    this.dispatch({ type: "ui/rename-draft-updated", threadId, draft: value });
   }
 
   cancel(threadId: string): void {
-    const next = transitionRenameLifecycle(this.renameState, { type: "cancelled", threadId });
-    if (next === this.renameState) return;
-    this.setRenameState(next);
+    this.dispatch({ type: "ui/rename-cancelled", threadId });
   }
 
   async save(threadId: string, value: string): Promise<void> {
@@ -110,28 +103,22 @@ export class RenameController {
     await this.host.ensureConnected();
     if (this.renameState !== editingState) return;
 
-    const generatingState = transitionRenameLifecycle(this.renameState, {
-      type: "generation-started",
+    this.dispatch({
+      type: "ui/rename-generation-started",
       threadId,
       originalDraft: editingState.draft,
       generationId: this.nextRenameGenerationId,
     });
+    const generatingState: ChatRenameUiState = this.host.stateStore.getState().ui.rename;
     if (generatingState.kind !== "generating") return;
     this.nextRenameGenerationId += 1;
-    this.setRenameState(generatingState);
 
     try {
       const context = await this.resolveNamingContext(threadId);
       if (!context) throw new Error(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
       const title = await this.generateTitle(context);
       if (!title) throw new Error("Codex did not return a usable thread title.");
-      this.setRenameState(
-        transitionRenameLifecycle(this.renameState, {
-          type: "generation-succeeded",
-          generatingState,
-          draft: title,
-        }),
-      );
+      this.dispatch({ type: "ui/rename-generation-succeeded", generatingState, draft: title });
     } catch (error) {
       if (renameGenerationStillActive(this.renameState, generatingState)) {
         this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -166,71 +153,14 @@ export class RenameController {
   }
 
   private clear(): void {
-    this.setRenameState(transitionRenameLifecycle(this.renameState, { type: "cleared" }));
+    this.dispatch({ type: "ui/rename-cleared" });
   }
 
-  private setRenameState(next: RenameLifecycleState): void {
-    if (next === this.renameState) return;
-    this.renameState = next;
-    this.notifyRenameStateChanged();
-  }
-
-  private notifyRenameStateChanged(): void {
-    this.version.value += 1;
-  }
-
-  private finishAutoNameDraftGeneration(threadId: string, generatingState: RenameGeneratingState): void {
-    const next = transitionRenameLifecycle(this.renameState, { type: "generation-finished", threadId, generatingState });
-    if (next === this.renameState) return;
-    this.setRenameState(next);
+  private finishAutoNameDraftGeneration(threadId: string, generatingState: ChatRenameGeneratingUiState): void {
+    this.dispatch({ type: "ui/rename-generation-finished", threadId, generatingState });
   }
 
   private thread(threadId: string): Thread | undefined {
     return this.state.threadList.listedThreads.find((item) => item.id === threadId);
-  }
-}
-
-function renameGenerationStillActive(state: RenameLifecycleState, generatingState: RenameGeneratingState): boolean {
-  return (
-    state.kind === "generating" &&
-    state.threadId === generatingState.threadId &&
-    state.originalDraft === generatingState.originalDraft &&
-    state.generationId === generatingState.generationId
-  );
-}
-
-function transitionRenameLifecycle(state: RenameLifecycleState, event: RenameLifecycleEvent): RenameLifecycleState {
-  switch (event.type) {
-    case "started":
-      return { kind: "editing", threadId: event.threadId, draft: event.draft };
-    case "draft-updated":
-      if (state.kind === "idle" || state.threadId !== event.threadId) return state;
-      return { ...state, draft: event.draft };
-    case "cancelled":
-      if (state.kind === "idle" || state.threadId !== event.threadId) return state;
-      return { kind: "idle" };
-    case "generation-started":
-      if (state.kind !== "editing" || state.threadId !== event.threadId) return state;
-      return {
-        kind: "generating",
-        threadId: event.threadId,
-        draft: state.draft,
-        originalDraft: event.originalDraft,
-        generationId: event.generationId,
-      };
-    case "generation-succeeded":
-      if (
-        state.kind !== "generating" ||
-        state.generationId !== event.generatingState.generationId ||
-        state.draft !== event.generatingState.originalDraft
-      ) {
-        return state;
-      }
-      return { ...state, draft: event.draft };
-    case "generation-finished":
-      if (state.kind !== "generating" || state.generationId !== event.generatingState.generationId) return state;
-      return { kind: "editing", threadId: event.threadId, draft: state.draft };
-    case "cleared":
-      return state.kind === "idle" ? state : { kind: "idle" };
   }
 }

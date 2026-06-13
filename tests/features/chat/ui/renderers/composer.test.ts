@@ -87,7 +87,7 @@ function composerCallbacks() {
   };
 }
 
-describe("composer renderer decisions", () => {
+describe("ComposerShell decisions", () => {
   it("uses the provided composer placeholder for normal input", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();

@@ -1,17 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, type ChatAction } from "../../../../../src/features/chat/state/reducer";
+import type { ChatAction } from "../../../../../src/features/chat/state/reducer";
 import { createMessageStreamContextPort } from "../../../../../src/features/chat/panel/surface/message-stream-ports";
 
 describe("message stream context port", () => {
-  it("closes other fork action details before opening a fork action detail", () => {
-    const state = createChatState();
-    state.ui.openDetails = new Set(["message:fork-actions:old", "text-item:u1:expanded"]);
+  it("sets the active fork action item explicitly", () => {
     const dispatched: ChatAction[] = [];
 
     const port = createMessageStreamContextPort({
       vaultPath: "/vault",
-      state: () => state,
       dispatch: (action) => {
         dispatched.push(action);
       },
@@ -26,7 +23,7 @@ describe("message stream context port", () => {
       },
       requests: {
         pendingSignature: () => "",
-        pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), openDetails: new Set() }),
+        pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), approvalDetails: new Set() }),
         pendingActions: () => ({
           resolveApproval: vi.fn(),
           resolveUserInput: vi.fn(),
@@ -37,22 +34,16 @@ describe("message stream context port", () => {
       },
     });
 
-    port.setOpenDetail("message:fork-actions:new", true);
+    port.setForkActionsItem("new");
 
-    expect(dispatched).toEqual([
-      { type: "ui/detail-open-set", key: "message:fork-actions:old", open: false },
-      { type: "ui/detail-open-set", key: "message:fork-actions:new", open: true },
-    ]);
+    expect(dispatched).toEqual([{ type: "ui/message-fork-actions-set", itemId: "new" }]);
   });
 
-  it("does not close fork action details when opening other message details", () => {
-    const state = createChatState();
-    state.ui.openDetails = new Set(["message:fork-actions:old"]);
+  it("sets typed disclosure bucket entries", () => {
     const dispatched: ChatAction[] = [];
 
     const port = createMessageStreamContextPort({
       vaultPath: "/vault",
-      state: () => state,
       dispatch: (action) => {
         dispatched.push(action);
       },
@@ -67,7 +58,7 @@ describe("message stream context port", () => {
       },
       requests: {
         pendingSignature: () => "",
-        pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), openDetails: new Set() }),
+        pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), approvalDetails: new Set() }),
         pendingActions: () => ({
           resolveApproval: vi.fn(),
           resolveUserInput: vi.fn(),
@@ -78,8 +69,8 @@ describe("message stream context port", () => {
       },
     });
 
-    port.setOpenDetail("text-item:u1:expanded", true);
+    port.setDisclosureOpen("userMessageExpanded", "u1", true);
 
-    expect(dispatched).toEqual([{ type: "ui/detail-open-set", key: "text-item:u1:expanded", open: true }]);
+    expect(dispatched).toEqual([{ type: "ui/disclosure-set", bucket: "userMessageExpanded", id: "u1", open: true }]);
   });
 });

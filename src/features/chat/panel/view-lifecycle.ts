@@ -20,7 +20,7 @@ export interface ChatViewLifecycleHost {
   };
   render: {
     panelRoot: () => HTMLElement | null;
-    now: () => void;
+    mountOrRepairShell: () => void;
   };
   sharedState: {
     applyCachedAppServerState: () => void;
@@ -47,7 +47,7 @@ export function openChatView(host: ChatViewLifecycleHost): void {
     host.events.closeToolbarPanelOnOutsidePointer(event);
   });
   host.sharedState.applyCachedAppServerState();
-  host.render.now();
+  host.render.mountOrRepairShell();
   host.lifecycle.scheduleDeferredAppServerWarmup();
   host.lifecycle.scheduleDeferredRestoredThreadHydration();
 }

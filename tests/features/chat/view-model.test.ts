@@ -28,6 +28,8 @@ describe("chat view model", () => {
     state.threadList.listedThreads = [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")];
     state.turn.lifecycle = { kind: "running", turnId: "turn" };
     state.ui.toolbarPanel = "history";
+    state.ui.archiveConfirmThreadId = "thread-2";
+    state.ui.rename = { kind: "editing", threadId: "thread-1", draft: "Active" };
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.serverDiagnostics = createServerDiagnostics();
 
@@ -35,13 +37,11 @@ describe("chat view model", () => {
       state,
       snapshot: runtimeSnapshotFixture(state),
       connected: true,
+      nowMs: 0,
       turnBusy: true,
       vaultPath: "/vault",
       configuredCommand: "codex",
-      archiveConfirmThreadId: "thread-2",
       archiveExportEnabled: true,
-      renameRevision: 1,
-      renameState: (threadId, _renameRevision) => (threadId === "thread-1" ? { draft: "Active", generating: false } : null),
     });
 
     expect(model.openPanel).toBe("history");
@@ -146,7 +146,7 @@ describe("chat view model", () => {
 
   it("replaces composer meta with fatal connection state", () => {
     const state = createChatState();
-    state.connection.status = "Connection failed.";
+    state.connection.phase = { kind: "failed", message: "Connection failed." };
 
     expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toEqual({
       fatal: "Codex app-server disconnected",
@@ -264,7 +264,10 @@ describe("chat view model", () => {
           clear: async (threadId) => {
             clears.push(threadId);
           },
-          setEditingOpen: () => undefined,
+          startEditing: () => undefined,
+          updateObjectiveDraft: () => undefined,
+          setObjectiveExpanded: () => undefined,
+          closeEditor: () => undefined,
         },
       },
     } satisfies ChatPanelGoalPorts;

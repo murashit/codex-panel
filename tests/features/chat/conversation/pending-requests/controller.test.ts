@@ -16,7 +16,6 @@ describe("PendingRequestController", () => {
     const stateStore = createChatStateStore(createChatState());
     const respondToServerRequest = vi.fn().mockReturnValue(true);
     const refreshLiveState = vi.fn();
-    const render = vi.fn();
     const controller = new ChatInboundController(stateStore, {
       refreshThreads: vi.fn(),
       refreshRateLimits: vi.fn(),
@@ -34,7 +33,6 @@ describe("PendingRequestController", () => {
       controller,
       composerHasFocus: () => false,
       refreshLiveState,
-      render,
     });
     const input = expectPresent(toPendingUserInput(userInputRequest()));
     stateStore.dispatch({ type: "request/user-input-queued", input });
@@ -45,7 +43,6 @@ describe("PendingRequestController", () => {
     expect(respondToServerRequest).toHaveBeenCalledWith(7, { answers: { direction: { answers: ["Left"] } } });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
     expect(refreshLiveState).toHaveBeenCalledOnce();
-    expect(render).toHaveBeenCalledOnce();
   });
 });
 

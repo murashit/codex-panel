@@ -32,7 +32,7 @@ function createHost(overrides: Partial<ChatViewLifecycleHost> = {}) {
     },
     render: {
       panelRoot: () => root,
-      now: vi.fn(),
+      mountOrRepairShell: vi.fn(),
     },
     sharedState: {
       applyCachedAppServerState: vi.fn(),
@@ -67,7 +67,7 @@ describe("chat view lifecycle", () => {
     expect(host.events.registerEvent).toHaveBeenCalledOnce();
     expect(host.events.registerPointerDown).toHaveBeenCalledOnce();
     expect(host.sharedState.applyCachedAppServerState).toHaveBeenCalledOnce();
-    expect(host.render.now).toHaveBeenCalledOnce();
+    expect(host.render.mountOrRepairShell).toHaveBeenCalledOnce();
     expect(host.lifecycle.scheduleDeferredAppServerWarmup).toHaveBeenCalledOnce();
     expect(host.lifecycle.scheduleDeferredRestoredThreadHydration).toHaveBeenCalledOnce();
   });

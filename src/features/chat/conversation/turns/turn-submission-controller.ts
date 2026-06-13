@@ -22,8 +22,6 @@ export interface TurnSubmissionControllerHost {
   applyPendingThreadSettings: () => Promise<boolean>;
   codexInput: (text: string) => CodexInput;
   setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
-  render: () => void;
-  scheduleRender: () => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
 }
@@ -70,7 +68,6 @@ export class TurnSubmissionController {
         pendingTurnStart: optimistic.pendingTurnStart,
       });
       this.host.setDraft("");
-      this.host.render();
 
       const response = await client.startTurn({
         threadId: activeThreadId,
@@ -112,7 +109,6 @@ export class TurnSubmissionController {
         this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
       }
     }
-    this.host.scheduleRender();
   }
 
   private async steerCurrentTurn(
@@ -152,8 +148,6 @@ export class TurnSubmissionController {
       this.host.setDraft(text, { focus: true });
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
-
-    this.host.scheduleRender();
   }
 
   private isCurrentTurn(threadId: string, turnId: string): boolean {

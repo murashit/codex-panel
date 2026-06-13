@@ -31,6 +31,32 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual([]);
   });
 
+  it("reserves thread runtime settings when no thread is active", async () => {
+    const store = createChatStateStore(createChatState());
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(true);
+    await expect(controller.requestReasoningEffort("high")).resolves.toBe(true);
+    await controller.enableFastMode();
+    await controller.enableAutoReview();
+    await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
+    controller.requestDefaultCollaborationModeForNextTurn();
+
+    expect(client.updateThreadSettings).not.toHaveBeenCalled();
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(store.getState().runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "high" });
+    expect(store.getState().runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(store.getState().runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(store.getState().runtime.selectedCollaborationMode).toBe("default");
+    expect(messages).toEqual([
+      "Fast mode on for subsequent turns.",
+      "Auto-review on for subsequent turns.",
+      "Plan mode on for subsequent turns.",
+    ]);
+  });
+
   it("toggles fast mode and reports the user-visible result", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
@@ -207,7 +233,7 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
     expect(store.getState().activeThread.id).toBeNull();
     expect(store.getState().runtime.activeModel).toBeNull();
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
   });
 
@@ -228,6 +254,7 @@ describe("createChatRuntimeSettingsActions", () => {
 
     expect(store.getState().activeThread.id).toBeNull();
     expect(store.getState().runtime.activeModel).toBeNull();
+    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
   });
 

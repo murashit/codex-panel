@@ -9,27 +9,23 @@ import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
 describe("RenameController", () => {
-  it("updates its signal version without rerendering after changing a controlled rename draft", () => {
-    const { controller, render } = controllerFixture();
-    const initialVersion = controller.version.value;
-
-    controller.start("thread");
-    controller.updateDraft("thread", "New name");
-
-    expect(controller.version.value).toBe(initialVersion + 2);
-    expect(render).not.toHaveBeenCalled();
-    expect(controller.editState("thread")).toEqual({ draft: "New name", generating: false });
-  });
-
-  it("updates its signal version when inline rename state changes", () => {
+  it("stores controlled rename drafts in chat UI state", () => {
     const { controller } = controllerFixture();
 
     controller.start("thread");
     controller.updateDraft("thread", "New name");
-    const changedVersion = controller.version.value;
+
+    expect(controller.editState("thread")).toEqual({ draft: "New name", generating: false });
+  });
+
+  it("clears inline rename state through chat UI state", () => {
+    const { controller } = controllerFixture();
+
+    controller.start("thread");
+    controller.updateDraft("thread", "New name");
     controller.cancel("thread");
 
-    expect(controller.version.value).toBe(changedVersion + 1);
+    expect(controller.editState("thread")).toBeNull();
   });
 
   it("applies generated rename drafts and clears the generating state", async () => {
@@ -149,22 +145,20 @@ describe("RenameController", () => {
 
 function controllerFixture(
   overrides: Partial<ConstructorParameters<typeof RenameController>[0]> = {},
-): ConstructorParameters<typeof RenameController>[0] & { controller: RenameController; render: ReturnType<typeof vi.fn> } {
+): ConstructorParameters<typeof RenameController>[0] & { controller: RenameController } {
   const stateStore = createChatStateStore();
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
-  const render = vi.fn();
   const host = {
     stateStore,
     vaultPath: "/vault",
     settings: () => DEFAULT_SETTINGS,
     ensureConnected: vi.fn().mockResolvedValue(undefined),
     currentClient: () => fakeClient(),
-    render,
     addSystemMessage: vi.fn(),
     notifyThreadRenamed: vi.fn(),
     ...overrides,
   } satisfies ConstructorParameters<typeof RenameController>[0];
-  return { ...host, controller: new RenameController(host), render };
+  return { ...host, controller: new RenameController(host) };
 }
 
 function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {

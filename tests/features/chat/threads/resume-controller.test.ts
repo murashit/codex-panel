@@ -80,7 +80,6 @@ function createController(
     clearDeferredRestoredThreadHydration: vi.fn(),
     notifyActiveThreadIdentityChanged: vi.fn(),
     addSystemMessage: vi.fn(),
-    render: vi.fn(),
     refreshLiveState: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -129,12 +128,12 @@ describe("ResumeController", () => {
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
-  it("renders after resumed history and goal sync finish", async () => {
+  it("refreshes live state after resumed history and goal sync finish", async () => {
     const { controller, host } = createController();
 
     await controller.resumeThread("thread");
 
-    expect(vi.mocked(host.render).mock.invocationCallOrder.at(-1)).toBeGreaterThan(
+    expect(vi.mocked(host.refreshLiveState).mock.invocationCallOrder.at(-1)).toBeGreaterThan(
       vi.mocked(host.syncThreadGoal).mock.invocationCallOrder[0] ?? 0,
     );
   });

@@ -1,23 +1,12 @@
-import { signal, type Signal } from "@preact/signals";
-
 import type { ChatThreadActions } from "../threads/action-context";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
   threadActions: ChatThreadActions;
-  archiveConfirm: ToolbarArchiveConfirmState;
-  scheduleRender: () => void;
-}
-
-export interface ToolbarArchiveConfirmState {
-  id: Signal<string | null>;
-  get: () => string | null;
-  set: (threadId: string | null) => void;
 }
 
 export interface ToolbarPanelActions {
-  archiveConfirm: Signal<string | null>;
   archiveConfirmId(): string | null;
   toggleHistory(): void;
   toggleChatActions(): void;
@@ -44,29 +33,28 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
     host.stateStore.dispatch(action);
   };
   const hasOpenPanel = (): boolean => state().ui.toolbarPanel !== null;
+  const archiveConfirmId = (): string | null => state().ui.archiveConfirmThreadId;
+  const setArchiveConfirm = (threadId: string | null): void => {
+    dispatch({ type: "ui/archive-confirm-set", threadId });
+  };
   const close = (): void => {
     if (!hasOpenPanel()) return;
 
     dispatch({ type: "ui/panel-set", panel: null });
-    host.archiveConfirm.set(null);
-    host.scheduleRender();
+    setArchiveConfirm(null);
   };
 
   return {
-    archiveConfirm: host.archiveConfirm.id,
-
     archiveConfirmId(): string | null {
-      return host.archiveConfirm.get();
+      return archiveConfirmId();
     },
 
     toggleHistory(): void {
       dispatch({ type: "ui/panel-set", panel: "history", toggle: true });
-      host.scheduleRender();
     },
 
     toggleChatActions(): void {
       dispatch({ type: "ui/panel-set", panel: "chat-actions", toggle: true });
-      host.scheduleRender();
     },
 
     closeToolbarPanels(): void {
@@ -75,21 +63,19 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
 
     toggleStatus(): void {
       dispatch({ type: "ui/panel-set", panel: "status-panel", toggle: true });
-      host.scheduleRender();
     },
 
     closeForThreadSelection(): void {
-      host.archiveConfirm.set(null);
+      setArchiveConfirm(null);
     },
 
     startArchive(threadId: string): void {
-      host.archiveConfirm.set(threadId);
+      setArchiveConfirm(threadId);
     },
 
     async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
-      if (host.archiveConfirm.get() === threadId) host.archiveConfirm.set(null);
+      if (archiveConfirmId() === threadId) setArchiveConfirm(null);
       await host.threadActions.archiveThread(threadId, saveMarkdown);
-      host.scheduleRender();
     },
 
     closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void {
@@ -99,15 +85,15 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
       if (isToolbarElement(target, context.viewWindow)) {
         const insideToolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
         if (insideToolbarPanel && context.contains(insideToolbarPanel)) {
-          if (host.archiveConfirm.get() && !target.closest(".codex-panel__archive-confirm")) {
-            host.archiveConfirm.set(null);
+          if (archiveConfirmId() && !target.closest(".codex-panel__archive-confirm")) {
+            setArchiveConfirm(null);
           }
           return;
         }
       }
 
-      if (host.archiveConfirm.get()) {
-        host.archiveConfirm.set(null);
+      if (archiveConfirmId()) {
+        setArchiveConfirm(null);
       }
 
       if (context.renameEditing) return;
@@ -119,16 +105,4 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
 
 function isToolbarElement(target: EventTarget | null, viewWindow: ToolbarDomWindow | null): target is Element {
   return Boolean(viewWindow && target instanceof viewWindow.Element);
-}
-
-export function createToolbarArchiveConfirmState(): ToolbarArchiveConfirmState {
-  const id = signal<string | null>(null);
-  return {
-    id,
-    get: () => id.value,
-    set: (nextThreadId) => {
-      if (id.value === nextThreadId) return;
-      id.value = nextThreadId;
-    },
-  };
 }

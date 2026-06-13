@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ChatTurnLifecycleState } from "../../state/reducer";
+import type { ChatDisclosureBucket, ChatDisclosureUiState, ChatTurnLifecycleState } from "../../state/reducer";
 import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
 import type { PendingRequestBlockActions } from "../../conversation/pending-requests/view-model";
 import type { DisplayItem } from "../../display/types";
@@ -14,8 +14,8 @@ export interface MessageStreamBlock {
 export type TextDisplayItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
 
 export interface TextItemDetailStateContext {
-  openDetails: ReadonlySet<string>;
-  onDetailsToggle?: (key: string, open: boolean) => void;
+  disclosures: ChatDisclosureUiState;
+  onDisclosureToggle?: (bucket: ChatDisclosureBucket, id: string, open: boolean) => void;
 }
 
 export interface TextItemContentContext extends TextItemDetailStateContext {
@@ -24,6 +24,8 @@ export interface TextItemContentContext extends TextItemDetailStateContext {
 
 export interface TextItemActionContext extends TextItemDetailStateContext {
   turnLifecycle: ChatTurnLifecycleState;
+  forkActionsItemId: string | null;
+  onForkActionsToggle?: (itemId: string | null) => void;
   copyText?: (text: string) => void;
   canImplementPlanItem?: (item: DisplayItem) => boolean;
   onImplementPlanItem?: (item: DisplayItem) => void;

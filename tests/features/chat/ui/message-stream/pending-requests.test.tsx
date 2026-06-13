@@ -13,6 +13,7 @@ import "./setup";
 import {
   actEvent,
   dispatchComposingInputValue,
+  emptyDisclosures,
   expectPresent,
   idleTurnLifecycle,
   messageStreamBlocks,
@@ -374,7 +375,8 @@ describe("pending request renderer decisions", () => {
           details: [{ title: "Question: Scope", rows: [{ key: "Answer", value: "Narrow" }] }],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown,
     })[0];
@@ -415,7 +417,8 @@ describe("pending request renderer decisions", () => {
           ],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -451,7 +454,8 @@ describe("pending request renderer decisions", () => {
           autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -471,7 +475,8 @@ describe("pending request renderer decisions", () => {
       displayItems: [
         { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
@@ -494,7 +499,8 @@ describe("pending request renderer decisions", () => {
       displayItems: [
         { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
@@ -523,7 +529,8 @@ describe("pending request renderer decisions", () => {
           displayItems: [
             { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
           ],
-          openDetails: new Set(),
+          disclosures: emptyDisclosures(),
+          forkActionsItemId: null,
           loadOlderTurns: vi.fn(),
           renderMarkdown: (element, text) => element.createDiv({ text }),
           pendingRequests: pendingRequestContext({
@@ -552,7 +559,8 @@ describe("pending request renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
@@ -577,7 +585,8 @@ describe("pending request renderer decisions", () => {
       displayItems: [
         { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
       ] satisfies DisplayItem[],
-      openDetails: new Set<string>(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
@@ -624,7 +633,7 @@ function emptyPendingRequestBlockSnapshot(overrides: Partial<PendingRequestBlock
     approvals: [],
     pendingUserInputs: [],
     userInputDrafts: new Map(),
-    openDetails: new Set(),
+    approvalDetails: new Set(),
     ...overrides,
   };
 }

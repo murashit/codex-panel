@@ -304,7 +304,7 @@ describe("CodexChatView connection lifecycle", () => {
     await connecting;
 
     expect(client.listThreads).not.toHaveBeenCalled();
-    expect((view as unknown as { state: { connection: { status: string } } }).state.connection.status).toBe("Codex app-server stopped.");
+    expect((view as unknown as { state: { connection: { phase: { kind: string } } } }).state.connection.phase.kind).toBe("disconnected");
   });
 
   it("restores the active thread from workspace state and hydrates it after a delay", async () => {
@@ -437,6 +437,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
+    await view.onOpen();
     view.setComposerText("hello");
     await submitComposerByEnter(view);
 
@@ -460,6 +461,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
+    await view.onOpen();
     await view.openThread("thread-1");
     view.setComposerText("hello");
     await submitComposerByEnter(view);
@@ -551,6 +553,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     const view = await chatView({ host });
 
+    await view.onOpen();
     await view.connect();
     view.setComposerText("/resume thread-1");
     await submitComposerByEnter(view);
@@ -572,6 +575,7 @@ describe("CodexChatView connection lifecycle", () => {
       }),
     });
 
+    await view.onOpen();
     await view.connect();
     view.setComposerText("/resume thread-1");
     await submitComposerByEnter(view);
@@ -617,6 +621,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView({ host });
 
+    await view.onOpen();
     await view.connect();
     view.setComposerText("/archive thread-1");
     await submitComposerByEnter(view);
@@ -688,7 +693,9 @@ describe("CodexChatView connection lifecycle", () => {
 
     view.notifyThreadRenamed("thread-1", "Explicit name");
 
-    expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Explicit name”...");
+    await waitForAsyncWork(() => {
+      expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Explicit name”...");
+    });
   });
 
   it("uses the active explicit thread name in the composer placeholder", async () => {
@@ -696,6 +703,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
+    await view.onOpen();
     await view.openThread("thread-1");
 
     expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Restored thread”...");
@@ -711,6 +719,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
+    await view.onOpen();
     await view.openThread("thread-1");
 
     expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
@@ -721,14 +730,19 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
+    await view.onOpen();
     await view.openThread("thread-1");
     view.notifyThreadRenamed("thread-1", "Renamed thread");
 
-    expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Renamed thread”...");
+    await waitForAsyncWork(() => {
+      expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Renamed thread”...");
+    });
 
     view.notifyThreadRenamed("thread-1", null);
 
-    expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+    await waitForAsyncWork(() => {
+      expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+    });
   });
 
   it("keeps composer draft and selection while updating the placeholder", async () => {
@@ -736,18 +750,24 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
+    await view.onOpen();
     await view.openThread("thread-1");
     view.setComposerText("keep this draft");
     const composer = composerElement(view);
+    await waitForAsyncWork(() => {
+      expect(composer.value).toBe("keep this draft");
+    });
     composer.setSelectionRange(5, 9);
 
     view.notifyThreadRenamed("thread-1", "Renamed thread");
 
-    expect(composerElement(view)).toBe(composer);
-    expect(composer.value).toBe("keep this draft");
-    expect(composer.selectionStart).toBe(5);
-    expect(composer.selectionEnd).toBe(9);
-    expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
+    await waitForAsyncWork(() => {
+      expect(composerElement(view)).toBe(composer);
+      expect(composer.value).toBe("keep this draft");
+      expect(composer.selectionStart).toBe(5);
+      expect(composer.selectionEnd).toBe(9);
+      expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
+    });
   });
 
   it("scrolls resumed messages to the bottom after history hydrates", async () => {
@@ -853,12 +873,15 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
+    await view.onOpen();
     await view.openThread("thread-1");
 
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     expect(client.threadTurnsList).not.toHaveBeenCalled();
-    expect(view.containerEl.textContent).toContain("hello");
-    expect(view.containerEl.textContent).toContain("done");
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.textContent).toContain("hello");
+      expect(view.containerEl.textContent).toContain("done");
+    });
     expect((view as unknown as { state: ChatState }).state.messageStream.historyCursor).toBe("older-cursor");
   });
 
@@ -1204,6 +1227,7 @@ function requiredButton(parent: ParentNode, selector: string): HTMLButtonElement
 }
 
 async function submitComposerByEnter(view: { containerEl: HTMLElement }): Promise<void> {
+  await flushAsyncTicks();
   const composer = requiredTextArea(view.containerEl, ".codex-panel__composer-input");
   composer.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
   await flushAsyncTicks();

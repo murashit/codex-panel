@@ -8,6 +8,7 @@ import { threadFromThreadRecord } from "../../../../../src/app-server/protocol/t
 import { createChatServerDiagnosticsActions } from "../../../../../src/features/chat/connection/server-actions/diagnostics";
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/connection/server-actions/metadata";
 import { createChatServerThreadActions } from "../../../../../src/features/chat/connection/server-actions/threads";
+import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/runtime/snapshot";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import type { CatalogModel, CatalogSkillMetadata } from "../../../../../src/app-server/protocol/catalog";
 
@@ -51,6 +52,48 @@ describe("chat server actions", () => {
     expect(stateStore.getState().threadList.listedThreads).toEqual([optimistic, existingThread]);
     expect(publishThreadList).toHaveBeenCalledWith([optimistic, existingThread]);
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
+  });
+
+  it("keeps empty-panel runtime reservations when starting the first thread", async () => {
+    const stateStore = createChatStateStore(createChatState());
+    stateStore.dispatch({ type: "runtime/model-requested", model: "gpt-5.5" });
+    stateStore.dispatch({ type: "runtime/reasoning-effort-requested", effort: "high" });
+    stateStore.dispatch({ type: "runtime/service-tier-requested", serviceTier: "fast" });
+    stateStore.dispatch({ type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
+    stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
+    const started = threadFixture("started");
+    const startThread = vi.fn().mockResolvedValue({
+      thread: started,
+      cwd: "/vault",
+      model: "gpt-5",
+      serviceTier: "fast",
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+      reasoningEffort: null,
+    });
+    const client = {
+      startThread,
+    } as unknown as AppServerClient;
+
+    const controller = createChatServerThreadActions({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      publishThreadList: vi.fn(),
+      syncThreadGoal: vi.fn(),
+    });
+
+    await controller.startThread("first prompt");
+
+    expect(startThread).toHaveBeenCalledWith({ cwd: "/vault", serviceTier: "fast" });
+    expect(stateStore.getState().runtime.activeModel).toBe("gpt-5");
+    expect(stateStore.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(stateStore.getState().runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "high" });
+    expect(stateStore.getState().runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(stateStore.getState().runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(stateStore.getState().runtime.selectedCollaborationMode).toBe("plan");
   });
 
   it("can skip newly started thread goal sync when the caller sets the first goal", async () => {

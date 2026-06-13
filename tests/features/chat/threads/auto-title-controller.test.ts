@@ -50,20 +50,18 @@ describe("AutoTitleController", () => {
 
 function controllerFixture(
   overrides: Partial<ConstructorParameters<typeof AutoTitleController>[0]> = {},
-): ConstructorParameters<typeof AutoTitleController>[0] & { controller: AutoTitleController; render: ReturnType<typeof vi.fn> } {
+): ConstructorParameters<typeof AutoTitleController>[0] & { controller: AutoTitleController } {
   const stateStore = createChatStateStore();
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
-  const render = vi.fn();
   const host = {
     stateStore,
     vaultPath: "/vault",
     settings: () => DEFAULT_SETTINGS,
     currentClient: () => fakeClient(),
-    render,
     notifyThreadRenamed: vi.fn(),
     ...overrides,
   } satisfies ConstructorParameters<typeof AutoTitleController>[0];
-  return { ...host, controller: new AutoTitleController(host), render };
+  return { ...host, controller: new AutoTitleController(host) };
 }
 
 function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {

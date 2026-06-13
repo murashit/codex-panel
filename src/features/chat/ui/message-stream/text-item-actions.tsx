@@ -4,11 +4,11 @@ import { useEffect, useRef } from "preact/hooks";
 import { activeTurnId } from "../../state/reducer";
 import type { DisplayItem } from "../../display/types";
 import { IconButton } from "../../../../shared/ui/components";
+import { listenDomEvent } from "../../../../shared/ui/dom-events";
 import type { TextItemActionContext, TextDisplayItem } from "./context";
 
 export function TextItemHeader({ item, context }: { item: TextDisplayItem; context: TextItemActionContext }): UiNode {
-  const forkActionsKey = `message:fork-actions:${item.id}`;
-  const forkActionsOpen = context.openDetails.has(forkActionsKey);
+  const forkActionsOpen = context.forkActionsItemId === item.id;
   const roleRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -17,13 +17,10 @@ export function TextItemHeader({ item, context }: { item: TextDisplayItem; conte
     if (!doc) return;
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (event.target instanceof Node && roleRef.current?.contains(event.target)) return;
-      context.onDetailsToggle?.(forkActionsKey, false);
+      context.onForkActionsToggle?.(null);
     };
-    doc.addEventListener("pointerdown", closeOnOutsidePointer, true);
-    return () => {
-      doc.removeEventListener("pointerdown", closeOnOutsidePointer, true);
-    };
-  }, [context, forkActionsKey, forkActionsOpen]);
+    return listenDomEvent(doc, "pointerdown", closeOnOutsidePointer, true);
+  }, [context, forkActionsOpen]);
 
   const copyAction =
     item.kind === "message" && context.copyText && isMessageCopyActionVisible(item, context) && !forkActionsOpen ? (
@@ -44,7 +41,7 @@ export function TextItemHeader({ item, context }: { item: TextDisplayItem; conte
           label="Fork and archive"
           className="codex-panel__fork-and-archive-message"
           onClick={() => {
-            context.onDetailsToggle?.(forkActionsKey, false);
+            context.onForkActionsToggle?.(null);
             context.onForkItem?.(item, true);
           }}
         />
@@ -58,10 +55,10 @@ export function TextItemHeader({ item, context }: { item: TextDisplayItem; conte
           className="codex-panel__fork-message"
           onClick={() => {
             if (forkActionsOpen) {
-              context.onDetailsToggle?.(forkActionsKey, false);
+              context.onForkActionsToggle?.(null);
               context.onForkItem?.(item, false);
             } else {
-              context.onDetailsToggle?.(forkActionsKey, true);
+              context.onForkActionsToggle?.(item.id);
             }
           }}
         />

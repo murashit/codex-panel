@@ -36,7 +36,6 @@ function createController() {
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshTabHeader: vi.fn(),
     refreshLiveState: vi.fn(),
-    render: vi.fn(),
   };
   return { controller: createIdentitySync(host), host, restoredPlaceholder, restoredRename, stateStore };
 }
@@ -62,11 +61,10 @@ describe("createIdentitySync", () => {
     expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
-    expect(host.render).toHaveBeenCalledOnce();
   });
 
   it("updates listed and restored thread titles on rename notifications", () => {
-    const { controller, host, restoredPlaceholder, restoredRename, stateStore } = createController();
+    const { controller, restoredPlaceholder, restoredRename, stateStore } = createController();
     stateStore.dispatch({ type: "thread-list/applied", threads: [thread("thread", "Old")] });
     restoredPlaceholder.mockReturnValue({
       kind: "placeholder",
@@ -80,6 +78,5 @@ describe("createIdentitySync", () => {
 
     expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("New");
     expect(restoredRename).toHaveBeenCalledWith("thread", "New");
-    expect(host.render).toHaveBeenCalledOnce();
   });
 });

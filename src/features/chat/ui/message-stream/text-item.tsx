@@ -42,16 +42,11 @@ function TextItem({ item, context }: { item: TextDisplayItem; context: TextItemC
 }
 
 function CollapsibleTextItemContent({ item, context }: { item: TextDisplayItem; context: TextItemContentContext }): UiNode {
-  const key = `text-item:${item.id}:expanded`;
   const renderModeKey = contentRenderMode(item);
   const collapseRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [overflows, setOverflows] = useState(false);
-  const [expanded, setExpanded] = useState(context.openDetails.has(key));
-
-  useLayoutEffect(() => {
-    setExpanded(context.openDetails.has(key));
-  }, [context.openDetails, key]);
+  const expanded = context.disclosures.userMessageExpanded.has(item.id);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -73,14 +68,13 @@ function CollapsibleTextItemContent({ item, context }: { item: TextDisplayItem; 
     if (!doc) return;
     const collapseOnOutsidePointer = (event: PointerEvent) => {
       if (event.target instanceof Node && collapseRef.current?.contains(event.target)) return;
-      setExpanded(false);
-      context.onDetailsToggle?.(key, false);
+      context.onDisclosureToggle?.("userMessageExpanded", item.id, false);
     };
     doc.addEventListener("pointerdown", collapseOnOutsidePointer, true);
     return () => {
       doc.removeEventListener("pointerdown", collapseOnOutsidePointer, true);
     };
-  }, [context, expanded, key, overflows]);
+  }, [context, expanded, item.id, overflows]);
 
   return (
     <div
@@ -106,8 +100,7 @@ function CollapsibleTextItemContent({ item, context }: { item: TextDisplayItem; 
         onToggle={(event) => {
           if (!event.currentTarget.open) return;
           event.currentTarget.open = false;
-          setExpanded(true);
-          context.onDetailsToggle?.(key, true);
+          context.onDisclosureToggle?.("userMessageExpanded", item.id, true);
         }}
       >
         <summary tabIndex={-1}>Show more</summary>

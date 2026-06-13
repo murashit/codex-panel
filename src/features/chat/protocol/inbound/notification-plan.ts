@@ -1,6 +1,6 @@
 import { activeThreadSettingsAppliedAction } from "../../state/actions";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
-import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/protocol/runtime-metrics";
+import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import {
   completedConversationSummaryFromTurnRecord,
   type FileUpdateChange,
@@ -83,7 +83,7 @@ const DIAGNOSTIC_STATUS_PLANNERS = {
   "thread/tokenUsage/updated": (notification) =>
     actionPlan({
       type: "active-thread/token-usage-set",
-      tokenUsage: threadTokenUsageFromAppServerUsage(notification.params.tokenUsage),
+      tokenUsage: threadTokenUsageFromRuntimeUsage(notification.params.tokenUsage),
     }),
   "account/rateLimits/updated": () => ({ actions: [], effects: [{ type: "refresh-rate-limits" }] }),
   "skills/changed": () => ({ actions: [], effects: [{ type: "refresh-skills", forceReload: true }] }),

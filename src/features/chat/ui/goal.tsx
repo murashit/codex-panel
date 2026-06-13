@@ -1,9 +1,10 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ThreadGoal, ThreadGoalStatus } from "../../../domain/threads/goal";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { IconButton } from "../../../shared/ui/components";
+import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 
 export interface GoalPanelActions {
@@ -11,27 +12,40 @@ export interface GoalPanelActions {
   onPause: () => void;
   onResume: () => void;
   onClear: () => void;
+  onStartEditing: () => void;
+  onCancelEditing: () => void;
+  onObjectiveDraftChange: (objective: string) => void;
+  onObjectiveExpandedChange: (expanded: boolean) => void;
 }
 
 export interface GoalPanelOptions {
   sendShortcut: SendShortcut;
-  editingRequested?: boolean | undefined;
-  onEditingChange?: (editing: boolean) => void;
+}
+
+export interface GoalPanelEditorState {
+  editing: boolean;
+  objectiveDraft: string;
+  tokenBudgetDraft: number | null;
+}
+
+export interface GoalPanelDisplayState {
+  objectiveExpanded: boolean;
 }
 
 export function GoalPanel({
   goal,
   actions,
   options,
+  editor,
+  display,
 }: {
   goal: ThreadGoal | null;
   actions: GoalPanelActions;
   options: GoalPanelOptions;
+  editor: GoalPanelEditorState;
+  display: GoalPanelDisplayState;
 }): UiNode {
-  const [editing, setEditing] = useState(false);
-  const [objective, setObjective] = useState(goal?.objective ?? "");
   const [objectiveOverflows, setObjectiveOverflows] = useState(false);
-  const [objectiveExpanded, setObjectiveExpanded] = useState(false);
   const goalRef = useRef<HTMLDivElement | null>(null);
   const objectiveContentRef = useRef<HTMLDivElement | null>(null);
   const objectiveRef = useRef<HTMLTextAreaElement | null>(null);
@@ -40,24 +54,14 @@ export function GoalPanel({
   const resetObjective = goal?.objective ?? "";
   const resetStatus = goal?.status ?? null;
   const resetTokenBudget = goal?.tokenBudget ?? null;
-  const editingRequested = options.editingRequested ?? false;
-  const onEditingChange = options.onEditingChange;
-  const tokenBudget = goal?.tokenBudget ?? null;
-
-  const setGoalEditing = useCallback(
-    (nextEditing: boolean) => {
-      setEditing(nextEditing);
-      onEditingChange?.(nextEditing);
-    },
-    [onEditingChange],
-  );
+  const editing = editor.editing;
+  const objective = editor.objectiveDraft;
+  const tokenBudget = editor.tokenBudgetDraft;
+  const objectiveExpanded = display.objectiveExpanded;
 
   useLayoutEffect(() => {
-    setEditing(editingRequested);
-    setObjective(resetObjective);
     setObjectiveOverflows(false);
-    setObjectiveExpanded(false);
-  }, [editingRequested, resetThreadId, resetObjective, resetStatus, resetTokenBudget]);
+  }, [resetThreadId, resetObjective, resetStatus, resetTokenBudget]);
 
   useLayoutEffect(() => {
     if (editing) syncGoalObjectiveHeight(objectiveRef.current);
@@ -84,8 +88,7 @@ export function GoalPanel({
     const doc = goalRef.current?.ownerDocument;
     if (!doc) return;
     const cancelEditing = () => {
-      setGoalEditing(false);
-      setObjective(resetObjective);
+      actions.onCancelEditing();
     };
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (event.target instanceof Node && goalRef.current?.contains(event.target)) return;
@@ -96,13 +99,11 @@ export function GoalPanel({
       event.preventDefault();
       cancelEditing();
     };
-    doc.addEventListener("pointerdown", closeOnOutsidePointer, true);
-    doc.addEventListener("keydown", closeOnEscape);
-    return () => {
-      doc.removeEventListener("pointerdown", closeOnOutsidePointer, true);
-      doc.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [editing, resetObjective, setGoalEditing]);
+    return disposeDomListeners(
+      listenDomEvent(doc, "pointerdown", closeOnOutsidePointer, true),
+      listenDomEvent(doc, "keydown", closeOnEscape),
+    );
+  }, [actions, editing]);
 
   useEffect(() => {
     if (!objectiveExpanded) return;
@@ -110,13 +111,10 @@ export function GoalPanel({
     if (!doc) return;
     const collapseOnOutsidePointer = (event: PointerEvent) => {
       if (event.target instanceof Node && goalRef.current?.contains(event.target)) return;
-      setObjectiveExpanded(false);
+      actions.onObjectiveExpandedChange(false);
     };
-    doc.addEventListener("pointerdown", collapseOnOutsidePointer, true);
-    return () => {
-      doc.removeEventListener("pointerdown", collapseOnOutsidePointer, true);
-    };
-  }, [objectiveExpanded]);
+    return listenDomEvent(doc, "pointerdown", collapseOnOutsidePointer, true);
+  }, [actions, objectiveExpanded]);
 
   if (!goal && !editing) return null;
 
@@ -125,7 +123,6 @@ export function GoalPanel({
   const saveObjective = () => {
     if (saveDisabled) return;
     actions.onSave(objective, tokenBudget);
-    setGoalEditing(false);
   };
 
   return (
@@ -139,9 +136,7 @@ export function GoalPanel({
                 icon="pencil"
                 label="Edit goal"
                 className="clickable-icon codex-panel__message-action codex-panel__goal-action"
-                onClick={() => {
-                  setGoalEditing(true);
-                }}
+                onClick={actions.onStartEditing}
               />
             ) : null}
             {goal && !terminal && !editing && goal.status === "active" ? (
@@ -179,7 +174,7 @@ export function GoalPanel({
                 aria-label="Goal objective"
                 value={objective}
                 onInput={(event) => {
-                  setObjective(event.currentTarget.value);
+                  actions.onObjectiveDraftChange(event.currentTarget.value);
                   syncGoalObjectiveHeight(event.currentTarget);
                 }}
                 onKeyDown={(event) => {
@@ -229,7 +224,7 @@ export function GoalPanel({
                 onToggle={(event) => {
                   if (!event.currentTarget.open) return;
                   event.currentTarget.open = false;
-                  setObjectiveExpanded(true);
+                  actions.onObjectiveExpandedChange(true);
                 }}
               >
                 <summary tabIndex={-1}>Show more</summary>

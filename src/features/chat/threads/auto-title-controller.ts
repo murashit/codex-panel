@@ -13,7 +13,6 @@ export interface AutoTitleControllerHost {
   vaultPath: string;
   settings: () => CodexPanelSettings;
   currentClient: () => AppServerClient | null;
-  render: () => void;
   notifyThreadRenamed: (threadId: string, name: string) => void;
   generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null>;
 }
@@ -72,7 +71,6 @@ export class AutoTitleController {
       // Auto-title is best-effort metadata. Leave the thread preview untouched on failure.
     } finally {
       this.inFlightThreadIds.delete(threadId);
-      this.host.render();
     }
   }
 

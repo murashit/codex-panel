@@ -39,9 +39,6 @@ type ThreadControllerGroupPorts = Pick<ChatControllerPorts, "obsidian" | "plugin
     addSystemMessage: (text: string) => void;
   };
   scroll: Pick<ChatControllerPorts["scroll"], "preservePosition" | "forceBottom">;
-  render: {
-    now: () => void;
-  };
   composer: {
     setText: (text: string) => void;
   };
@@ -53,7 +50,7 @@ export function createThreadControllerGroup(
     connection: ConnectionManager;
   },
 ) {
-  const { obsidian, plugin, state, thread, status, liveState, scroll, render, client, composer, lifecycle } = context;
+  const { obsidian, plugin, state, thread, status, liveState, scroll, client, composer, lifecycle } = context;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
   const { deferredTasks, resumeWork } = lifecycle;
@@ -64,7 +61,6 @@ export function createThreadControllerGroup(
     settings: () => plugin.settings,
     ensureConnected: client.ensureConnected,
     currentClient: () => refs.connection.currentClient(),
-    render: render.now,
     addSystemMessage: status.addSystemMessage,
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
   });
@@ -73,7 +69,6 @@ export function createThreadControllerGroup(
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
     currentClient,
-    render: render.now,
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
   });
   const resetThreadTurnPresence = (hadTurns: boolean) => {
@@ -82,7 +77,6 @@ export function createThreadControllerGroup(
   const history = new HistoryController({
     stateStore,
     currentClient,
-    render: render.now,
     addSystemMessage: status.addSystemMessage,
     keepCurrentScrollPosition: scroll.preservePosition,
     showLatestPageAtBottom: scroll.forceBottom,
@@ -102,7 +96,6 @@ export function createThreadControllerGroup(
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
     setComposerText: composer.setText,
-    render: render.now,
     openThreadInNewView: (threadId) => plugin.openThreadInNewView(threadId),
     openThreadInCurrentPanel: thread.selectThread,
     notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
@@ -131,7 +124,6 @@ export function createThreadControllerGroup(
     addGoalEvent: (item) => {
       stateStore.dispatch({ type: "message-stream/item-upserted", item });
     },
-    render: render.now,
     refreshLiveState: liveState.refresh,
   });
   let resume: ResumeController | null = null;
@@ -159,7 +151,6 @@ export function createThreadControllerGroup(
     },
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     addSystemMessage: status.addSystemMessage,
-    render: render.now,
     refreshLiveState: liveState.refresh,
     syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),
     recoverTokenUsageFromRollout: (path) =>
@@ -179,7 +170,6 @@ export function createThreadControllerGroup(
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     refreshTabHeader: thread.refreshTabHeader,
     refreshLiveState: liveState.refresh,
-    render: render.now,
   });
 
   return {

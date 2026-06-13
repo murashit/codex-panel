@@ -32,8 +32,6 @@ export type RestoredThreadLifecycleEvent =
   | { type: "cleared" };
 
 export interface ChatViewDeferredTasks {
-  scheduleRender(callback: () => void): void;
-  clearRender(): void;
   scheduleDiagnostics(callback: () => void): void;
   clearDiagnostics(): void;
   scheduleRestoredThreadHydration(callback: () => void): void;
@@ -44,20 +42,11 @@ export interface ChatViewDeferredTasks {
 }
 
 export function createChatViewDeferredTasks(getWindow: () => DeferredTaskWindow): ChatViewDeferredTasks {
-  const renderTask = new DeferredTask(getWindow, 50);
   const diagnosticsTask = new DeferredTask(getWindow, 1_000);
   const restoredThreadHydrationTask = new DeferredTask(getWindow, 1_500);
   const appServerWarmupTask = new DeferredTask(getWindow, 0);
 
   return {
-    scheduleRender(callback): void {
-      renderTask.schedule(callback);
-    },
-
-    clearRender(): void {
-      renderTask.clear();
-    },
-
     scheduleDiagnostics(callback): void {
       diagnosticsTask.schedule(callback);
     },
@@ -86,7 +75,6 @@ export function createChatViewDeferredTasks(getWindow: () => DeferredTaskWindow)
       restoredThreadHydrationTask.clear();
       appServerWarmupTask.clear();
       diagnosticsTask.clear();
-      renderTask.clear();
     },
   };
 }

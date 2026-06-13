@@ -114,17 +114,14 @@ export class CodexChatView extends ItemView {
       },
       render: {
         panelRoot: () => this.panelRoot(),
-        shellSlots: () => ({
+        shellParts: () => ({
           toolbar: this.panelSurface.toolbar,
           goal: this.panelSurface.goal,
-          messageStream: this.controllers.render.messageStream,
+          messageStream: this.controllers.render.messageStreamPresenter,
           composer: this.controllers.composer.controller,
         }),
         closeToolbarPanelOnOutsidePointer: (event) => {
           this.closeToolbarPanelOnOutsidePointer(event);
-        },
-        schedule: () => {
-          this.scheduleRender();
         },
       },
       surface: {
@@ -171,8 +168,8 @@ export class CodexChatView extends ItemView {
         },
       },
       status: {
-        set: (status) => {
-          this.dispatch({ type: "connection/status-set", status });
+        set: (statusText, phase) => {
+          this.dispatch({ type: "connection/status-set", statusText, ...(phase ? { phase } : {}) });
         },
       },
     };
@@ -224,7 +221,7 @@ export class CodexChatView extends ItemView {
   }
 
   refreshSettings(): void {
-    this.controllers.render.now();
+    this.controllers.render.mountOrRepairShell();
   }
 
   refreshSharedThreadList(): Promise<void> {
@@ -234,17 +231,14 @@ export class CodexChatView extends ItemView {
   applyThreadListSnapshot(threads: readonly Thread[]): void {
     this.controllers.serverActions.threads.applyThreadList(threads);
     this.refreshTabHeader();
-    this.controllers.render.now();
   }
 
   applyAppServerMetadataSnapshot(metadata: SharedServerMetadata): void {
     this.controllers.serverActions.metadata.applyAppServerMetadata(metadata);
-    this.controllers.render.now();
   }
 
   applyAvailableModelsSnapshot(models: readonly ModelMetadata[]): void {
     this.dispatch({ type: "connection/metadata-applied", availableModels: models });
-    this.controllers.render.now();
   }
 
   openPanelSnapshot(): OpenCodexPanelSnapshot {
@@ -294,7 +288,6 @@ export class CodexChatView extends ItemView {
 
   setComposerText(text: string): void {
     this.controllers.composer.controller.setDraft(text, { focus: true });
-    this.controllers.render.now();
   }
 
   async connect(): Promise<void> {
@@ -306,8 +299,7 @@ export class CodexChatView extends ItemView {
 
     this.controllers.thread.identity.clearActiveThreadContext();
     this.chatState.dispatch({ type: "ui/panel-set", panel: null });
-    this.dispatch({ type: "connection/status-set", status: "New chat." });
-    this.controllers.render.now();
+    this.dispatch({ type: "connection/status-set", statusText: "New chat." });
     this.focusComposer();
   }
 
@@ -369,16 +361,9 @@ export class CodexChatView extends ItemView {
     });
   }
 
-  private scheduleRender(): void {
-    this.deferredTasks.scheduleRender(() => {
-      this.controllers.render.now();
-    });
-  }
-
   private async refreshDeferredDiagnostics(): Promise<void> {
     if (!this.controllers.connection.manager.isConnected()) return;
     await this.controllers.serverActions.diagnostics.refreshPublishedDiagnosticProbes({ cachedAppServerMetadata: true });
-    this.controllers.render.now();
   }
 
   private panelRoot(): HTMLElement | null {

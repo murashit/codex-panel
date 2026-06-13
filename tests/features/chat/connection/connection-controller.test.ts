@@ -54,8 +54,6 @@ function createController({ connected = false, client = {} as AppServerClient } 
     publishAppServerIdentity: vi.fn(),
     configuredCommand: () => "codex",
     refreshLiveState: vi.fn(),
-    render: vi.fn(),
-    scheduleRender: vi.fn(),
     notifyConnectionFailed: vi.fn(),
   };
   return {
@@ -86,8 +84,7 @@ describe("ChatConnectionController", () => {
     expect(refreshPublishedAppServerMetadata).toHaveBeenCalledOnce();
     expect(host.loadSharedThreadList).toHaveBeenCalledOnce();
     expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
-    expect(host.setStatus).toHaveBeenCalledWith("Connected.");
-    expect(host.scheduleRender).toHaveBeenCalledOnce();
+    expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
   it("refreshes diagnostics after clearing deferred diagnostics", async () => {
@@ -97,7 +94,6 @@ describe("ChatConnectionController", () => {
 
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
     expect(refreshPublishedDiagnosticProbes).toHaveBeenCalledOnce();
-    expect(host.render).toHaveBeenCalledOnce();
   });
 
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {
@@ -121,11 +117,13 @@ describe("ChatConnectionController", () => {
 
     expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
     expect(host.publishAppServerIdentity).toHaveBeenCalledWith(null);
-    expect(host.setStatus).toHaveBeenCalledWith("Codex app-server stopped.");
+    expect(host.setStatus).toHaveBeenCalledWith("Codex app-server stopped.", {
+      kind: "disconnected",
+      message: "Codex app-server stopped.",
+    });
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.setClient).toHaveBeenCalledWith(null);
     expect(host.refreshLiveState).toHaveBeenCalledOnce();
-    expect(host.render).toHaveBeenCalledOnce();
     expect(stateStore.getState()).toMatchObject({
       threadList: {
         listedThreads: [],
@@ -147,7 +145,11 @@ describe("ChatConnectionController", () => {
 
     await controller.ensureConnected();
 
-    expect(host.setStatus).toHaveBeenCalledWith("Connection failed.");
+    expect(host.setStatus).toHaveBeenCalledWith("Connection failed.", {
+      kind: "failed",
+      message:
+        "Could not start Codex app-server because the configured command was not found: codex. Check the Codex command path in settings. (spawn codex ENOENT)",
+    });
     expect(host.addSystemMessage).toHaveBeenCalledWith(
       "Could not start Codex app-server because the configured command was not found: codex. Check the Codex command path in settings. (spawn codex ENOENT)",
     );

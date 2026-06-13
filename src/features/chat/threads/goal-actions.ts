@@ -11,7 +11,6 @@ export interface GoalActionsHost {
   ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
   addGoalEvent: (item: GoalDisplayItem) => void;
-  render: () => void;
   refreshLiveState: () => void;
 }
 
@@ -99,7 +98,6 @@ function applyGoalIfActive(host: GoalActionsHost, threadId: string, goal: Thread
   host.stateStore.dispatch({ type: "active-thread/goal-set", goal });
   if (item) host.addGoalEvent(item);
   host.refreshLiveState();
-  host.render();
   return true;
 }
 

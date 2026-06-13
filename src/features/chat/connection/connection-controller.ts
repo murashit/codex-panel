@@ -1,7 +1,7 @@
 import { StaleConnectionError } from "../../../app-server/connection/connection-manager";
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ServerInitialization } from "../../../domain/server/initialization";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatConnectionPhase, ChatStateStore } from "../state/reducer";
 import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../lifecycle";
 
 export interface ChatConnectionAdapter {
@@ -32,13 +32,11 @@ export interface ChatConnectionControllerHost {
   clearDeferredDiagnostics: () => void;
   refreshTabHeader: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
-  setStatus: (status: string) => void;
+  setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
   addSystemMessage: (text: string) => void;
   publishAppServerIdentity: (userAgent: string | null) => void;
   configuredCommand: () => string;
   refreshLiveState: () => void;
-  render: () => void;
-  scheduleRender: () => void;
   notifyConnectionFailed: () => void;
 }
 
@@ -72,12 +70,11 @@ export class ChatConnectionController {
     this.invalidate();
     this.host.invalidateResumeWork();
     this.host.publishAppServerIdentity(null);
-    this.host.setStatus("Codex app-server stopped.");
+    this.host.setStatus("Codex app-server stopped.", { kind: "disconnected", message: "Codex app-server stopped." });
     this.host.stateStore.dispatch({ type: "connection/scoped-cleared" });
     this.host.resetThreadTurnPresence(false);
     this.host.setClient(null);
     this.host.refreshLiveState();
-    this.host.render();
   }
 
   async refreshThreads(): Promise<void> {
@@ -87,7 +84,6 @@ export class ChatConnectionController {
       await this.host.loadSharedThreadList();
       await this.host.metadata.refreshPublishedAppServerMetadata();
       this.host.refreshTabHeader();
-      this.host.render();
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -99,7 +95,6 @@ export class ChatConnectionController {
     if (!this.host.connection.currentClient()) return;
     this.host.clearDeferredDiagnostics();
     await this.host.diagnostics.refreshPublishedDiagnosticProbes();
-    this.host.render();
   }
 
   async refreshStatusPanel(): Promise<void> {
@@ -115,12 +110,11 @@ export class ChatConnectionController {
     this.host.setClient(this.host.connection.currentClient());
     if (!this.host.connection.currentClient()) return;
     await this.host.metadata.refreshPublishedSkills(forceReload);
-    this.host.render();
   }
 
   private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
     this.host.publishAppServerIdentity(null);
-    this.host.setStatus("Starting Codex app-server...");
+    this.host.setStatus("Starting Codex app-server...", { kind: "connecting" });
     try {
       const initialization = await this.host.connection.connect();
       if (this.host.connectionWork.isStale(connection)) return;
@@ -135,16 +129,14 @@ export class ChatConnectionController {
       if (this.host.connectionWork.isStale(connection)) return;
       this.host.scheduleDeferredDiagnostics();
       this.host.refreshTabHeader();
-      this.host.setStatus("Connected.");
+      this.host.setStatus("Connected.", { kind: "connected" });
     } catch (error) {
       if (this.host.connectionWork.isStale(connection)) return;
       if (error instanceof StaleConnectionError) return;
-      this.host.setStatus("Connection failed.");
-      this.host.addSystemMessage(connectionErrorMessage(error, this.host.configuredCommand()));
+      const message = connectionErrorMessage(error, this.host.configuredCommand());
+      this.host.setStatus("Connection failed.", { kind: "failed", message });
+      this.host.addSystemMessage(message);
       this.host.notifyConnectionFailed();
-    }
-    if (!this.host.connectionWork.isStale(connection)) {
-      this.host.scheduleRender();
     }
   }
 }

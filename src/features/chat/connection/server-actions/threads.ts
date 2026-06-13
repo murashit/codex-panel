@@ -66,6 +66,7 @@ async function startThread(
   const action = resumedThreadActionFromAppServerResponse({
     response: activationResponse,
     listedThreads: state.threadList.listedThreads,
+    preserveRequestedRuntimeSettings: requestState.activeThread.id === null,
   });
   host.stateStore.dispatch(action);
   if (action.listedThreads) host.publishThreadList(action.listedThreads);

@@ -1,10 +1,11 @@
-import { setIcon } from "obsidian";
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
 import { IconButton } from "../../../shared/ui/components";
+import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
+import { renderComposerMetaIcon, scrollComposerSuggestionIntoView, updateComposerMetaStatusOverflow } from "./composer-dom";
 
 export interface ComposerMetaViewModel {
   fatal: string | null;
@@ -82,6 +83,8 @@ export function ComposerShell({
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const selectedSuggestionRef = useRef<HTMLDivElement | null>(null);
+  const previousDraftRef = useRef(draft);
+  const preservedSelection = preserveComposerSelection(composerRef.current, previousDraftRef.current, draft);
   useLayoutEffect(() => {
     const composer = composerRef.current;
     if (!composer) return;
@@ -97,6 +100,12 @@ export function ComposerShell({
     if (!container || !selected) return;
     scrollComposerSuggestionIntoView(container, selected);
   }, [suggestions, selectedSuggestionIndex]);
+  useLayoutEffect(() => {
+    previousDraftRef.current = draft;
+    const composer = composerRef.current;
+    if (!composer || !preservedSelection) return;
+    composer.setSelectionRange(preservedSelection.start, preservedSelection.end, preservedSelection.direction);
+  });
   const sendMode = composerSendMode(busy, canInterrupt, draft);
   const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
   const selectedSuggestionId =
@@ -141,6 +150,19 @@ export function ComposerShell({
   );
 }
 
+function preserveComposerSelection(
+  composer: HTMLTextAreaElement | null,
+  previousDraft: string,
+  nextDraft: string,
+): { start: number; end: number; direction: "forward" | "backward" | "none" } | null {
+  if (!composer || previousDraft !== nextDraft) return null;
+  return {
+    start: composer.selectionStart,
+    end: composer.selectionEnd,
+    direction: composer.selectionDirection,
+  };
+}
+
 function ComposerMeta({
   meta,
   sendMode,
@@ -172,11 +194,11 @@ function ComposerMeta({
     const ResizeObserverCtor = (win as Window & { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
     const observer = ResizeObserverCtor ? new ResizeObserverCtor(scheduleUpdate) : null;
     observer?.observe(status);
-    win.addEventListener("resize", scheduleUpdate);
+    const disposeResize = listenDomEvent(win, "resize", scheduleUpdate);
     return () => {
       if (frame) win.cancelAnimationFrame(frame);
       observer?.disconnect();
-      win.removeEventListener("resize", scheduleUpdate);
+      disposeResize();
     };
   }, [meta]);
   useLayoutEffect(() => {
@@ -191,12 +213,7 @@ function ComposerMeta({
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setPicker(null);
     };
-    doc.addEventListener("mousedown", closeOnOutsideMouse);
-    doc.addEventListener("keydown", closeOnEscape);
-    return () => {
-      doc.removeEventListener("mousedown", closeOnOutsideMouse);
-      doc.removeEventListener("keydown", closeOnEscape);
-    };
+    return disposeDomListeners(listenDomEvent(doc, "mousedown", closeOnOutsideMouse), listenDomEvent(doc, "keydown", closeOnEscape));
   }, [picker]);
   const openPicker = (kind: ComposerMetaPickerKind) => {
     const nextPicker = composerMetaPickerState(
@@ -307,25 +324,6 @@ function composerMetaPickerState(
   };
 }
 
-const COMPOSER_META_EFFORT_HIDDEN_CLASS = "is-effort-hidden";
-const COMPOSER_META_MODEL_HIDDEN_CLASS = "is-model-hidden";
-
-function updateComposerMetaStatusOverflow(status: HTMLElement): void {
-  status.classList.remove(COMPOSER_META_EFFORT_HIDDEN_CLASS, COMPOSER_META_MODEL_HIDDEN_CLASS);
-  if (!composerMetaStatusOverflowing(status)) return;
-  if (status.querySelector(".codex-panel__composer-meta-field--effort")) {
-    status.classList.add(COMPOSER_META_EFFORT_HIDDEN_CLASS);
-  }
-  if (!composerMetaStatusOverflowing(status)) return;
-  if (status.querySelector(".codex-panel__composer-meta-field--model")) {
-    status.classList.add(COMPOSER_META_MODEL_HIDDEN_CLASS);
-  }
-}
-
-function composerMetaStatusOverflowing(status: HTMLElement): boolean {
-  return status.scrollWidth > status.clientWidth;
-}
-
 function ComposerContextMeter({ context }: { context: ComposerMetaViewModel["context"] }): UiNode {
   return (
     <span className="codex-panel__composer-meta-context">
@@ -349,8 +347,7 @@ function ComposerMetaModeButton({ icon, active, onMouseDown }: { icon: string; a
   useLayoutEffect(() => {
     const element = iconRef.current;
     if (!element) return;
-    element.replaceChildren();
-    setIcon(element, icon);
+    renderComposerMetaIcon(element, icon);
   }, [icon]);
   return (
     <span
@@ -549,15 +546,4 @@ function ComposerSuggestions({
   );
 }
 
-export function scrollComposerSuggestionIntoView(container: HTMLElement, option: HTMLElement): void {
-  const optionTop = option.offsetTop;
-  const optionBottom = optionTop + option.offsetHeight;
-  const viewportTop = container.scrollTop;
-  const viewportBottom = viewportTop + container.clientHeight;
-
-  if (optionTop < viewportTop) {
-    container.scrollTop = Math.max(0, optionTop);
-  } else if (optionBottom > viewportBottom) {
-    container.scrollTop = Math.max(0, optionBottom - container.clientHeight);
-  }
-}
+export { scrollComposerSuggestionIntoView };

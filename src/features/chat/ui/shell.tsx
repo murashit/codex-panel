@@ -4,21 +4,21 @@ import type { ChatStateStore } from "../state/reducer";
 import type { ChatPanelGoalPorts, ChatPanelToolbarPorts } from "../panel/surface/ports";
 import { ChatPanelToolbar } from "../panel/surface/toolbar";
 import { ChatPanelGoal } from "../panel/surface/goal";
-import { ChatPanelMessageStream, type ChatPanelMessageStreamRenderer } from "../panel/surface/message-stream";
+import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "../panel/surface/message-stream";
 import { ChatPanelComposer, type ChatPanelComposerController } from "../panel/surface/composer";
 import { ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState, type ChatPanelShellState } from "./shell-state";
 
-export interface ChatPanelShellSlots {
+export interface ChatPanelShellParts {
   toolbar: ChatPanelToolbarPorts;
   goal: ChatPanelGoalPorts;
-  messageStream: ChatPanelMessageStreamRenderer;
+  messageStream: ChatPanelMessageStreamPresenter;
   composer: ChatPanelComposerController;
 }
 
 export interface ChatPanelShellProps {
   stateStore: ChatStateStore;
   showToolbar: boolean;
-  slots: ChatPanelShellSlots;
+  parts: ChatPanelShellParts;
 }
 
 interface ChatPanelShellMount {
@@ -61,7 +61,6 @@ function createShellMount(container: HTMLElement, props: ChatPanelShellProps): C
       const current = shellMounts.get(container);
       if (!current) return;
       syncChatPanelShellState(current.shellState, props.stateStore.getState());
-      if (!uiRootIntact(container)) renderMountedShell(container, current);
     }),
     stopStatusBarClearanceSync: startStatusBarClearanceSync(container),
   };
@@ -70,7 +69,7 @@ function createShellMount(container: HTMLElement, props: ChatPanelShellProps): C
 }
 
 function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount): void {
-  if (!uiRootIntact(container)) {
+  if (!uiRootIntact(container, mount.props.showToolbar)) {
     unmountUiRoot(container);
     container.replaceChildren();
   }
@@ -78,31 +77,41 @@ function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount):
   renderUiRoot(container, <ChatPanelShell {...mount.props} shellState={mount.shellState} />);
 }
 
-function uiRootIntact(container: HTMLElement): boolean {
-  const body = container.querySelector<HTMLElement>(":scope > .codex-panel__body");
+function uiRootIntact(container: HTMLElement, showToolbar: boolean): boolean {
+  const topLevel = Array.from(container.children);
+  const toolbar = shellRegion(container, "toolbar");
+  const body = shellRegion(container, "body");
   if (!body) return false;
-  return Boolean(
-    body.querySelector<HTMLElement>(":scope > .codex-panel__region--goal") &&
-    body.querySelector<HTMLElement>(":scope > .codex-panel__messages") &&
-    body.querySelector<HTMLElement>(":scope > .codex-panel__region--composer"),
-  );
+  const expectedTopLevelCount = showToolbar ? 2 : 1;
+  if (topLevel.length !== expectedTopLevelCount) return false;
+  if (showToolbar) {
+    if (!toolbar) return false;
+    if (topLevel[0] !== toolbar || topLevel[1] !== body) return false;
+  } else if (topLevel[0] !== body) {
+    return false;
+  }
+  return Boolean(shellRegion(body, "goal") && shellRegion(body, "message-stream") && shellRegion(body, "composer"));
 }
 
-function ChatPanelShell({ showToolbar, slots, shellState }: ChatPanelShellProps & { shellState: ChatPanelShellState }): UiNode {
+function shellRegion(container: HTMLElement, region: string): HTMLElement | null {
+  return container.querySelector<HTMLElement>(`:scope > [data-codex-panel-shell-region="${region}"]`);
+}
+
+function ChatPanelShell({ showToolbar, parts, shellState }: ChatPanelShellProps & { shellState: ChatPanelShellState }): UiNode {
   return (
     <ChatPanelShellStateContext.Provider value={shellState}>
       {showToolbar ? (
-        <div className="codex-panel__toolbar">
-          <ChatPanelToolbar ports={slots.toolbar} />
+        <div className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
+          <ChatPanelToolbar ports={parts.toolbar} />
         </div>
       ) : null}
-      <div className="codex-panel__body">
-        <div className="codex-panel__region codex-panel__region--goal">
-          <ChatPanelGoal ports={slots.goal} />
+      <div className="codex-panel__body" data-codex-panel-shell-region="body">
+        <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
+          <ChatPanelGoal ports={parts.goal} />
         </div>
-        <ChatPanelMessageStream renderer={slots.messageStream} />
-        <div className="codex-panel__region codex-panel__region--composer">
-          <ChatPanelComposer controller={slots.composer} />
+        <ChatPanelMessageStream presenter={parts.messageStream} />
+        <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
+          <ChatPanelComposer controller={parts.composer} />
         </div>
       </div>
     </ChatPanelShellStateContext.Provider>

@@ -12,12 +12,14 @@ export interface ResumedThreadActionParams {
   response: ThreadActivationSnapshot;
   listedThreads?: readonly Thread[];
   displayItems?: readonly DisplayItem[];
+  preserveRequestedRuntimeSettings?: boolean;
 }
 
 export interface ResumedThreadFromAppServerParams {
   response: Parameters<typeof threadActivationSnapshotFromAppServerResponse>[0];
   listedThreads?: readonly Thread[];
   displayItems?: readonly DisplayItem[];
+  preserveRequestedRuntimeSettings?: boolean;
 }
 
 export interface ResumedThreadFromActiveRuntimeParams {
@@ -41,6 +43,7 @@ export function resumedThreadActionFromAppServerResponse(params: ResumedThreadFr
     response: threadActivationSnapshotFromAppServerResponse(params.response),
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
     ...(params.displayItems ? { displayItems: params.displayItems } : {}),
+    ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
   });
 }
 
@@ -75,5 +78,6 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     activePermissionProfile: response.activePermissionProfile,
     ...(params.displayItems ? { displayItems: params.displayItems } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
+    ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
   };
 }

@@ -78,7 +78,7 @@ export class ChatComposerController {
     registerEvent(this.options.app.vault.on("modify", invalidate));
   }
 
-  renderState(state: ChatPanelComposerShellState = this.state): ComposerShellProps {
+  renderState(state: ChatPanelComposerShellState): ComposerShellProps {
     return {
       viewId: this.options.viewId,
       draft: state.composer.draft,

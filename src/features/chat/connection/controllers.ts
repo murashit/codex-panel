@@ -60,9 +60,6 @@ export function createChatServerActionControllers(
 }
 
 type ChatInboundControllerPorts = Pick<ChatControllerPorts, "plugin" | "state"> & {
-  render: {
-    schedule: () => void;
-  };
   thread: {
     refreshThreads: () => Promise<void>;
     refreshSkills: (forceReload?: boolean) => Promise<void>;
@@ -80,7 +77,7 @@ export function createChatInboundController(
     rejectServerRequest: (requestId: Parameters<typeof rejectServerRequest>[1], code: number, message: string) => boolean;
   },
 ): ChatInboundController {
-  const { plugin, thread, render } = context;
+  const { plugin, thread } = context;
 
   return new ChatInboundController(context.state.stateStore, {
     refreshThreads: () => {
@@ -98,7 +95,6 @@ export function createChatInboundController(
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
     recordMcpStartupStatus: (name, status, message) => {
       refs.serverDiagnostics.recordMcpStartupStatus(name, status, message);
-      render.schedule();
     },
     respondToServerRequest: refs.respondToServerRequest,
     rejectServerRequest: refs.rejectServerRequest,
@@ -124,10 +120,6 @@ type ChatConnectionControllerPorts = Pick<ChatControllerPorts, "plugin" | "state
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
   };
-  render: {
-    now: () => void;
-    schedule: () => void;
-  };
 };
 
 export function createChatConnectionControllers(
@@ -138,7 +130,7 @@ export function createChatConnectionControllers(
     serverDiagnostics: ChatServerDiagnosticsActions;
   },
 ) {
-  const { plugin, client, thread, status, liveState, render, lifecycle } = context;
+  const { plugin, client, thread, status, liveState, lifecycle } = context;
   const { connectionWork } = lifecycle;
 
   return {
@@ -167,8 +159,6 @@ export function createChatConnectionControllers(
       },
       configuredCommand: () => plugin.settings.codexPath,
       refreshLiveState: liveState.refresh,
-      render: render.now,
-      scheduleRender: render.schedule,
       notifyConnectionFailed: () => {
         new Notice("Codex app-server connection failed.");
       },
@@ -186,9 +176,6 @@ type ChatReconnectControllerGroupPorts = Pick<ChatControllerPorts, "state"> & {
     invalidateResumeWork: () => void;
     clearDeferredDiagnostics: () => void;
   };
-  render: {
-    now: () => void;
-  };
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -204,7 +191,7 @@ export function createChatReconnectControllerGroup(
     connection: ConnectionManager;
   },
 ) {
-  const { client, lifecycle, render, status, thread } = context;
+  const { client, lifecycle, status, thread } = context;
 
   const reconnectActions = createChatReconnectActions({
     stateStore: context.state.stateStore,
@@ -216,7 +203,6 @@ export function createChatReconnectControllerGroup(
     },
     clearClient: client.clear,
     setStatus: status.set,
-    render: render.now,
     ensureConnected: client.ensureConnected,
     resumeThread: thread.resumeThread,
     addSystemMessage: status.addSystemMessage,

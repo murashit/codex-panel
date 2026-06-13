@@ -11,7 +11,6 @@ export interface PendingRequestControllerHost {
   controller: ChatInboundController;
   composerHasFocus: () => boolean;
   refreshLiveState: () => void;
-  render: () => void;
 }
 
 export class PendingRequestController {
@@ -26,8 +25,13 @@ export class PendingRequestController {
     cancelUserInput: (requestId) => {
       this.cancelUserInput(requestId);
     },
-    setOpenDetail: (key, open) => {
-      this.host.stateStore.dispatch({ type: "ui/detail-open-set", key, open });
+    setApprovalDetailsExpanded: (requestId, expanded) => {
+      this.host.stateStore.dispatch({
+        type: "ui/disclosure-set",
+        bucket: "approvalDetails",
+        id: `${String(requestId)}:details`,
+        open: expanded,
+      });
     },
     setUserInputDraft: (key, value) => {
       this.host.stateStore.dispatch({ type: "request/user-input-draft-set", key, value });
@@ -78,7 +82,6 @@ export class PendingRequestController {
 
   private commitRequestAction(): void {
     this.host.refreshLiveState();
-    this.host.render();
   }
 
   consumeAutoFocus(): boolean {

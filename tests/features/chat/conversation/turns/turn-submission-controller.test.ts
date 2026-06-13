@@ -57,8 +57,6 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
     codexInput: vi.fn((text: string) => textInput(text)),
     setDraft: vi.fn(),
-    render: vi.fn(),
-    scheduleRender: vi.fn(),
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
     ...overrides,
@@ -85,7 +83,24 @@ describe("TurnSubmissionController", () => {
     expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.setDraft).toHaveBeenCalledWith("");
     expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
-    expect(host.scheduleRender).toHaveBeenCalledOnce();
+  });
+
+  it("applies reserved runtime settings after creating a thread and before starting the turn", async () => {
+    const { host, startTurn, stateStore } = createHost();
+    const applyPendingThreadSettings = vi.fn().mockImplementation(async () => {
+      expect(stateStore.getState().activeThread.id).toBe("thread");
+      return true;
+    });
+    host.applyPendingThreadSettings = applyPendingThreadSettings;
+    const controller = new TurnSubmissionController(host);
+
+    await controller.sendTurnText("hello");
+
+    expect(applyPendingThreadSettings).toHaveBeenCalledOnce();
+    expect(vi.mocked(host.startThread).mock.invocationCallOrder[0]).toBeLessThan(
+      applyPendingThreadSettings.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(applyPendingThreadSettings.mock.invocationCallOrder[0]).toBeLessThan(startTurn.mock.invocationCallOrder[0] ?? 0);
   });
 
   it("does not restore stale drafts or report stale start failures after the active thread changes", async () => {

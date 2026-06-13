@@ -17,26 +17,12 @@ describe("createChatViewDeferredTasks", () => {
     vi.useFakeTimers();
   });
 
-  it("coalesces scheduled renders", async () => {
-    const tasks = createChatViewDeferredTasks(() => window);
-    const render = vi.fn();
-
-    tasks.scheduleRender(render);
-    tasks.scheduleRender(render);
-
-    await vi.advanceTimersByTimeAsync(50);
-
-    expect(render).toHaveBeenCalledOnce();
-  });
-
   it("clears scheduled deferred work", async () => {
     const tasks = createChatViewDeferredTasks(() => window);
-    const render = vi.fn();
     const diagnostics = vi.fn();
     const hydration = vi.fn();
     const warmup = vi.fn();
 
-    tasks.scheduleRender(render);
     tasks.scheduleDiagnostics(diagnostics);
     tasks.scheduleRestoredThreadHydration(hydration);
     tasks.scheduleAppServerWarmup(warmup);
@@ -44,7 +30,6 @@ describe("createChatViewDeferredTasks", () => {
 
     await vi.advanceTimersByTimeAsync(1_500);
 
-    expect(render).not.toHaveBeenCalled();
     expect(diagnostics).not.toHaveBeenCalled();
     expect(hydration).not.toHaveBeenCalled();
     expect(warmup).not.toHaveBeenCalled();

@@ -36,11 +36,13 @@ describe("chat thread resume helpers", () => {
 
     const action = resumedThreadAction({
       response: responseFixture(resumed),
+      preserveRequestedRuntimeSettings: true,
     });
 
     expect(action).toMatchObject({
       type: "active-thread/resumed",
       thread: resumed,
+      preserveRequestedRuntimeSettings: true,
     });
     expect(action.listedThreads).toBeUndefined();
   });

@@ -7,11 +7,18 @@ import { h } from "preact";
 import {
   chatReducer,
   createChatState,
+  createChatStateStore,
   type ChatAction,
   type ChatState,
   type ChatStateStore,
 } from "../../../../../src/features/chat/state/reducer";
-import { MessageStreamRenderer } from "../../../../../src/features/chat/panel/surface/message-stream-renderer";
+import {
+  messageStreamContextFromState,
+  messageStreamStateProjection,
+  MessageStreamPresenter,
+} from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
+import { MessageStreamScrollBridge } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
+import { createMessageStreamContextPort } from "../../../../../src/features/chat/panel/surface/message-stream-ports";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import {
   bindRenderedWikiLinks,
@@ -29,13 +36,72 @@ const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 
 installObsidianDomShims();
 
-function renderMessageStreamRenderer(parent: HTMLElement, renderer: MessageStreamRenderer): void {
-  renderUiRoot(parent, h(MessageStreamViewport, { state: renderer.renderState() }));
+function renderMessageStreamPresenter(parent: HTMLElement, presenter: MessageStreamPresenter, state: ChatState): void {
+  renderUiRoot(parent, h(MessageStreamViewport, { state: presenter.renderState(state) }));
 }
 
-describe("MessageStreamRenderer scroll pinning", () => {
+describe("MessageStreamPresenter scroll pinning", () => {
   beforeEach(() => {
     notices.length = 0;
+  });
+
+  it("projects reducer state into message stream view state", () => {
+    const store = createChatStateStore(createChatState());
+    store.dispatch({
+      type: "active-thread/resumed",
+      thread: { id: "thread-1", preview: "", archived: false, createdAt: 1, updatedAt: 1, name: "Thread" },
+      cwd: "/repo",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+
+    const projection = messageStreamStateProjection(store.getState(), "/vault");
+
+    expect(projection.activeThreadId).toBe("thread-1");
+    expect(projection.workspaceRoot).toBe("/repo");
+    expect(projection.displayItems).toEqual([]);
+    expect(projection.disclosures.textDetails.size).toBe(0);
+    expect(projection.forkActionsItemId).toBeNull();
+  });
+
+  it("wires message stream disclosure actions through the context port", () => {
+    const store = createChatStateStore(createChatState());
+    const port = createMessageStreamContextPort({
+      vaultPath: "/vault",
+      dispatch: (action) => {
+        store.dispatch(action);
+      },
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: vi.fn(),
+      copyMessageText: vi.fn(),
+      actions: {
+        rollbackThread: vi.fn(),
+        forkThreadFromTurn: vi.fn(),
+        implementPlan: vi.fn(),
+        openTurnDiff: vi.fn(),
+      },
+      requests: {
+        pendingSignature: () => "",
+        pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), approvalDetails: new Set() }),
+        pendingActions: () => ({
+          resolveApproval: vi.fn(),
+          resolveUserInput: vi.fn(),
+          cancelUserInput: vi.fn(),
+          setUserInputDraft: vi.fn(),
+        }),
+        consumePendingAutoFocus: () => false,
+      },
+    });
+
+    const context = messageStreamContextFromState(store.getState(), port);
+    if (!context.onDisclosureToggle) throw new Error("Expected message stream disclosure action");
+    context.onDisclosureToggle("textDetails", "message:details", true);
+
+    expect(store.getState().ui.disclosures.textDetails.has("message:details")).toBe(true);
   });
 
   it("normalizes rendered internal links that point at absolute vault paths", () => {
@@ -150,9 +216,9 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
+    const { presenter, scrollBridge } = messageStreamPresenter(state);
 
-    renderMessageStreamRenderer(parent, renderer);
+    renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
     Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
     installMessageViewportMetrics(messages, { clientHeight: 100 });
@@ -160,7 +226,7 @@ describe("MessageStreamRenderer scroll pinning", () => {
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
-    renderer.forceMessageStreamToBottom();
+    scrollBridge.forceMessageStreamToBottom();
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(0);
@@ -182,9 +248,9 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
+    const { presenter, scrollBridge } = messageStreamPresenter(state);
 
-    renderMessageStreamRenderer(parent, renderer);
+    renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
     Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
     installMessageViewportMetrics(messages, { clientHeight: 160 });
@@ -194,7 +260,7 @@ describe("MessageStreamRenderer scroll pinning", () => {
     installMessageViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 940;
 
-    renderer.forceMessageStreamToBottom();
+    scrollBridge.forceMessageStreamToBottom();
 
     expect(messages.scrollTop).toBe(0);
   });
@@ -214,7 +280,7 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
+    const { presenter, scrollBridge } = messageStreamPresenter(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     let scrollTop = 0;
@@ -240,11 +306,11 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     });
     messages.scrollTop = 1000;
-    renderMessageStreamRenderer(messages, renderer);
+    renderMessageStreamPresenter(messages, presenter, state);
     await settleMessageRender(messages);
     expect(messages.scrollTop).toBe(0);
 
-    renderer.forceMessageStreamToBottom();
+    scrollBridge.forceMessageStreamToBottom();
     expect(messages.scrollTop).toBe(0);
 
     layoutSettled = true;
@@ -254,15 +320,15 @@ describe("MessageStreamRenderer scroll pinning", () => {
   });
 
   it("treats scroll commands as no-ops when no message stream virtualizer is mounted", () => {
-    const renderer = messageStreamRenderer();
+    const { presenter, scrollBridge } = messageStreamPresenter();
 
     expect(() => {
-      renderer.forceMessageStreamToBottom();
-      renderer.repinMessageStreamToBottomIfPinned();
-      renderer.scrollFromComposer({ direction: 1, amount: "text-lines" });
-      renderer.scrollFromComposer({ direction: -1, amount: "page" });
-      renderer.dispose();
-      renderer.forceMessageStreamToBottom();
+      scrollBridge.forceMessageStreamToBottom();
+      scrollBridge.repinMessageStreamToBottomIfPinned();
+      scrollBridge.scrollFromComposer({ direction: 1, amount: "text-lines" });
+      scrollBridge.scrollFromComposer({ direction: -1, amount: "page" });
+      presenter.dispose();
+      scrollBridge.forceMessageStreamToBottom();
     }).not.toThrow();
   });
 
@@ -281,8 +347,8 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
-    renderMessageStreamRenderer(parent, renderer);
+    const { presenter, scrollBridge } = messageStreamPresenter(state);
+    renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
     installMessageViewportMetrics(messages);
     await settleMessageRender(messages);
@@ -290,8 +356,8 @@ describe("MessageStreamRenderer scroll pinning", () => {
     unmountUiRoot(parent);
 
     expect(() => {
-      renderer.forceMessageStreamToBottom();
-      renderer.scrollFromComposer({ direction: 1, amount: "page" });
+      scrollBridge.forceMessageStreamToBottom();
+      scrollBridge.scrollFromComposer({ direction: 1, amount: "page" });
     }).not.toThrow();
   });
 
@@ -310,8 +376,8 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
-    renderMessageStreamRenderer(parent, renderer);
+    const { presenter, scrollBridge } = messageStreamPresenter(state);
+    renderMessageStreamPresenter(parent, presenter, state);
     const oldMessages = messageViewport(parent);
     installMessageViewportMetrics(oldMessages, { clientHeight: 100, scrollHeight: 1000 });
     await settleMessageRender(oldMessages);
@@ -319,11 +385,11 @@ describe("MessageStreamRenderer scroll pinning", () => {
 
     unmountUiRoot(parent);
 
-    renderMessageStreamRenderer(parent, renderer);
+    renderMessageStreamPresenter(parent, presenter, state);
     const newMessages = messageViewport(parent);
     installMessageViewportMetrics(newMessages, { clientHeight: 100, scrollHeight: 1000 });
     await settleMessageRender(newMessages);
-    renderer.forceMessageStreamToBottom();
+    scrollBridge.forceMessageStreamToBottom();
 
     expect(newMessages.scrollTop).toBe(900);
     expect(oldMessages.scrollTop).toBe(125);
@@ -344,12 +410,12 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state, vi.fn(), "/vault", [], () => "force-bottom");
+    const { presenter, scrollBridge } = messageStreamPresenter(state, vi.fn(), "/vault", [], () => "force-bottom");
 
-    renderMessageStreamRenderer(parent, renderer);
+    renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
     installMessageViewportMetrics(messages, { clientHeight: 100, scrollHeight: 1000 });
-    renderer.forceMessageStreamToBottom();
+    scrollBridge.forceMessageStreamToBottom();
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(900);
@@ -370,9 +436,9 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
+    const { presenter, scrollBridge } = messageStreamPresenter(state);
 
-    renderMessageStreamRenderer(parent, renderer);
+    renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
     installMessageViewportMetrics(messages, { clientHeight: 100 });
     let scrollHeight = 1000;
@@ -381,7 +447,7 @@ describe("MessageStreamRenderer scroll pinning", () => {
       configurable: true,
     });
 
-    renderer.forceMessageStreamToBottom();
+    scrollBridge.forceMessageStreamToBottom();
     await settleMessageRender(messages);
     expect(messages.scrollTop).toBe(900);
 
@@ -409,11 +475,11 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
+    const { presenter } = messageStreamPresenter(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     installMessageViewportMetrics(messages);
-    renderMessageStreamRenderer(messages, renderer);
+    renderMessageStreamPresenter(messages, presenter, state);
     await settleMessageRender(messages);
 
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
@@ -434,7 +500,7 @@ describe("MessageStreamRenderer scroll pinning", () => {
         messageState: "completed",
       },
     ]);
-    renderMessageStreamRenderer(messages, renderer);
+    renderMessageStreamPresenter(messages, presenter, state);
     await settleMessageRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
@@ -455,13 +521,13 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
+    const { presenter } = messageStreamPresenter(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
     installMessageViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 920;
-    renderMessageStreamRenderer(messages, renderer);
+    renderMessageStreamPresenter(messages, presenter, state);
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
@@ -487,17 +553,17 @@ describe("MessageStreamRenderer scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
+    const { presenter } = messageStreamPresenter(state);
 
-    renderMessageStreamRenderer(parent, renderer);
+    renderMessageStreamPresenter(parent, presenter, state);
     let messages = messageViewport(parent);
     installMessageViewportMetrics(messages);
-    renderMessageStreamRenderer(parent, renderer);
+    renderMessageStreamPresenter(parent, presenter, state);
     messages = messageViewport(parent);
     await settleMessageRender(messages);
     expect(parent.querySelector(".codex-panel__messages")).not.toBeNull();
 
-    renderer.dispose();
+    presenter.dispose();
 
     expect(parent.querySelector(".codex-panel__messages")).not.toBeNull();
   });
@@ -518,9 +584,9 @@ describe("MessageStreamRenderer scroll pinning", () => {
       })),
     );
     const parent = document.createElement("div");
-    const renderer = messageStreamRenderer(state);
+    const { presenter } = messageStreamPresenter(state);
 
-    renderMessageStreamRenderer(parent, renderer);
+    renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
     installMessageViewportMetrics(messages, { clientHeight: 320, scrollHeight: 19_200 });
     await settleMessageRender(messages);
@@ -546,15 +612,21 @@ function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vault
   };
 }
 
-function messageStreamRenderer(
+interface TestMessageStreamPresenter {
+  presenter: MessageStreamPresenter;
+  scrollBridge: MessageStreamScrollBridge;
+}
+
+function messageStreamPresenter(
   state = createChatState(),
   openLinkText = vi.fn(),
   vaultPath = "/vault",
   vaultFiles: string[] = [],
   consumeIntent: () => MessageStreamScrollIntent = () => "auto",
-): MessageStreamRenderer {
+): TestMessageStreamPresenter {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
-  return new MessageStreamRenderer({
+  const scrollBridge = new MessageStreamScrollBridge();
+  const presenter = new MessageStreamPresenter({
     obsidian: {
       app: {
         workspace: {
@@ -576,6 +648,10 @@ function messageStreamRenderer(
     },
     scroll: {
       consumeIntent,
+      registerVirtualizer: scrollBridge.registerVirtualizer,
+      dispose: () => {
+        scrollBridge.dispose();
+      },
     },
     history: {
       loadOlderTurns: vi.fn(),
@@ -588,7 +664,7 @@ function messageStreamRenderer(
     },
     requests: {
       pendingSignature: () => "",
-      pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), openDetails: new Set() }),
+      pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), approvalDetails: new Set() }),
       pendingActions: () => ({
         resolveApproval: vi.fn(),
         resolveUserInput: vi.fn(),
@@ -598,6 +674,7 @@ function messageStreamRenderer(
       consumePendingAutoFocus: () => false,
     },
   });
+  return { presenter, scrollBridge };
 }
 
 function testStoreForState(state: ChatState): ChatStateStore {

@@ -37,7 +37,7 @@ import type {
   ClearDisconnectedConnectionStateAction,
   ClearLocalTurnAction,
   ConnectionInitializedAction,
-  DetailOpenSetAction,
+  DisclosureSetAction,
   ThreadListAppliedAction,
   MessageStreamItemAddedAction,
   TurnOptimisticStartedAction,
@@ -81,8 +81,16 @@ export {
 } from "../conversation/turns/turn-state";
 export type { ChatMessageStreamState } from "./message-stream";
 
+export type ChatConnectionPhase =
+  | { kind: "idle" }
+  | { kind: "connecting" }
+  | { kind: "connected" }
+  | { kind: "failed"; message: string }
+  | { kind: "disconnected"; message: string };
+
 interface ChatConnectionState {
-  status: string;
+  phase: ChatConnectionPhase;
+  statusText: string;
   runtimeConfig: RuntimeConfigSnapshot | null;
   initializeResponse: ServerInitialization | null;
   rateLimit: RateLimitSnapshot | null;
@@ -112,9 +120,47 @@ interface ChatComposerState {
   suggestionsDismissedSignature: string | null;
 }
 
+export type ChatRenameUiState =
+  | { kind: "idle" }
+  | { kind: "editing"; threadId: string; draft: string }
+  | { kind: "generating"; threadId: string; draft: string; originalDraft: string; generationId: number };
+
+export type ChatRenameGeneratingUiState = Extract<ChatRenameUiState, { kind: "generating" }>;
+
+type ChatGoalEditorUiState =
+  | { kind: "closed" }
+  | { kind: "editing"; threadId: string | null; objectiveDraft: string; tokenBudgetDraft: number | null };
+
+interface ChatMessageActionsUiState {
+  forkActionsItemId: string | null;
+}
+
+export type ChatDisclosureBucket =
+  | "toolResults"
+  | "activityGroups"
+  | "agentDetails"
+  | "textDetails"
+  | "userMessageExpanded"
+  | "goalObjectiveExpanded"
+  | "approvalDetails";
+
+export interface ChatDisclosureUiState {
+  toolResults: ReadonlySet<string>;
+  activityGroups: ReadonlySet<string>;
+  agentDetails: ReadonlySet<string>;
+  textDetails: ReadonlySet<string>;
+  userMessageExpanded: ReadonlySet<string>;
+  goalObjectiveExpanded: ReadonlySet<string>;
+  approvalDetails: ReadonlySet<string>;
+}
+
 interface ChatUiState {
-  openDetails: ReadonlySet<string>;
   toolbarPanel: "history" | "chat-actions" | "status-panel" | null;
+  archiveConfirmThreadId: string | null;
+  rename: ChatRenameUiState;
+  goalEditor: ChatGoalEditorUiState;
+  messageActions: ChatMessageActionsUiState;
+  disclosures: ChatDisclosureUiState;
 }
 
 export interface ChatState {
@@ -136,7 +182,7 @@ export interface ChatStateStore {
 }
 
 type ConnectionAction =
-  | { type: "connection/status-set"; status: string }
+  | { type: "connection/status-set"; statusText: string; phase?: ChatConnectionPhase }
   | ConnectionInitializedAction
   | {
       type: "connection/metadata-applied";
@@ -151,7 +197,6 @@ type ThreadListAction = ThreadListAppliedAction;
 
 type ActiveThreadAction =
   | { type: "active-thread/cwd-set"; cwd: string | null }
-  | { type: "active-thread/goal-set"; goal: ThreadGoal | null }
   | { type: "active-thread/token-usage-set"; tokenUsage: ThreadTokenUsage | null };
 
 type RuntimeAction =
@@ -215,7 +260,19 @@ type UiAction =
       panel: "history" | "chat-actions" | "status-panel" | null;
       toggle?: boolean;
     }
-  | DetailOpenSetAction;
+  | { type: "ui/archive-confirm-set"; threadId: string | null }
+  | { type: "ui/rename-started"; threadId: string; draft: string }
+  | { type: "ui/rename-draft-updated"; threadId: string; draft: string }
+  | { type: "ui/rename-cancelled"; threadId: string }
+  | { type: "ui/rename-generation-started"; threadId: string; originalDraft: string; generationId: number }
+  | { type: "ui/rename-generation-succeeded"; generatingState: ChatRenameGeneratingUiState; draft: string }
+  | { type: "ui/rename-generation-finished"; threadId: string; generatingState: ChatRenameGeneratingUiState }
+  | { type: "ui/rename-cleared" }
+  | { type: "ui/goal-editor-started"; threadId: string | null; objective: string; tokenBudget: number | null }
+  | { type: "ui/goal-editor-draft-updated"; objective: string }
+  | { type: "ui/goal-editor-closed" }
+  | { type: "ui/message-fork-actions-set"; itemId: string | null }
+  | DisclosureSetAction;
 
 export type ChatAction = ChatTransitionAction | ChatSliceAction;
 
@@ -237,6 +294,7 @@ type ChatTransitionAction =
   | ActiveThreadResumedAction
   | ActiveThreadSettingsAppliedAction
   | ActiveThreadRestoredPlaceholderAction
+  | { type: "active-thread/goal-set"; goal: ThreadGoal | null }
   | TurnAction
   | RequestResolvedAction
   | PendingStartHookUpsertedAction;
@@ -295,6 +353,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "active-thread/resumed":
     case "active-thread/settings-applied":
     case "active-thread/restored-placeholder":
+    case "active-thread/goal-set":
     case "turn/started":
     case "turn/completed":
     case "turn/scoped-cleared":
@@ -321,6 +380,8 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
       return reduceActiveThreadSettingsAppliedTransition(state, action);
     case "active-thread/restored-placeholder":
       return reduceActiveThreadRestoredPlaceholderTransition(state, action);
+    case "active-thread/goal-set":
+      return reduceActiveThreadGoalSetTransition(state, action.goal);
     case "turn/started":
       return reduceTurnStartedTransition(state, action);
     case "turn/completed":
@@ -349,10 +410,11 @@ function reduceActiveThreadClearedTransition(state: ChatState): ChatState {
 }
 
 function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThreadResumedAction): ChatState {
+  const runtimeBase = action.preserveRequestedRuntimeSettings ? state.runtime : initialChatRuntimeState();
   return patchChatState(clearActiveTurnState(state), {
     connection: {
       ...state.connection,
-      status: action.status ?? state.connection.status,
+      statusText: action.status ?? state.connection.statusText,
     },
     threadList: {
       ...state.threadList,
@@ -365,7 +427,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       tokenUsage: null,
     },
     runtime: {
-      ...state.runtime,
+      ...runtimeBase,
       activeModel: action.model,
       activeReasoningEffort: action.reasoningEffort,
       activeCollaborationMode: initialActiveChatRuntimeState().activeCollaborationMode,
@@ -411,14 +473,21 @@ function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, actio
         goal: null,
         tokenUsage: null,
       },
-      runtime: {
-        ...state.runtime,
-        ...initialActiveChatRuntimeState(),
-      },
+      runtime: initialChatRuntimeState(),
       messageStream: initialMessageStreamState(),
       ui: initialUiState(),
     }),
   );
+}
+
+function reduceActiveThreadGoalSetTransition(state: ChatState, goal: ThreadGoal | null): ChatState {
+  return patchChatState(state, {
+    activeThread: {
+      ...state.activeThread,
+      goal,
+    },
+    ui: maybeClearGoalObjectiveExpansion(state.ui, state.activeThread.goal, goal),
+  });
 }
 
 function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction): ChatState {
@@ -426,7 +495,7 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
   return patchChatState(state, {
     activeThread: { ...state.activeThread, id: action.threadId },
     turn: { lifecycle },
-    connection: { ...state.connection, status: "Turn running..." },
+    connection: { ...state.connection, statusText: "Turn running..." },
     messageStream: action.displayItems
       ? messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.displayItems)
       : messageStreamStartActiveSegment(state.messageStream, action.turnId, []),
@@ -439,7 +508,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   return patchChatState(state, {
     turn: { lifecycle },
     messageStream: messageStreamWithDisplayItems(state.messageStream, action.displayItems),
-    connection: { ...state.connection, status: `Turn ${action.status}.` },
+    connection: { ...state.connection, statusText: `Turn ${action.status}.` },
   });
 }
 
@@ -496,7 +565,7 @@ function reduceRequestResolvedTransition(state: ChatState, action: RequestResolv
   if (requests === state.requests) return state;
   return patchChatState(state, {
     requests,
-    ui: clearResolvedRequestDetailOpenState(state.ui, action.requestId),
+    ui: clearResolvedRequestDisclosures(state.ui, action.requestId),
     messageStream: action.resultItem
       ? reduceMessageStreamSlice(state.messageStream, { type: "message-stream/item-added", item: action.resultItem })
       : state.messageStream,
@@ -520,7 +589,7 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
 function reduceConnectionSlice(state: ChatConnectionState, action: ChatSliceAction): ChatConnectionState {
   switch (action.type) {
     case "connection/status-set":
-      return patchObject(state, { status: action.status });
+      return patchObject(state, { statusText: action.statusText, ...definedPatch("phase", action.phase) });
     case "connection/initialized":
       return patchObject(state, { initializeResponse: action.initializeResponse });
     case "connection/metadata-applied":
@@ -548,8 +617,6 @@ function reduceActiveThreadSlice(state: ChatActiveThreadState, action: ChatSlice
   switch (action.type) {
     case "active-thread/cwd-set":
       return patchObject(state, { cwd: action.cwd });
-    case "active-thread/goal-set":
-      return patchObject(state, { goal: action.goal });
     case "active-thread/token-usage-set":
       return patchObject(state, { tokenUsage: action.tokenUsage });
     default:
@@ -618,8 +685,41 @@ function reduceUiSlice(state: ChatUiState, action: ChatSliceAction): ChatUiState
   switch (action.type) {
     case "ui/panel-set":
       return setPanelSlice(state, action.panel, action.toggle ?? false);
-    case "ui/detail-open-set":
-      return setDetailOpenSlice(state, action.key, action.open);
+    case "ui/archive-confirm-set":
+      return patchObject(state, { archiveConfirmThreadId: action.threadId });
+    case "ui/rename-started":
+      return patchObject(state, { rename: { kind: "editing", threadId: action.threadId, draft: action.draft } });
+    case "ui/rename-draft-updated":
+      return patchObject(state, { rename: renameUiStateUpdated(state.rename, action.threadId, action.draft) });
+    case "ui/rename-cancelled":
+      return patchObject(state, { rename: renameUiStateCancelled(state.rename, action.threadId) });
+    case "ui/rename-generation-started":
+      return patchObject(state, {
+        rename: renameUiGenerationStarted(state.rename, action.threadId, action.originalDraft, action.generationId),
+      });
+    case "ui/rename-generation-succeeded":
+      return patchObject(state, { rename: renameUiGenerationSucceeded(state.rename, action.generatingState, action.draft) });
+    case "ui/rename-generation-finished":
+      return patchObject(state, { rename: renameUiGenerationFinished(state.rename, action.threadId, action.generatingState) });
+    case "ui/rename-cleared":
+      return patchObject(state, { rename: initialRenameUiState() });
+    case "ui/goal-editor-started":
+      return patchObject(state, {
+        goalEditor: {
+          kind: "editing",
+          threadId: action.threadId,
+          objectiveDraft: action.objective,
+          tokenBudgetDraft: action.tokenBudget,
+        },
+      });
+    case "ui/goal-editor-draft-updated":
+      return patchObject(state, { goalEditor: goalEditorDraftUpdated(state.goalEditor, action.objective) });
+    case "ui/goal-editor-closed":
+      return patchObject(state, { goalEditor: initialGoalEditorUiState() });
+    case "ui/message-fork-actions-set":
+      return patchObject(state, { messageActions: { forkActionsItemId: action.itemId } });
+    case "ui/disclosure-set":
+      return setDisclosureSlice(state, action.bucket, action.id, action.open);
     default:
       return state;
   }
@@ -632,7 +732,7 @@ function clearActiveTurnState(state: ChatState): ChatState {
     },
     messageStream: messageStreamWithDisplayItems(state.messageStream, messageStreamDisplayItems(state.messageStream)),
     requests: initialRequestState(),
-    ui: clearAllRequestDetailOpenState(state.ui),
+    ui: clearAllRequestDisclosures(state.ui),
   });
 }
 
@@ -640,10 +740,7 @@ function clearActiveThreadState(state: ChatState): ChatState {
   return clearActiveTurnState(
     patchChatState(state, {
       activeThread: initialActiveThreadState(),
-      runtime: {
-        ...state.runtime,
-        ...initialActiveChatRuntimeState(),
-      },
+      runtime: initialChatRuntimeState(),
       messageStream: initialMessageStreamState(),
       composer: initialComposerState(),
       ui: initialUiState(),
@@ -654,10 +751,7 @@ function clearActiveThreadState(state: ChatState): ChatState {
 function clearDisconnectedConnectionState(state: ChatState): ChatState {
   return patchChatState(clearActiveTurnState(state), {
     activeThread: initialActiveThreadState(),
-    runtime: {
-      ...state.runtime,
-      ...initialActiveChatRuntimeState(),
-    },
+    runtime: initialChatRuntimeState(),
     connection: {
       ...state.connection,
       serverDiagnostics: createServerDiagnostics(),
@@ -671,7 +765,8 @@ function clearDisconnectedConnectionState(state: ChatState): ChatState {
 
 function initialConnectionState(): ChatConnectionState {
   return {
-    status: "Idle",
+    phase: { kind: "idle" },
+    statusText: "Idle",
     runtimeConfig: null,
     initializeResponse: null,
     serverDiagnostics: createServerDiagnostics(),
@@ -724,8 +819,12 @@ function initialComposerState(): ChatComposerState {
 
 function initialUiState(): ChatUiState {
   return {
-    openDetails: new Set(),
     toolbarPanel: null,
+    archiveConfirmThreadId: null,
+    rename: initialRenameUiState(),
+    goalEditor: initialGoalEditorUiState(),
+    messageActions: initialMessageActionsUiState(),
+    disclosures: initialDisclosureUiState(),
   };
 }
 
@@ -754,8 +853,12 @@ function cloneChatState(state: ChatState): ChatState {
       suggestions: [...state.composer.suggestions],
     },
     ui: {
-      openDetails: new Set(state.ui.openDetails),
       toolbarPanel: state.ui.toolbarPanel,
+      archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
+      rename: { ...state.ui.rename },
+      goalEditor: { ...state.ui.goalEditor },
+      messageActions: { ...state.ui.messageActions },
+      disclosures: cloneDisclosureUiState(state.ui.disclosures),
     },
   };
 }
@@ -789,48 +892,176 @@ function setPanelSlice(state: ChatUiState, panel: "history" | "chat-actions" | "
   return patchObject(state, { toolbarPanel: nextPanel });
 }
 
-function setDetailOpenSlice(state: ChatUiState, key: string, open: boolean): ChatUiState {
-  if (state.openDetails.has(key) === open) return state;
-  const openDetails = new Set(state.openDetails);
+function setDisclosureSlice(state: ChatUiState, bucket: ChatDisclosureBucket, id: string, open: boolean): ChatUiState {
+  const current = state.disclosures[bucket];
+  if (current.has(id) === open) return state;
+  const nextBucket = new Set(current);
   if (open) {
-    openDetails.add(key);
+    nextBucket.add(id);
   } else {
-    openDetails.delete(key);
+    nextBucket.delete(id);
   }
-  return patchObject(state, { openDetails });
+  return patchObject(state, {
+    disclosures: {
+      ...state.disclosures,
+      [bucket]: nextBucket,
+    },
+  });
 }
 
-function clearAllRequestDetailOpenState(state: ChatUiState): ChatUiState {
-  return filterOpenDetails(state, (key) => !isRequestDetailOpenKey(key));
+function initialRenameUiState(): ChatRenameUiState {
+  return { kind: "idle" };
 }
 
-function clearResolvedRequestDetailOpenState(state: ChatUiState, requestId: RequestId): ChatUiState {
-  return filterOpenDetails(state, (key) => !isRequestDetailOpenKeyForRequest(key, requestId));
+function initialGoalEditorUiState(): ChatGoalEditorUiState {
+  return { kind: "closed" };
 }
 
-function filterOpenDetails(state: ChatUiState, keep: (key: string) => boolean): ChatUiState {
-  let openDetails: Set<string> | null = null;
-  for (const key of state.openDetails) {
-    if (keep(key)) {
-      openDetails?.add(key);
-    } else if (openDetails === null) {
-      openDetails = new Set();
-      for (const kept of state.openDetails) {
-        if (kept === key) break;
-        openDetails.add(kept);
+function initialMessageActionsUiState(): ChatMessageActionsUiState {
+  return { forkActionsItemId: null };
+}
+
+function initialDisclosureUiState(): ChatDisclosureUiState {
+  return {
+    toolResults: new Set(),
+    activityGroups: new Set(),
+    agentDetails: new Set(),
+    textDetails: new Set(),
+    userMessageExpanded: new Set(),
+    goalObjectiveExpanded: new Set(),
+    approvalDetails: new Set(),
+  };
+}
+
+function cloneDisclosureUiState(state: ChatDisclosureUiState): ChatDisclosureUiState {
+  return {
+    toolResults: new Set(state.toolResults),
+    activityGroups: new Set(state.activityGroups),
+    agentDetails: new Set(state.agentDetails),
+    textDetails: new Set(state.textDetails),
+    userMessageExpanded: new Set(state.userMessageExpanded),
+    goalObjectiveExpanded: new Set(state.goalObjectiveExpanded),
+    approvalDetails: new Set(state.approvalDetails),
+  };
+}
+
+function maybeClearGoalObjectiveExpansion(state: ChatUiState, currentGoal: ThreadGoal | null, nextGoal: ThreadGoal | null): ChatUiState {
+  if (goalObjectiveResetKey(currentGoal) === goalObjectiveResetKey(nextGoal)) return state;
+  if (state.disclosures.goalObjectiveExpanded.size === 0) return state;
+  return patchObject(state, {
+    disclosures: {
+      ...state.disclosures,
+      goalObjectiveExpanded: new Set(),
+    },
+  });
+}
+
+function goalObjectiveResetKey(goal: ThreadGoal | null): string {
+  if (!goal) return "";
+  return [goal.threadId, goal.objective, goal.status, String(goal.tokenBudget ?? "")].join("\u0000");
+}
+
+function goalEditorDraftUpdated(state: ChatGoalEditorUiState, objective: string): ChatGoalEditorUiState {
+  if (state.kind !== "editing") return state;
+  return { ...state, objectiveDraft: objective };
+}
+
+function renameUiStateUpdated(state: ChatRenameUiState, threadId: string, draft: string): ChatRenameUiState {
+  if (state.kind === "idle" || state.threadId !== threadId) return state;
+  return { ...state, draft };
+}
+
+function renameUiStateCancelled(state: ChatRenameUiState, threadId: string): ChatRenameUiState {
+  if (state.kind === "idle" || state.threadId !== threadId) return state;
+  return initialRenameUiState();
+}
+
+function renameUiGenerationStarted(
+  state: ChatRenameUiState,
+  threadId: string,
+  originalDraft: string,
+  generationId: number,
+): ChatRenameUiState {
+  if (state.kind !== "editing" || state.threadId !== threadId) return state;
+  return {
+    kind: "generating",
+    threadId,
+    draft: state.draft,
+    originalDraft,
+    generationId,
+  };
+}
+
+function renameUiGenerationSucceeded(
+  state: ChatRenameUiState,
+  generatingState: ChatRenameGeneratingUiState,
+  draft: string,
+): ChatRenameUiState {
+  if (!renameGenerationStillActive(state, generatingState) || state.draft !== generatingState.originalDraft) return state;
+  return { ...state, draft };
+}
+
+function renameUiGenerationFinished(
+  state: ChatRenameUiState,
+  threadId: string,
+  generatingState: ChatRenameGeneratingUiState,
+): ChatRenameUiState {
+  if (!renameGenerationStillActive(state, generatingState) || state.threadId !== threadId) return state;
+  return {
+    kind: "editing",
+    threadId: state.threadId,
+    draft: state.draft,
+  };
+}
+
+export function renameGenerationStillActive(
+  state: ChatRenameUiState,
+  generatingState: ChatRenameGeneratingUiState,
+): state is ChatRenameGeneratingUiState {
+  return (
+    state.kind === "generating" &&
+    state.threadId === generatingState.threadId &&
+    state.originalDraft === generatingState.originalDraft &&
+    state.generationId === generatingState.generationId
+  );
+}
+
+function clearAllRequestDisclosures(state: ChatUiState): ChatUiState {
+  if (state.disclosures.approvalDetails.size === 0) return state;
+  return patchObject(state, {
+    disclosures: {
+      ...state.disclosures,
+      approvalDetails: new Set(),
+    },
+  });
+}
+
+function clearResolvedRequestDisclosures(state: ChatUiState, requestId: RequestId): ChatUiState {
+  const id = String(requestId);
+  const approvalDetails = filterStringSet(state.disclosures.approvalDetails, (key) => !key.startsWith(`${id}:`));
+  if (approvalDetails === state.disclosures.approvalDetails) return state;
+  return patchObject(state, {
+    disclosures: {
+      ...state.disclosures,
+      approvalDetails,
+    },
+  });
+}
+
+function filterStringSet(values: ReadonlySet<string>, keep: (value: string) => boolean): ReadonlySet<string> {
+  let next: Set<string> | null = null;
+  for (const value of values) {
+    if (keep(value)) {
+      next?.add(value);
+    } else if (next === null) {
+      next = new Set();
+      for (const kept of values) {
+        if (kept === value) break;
+        next.add(kept);
       }
     }
   }
-  return openDetails === null ? state : patchObject(state, { openDetails });
-}
-
-function isRequestDetailOpenKey(key: string): boolean {
-  return key.startsWith("approval:") || key.startsWith("request:");
-}
-
-function isRequestDetailOpenKeyForRequest(key: string, requestId: RequestId): boolean {
-  const id = String(requestId);
-  return key === `request:${id}` || key.startsWith(`request:${id}:`) || key.startsWith(`approval:${id}:`);
+  return next ?? values;
 }
 
 function isRequestAction(action: ChatSliceAction): action is RequestAction {

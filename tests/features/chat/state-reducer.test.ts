@@ -40,7 +40,10 @@ describe("chatReducer", () => {
     state.composer.suggestSelected = 1;
     state.composer.suggestions = [suggestion("/plan")];
     state.composer.suggestionsDismissedSignature = "dismissed";
-    state.ui.openDetails = new Set(["approval:1:details", "message:previous:details"]);
+    state.ui.disclosures.approvalDetails = new Set(["1:details"]);
+    state.ui.disclosures.textDetails = new Set(["previous:details"]);
+    state.ui.messageActions = { forkActionsItemId: "previous" };
+    state.ui.goalEditor = { kind: "editing", threadId: "thread", objectiveDraft: "draft", tokenBudgetDraft: null };
     let pendingState = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.2" });
     pendingState = chatReducer(pendingState, { type: "runtime/reasoning-effort-requested", effort: "medium" });
     pendingState = chatReducer(pendingState, { type: "runtime/service-tier-requested", serviceTier: "off" });
@@ -57,11 +60,11 @@ describe("chatReducer", () => {
     expect(next.runtime.activeApprovalPolicy).toBeNull();
     expect(next.runtime.activeApprovalsReviewer).toBeNull();
     expect(next.runtime.activeCollaborationMode).toBeNull();
-    expect(next.runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.2" });
-    expect(next.runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "medium" });
-    expect(next.runtime.requestedServiceTier).toEqual({ kind: "set", value: "off" });
-    expect(next.runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "user" });
-    expect(next.runtime.selectedCollaborationMode).toBe("plan");
+    expect(next.runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(next.runtime.requestedReasoningEffort).toEqual({ kind: "unchanged" });
+    expect(next.runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
+    expect(next.runtime.requestedApprovalsReviewer).toEqual({ kind: "unchanged" });
+    expect(next.runtime.selectedCollaborationMode).toBe("default");
     expect(activeTurnId(next)).toBeNull();
     expect(chatStateDisplayItems(next)).toEqual([]);
     expect(next.messageStream.turnDiffs.size).toBe(0);
@@ -74,7 +77,9 @@ describe("chatReducer", () => {
     expect(next.composer.suggestSelected).toBe(0);
     expect(next.composer.suggestions).toEqual([]);
     expect(next.composer.suggestionsDismissedSignature).toBeNull();
-    expect(next.ui.openDetails.size).toBe(0);
+    expect(uiDisclosureCount(next)).toBe(0);
+    expect(next.ui.messageActions.forkActionsItemId).toBeNull();
+    expect(next.ui.goalEditor.kind).toBe("closed");
   });
 
   it("resets thread-scoped state when resuming a thread", () => {
@@ -95,7 +100,10 @@ describe("chatReducer", () => {
     state.composer.suggestionsDismissedSignature = "dismissed";
     state.runtime.activeCollaborationMode = "plan";
     state.runtime.selectedCollaborationMode = "plan";
-    state.ui.openDetails = new Set(["approval:1:details", "message:previous:details"]);
+    state.ui.disclosures.approvalDetails = new Set(["1:details"]);
+    state.ui.disclosures.textDetails = new Set(["previous:details"]);
+    state.ui.messageActions = { forkActionsItemId: "previous" };
+    state.ui.goalEditor = { kind: "editing", threadId: "previous-thread", objectiveDraft: "draft", tokenBudgetDraft: null };
     const resumedItems = [message("resumed-message")];
 
     const next = chatReducer(state, {
@@ -126,8 +134,44 @@ describe("chatReducer", () => {
     expect(next.composer.suggestions).toEqual([]);
     expect(next.composer.suggestionsDismissedSignature).toBeNull();
     expect(next.runtime.activeCollaborationMode).toBeNull();
+    expect(next.runtime.selectedCollaborationMode).toBe("default");
+    expect(uiDisclosureCount(next)).toBe(0);
+    expect(next.ui.messageActions.forkActionsItemId).toBeNull();
+    expect(next.ui.goalEditor.kind).toBe("closed");
+  });
+
+  it("preserves empty-panel runtime reservations when thread activation explicitly requests it", () => {
+    let state = createChatState();
+    state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.5" });
+    state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
+    state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
+    state = chatReducer(state, { type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
+
+    const next = chatReducer(state, {
+      type: "active-thread/resumed",
+      thread: thread("started-thread"),
+      cwd: "/vault",
+      model: "gpt-5",
+      reasoningEffort: "medium",
+      serviceTier: "fast",
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      activePermissionProfile: null,
+      preserveRequestedRuntimeSettings: true,
+    });
+
+    expect(next.activeThread.id).toBe("started-thread");
+    expect(next.runtime.activeModel).toBe("gpt-5");
+    expect(next.runtime.activeReasoningEffort).toBe("medium");
+    expect(next.runtime.activeServiceTier).toBe("fast");
+    expect(next.runtime.activeApprovalsReviewer).toBe("user");
+    expect(next.runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(next.runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "high" });
+    expect(next.runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(next.runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(next.runtime.selectedCollaborationMode).toBe("plan");
-    expect(next.ui.openDetails.size).toBe(0);
+    expect(next.runtime.activeCollaborationMode).toBeNull();
   });
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {
@@ -189,7 +233,7 @@ describe("chatReducer", () => {
     expect(next.composer.suggestionsDismissedSignature).toBe("dismissed");
   });
 
-  it("clones map and set backed state when updating turn diffs and open panels", () => {
+  it("clones map backed state when updating turn diffs and open panels", () => {
     const state = createChatState();
     state.messageStream.turnDiffs = new Map([["turn", "old"]]);
     state.ui.toolbarPanel = "status-panel";
@@ -201,7 +245,7 @@ describe("chatReducer", () => {
     expect(withDiff.messageStream.turnDiffs.get("turn")).toBe("new");
     expect(withHistoryPanel.ui).not.toBe(withDiff.ui);
     expect(withHistoryPanel.ui.toolbarPanel).toBe("history");
-    expect(withHistoryPanel.ui.openDetails).toBe(withDiff.ui.openDetails);
+    expect(withHistoryPanel.ui.disclosures).toBe(withDiff.ui.disclosures);
   });
 
   it("deduplicates reported logs while keeping reported log state immutable", () => {
@@ -343,7 +387,8 @@ describe("chatReducer", () => {
     state.requests.pendingUserInputs = [userInput(2)];
     state.requests.userInputDrafts = new Map([["2:note", "draft"]]);
     setChatStateDisplayItems(state, [message("kept")]);
-    state.ui.openDetails = new Set(["approval:1:details", "request:2", "message:kept:details"]);
+    state.ui.disclosures.approvalDetails = new Set(["1:details"]);
+    state.ui.disclosures.textDetails = new Set(["kept:details"]);
 
     const next = chatReducer(state, { type: "turn/scoped-cleared" });
 
@@ -353,7 +398,8 @@ describe("chatReducer", () => {
     expect(next.requests.pendingUserInputs).toEqual([]);
     expect(next.requests.userInputDrafts.size).toBe(0);
     expect(chatStateDisplayItems(next)).toBe(chatStateDisplayItems(state));
-    expect([...next.ui.openDetails]).toEqual(["message:kept:details"]);
+    expect([...next.ui.disclosures.approvalDetails]).toEqual([]);
+    expect([...next.ui.disclosures.textDetails]).toEqual(["kept:details"]);
   });
 
   it("resolves requests while optionally appending a result item", () => {
@@ -365,32 +411,34 @@ describe("chatReducer", () => {
       ["2:note:other", "other draft"],
     ]);
     setChatStateDisplayItems(state, [message("existing")]);
-    state.ui.openDetails = new Set(["approval:1:details", "request:2", "request:2:other", "message:existing:details"]);
+    state.ui.disclosures.approvalDetails = new Set(["1:details"]);
+    state.ui.disclosures.textDetails = new Set(["existing:details"]);
 
     const withoutResult = chatReducer(state, { type: "request/resolved", requestId: 1 });
     expect(withoutResult.requests.approvals).toEqual([]);
     expect(withoutResult.requests.pendingUserInputs).toEqual([userInput(2)]);
     expect(chatStateDisplayItems(withoutResult)).toBe(chatStateDisplayItems(state));
-    expect([...withoutResult.ui.openDetails]).toEqual(["request:2", "request:2:other", "message:existing:details"]);
+    expect([...withoutResult.ui.disclosures.approvalDetails]).toEqual([]);
+    expect([...withoutResult.ui.disclosures.textDetails]).toEqual(["existing:details"]);
 
     const resultItem = message("result");
     const withResult = chatReducer(withoutResult, { type: "request/resolved", requestId: 2, resultItem });
     expect(withResult.requests.pendingUserInputs).toEqual([]);
     expect(withResult.requests.userInputDrafts.size).toBe(0);
     expect(chatStateDisplayItems(withResult)).toEqual([message("existing"), resultItem]);
-    expect([...withResult.ui.openDetails]).toEqual(["message:existing:details"]);
+    expect([...withResult.ui.disclosures.textDetails]).toEqual(["existing:details"]);
   });
 
   it("ignores stale request resolutions without appending result items", () => {
     const state = createChatState();
     setChatStateDisplayItems(state, [message("existing")]);
-    state.ui.openDetails = new Set(["request:99", "message:existing:details"]);
+    state.ui.disclosures.textDetails = new Set(["existing:details"]);
 
     const next = chatReducer(state, { type: "request/resolved", requestId: 99, resultItem: message("stale result") });
 
     expect(next).toBe(state);
     expect(chatStateDisplayItems(next)).toBe(chatStateDisplayItems(state));
-    expect([...next.ui.openDetails]).toEqual(["request:99", "message:existing:details"]);
+    expect([...next.ui.disclosures.textDetails]).toEqual(["existing:details"]);
   });
 
   it("ignores turn start acknowledgements after the turn has already gone idle", () => {
@@ -440,19 +488,48 @@ describe("chatReducer", () => {
     expect(state.ui.toolbarPanel).toBe("status-panel");
   });
 
-  it("updates remembered details and user input drafts through typed UI actions", () => {
+  it("updates typed disclosures, message actions, goal editor, and user input drafts through typed UI actions", () => {
     let state = createChatState();
 
-    state = chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: true });
-    expect(state.ui.openDetails.has("request:1")).toBe(true);
-    expect(chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: true })).toBe(state);
+    state = chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: true });
+    expect(state.ui.disclosures.approvalDetails.has("1:details")).toBe(true);
+    expect(chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: true })).toBe(state);
+    state = chatReducer(state, { type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
+    expect(state.ui.disclosures.goalObjectiveExpanded.has("thread")).toBe(true);
+
+    state = chatReducer(state, { type: "ui/message-fork-actions-set", itemId: "message-1" });
+    expect(state.ui.messageActions.forkActionsItemId).toBe("message-1");
+
+    state = chatReducer(state, { type: "ui/goal-editor-started", threadId: "thread", objective: "old", tokenBudget: 10 });
+    state = chatReducer(state, { type: "ui/goal-editor-draft-updated", objective: "new" });
+    expect(state.ui.goalEditor).toEqual({ kind: "editing", threadId: "thread", objectiveDraft: "new", tokenBudgetDraft: 10 });
 
     state = chatReducer(state, { type: "request/user-input-draft-set", key: "1:note", value: "answer" });
     expect(state.requests.userInputDrafts.get("1:note")).toBe("answer");
     expect(chatReducer(state, { type: "request/user-input-draft-set", key: "1:note", value: "answer" })).toBe(state);
 
-    state = chatReducer(state, { type: "ui/detail-open-set", key: "request:1", open: false });
-    expect(state.ui.openDetails.has("request:1")).toBe(false);
+    state = chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: false });
+    expect(state.ui.disclosures.approvalDetails.has("1:details")).toBe(false);
+    state = chatReducer(state, { type: "ui/goal-editor-closed" });
+    expect(state.ui.goalEditor.kind).toBe("closed");
+  });
+
+  it("clears expanded goal objective state when the displayed goal identity changes", () => {
+    let state = createChatState();
+    state = chatReducer(state, { type: "active-thread/goal-set", goal: goal("thread") });
+    state = chatReducer(state, { type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
+
+    const usageOnly = chatReducer(state, {
+      type: "active-thread/goal-set",
+      goal: { ...goal("thread"), tokensUsed: 10, timeUsedSeconds: 30 },
+    });
+    expect(usageOnly.ui.disclosures.goalObjectiveExpanded.has("thread")).toBe(true);
+
+    const objectiveChanged = chatReducer(usageOnly, {
+      type: "active-thread/goal-set",
+      goal: { ...goal("thread"), objective: "Changed" },
+    });
+    expect(objectiveChanged.ui.disclosures.goalObjectiveExpanded.size).toBe(0);
   });
 
   it("commits pending runtime settings and resets applied overrides", () => {
@@ -620,6 +697,19 @@ function goal(threadId: string): ThreadGoal {
     createdAt: 1,
     updatedAt: 1,
   };
+}
+
+function uiDisclosureCount(state: ChatState): number {
+  const disclosures = state.ui.disclosures;
+  return (
+    disclosures.toolResults.size +
+    disclosures.activityGroups.size +
+    disclosures.agentDetails.size +
+    disclosures.textDetails.size +
+    disclosures.userMessageExpanded.size +
+    disclosures.goalObjectiveExpanded.size +
+    disclosures.approvalDetails.size
+  );
 }
 
 export function thread(id: string): Thread {

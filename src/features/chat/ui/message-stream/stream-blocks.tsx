@@ -1,5 +1,4 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
-import { useLayoutEffect, useState } from "preact/hooks";
 
 import { activeTurnId } from "../../state/reducer";
 import { displayBlocksForItems } from "../../display/stream/blocks";
@@ -111,7 +110,7 @@ function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | nu
         snapshot.approvals,
         snapshot.pendingUserInputs,
         snapshot.userInputDrafts,
-        snapshot.openDetails,
+        snapshot.approvalDetails,
         context.pendingRequests.actions(),
         false,
         context.pendingRequests.consumeAutoFocus,
@@ -180,21 +179,14 @@ function ActivityGroup({
   group: Extract<DisplayBlock, { type: "activityGroup" }>;
   context: MessageStreamContext;
 }): UiNode {
-  const detailsKey = `turn:${group.turnId}:activity`;
-  const [open, setOpen] = useState(context.openDetails.has(detailsKey));
-
-  useLayoutEffect(() => {
-    setOpen(context.openDetails.has(detailsKey));
-  }, [context.openDetails, detailsKey]);
+  const open = context.disclosures.activityGroups.has(group.turnId);
 
   return (
     <details
       className="codex-panel__activity-group"
       open={open}
       onToggle={(event) => {
-        const nextOpen = event.currentTarget.open;
-        setOpen(nextOpen);
-        context.onDetailsToggle?.(detailsKey, nextOpen);
+        context.onDisclosureToggle?.("activityGroups", group.turnId, event.currentTarget.open);
       }}
     >
       <summary tabIndex={-1}>{group.summary}</summary>

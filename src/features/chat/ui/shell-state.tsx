@@ -1,6 +1,6 @@
 import { createContext } from "preact";
 import { useContext } from "preact/hooks";
-import { signal, type Signal } from "@preact/signals";
+import { batch, signal, type Signal } from "@preact/signals";
 
 import type { ChatState } from "../state/reducer";
 
@@ -16,10 +16,7 @@ export interface ChatPanelShellState {
   ui: Signal<ChatState["ui"]>;
 }
 
-export type ChatPanelToolbarShellState = Pick<
-  ChatState,
-  "connection" | "threadList" | "activeThread" | "runtime" | "turn" | "messageStream" | "ui"
->;
+export type ChatPanelToolbarShellState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "runtime" | "turn" | "ui">;
 
 export type ChatPanelGoalShellState = Pick<ChatState, "activeThread" | "ui">;
 
@@ -47,15 +44,17 @@ export function createChatPanelShellState(initialState: ChatState): ChatPanelShe
 }
 
 export function syncChatPanelShellState(shellState: ChatPanelShellState, nextState: ChatState): void {
-  if (shellState.connection.value !== nextState.connection) shellState.connection.value = nextState.connection;
-  if (shellState.threadList.value !== nextState.threadList) shellState.threadList.value = nextState.threadList;
-  if (shellState.activeThread.value !== nextState.activeThread) shellState.activeThread.value = nextState.activeThread;
-  if (shellState.runtime.value !== nextState.runtime) shellState.runtime.value = nextState.runtime;
-  if (shellState.turn.value !== nextState.turn) shellState.turn.value = nextState.turn;
-  if (shellState.messageStream.value !== nextState.messageStream) shellState.messageStream.value = nextState.messageStream;
-  if (shellState.requests.value !== nextState.requests) shellState.requests.value = nextState.requests;
-  if (shellState.composer.value !== nextState.composer) shellState.composer.value = nextState.composer;
-  if (shellState.ui.value !== nextState.ui) shellState.ui.value = nextState.ui;
+  batch(() => {
+    if (shellState.connection.value !== nextState.connection) shellState.connection.value = nextState.connection;
+    if (shellState.threadList.value !== nextState.threadList) shellState.threadList.value = nextState.threadList;
+    if (shellState.activeThread.value !== nextState.activeThread) shellState.activeThread.value = nextState.activeThread;
+    if (shellState.runtime.value !== nextState.runtime) shellState.runtime.value = nextState.runtime;
+    if (shellState.turn.value !== nextState.turn) shellState.turn.value = nextState.turn;
+    if (shellState.messageStream.value !== nextState.messageStream) shellState.messageStream.value = nextState.messageStream;
+    if (shellState.requests.value !== nextState.requests) shellState.requests.value = nextState.requests;
+    if (shellState.composer.value !== nextState.composer) shellState.composer.value = nextState.composer;
+    if (shellState.ui.value !== nextState.ui) shellState.ui.value = nextState.ui;
+  });
 }
 
 export function toolbarStateFromShellState(shellState: ChatPanelShellState): ChatPanelToolbarShellState {
@@ -65,7 +64,6 @@ export function toolbarStateFromShellState(shellState: ChatPanelShellState): Cha
     activeThread: shellState.activeThread.value,
     runtime: shellState.runtime.value,
     turn: shellState.turn.value,
-    messageStream: shellState.messageStream.value,
     ui: shellState.ui.value,
   };
 }

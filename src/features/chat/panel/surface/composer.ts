@@ -14,9 +14,7 @@ import { contextSummary } from "../../display/status/runtime";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import { runtimeSnapshotForChatSlices } from "../../runtime/snapshot";
 import type { ChatState } from "../../state/reducer";
-import { messageStreamDisplayItems } from "../../state/message-stream";
 import type {
   ComposerContextMeterCellViewModel,
   ComposerContextMeterViewModel,
@@ -27,6 +25,7 @@ import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
 import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../../ui/shell-state";
 import { explicitThreadName } from "../../../../domain/threads/model";
 import type { ChatPanelComposerPorts, RestoredThreadTitleSnapshot } from "./ports";
+import { runtimeSnapshotForShellState } from "./runtime-snapshot";
 
 type ComposerMetaState = Pick<ChatState, "connection" | "runtime">;
 
@@ -62,14 +61,7 @@ export function chatPanelComposerMetaViewModel(
   modelChoices: RuntimeChoice[];
   effortChoices: RuntimeChoice[];
 } {
-  const snapshot = runtimeSnapshotForChatSlices({
-    runtimeConfig: state.connection.runtimeConfig,
-    activeThread: state.activeThread,
-    runtime: state.runtime,
-    rateLimit: state.connection.rateLimit,
-    displayItems: messageStreamDisplayItems(state.messageStream),
-    availableModels: state.connection.availableModels,
-  });
+  const snapshot = runtimeSnapshotForShellState(state);
   return {
     ...composerMetaViewModel(state, snapshot),
     ...runtimeComposerChoices({
@@ -83,7 +75,7 @@ export function chatPanelComposerMetaViewModel(
 }
 
 export function composerMetaViewModel(state: ComposerMetaState, snapshot: RuntimeSnapshot): ComposerMetaViewModel {
-  if (state.connection.status === "Connection failed.") {
+  if (state.connection.phase.kind === "failed" || state.connection.phase.kind === "disconnected") {
     return {
       fatal: "Codex app-server disconnected",
       context: contextComposerMeter(null),

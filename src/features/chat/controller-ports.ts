@@ -2,13 +2,13 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/connection/client";
 import type { ArchiveExportAdapter } from "../thread-export/archive-markdown";
-import type { ChatStateStore } from "./state/reducer";
+import type { ChatConnectionPhase, ChatStateStore } from "./state/reducer";
 import type { ChatMessageScrollIntentState } from "./ui/message-stream/scroll-intent-state";
 import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
 import type { ComposerMetaViewModel } from "./ui/composer";
 import type { CodexChatHost } from "./chat-host";
-import type { ChatPanelShellSlots } from "./ui/shell";
+import type { ChatPanelShellParts } from "./ui/shell";
 import type { ChatPanelComposerShellState } from "./ui/shell-state";
 
 export interface ChatControllerPorts {
@@ -61,9 +61,8 @@ interface ChatPanelLifecycleContext {
 
 interface ChatPanelRenderContext {
   panelRoot: () => HTMLElement | null;
-  shellSlots: () => ChatPanelShellSlots;
+  shellParts: () => ChatPanelShellParts;
   closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
-  schedule: () => void;
 }
 
 interface ChatPanelSurfaceContext {
@@ -100,5 +99,5 @@ interface ChatPanelScrollContext {
 }
 
 interface ChatPanelStatusContext {
-  set: (status: string) => void;
+  set: (statusText: string, phase?: ChatConnectionPhase) => void;
 }

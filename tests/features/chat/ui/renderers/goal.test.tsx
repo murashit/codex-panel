@@ -2,9 +2,10 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
+import { useState } from "preact/hooks";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { GoalPanel, type GoalPanelActions } from "../../../../../src/features/chat/ui/goal";
+import { GoalPanel, type GoalPanelActions, type GoalPanelEditorState } from "../../../../../src/features/chat/ui/goal";
 import type { SendShortcut } from "../../../../../src/shared/ui/keyboard";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../../support/dom";
@@ -27,13 +28,9 @@ describe("GoalPanel", () => {
     const parent = document.createElement("div");
     document.body.appendChild(parent);
     const callbacks = actions();
-    const onEditingChange = vi.fn();
 
     await act(async () => {
-      renderUiRoot(
-        parent,
-        <GoalPanel goal={null} actions={callbacks} options={{ sendShortcut: "enter", editingRequested: true, onEditingChange }} />,
-      );
+      renderGoal(parent, null, callbacks, "enter", { editing: true, objectiveDraft: "", tokenBudgetDraft: null });
     });
 
     expect(parent.textContent).toContain("Goal");
@@ -43,7 +40,6 @@ describe("GoalPanel", () => {
     await click(parent, '[aria-label="Save goal"]');
 
     expect(callbacks.onSave).toHaveBeenCalledWith("New objective", null);
-    expect(onEditingChange).toHaveBeenCalledWith(false);
     parent.remove();
   });
 
@@ -239,16 +235,68 @@ function renderGoal(
   currentGoal: ThreadGoal | null,
   callbacks: GoalPanelActions = actions(),
   sendShortcut: SendShortcut = "enter",
+  initialEditor?: GoalPanelEditorState,
 ): void {
-  renderUiRoot(parent, <GoalPanel goal={currentGoal} actions={callbacks} options={{ sendShortcut }} />);
+  const harnessProps = {
+    goal: currentGoal,
+    actions: callbacks,
+    sendShortcut,
+    ...(initialEditor ? { initialEditor } : {}),
+  };
+  renderUiRoot(parent, <GoalPanelHarness {...harnessProps} />);
 }
 
-function actions() {
+function GoalPanelHarness({
+  goal,
+  actions: callbacks,
+  sendShortcut,
+  initialEditor,
+}: {
+  goal: ThreadGoal | null;
+  actions: GoalPanelActions;
+  sendShortcut: SendShortcut;
+  initialEditor?: GoalPanelEditorState;
+}) {
+  const [editor, setEditor] = useState<GoalPanelEditorState>(
+    initialEditor ?? { editing: false, objectiveDraft: "", tokenBudgetDraft: goal?.tokenBudget ?? null },
+  );
+  const [objectiveExpanded, setObjectiveExpanded] = useState(false);
+  const actions: GoalPanelActions = {
+    ...callbacks,
+    onStartEditing: () => {
+      callbacks.onStartEditing();
+      setEditor({ editing: true, objectiveDraft: goal?.objective ?? "", tokenBudgetDraft: goal?.tokenBudget ?? null });
+    },
+    onCancelEditing: () => {
+      callbacks.onCancelEditing();
+      setEditor({ editing: false, objectiveDraft: "", tokenBudgetDraft: goal?.tokenBudget ?? null });
+    },
+    onObjectiveDraftChange: (objective) => {
+      callbacks.onObjectiveDraftChange(objective);
+      setEditor((current) => ({ ...current, objectiveDraft: objective }));
+    },
+    onSave: (objective, tokenBudget) => {
+      callbacks.onSave(objective, tokenBudget);
+      setEditor({ editing: false, objectiveDraft: "", tokenBudgetDraft: goal?.tokenBudget ?? null });
+    },
+    onObjectiveExpandedChange: (expanded) => {
+      callbacks.onObjectiveExpandedChange(expanded);
+      setObjectiveExpanded(expanded);
+    },
+  };
+  return <GoalPanel goal={goal} actions={actions} options={{ sendShortcut }} editor={editor} display={{ objectiveExpanded }} />;
+}
+
+function actions(): GoalPanelActions {
   return {
     onSave: vi.fn(),
     onPause: vi.fn(),
     onResume: vi.fn(),
     onClear: vi.fn(),
+    onStartEditing: vi.fn(),
+    onCancelEditing: vi.fn(),
+    onObjectiveDraftChange: vi.fn(),
+    onObjectiveExpandedChange: vi.fn(),
   };
 }
 

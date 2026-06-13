@@ -13,7 +13,7 @@ export function pendingRequestBlockNode(
   approvals: readonly PendingApprovalViewModel[],
   pendingUserInputs: readonly PendingUserInputViewModel[],
   userInputDrafts: ReadonlyMap<string, string>,
-  openDetails: ReadonlySet<string>,
+  approvalDetails: ReadonlySet<string>,
   actions: PendingRequestBlockActions,
   autoFocusRequested = false,
   consumeAutoFocus?: () => boolean,
@@ -24,7 +24,7 @@ export function pendingRequestBlockNode(
       approvals={approvals}
       pendingUserInputs={pendingUserInputs}
       userInputDrafts={userInputDrafts}
-      openDetails={openDetails}
+      approvalDetails={approvalDetails}
       actions={actions}
       autoFocusRequested={autoFocusRequested}
       consumeAutoFocus={consumeAutoFocus}
@@ -37,7 +37,7 @@ function PendingRequestBlock({
   approvals,
   pendingUserInputs,
   userInputDrafts,
-  openDetails,
+  approvalDetails,
   actions,
   autoFocusRequested,
   consumeAutoFocus,
@@ -46,7 +46,7 @@ function PendingRequestBlock({
   approvals: readonly PendingApprovalViewModel[];
   pendingUserInputs: readonly PendingUserInputViewModel[];
   userInputDrafts: ReadonlyMap<string, string>;
-  openDetails: ReadonlySet<string>;
+  approvalDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
   autoFocusRequested: boolean;
   consumeAutoFocus: (() => boolean) | undefined;
@@ -64,7 +64,7 @@ function PendingRequestBlock({
     <div ref={requestRef} className={createWorkMessageClassName("codex-panel__pending-request-block", "warning")}>
       <div className="codex-panel__message-role">Request</div>
       {approvals.map((approval) => (
-        <ApprovalCard key={String(approval.requestId)} approval={approval} openDetails={openDetails} actions={actions} />
+        <ApprovalCard key={String(approval.requestId)} approval={approval} approvalDetails={approvalDetails} actions={actions} />
       ))}
       {pendingUserInputs.map((input) => (
         <UserInputCard key={String(input.requestId)} input={input} userInputDrafts={userInputDrafts} actions={actions} />
@@ -91,11 +91,11 @@ function focusPendingRequestControl(container: HTMLElement | null): void {
 
 function ApprovalCard({
   approval,
-  openDetails,
+  approvalDetails,
   actions,
 }: {
   approval: PendingApprovalViewModel;
-  openDetails: ReadonlySet<string>;
+  approvalDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
   return (
@@ -103,7 +103,7 @@ function ApprovalCard({
       <div className="codex-panel__pending-request-info">
         <div className="codex-panel__pending-request-title">{approval.title}</div>
         <div className="codex-panel__pending-request-body">{approval.summary}</div>
-        <ApprovalDetails approval={approval} openDetails={openDetails} actions={actions} />
+        <ApprovalDetails approval={approval} approvalDetails={approvalDetails} actions={actions} />
       </div>
       <div className="codex-panel__pending-request-actions">
         {approval.actions.map((option) => (
@@ -123,20 +123,20 @@ function ApprovalCard({
 
 function ApprovalDetails({
   approval,
-  openDetails,
+  approvalDetails,
   actions,
 }: {
   approval: PendingApprovalViewModel;
-  openDetails: ReadonlySet<string>;
+  approvalDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
-  const key = `approval:${String(approval.requestId)}:details`;
+  const detailId = `${String(approval.requestId)}:details`;
   return (
     <details
       className="codex-panel__approval-details"
-      open={openDetails.has(key)}
+      open={approvalDetails.has(detailId)}
       onToggle={(event) => {
-        actions.setOpenDetail?.(key, event.currentTarget.open);
+        actions.setApprovalDetailsExpanded?.(approval.requestId, event.currentTarget.open);
       }}
     >
       <summary tabIndex={-1}>Request details</summary>

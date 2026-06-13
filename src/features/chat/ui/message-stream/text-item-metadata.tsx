@@ -190,9 +190,9 @@ function RememberedDetails({
   const details = (
     <details
       className={detailsClassName}
-      open={context.openDetails.has(detailsKey)}
+      open={context.disclosures.textDetails.has(detailsKey)}
       onToggle={(event) => {
-        context.onDetailsToggle?.(detailsKey, event.currentTarget.open);
+        context.onDisclosureToggle?.("textDetails", detailsKey, event.currentTarget.open);
       }}
     >
       <summary tabIndex={-1}>{summary}</summary>

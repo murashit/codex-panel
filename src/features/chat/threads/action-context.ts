@@ -13,7 +13,6 @@ export interface ChatThreadActionsHost {
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
-  render: () => void;
   openThreadInNewView: (threadId: string) => Promise<unknown>;
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyThreadArchived: (threadId: string) => void;

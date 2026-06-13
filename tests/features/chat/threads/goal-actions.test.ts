@@ -13,7 +13,6 @@ describe("createGoalActions", () => {
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
     const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
-    const render = vi.fn();
     const refreshLiveState = vi.fn();
     const controller = createGoalActions({
       stateStore,
@@ -21,7 +20,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
-      render,
       refreshLiveState,
     });
 
@@ -29,7 +27,6 @@ describe("createGoalActions", () => {
 
     expect(stateStore.getState().activeThread.goal).toEqual(currentGoal);
     expect(refreshLiveState).toHaveBeenCalledOnce();
-    expect(render).toHaveBeenCalledOnce();
   });
 
   it("reports goal sync failures without clearing the active thread", async () => {
@@ -44,7 +41,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -76,7 +72,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent,
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -108,7 +103,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -135,7 +129,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -163,7 +156,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent,
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -202,7 +194,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -228,7 +219,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -252,7 +242,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage: vi.fn(),
       addGoalEvent,
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -277,7 +266,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent,
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 
@@ -300,7 +288,6 @@ describe("createGoalActions", () => {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
       addSystemMessage,
       addGoalEvent: vi.fn(),
-      render: vi.fn(),
       refreshLiveState: vi.fn(),
     });
 

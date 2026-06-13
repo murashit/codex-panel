@@ -8,7 +8,6 @@ import { messageStreamDisplayItems } from "../state/message-stream";
 export interface HistoryControllerHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
-  render: () => void;
   addSystemMessage: (text: string) => void;
   keepCurrentScrollPosition: () => void;
   showLatestPageAtBottom: () => void;
@@ -65,7 +64,6 @@ export class HistoryController {
       items: displayItemsFromTurns(response.data),
       historyCursor: response.nextCursor,
     });
-    this.host.render();
     return true;
   }
 
@@ -101,7 +99,6 @@ export class HistoryController {
     const load: ActiveThreadHistoryLoad = { kind: "loading", threadId, mode };
     this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "started", load });
     this.dispatch({ type: "message-stream/history-loading-set", loading: true });
-    this.host.render();
     return load;
   }
 
@@ -109,7 +106,6 @@ export class HistoryController {
     if (this.isStale(load)) return;
     this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "finished", load });
     this.dispatch({ type: "message-stream/history-loading-set", loading: false });
-    this.host.render();
   }
 
   private isStale(load: ActiveThreadHistoryLoad): boolean {

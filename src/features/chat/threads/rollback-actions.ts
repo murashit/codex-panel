@@ -43,7 +43,6 @@ export async function rollbackThread(host: ChatThreadActionsHost, threadId: stri
     });
     host.setComposerText(candidate.text);
     host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
-    host.render();
     host.setStatus("Rolled back latest turn.");
     host.notifyActiveThreadIdentityChanged();
     await host.refreshThreads();

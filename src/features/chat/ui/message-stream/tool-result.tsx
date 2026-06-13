@@ -1,13 +1,14 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { toolResultView, type ToolResultDetailSection, type ToolResultDisplayItem, type ToolResultView } from "./tool-result-view-model";
 import { renderRawDiffLines } from "../../../../shared/diff/render";
+import type { ChatDisclosureUiState } from "../../state/reducer";
 
 export interface ToolResultRenderContext {
   workspaceRoot?: string | null;
-  openDetails: ReadonlySet<string>;
-  onDetailsToggle?: (key: string, open: boolean) => void;
+  disclosures: ChatDisclosureUiState;
+  onDisclosureToggle?: (bucket: "toolResults", id: string, open: boolean) => void;
 }
 
 export function toolResultNode(item: ToolResultDisplayItem, context: ToolResultRenderContext): UiNode {
@@ -16,12 +17,8 @@ export function toolResultNode(item: ToolResultDisplayItem, context: ToolResultR
 
 function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: ToolResultRenderContext }): UiNode {
   const view = toolResultView(item, context.workspaceRoot);
-  const [open, setOpen] = useState(context.openDetails.has(view.detailsKey));
+  const open = context.disclosures.toolResults.has(view.detailsKey);
   const hasSummary = view.summary.trim().length > 0;
-
-  useLayoutEffect(() => {
-    setOpen(context.openDetails.has(view.detailsKey));
-  }, [context.openDetails, view.detailsKey]);
 
   const className = [
     view.className,
@@ -48,9 +45,7 @@ function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: T
         className="codex-panel__tool-result-details"
         open={open}
         onToggle={(event) => {
-          const nextOpen = event.currentTarget.open;
-          setOpen(nextOpen);
-          context.onDetailsToggle?.(view.detailsKey, nextOpen);
+          context.onDisclosureToggle?.("toolResults", view.detailsKey, event.currentTarget.open);
         }}
       >
         <ToolResultHeader view={view} />

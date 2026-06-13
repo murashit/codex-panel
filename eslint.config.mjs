@@ -22,10 +22,22 @@ const removedChatStateEscapeHatchRestrictions = [
     message: "Use a named ChatAction instead of reintroducing the generic state patch escape hatch.",
   },
 ];
+const chatSignalAdapterRestrictions = [
+  {
+    selector: "ImportDeclaration[source.value='@preact/signals']",
+    message: "Keep chat signals in ui/shell-state.tsx as a reducer-to-Preact notification adapter.",
+  },
+];
+const uiRootImportRestrictions = [
+  {
+    selector: "ImportDeclaration[source.value=/shared\\/ui\\/ui-root$/]",
+    message: "Import the Preact root adapter only from explicit root bridge files.",
+  },
+];
 const generatedAppServerSourceImportPatterns = importBoundaryPatterns("generated/app-server", "src/generated/app-server", 6);
 const generatedAppServerTestImportPatterns = importBoundaryPatterns("src/generated/app-server", "src/generated/app-server", 6);
 const lowerLevelFeatureImportPatterns = importBoundaryPatterns("features", "src/features", 6);
-const featureBannedAppServerProtocolModules = [
+const nonAppServerBannedAppServerProtocolModules = [
   "catalog",
   "diagnostics",
   "initialization",
@@ -38,7 +50,7 @@ const featureBannedAppServerProtocolModules = [
   "thread-settings",
   "turn-history",
 ];
-const featureBannedAppServerProtocolImportPatterns = featureBannedAppServerProtocolModules.flatMap((moduleName) =>
+const nonAppServerBannedAppServerProtocolImportPatterns = nonAppServerBannedAppServerProtocolModules.flatMap((moduleName) =>
   importBoundaryPatterns(`app-server/protocol/${moduleName}`, `src/app-server/protocol/${moduleName}`, 6),
 );
 const generatedAppServerThreadImportRestrictions = [
@@ -138,16 +150,21 @@ const chatExternalDomBridgeFiles = [
   "src/features/chat/ui/message-stream/virtualizer.ts",
 ];
 const chatPreactDomBridgeFiles = [
-  "src/features/chat/ui/goal.tsx",
-  "src/features/chat/ui/message-stream/text-item-actions.tsx",
   "src/features/chat/ui/message-stream/text-item.tsx",
   "src/features/chat/ui/message-stream/tool-result.tsx",
   "src/features/chat/ui/message-stream/viewport.tsx",
-  "src/features/chat/ui/composer.tsx",
+  "src/features/chat/ui/composer-dom.ts",
   "src/features/chat/ui/shell.tsx",
   "src/features/chat/turn-diff/render.tsx",
 ];
 const chatImperativeDomBridgeFiles = [...chatExternalDomBridgeFiles, ...chatPreactDomBridgeFiles];
+const uiRootBridgeFiles = [
+  "src/features/chat/ui/shell.tsx",
+  "src/features/chat/turn-diff/render.tsx",
+  "src/features/chat/turn-diff/view.ts",
+  "src/features/selection-rewrite/popover.tsx",
+  "src/features/threads-view/renderer.tsx",
+];
 const nonChatImperativeDomBridgeFiles = [
   "src/features/selection-rewrite/popover.tsx",
   "src/features/thread-picker/modal.ts",
@@ -160,15 +177,18 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/textarea-caret.ts",
   "src/shared/ui/ui-root.tsx",
 ];
-const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts"];
+const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts", "src/shared/ui/dom-events.ts"];
 const baseSourceSyntaxRestrictions = [
   ...removedChatStateEscapeHatchRestrictions,
   ...generatedAppServerThreadImportRestrictions,
   ...unsafeIteratorRestrictions,
   ...preactFormRestrictions,
 ];
-const sourceSyntaxRestrictions = baseSourceSyntaxRestrictions;
-const domBridgeSyntaxRestrictions = baseSourceSyntaxRestrictions;
+const sourceSyntaxRestrictionsWithoutUiRoot = [...baseSourceSyntaxRestrictions, ...chatSignalAdapterRestrictions];
+const sourceSyntaxRestrictions = [...sourceSyntaxRestrictionsWithoutUiRoot, ...uiRootImportRestrictions];
+const chatSourceSyntaxRestrictions = sourceSyntaxRestrictions;
+const chatDomBridgeSyntaxRestrictions = sourceSyntaxRestrictions;
+const nonChatDomBridgeSyntaxRestrictions = sourceSyntaxRestrictions;
 const pureChatModelSyntaxRestrictions = [...sourceSyntaxRestrictions, ...pureChatModelRestrictions];
 const codexPanelEslintPlugin = {
   rules: {
@@ -208,15 +228,68 @@ const codexPanelEslintPlugin = {
       },
       create(context) {
         const mutatingCollectionMethods = new Set(["add", "clear", "delete", "push", "set"]);
+        const chatStateAliasVariables = new WeakSet();
+        let parserServices = null;
+        let checker = null;
+        const typeChecker = () => {
+          if (!parserServices) {
+            parserServices = parserServicesFromContext(context);
+            checker = parserServices.program.getTypeChecker();
+          }
+          return checker;
+        };
+        const variableForIdentifier = (node) => {
+          let scope = context.sourceCode.getScope(node);
+          while (scope) {
+            const variable = scope.variables.find((item) => item.name === node.name);
+            if (variable) return variable;
+            scope = scope.upper;
+          }
+          return null;
+        };
+        const markChatStateAlias = (node) => {
+          const variable = variableForIdentifier(node);
+          if (variable) chatStateAliasVariables.add(variable);
+        };
+        const isChatStateAlias = (node) => {
+          if (node?.type !== "Identifier") return false;
+          const variable = variableForIdentifier(node);
+          return Boolean(variable && chatStateAliasVariables.has(variable));
+        };
+        const typeAt = (node) => {
+          const services = parserServices ?? parserServicesFromContext(context);
+          if (!parserServices) {
+            parserServices = services;
+            checker = services.program.getTypeChecker();
+          }
+          const tsNode = services.esTreeNodeToTSNodeMap.get(node);
+          return typeChecker().getTypeAtLocation(tsNode);
+        };
+        const isChatStateValue = (node) => typeIncludesChatState(typeAt(node), typeChecker());
+        const isChatStateAliasSource = (node) =>
+          (isChatStateTarget(node) || isChatStateValue(node)) && typeCanCarryChatStateMutation(typeAt(node));
+        const isChatStateTarget = (node) => {
+          if (isChatStateAlias(node)) return true;
+          if (!isMemberExpression(node)) return false;
+          if (isChatStateMember(node)) return true;
+          const root = rootMemberObject(node);
+          if (!root) return false;
+          if (isChatStateAlias(root)) return true;
+          return typeIncludesChatState(typeAt(root), typeChecker());
+        };
         return {
+          VariableDeclarator(node) {
+            if (node.id.type !== "Identifier" || !node.init) return;
+            if (isChatStateAliasSource(node.init)) markChatStateAlias(node.id);
+          },
           AssignmentExpression(node) {
-            if (isChatStateMember(node.left)) context.report({ node: node.left, messageId: "assign" });
+            if (isMemberExpression(node.left) && isChatStateTarget(node.left)) context.report({ node: node.left, messageId: "assign" });
           },
           CallExpression(node) {
             if (!isMemberExpression(node.callee)) return;
             const method = staticPropertyName(node.callee.property);
             if (!method || !mutatingCollectionMethods.has(method)) return;
-            if (isChatStateMember(node.callee.object)) context.report({ node: node.callee, messageId: "mutateCollection" });
+            if (isChatStateTarget(node.callee.object)) context.report({ node: node.callee, messageId: "mutateCollection" });
           },
         };
       },
@@ -319,6 +392,13 @@ function isThisStateMember(node) {
   return isMemberExpression(node) && node.object?.type === "ThisExpression" && staticPropertyName(node.property) === "state";
 }
 
+function rootMemberObject(node) {
+  if (!isMemberExpression(node)) return null;
+  let current = node;
+  while (isMemberExpression(current)) current = current.object;
+  return current;
+}
+
 function isMemberExpression(node) {
   return node?.type === "MemberExpression";
 }
@@ -359,10 +439,53 @@ function typeIncludesDom(type, checker, seen = new Set()) {
   return bases.some((base) => typeIncludesDom(base, checker, seen));
 }
 
+function typeIncludesChatState(type, checker, seen = new Set()) {
+  if (!type || seen.has(type.id)) return false;
+  seen.add(type.id);
+
+  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never)) return false;
+  if (type.isUnionOrIntersection()) return type.types.some((item) => typeIncludesChatState(item, checker, seen));
+
+  const typeName = checker.typeToString(type);
+  if (chatStateTypeName(typeName)) return true;
+
+  const symbolName = type.getSymbol()?.getName() ?? type.aliasSymbol?.getName() ?? "";
+  if (chatStateTypeName(symbolName)) return true;
+
+  const apparent = checker.getApparentType(type);
+  if (apparent !== type && typeIncludesChatState(apparent, checker, seen)) return true;
+
+  const bases = typeof type.getBaseTypes === "function" ? (type.getBaseTypes() ?? []) : [];
+  return bases.some((base) => typeIncludesChatState(base, checker, seen));
+}
+
+function typeCanCarryChatStateMutation(type, seen = new Set()) {
+  if (!type || seen.has(type.id)) return false;
+  seen.add(type.id);
+
+  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never)) return false;
+  if (type.isUnionOrIntersection()) return type.types.some((item) => typeCanCarryChatStateMutation(item, seen));
+
+  const primitiveLikeFlags =
+    ts.TypeFlags.StringLike |
+    ts.TypeFlags.NumberLike |
+    ts.TypeFlags.BooleanLike |
+    ts.TypeFlags.BigIntLike |
+    ts.TypeFlags.ESSymbolLike |
+    ts.TypeFlags.Null |
+    ts.TypeFlags.Undefined |
+    ts.TypeFlags.Void;
+  return (type.flags & primitiveLikeFlags) === 0;
+}
+
 function domTypeName(name) {
   return /\b(?:AbortSignal|Document|Element|EventTarget|HTML[A-Za-z]*Element|HTMLElement|Node|SVG[A-Za-z]*Element|SVGElement|Window)\b/.test(
     name,
   );
+}
+
+function chatStateTypeName(name) {
+  return /\bChatState\b/.test(name);
 }
 
 function findInitializerCallbackReference(root, name) {
@@ -516,9 +639,17 @@ export default defineConfig([
   },
   {
     files: ["src/features/chat/**/*.{ts,tsx}"],
-    ignores: chatImperativeDomBridgeFiles,
+    ignores: ["src/features/chat/ui/shell-state.tsx", ...chatImperativeDomBridgeFiles],
     rules: {
-      ...restrictedSyntaxRule(sourceSyntaxRestrictions),
+      ...restrictedSyntaxRule(chatSourceSyntaxRestrictions),
+      "codex-panel/no-imperative-dom": "error",
+      "codex-panel/no-chat-state-direct-mutation": "error",
+    },
+  },
+  {
+    files: ["src/features/chat/ui/shell-state.tsx"],
+    rules: {
+      ...restrictedSyntaxRule(baseSourceSyntaxRestrictions),
       "codex-panel/no-imperative-dom": "error",
       "codex-panel/no-chat-state-direct-mutation": "error",
     },
@@ -526,13 +657,13 @@ export default defineConfig([
   {
     files: chatImperativeDomBridgeFiles,
     rules: {
-      ...restrictedSyntaxRule(domBridgeSyntaxRestrictions),
+      ...restrictedSyntaxRule(chatDomBridgeSyntaxRestrictions),
       "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },
   {
     files: nonChatImperativeDomBridgeFiles,
-    rules: restrictedSyntaxRule(domBridgeSyntaxRestrictions),
+    rules: restrictedSyntaxRule(nonChatDomBridgeSyntaxRestrictions),
   },
   {
     files: nonUiEventListenerFiles,
@@ -540,6 +671,10 @@ export default defineConfig([
       ...restrictedSyntaxRule(sourceSyntaxRestrictions),
       "codex-panel/no-imperative-dom": ["error", { allowEvents: true }],
     },
+  },
+  {
+    files: uiRootBridgeFiles,
+    rules: restrictedSyntaxRule(sourceSyntaxRestrictionsWithoutUiRoot),
   },
   {
     files: ["src/features/chat/state/**/*.{ts,tsx}", "src/features/chat/display/**/*.{ts,tsx}"],
@@ -566,23 +701,6 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/features/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: featureBannedAppServerProtocolImportPatterns,
-              message:
-                "Feature modules must use domain models and app-server services instead of app-server protocol modules. The turn display/history protocol remains the only feature-side exception.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/app-server/**/*.{ts,tsx}"],
     rules: {
@@ -590,6 +708,11 @@ export default defineConfig([
         "error",
         {
           patterns: [
+            {
+              group: nonAppServerBannedAppServerProtocolImportPatterns,
+              message:
+                "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. The turn display/history protocol remains the only feature-side exception.",
+            },
             {
               group: generatedAppServerSourceImportPatterns,
               message: "Keep generated app-server types behind src/app-server; expose Panel-owned models to feature, UI, and reducer code.",

@@ -6,12 +6,11 @@ import { getThreadTitle } from "../../../../domain/threads/model";
 import { runtimeConfigSections, rateLimitSummary } from "../../display/status/runtime";
 import { connectionDiagnosticSections } from "../../display/status/diagnostics";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import { runtimeSnapshotForChatSlices } from "../../runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../state/reducer";
-import { messageStreamDisplayItems } from "../../state/message-stream";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../../ui/shell-state";
 import { Toolbar, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
 import type { ChatPanelToolbarPorts } from "./ports";
+import { runtimeSnapshotForToolbarShellState } from "./runtime-snapshot";
 
 type ToolbarState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "ui">;
 
@@ -19,13 +18,11 @@ export interface ToolbarViewModelInput {
   state: ToolbarState;
   snapshot: RuntimeSnapshot;
   connected: boolean;
+  nowMs: number;
   turnBusy: boolean;
   vaultPath: string;
   configuredCommand: string;
-  archiveConfirmThreadId: string | null;
   archiveExportEnabled: boolean;
-  renameRevision: number;
-  renameState: (threadId: string, renameRevision: number) => ToolbarThreadRow["rename"];
 }
 
 export interface ConnectionDiagnosticsModelInput {
@@ -37,22 +34,13 @@ export interface ConnectionDiagnosticsModelInput {
 function chatPanelToolbarViewModel(ports: ChatPanelToolbarPorts, state: ChatPanelToolbarShellState) {
   return toolbarViewModel({
     state,
-    snapshot: runtimeSnapshotForChatSlices({
-      runtimeConfig: state.connection.runtimeConfig,
-      activeThread: state.activeThread,
-      runtime: state.runtime,
-      rateLimit: state.connection.rateLimit,
-      displayItems: messageStreamDisplayItems(state.messageStream),
-      availableModels: state.connection.availableModels,
-    }),
+    snapshot: runtimeSnapshotForToolbarShellState(state),
     connected: ports.state.connected(),
+    nowMs: ports.state.nowMs(),
     turnBusy: chatTurnBusy(state),
     vaultPath: ports.settings.vaultPath(),
     configuredCommand: ports.settings.configuredCommand(),
-    archiveConfirmThreadId: ports.view.toolbar.archiveConfirm.value,
     archiveExportEnabled: ports.settings.archiveExportEnabled(),
-    renameRevision: ports.view.toolbar.renameVersion.value,
-    renameState: (threadId, _renameRevision) => ports.view.toolbar.renameState(threadId),
   });
 }
 
@@ -63,7 +51,7 @@ export function ChatPanelToolbar({ ports }: { ports: ChatPanelToolbarPorts }): U
 
 export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
-  const limit = rateLimitSummary(snapshot, Date.now());
+  const limit = rateLimitSummary(snapshot, input.nowMs);
   const historyOpen = state.ui.toolbarPanel === "history";
   const chatActionsOpen = state.ui.toolbarPanel === "chat-actions";
   const statusPanelOpen = state.ui.toolbarPanel === "status-panel";
@@ -79,10 +67,9 @@ export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel
       threads: state.threadList.listedThreads,
       activeThreadId: state.activeThread.id,
       turnBusy: input.turnBusy,
-      archiveConfirmThreadId: input.archiveConfirmThreadId,
+      archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
       archiveExportEnabled: input.archiveExportEnabled,
-      renameRevision: input.renameRevision,
-      renameState: input.renameState,
+      renameState: state.ui.rename,
     }),
     connectLabel: input.connected ? "Reconnect" : "Connect",
     diagnostics: connectionDiagnosticsModel({
@@ -99,10 +86,8 @@ function toolbarThreadRows(input: {
   turnBusy: boolean;
   archiveConfirmThreadId: string | null;
   archiveExportEnabled: boolean;
-  renameRevision: number;
-  renameState: (threadId: string, renameRevision: number) => ToolbarThreadRow["rename"];
+  renameState: ChatState["ui"]["rename"];
 }): ToolbarThreadRow[] {
-  const renameRevision = input.renameRevision;
   return input.threads.map((thread) => {
     const threadId = thread.id;
     return {
@@ -115,9 +100,17 @@ function toolbarThreadRows(input: {
         active: input.archiveConfirmThreadId === threadId,
         defaultSaveMarkdown: input.archiveExportEnabled,
       },
-      rename: input.renameState(threadId, renameRevision),
+      rename: toolbarRenameState(input.renameState, threadId),
     };
   });
+}
+
+function toolbarRenameState(renameState: ChatState["ui"]["rename"], threadId: string): ToolbarThreadRow["rename"] {
+  if (renameState.kind === "idle" || renameState.threadId !== threadId) return null;
+  return {
+    draft: renameState.draft,
+    generating: renameState.kind === "generating",
+  };
 }
 
 export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): ReturnType<typeof connectionDiagnosticSections> {

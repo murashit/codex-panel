@@ -14,7 +14,12 @@ export interface MessageStreamViewportState {
   registerVirtualizer?: (virtualizer: MessageStreamVirtualizerHandle) => () => void;
 }
 
-export function MessageStreamViewport({ state }: { state: MessageStreamViewportState }): UiNode {
+export interface MessageStreamViewportProps {
+  state: MessageStreamViewportState;
+  rootAttributes?: Partial<Record<`data-${string}`, string>>;
+}
+
+export function MessageStreamViewport({ state, rootAttributes }: MessageStreamViewportProps): UiNode {
   const { blocks, consumeScrollIntent, registerVirtualizer } = state;
   const scrollElementRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useMessageStreamVirtualizer({ blocks, consumeScrollIntent, registerVirtualizer, scrollElementRef });
@@ -27,7 +32,11 @@ export function MessageStreamViewport({ state }: { state: MessageStreamViewportS
   );
 
   return (
-    <div ref={scrollElementRef} className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
+    <div
+      {...rootAttributes}
+      ref={scrollElementRef}
+      className="codex-panel__region codex-panel__region--message-stream codex-panel__messages"
+    >
       <div className="codex-panel__message-virtualizer" style={{ height: `${String(virtualizer.getTotalSize())}px` }}>
         {virtualItems.map((virtualItem) => (
           <MessageStreamBlockHost

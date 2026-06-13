@@ -33,3 +33,35 @@ export interface TokenUsageBreakdown {
   outputTokens: number;
   reasoningOutputTokens: number;
 }
+
+interface TokenUsageBreakdownInput {
+  totalTokens: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningOutputTokens: number;
+}
+
+interface ThreadTokenUsageInput {
+  total: TokenUsageBreakdownInput;
+  last: TokenUsageBreakdownInput;
+  modelContextWindow: number | null;
+}
+
+export function threadTokenUsageFromRuntimeUsage(usage: ThreadTokenUsageInput): ThreadTokenUsage {
+  return {
+    total: tokenUsageBreakdownFromRuntimeBreakdown(usage.total),
+    last: tokenUsageBreakdownFromRuntimeBreakdown(usage.last),
+    modelContextWindow: usage.modelContextWindow,
+  };
+}
+
+function tokenUsageBreakdownFromRuntimeBreakdown(breakdown: TokenUsageBreakdownInput): TokenUsageBreakdown {
+  return {
+    totalTokens: breakdown.totalTokens,
+    inputTokens: breakdown.inputTokens,
+    cachedInputTokens: breakdown.cachedInputTokens,
+    outputTokens: breakdown.outputTokens,
+    reasoningOutputTokens: breakdown.reasoningOutputTokens,
+  };
+}

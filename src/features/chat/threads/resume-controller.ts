@@ -20,7 +20,6 @@ export interface ResumeControllerHost {
   clearDeferredRestoredThreadHydration: () => void;
   notifyActiveThreadIdentityChanged: () => void;
   addSystemMessage: (text: string) => void;
-  render: () => void;
   refreshLiveState: () => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
@@ -57,7 +56,6 @@ export class ResumeController {
       if (renderFallbackMessage) {
         this.host.addSystemMessage(`Resumed thread ${response.thread.id}`);
       }
-      this.host.render();
       this.host.refreshLiveState();
     } catch (error) {
       if (this.isStale(resume)) return;
@@ -76,7 +74,6 @@ export class ResumeController {
     this.host.clearDeferredRestoredThreadHydration();
     this.host.resetThreadTurnPresence(false);
     this.host.notifyActiveThreadIdentityChanged();
-    this.host.render();
     this.host.refreshLiveState();
   }
 
@@ -90,7 +87,6 @@ export class ResumeController {
         if (activeThreadId(state) !== threadId || state.activeThread.tokenUsage !== null) return;
         this.host.stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
         this.host.refreshLiveState();
-        this.host.render();
       })
       .catch(() => undefined);
   }

@@ -6,15 +6,15 @@ import { h } from "preact";
 
 import { ChatComposerController } from "../../../../../src/features/chat/conversation/composer/controller";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
-import { createChatStateStore } from "../../../../../src/features/chat/state/reducer";
+import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
 
-function renderComposerController(parent: HTMLElement, controller: ChatComposerController): void {
-  renderUiRoot(parent, h(ComposerShell, controller.renderState()));
+function renderComposerController(parent: HTMLElement, controller: ChatComposerController, stateStore: ChatStateStore): void {
+  renderUiRoot(parent, h(ComposerShell, controller.renderState(stateStore.getState())));
 }
 
 describe("ChatComposerController", () => {
@@ -24,7 +24,7 @@ describe("ChatComposerController", () => {
     const controllerRef: { current: ChatComposerController | null } = { current: null };
     const renderShell = vi.fn(() => {
       if (!controllerRef.current) throw new Error("Expected controller.");
-      renderComposerController(parent, controllerRef.current);
+      renderComposerController(parent, controllerRef.current, stateStore);
     });
     const controller = new ChatComposerController({
       app: app(),
@@ -79,7 +79,7 @@ describe("ChatComposerController", () => {
     let controller: ChatComposerController | null = null;
     const renderShell = vi.fn(() => {
       if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller);
+      renderComposerController(parent, controller, stateStore);
     });
     controller = new ChatComposerController({
       app: app(),
@@ -141,7 +141,7 @@ describe("ChatComposerController", () => {
     let controller: ChatComposerController | null = null;
     const renderShell = vi.fn(() => {
       if (!controller) throw new Error("Expected controller.");
-      renderComposerController(parent, controller);
+      renderComposerController(parent, controller, stateStore);
     });
     controller = new ChatComposerController({
       app: app(),
@@ -232,7 +232,7 @@ describe("ChatComposerController", () => {
       onHeightChange: vi.fn(),
     });
 
-    renderComposerController(parent, controller);
+    renderComposerController(parent, controller, stateStore);
     expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.classList.contains("is-active")).toBe(false);
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
@@ -284,7 +284,7 @@ describe("ChatComposerController", () => {
       threadScrollFromComposer: vi.fn(),
     });
 
-    renderComposerController(parent, controller);
+    renderComposerController(parent, controller, stateStore);
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
 
     expect(submit).toHaveBeenCalledOnce();
@@ -328,7 +328,7 @@ describe("ChatComposerController", () => {
       onHeightChange: vi.fn(),
     });
 
-    renderComposerController(parent, controller);
+    renderComposerController(parent, controller, stateStore);
     const mountedComposer = composer(parent);
     setTextAreaValue(mountedComposer, "stale dom draft");
     const focus = vi.spyOn(mountedComposer, "focus");

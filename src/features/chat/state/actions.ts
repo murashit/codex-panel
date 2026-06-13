@@ -20,6 +20,7 @@ export interface ActiveThreadResumedAction {
   displayItems?: readonly DisplayItem[];
   status?: string;
   listedThreads?: readonly Thread[];
+  preserveRequestedRuntimeSettings?: boolean;
 }
 
 export interface ActiveThreadSettingsAppliedAction {
@@ -73,9 +74,17 @@ export interface ActiveThreadRestoredPlaceholderAction {
   threadId: string;
 }
 
-export interface DetailOpenSetAction {
-  type: "ui/detail-open-set";
-  key: string;
+export interface DisclosureSetAction {
+  type: "ui/disclosure-set";
+  bucket:
+    | "toolResults"
+    | "activityGroups"
+    | "agentDetails"
+    | "textDetails"
+    | "userMessageExpanded"
+    | "goalObjectiveExpanded"
+    | "approvalDetails";
+  id: string;
   open: boolean;
 }
 

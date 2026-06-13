@@ -11,6 +11,7 @@ import { deferred } from "../../../../support/async";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
+  emptyDisclosures,
   expectPresent,
   idleTurnLifecycle,
   messageStreamBlocks,
@@ -18,6 +19,7 @@ import {
   renderMessageStreamBlocksInAct,
   runningTurnLifecycle,
   startingTurnLifecycle,
+  testDisclosures,
   unmountUiRootInAct,
   withMessageContentScrollHeight,
 } from "./test-helpers";
@@ -30,7 +32,8 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      openDetails: new Set<string>(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
@@ -99,7 +102,8 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." }],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -139,7 +143,8 @@ describe("message stream rendering and message actions", () => {
           ],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -182,7 +187,8 @@ describe("message stream rendering and message actions", () => {
           ],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown,
     })[0];
@@ -215,7 +221,8 @@ describe("message stream rendering and message actions", () => {
           details: [{ rows: [{ key: "action", value: "set" }] }, { title: "Objective", body: "Ship the feature" }],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element, text) => element.createDiv({ text }),
     })[0];
@@ -252,7 +259,8 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [...items],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       canRollbackItem: (item) => item.id === "u2",
@@ -289,7 +297,8 @@ describe("message stream rendering and message actions", () => {
           messageState: "completed",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText,
@@ -308,7 +317,7 @@ describe("message stream rendering and message actions", () => {
   });
 
   it("expands assistant fork actions in the copy action region and defaults repeat clicks to plain fork", () => {
-    const onDetailsToggle = vi.fn();
+    const onForkActionsToggle = vi.fn();
     const onForkItem = vi.fn();
     const item: DisplayItem = {
       id: "a1",
@@ -327,8 +336,9 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [item],
-      openDetails: new Set(),
-      onDetailsToggle,
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
+      onForkActionsToggle,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -341,7 +351,7 @@ describe("message stream rendering and message actions", () => {
     const initialFork = expectPresent(closedElement.querySelector<HTMLButtonElement>(".codex-panel__fork-message"));
     expect(initialFork.getAttribute("aria-label")).toBe("Fork from here");
     initialFork.click();
-    expect(onDetailsToggle).toHaveBeenCalledWith("message:fork-actions:a1", true);
+    expect(onForkActionsToggle).toHaveBeenCalledWith("a1");
 
     const openBlock = messageStreamBlocks({
       activeThreadId: "thread",
@@ -349,8 +359,9 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [item],
-      openDetails: new Set(["message:fork-actions:a1"]),
-      onDetailsToggle,
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: "a1",
+      onForkActionsToggle,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -387,8 +398,9 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [item],
-      openDetails: new Set(["message:fork-actions:a1"]),
-      onDetailsToggle: vi.fn(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: "a1",
+      onForkActionsToggle: vi.fn(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -409,7 +421,8 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      openDetails: new Set<string>(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text: `markdown:${text}` }),
     };
@@ -465,7 +478,8 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      openDetails: new Set<string>(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown,
     };
@@ -539,7 +553,8 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      openDetails: new Set<string>(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => {
         markdownRenderer.renderMarkdown(element, text);
@@ -648,7 +663,8 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [item],
-      openDetails: new Set<string>(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent: HTMLElement, text: string) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -680,7 +696,8 @@ describe("message stream rendering and message actions", () => {
           messageState: "completed",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -757,7 +774,8 @@ describe("message stream rendering and message actions", () => {
           toolLabel: "web search",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -777,7 +795,8 @@ describe("message stream rendering and message actions", () => {
       displayItems: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-1" },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText,
@@ -795,69 +814,80 @@ describe("message stream rendering and message actions", () => {
 
   it("collapses tall user messages without changing the copy payload", () => {
     withMessageContentScrollHeight(500, () => {
+      const parent = document.createElement("div");
       const copyText = vi.fn();
-      const openDetails = new Set<string>();
-      const onDetailsToggle = vi.fn((key: string, open: boolean) => {
+      const expandedMessages = new Set<string>();
+      const onDisclosureToggle = vi.fn((bucket: string, id: string, open: boolean) => {
+        if (bucket !== "userMessageExpanded") return;
         if (open) {
-          openDetails.add(key);
+          expandedMessages.add(id);
         } else {
-          openDetails.delete(key);
+          expandedMessages.delete(id);
         }
       });
-      const block = messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
-        displayItems: [
-          {
-            id: "u1",
-            kind: "message",
-            messageKind: "user",
-            role: "user",
-            text: "visible text",
-            copyText: "full copied text",
-            turnId: "turn-1",
-          },
-        ],
-        openDetails,
-        onDetailsToggle,
-        loadOlderTurns: vi.fn(),
-        renderMarkdown: (parent, text) => parent.createDiv({ text }),
-        copyText,
-      })[0];
+      const render = () => {
+        renderMessageStreamBlocksInAct(
+          parent,
+          messageStreamBlocks({
+            activeThreadId: "thread",
+            turnLifecycle: idleTurnLifecycle(),
+            historyCursor: null,
+            loadingHistory: false,
+            displayItems: [
+              {
+                id: "u1",
+                kind: "message",
+                messageKind: "user",
+                role: "user",
+                text: "visible text",
+                copyText: "full copied text",
+                turnId: "turn-1",
+              },
+            ],
+            disclosures: testDisclosures({ userMessageExpanded: [...expandedMessages] }),
+            forkActionsItemId: null,
+            onDisclosureToggle,
+            loadOlderTurns: vi.fn(),
+            renderMarkdown: (parent, text) => parent.createDiv({ text }),
+            copyText,
+          }),
+        );
+      };
+      render();
 
-      const element = renderMessageBlockElement(block);
-      document.body.appendChild(element);
-      const content = element.querySelector<HTMLElement>(".codex-panel__message-content");
-      const details = element.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details");
+      const content = () => parent.querySelector<HTMLElement>(".codex-panel__message-content");
+      const details = () => parent.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details");
 
-      expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
-      expect(details?.hidden).toBe(false);
-      expect(details?.querySelector("summary")?.textContent).toBe("Show more");
+      expect(content()?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
+      expect(details()?.hidden).toBe(false);
+      expect(details()?.querySelector("summary")?.textContent).toBe("Show more");
 
-      if (details) {
+      const showMore = details();
+      if (showMore) {
         void act(() => {
-          details.open = true;
-          details.dispatchEvent(new Event("toggle"));
+          showMore.open = true;
+          showMore.dispatchEvent(new Event("toggle"));
         });
       }
-      expect(openDetails.has("text-item:u1:expanded")).toBe(true);
-      expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(false);
-      expect(details?.hidden).toBe(true);
-      expect(onDetailsToggle).toHaveBeenCalled();
+      render();
+      expect(expandedMessages.has("u1")).toBe(true);
+      expect(content()?.classList.contains("codex-panel__message-content--collapsed")).toBe(false);
+      expect(details()?.hidden).toBe(true);
+      expect(onDisclosureToggle).toHaveBeenCalledWith("userMessageExpanded", "u1", true);
 
       void act(() => {
         document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
       });
-      expect(openDetails.has("text-item:u1:expanded")).toBe(false);
-      expect(content?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
-      expect(details?.hidden).toBe(false);
-      expect(onDetailsToggle).toHaveBeenCalledWith("text-item:u1:expanded", false);
+      render();
+      expect(expandedMessages.has("u1")).toBe(false);
+      expect(content()?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
+      expect(details()?.hidden).toBe(false);
+      expect(onDisclosureToggle).toHaveBeenCalledWith("userMessageExpanded", "u1", false);
 
-      element.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
+      parent.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
       expect(copyText).toHaveBeenCalledWith("full copied text");
-      element.remove();
+      unmountUiRootInAct(parent);
+      parent.remove();
     });
   });
 
@@ -869,7 +899,8 @@ describe("message stream rendering and message actions", () => {
         historyCursor: null,
         loadingHistory: false,
         displayItems: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "short", turnId: "turn-1" }],
-        openDetails: new Set(),
+        disclosures: emptyDisclosures(),
+        forkActionsItemId: null,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
       })[0];
@@ -895,7 +926,8 @@ describe("message stream rendering and message actions", () => {
             messageState: "completed",
           },
         ],
-        openDetails: new Set(),
+        disclosures: emptyDisclosures(),
+        forkActionsItemId: null,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
       })[0];
@@ -912,7 +944,8 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       displayItems: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "running", turnId: "turn-1" }],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       canRollbackItem: () => false,
@@ -942,7 +975,8 @@ describe("message stream rendering and message actions", () => {
           output: "stderr details",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -978,7 +1012,8 @@ describe("message stream rendering and message actions", () => {
           output: "",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1014,7 +1049,8 @@ describe("message stream rendering and message actions", () => {
           output: "contents",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1043,7 +1079,8 @@ describe("message stream rendering and message actions", () => {
           output: "patch applied",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1089,7 +1126,8 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       turnDiffs: new Map([["turn", "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new"]]),
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       openTurnDiff,
@@ -1136,7 +1174,8 @@ describe("message stream rendering and message actions", () => {
           },
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -1166,7 +1205,8 @@ describe("message stream rendering and message actions", () => {
           mentionedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -1207,7 +1247,8 @@ describe("message stream rendering and message actions", () => {
           messageState: "completed",
         },
       ],
-      openDetails: new Set(),
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       openTurnDiff: vi.fn(),

@@ -21,7 +21,7 @@ import type { RestorationController } from "./threads/restoration-controller";
 import type { IdentitySync } from "./threads/identity-sync";
 import type { ResumeController } from "./threads/resume-controller";
 import type { SelectionActions } from "./threads/selection-actions";
-import type { MessageStreamRenderer } from "./panel/surface/message-stream-renderer";
+import type { MessageStreamPresenter } from "./panel/surface/message-stream-presenter";
 import type { ChatControllerPorts } from "./controller-ports";
 import { scheduleAppServerWarmup } from "./connection/app-server-warmup";
 import { runtimeSnapshotForChatState } from "./runtime/snapshot";
@@ -33,7 +33,7 @@ import {
 } from "./connection/controllers";
 import { createThreadControllerGroup, createThreadSelectionActionGroup } from "./threads/controllers";
 import { createConversationSurfaceControllerGroup } from "./conversation/controllers";
-import { createChatViewRenderer, createConnectionLifecycleControllerGroup, createPanelUiControllerGroup } from "./panel/controllers";
+import { createChatShellRenderer, createConnectionLifecycleControllerGroup, createPanelUiControllerGroup } from "./panel/controllers";
 
 export interface ChatViewControllers {
   connection: {
@@ -75,8 +75,8 @@ export interface ChatViewControllers {
     submission: ComposerSubmitActions;
   };
   render: {
-    now: () => void;
-    messageStream: MessageStreamRenderer;
+    mountOrRepairShell: () => void;
+    messageStreamPresenter: MessageStreamPresenter;
     openView: () => void;
     closeView: () => void;
     applyViewState: (state: unknown) => void;
@@ -84,8 +84,8 @@ export interface ChatViewControllers {
 }
 
 interface ChatControllerSideEffects {
-  render: Pick<ChatControllerPorts["render"], "panelRoot" | "closeToolbarPanelOnOutsidePointer" | "schedule"> & {
-    now: () => void;
+  render: Pick<ChatControllerPorts["render"], "panelRoot" | "closeToolbarPanelOnOutsidePointer"> & {
+    mountOrRepairShell: () => void;
   };
   status: ChatControllerPorts["status"] & {
     addSystemMessage: (text: string) => void;
@@ -98,7 +98,7 @@ interface ChatControllerSideEffects {
 
 export function createChatViewControllers(ports: ChatControllerPorts): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
-  const renderNow = createChatViewRenderer(ports);
+  const mountOrRepairShell = createChatShellRenderer(ports);
   let connectionController: ChatConnectionController | null = null;
   let selection: SelectionActions | null = null;
   let composerController: ChatComposerController | null = null;
@@ -108,7 +108,7 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
     requireComposedController(connectionController, "connection controller").refreshSkills(forceReload);
   const selectThread = (threadId: string) => requireComposedController(selection, "selection actions").selectThread(threadId);
   const sideEffects = createChatControllerSideEffects(ports, {
-    renderNow,
+    mountOrRepairShell,
     setComposerText: (text) => {
       requireComposedController(composerController, "composer controller").setDraft(text, { focus: true });
     },
@@ -136,7 +136,6 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
         getClient: ports.client.getClient,
         ensureConnected,
       },
-      render: sideEffects.render,
       status: sideEffects.status,
       thread: {
         ...ports.thread,
@@ -186,7 +185,6 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
     {
       state: ports.state,
       lifecycle: lifecycleActions,
-      render: sideEffects.render,
       thread: {
         restorePlaceholder: (restoredThreadState) => {
           restoration.restore(restoredThreadState);
@@ -223,7 +221,6 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
         ensureConnected,
       },
       lifecycle: lifecycleActions,
-      render: sideEffects.render,
       status: sideEffects.status,
       thread: {
         resumeThread: (threadId) => resume.resumeThread(threadId),
@@ -245,7 +242,6 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
     {
       plugin: ports.plugin,
       state: ports.state,
-      render: sideEffects.render,
       thread: {
         refreshThreads,
         refreshSkills,
@@ -279,7 +275,6 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
       },
       status: sideEffects.status,
       liveState: ports.liveState,
-      render: sideEffects.render,
     },
     {
       connection,
@@ -292,16 +287,13 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
     onNotification: (notification) => {
       inboundController.handleNotification(notification);
       ports.liveState.refresh();
-      sideEffects.render.schedule();
     },
     onServerRequest: (request) => {
       inboundController.handleServerRequest(request);
       ports.liveState.refresh();
-      sideEffects.render.now();
     },
     onLog: (message) => {
       inboundController.handleAppServerLog(message);
-      sideEffects.render.now();
     },
     onExit: () => {
       connectionController.handleExit();
@@ -315,7 +307,6 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
         getClient: ports.client.getClient,
         ensureConnected,
       },
-      render: sideEffects.render,
       runtime: {
         ...ports.runtime,
         mcpStatusLines: () => serverDiagnostics.mcpStatusLines(),
@@ -341,7 +332,7 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
     },
   );
   const { pendingRequests, composerSubmit } = conversationControllers;
-  const { messageStreamRenderer } = conversationControllers;
+  const { messageStreamPresenter } = conversationControllers;
   composerController = conversationControllers.composerController;
   const lifecycleControllers = createConnectionLifecycleControllerGroup(
     {
@@ -355,7 +346,7 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
     {
       connection,
       composerController,
-      messageStreamRenderer,
+      messageStreamPresenter,
       serverThreads,
       serverMetadata,
     },
@@ -401,8 +392,8 @@ export function createChatViewControllers(ports: ChatControllerPorts): ChatViewC
       submission: composerSubmit,
     },
     render: {
-      now: sideEffects.render.now,
-      messageStream: messageStreamRenderer,
+      mountOrRepairShell: sideEffects.render.mountOrRepairShell,
+      messageStreamPresenter,
       openView: lifecycleControllers.openView,
       closeView: lifecycleControllers.closeView,
       applyViewState,
@@ -418,30 +409,27 @@ function requireComposedController<T>(controller: T | null, name: string): T {
 function createChatControllerSideEffects(
   ports: Pick<ChatControllerPorts, "render" | "state" | "status">,
   deps: {
-    renderNow: () => void;
+    mountOrRepairShell: () => void;
     setComposerText: (text: string) => void;
   },
 ): ChatControllerSideEffects {
   const render = {
     panelRoot: ports.render.panelRoot,
     closeToolbarPanelOnOutsidePointer: ports.render.closeToolbarPanelOnOutsidePointer,
-    schedule: ports.render.schedule,
-    now: () => {
-      deps.renderNow();
+    mountOrRepairShell: () => {
+      deps.mountOrRepairShell();
     },
   };
   const status = {
     set: ports.status.set,
     addSystemMessage: (text: string) => {
       ports.state.stateStore.dispatch({ type: "message-stream/system-item-added", item: ports.state.systemItem(text) });
-      render.now();
     },
     addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => {
       ports.state.stateStore.dispatch({
         type: "message-stream/system-item-added",
         item: ports.state.structuredSystemItem(text, details),
       });
-      render.now();
     },
   };
 
@@ -451,7 +439,6 @@ function createChatControllerSideEffects(
     composer: {
       setText: (text) => {
         deps.setComposerText(text);
-        render.now();
       },
     },
   };

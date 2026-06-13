@@ -14,7 +14,8 @@ import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
 import { currentModel, runtimeConfigOrDefault } from "../runtime/effective";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
-import { MessageStreamRenderer } from "../panel/surface/message-stream-renderer";
+import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
+import { MessageStreamScrollBridge } from "../panel/surface/message-stream-scroll";
 import type { ChatControllerPorts } from "../controller-ports";
 import type { DisplayDetailSection } from "../display/types";
 
@@ -25,10 +26,6 @@ type ConversationSurfaceControllerGroupPorts = Pick<
   client: {
     getClient: ChatControllerPorts["client"]["getClient"];
     ensureConnected: () => Promise<void>;
-  };
-  render: {
-    now: () => void;
-    schedule: () => void;
   };
   status: {
     set: (status: string) => void;
@@ -60,11 +57,12 @@ export function createConversationSurfaceControllerGroup(
     history: HistoryController;
   },
 ) {
-  const { plugin, state, render, surface, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
+  const { plugin, state, surface, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
   const { app, owner, viewId } = context.obsidian;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
   const { messageScrollIntent } = lifecycle;
+  const messageStreamScrollBridge = new MessageStreamScrollBridge();
 
   const composerController = new ChatComposerController({
     app,
@@ -86,7 +84,7 @@ export function createConversationSurfaceControllerGroup(
     toggleFast: () => void refs.runtimeSettings.toggleFastMode(),
     onDraftChange: liveState.refresh,
     onHeightChange: () => {
-      messageStreamRenderer.repinMessageStreamToBottomIfPinned();
+      messageStreamScrollBridge.repinMessageStreamToBottomIfPinned();
     },
   });
   const codexInput = (text: string) => composerController.codexInput(text);
@@ -104,7 +102,6 @@ export function createConversationSurfaceControllerGroup(
     controller: refs.controller,
     composerHasFocus: () => composerController.hasFocus(),
     refreshLiveState: liveState.refresh,
-    render: render.now,
   });
 
   const turnSubmission = new TurnSubmissionController({
@@ -118,8 +115,6 @@ export function createConversationSurfaceControllerGroup(
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
     codexInput,
     setDraft: setComposerDraft,
-    render: render.now,
-    scheduleRender: render.schedule,
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
   });
@@ -166,7 +161,7 @@ export function createConversationSurfaceControllerGroup(
     },
   });
 
-  const messageStreamRenderer = new MessageStreamRenderer({
+  const messageStreamPresenter = new MessageStreamPresenter({
     obsidian: {
       app,
       owner,
@@ -179,6 +174,10 @@ export function createConversationSurfaceControllerGroup(
     },
     scroll: {
       consumeIntent: () => messageScrollIntent.consumeIntent(),
+      registerVirtualizer: messageStreamScrollBridge.registerVirtualizer,
+      dispose: () => {
+        messageStreamScrollBridge.dispose();
+      },
     },
     history: {
       loadOlderTurns: () => void refs.history.loadOlder(),
@@ -216,13 +215,13 @@ export function createConversationSurfaceControllerGroup(
   composerController.setActionHandlers({
     submit: () => void composerSubmit.submit(),
     threadScrollFromComposer: (action) => {
-      messageStreamRenderer.scrollFromComposer(action);
+      messageStreamScrollBridge.scrollFromComposer(action);
     },
   });
 
   return {
     pendingRequests,
-    messageStreamRenderer,
+    messageStreamPresenter,
     composerController,
     composerSubmit,
   };

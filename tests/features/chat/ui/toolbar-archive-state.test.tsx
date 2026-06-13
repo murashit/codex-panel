@@ -2,34 +2,25 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
-import { signal } from "@preact/signals";
 
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import {
-  createToolbarArchiveConfirmState,
-  createToolbarPanelActions,
-  type ToolbarPanelActions,
-} from "../../../../src/features/chat/panel/toolbar-actions";
+import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
 import type { ChatPanelSurfacePorts, ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/surface/ports";
 import type { ChatThreadActions } from "../../../../src/features/chat/threads/action-context";
-import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellSlots } from "../../../../src/features/chat/ui/shell";
+import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/ui/shell";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-describe("chat toolbar archive confirmation signal", () => {
-  it("updates a mounted toolbar archive confirmation without a scheduled shell render", async () => {
+describe("chat toolbar archive confirmation state", () => {
+  it("updates a mounted toolbar archive confirmation through reducer-backed shell signals", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
-    const archiveConfirm = createToolbarArchiveConfirmState();
-    const scheduleRender = vi.fn();
     const toolbarActions = createToolbarPanelActions({
       stateStore: store,
       threadActions: { archiveThread: vi.fn() } as unknown as ChatThreadActions,
-      archiveConfirm,
-      scheduleRender,
     });
     store.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread-1", "Thread one")] });
     store.dispatch({ type: "ui/panel-set", panel: "history" });
@@ -39,7 +30,7 @@ describe("chat toolbar archive confirmation signal", () => {
       renderChatPanelShell(container, {
         stateStore: store,
         showToolbar: true,
-        slots: shellSlots(store, toolbarActions),
+        parts: shellParts(store, toolbarActions),
       });
       await settle();
     });
@@ -51,7 +42,6 @@ describe("chat toolbar archive confirmation signal", () => {
       await settle();
     });
 
-    expect(scheduleRender).not.toHaveBeenCalled();
     expect(container.querySelector(".codex-panel__archive-confirm")).not.toBeNull();
 
     await act(async () => {
@@ -64,18 +54,12 @@ function toolbarPorts(store: ReturnType<typeof createChatStateStore>, toolbarAct
   return {
     state: {
       connected: () => false,
+      nowMs: () => 0,
     },
     settings: {
       vaultPath: () => "/vault",
       configuredCommand: () => "codex",
       archiveExportEnabled: () => true,
-    },
-    view: {
-      toolbar: {
-        archiveConfirm: toolbarActions.archiveConfirm,
-        renameState: () => null,
-        renameVersion: signal(0),
-      },
     },
     actions: {
       toolbar: {
@@ -102,7 +86,7 @@ function toolbarPorts(store: ReturnType<typeof createChatStateStore>, toolbarAct
   };
 }
 
-function shellSlots(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelShellSlots {
+function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelShellParts {
   const ports = surfacePorts(store, toolbarActions);
   return {
     toolbar: ports.toolbar,
@@ -167,7 +151,10 @@ function surfacePorts(store: ReturnType<typeof createChatStateStore>, toolbarAct
           saveObjective: async () => undefined,
           setStatus: async () => undefined,
           clear: async () => undefined,
-          setEditingOpen: () => undefined,
+          startEditing: () => undefined,
+          updateObjectiveDraft: () => undefined,
+          setObjectiveExpanded: () => undefined,
+          closeEditor: () => undefined,
         },
       },
     },

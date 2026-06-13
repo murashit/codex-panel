@@ -64,7 +64,7 @@ export interface PendingRequestBlockActions {
   resolveApproval: (requestId: PendingRequestId, action: PendingRequestApprovalAction) => void;
   resolveUserInput: (requestId: PendingRequestId) => void;
   cancelUserInput: (requestId: PendingRequestId) => void;
-  setOpenDetail?: (key: string, open: boolean) => void;
+  setApprovalDetailsExpanded?: (requestId: PendingRequestId, expanded: boolean) => void;
   setUserInputDraft: (key: string, value: string) => void;
 }
 

@@ -1,5 +1,5 @@
 import { activeThreadId } from "../state/selectors";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatConnectionPhase, ChatStateStore } from "../state/reducer";
 
 export interface ChatReconnectActionsHost {
   stateStore: ChatStateStore;
@@ -8,8 +8,7 @@ export interface ChatReconnectActionsHost {
   clearDeferredDiagnostics: () => void;
   reconnect: () => void;
   clearClient: () => void;
-  setStatus: (status: string) => void;
-  render: () => void;
+  setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
   ensureConnected: () => Promise<void>;
   resumeThread: (threadId: string) => Promise<void>;
   addSystemMessage: (text: string) => void;
@@ -34,8 +33,7 @@ async function reconnectPanel(host: ChatReconnectActionsHost): Promise<void> {
   host.reconnect();
   host.clearClient();
   host.stateStore.dispatch({ type: "turn/scoped-cleared" });
-  host.setStatus("Reconnecting...");
-  host.render();
+  host.setStatus("Reconnecting...", { kind: "connecting" });
 
   await host.ensureConnected();
   if (!threadId) return;

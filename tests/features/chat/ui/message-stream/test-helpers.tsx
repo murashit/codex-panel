@@ -7,18 +7,45 @@ import type { PendingUserInput } from "../../../../../src/features/chat/protocol
 import { pendingRequestBlockSnapshotFromRequests } from "../../../../../src/features/chat/conversation/pending-requests/snapshot";
 import type { PendingRequestBlockActions } from "../../../../../src/features/chat/conversation/pending-requests/view-model";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
-import type { ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
+import type { ChatDisclosureUiState, ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
-import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
+import type { MessageStreamBlock, MessageStreamContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(
-  ...args: Parameters<typeof rawMessageStreamBlocks>
+  context: TestMessageStreamContext,
 ): [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>] {
-  const blocks = rawMessageStreamBlocks(...args);
+  const blocks = rawMessageStreamBlocks(normalizeMessageStreamContext(context));
   if (blocks.length === 0) throw new Error("Expected at least one message stream block.");
   return blocks as [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>];
+}
+
+type TestMessageStreamContext = Omit<MessageStreamContext, "disclosures" | "forkActionsItemId"> &
+  Partial<Pick<MessageStreamContext, "disclosures" | "forkActionsItemId">>;
+
+export function emptyDisclosures(): ChatDisclosureUiState {
+  return testDisclosures();
+}
+
+export function testDisclosures(overrides: Partial<Record<keyof ChatDisclosureUiState, readonly string[]>> = {}): ChatDisclosureUiState {
+  return {
+    toolResults: new Set(overrides.toolResults),
+    activityGroups: new Set(overrides.activityGroups),
+    agentDetails: new Set(overrides.agentDetails),
+    textDetails: new Set(overrides.textDetails),
+    userMessageExpanded: new Set(overrides.userMessageExpanded),
+    goalObjectiveExpanded: new Set(overrides.goalObjectiveExpanded),
+    approvalDetails: new Set(overrides.approvalDetails),
+  };
+}
+
+function normalizeMessageStreamContext(context: TestMessageStreamContext): MessageStreamContext {
+  return {
+    ...context,
+    disclosures: context.disclosures ?? emptyDisclosures(),
+    forkActionsItemId: context.forkActionsItemId ?? null,
+  };
 }
 
 export function expectPresent<T>(value: T | null | undefined): T {
@@ -106,7 +133,7 @@ export function renderPendingRequestNode(
     draftKey?: (requestId: PendingUserInput["requestId"], questionId: string) => string;
     otherDraftKey?: (requestId: PendingUserInput["requestId"], questionId: string) => string;
   },
-  openDetails: ReadonlySet<string>,
+  approvalDetails: ReadonlySet<string>,
   actions: PendingRequestBlockActions,
   autoFocusRequested = false,
   consumeAutoFocus?: () => boolean,
@@ -116,7 +143,7 @@ export function renderPendingRequestNode(
     approvals,
     pendingUserInputs,
     userInputDrafts: drafts.values,
-    openDetails,
+    approvalDetails,
   });
   renderUiRootInAct(
     parent,
@@ -124,7 +151,7 @@ export function renderPendingRequestNode(
       snapshot.approvals,
       snapshot.pendingUserInputs,
       snapshot.userInputDrafts,
-      snapshot.openDetails,
+      snapshot.approvalDetails,
       actions,
       autoFocusRequested,
       consumeAutoFocus,

@@ -267,7 +267,6 @@ describe("chat thread actions", () => {
     expect(client.setThreadName).toHaveBeenCalledWith("thread", "Slash command title");
     expect(host.stateStore.getState().threadList.listedThreads[0]?.name).toBe("Slash command title");
     expect(host.notifyThreadRenamed).toHaveBeenCalledWith("thread", "Slash command title");
-    expect(host.render).toHaveBeenCalledOnce();
   });
 
   it("ignores empty thread rename titles", async () => {
@@ -282,7 +281,7 @@ describe("chat thread actions", () => {
     expect(host.notifyThreadRenamed).not.toHaveBeenCalled();
   });
 
-  it("applies rollback response turns directly before refreshing the shell", async () => {
+  it("applies rollback response turns before refreshing shared thread state", async () => {
     const client = clientMock();
     const host = hostMock({ client, displayItems: turnItems() });
     host.stateStore.dispatch({
@@ -306,10 +305,8 @@ describe("chat thread actions", () => {
       { kind: "message", role: "user", text: "kept prompt", turnId: "kept-turn" },
       { kind: "message", role: "assistant", text: "kept answer", turnId: "kept-turn" },
     ]);
-    expect(host.render).toHaveBeenCalledOnce();
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
-    expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.render));
-    expect(callOrder(host.render)).toBeLessThan(callOrder(vi.mocked(host.refreshThreads)));
+    expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(vi.mocked(host.refreshThreads)));
     expect(callOrder(vi.mocked(host.refreshThreads))).toBeLessThan(callOrder(host.refreshSharedThreadListFromOpenSurface));
   });
 
@@ -438,7 +435,6 @@ function hostMock({
     addSystemMessage: vi.fn(),
     setStatus: vi.fn(),
     setComposerText: vi.fn(),
-    render: vi.fn(),
     openThreadInNewView: vi.fn().mockResolvedValue(undefined),
     openThreadInCurrentPanel: vi.fn().mockResolvedValue(undefined),
     notifyThreadArchived: vi.fn(),

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { useLayoutEffect } from "preact/hooks";
 
 import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/ui-root";
 
@@ -25,4 +26,24 @@ describe("Preact root adapter", () => {
     expect(parent.querySelector("button")?.textContent).toBe("After");
     unmountUiRoot(parent);
   });
+
+  it("runs Preact cleanup before an external replaceChildren empties the host", () => {
+    const parent = document.createElement("div");
+    const cleanup = vi.fn();
+
+    renderUiRoot(parent, <CleanupProbe cleanup={cleanup} />);
+    expect(cleanup).not.toHaveBeenCalled();
+
+    parent.replaceChildren();
+
+    expect(cleanup).toHaveBeenCalledOnce();
+    renderUiRoot(parent, <button type="button">After</button>);
+    expect(parent.querySelector("button")?.textContent).toBe("After");
+    unmountUiRoot(parent);
+  });
 });
+
+function CleanupProbe({ cleanup }: { cleanup: () => void }) {
+  useLayoutEffect(() => cleanup, [cleanup]);
+  return <button type="button">Before</button>;
+}

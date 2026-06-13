@@ -11,7 +11,6 @@ export interface IdentitySyncHost {
   notifyActiveThreadIdentityChanged: () => void;
   refreshTabHeader: () => void;
   refreshLiveState: () => void;
-  render: () => void;
 }
 
 export interface IdentitySync {
@@ -47,7 +46,6 @@ function clearActiveThreadContext(host: IdentitySyncHost): void {
 function notifyThreadArchived(host: IdentitySyncHost, threadId: string): void {
   if (activeThreadId(host.stateStore.getState()) !== threadId) return;
   clearActiveThreadContext(host);
-  host.render();
 }
 
 function notifyThreadRenamed(host: IdentitySyncHost, threadId: string, name: string | null): void {
@@ -70,5 +68,4 @@ function notifyThreadRenamed(host: IdentitySyncHost, threadId: string, name: str
   } else {
     host.refreshTabHeader();
   }
-  host.render();
 }
