@@ -13,7 +13,7 @@ describe("chat thread resume helpers", () => {
     const action = resumedThreadAction({
       response: responseFixture(resumed),
       listedThreads: [existing],
-      displayItems: [loading],
+      items: [loading],
     });
 
     expect(action).toMatchObject({
@@ -26,7 +26,7 @@ describe("chat thread resume helpers", () => {
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
       activePermissionProfile: null,
-      displayItems: [loading],
+      items: [loading],
     });
     expect(action.listedThreads?.map((thread) => thread.id)).toEqual(["thread", "existing"]);
   });

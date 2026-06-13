@@ -30,7 +30,7 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-roo
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { installMessageViewportMetrics } from "../../ui/message-stream/test-helpers";
-import { chatStateDisplayItems, setChatStateDisplayItems } from "../../support/message-stream";
+import { chatStateMessageStreamItems, setChatStateMessageStreamItems } from "../../support/message-stream";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 
@@ -63,7 +63,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
     expect(projection.activeThreadId).toBe("thread-1");
     expect(projection.workspaceRoot).toBe("/repo");
-    expect(projection.displayItems).toEqual([]);
+    expect(projection.items).toEqual([]);
     expect(projection.disclosures.textDetails.size).toBe(0);
     expect(projection.forkActionsItemId).toBeNull();
   });
@@ -184,7 +184,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("pins to the scroll container bottom without aligning the last message element", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -216,7 +216,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("can repin the current scroll container after composer growth shrinks the viewport", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -248,7 +248,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("repins after composer growth has changed the scroll viewport height", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -315,7 +315,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("detaches the active virtualizer when the message stream unmounts", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -344,7 +344,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("binds scroll commands to the currently mounted message viewport", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -378,7 +378,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("completes bottom pinning after the message viewport commits", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -404,7 +404,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("keeps bottom pinning after markdown content changes message height", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -443,7 +443,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("does not force the bottom into view when the user is reading older messages", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -469,7 +469,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -489,7 +489,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("does not run a pending bottom pin after the user scrolls away", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -521,7 +521,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("leaves the mounted message stream content in place on dispose", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -551,7 +551,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   it("does not mount every block before the virtualizer attaches", async () => {
     const state = createChatState();
     state.activeThread.id = "thread";
-    setChatStateDisplayItems(
+    setChatStateMessageStreamItems(
       state,
       Array.from({ length: 200 }, (_value, index) => ({
         id: `message-${String(index)}`,
@@ -571,7 +571,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     installMessageViewportMetrics(messages, { clientHeight: 320, scrollHeight: 19_200 });
     await settleMessageRender(messages);
 
-    expect(parent.querySelectorAll("[data-codex-panel-block-key]").length).toBeLessThan(chatStateDisplayItems(state).length);
+    expect(parent.querySelectorAll("[data-codex-panel-block-key]").length).toBeLessThan(chatStateMessageStreamItems(state).length);
   });
 });
 

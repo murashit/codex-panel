@@ -12,12 +12,12 @@ import {
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
-import type { DisplayItem } from "../../display/types";
+import type { MessageStreamItem } from "../../message-stream/items";
 import { implementPlanCandidateFromState } from "../../state/selectors";
-import { type ForkCandidate, forkCandidatesFromItems, isForkCandidateItem, isRollbackCandidateItem } from "../../display/item-selectors";
+import { type ForkCandidate, forkCandidatesFromItems, isForkCandidateItem, isRollbackCandidateItem } from "../../message-stream/selectors";
 import {
   messageStreamActiveItems,
-  messageStreamDisplayItems,
+  messageStreamItems,
   messageStreamRollbackCandidate,
   messageStreamStableItems,
   type MessageStreamRollbackCandidate,
@@ -44,7 +44,7 @@ export function ChatPanelMessageStream({ presenter }: { presenter: ChatPanelMess
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
   forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
-  implementPlan: (item: DisplayItem) => void;
+  implementPlan: (item: MessageStreamItem) => void;
   openTurnDiff: (state: ChatTurnDiffViewState) => void;
 }
 
@@ -114,14 +114,14 @@ export interface MessageStreamStateProjection {
   turnLifecycle: ChatPanelMessageStreamShellState["turn"]["lifecycle"];
   historyCursor: string | null;
   loadingHistory: boolean;
-  displayItems: readonly DisplayItem[];
-  stableItems: readonly DisplayItem[];
-  activeItems: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
+  stableItems: readonly MessageStreamItem[];
+  activeItems: readonly MessageStreamItem[];
   turnDiffs: ChatPanelMessageStreamShellState["messageStream"]["turnDiffs"];
   workspaceRoot: string;
   disclosures: ChatDisclosureUiState;
   forkActionsItemId: string | null;
-  implementPlanCandidate: DisplayItem | null;
+  implementPlanCandidate: MessageStreamItem | null;
   rollbackCandidate: MessageStreamRollbackCandidate | null;
   forkCandidates: readonly ForkCandidate[];
 }
@@ -191,7 +191,7 @@ export function messageStreamContextFromState(
     turnLifecycle: projection.turnLifecycle,
     historyCursor: projection.historyCursor,
     loadingHistory: projection.loadingHistory,
-    displayItems: projection.displayItems,
+    items: projection.items,
     stableItems: projection.stableItems,
     activeItems: projection.activeItems,
     turnDiffs: projection.turnDiffs,
@@ -203,15 +203,15 @@ export function messageStreamContextFromState(
     loadOlderTurns: context.loadOlderTurns,
     renderMarkdown: context.renderMarkdown,
     copyText: context.copyMessageText,
-    canImplementPlanItem: (item: DisplayItem) => item.id === projection.implementPlanCandidate?.id,
+    canImplementPlanItem: (item: MessageStreamItem) => item.id === projection.implementPlanCandidate?.id,
     onImplementPlanItem: (item) => {
       context.actions.implementPlan(item);
     },
-    canRollbackItem: (item: DisplayItem) => isRollbackCandidateItem(item, projection.rollbackCandidate),
+    canRollbackItem: (item: MessageStreamItem) => isRollbackCandidateItem(item, projection.rollbackCandidate),
     onRollbackItem: () => {
       if (projection.activeThreadId) context.actions.rollbackThread(projection.activeThreadId);
     },
-    canForkItem: (item: DisplayItem) => isForkCandidateItem(item, projection.forkCandidates),
+    canForkItem: (item: MessageStreamItem) => isForkCandidateItem(item, projection.forkCandidates),
     onForkItem: (item, archiveSource) => {
       if (projection.activeThreadId && item.turnId) {
         context.actions.forkThreadFromTurn(projection.activeThreadId, item.turnId, archiveSource);
@@ -231,9 +231,9 @@ export function messageStreamContextFromState(
 
 export function messageStreamStateProjection(state: ChatPanelMessageStreamShellState, vaultPath: string): MessageStreamStateProjection {
   const busy = chatTurnBusy(state);
-  const displayItems = messageStreamDisplayItems(state.messageStream);
+  const items = messageStreamItems(state.messageStream);
   const rollbackCandidate = busy ? null : messageStreamRollbackCandidate(state.messageStream);
-  const forkCandidates = busy ? [] : forkCandidatesFromItems(displayItems);
+  const forkCandidates = busy ? [] : forkCandidatesFromItems(items);
   const implementPlanCandidate = implementPlanCandidateFromState(state);
 
   return {
@@ -241,7 +241,7 @@ export function messageStreamStateProjection(state: ChatPanelMessageStreamShellS
     turnLifecycle: state.turn.lifecycle,
     historyCursor: state.messageStream.historyCursor,
     loadingHistory: state.messageStream.loadingHistory,
-    displayItems,
+    items,
     stableItems: messageStreamStableItems(state.messageStream),
     activeItems: messageStreamActiveItems(state.messageStream),
     turnDiffs: state.messageStream.turnDiffs,

@@ -1,18 +1,18 @@
-import type { DisplayBlock, DisplayItem, MessageStreamItem } from "../types";
-import { pathRelativeToRoot } from "../details/path-labels";
-import { timelineItemsFromDisplayItems } from "../timeline/from-display";
-import type { TimelineItem, TimelineSemanticKind } from "../timeline/types";
+import { pathRelativeToRoot } from "../display/details/path-labels";
+import type { MessageStreamItem, MessageStreamLayoutBlock } from "./items";
+import { timelineItemsFromMessageStreamItems } from "./timeline/from-items";
+import type { TimelineItem, TimelineSemanticKind } from "./timeline/types";
 
 const STEERING_ACTIVITY_LABEL = "steer";
 const STEERING_ACTIVITY_KIND = "userSteered";
 
-export function displayBlocksForItems(
-  items: readonly DisplayItem[],
+export function messageStreamLayoutBlocks(
+  items: readonly MessageStreamItem[],
   activeTurnId: string | null,
   workspaceRoot?: string | null,
   turnDiffs?: ReadonlyMap<string, string>,
-): DisplayBlock[] {
-  const visibleItems = timelineItemsFromDisplayItems(items).filter(shouldShowTimelineItem);
+): MessageStreamLayoutBlock[] {
+  const visibleItems = timelineItemsFromMessageStreamItems(items).filter(shouldShowTimelineItem);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
   const turnOutcomeIdByTurn = turnOutcomeItemsByTurn(visibleItems);
@@ -23,7 +23,7 @@ export function displayBlocksForItems(
   for (const item of visibleItems) {
     const turnId = item.turnId;
     if (!turnId || !groupedTurnIds.has(turnId)) continue;
-    if (item.semanticKind === "steering" && item.displayItem.kind === "message") {
+    if (item.semanticKind === "steering" && item.streamItem.kind === "message") {
       const group = groupedActivities.get(turnId) ?? [];
       group.push({ item: steeringActivityItem(item, turnId), semanticKind: "steering" });
       groupedActivities.set(turnId, group);
@@ -31,11 +31,11 @@ export function displayBlocksForItems(
     }
     if (!isCompletedTurnDetailItem(item, turnOutcomeIdByTurn)) continue;
     const group = groupedActivities.get(turnId) ?? [];
-    group.push({ item: item.displayItem, semanticKind: item.semanticKind });
+    group.push({ item: item.streamItem, semanticKind: item.semanticKind });
     groupedActivities.set(turnId, group);
   }
 
-  const blocks: DisplayBlock[] = [];
+  const blocks: MessageStreamLayoutBlock[] = [];
   for (const item of visibleItems) {
     const turnId = item.turnId;
     if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, turnOutcomeIdByTurn)) {
@@ -53,7 +53,7 @@ export function displayBlocksForItems(
     }
     blocks.push({
       type: "item",
-      item: itemWithTurnSummaries(item.displayItem, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
+      item: itemWithTurnSummaries(item.streamItem, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
     });
   }
 
@@ -69,7 +69,7 @@ function shouldShowTimelineItem(item: TimelineItem): boolean {
   return item.semanticKind !== "reasoningNote" || item.lifecycle !== "completed" || item.text.trim().length > 0;
 }
 
-function steeringActivityItem(item: TimelineItem, turnId: string): DisplayItem {
+function steeringActivityItem(item: TimelineItem, turnId: string): MessageStreamItem {
   return {
     id: `steer-activity-${item.id}`,
     kind: "tool",
@@ -97,12 +97,12 @@ function turnOutcomeItemsByTurn(items: readonly TimelineItem[]): Map<string, str
 }
 
 function itemWithTurnSummaries(
-  item: DisplayItem,
+  item: MessageStreamItem,
   editedFilesByTurn: Map<string, string[]>,
   autoReviewSummariesByTurn: Map<string, string[]>,
   turnOutcomeIdByTurn: Map<string, string>,
   turnDiffs?: ReadonlyMap<string, string>,
-): DisplayItem {
+): MessageStreamItem {
   if (!item.turnId || turnOutcomeIdByTurn.get(item.turnId) !== item.id) return item;
   if (item.kind !== "message") return item;
   const editedFiles = editedFilesByTurn.get(item.turnId);
@@ -122,7 +122,7 @@ function editedFilesForTurns(items: readonly TimelineItem[], workspaceRoot?: str
   const byTurn = new Map<string, Set<string>>();
   for (const item of items) {
     if (!item.turnId || item.semanticKind !== "filePatch") continue;
-    const files = editedFilesForItem(item.displayItem, workspaceRoot);
+    const files = editedFilesForItem(item.streamItem, workspaceRoot);
     if (files.length === 0) continue;
     const set = byTurn.get(item.turnId) ?? new Set<string>();
     files.forEach((file) => set.add(file));
@@ -132,7 +132,7 @@ function editedFilesForTurns(items: readonly TimelineItem[], workspaceRoot?: str
   return new Map([...byTurn].map(([turnId, files]) => [turnId, [...files].sort((a, b) => a.localeCompare(b))]));
 }
 
-function editedFilesForItem(item: DisplayItem, workspaceRoot?: string | null): string[] {
+function editedFilesForItem(item: MessageStreamItem, workspaceRoot?: string | null): string[] {
   if (item.kind !== "fileChange") return [];
   return item.changes.flatMap((change) =>
     change.path && change.path !== "(unknown)" ? [pathRelativeToRoot(change.path, workspaceRoot)] : [],

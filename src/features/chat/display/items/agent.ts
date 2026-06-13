@@ -1,4 +1,4 @@
-import type { AgentDisplayItem, AgentStateDisplay, ExecutionState } from "../types";
+import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "../../message-stream/items";
 import { definedProp } from "../../../../utils";
 
 type DisplayExecutionState = Exclude<ExecutionState, null>;
@@ -39,7 +39,7 @@ interface DisplayCollabAgentState {
   message?: string | null;
 }
 
-export function agentDisplayItem(item: DisplayCollabAgentToolCall, turnId?: string): AgentDisplayItem {
+export function agentMessageStreamItem(item: DisplayCollabAgentToolCall, turnId?: string): AgentMessageStreamItem {
   const agents = agentStatesDisplay(item.agentsStates);
   const receiverText = item.receiverThreadIds.length > 0 ? `\ntargets: ${item.receiverThreadIds.join(", ")}` : "";
   const promptText = item.prompt ? `\n${item.prompt}` : "";
@@ -71,7 +71,7 @@ function agentActivitySummaryLabel(tool: string): string {
   return `Agent ${tool}`;
 }
 
-function agentStatesDisplay(states: DisplayCollabAgentToolCall["agentsStates"]): AgentStateDisplay[] {
+function agentStatesDisplay(states: DisplayCollabAgentToolCall["agentsStates"]): AgentStateSummary[] {
   return Object.entries(states)
     .map(([threadId, state]) => ({
       threadId,
@@ -81,7 +81,7 @@ function agentStatesDisplay(states: DisplayCollabAgentToolCall["agentsStates"]):
     .sort((a, b) => a.threadId.localeCompare(b.threadId));
 }
 
-function collabAgentExecutionState(tool: string, status: string, receiverThreadIds: string[], agents: AgentStateDisplay[]): ExecutionState {
+function collabAgentExecutionState(tool: string, status: string, receiverThreadIds: string[], agents: AgentStateSummary[]): ExecutionState {
   if (tool === "spawnAgent") return collabAgentToolCallExecutionState(status);
   if (agents.some((agent) => collabAgentStateExecutionState(agent.status) === "failed")) return "failed";
   if (agents.some((agent) => collabAgentStateExecutionState(agent.status) === "running")) return "running";

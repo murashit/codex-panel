@@ -9,7 +9,7 @@ import type { ThreadManagementActions } from "../threads/thread-management-actio
 import type { GoalActions } from "../threads/goal-actions";
 import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
-import type { DisplayDetailSection } from "../display/types";
+import type { MessageStreamDetailSection } from "../message-stream/items";
 import type { ChatMessageScrollIntentState } from "../ui/message-stream/scroll-intent-state";
 import type { ComposerMetaViewModel } from "../ui/composer";
 import type { ChatPanelComposerShellState } from "../ui/shell-state";
@@ -39,7 +39,7 @@ interface ConversationPartsContext {
     };
   };
   runtime: {
-    connectionDiagnosticDetails: () => DisplayDetailSection[];
+    connectionDiagnosticDetails: () => MessageStreamDetailSection[];
     modelStatusLines: () => string[];
     effortStatusLines: () => string[];
     statusSummaryLines: () => string[];
@@ -55,7 +55,7 @@ interface ConversationPartsContext {
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
-    addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
+    addStructuredSystemMessage: (text: string, details: MessageStreamDetailSection[]) => void;
   };
   scroll: {
     forceBottom: () => void;

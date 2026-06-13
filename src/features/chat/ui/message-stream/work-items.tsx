@@ -7,15 +7,15 @@ import {
   agentRunSummaryLabel,
 } from "../../display/stream/agent-summary";
 import type {
-  AgentDisplayItem,
+  AgentMessageStreamItem,
   AgentRunSummary,
   AgentRunSummaryAgent,
-  ContextCompactionDisplayItem,
-  DisplayItem,
+  ContextCompactionMessageStreamItem,
+  MessageStreamItem,
   ExecutionState,
-  ReasoningDisplayItem,
-  TaskProgressDisplayItem,
-} from "../../display/types";
+  ReasoningMessageStreamItem,
+  TaskProgressMessageStreamItem,
+} from "../../message-stream/items";
 import { activeTurnId, type ChatTurnLifecycleState } from "../../state/reducer";
 import type { ChatDisclosureUiState } from "../../state/reducer";
 import { createWorkMessageClassName } from "./work-message";
@@ -24,12 +24,16 @@ import { shortThreadId, truncate } from "../../../../utils";
 const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
 const AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT = 96;
 
-export type WorkItemDisplayItem = TaskProgressDisplayItem | AgentDisplayItem | ReasoningDisplayItem | ContextCompactionDisplayItem;
+export type WorkMessageStreamItem =
+  | TaskProgressMessageStreamItem
+  | AgentMessageStreamItem
+  | ReasoningMessageStreamItem
+  | ContextCompactionMessageStreamItem;
 
 export interface WorkItemContext {
   turnLifecycle: ChatTurnLifecycleState;
-  displayItems: readonly DisplayItem[];
-  activeItems?: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
+  activeItems?: readonly MessageStreamItem[];
   disclosures: ChatDisclosureUiState;
   onDisclosureToggle?: (bucket: "agentDetails", id: string, open: boolean) => void;
 }
@@ -39,14 +43,14 @@ function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">):
 }
 
 export function activeAgentRunSummaryBlock(context: WorkItemContext): AgentRunSummary | null {
-  return activeAgentRunSummary(context.activeItems ?? context.displayItems, workItemsActiveTurnId(context));
+  return activeAgentRunSummary(context.activeItems ?? context.items, workItemsActiveTurnId(context));
 }
 
 export function agentRunSummaryNode(summary: AgentRunSummary): UiNode {
   return <AgentRunSummaryItem summary={summary} />;
 }
 
-export function workItemNode(item: WorkItemDisplayItem, context: WorkItemContext): UiNode {
+export function workItemNode(item: WorkMessageStreamItem, context: WorkItemContext): UiNode {
   if (item.kind === "taskProgress") return <TaskProgressItem item={item} />;
   if (item.kind === "agent") return <AgentItem item={item} context={context} />;
   if (item.kind === "contextCompaction") return <ContextCompactionItem item={item} context={context} />;
@@ -62,7 +66,7 @@ function AgentRunSummaryItem({ summary }: { summary: AgentRunSummary }): UiNode 
   );
 }
 
-function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): UiNode {
+function TaskProgressItem({ item }: { item: TaskProgressMessageStreamItem }): UiNode {
   return (
     <WorkMessage label="tasks" className="codex-panel__task-progress" state={item.executionState ?? null}>
       {item.explanation ? <div className="codex-panel__tool-summary">{item.explanation}</div> : null}
@@ -82,13 +86,13 @@ function TaskProgressItem({ item }: { item: TaskProgressDisplayItem }): UiNode {
   );
 }
 
-function taskStatusMarker(status: TaskProgressDisplayItem["steps"][number]["status"]): string {
+function taskStatusMarker(status: TaskProgressMessageStreamItem["steps"][number]["status"]): string {
   if (status === "completed") return "[x]";
   if (status === "inProgress") return "[>]";
   return "[ ]";
 }
 
-function ContextCompactionItem({ item, context }: { item: ContextCompactionDisplayItem; context: WorkItemContext }): UiNode {
+function ContextCompactionItem({ item, context }: { item: ContextCompactionMessageStreamItem; context: WorkItemContext }): UiNode {
   const active = workItemsActiveTurnId(context) === item.turnId;
   return (
     <WorkMessage label="context" className="codex-panel__context-compaction" state={active ? "running" : "completed"}>
@@ -97,7 +101,7 @@ function ContextCompactionItem({ item, context }: { item: ContextCompactionDispl
   );
 }
 
-function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkItemContext }): UiNode {
+function AgentItem({ item, context }: { item: AgentMessageStreamItem; context: WorkItemContext }): UiNode {
   const detailsOpen = context.disclosures.agentDetails.has(item.id);
   return (
     <WorkMessage
@@ -151,7 +155,7 @@ function AgentItem({ item, context }: { item: AgentDisplayItem; context: WorkIte
   );
 }
 
-function ReasoningItem({ item, context }: { item: ReasoningDisplayItem; context: WorkItemContext }): UiNode {
+function ReasoningItem({ item, context }: { item: ReasoningMessageStreamItem; context: WorkItemContext }): UiNode {
   const active = isReasoningActive(item, context);
   return (
     <div className={`codex-panel__reasoning${active ? " is-active" : ""}`}>
@@ -221,7 +225,7 @@ function AgentSummaryRows({ summary }: { summary: AgentRunSummary }): UiNode {
   );
 }
 
-function agentSummaryText(item: AgentDisplayItem): string {
+function agentSummaryText(item: AgentMessageStreamItem): string {
   const target = item.receiverThreadIds.length === 0 ? "" : ` ${item.receiverThreadIds.map(shortThreadId).join(", ")}`;
   const promptPreview = agentPromptPreview(item.prompt);
   return `${agentActivityMetaLabel(item.tool)}${target}${promptPreview ? `: ${promptPreview}` : ""} (${item.status})`;
@@ -246,12 +250,10 @@ function isLongAgentMessage(message: string): boolean {
   return message.length > AGENT_ROW_MESSAGE_PREVIEW_LIMIT || message.includes("\n");
 }
 
-function isReasoningActive(item: ReasoningDisplayItem, context: WorkItemContext): boolean {
+function isReasoningActive(item: ReasoningMessageStreamItem, context: WorkItemContext): boolean {
   const activeTurn = workItemsActiveTurnId(context);
   if (!activeTurn || item.turnId !== activeTurn) return false;
   if (item.executionState === "completed") return false;
-  const latestActiveTurnItem = [...(context.activeItems ?? context.displayItems)]
-    .reverse()
-    .find((candidate) => candidate.turnId === activeTurn);
+  const latestActiveTurnItem = [...(context.activeItems ?? context.items)].reverse().find((candidate) => candidate.turnId === activeTurn);
   return latestActiveTurnItem?.id === item.id;
 }

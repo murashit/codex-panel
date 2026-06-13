@@ -8,7 +8,7 @@ import {
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "../../../../../src/features/chat/conversation/turns/optimistic-turn-start";
-import type { DisplayItem } from "../../../../../src/features/chat/display/types";
+import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
 
 describe("optimistic turn start helpers", () => {
   it("builds local user messages without sharing mentioned file arrays", () => {
@@ -107,7 +107,7 @@ describe("optimistic turn start helpers", () => {
   });
 
   it("attaches acknowledged turn ids and pending hook runs immutably", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       localUserMessageItem({ id: "local-user", text: "hello" }),
       hookItem("hook-1"),
       { id: "assistant", kind: "message", role: "assistant", text: "working", messageKind: "assistantResponse", messageState: "completed" },
@@ -128,7 +128,7 @@ describe("optimistic turn start helpers", () => {
   });
 
   it("removes optimistic user and pending hook items after start failure", () => {
-    const items: DisplayItem[] = [localUserMessageItem({ id: "local-user", text: "hello" }), hookItem("hook-1"), hookItem("keep")];
+    const items: MessageStreamItem[] = [localUserMessageItem({ id: "local-user", text: "hello" }), hookItem("hook-1"), hookItem("keep")];
 
     expect(
       cleanupFailedTurnStart({
@@ -141,7 +141,7 @@ describe("optimistic turn start helpers", () => {
   });
 });
 
-function hookItem(id: string): DisplayItem {
+function hookItem(id: string): MessageStreamItem {
   return {
     id,
     kind: "hook",

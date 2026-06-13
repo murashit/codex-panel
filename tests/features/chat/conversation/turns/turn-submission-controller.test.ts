@@ -8,7 +8,7 @@ import {
   type TurnSubmissionControllerHost,
 } from "../../../../../src/features/chat/conversation/turns/turn-submission-controller";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { chatStateDisplayItems } from "../../support/message-stream";
+import { chatStateMessageStreamItems } from "../../support/message-stream";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
@@ -152,7 +152,7 @@ describe("TurnSubmissionController", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
     const localSteerId = steerTurn.mock.calls[0]?.[3];
     expect(
-      chatStateDisplayItems(stateStore.getState()).some(
+      chatStateMessageStreamItems(stateStore.getState()).some(
         (item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up",
       ),
     ).toBe(true);
@@ -215,7 +215,7 @@ describe("TurnSubmissionController", () => {
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(host.setStatus).not.toHaveBeenCalledWith("Steered current turn.");
-    expect(chatStateDisplayItems(stateStore.getState())).toEqual([]);
+    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
   });
 
   it("does not restore stale steer drafts or report stale steer failures after the active turn changes", async () => {

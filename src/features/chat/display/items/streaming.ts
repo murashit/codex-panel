@@ -1,6 +1,6 @@
 import type { FileUpdateChange } from "../../../../app-server/protocol/turn";
-import type { DisplayItem, DisplayKind } from "../types";
-import { normalizeFileChanges } from "../turn-items";
+import type { MessageStreamItem, MessageStreamItemKind } from "../../message-stream/items";
+import { normalizeFileChanges } from "../../message-stream/from-turn-items";
 
 const STREAMED_TOOL_DETAILS_TEXT = "details";
 export const STREAMED_COMMAND_RUNNING_TEXT = "Command running";
@@ -8,13 +8,13 @@ export const STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT = "File change inProgress";
 export const STREAMED_MCP_PROGRESS_LABEL = "mcp progress";
 const UNKNOWN_STREAMED_COMMAND_CWD = "(unknown)";
 
-export function streamedTextDisplayItem(params: {
+export function streamedTextMessageStreamItem(params: {
   id: string;
   turnId: string;
   label: string;
   delta: string;
-  kind: Extract<DisplayKind, "tool" | "hook" | "reasoning">;
-}): DisplayItem {
+  kind: Extract<MessageStreamItemKind, "tool" | "hook" | "reasoning">;
+}): MessageStreamItem {
   return {
     id: params.id,
     kind: params.kind,
@@ -25,7 +25,12 @@ export function streamedTextDisplayItem(params: {
   };
 }
 
-export function streamedToolOutputDisplayItem(params: { id: string; turnId: string; output: string; fallbackLabel: string }): DisplayItem {
+export function streamedToolOutputMessageStreamItem(params: {
+  id: string;
+  turnId: string;
+  output: string;
+  fallbackLabel: string;
+}): MessageStreamItem {
   return {
     id: params.id,
     kind: "tool",
@@ -38,13 +43,13 @@ export function streamedToolOutputDisplayItem(params: { id: string; turnId: stri
   };
 }
 
-export function streamedItemOutputDisplayItem(params: {
+export function streamedItemOutputMessageStreamItem(params: {
   id: string;
   turnId: string;
   output: string;
   kind: "command" | "fileChange";
   fallbackText: string;
-}): DisplayItem {
+}): MessageStreamItem {
   return {
     id: params.id,
     kind: params.kind,
@@ -65,10 +70,15 @@ export function streamedItemOutputDisplayItem(params: {
           status: "running",
           executionState: "running",
         }),
-  } as DisplayItem;
+  } as MessageStreamItem;
 }
 
-export function streamingFileChangeDisplayItem(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): DisplayItem {
+export function streamingFileChangeMessageStreamItem(
+  itemId: string,
+  turnId: string,
+  changes: FileUpdateChange[],
+  status: string,
+): MessageStreamItem {
   return {
     id: itemId,
     kind: "fileChange",

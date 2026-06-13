@@ -4,7 +4,7 @@ import type { ThreadConversationSummary } from "../../../../domain/threads/trans
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
 import { createStructuredSystemItem, createSystemItem } from "../../display/items/system";
-import type { DisplayDetailSection } from "../../display/types";
+import type { MessageStreamDetailSection } from "../../message-stream/items";
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "../server-requests/approval";
 import { userInputResponse, type PendingUserInput } from "../server-requests/user-input";
 import {
@@ -117,7 +117,7 @@ export class ChatInboundController {
     this.dispatch({ type: "message-stream/system-item-added", item: createSystemItem(this.localItemId("system"), text) });
   }
 
-  addStructuredSystemMessage(text: string, details: DisplayDetailSection[]): void {
+  addStructuredSystemMessage(text: string, details: MessageStreamDetailSection[]): void {
     this.dispatch({
       type: "message-stream/system-item-added",
       item: createStructuredSystemItem(this.localItemId("system"), text, details),

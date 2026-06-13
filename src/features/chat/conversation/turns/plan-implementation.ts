@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { activeThreadId, canImplementPlan } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
-import type { DisplayItem } from "../../display/types";
+import type { MessageStreamItem } from "../../message-stream/items";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 
@@ -14,8 +14,8 @@ export interface PlanImplementationHost {
 }
 
 export interface PlanImplementation {
-  canImplement: (item: DisplayItem) => boolean;
-  implement: (item: DisplayItem) => Promise<void>;
+  canImplement: (item: MessageStreamItem) => boolean;
+  implement: (item: MessageStreamItem) => Promise<void>;
 }
 
 export function createPlanImplementation(host: PlanImplementationHost): PlanImplementation {
@@ -25,7 +25,7 @@ export function createPlanImplementation(host: PlanImplementationHost): PlanImpl
   };
 }
 
-async function implementPlan(host: PlanImplementationHost, item: DisplayItem): Promise<void> {
+async function implementPlan(host: PlanImplementationHost, item: MessageStreamItem): Promise<void> {
   if (!canImplementPlan(host.stateStore.getState(), item)) return;
   await host.ensureConnected();
   if (!host.currentClient() || !activeThreadId(host.stateStore.getState())) return;

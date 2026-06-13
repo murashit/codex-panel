@@ -1,5 +1,5 @@
 import { permissionRows } from "../details/permission-rows";
-import type { DisplayItem, ExecutionState } from "../types";
+import type { MessageStreamItem, ExecutionState } from "../../message-stream/items";
 import { pathsRelativeToRoot } from "../details/path-labels";
 
 type DisplayExecutionState = Exclude<ExecutionState, null>;
@@ -57,7 +57,7 @@ interface DisplayRow {
   value: string;
 }
 
-export function createReviewResultItem(id: string, text: string): DisplayItem {
+export function createReviewResultItem(id: string, text: string): MessageStreamItem {
   const parsed = parseAutomaticApprovalReviewMessage(text);
   if (parsed) {
     return {
@@ -77,7 +77,7 @@ export function createReviewResultItem(id: string, text: string): DisplayItem {
   };
 }
 
-export function createAutoReviewResultItem(params: AutoReviewNotification): DisplayItem {
+export function createAutoReviewResultItem(params: AutoReviewNotification): MessageStreamItem {
   const completed = "decisionSource" in params;
   const status = params.review.status;
   const action = autoReviewActionLabel(params.action);

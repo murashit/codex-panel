@@ -3,14 +3,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  firstThreadTitleContextFromDisplayItems,
-  threadTitleContextFromDisplayItems,
+  firstThreadTitleContextFromMessageStreamItems,
+  threadTitleContextFromMessageStreamItems,
 } from "../../../../src/features/chat/threads/title-context";
 
 describe("chat thread title context", () => {
   it("extracts title context from streamed display items when completed turn items are not loaded", () => {
     expect(
-      threadTitleContextFromDisplayItems("turn", [
+      threadTitleContextFromMessageStreamItems("turn", [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "自動命名を直したい", turnId: "turn" },
         {
           id: "a1",
@@ -30,7 +30,7 @@ describe("chat thread title context", () => {
 
   it("uses the first usable displayed turn as a resumed-history fallback", () => {
     expect(
-      firstThreadTitleContextFromDisplayItems([
+      firstThreadTitleContextFromMessageStreamItems([
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "本文だけのturn", turnId: "turn-1" },
         { id: "u2", kind: "message", messageKind: "user", role: "user", text: "履歴から命名したい", turnId: "turn-2" },
         {
@@ -61,7 +61,7 @@ describe("chat thread title context", () => {
 
   it("uses a preceding goal event objective when the first completed turn has no user item", () => {
     expect(
-      threadTitleContextFromDisplayItems("turn", [
+      threadTitleContextFromMessageStreamItems("turn", [
         {
           id: "goal",
           kind: "goal",
@@ -87,7 +87,7 @@ describe("chat thread title context", () => {
 
   it("finds the first visible display item title context", () => {
     expect(
-      firstThreadTitleContextFromDisplayItems([
+      firstThreadTitleContextFromMessageStreamItems([
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "表示済み履歴から命名したい", turnId: "visible" },
         {
           id: "a1",

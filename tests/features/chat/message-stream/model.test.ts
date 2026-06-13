@@ -2,16 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { collabAgentStateExecutionState } from "../../../../src/features/chat/display/items/agent";
 import { activeAgentRunSummary } from "../../../../src/features/chat/display/stream/agent-summary";
-import { displayBlocksForItems } from "../../../../src/features/chat/display/stream/blocks";
+import { messageStreamLayoutBlocks } from "../../../../src/features/chat/message-stream/layout";
 import {
   appendAssistantDelta,
   appendItemOutput,
   appendItemText,
   appendPlanDelta,
   appendToolOutput,
-  upsertDisplayItem,
+  upsertMessageStreamItemById,
 } from "../../../../src/features/chat/state/message-stream-updates";
-import { taskProgressDisplayItem, taskProgressExecutionState } from "../../../../src/features/chat/display/items/task-progress";
+import { taskProgressMessageStreamItem, taskProgressExecutionState } from "../../../../src/features/chat/display/items/task-progress";
 import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/display/items/message-content";
 import { pathRelativeToRoot } from "../../../../src/features/chat/display/details/path-labels";
 import { permissionRows } from "../../../../src/features/chat/display/details/permission-rows";
@@ -25,10 +25,10 @@ import {
   dynamicToolCallExecutionState,
   mcpToolCallExecutionState,
   patchApplyExecutionState,
-} from "../../../../src/features/chat/display/turn-items";
-import { displayItemFromTurnItem, displayItemsFromTurns } from "../../../../src/features/chat/display/turn-items";
+} from "../../../../src/features/chat/message-stream/from-turn-items";
+import { messageStreamItemFromTurnItem, messageStreamItemsFromTurns } from "../../../../src/features/chat/message-stream/from-turn-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
-import type { DisplayItem } from "../../../../src/features/chat/display/types";
+import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 
@@ -37,7 +37,7 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-function commandItem(id: string, text: string, turnId: string): DisplayItem {
+function commandItem(id: string, text: string, turnId: string): MessageStreamItem {
   return {
     id,
     kind: "command",
@@ -51,7 +51,7 @@ function commandItem(id: string, text: string, turnId: string): DisplayItem {
   };
 }
 
-function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): DisplayItem {
+function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): MessageStreamItem {
   return {
     id,
     kind: "fileChange",
@@ -87,9 +87,9 @@ describe("turn item conversion preserves app-server semantics", () => {
       { id: "old", items: [userMessage], itemsView: "full", status: "completed", startedAt: 1, completedAt: 2, durationMs: 1, error: null },
     ];
 
-    expect(displayItemsFromTurns(turns).map((item) => item.text)).toEqual(["hello", "world"]);
-    expect(displayItemFromTurnItem(userMessage)).toMatchObject({ role: "user", copyText: "hello" });
-    expect(displayItemFromTurnItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
+    expect(messageStreamItemsFromTurns(turns).map((item) => item.text)).toEqual(["hello", "world"]);
+    expect(messageStreamItemFromTurnItem(userMessage)).toMatchObject({ role: "user", copyText: "hello" });
+    expect(messageStreamItemFromTurnItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
   });
 
   it("keeps resolved file mentions visible as user message metadata", () => {
@@ -105,7 +105,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       ],
     };
 
-    expect(displayItemFromTurnItem(userMessage)).toMatchObject({
+    expect(messageStreamItemFromTurnItem(userMessage)).toMatchObject({
       kind: "message",
       messageKind: "user",
       role: "user",
@@ -128,7 +128,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     );
 
     expect(
-      displayItemFromTurnItem({
+      messageStreamItemFromTurnItem({
         type: "userMessage",
         id: "u1",
         clientId: null,
@@ -158,7 +158,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       ],
     };
 
-    expect(displayItemFromTurnItem(item)).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item)).toMatchObject({
       text: "Use `$obsidian-codex-panel-maintain` and $missing.",
       copyText: "Use $obsidian-codex-panel-maintain and $missing.",
     });
@@ -179,24 +179,24 @@ describe("turn item conversion preserves app-server semantics", () => {
       ],
     };
 
-    expect(displayItemFromTurnItem(item)).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item)).toMatchObject({
       text: "Use `$obsidian-codex-panel-maintain`.\n\n```\n$obsidian-codex-panel-maintain\n```\n\nThen `$obsidian-codex-panel-maintain`.",
     });
   });
 
   it("preserves reasoning text", () => {
     const item: TurnItem = { type: "reasoning", id: "r1", summary: ["summary"], content: ["detail"] };
-    expect(displayItemFromTurnItem(item)?.text).toBe("summary\n\ndetail");
+    expect(messageStreamItemFromTurnItem(item)?.text).toBe("summary\n\ndetail");
   });
 
   it("keeps empty reasoning text empty so completed placeholders can be hidden", () => {
     const item: TurnItem = { type: "reasoning", id: "r1", summary: [], content: [] };
-    expect(displayItemFromTurnItem(item)?.text).toBe("");
+    expect(messageStreamItemFromTurnItem(item)?.text).toBe("");
   });
 
   it("renders completed proposed plans as copyable assistant markdown", () => {
     const item: TurnItem = { type: "plan", id: "p1", text: "<proposed_plan>\n# Plan\n</proposed_plan>" };
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       id: "p1",
       kind: "message",
       role: "assistant",
@@ -246,7 +246,7 @@ describe("turn item conversion preserves app-server semantics", () => {
 
   it("formats structured plan progress as task progress", () => {
     expect(
-      taskProgressDisplayItem("t1", "Working plan", [
+      taskProgressMessageStreamItem("t1", "Working plan", [
         { step: "Inspect code", status: "completed" },
         { step: "Patch UI", status: "inProgress" },
         { step: "Run tests", status: "pending" },
@@ -280,7 +280,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       agentsStates: { "child-thread": { status: "completed", message: "Done" } },
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       id: "agent-1",
       kind: "agent",
       role: "tool",
@@ -310,7 +310,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       agentsStates: {},
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "agent",
       status: "completed",
       executionState: "completed",
@@ -332,7 +332,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 42,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       text: "npm run check (exit 1)",
       output: "stderr with many details",
@@ -355,7 +355,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "read",
       text: "src/main.ts",
@@ -378,7 +378,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "read",
       text: "src/main.ts",
@@ -403,7 +403,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "read",
       text: "/vault/src/main.ts",
@@ -426,7 +426,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "command",
       text: "npm run check",
@@ -451,7 +451,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "search",
       text: '"command target" in src/display',
@@ -476,7 +476,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "search",
       text: "target in src/display",
@@ -499,7 +499,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "search",
       text: "target in src/display",
@@ -522,7 +522,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "list files",
       text: "src/display",
@@ -548,7 +548,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "search",
       text: "target in src",
@@ -571,7 +571,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       actionLabel: "list files",
       text: "workspace",
@@ -594,7 +594,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: null,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
       text: "rg error src",
       executionState: "completed",
@@ -634,15 +634,15 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: null,
     };
 
-    expect(displayItemFromTurnItem(command, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(command, "t1")).toMatchObject({
       text: "npm run check",
       executionState: "running",
     });
-    expect(displayItemFromTurnItem(fileChange, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(fileChange, "t1")).toMatchObject({
       text: "src/main.ts",
       executionState: "running",
     });
-    expect(displayItemFromTurnItem(tool, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(tool, "t1")).toMatchObject({
       text: "123",
       toolLabel: "github.pull_request_read",
       executionState: "running",
@@ -663,7 +663,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "123 (Not found)",
       toolLabel: "github.pull_request_read",
@@ -688,7 +688,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "https://example.com",
       toolLabel: "web.open",
@@ -707,7 +707,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       path: "/vault/project/assets/image.png",
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "/vault/project/assets/image.png",
       toolLabel: "imageView",
@@ -725,7 +725,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       savedPath: "/vault/project/assets/generated.png",
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "/vault/project/assets/generated.png",
       toolLabel: "imageGeneration",
@@ -749,7 +749,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       result: "image result",
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "image result",
       toolLabel: "imageGeneration",
@@ -774,7 +774,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       durationMs: 10,
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "details",
       toolLabel: "multi_tool_use.parallel",
@@ -790,7 +790,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       action: { type: "search", query: "codex app-server", queries: ["obsidian codex panel"] },
     };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
       text: "search: codex app-server; obsidian codex panel; fallback query",
       toolLabel: "web search",
@@ -810,13 +810,13 @@ describe("turn item conversion preserves app-server semantics", () => {
     const entered: TurnItem = { type: "enteredReviewMode", id: "review-entered", review: "Review started" };
     const exited: TurnItem = { type: "exitedReviewMode", id: "review-exited", review: "Review finished" };
 
-    expect(displayItemFromTurnItem(entered, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(entered, "t1")).toMatchObject({
       kind: "tool",
       text: "Entered review mode",
       toolLabel: "enteredReviewMode",
       output: "Review started",
     });
-    expect(displayItemFromTurnItem(exited, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(exited, "t1")).toMatchObject({
       kind: "tool",
       text: "Exited review mode",
       toolLabel: "exitedReviewMode",
@@ -827,7 +827,7 @@ describe("turn item conversion preserves app-server semantics", () => {
   it("preserves context compaction items as short work items", () => {
     const item: TurnItem = { type: "contextCompaction", id: "compact-1" };
 
-    expect(displayItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "contextCompaction",
       text: "Context compaction",
       turnId: "t1",
@@ -919,7 +919,7 @@ describe("permission detail rows", () => {
 
 describe("streaming updates target item identity without mutating history", () => {
   it("upserts assistant deltas by item id, not by last position", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       {
         id: "a1",
         sourceItemId: "a1",
@@ -941,8 +941,8 @@ describe("streaming updates target item identity without mutating history", () =
   });
 
   it("appends tool text and output without mutating existing display items", () => {
-    const tool: DisplayItem = { id: "tool1", sourceItemId: "tool1", kind: "tool", role: "tool", text: "plan: " };
-    const command: DisplayItem = {
+    const tool: MessageStreamItem = { id: "tool1", sourceItemId: "tool1", kind: "tool", role: "tool", text: "plan: " };
+    const command: MessageStreamItem = {
       id: "cmd1",
       sourceItemId: "cmd1",
       kind: "command",
@@ -968,7 +968,7 @@ describe("streaming updates target item identity without mutating history", () =
 
 describe("display block grouping keeps work logs subordinate to conversation messages", () => {
   it("groups completed turn activities before the final assistant message", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1" },
       commandItem("c1", "npm test", "t1"),
@@ -983,13 +983,13 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, null);
+    const blocks = messageStreamLayoutBlocks(items, null);
     expect(blocks.map((block) => block.type)).toEqual(["item", "activityGroup", "item"]);
     expect(blocks[1]).toMatchObject({ summary: "Work details: command, thought" });
   });
 
   it("groups completed hook and review logs before the final assistant message", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       {
         id: "hook-1",
@@ -1029,7 +1029,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, null);
+    const blocks = messageStreamLayoutBlocks(items, null);
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "turn-t1-activity", "a1"]);
     expect(blocks[1]).toMatchObject({
@@ -1042,7 +1042,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   });
 
   it("hides empty completed reasoning items", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       { id: "r1", kind: "reasoning", role: "tool", text: "", turnId: "t1", status: "completed", executionState: "completed" },
       {
@@ -1056,12 +1056,12 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, null);
+    const blocks = messageStreamLayoutBlocks(items, null);
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "a1"]);
   });
 
   it("collapses earlier assistant responses with their turn details", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       {
         id: "a1",
@@ -1094,7 +1094,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, null);
+    const blocks = messageStreamLayoutBlocks(items, null);
     expect(blocks.map((block) => block.type)).toEqual(["item", "activityGroup", "item"]);
     expect(blocks[1]).toMatchObject({
       summary: "Work details: 2 responses, command, file change",
@@ -1104,7 +1104,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   });
 
   it("keeps completed turn work details attached to the final response even when system messages are interleaved", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "s1", kind: "system", role: "system", text: "debug before hook" },
       commandItem("c1", "npm test", "t1"),
       { id: "s2", kind: "system", role: "system", text: "debug after hook" },
@@ -1119,13 +1119,13 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, null);
+    const blocks = messageStreamLayoutBlocks(items, null);
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["s1", "s2", "turn-t1-activity", "a1"]);
   });
 
   it("adds steering markers to completed turn work details without hiding the steering message", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       commandItem("c1", "rg issue", "t1"),
       { id: "u2", kind: "message", messageKind: "user", role: "user", text: "also check tests", turnId: "t1", clientId: "local-steer-1" },
@@ -1141,7 +1141,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, null);
+    const blocks = messageStreamLayoutBlocks(items, null);
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "u2", "turn-t1-activity", "a1"]);
     expect(blocks[2]).toMatchObject({
@@ -1155,7 +1155,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   });
 
   it("pluralizes multiple steering markers as steers in completed turn work details", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       { id: "u2", kind: "message", messageKind: "user", role: "user", text: "also check tests", turnId: "t1" },
       { id: "u3", kind: "message", messageKind: "user", role: "user", text: "and update docs", turnId: "t1" },
@@ -1170,7 +1170,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, null);
+    const blocks = messageStreamLayoutBlocks(items, null);
     const activityGroup = blocks.find((block) => block.type === "activityGroup");
 
     expect(activityGroup).toMatchObject({
@@ -1180,7 +1180,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   });
 
   it("keeps active turn activities expanded", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1" },
       {
         id: "a1",
@@ -1193,11 +1193,11 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    expect(displayBlocksForItems(items, "t1").map((block) => block.type)).toEqual(["item", "item"]);
+    expect(messageStreamLayoutBlocks(items, "t1").map((block) => block.type)).toEqual(["item", "item"]);
   });
 
   it("keeps active task progress chronological in the display model", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       {
         id: "plan-progress-t1",
@@ -1220,13 +1220,13 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, "t1");
+    const blocks = messageStreamLayoutBlocks(items, "t1");
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "plan-progress-t1", "a1"]);
   });
 
   it("summarizes task progress and agent activity separately from tools", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       {
         id: "plan-progress-t1",
@@ -1264,12 +1264,12 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const blocks = displayBlocksForItems(items, null);
+    const blocks = messageStreamLayoutBlocks(items, null);
     expect(blocks[1]).toMatchObject({ summary: "Work details: task progress, agent" });
   });
 
   it("summarizes active subagent states while a turn is running", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       {
         id: "agent-1",
         kind: "agent",
@@ -1302,7 +1302,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   });
 
   it("summarizes active subagent previews and fallback receiver states", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       {
         id: "agent-1",
         kind: "agent",
@@ -1357,7 +1357,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   });
 
   it("omits active subagent summaries once every subagent is complete", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       {
         id: "agent-1",
         kind: "agent",
@@ -1379,7 +1379,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   });
 
   it("adds edited files to the final assistant message", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       fileChangeItem("f1", "t1", "src/main.ts"),
       fileChangeItem("f2", "t1", "styles.css"),
       {
@@ -1402,12 +1402,12 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const assistantBlock = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
+    const assistantBlock = messageStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
     expect(assistantBlock).toMatchObject({ item: { editedFiles: ["src/main.ts", "styles.css"] } });
   });
 
   it("adds turn diff metadata to the final assistant message only when aggregated diff exists", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       fileChangeItem("f1", "t1", "src/main.ts"),
       {
         id: "a1",
@@ -1420,18 +1420,18 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const withoutDiff = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
+    const withoutDiff = messageStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
     expect(withoutDiff).toMatchObject({ item: { editedFiles: ["src/main.ts"] } });
     expect(withoutDiff?.type === "item" ? withoutDiff.item : null).not.toHaveProperty("turnDiff");
 
-    const withDiff = displayBlocksForItems(items, null, null, new Map([["t1", "@@\n-old\n+new"]])).find(
+    const withDiff = messageStreamLayoutBlocks(items, null, null, new Map([["t1", "@@\n-old\n+new"]])).find(
       (block) => block.type === "item" && block.item.role === "assistant",
     );
     expect(withDiff).toMatchObject({ item: { editedFiles: ["src/main.ts"], turnDiff: { diff: "@@\n-old\n+new" } } });
   });
 
   it("adds auto-review summaries to the final assistant message", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       {
         id: "review-1",
         kind: "reviewResult",
@@ -1459,14 +1459,14 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const assistantBlock = displayBlocksForItems(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
+    const assistantBlock = messageStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
     expect(assistantBlock).toMatchObject({
       item: { autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
     });
   });
 
   it("does not add edited file or auto-review summaries to active turn messages", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       fileChangeItem("f1", "t1", "src/main.ts"),
       {
         id: "review-1",
@@ -1487,7 +1487,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
     ];
 
-    const assistantBlock = displayBlocksForItems(items, "t1").find((block) => block.type === "item" && block.item.id === "a1");
+    const assistantBlock = messageStreamLayoutBlocks(items, "t1").find((block) => block.type === "item" && block.item.id === "a1");
     expect(assistantBlock?.type === "item" ? assistantBlock.item : null).not.toHaveProperty("editedFiles");
     expect(assistantBlock?.type === "item" ? assistantBlock.item : null).not.toHaveProperty("autoReviewSummaries");
   });
@@ -1495,7 +1495,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
 describe("workspace path summaries stay readable without hiding audit paths", () => {
   it("shows edited files relative to the workspace root", () => {
-    const items: DisplayItem[] = [
+    const items: MessageStreamItem[] = [
       fileChangeItem("f1", "t1", "/vault/project/src/main.ts"),
       fileChangeItem("f2", "t1", "/vault/project/styles.css"),
       fileChangeItem("f3", "t1", "/tmp/outside.txt"),
@@ -1510,7 +1510,7 @@ describe("workspace path summaries stay readable without hiding audit paths", ()
       },
     ];
 
-    const assistantBlock = displayBlocksForItems(items, null, "/vault/project").find(
+    const assistantBlock = messageStreamLayoutBlocks(items, null, "/vault/project").find(
       (block) => block.type === "item" && block.item.role === "assistant",
     );
     expect(assistantBlock).toMatchObject({ item: { editedFiles: ["/tmp/outside.txt", "src/main.ts", "styles.css"] } });
@@ -1557,7 +1557,7 @@ describe("execution state uses typed status adapters before rendered text", () =
 
   it("does not infer unknown status strings with broad matching", () => {
     expect(patchApplyExecutionState("done_with_errors")).toBeNull();
-    const item: DisplayItem = {
+    const item: MessageStreamItem = {
       id: "c1",
       kind: "command",
       role: "tool",
@@ -1570,7 +1570,7 @@ describe("execution state uses typed status adapters before rendered text", () =
   });
 
   it("does not overwrite streamed output with an empty completed item", () => {
-    const streamed: DisplayItem = {
+    const streamed: MessageStreamItem = {
       id: "c1",
       sourceItemId: "c1",
       kind: "command",
@@ -1581,7 +1581,7 @@ describe("execution state uses typed status adapters before rendered text", () =
       status: "running",
       output: "partial output",
     };
-    const completed: DisplayItem = {
+    const completed: MessageStreamItem = {
       id: "c1",
       sourceItemId: "c1",
       kind: "command",
@@ -1593,6 +1593,6 @@ describe("execution state uses typed status adapters before rendered text", () =
       output: "",
     };
 
-    expect(upsertDisplayItem([streamed], completed)[0]).toMatchObject({ output: "partial output", status: "completed" });
+    expect(upsertMessageStreamItemById([streamed], completed)[0]).toMatchObject({ output: "partial output", status: "completed" });
   });
 });

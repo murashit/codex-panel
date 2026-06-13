@@ -13,11 +13,11 @@ import {
   type ThreadManagementActions,
   type ThreadManagementActionsHost,
 } from "../../../../src/features/chat/threads/thread-management-actions";
-import type { DisplayItem } from "../../../../src/features/chat/display/types";
+import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
-import { chatStateDisplayItems, setChatStateDisplayItems } from "../support/message-stream";
+import { chatStateMessageStreamItems, setChatStateMessageStreamItems } from "../support/message-stream";
 
 type MockArchiveExportAdapter = ArchiveExportAdapter & {
   exists: ReturnType<typeof vi.fn<ArchiveExportAdapter["exists"]>>;
@@ -32,7 +32,7 @@ describe("thread management actions", () => {
 
   it("requests thread compaction and reports the shared status", async () => {
     const client = clientMock();
-    const host = hostMock({ client, displayItems: [] });
+    const host = hostMock({ client, items: [] });
     const controller = threadManagementActions(host);
 
     await controller.compactThread("source");
@@ -47,7 +47,7 @@ describe("thread management actions", () => {
     const compact = deferred<undefined>();
     const client = clientMock();
     client.compactThread.mockReturnValue(compact.promise);
-    const host = hostMock({ client, displayItems: [] });
+    const host = hostMock({ client, items: [] });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
       thread: panelThread("source"),
@@ -89,7 +89,7 @@ describe("thread management actions", () => {
     client.readThread.mockResolvedValue({ thread: archivedThread() });
     const host = hostMock({
       client,
-      displayItems: [],
+      items: [],
       archiveAdapter: adapter,
       settings: {
         archiveExportEnabled: true,
@@ -121,7 +121,7 @@ describe("thread management actions", () => {
     client.readThread.mockResolvedValue({ thread: archivedThread() });
     const host = hostMock({
       client,
-      displayItems: [],
+      items: [],
       archiveAdapter: adapter,
       settings: {
         archiveExportEnabled: true,
@@ -141,7 +141,7 @@ describe("thread management actions", () => {
 
   it("forks from a selected turn by dropping later turns on the fork", async () => {
     const client = clientMock();
-    const host = hostMock({ client, displayItems: turnItems() });
+    const host = hostMock({ client, items: turnItems() });
     const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-1", false);
@@ -159,7 +159,7 @@ describe("thread management actions", () => {
     client.readThread.mockResolvedValue({ thread: archivedThread() });
     const host = hostMock({
       client,
-      displayItems: turnItems(),
+      items: turnItems(),
       archiveAdapter: adapter,
       settings: {
         archiveExportEnabled: true,
@@ -185,7 +185,7 @@ describe("thread management actions", () => {
   it("keeps the source panel when fork and archive fails to archive", async () => {
     const client = clientMock();
     client.archiveThread.mockRejectedValue(new Error("archive failed"));
-    const host = hostMock({ client, displayItems: turnItems() });
+    const host = hostMock({ client, items: turnItems() });
     const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
@@ -199,7 +199,7 @@ describe("thread management actions", () => {
 
   it("notifies surfaces when fork and archive succeeds but the fork cannot replace the source panel", async () => {
     const client = clientMock();
-    const host = hostMock({ client, displayItems: turnItems() });
+    const host = hostMock({ client, items: turnItems() });
     host.openThreadInCurrentPanel.mockRejectedValue(new Error("resume failed"));
     const controller = threadManagementActions(host);
 
@@ -214,7 +214,7 @@ describe("thread management actions", () => {
     const fork = deferred<{ thread: { id: string } }>();
     const client = clientMock();
     client.forkThread.mockReturnValue(fork.promise);
-    const host = hostMock({ client, displayItems: turnItems() });
+    const host = hostMock({ client, items: turnItems() });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
       thread: panelThread("source"),
@@ -260,7 +260,7 @@ describe("thread management actions", () => {
 
   it("renames a thread and notifies shared surfaces", async () => {
     const client = clientMock();
-    const host = hostMock({ client, displayItems: [] });
+    const host = hostMock({ client, items: [] });
     host.stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...panelThread("thread"), name: "Old" }] });
     const controller = threadManagementActions(host);
 
@@ -274,7 +274,7 @@ describe("thread management actions", () => {
 
   it("ignores empty thread rename titles", async () => {
     const client = clientMock();
-    const host = hostMock({ client, displayItems: [] });
+    const host = hostMock({ client, items: [] });
     const controller = threadManagementActions(host);
 
     await expect(controller.renameThread("thread", "   ")).resolves.toBe(false);
@@ -286,7 +286,7 @@ describe("thread management actions", () => {
 
   it("applies rollback response turns before refreshing shared thread state", async () => {
     const client = clientMock();
-    const host = hostMock({ client, displayItems: turnItems() });
+    const host = hostMock({ client, items: turnItems() });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
       thread: panelThread("source"),
@@ -304,7 +304,7 @@ describe("thread management actions", () => {
     await controller.rollbackThread("source");
 
     expect(client.rollbackThread).toHaveBeenCalledWith("source");
-    expect(chatStateDisplayItems(host.stateStore.getState()).slice(0, 2)).toMatchObject([
+    expect(chatStateMessageStreamItems(host.stateStore.getState()).slice(0, 2)).toMatchObject([
       { kind: "message", role: "user", text: "kept prompt", turnId: "kept-turn" },
       { kind: "message", role: "assistant", text: "kept answer", turnId: "kept-turn" },
     ]);
@@ -317,7 +317,7 @@ describe("thread management actions", () => {
     const rollback = deferred<{ thread: ThreadRecord }>();
     const client = clientMock();
     client.rollbackThread.mockReturnValue(rollback.promise);
-    const host = hostMock({ client, displayItems: turnItems() });
+    const host = hostMock({ client, items: turnItems() });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
       thread: panelThread("source"),
@@ -357,7 +357,7 @@ describe("thread management actions", () => {
   });
 });
 
-function turnItems(): DisplayItem[] {
+function turnItems(): MessageStreamItem[] {
   return [
     { id: "u1", kind: "message", messageKind: "user", role: "user", text: "one", turnId: "turn-1" },
     {
@@ -416,17 +416,17 @@ function threadManagementActions(host: ThreadManagementActionsHost): ThreadManag
 
 function hostMock({
   client,
-  displayItems,
+  items,
   archiveAdapter = archiveAdapterMock(),
   settings = {},
 }: {
   client: ReturnType<typeof clientMock>;
-  displayItems: DisplayItem[];
+  items: MessageStreamItem[];
   archiveAdapter?: ArchiveExportAdapter;
   settings?: Partial<typeof DEFAULT_SETTINGS>;
 }) {
   const state = createChatState();
-  setChatStateDisplayItems(state, displayItems);
+  setChatStateMessageStreamItems(state, items);
   const stateStore = createChatStateStore(state);
   return {
     stateStore,

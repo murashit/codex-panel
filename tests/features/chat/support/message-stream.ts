@@ -1,11 +1,11 @@
-import type { DisplayItem } from "../../../../src/features/chat/display/types";
-import { messageStreamDisplayItems, messageStreamWithDisplayItems } from "../../../../src/features/chat/state/message-stream";
+import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
+import { messageStreamItems, messageStreamWithItems } from "../../../../src/features/chat/state/message-stream";
 import type { ChatState } from "../../../../src/features/chat/state/reducer";
 
-export function chatStateDisplayItems(state: Pick<ChatState, "messageStream">): readonly DisplayItem[] {
-  return messageStreamDisplayItems(state.messageStream);
+export function chatStateMessageStreamItems(state: Pick<ChatState, "messageStream">): readonly MessageStreamItem[] {
+  return messageStreamItems(state.messageStream);
 }
 
-export function setChatStateDisplayItems(state: ChatState, items: readonly DisplayItem[]): void {
-  state.messageStream = messageStreamWithDisplayItems(state.messageStream, items);
+export function setChatStateMessageStreamItems(state: ChatState, items: readonly MessageStreamItem[]): void {
+  state.messageStream = messageStreamWithItems(state.messageStream, items);
 }

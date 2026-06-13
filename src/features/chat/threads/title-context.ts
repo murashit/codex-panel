@@ -1,11 +1,11 @@
 import type { ThreadTitleContext } from "../../thread-title/model";
 import { truncate } from "../../../utils";
-import { isCompletedTurnOutcomeMessage } from "../display/item-selectors";
-import type { DisplayItem } from "../display/types";
+import { isCompletedTurnOutcomeMessage } from "../message-stream/selectors";
+import type { MessageStreamItem } from "../message-stream/items";
 
 const MAX_CONTEXT_CHARS = 4_000;
 
-export function threadTitleContextFromDisplayItems(turnId: string, items: readonly DisplayItem[]): ThreadTitleContext | null {
+export function threadTitleContextFromMessageStreamItems(turnId: string, items: readonly MessageStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
   const userRequest =
     turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ??
@@ -19,18 +19,18 @@ export function threadTitleContextFromDisplayItems(turnId: string, items: readon
   };
 }
 
-export function firstThreadTitleContextFromDisplayItems(items: readonly DisplayItem[]): ThreadTitleContext | null {
+export function firstThreadTitleContextFromMessageStreamItems(items: readonly MessageStreamItem[]): ThreadTitleContext | null {
   const turnIds = new Set<string>();
   for (const item of items) {
     if (!item.turnId || turnIds.has(item.turnId)) continue;
     turnIds.add(item.turnId);
-    const context = threadTitleContextFromDisplayItems(item.turnId, items);
+    const context = threadTitleContextFromMessageStreamItems(item.turnId, items);
     if (context) return context;
   }
   return null;
 }
 
-function precedingUnscopedTitleSeed(turnId: string, items: readonly DisplayItem[]): string | null {
+function precedingUnscopedTitleSeed(turnId: string, items: readonly MessageStreamItem[]): string | null {
   const firstTurnItemIndex = items.findIndex((item) => item.turnId === turnId);
   if (firstTurnItemIndex < 1) return null;
   for (let index = firstTurnItemIndex - 1; index >= 0; index -= 1) {

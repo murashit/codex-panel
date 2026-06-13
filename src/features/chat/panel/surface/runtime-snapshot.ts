@@ -1,4 +1,4 @@
-import { messageStreamDisplayItems } from "../../state/message-stream";
+import { messageStreamItems } from "../../state/message-stream";
 import type { ChatState } from "../../state/reducer";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import { runtimeSnapshotForChatSlices } from "../../runtime/snapshot";
@@ -11,7 +11,7 @@ export function runtimeSnapshotForShellState(
     activeThread: state.activeThread,
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,
-    displayItems: messageStreamDisplayItems(state.messageStream),
+    items: messageStreamItems(state.messageStream),
     availableModels: state.connection.availableModels,
   });
 }
@@ -22,7 +22,7 @@ export function runtimeSnapshotForToolbarShellState(state: Pick<ChatState, "conn
     activeThread: state.activeThread,
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,
-    displayItems: [],
+    items: [],
     availableModels: state.connection.availableModels,
   });
 }

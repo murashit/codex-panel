@@ -1,7 +1,7 @@
 import type { App, Component } from "obsidian";
 
 import type { CodexChatHost } from "../../chat-host";
-import type { DisplayItem } from "../../display/types";
+import type { MessageStreamItem } from "../../message-stream/items";
 import { MessageStreamPresenter } from "../../panel/surface/message-stream-presenter";
 import type { MessageStreamScrollBridge } from "../../panel/surface/message-stream-scroll";
 import type { ChatStateStore } from "../../state/reducer";
@@ -64,7 +64,7 @@ export function createConversationMessageStreamPresenter(
     actions: {
       rollbackThread: (threadId) => void refs.threadActions.rollbackThread(threadId),
       forkThreadFromTurn: (threadId, turnId, archiveSource) => void refs.threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
-      implementPlan: (item: DisplayItem) => void refs.planImplementation.implement(item),
+      implementPlan: (item: MessageStreamItem) => void refs.planImplementation.implement(item),
       openTurnDiff: (state) => void plugin.openTurnDiff(state),
     },
     requests: {

@@ -13,21 +13,25 @@ import type { ThreadConversationSummary } from "../../../../domain/threads/trans
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
 import { createAutoReviewResultItem, createReviewResultItem } from "../../display/items/review-result";
-import { completeReasoningItems, upsertDisplayItem } from "../../state/message-stream-updates";
-import { displayItemFromTurnItem, displayItemsFromTurns, shouldSuppressLifecycleItem } from "../../display/turn-items";
-import { taskProgressDisplayItem } from "../../display/items/task-progress";
+import { completeReasoningItems, upsertMessageStreamItemById } from "../../state/message-stream-updates";
+import {
+  messageStreamItemFromTurnItem,
+  messageStreamItemsFromTurns,
+  shouldSuppressLifecycleItem,
+} from "../../message-stream/from-turn-items";
+import { taskProgressMessageStreamItem } from "../../display/items/task-progress";
 import { createSystemItem } from "../../display/items/system";
-import type { DisplayItem, DisplayKind, MessageDisplayItem } from "../../display/types";
+import type { MessageStreamItem, MessageStreamItemKind, MessageStreamMessageItem } from "../../message-stream/items";
 import { goalChangeItem } from "../../display/items/goal";
-import { hookRunDisplayItem } from "../../display/items/hook-run";
+import { hookRunMessageStreamItem } from "../../display/items/hook-run";
 import {
   STREAMED_COMMAND_RUNNING_TEXT,
   STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
   STREAMED_MCP_PROGRESS_LABEL,
-  streamingFileChangeDisplayItem,
+  streamingFileChangeMessageStreamItem,
 } from "../../display/items/streaming";
 import { attachHookRunsToTurn } from "../../state/message-stream-updates";
-import { messageStreamDisplayItems } from "../../state/message-stream";
+import { messageStreamItems } from "../../state/message-stream";
 import {
   routeServerNotification,
   type DiagnosticStatusNotificationMethod,
@@ -139,7 +143,7 @@ const STREAM_UPDATE_PLANNERS = {
   "turn/plan/updated": (_state, notification) =>
     actionPlan({
       type: "message-stream/item-upserted",
-      item: taskProgressDisplayItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
+      item: taskProgressMessageStreamItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
     }),
   "item/reasoning/summaryTextDelta": (state, notification) =>
     appendToolTextPlan(state, notification.params.itemId, notification.params.turnId, "reasoning", notification.params.delta, "reasoning"),
@@ -188,7 +192,7 @@ const STREAM_UPDATE_PLANNERS = {
     const item = createReviewResultItem(localItemId("review"), notification.params.message);
     if (
       isUnstructuredAutoReviewWarning(item) &&
-      hasStructuredAutoReviewResult(messageStreamDisplayItems(state.messageStream), activeTurnId(state))
+      hasStructuredAutoReviewResult(messageStreamItems(state.messageStream), activeTurnId(state))
     ) {
       return EMPTY_PLAN;
     }
@@ -202,7 +206,7 @@ const TURN_LIFECYCLE_PLANNERS = {
       type: "turn/started",
       threadId: notification.params.threadId,
       turnId: notification.params.turn.id,
-      displayItems: displayItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
+      items: displayItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
     }),
   "turn/completed": (state, notification) => {
     if (activeTurnId(state) !== notification.params.turn.id) return EMPTY_PLAN;
@@ -212,7 +216,7 @@ const TURN_LIFECYCLE_PLANNERS = {
           type: "turn/completed",
           turnId: notification.params.turn.id,
           status: notification.params.turn.status,
-          displayItems: completeReasoningItems(reconciledCompletedTurnItems(state, notification.params.turn), notification.params.turn.id),
+          items: completeReasoningItems(reconciledCompletedTurnItems(state, notification.params.turn), notification.params.turn.id),
         },
       ],
       effects: [
@@ -385,24 +389,24 @@ function autoApprovalReviewPlan(
   const reviewItem = createAutoReviewResultItem(notification.params);
   return actionPlan({
     type: "message-stream/items-replaced",
-    items: upsertDisplayItem(removeUnstructuredAutoReviewWarnings(messageStreamDisplayItems(state.messageStream)), reviewItem),
+    items: upsertMessageStreamItemById(removeUnstructuredAutoReviewWarnings(messageStreamItems(state.messageStream)), reviewItem),
   });
 }
 
 function startedItemPlan(item: TurnItem, turnId: string): ChatNotificationPlan {
   if (shouldSuppressLifecycleItem(item)) return EMPTY_PLAN;
-  const displayItem = displayItemFromTurnItem(item, turnId);
-  return displayItem ? actionPlan({ type: "message-stream/item-upserted", item: displayItem }) : EMPTY_PLAN;
+  const streamItem = messageStreamItemFromTurnItem(item, turnId);
+  return streamItem ? actionPlan({ type: "message-stream/item-upserted", item: streamItem }) : EMPTY_PLAN;
 }
 
 function completedItemPlan(state: ChatState, item: TurnItem, turnId: string): ChatNotificationPlan {
   if (item.type === "userMessage") return EMPTY_PLAN;
-  const displayItem = displayItemFromTurnItem(item, turnId);
-  if (!displayItem) return EMPTY_PLAN;
+  const streamItem = messageStreamItemFromTurnItem(item, turnId);
+  if (!streamItem) return EMPTY_PLAN;
   return {
     actions: [
-      { type: "message-stream/item-upserted", item: displayItem },
-      ...(displayItem.kind === "reasoning" ? ([{ type: "message-stream/reasoning-completed", turnId }] satisfies ChatAction[]) : []),
+      { type: "message-stream/item-upserted", item: streamItem },
+      ...(streamItem.kind === "reasoning" ? ([{ type: "message-stream/reasoning-completed", turnId }] satisfies ChatAction[]) : []),
     ],
     effects: [],
   };
@@ -411,7 +415,7 @@ function completedItemPlan(state: ChatState, item: TurnItem, turnId: string): Ch
 function fileChangePlan(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): ChatNotificationPlan {
   return actionPlan({
     type: "message-stream/item-upserted",
-    item: streamingFileChangeDisplayItem(itemId, turnId, changes, status),
+    item: streamingFileChangeMessageStreamItem(itemId, turnId, changes, status),
   });
 }
 
@@ -421,7 +425,7 @@ function appendToolTextPlan(
   turnId: string,
   label: string,
   delta: string,
-  kind: Extract<DisplayKind, "tool" | "hook" | "reasoning"> = "tool",
+  kind: Extract<MessageStreamItemKind, "tool" | "hook" | "reasoning"> = "tool",
 ): ChatNotificationPlan {
   return actionPlan({
     type: "message-stream/item-text-appended",
@@ -440,7 +444,7 @@ function hookRunPlan(
   status: string,
 ): ChatNotificationPlan {
   const resolvedTurnId = hookRunTurnId(state, run, turnId);
-  const item = hookRunDisplayItem(run, resolvedTurnId, status);
+  const item = hookRunMessageStreamItem(run, resolvedTurnId, status);
   if (!item) return EMPTY_PLAN;
   const currentPendingTurnStart = pendingTurnStartForState(state);
   let pendingTurnStart = currentPendingTurnStart;
@@ -467,41 +471,41 @@ function hookRunTurnId(
   return null;
 }
 
-function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly DisplayItem[] {
+function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly MessageStreamItem[] {
   const pending = pendingTurnStartForState(state);
-  const displayItems = messageStreamDisplayItems(state.messageStream);
-  if (!pending) return displayItems;
-  return attachHookRunsToTurn(displayItems, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
+  const items = messageStreamItems(state.messageStream);
+  if (!pending) return items;
+  return attachHookRunsToTurn(items, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }
 
-function reconciledCompletedTurnItems(state: ChatState, turn: TurnRecord): readonly DisplayItem[] {
-  const turnItems = displayItemsFromTurns([turn]);
-  const displayItems = messageStreamDisplayItems(state.messageStream);
-  if (turnItems.length === 0) return displayItems;
+function reconciledCompletedTurnItems(state: ChatState, turn: TurnRecord): readonly MessageStreamItem[] {
+  const turnItems = messageStreamItemsFromTurns([turn]);
+  const items = messageStreamItems(state.messageStream);
+  if (turnItems.length === 0) return items;
   const serverUserMessages = turnItems.filter(isUserMessage);
   const serverUserClientIds = new Set(serverUserMessages.map((item) => item.clientId).filter(isString));
   const serverUserMessagesByClientId = new Map(
     serverUserMessages.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
   );
   const serverUserFallbackTexts = serverUserClientIds.size > 0 ? new Set<string>() : new Set(serverUserMessages.map((item) => item.text));
-  const stateDisplayItems = displayItems.map((item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item);
-  let mergedTurnItems = stateDisplayItems
+  const stateMessageStreamItems = items.map((item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item);
+  let mergedTurnItems = stateMessageStreamItems
     .filter((item) => item.turnId === turn.id)
     .filter((item) => !isOptimisticUserMessage(item, serverUserClientIds, serverUserFallbackTexts));
   for (const item of turnItems) {
-    mergedTurnItems = upsertDisplayItem(mergedTurnItems, item);
+    mergedTurnItems = upsertMessageStreamItemById(mergedTurnItems, item);
   }
-  const retainedItems = stateDisplayItems
+  const retainedItems = stateMessageStreamItems
     .filter((item) => item.turnId !== turn.id)
     .filter((item) => !isOptimisticUserMessage(item, serverUserClientIds, serverUserFallbackTexts));
   return [...retainedItems, ...mergedTurnItems];
 }
 
-function removeUnstructuredAutoReviewWarnings(items: readonly DisplayItem[]): DisplayItem[] {
+function removeUnstructuredAutoReviewWarnings(items: readonly MessageStreamItem[]): MessageStreamItem[] {
   return items.filter((item) => !isUnstructuredAutoReviewWarning(item));
 }
 
-function hasStructuredAutoReviewResult(items: readonly DisplayItem[], activeTurnId: string | null): boolean {
+function hasStructuredAutoReviewResult(items: readonly MessageStreamItem[], activeTurnId: string | null): boolean {
   return items.some(
     (item) =>
       item.kind === "reviewResult" &&
@@ -511,7 +515,7 @@ function hasStructuredAutoReviewResult(items: readonly DisplayItem[], activeTurn
   );
 }
 
-function isUnstructuredAutoReviewWarning(item: DisplayItem): boolean {
+function isUnstructuredAutoReviewWarning(item: MessageStreamItem): boolean {
   return item.kind === "reviewResult" && !item.turnId && isAutoReviewText(item.text);
 }
 
@@ -519,19 +523,19 @@ function isAutoReviewText(text: string): boolean {
   return /^Auto-review\b/i.test(text.trim());
 }
 
-function isUserMessage(item: DisplayItem): item is MessageDisplayItem & { role: "user" } {
+function isUserMessage(item: MessageStreamItem): item is MessageStreamMessageItem & { role: "user" } {
   return item.kind === "message" && item.role === "user";
 }
 
 function serverUserMessageForOptimisticItem(
-  item: DisplayItem,
-  serverUserMessagesByClientId: ReadonlyMap<string, MessageDisplayItem & { role: "user" }>,
-): (MessageDisplayItem & { role: "user" }) | null {
+  item: MessageStreamItem,
+  serverUserMessagesByClientId: ReadonlyMap<string, MessageStreamMessageItem & { role: "user" }>,
+): (MessageStreamMessageItem & { role: "user" }) | null {
   if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return null;
   return serverUserMessagesByClientId.get(item.id) ?? null;
 }
 
-function isOptimisticUserMessage(item: DisplayItem, serverUserClientIds: Set<string>, serverUserFallbackTexts: Set<string>): boolean {
+function isOptimisticUserMessage(item: MessageStreamItem, serverUserClientIds: Set<string>, serverUserFallbackTexts: Set<string>): boolean {
   if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return false;
   return serverUserClientIds.has(item.id) || serverUserFallbackTexts.has(item.text);
 }

@@ -1,7 +1,12 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { toolResultView, type ToolResultDetailSection, type ToolResultDisplayItem, type ToolResultView } from "./tool-result-view-model";
+import {
+  toolResultView,
+  type ToolResultDetailSection,
+  type ToolResultMessageStreamItem,
+  type ToolResultView,
+} from "./tool-result-view-model";
 import { renderRawDiffLines } from "../../../../shared/diff/render";
 import type { ChatDisclosureUiState } from "../../state/reducer";
 
@@ -11,11 +16,11 @@ export interface ToolResultRenderContext {
   onDisclosureToggle?: (bucket: "toolResults", id: string, open: boolean) => void;
 }
 
-export function toolResultNode(item: ToolResultDisplayItem, context: ToolResultRenderContext): UiNode {
+export function toolResultNode(item: ToolResultMessageStreamItem, context: ToolResultRenderContext): UiNode {
   return <ToolResult item={item} context={context} />;
 }
 
-function ToolResult({ item, context }: { item: ToolResultDisplayItem; context: ToolResultRenderContext }): UiNode {
+function ToolResult({ item, context }: { item: ToolResultMessageStreamItem; context: ToolResultRenderContext }): UiNode {
   const view = toolResultView(item, context.workspaceRoot);
   const open = context.disclosures.toolResults.has(view.detailsKey);
   const hasSummary = view.summary.trim().length > 0;

@@ -88,24 +88,24 @@ export class TurnSubmissionController {
           responseTurnId: response.turn.id,
         })
       ) {
-        const displayItems = acknowledgeOptimisticTurnStart({
-          items: acknowledgedState.displayItems,
+        const items = acknowledgeOptimisticTurnStart({
+          items: acknowledgedState.items,
           optimisticUserId,
           turnId: response.turn.id,
           pendingTurnStart: pendingStart,
         });
-        this.host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, displayItems });
+        this.host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, items });
         this.host.setStatus(STATUS_TURN_RUNNING);
       }
     } catch (error) {
       const failedState = submissionStateSnapshot(this.host.stateStore.getState());
       if (!optimisticUserId || failedState.pendingTurnStart?.anchorItemId === optimisticUserId) {
-        const displayItems = cleanupFailedTurnStart({
-          items: failedState.displayItems,
+        const items = cleanupFailedTurnStart({
+          items: failedState.items,
           optimisticUserId,
           pendingTurnStart: failedState.pendingTurnStart,
         });
-        this.host.stateStore.dispatch({ type: "turn/start-failed", displayItems });
+        this.host.stateStore.dispatch({ type: "turn/start-failed", items });
         this.host.setDraft(text);
         this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
       }

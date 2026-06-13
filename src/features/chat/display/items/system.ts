@@ -1,7 +1,6 @@
-import type { DisplayItem } from "../types";
-import type { DisplayDetailSection } from "../types";
+import type { MessageStreamDetailSection, MessageStreamItem } from "../../message-stream/items";
 
-export function createSystemItem(id: string, text: string): DisplayItem {
+export function createSystemItem(id: string, text: string): MessageStreamItem {
   return {
     id,
     kind: "system",
@@ -10,7 +9,7 @@ export function createSystemItem(id: string, text: string): DisplayItem {
   };
 }
 
-export function createStructuredSystemItem(id: string, text: string, details: DisplayDetailSection[]): DisplayItem {
+export function createStructuredSystemItem(id: string, text: string, details: MessageStreamDetailSection[]): MessageStreamItem {
   return {
     id,
     kind: "system",

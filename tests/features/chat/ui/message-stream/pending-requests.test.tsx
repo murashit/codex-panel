@@ -7,7 +7,7 @@ import { pendingApprovalViewModel } from "../../../../../src/features/chat/conve
 import type { PendingApproval } from "../../../../../src/features/chat/protocol/server-requests/approval";
 import type { PendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
-import type { DisplayItem } from "../../../../../src/features/chat/display/types";
+import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
 import { changeInputValue } from "../../../../support/dom";
 import "./setup";
 import {
@@ -362,7 +362,7 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "user-input-submitted-1",
           kind: "userInputResult",
@@ -396,7 +396,7 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "approval-1",
           kind: "approvalResult",
@@ -440,7 +440,7 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "assistant-1",
           kind: "message",
@@ -470,9 +470,7 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
-        { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
-      ],
+      items: [{ id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" }],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -494,9 +492,7 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
-        { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
-      ],
+      items: [{ id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" }],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -524,7 +520,7 @@ describe("pending request renderer decisions", () => {
           turnLifecycle: idleTurnLifecycle(),
           historyCursor: null,
           loadingHistory: false,
-          displayItems: [
+          items: [
             { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
           ],
           disclosures: emptyDisclosures(),
@@ -556,7 +552,7 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [],
+      items: [],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -580,9 +576,9 @@ describe("pending request renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
-      ] satisfies DisplayItem[],
+      ] satisfies MessageStreamItem[],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),

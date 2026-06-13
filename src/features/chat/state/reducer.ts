@@ -28,7 +28,7 @@ import {
 import type { RequestedServiceTier } from "../runtime/pending-settings";
 import type { RequestId } from "../../../app-server/connection/rpc-messages";
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
-import type { DisplayItem } from "../display/types";
+import type { MessageStreamItem } from "../message-stream/items";
 import type {
   ActiveThreadResumedAction,
   ActiveThreadRestoredPlaceholderAction,
@@ -47,10 +47,10 @@ import type {
 } from "./actions";
 import {
   initialChatMessageStreamState,
-  messageStreamDisplayItems,
+  messageStreamItems,
   messageStreamStartActiveSegment,
   messageStreamWithActiveTurnItems,
-  messageStreamWithDisplayItems,
+  messageStreamWithItems,
   reduceMessageStreamSlice,
   type ChatMessageStreamActiveSegment,
   type ChatMessageStreamState,
@@ -216,14 +216,14 @@ interface TurnStartedAction {
   type: "turn/started";
   threadId: string;
   turnId: string;
-  displayItems?: readonly DisplayItem[];
+  items?: readonly MessageStreamItem[];
 }
 
 interface TurnCompletedAction {
   type: "turn/completed";
   turnId: string;
   status: string;
-  displayItems: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
 }
 
 type TurnAction =
@@ -280,12 +280,12 @@ export type ChatAction = ChatTransitionAction | ChatSliceAction;
 interface RequestResolvedAction {
   type: "request/resolved";
   requestId: RequestId;
-  resultItem?: DisplayItem;
+  resultItem?: MessageStreamItem;
 }
 
 interface PendingStartHookUpsertedAction {
   type: "turn/pending-start-hook-upserted";
-  item: DisplayItem;
+  item: MessageStreamItem;
   pendingTurnStart: PendingTurnStart | null;
 }
 
@@ -438,7 +438,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       activePermissionProfile: action.activePermissionProfile,
     },
     turn: initialTurnState(),
-    messageStream: initialMessageStreamState(action.displayItems ?? []),
+    messageStream: initialMessageStreamState(action.items ?? []),
     requests: initialRequestState(),
     composer: initialComposerState(),
     ui: initialUiState(),
@@ -497,8 +497,8 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
     activeThread: { ...state.activeThread, id: action.threadId },
     turn: { lifecycle },
     connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
-    messageStream: action.displayItems
-      ? messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.displayItems)
+    messageStream: action.items
+      ? messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.items)
       : messageStreamStartActiveSegment(state.messageStream, action.turnId, []),
   });
 }
@@ -508,7 +508,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: messageStreamWithDisplayItems(state.messageStream, action.displayItems),
+    messageStream: messageStreamWithItems(state.messageStream, action.items),
     connection: { ...state.connection, statusText: turnCompletedStatus(action.status) },
   });
 }
@@ -536,7 +536,7 @@ function reduceTurnStartAcknowledgedTransition(state: ChatState, action: TurnSta
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.displayItems),
+    messageStream: messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.items),
   });
 }
 
@@ -545,7 +545,7 @@ function reduceTurnStartFailedTransition(state: ChatState, action: TurnStartFail
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: messageStreamWithDisplayItems(state.messageStream, action.displayItems),
+    messageStream: messageStreamWithItems(state.messageStream, action.items),
   });
 }
 
@@ -731,7 +731,7 @@ function clearActiveTurnState(state: ChatState): ChatState {
     turn: {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
     },
-    messageStream: messageStreamWithDisplayItems(state.messageStream, messageStreamDisplayItems(state.messageStream)),
+    messageStream: messageStreamWithItems(state.messageStream, messageStreamItems(state.messageStream)),
     requests: initialRequestState(),
     ui: clearAllRequestDisclosures(state.ui),
   });
@@ -801,7 +801,7 @@ function initialTurnState(): ChatTurnState {
   return initialChatTurnState();
 }
 
-function initialMessageStreamState(items: readonly DisplayItem[] = []): ChatMessageStreamState {
+function initialMessageStreamState(items: readonly MessageStreamItem[] = []): ChatMessageStreamState {
   return initialChatMessageStreamState(items);
 }
 

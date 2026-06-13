@@ -5,20 +5,20 @@ import {
   type ThreadActivationSnapshot,
 } from "../../../app-server/services/thread-activation";
 import type { ChatRuntimeState } from "../runtime/state";
-import type { DisplayItem } from "../display/types";
+import type { MessageStreamItem } from "../message-stream/items";
 import type { ActiveThreadResumedAction } from "../state/actions";
 
 export interface ResumedThreadActionParams {
   response: ThreadActivationSnapshot;
   listedThreads?: readonly Thread[];
-  displayItems?: readonly DisplayItem[];
+  items?: readonly MessageStreamItem[];
   preserveRequestedRuntimeSettings?: boolean;
 }
 
 export interface ResumedThreadFromAppServerParams {
   response: Parameters<typeof threadActivationSnapshotFromAppServerResponse>[0];
   listedThreads?: readonly Thread[];
-  displayItems?: readonly DisplayItem[];
+  items?: readonly MessageStreamItem[];
   preserveRequestedRuntimeSettings?: boolean;
 }
 
@@ -35,14 +35,14 @@ export interface ResumedThreadFromActiveRuntimeParams {
     | "activePermissionProfile"
   >;
   listedThreads?: readonly Thread[];
-  displayItems?: readonly DisplayItem[];
+  items?: readonly MessageStreamItem[];
 }
 
 export function resumedThreadActionFromAppServerResponse(params: ResumedThreadFromAppServerParams): ActiveThreadResumedAction {
   return resumedThreadAction({
     response: threadActivationSnapshotFromAppServerResponse(params.response),
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
-    ...(params.displayItems ? { displayItems: params.displayItems } : {}),
+    ...(params.items ? { items: params.items } : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
   });
 }
@@ -60,7 +60,7 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
       activePermissionProfile: params.runtime.activePermissionProfile,
     },
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
-    ...(params.displayItems ? { displayItems: params.displayItems } : {}),
+    ...(params.items ? { items: params.items } : {}),
   });
 }
 
@@ -76,7 +76,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     approvalPolicy: response.approvalPolicy,
     approvalsReviewer: response.approvalsReviewer,
     activePermissionProfile: response.activePermissionProfile,
-    ...(params.displayItems ? { displayItems: params.displayItems } : {}),
+    ...(params.items ? { items: params.items } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
   };

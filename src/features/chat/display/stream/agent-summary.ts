@@ -1,6 +1,6 @@
 import { truncate } from "../../../../utils";
 import { collabAgentStateExecutionState } from "../items/agent";
-import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateDisplay, DisplayItem } from "../types";
+import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateSummary, MessageStreamItem } from "../../message-stream/items";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
 type AgentRunState = "running" | "completed" | "failed";
@@ -14,10 +14,10 @@ export function agentActivityMetaLabel(tool: string): string {
   return tool;
 }
 
-export function activeAgentRunSummary(items: readonly DisplayItem[], activeTurnId: string | null): AgentRunSummary | null {
+export function activeAgentRunSummary(items: readonly MessageStreamItem[], activeTurnId: string | null): AgentRunSummary | null {
   if (!activeTurnId) return null;
 
-  const agentStatuses = new Map<string, AgentStateDisplay>();
+  const agentStatuses = new Map<string, AgentStateSummary>();
   for (const item of items) {
     if (item.kind !== "agent" || item.turnId !== activeTurnId) continue;
     if (item.agents.length > 0) {

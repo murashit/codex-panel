@@ -1,5 +1,5 @@
 import type { PendingTurnStart } from "../../state/reducer";
-import type { DisplayFileMention, DisplayItem, MessageDisplayItem } from "../../display/types";
+import type { MessageStreamFileMention, MessageStreamItem, MessageStreamMessageItem } from "../../message-stream/items";
 import { fileMentionsFromInput, userMessageDisplayText } from "../../display/items/message-content";
 import { attachHookRunsToTurn } from "../../state/message-stream-updates";
 import type { CodexInput } from "../../../../domain/chat/input";
@@ -9,12 +9,12 @@ export interface LocalUserMessageParams {
   text: string;
   copyText?: string;
   turnId?: string;
-  referencedThread?: MessageDisplayItem["referencedThread"];
-  mentionedFiles?: readonly DisplayFileMention[];
+  referencedThread?: MessageStreamMessageItem["referencedThread"];
+  mentionedFiles?: readonly MessageStreamFileMention[];
 }
 
 export interface OptimisticTurnStartAckParams {
-  items: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
   optimisticUserId: string;
   turnId: string;
   pendingTurnStart: PendingTurnStart | null;
@@ -27,7 +27,7 @@ export interface LocalUserMessageFromInputParams extends Omit<LocalUserMessagePa
 export type OptimisticTurnStartParams = LocalUserMessageFromInputParams;
 
 export interface OptimisticTurnStart {
-  item: MessageDisplayItem;
+  item: MessageStreamMessageItem;
   pendingTurnStart: PendingTurnStart;
 }
 
@@ -41,12 +41,12 @@ export interface TurnStartAckMatchParams {
 }
 
 export interface FailedTurnStartCleanupParams {
-  items: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
   optimisticUserId: string | null;
   pendingTurnStart: PendingTurnStart | null;
 }
 
-export function localUserMessageItem(params: LocalUserMessageParams): MessageDisplayItem {
+export function localUserMessageItem(params: LocalUserMessageParams): MessageStreamMessageItem {
   const mentionedFiles = params.mentionedFiles ?? [];
   return {
     id: params.id,
@@ -61,7 +61,7 @@ export function localUserMessageItem(params: LocalUserMessageParams): MessageDis
   };
 }
 
-export function localUserMessageItemFromInput(params: LocalUserMessageFromInputParams): MessageDisplayItem {
+export function localUserMessageItemFromInput(params: LocalUserMessageFromInputParams): MessageStreamMessageItem {
   return localUserMessageItem({
     id: params.id,
     text: userMessageDisplayText(params.text, params.codexInput),
@@ -87,18 +87,13 @@ export function shouldAcknowledgeTurnStart(params: TurnStartAckMatchParams): boo
   );
 }
 
-export function acknowledgeOptimisticTurnStart(params: OptimisticTurnStartAckParams): DisplayItem[] {
-  const displayItems = params.items.map((item) => (item.id === params.optimisticUserId ? { ...item, turnId: params.turnId } : item));
-  if (!params.pendingTurnStart) return displayItems;
-  return attachHookRunsToTurn(
-    displayItems,
-    params.turnId,
-    params.pendingTurnStart.promptSubmitHookItemIds,
-    params.pendingTurnStart.anchorItemId,
-  );
+export function acknowledgeOptimisticTurnStart(params: OptimisticTurnStartAckParams): MessageStreamItem[] {
+  const items = params.items.map((item) => (item.id === params.optimisticUserId ? { ...item, turnId: params.turnId } : item));
+  if (!params.pendingTurnStart) return items;
+  return attachHookRunsToTurn(items, params.turnId, params.pendingTurnStart.promptSubmitHookItemIds, params.pendingTurnStart.anchorItemId);
 }
 
-export function cleanupFailedTurnStart(params: FailedTurnStartCleanupParams): DisplayItem[] {
+export function cleanupFailedTurnStart(params: FailedTurnStartCleanupParams): MessageStreamItem[] {
   const withoutOptimisticUser = params.optimisticUserId
     ? params.items.filter((item) => item.id !== params.optimisticUserId)
     : [...params.items];

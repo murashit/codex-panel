@@ -1,17 +1,21 @@
-import { upsertDisplayItem } from "./message-stream-updates";
-import type { DisplayItem, MessageDisplayItem } from "../display/types";
+import { upsertMessageStreamItemById } from "./message-stream-updates";
+import type { MessageStreamItem, MessageStreamMessageItem } from "../message-stream/items";
 import { normalizeProposedPlanMarkdown } from "../display/items/message-content";
-import { streamedItemOutputDisplayItem, streamedTextDisplayItem, streamedToolOutputDisplayItem } from "../display/items/streaming";
+import {
+  streamedItemOutputMessageStreamItem,
+  streamedTextMessageStreamItem,
+  streamedToolOutputMessageStreamItem,
+} from "../display/items/streaming";
 
 export interface ChatMessageStreamActiveSegment {
   turnId: string | null;
-  items: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
   indexById: ReadonlyMap<string, number>;
   indexBySourceItemId: ReadonlyMap<string, number>;
 }
 
 export interface ChatMessageStreamState {
-  stableItems: readonly DisplayItem[];
+  stableItems: readonly MessageStreamItem[];
   activeSegment: ChatMessageStreamActiveSegment | null;
   turnDiffs: ReadonlyMap<string, string>;
   historyCursor: string | null;
@@ -21,22 +25,22 @@ export interface ChatMessageStreamState {
 
 export interface MessageStreamRollbackCandidate {
   turnId: string;
-  displayItemId: string;
+  itemId: string;
   text: string;
 }
 
 export type MessageStreamAction =
-  | { type: "message-stream/item-added"; item: DisplayItem }
-  | { type: "message-stream/system-item-added"; item: DisplayItem }
-  | { type: "message-stream/deduped-log-added"; text: string; item: DisplayItem }
+  | { type: "message-stream/item-added"; item: MessageStreamItem }
+  | { type: "message-stream/system-item-added"; item: MessageStreamItem }
+  | { type: "message-stream/deduped-log-added"; text: string; item: MessageStreamItem }
   | { type: "message-stream/history-loading-set"; loading: boolean }
   | {
       type: "message-stream/items-replaced";
-      items: readonly DisplayItem[];
+      items: readonly MessageStreamItem[];
       historyCursor?: string | null;
       loadingHistory?: boolean;
     }
-  | { type: "message-stream/item-upserted"; item: DisplayItem }
+  | { type: "message-stream/item-upserted"; item: MessageStreamItem }
   | { type: "message-stream/reasoning-completed"; turnId: string }
   | { type: "message-stream/assistant-delta-appended"; itemId: string; turnId: string; delta: string; completeReasoning?: boolean }
   | { type: "message-stream/plan-delta-appended"; itemId: string; turnId: string; delta: string }
@@ -65,7 +69,7 @@ export type MessageStreamAction =
     }
   | { type: "message-stream/turn-diff-updated"; turnId: string; diff: string };
 
-export function initialChatMessageStreamState(items: readonly DisplayItem[] = []): ChatMessageStreamState {
+export function initialChatMessageStreamState(items: readonly MessageStreamItem[] = []): ChatMessageStreamState {
   return {
     stableItems: items,
     activeSegment: null,
@@ -76,16 +80,16 @@ export function initialChatMessageStreamState(items: readonly DisplayItem[] = []
   };
 }
 
-export function messageStreamDisplayItems(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): readonly DisplayItem[] {
+export function messageStreamItems(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): readonly MessageStreamItem[] {
   if (!state.activeSegment || state.activeSegment.items.length === 0) return state.stableItems;
   return [...state.stableItems, ...state.activeSegment.items];
 }
 
-export function messageStreamStableItems(state: Pick<ChatMessageStreamState, "stableItems">): readonly DisplayItem[] {
+export function messageStreamStableItems(state: Pick<ChatMessageStreamState, "stableItems">): readonly MessageStreamItem[] {
   return state.stableItems;
 }
 
-export function messageStreamActiveItems(state: Pick<ChatMessageStreamState, "activeSegment">): readonly DisplayItem[] {
+export function messageStreamActiveItems(state: Pick<ChatMessageStreamState, "activeSegment">): readonly MessageStreamItem[] {
   return state.activeSegment?.items ?? [];
 }
 
@@ -94,7 +98,7 @@ export function messageStreamIsEmpty(state: Pick<ChatMessageStreamState, "stable
 }
 
 export function messageStreamTurnIds(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): string[] {
-  return orderedTurnIds(messageStreamDisplayItems(state));
+  return orderedTurnIds(messageStreamItems(state));
 }
 
 export function messageStreamTurnsAfterTurnId(
@@ -109,23 +113,23 @@ export function messageStreamTurnsAfterTurnId(
 export function messageStreamRollbackCandidate(
   state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">,
 ): MessageStreamRollbackCandidate | null {
-  const items = messageStreamDisplayItems(state);
+  const items = messageStreamItems(state);
   const lastTurnId = latestTurnId(items);
   if (!lastTurnId) return null;
 
-  const userMessage = items.find((item): item is MessageDisplayItem => isUserMessageForTurn(item, lastTurnId));
+  const userMessage = items.find((item): item is MessageStreamMessageItem => isUserMessageForTurn(item, lastTurnId));
   if (!userMessage) return null;
 
   return {
     turnId: lastTurnId,
-    displayItemId: userMessage.id,
+    itemId: userMessage.id,
     text: userMessage.text,
   };
 }
 
-export function messageStreamWithDisplayItems(
+export function messageStreamWithItems(
   state: ChatMessageStreamState,
-  items: readonly DisplayItem[],
+  items: readonly MessageStreamItem[],
   patch: Partial<Pick<ChatMessageStreamState, "historyCursor" | "loadingHistory">> = {},
 ): ChatMessageStreamState {
   return patchObject(state, {
@@ -138,7 +142,7 @@ export function messageStreamWithDisplayItems(
 export function messageStreamWithActiveTurnItems(
   state: ChatMessageStreamState,
   turnId: string,
-  items: readonly DisplayItem[],
+  items: readonly MessageStreamItem[],
 ): ChatMessageStreamState {
   const stableItems = items.filter((item) => item.turnId !== turnId);
   const activeItems = items.filter((item) => item.turnId === turnId);
@@ -151,7 +155,7 @@ export function messageStreamWithActiveTurnItems(
 export function messageStreamStartActiveSegment(
   state: ChatMessageStreamState,
   turnId: string | null,
-  items: readonly DisplayItem[],
+  items: readonly MessageStreamItem[],
 ): ChatMessageStreamState {
   return patchObject(state, { activeSegment: activeSegmentFromItems(turnId, items) });
 }
@@ -168,7 +172,7 @@ export function reduceMessageStreamSlice(state: ChatMessageStreamState, action: 
         ...appendMessageStreamItemPatch(state, action.item),
       });
     case "message-stream/items-replaced":
-      return messageStreamWithDisplayItems(state, action.items, {
+      return messageStreamWithItems(state, action.items, {
         ...definedPatch("historyCursor", action.historyCursor),
         ...definedPatch("loadingHistory", action.loadingHistory),
       });
@@ -195,22 +199,22 @@ export function reduceMessageStreamSlice(state: ChatMessageStreamState, action: 
   }
 }
 
-function appendMessageStreamItem(state: ChatMessageStreamState, item: DisplayItem): ChatMessageStreamState {
+function appendMessageStreamItem(state: ChatMessageStreamState, item: MessageStreamItem): ChatMessageStreamState {
   return patchObject(state, appendMessageStreamItemPatch(state, item));
 }
 
-function appendMessageStreamItemPatch(state: ChatMessageStreamState, item: DisplayItem): Partial<ChatMessageStreamState> {
+function appendMessageStreamItemPatch(state: ChatMessageStreamState, item: MessageStreamItem): Partial<ChatMessageStreamState> {
   if (shouldUseActiveSegment(state.activeSegment, item)) {
     return { activeSegment: appendActiveSegmentItem(state.activeSegment, item) };
   }
   return { stableItems: [...state.stableItems, item] };
 }
 
-function upsertMessageStreamItem(state: ChatMessageStreamState, item: DisplayItem): ChatMessageStreamState {
+function upsertMessageStreamItem(state: ChatMessageStreamState, item: MessageStreamItem): ChatMessageStreamState {
   if (shouldUseActiveSegment(state.activeSegment, item)) {
     return patchObject(state, { activeSegment: upsertActiveSegmentItem(state.activeSegment, item) });
   }
-  return patchObject(state, { stableItems: upsertDisplayItem(state.stableItems, item) });
+  return patchObject(state, { stableItems: upsertMessageStreamItemById(state.stableItems, item) });
 }
 
 function appendAssistantDeltaToMessageStream(
@@ -301,7 +305,7 @@ function appendItemTextToMessageStream(
       return replaceActiveSegmentItem(segment, index, (item) => ({ ...item, text: `${item.text}${delta}` }));
     }
     return appendActiveSegmentItem(segment, {
-      ...streamedTextDisplayItem({
+      ...streamedTextMessageStreamItem({
         id: sourceItemId,
         kind,
         label,
@@ -330,7 +334,7 @@ function appendToolOutputToMessageStream(
     }
     return appendActiveSegmentItem(
       segment,
-      streamedToolOutputDisplayItem({
+      streamedToolOutputMessageStreamItem({
         id: sourceItemId,
         turnId,
         output: delta,
@@ -357,7 +361,7 @@ function appendItemOutputToMessageStream(
     }
     return appendActiveSegmentItem(
       segment,
-      streamedItemOutputDisplayItem({
+      streamedItemOutputMessageStreamItem({
         id: sourceItemId,
         kind,
         turnId,
@@ -386,9 +390,12 @@ function completeReasoningInMessageStream(state: ChatMessageStreamState, turnId:
     : state;
 }
 
-function completedReasoningItems(items: readonly DisplayItem[], turnId: string): { items: readonly DisplayItem[]; changed: boolean } {
+function completedReasoningItems(
+  items: readonly MessageStreamItem[],
+  turnId: string,
+): { items: readonly MessageStreamItem[]; changed: boolean } {
   let changed = false;
-  const nextItems: DisplayItem[] = [];
+  const nextItems: MessageStreamItem[] = [];
   for (const item of items) {
     if (item.kind !== "reasoning" || item.turnId !== turnId) {
       nextItems.push(item);
@@ -398,7 +405,7 @@ function completedReasoningItems(items: readonly DisplayItem[], turnId: string):
         ...item,
         status: "completed",
         executionState: "completed",
-      } satisfies DisplayItem);
+      } satisfies MessageStreamItem);
     }
   }
   return { items: changed ? nextItems : items, changed };
@@ -415,26 +422,26 @@ function updateActiveSegment(
 
 function shouldUseActiveSegment(
   segment: ChatMessageStreamActiveSegment | null,
-  item: DisplayItem,
+  item: MessageStreamItem,
 ): segment is ChatMessageStreamActiveSegment {
   if (!segment) return false;
   return !item.turnId || !segment.turnId || item.turnId === segment.turnId;
 }
 
-function appendActiveSegmentItem(segment: ChatMessageStreamActiveSegment, item: DisplayItem): ChatMessageStreamActiveSegment {
+function appendActiveSegmentItem(segment: ChatMessageStreamActiveSegment, item: MessageStreamItem): ChatMessageStreamActiveSegment {
   return activeSegmentFromItems(segment.turnId, [...segment.items, item]);
 }
 
-function upsertActiveSegmentItem(segment: ChatMessageStreamActiveSegment, item: DisplayItem): ChatMessageStreamActiveSegment {
+function upsertActiveSegmentItem(segment: ChatMessageStreamActiveSegment, item: MessageStreamItem): ChatMessageStreamActiveSegment {
   const index = segment.indexById.get(item.id);
   if (index === undefined) return appendActiveSegmentItem(segment, item);
-  return replaceActiveSegmentItem(segment, index, (previous) => mergeDisplayItem(previous, item));
+  return replaceActiveSegmentItem(segment, index, (previous) => mergeMessageStreamItem(previous, item));
 }
 
 function replaceActiveSegmentItem(
   segment: ChatMessageStreamActiveSegment,
   index: number,
-  replacement: (item: DisplayItem) => DisplayItem,
+  replacement: (item: MessageStreamItem) => MessageStreamItem,
 ): ChatMessageStreamActiveSegment {
   const previous = segment.items[index];
   if (!previous) return segment;
@@ -445,11 +452,11 @@ function replaceActiveSegmentItem(
   return activeSegmentFromItems(segment.turnId, items);
 }
 
-function mergeDisplayItem(previous: DisplayItem, next: DisplayItem): DisplayItem {
-  return upsertDisplayItem([previous], next)[0] ?? next;
+function mergeMessageStreamItem(previous: MessageStreamItem, next: MessageStreamItem): MessageStreamItem {
+  return upsertMessageStreamItemById([previous], next)[0] ?? next;
 }
 
-function activeSegmentFromItems(turnId: string | null, items: readonly DisplayItem[]): ChatMessageStreamActiveSegment {
+function activeSegmentFromItems(turnId: string | null, items: readonly MessageStreamItem[]): ChatMessageStreamActiveSegment {
   const indexById = new Map<string, number>();
   const indexBySourceItemId = new Map<string, number>();
   items.forEach((item, index) => {
@@ -469,7 +476,7 @@ function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string
   return next;
 }
 
-function orderedTurnIds(items: readonly DisplayItem[]): string[] {
+function orderedTurnIds(items: readonly MessageStreamItem[]): string[] {
   const turnIds: string[] = [];
   const seen = new Set<string>();
   for (const item of items) {
@@ -480,14 +487,14 @@ function orderedTurnIds(items: readonly DisplayItem[]): string[] {
   return turnIds;
 }
 
-function latestTurnId(items: readonly DisplayItem[]): string | null {
+function latestTurnId(items: readonly MessageStreamItem[]): string | null {
   for (const item of [...items].reverse()) {
     if (item.turnId) return item.turnId;
   }
   return null;
 }
 
-function isUserMessageForTurn(item: DisplayItem, turnId: string): item is MessageDisplayItem {
+function isUserMessageForTurn(item: MessageStreamItem, turnId: string): item is MessageStreamMessageItem {
   return item.kind === "message" && item.role === "user" && item.turnId === turnId;
 }
 

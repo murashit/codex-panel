@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { DisplayItem } from "../../../../src/features/chat/display/types";
+import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
 import {
   initialChatMessageStreamState,
   messageStreamRollbackCandidate,
@@ -11,7 +11,7 @@ import {
 
 describe("message stream selectors", () => {
   it("counts turns after a turn id from message stream state", () => {
-    const state = initialChatMessageStreamState(displayItems());
+    const state = initialChatMessageStreamState(items());
 
     expect(messageStreamTurnIds(state)).toEqual(["turn-1", "turn-2", "turn-3"]);
     expect(messageStreamTurnsAfterTurnId(state, "turn-1")).toBe(2);
@@ -21,16 +21,16 @@ describe("message stream selectors", () => {
   });
 
   it("includes the active segment when counting turns", () => {
-    const state = messageStreamWithActiveTurnItems(initialChatMessageStreamState(displayItems()), "turn-3", displayItems());
+    const state = messageStreamWithActiveTurnItems(initialChatMessageStreamState(items()), "turn-3", items());
 
     expect(messageStreamTurnIds(state)).toEqual(["turn-1", "turn-2", "turn-3"]);
     expect(messageStreamTurnsAfterTurnId(state, "turn-2")).toBe(1);
   });
 
   it("selects the latest turn user message for rollback restoration", () => {
-    const state = initialChatMessageStreamState(displayItems());
+    const state = initialChatMessageStreamState(items());
 
-    expect(messageStreamRollbackCandidate(state)).toEqual({ turnId: "turn-3", displayItemId: "u3", text: "third" });
+    expect(messageStreamRollbackCandidate(state)).toEqual({ turnId: "turn-3", itemId: "u3", text: "third" });
   });
 
   it("returns null when rollback has no user message candidate", () => {
@@ -56,7 +56,7 @@ describe("message stream selectors", () => {
   });
 });
 
-function displayItems(): DisplayItem[] {
+function items(): MessageStreamItem[] {
   return [
     { id: "u1", kind: "message", messageKind: "user", role: "user", text: "first", turnId: "turn-1" },
     {

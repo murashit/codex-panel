@@ -1,6 +1,6 @@
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import type { ChatState } from "../state/reducer";
-import type { DisplayItem } from "../display/types";
+import type { MessageStreamItem } from "../message-stream/items";
 import type { RestoredThreadState } from "../lifecycle";
 
 export function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
@@ -9,7 +9,7 @@ export function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): O
   return { kind: "idle" };
 }
 
-export function latestProposedPlanItem(items: readonly DisplayItem[]): DisplayItem | null {
+export function latestProposedPlanItem(items: readonly MessageStreamItem[]): MessageStreamItem | null {
   return [...items].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null;
 }
 

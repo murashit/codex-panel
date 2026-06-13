@@ -3,7 +3,7 @@ import type { ComponentChild as UiNode } from "preact";
 import type { ChatDisclosureBucket, ChatDisclosureUiState, ChatTurnLifecycleState } from "../../state/reducer";
 import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
 import type { PendingRequestBlockActions } from "../../conversation/pending-requests/view-model";
-import type { DisplayItem } from "../../display/types";
+import type { MessageStreamItem } from "../../message-stream/items";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 
 export interface MessageStreamBlock {
@@ -11,7 +11,7 @@ export interface MessageStreamBlock {
   node: UiNode;
 }
 
-export type TextDisplayItem = Extract<DisplayItem, { kind: "message" | "system" | "userInputResult" }>;
+export type TextMessageStreamItem = Extract<MessageStreamItem, { kind: "message" | "system" | "userInputResult" }>;
 
 export interface TextItemDetailStateContext {
   disclosures: ChatDisclosureUiState;
@@ -27,12 +27,12 @@ export interface TextItemActionContext extends TextItemDetailStateContext {
   forkActionsItemId: string | null;
   onForkActionsToggle?: (itemId: string | null) => void;
   copyText?: (text: string) => void;
-  canImplementPlanItem?: (item: DisplayItem) => boolean;
-  onImplementPlanItem?: (item: DisplayItem) => void;
-  canRollbackItem?: (item: DisplayItem) => boolean;
-  onRollbackItem?: (item: DisplayItem) => void;
-  canForkItem?: (item: DisplayItem) => boolean;
-  onForkItem?: (item: DisplayItem, archiveSource: boolean) => void;
+  canImplementPlanItem?: (item: MessageStreamItem) => boolean;
+  onImplementPlanItem?: (item: MessageStreamItem) => void;
+  canRollbackItem?: (item: MessageStreamItem) => boolean;
+  onRollbackItem?: (item: MessageStreamItem) => void;
+  canForkItem?: (item: MessageStreamItem) => boolean;
+  onForkItem?: (item: MessageStreamItem, archiveSource: boolean) => void;
 }
 
 export interface TextItemMetadataContext extends TextItemDetailStateContext {
@@ -46,9 +46,9 @@ interface MessageStreamLayoutContext {
   turnLifecycle: ChatTurnLifecycleState;
   historyCursor: string | null;
   loadingHistory: boolean;
-  displayItems: readonly DisplayItem[];
-  stableItems?: readonly DisplayItem[];
-  activeItems?: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
+  stableItems?: readonly MessageStreamItem[];
+  activeItems?: readonly MessageStreamItem[];
   turnDiffs?: ReadonlyMap<string, string>;
   workspaceRoot?: string | null;
   loadOlderTurns: () => void;

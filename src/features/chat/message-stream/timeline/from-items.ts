@@ -1,4 +1,4 @@
-import type { DisplayItem, ExecutionState } from "../types";
+import type { MessageStreamItem, ExecutionState } from "../items";
 import type {
   TimelineActions,
   TimelineAuthorship,
@@ -9,17 +9,17 @@ import type {
   TimelineSemanticKind,
 } from "./types";
 
-export function timelineItemsFromDisplayItems(items: readonly DisplayItem[]): TimelineItem[] {
+export function timelineItemsFromMessageStreamItems(items: readonly MessageStreamItem[]): TimelineItem[] {
   const seenUserMessagesByTurn = new Map<string, number>();
-  return items.map((item) => timelineItemFromDisplayItem(item, seenUserMessagesByTurn));
+  return items.map((item) => timelineItemFromMessageStreamItem(item, seenUserMessagesByTurn));
 }
 
-export function timelineItemFromDisplayItem(
-  item: DisplayItem,
+export function timelineItemFromMessageStreamItem(
+  item: MessageStreamItem,
   seenUserMessagesByTurn: Map<string, number> = new Map<string, number>(),
 ): TimelineItem {
-  const semanticKind = semanticKindForDisplayItem(item, seenUserMessagesByTurn);
-  const actions = timelineActionsForDisplayItem(item, semanticKind);
+  const semanticKind = semanticKindForMessageStreamItem(item, seenUserMessagesByTurn);
+  const actions = timelineActionsForMessageStreamItem(item, semanticKind);
   const copyText = "copyText" in item ? item.copyText : undefined;
   const base = {
     id: item.id,
@@ -28,20 +28,23 @@ export function timelineItemFromDisplayItem(
     semanticKind,
     authorship: authorshipForSemanticKind(semanticKind),
     placement: placementForSemanticKind(semanticKind),
-    detailShape: detailShapeForDisplayItem(item, semanticKind),
-    renderSurface: renderSurfaceForDisplayItem(item),
-    lifecycle: lifecycleForDisplayItem(item),
+    detailShape: detailShapeForMessageStreamItem(item, semanticKind),
+    renderSurface: renderSurfaceForMessageStreamItem(item),
+    lifecycle: lifecycleForMessageStreamItem(item),
     text: item.text,
     ...definedProp("copyText", copyText),
     actions,
-    displayItem: item,
+    streamItem: item,
   };
   if ("details" in item) return { ...base, ...definedProp("details", item.details) } as TimelineItem;
   if (item.kind === "fileChange") return { ...base, changes: item.changes } as TimelineItem;
   return base as TimelineItem;
 }
 
-export function timelineActionsForDisplayItem(item: DisplayItem, semanticKind = semanticKindForDisplayItem(item)): TimelineActions {
+export function timelineActionsForMessageStreamItem(
+  item: MessageStreamItem,
+  semanticKind = semanticKindForMessageStreamItem(item),
+): TimelineActions {
   const isCompletedTurnOutcome =
     (semanticKind === "assistantResponse" || semanticKind === "proposedPlan") &&
     item.kind === "message" &&
@@ -54,8 +57,8 @@ export function timelineActionsForDisplayItem(item: DisplayItem, semanticKind = 
   };
 }
 
-function semanticKindForDisplayItem(
-  item: DisplayItem,
+function semanticKindForMessageStreamItem(
+  item: MessageStreamItem,
   seenUserMessagesByTurn: Map<string, number> = new Map<string, number>(),
 ): TimelineSemanticKind {
   switch (item.kind) {
@@ -92,7 +95,10 @@ function semanticKindForDisplayItem(
   }
 }
 
-function isSteeringUserMessage(item: Extract<DisplayItem, { kind: "message" }>, seenUserMessagesByTurn: Map<string, number>): boolean {
+function isSteeringUserMessage(
+  item: Extract<MessageStreamItem, { kind: "message" }>,
+  seenUserMessagesByTurn: Map<string, number>,
+): boolean {
   if (item.messageKind !== "user" || !item.turnId) return false;
   const seenCount = seenUserMessagesByTurn.get(item.turnId) ?? 0;
   seenUserMessagesByTurn.set(item.turnId, seenCount + 1);
@@ -113,7 +119,7 @@ function placementForSemanticKind(kind: TimelineSemanticKind): TimelinePlacement
   return "workLog";
 }
 
-function detailShapeForDisplayItem(item: DisplayItem, semanticKind: TimelineSemanticKind): TimelineDetailShape {
+function detailShapeForMessageStreamItem(item: MessageStreamItem, semanticKind: TimelineSemanticKind): TimelineDetailShape {
   switch (item.kind) {
     case "message":
       return semanticKind === "proposedPlan" && item.messageState === "streaming" ? "plainText" : "markdownText";
@@ -141,7 +147,7 @@ function detailShapeForDisplayItem(item: DisplayItem, semanticKind: TimelineSema
   }
 }
 
-function renderSurfaceForDisplayItem(item: DisplayItem): TimelineRenderSurface {
+function renderSurfaceForMessageStreamItem(item: MessageStreamItem): TimelineRenderSurface {
   if (item.kind === "message" || item.kind === "system" || item.kind === "userInputResult") return "textMessage";
   if (item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning" || item.kind === "contextCompaction") {
     return "workItem";
@@ -149,7 +155,7 @@ function renderSurfaceForDisplayItem(item: DisplayItem): TimelineRenderSurface {
   return "toolResult";
 }
 
-function lifecycleForDisplayItem(item: DisplayItem): ExecutionState {
+function lifecycleForMessageStreamItem(item: MessageStreamItem): ExecutionState {
   if (item.kind === "message") return item.messageState === "streaming" ? "running" : "completed";
   return item.executionState ?? null;
 }

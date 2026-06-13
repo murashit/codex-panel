@@ -1,9 +1,18 @@
 import { normalizeProposedPlanMarkdown } from "../display/items/message-content";
-import { isAssistantAuthoredMessage } from "../display/item-selectors";
-import { streamedItemOutputDisplayItem, streamedTextDisplayItem, streamedToolOutputDisplayItem } from "../display/items/streaming";
-import type { AssistantAuthoredMessageDisplayItem, DisplayFileChange, DisplayItem, DisplayKind } from "../display/types";
+import { isAssistantAuthoredMessage } from "../message-stream/selectors";
+import {
+  streamedItemOutputMessageStreamItem,
+  streamedTextMessageStreamItem,
+  streamedToolOutputMessageStreamItem,
+} from "../display/items/streaming";
+import type {
+  AssistantAuthoredMessageStreamItem,
+  MessageStreamFileChange,
+  MessageStreamItem,
+  MessageStreamItemKind,
+} from "../message-stream/items";
 
-export function upsertDisplayItem(items: readonly DisplayItem[], next: DisplayItem): DisplayItem[] {
+export function upsertMessageStreamItemById(items: readonly MessageStreamItem[], next: MessageStreamItem): MessageStreamItem[] {
   const index = items.findIndex((item) => item.id === next.id);
   if (index === -1) return [...items, next];
   const copy = [...items];
@@ -14,23 +23,28 @@ export function upsertDisplayItem(items: readonly DisplayItem[], next: DisplayIt
     ...next,
     output: mergeOutput(previous, next),
     changes: mergeChanges(previous, next),
-  } as DisplayItem;
+  } as MessageStreamItem;
   return copy;
 }
 
-function mergeOutput(previous: DisplayItem, next: DisplayItem): string | undefined {
+function mergeOutput(previous: MessageStreamItem, next: MessageStreamItem): string | undefined {
   const previousOutput = "output" in previous ? previous.output : undefined;
   const nextOutput = "output" in next ? next.output : undefined;
   return nextOutput && nextOutput.length > 0 ? nextOutput : previousOutput;
 }
 
-function mergeChanges(previous: DisplayItem, next: DisplayItem): DisplayFileChange[] | undefined {
+function mergeChanges(previous: MessageStreamItem, next: MessageStreamItem): MessageStreamFileChange[] | undefined {
   const previousChanges = previous.kind === "fileChange" ? previous.changes : undefined;
   const nextChanges = next.kind === "fileChange" ? next.changes : undefined;
   return nextChanges && nextChanges.length > 0 ? nextChanges : previousChanges;
 }
 
-export function appendAssistantDelta(items: readonly DisplayItem[], sourceItemId: string, turnId: string, delta: string): DisplayItem[] {
+export function appendAssistantDelta(
+  items: readonly MessageStreamItem[],
+  sourceItemId: string,
+  turnId: string,
+  delta: string,
+): MessageStreamItem[] {
   const index = items.findIndex(
     (item) => item.sourceItemId === sourceItemId && item.kind === "message" && item.messageKind === "assistantResponse",
   );
@@ -63,7 +77,7 @@ export function appendAssistantDelta(items: readonly DisplayItem[], sourceItemId
   ];
 }
 
-export function completeReasoningItems(items: readonly DisplayItem[], turnId: string): DisplayItem[] {
+export function completeReasoningItems(items: readonly MessageStreamItem[], turnId: string): MessageStreamItem[] {
   return items.map((item) =>
     item.kind === "reasoning" && item.turnId === turnId
       ? {
@@ -75,7 +89,12 @@ export function completeReasoningItems(items: readonly DisplayItem[], turnId: st
   );
 }
 
-export function appendPlanDelta(items: readonly DisplayItem[], sourceItemId: string, turnId: string, delta: string): DisplayItem[] {
+export function appendPlanDelta(
+  items: readonly MessageStreamItem[],
+  sourceItemId: string,
+  turnId: string,
+  delta: string,
+): MessageStreamItem[] {
   const index = items.findIndex((item) => item.sourceItemId === sourceItemId && isAssistantAuthoredMessage(item));
   if (index !== -1) {
     return items.map((item, itemIndex) =>
@@ -99,7 +118,7 @@ export function appendPlanDelta(items: readonly DisplayItem[], sourceItemId: str
   ];
 }
 
-function appendPlanDeltaToMessage(item: AssistantAuthoredMessageDisplayItem, turnId: string, delta: string): DisplayItem {
+function appendPlanDeltaToMessage(item: AssistantAuthoredMessageStreamItem, turnId: string, delta: string): MessageStreamItem {
   const text = normalizeProposedPlanMarkdown(`${item.text}${delta}`);
   return {
     ...item,
@@ -112,27 +131,27 @@ function appendPlanDeltaToMessage(item: AssistantAuthoredMessageDisplayItem, tur
 }
 
 export function appendItemText(
-  items: readonly DisplayItem[],
+  items: readonly MessageStreamItem[],
   sourceItemId: string,
   turnId: string,
   label: string,
   delta: string,
-  kind: Extract<DisplayKind, "tool" | "hook" | "reasoning"> = "tool",
-): DisplayItem[] {
+  kind: Extract<MessageStreamItemKind, "tool" | "hook" | "reasoning"> = "tool",
+): MessageStreamItem[] {
   const index = items.findIndex((item) => item.sourceItemId === sourceItemId);
   if (index !== -1) {
     return items.map((item, itemIndex) => (itemIndex === index ? { ...item, text: `${item.text}${delta}` } : item));
   }
-  return [...items, streamedTextDisplayItem({ id: sourceItemId, kind, label, delta, turnId })];
+  return [...items, streamedTextMessageStreamItem({ id: sourceItemId, kind, label, delta, turnId })];
 }
 
 export function appendToolOutput(
-  items: readonly DisplayItem[],
+  items: readonly MessageStreamItem[],
   sourceItemId: string,
   turnId: string,
   delta: string,
   fallbackLabel: string,
-): DisplayItem[] {
+): MessageStreamItem[] {
   const index = items.findIndex((item) => item.sourceItemId === sourceItemId);
   if (index !== -1) {
     return items.map((item, itemIndex) =>
@@ -141,17 +160,17 @@ export function appendToolOutput(
         : item,
     );
   }
-  return [...items, streamedToolOutputDisplayItem({ id: sourceItemId, turnId, output: delta, fallbackLabel })];
+  return [...items, streamedToolOutputMessageStreamItem({ id: sourceItemId, turnId, output: delta, fallbackLabel })];
 }
 
 export function appendItemOutput(
-  items: readonly DisplayItem[],
+  items: readonly MessageStreamItem[],
   sourceItemId: string,
   turnId: string,
   delta: string,
   kind: "command" | "fileChange",
   fallbackText: string,
-): DisplayItem[] {
+): MessageStreamItem[] {
   const index = items.findIndex((item) => item.sourceItemId === sourceItemId);
   if (index !== -1) {
     return items.map((item, itemIndex) =>
@@ -160,15 +179,18 @@ export function appendItemOutput(
         : item,
     );
   }
-  return [...items, streamedItemOutputDisplayItem({ id: sourceItemId, kind, turnId, output: delta, fallbackText })] as DisplayItem[];
+  return [
+    ...items,
+    streamedItemOutputMessageStreamItem({ id: sourceItemId, kind, turnId, output: delta, fallbackText }),
+  ] as MessageStreamItem[];
 }
 
 export function attachHookRunsToTurn(
-  items: readonly DisplayItem[],
+  items: readonly MessageStreamItem[],
   turnId: string,
   hookItemIds: readonly string[],
   afterItemId?: string | null,
-): DisplayItem[] {
+): MessageStreamItem[] {
   const hookIdSet = new Set(hookItemIds);
   const attachedHooks = items.filter((item) => hookIdSet.has(item.id)).map((item) => ({ ...item, turnId }));
   if (attachedHooks.length === 0) return [...items];
@@ -181,7 +203,7 @@ export function attachHookRunsToTurn(
   return [...withoutAttachedHooks.slice(0, insertAfterIndex + 1), ...attachedHooks, ...withoutAttachedHooks.slice(insertAfterIndex + 1)];
 }
 
-function lastUserMessageAnchorId(items: readonly DisplayItem[], turnId: string): string | null {
+function lastUserMessageAnchorId(items: readonly MessageStreamItem[], turnId: string): string | null {
   const anchor = [...items]
     .reverse()
     .find((item) => item.kind === "message" && item.role === "user" && (!item.turnId || item.turnId === turnId));

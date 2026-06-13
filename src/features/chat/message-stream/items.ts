@@ -1,6 +1,6 @@
 import type { ReferencedThreadMetadata } from "../../../domain/threads/reference";
 
-export type DisplayKind =
+export type MessageStreamItemKind =
   | "message"
   | "command"
   | "fileChange"
@@ -15,106 +15,106 @@ export type DisplayKind =
   | "approvalResult"
   | "userInputResult"
   | "reviewResult";
-type DisplayRole = "user" | "assistant" | "system" | "tool";
+type MessageStreamRole = "user" | "assistant" | "system" | "tool";
 export type ExecutionState = "running" | "completed" | "failed" | null;
 type MessageState = "streaming" | "completed";
 
-interface DisplayBase {
+interface MessageStreamBase {
   id: string;
-  kind: DisplayKind;
-  role: DisplayRole;
+  kind: MessageStreamItemKind;
+  role: MessageStreamRole;
   text: string;
   turnId?: string;
   sourceItemId?: string;
   executionState?: ExecutionState;
 }
 
-export interface DisplayDetailMetaRow {
+export interface MessageStreamDetailMetaRow {
   key: string;
   value: string;
 }
 
-export interface DisplayDetailSection {
+export interface MessageStreamDetailSection {
   title?: string;
   body?: string;
-  rows?: DisplayDetailMetaRow[];
+  rows?: MessageStreamDetailMetaRow[];
 }
 
-interface MessageDisplayBase extends DisplayBase {
+interface MessageStreamMessageBase extends MessageStreamBase {
   kind: "message";
   role: "user" | "assistant";
   clientId?: string;
   copyText?: string;
   referencedThread?: ReferencedThreadMetadata;
-  mentionedFiles?: DisplayFileMention[];
+  mentionedFiles?: MessageStreamFileMention[];
   editedFiles?: string[];
-  turnDiff?: DisplayTurnDiff;
+  turnDiff?: MessageStreamTurnDiff;
   autoReviewSummaries?: string[];
 }
 
-interface UserMessageDisplayItem extends MessageDisplayBase {
+interface UserMessageStreamItem extends MessageStreamMessageBase {
   messageKind: "user";
   role: "user";
   messageState?: never;
 }
 
-interface AssistantResponseMessageDisplayItem extends MessageDisplayBase {
+interface AssistantResponseMessageStreamItem extends MessageStreamMessageBase {
   messageKind: "assistantResponse";
   role: "assistant";
   messageState: MessageState;
 }
 
-interface ProposedPlanMessageDisplayItem extends MessageDisplayBase {
+interface ProposedPlanMessageStreamItem extends MessageStreamMessageBase {
   messageKind: "proposedPlan";
   role: "assistant";
   messageState: MessageState;
 }
 
-export type AssistantAuthoredMessageDisplayItem = AssistantResponseMessageDisplayItem | ProposedPlanMessageDisplayItem;
+export type AssistantAuthoredMessageStreamItem = AssistantResponseMessageStreamItem | ProposedPlanMessageStreamItem;
 
-export type MessageDisplayItem = UserMessageDisplayItem | AssistantAuthoredMessageDisplayItem;
+export type MessageStreamMessageItem = UserMessageStreamItem | AssistantAuthoredMessageStreamItem;
 
-export interface DisplayFileMention {
+export interface MessageStreamFileMention {
   name: string;
   path: string;
 }
 
-interface DisplayTurnDiff {
+interface MessageStreamTurnDiff {
   diff: string;
 }
 
-interface SystemMessageDisplayItem extends DisplayBase {
+interface SystemMessageStreamItem extends MessageStreamBase {
   kind: "system";
   role: "system";
-  details?: DisplayDetailSection[];
+  details?: MessageStreamDetailSection[];
 }
 
-export interface GoalDisplayItem extends DisplayBase {
+export interface GoalMessageStreamItem extends MessageStreamBase {
   kind: "goal";
   role: "tool";
   objective?: string;
-  details?: DisplayDetailSection[];
+  details?: MessageStreamDetailSection[];
 }
 
-interface UserInputResultDisplayItem extends DisplayBase {
+interface UserInputResultMessageStreamItem extends MessageStreamBase {
   kind: "userInputResult";
   role: "tool";
-  details?: DisplayDetailSection[];
+  details?: MessageStreamDetailSection[];
 }
 
-export interface ApprovalResultDisplayItem extends DisplayBase {
+export interface ApprovalResultMessageStreamItem extends MessageStreamBase {
   kind: "approvalResult";
   role: "tool";
-  details?: DisplayDetailSection[];
+  details?: MessageStreamDetailSection[];
 }
 
-export interface ReviewResultDisplayItem extends DisplayBase {
+export interface ReviewResultMessageStreamItem extends MessageStreamBase {
   kind: "reviewResult";
   role: "tool";
-  details?: DisplayDetailSection[];
+  details?: MessageStreamDetailSection[];
 }
 
-export interface CommandDisplayItem extends DisplayBase {
+export interface CommandMessageStreamItem extends MessageStreamBase {
   kind: "command";
   role: "tool";
   actionLabel?: string;
@@ -126,43 +126,43 @@ export interface CommandDisplayItem extends DisplayBase {
   output?: string;
 }
 
-export interface DisplayFileChange {
+export interface MessageStreamFileChange {
   kind: string;
   path: string;
   diff: string;
 }
 
-export interface FileChangeDisplayItem extends DisplayBase {
+export interface FileChangeMessageStreamItem extends MessageStreamBase {
   kind: "fileChange";
   role: "tool";
   status: string;
-  changes: DisplayFileChange[];
+  changes: MessageStreamFileChange[];
   output?: string;
 }
 
-interface ToolDisplayBase extends DisplayBase {
+interface ToolMessageStreamBase extends MessageStreamBase {
   role: "tool";
   activityKind?: "userSteered";
   toolLabel?: string;
   summaryPath?: boolean;
   status?: string;
   output?: string;
-  details?: DisplayDetailSection[];
+  details?: MessageStreamDetailSection[];
 }
 
-export interface ToolCallDisplayItem extends ToolDisplayBase {
+export interface ToolCallMessageStreamItem extends ToolMessageStreamBase {
   kind: "tool";
 }
 
-export interface HookDisplayItem extends ToolDisplayBase {
+export interface HookMessageStreamItem extends ToolMessageStreamBase {
   kind: "hook";
 }
 
-export interface ReasoningDisplayItem extends ToolDisplayBase {
+export interface ReasoningMessageStreamItem extends ToolMessageStreamBase {
   kind: "reasoning";
 }
 
-export interface ContextCompactionDisplayItem extends DisplayBase {
+export interface ContextCompactionMessageStreamItem extends MessageStreamBase {
   kind: "contextCompaction";
   role: "tool";
 }
@@ -172,7 +172,7 @@ interface TaskProgressStep {
   status: "pending" | "inProgress" | "completed";
 }
 
-export interface TaskProgressDisplayItem extends DisplayBase {
+export interface TaskProgressMessageStreamItem extends MessageStreamBase {
   kind: "taskProgress";
   role: "tool";
   explanation: string | null;
@@ -180,7 +180,7 @@ export interface TaskProgressDisplayItem extends DisplayBase {
   status: string;
 }
 
-export interface AgentStateDisplay {
+export interface AgentStateSummary {
   threadId: string;
   status: string;
   message: string | null;
@@ -192,7 +192,7 @@ export interface AgentRunSummaryAgent {
   messagePreview: string | null;
 }
 
-export interface AgentDisplayItem extends DisplayBase {
+export interface AgentMessageStreamItem extends MessageStreamBase {
   kind: "agent";
   role: "tool";
   tool: string;
@@ -202,7 +202,7 @@ export interface AgentDisplayItem extends DisplayBase {
   prompt: string | null;
   model: string | null;
   reasoningEffort: string | null;
-  agents: AgentStateDisplay[];
+  agents: AgentStateSummary[];
 }
 
 export interface AgentRunSummary {
@@ -214,24 +214,22 @@ export interface AgentRunSummary {
 }
 
 export type MessageStreamItem =
-  | MessageDisplayItem
-  | SystemMessageDisplayItem
-  | GoalDisplayItem
-  | UserInputResultDisplayItem
-  | CommandDisplayItem
-  | FileChangeDisplayItem
-  | ToolCallDisplayItem
-  | HookDisplayItem
-  | ReasoningDisplayItem
-  | ContextCompactionDisplayItem
-  | TaskProgressDisplayItem
-  | AgentDisplayItem
-  | ApprovalResultDisplayItem
-  | ReviewResultDisplayItem;
+  | MessageStreamMessageItem
+  | SystemMessageStreamItem
+  | GoalMessageStreamItem
+  | UserInputResultMessageStreamItem
+  | CommandMessageStreamItem
+  | FileChangeMessageStreamItem
+  | ToolCallMessageStreamItem
+  | HookMessageStreamItem
+  | ReasoningMessageStreamItem
+  | ContextCompactionMessageStreamItem
+  | TaskProgressMessageStreamItem
+  | AgentMessageStreamItem
+  | ApprovalResultMessageStreamItem
+  | ReviewResultMessageStreamItem;
 
-export type DisplayItem = MessageStreamItem;
-
-export type DisplayBlock =
+export type MessageStreamLayoutBlock =
   | {
       type: "item";
       item: MessageStreamItem;

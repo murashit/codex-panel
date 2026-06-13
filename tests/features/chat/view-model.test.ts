@@ -18,7 +18,7 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { chatPanelGoalProjection, chatPanelGoalViewModel } from "../../../src/features/chat/panel/surface/goal";
 import type { ChatPanelComposerSurface, ChatPanelGoalSurface } from "../../../src/features/chat/panel/surface/model";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
-import { setChatStateDisplayItems } from "./support/message-stream";
+import { setChatStateMessageStreamItems } from "./support/message-stream";
 
 describe("chat view model", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {
@@ -100,7 +100,7 @@ describe("chat view model", () => {
   it("uses a neutral composer context indicator when usage is unavailable", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";
-    setChatStateDisplayItems(state, [
+    setChatStateMessageStreamItems(state, [
       {
         id: "item",
         turnId: "turn-1",

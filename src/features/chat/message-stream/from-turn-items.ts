@@ -1,12 +1,18 @@
-import type { DisplayDetailSection, DisplayFileChange, DisplayFileMention, DisplayItem, ExecutionState } from "./types";
+import type {
+  MessageStreamDetailSection,
+  MessageStreamFileChange,
+  MessageStreamFileMention,
+  MessageStreamItem,
+  ExecutionState,
+} from "./items";
 import type { HistoricalTurn } from "../../../domain/threads/history";
 import type { FileUpdateChange, TurnItem } from "../../../app-server/protocol/turn";
 import { definedProp, truncate } from "../../../utils";
 import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../domain/threads/reference";
 import { turnUserItemText } from "../../../app-server/protocol/turn";
-import { agentDisplayItem } from "./items/agent";
-import { pathRelativeToRoot } from "./details/path-labels";
-import { fileMentionsFromInput, normalizeProposedPlanMarkdown, userMessageDisplayText } from "./items/message-content";
+import { agentMessageStreamItem } from "../display/items/agent";
+import { pathRelativeToRoot } from "../display/details/path-labels";
+import { fileMentionsFromInput, normalizeProposedPlanMarkdown, userMessageDisplayText } from "../display/items/message-content";
 import {
   bodyDetail,
   compactToolSummary,
@@ -15,7 +21,7 @@ import {
   jsonTargetLabel,
   metaDetail,
   statusQualifier,
-} from "./details/tool-details";
+} from "../display/details/tool-details";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
 type AgentMessageItem = Extract<TurnItem, { type: "agentMessage" }>;
@@ -32,17 +38,17 @@ type ImageViewItem = Extract<TurnItem, { type: "imageView" }>;
 type ImageGenerationItem = Extract<TurnItem, { type: "imageGeneration" }>;
 type ReviewModeItem = Extract<TurnItem, { type: "enteredReviewMode" }> | Extract<TurnItem, { type: "exitedReviewMode" }>;
 type ContextCompactionItem = Extract<TurnItem, { type: "contextCompaction" }>;
-type DisplayExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
-interface BaseDisplayData {
+type MessageStreamExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
+interface BaseStreamItemData {
   id: string;
 }
 
-interface UserMessageDisplayData extends BaseDisplayData {
+interface UserMessageStreamItemData extends BaseStreamItemData {
   text: string;
   displayText: string;
   clientId: string | null;
-  mentionedFiles: DisplayFileMention[];
+  mentionedFiles: MessageStreamFileMention[];
   referencedThread: {
     text: string;
     displayText: string;
@@ -50,21 +56,21 @@ interface UserMessageDisplayData extends BaseDisplayData {
   } | null;
 }
 
-interface MessageDisplayData extends BaseDisplayData {
+interface MessageStreamTextData extends BaseStreamItemData {
   text: string;
 }
 
-interface ToolDisplayData extends BaseDisplayData {
+interface ToolMessageStreamData extends BaseStreamItemData {
   text: string;
   toolLabel?: string;
   status?: string;
   output?: string;
-  details?: DisplayDetailSection[];
+  details?: MessageStreamDetailSection[];
   executionState?: ExecutionState;
   summaryPath?: boolean;
 }
 
-interface CommandDisplayData extends BaseDisplayData {
+interface CommandMessageStreamData extends BaseStreamItemData {
   actionLabel: string;
   text: string;
   command: string;
@@ -76,10 +82,10 @@ interface CommandDisplayData extends BaseDisplayData {
   executionState: ExecutionState;
 }
 
-interface FileChangeDisplayData extends BaseDisplayData {
+interface FileChangeMessageStreamData extends BaseStreamItemData {
   text: string;
   status: string;
-  changes: DisplayFileChange[];
+  changes: MessageStreamFileChange[];
   executionState: ExecutionState;
 }
 
@@ -103,61 +109,61 @@ const STANDARD_TOOL_STATES = {
   failed: "failed",
 } as const satisfies ExecutionStateByStatus;
 
-export function displayItemsFromTurns(turns: readonly HistoricalTurn<TurnItem>[]): DisplayItem[] {
+export function messageStreamItemsFromTurns(turns: readonly HistoricalTurn<TurnItem>[]): MessageStreamItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
-  const items: DisplayItem[] = [];
+  const items: MessageStreamItem[] = [];
   for (const turn of sortedTurns) {
     for (const item of turn.items) {
-      const displayItem = displayItemFromTurnItem(item, turn.id);
-      if (displayItem) items.push(displayItem);
+      const streamItem = messageStreamItemFromTurnItem(item, turn.id);
+      if (streamItem) items.push(streamItem);
     }
   }
   return items;
 }
 
-export function displayItemFromTurnItem(item: TurnItem, turnId?: string): DisplayItem | null {
+export function messageStreamItemFromTurnItem(item: TurnItem, turnId?: string): MessageStreamItem | null {
   switch (item.type) {
     case "userMessage":
-      return userMessageDisplayItem(item, turnId);
+      return userMessageStreamItem(item, turnId);
     case "agentMessage":
-      return agentMessageDisplayItem(item, turnId);
+      return assistantMessageStreamItemFromTurn(item, turnId);
     case "commandExecution":
-      return commandDisplayItem(item, turnId);
+      return commandMessageStreamItem(item, turnId);
     case "fileChange":
-      return fileChangeDisplayItem(item, turnId);
+      return fileChangeMessageStreamItem(item, turnId);
     case "plan":
-      return planDisplayItem(item, turnId);
+      return proposedPlanMessageStreamItem(item, turnId);
     case "hookPrompt":
-      return hookPromptDisplayItem(item, turnId);
+      return hookPromptMessageStreamItem(item, turnId);
     case "reasoning":
-      return reasoningDisplayItem(item, turnId);
+      return reasoningMessageStreamItem(item, turnId);
     case "mcpToolCall":
-      return mcpToolCallDisplayItem(item, turnId);
+      return mcpToolCallMessageStreamItem(item, turnId);
     case "dynamicToolCall":
-      return dynamicToolCallDisplayItem(item, turnId);
+      return dynamicToolCallMessageStreamItem(item, turnId);
     case "collabAgentToolCall":
-      return agentDisplayItem(item, turnId);
+      return agentMessageStreamItem(item, turnId);
     case "webSearch":
-      return webSearchDisplayItem(item, turnId);
+      return webSearchMessageStreamItem(item, turnId);
     case "imageView":
-      return imageViewDisplayItem(item, turnId);
+      return imageViewMessageStreamItem(item, turnId);
     case "imageGeneration":
-      return imageGenerationDisplayItem(item, turnId);
+      return imageGenerationMessageStreamItem(item, turnId);
     case "enteredReviewMode":
     case "exitedReviewMode":
-      return reviewModeDisplayItem(item, turnId);
+      return reviewModeMessageStreamItem(item, turnId);
     case "contextCompaction":
-      return contextCompactionDisplayItem(item, turnId);
+      return contextCompactionMessageStreamItem(item, turnId);
     default:
       return assertNever(item);
   }
 }
 
-function userMessageDisplayItem(item: UserMessageItem, turnId?: string): DisplayItem {
-  return userMessageDisplayItemFromData(userMessageDisplayDataFromItem(item), turnId);
+function userMessageStreamItem(item: UserMessageItem, turnId?: string): MessageStreamItem {
+  return userMessageStreamItemFromData(userMessageStreamTextDataFromItem(item), turnId);
 }
 
-function userMessageDisplayDataFromItem(item: UserMessageItem): UserMessageDisplayData {
+function userMessageStreamTextDataFromItem(item: UserMessageItem): UserMessageStreamItemData {
   const text = turnUserItemText(item);
   const referencedThread = referencedThreadMetadataFromPrompt(text);
   return {
@@ -176,7 +182,7 @@ function userMessageDisplayDataFromItem(item: UserMessageItem): UserMessageDispl
   };
 }
 
-function userMessageDisplayItemFromData(data: UserMessageDisplayData, turnId?: string): DisplayItem {
+function userMessageStreamItemFromData(data: UserMessageStreamItemData, turnId?: string): MessageStreamItem {
   if (data.referencedThread) {
     return {
       id: data.id,
@@ -206,15 +212,15 @@ function userMessageDisplayItemFromData(data: UserMessageDisplayData, turnId?: s
   };
 }
 
-function agentMessageDisplayItem(item: AgentMessageItem, turnId?: string): DisplayItem {
-  return assistantResponseDisplayItemFromData(agentMessageDisplayDataFromItem(item), turnId);
+function assistantMessageStreamItemFromTurn(item: AgentMessageItem, turnId?: string): MessageStreamItem {
+  return assistantResponseMessageStreamItemFromData(agentMessageStreamTextDataFromItem(item), turnId);
 }
 
-function agentMessageDisplayDataFromItem(item: AgentMessageItem): MessageDisplayData {
+function agentMessageStreamTextDataFromItem(item: AgentMessageItem): MessageStreamTextData {
   return { id: item.id, text: item.text };
 }
 
-function assistantResponseDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
+function assistantResponseMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "message",
@@ -228,16 +234,16 @@ function assistantResponseDisplayItemFromData(data: MessageDisplayData, turnId?:
   };
 }
 
-function planDisplayItem(item: PlanItem, turnId?: string): DisplayItem {
-  return proposedPlanDisplayItemFromData(planDisplayDataFromItem(item), turnId);
+function proposedPlanMessageStreamItem(item: PlanItem, turnId?: string): MessageStreamItem {
+  return proposedPlanMessageStreamItemFromData(proposedPlanMessageStreamItemDataFromItem(item), turnId);
 }
 
-function planDisplayDataFromItem(item: PlanItem): MessageDisplayData {
+function proposedPlanMessageStreamItemDataFromItem(item: PlanItem): MessageStreamTextData {
   const text = normalizeProposedPlanMarkdown(item.text);
   return { id: item.id, text };
 }
 
-function proposedPlanDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
+function proposedPlanMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "message",
@@ -251,15 +257,15 @@ function proposedPlanDisplayItemFromData(data: MessageDisplayData, turnId?: stri
   };
 }
 
-function hookPromptDisplayItem(item: HookPromptItem, turnId?: string): DisplayItem {
-  return hookPromptDisplayItemFromData(hookPromptDisplayDataFromItem(item), turnId);
+function hookPromptMessageStreamItem(item: HookPromptItem, turnId?: string): MessageStreamItem {
+  return hookPromptMessageStreamItemFromData(hookPromptMessageStreamItemDataFromItem(item), turnId);
 }
 
-function hookPromptDisplayDataFromItem(item: HookPromptItem): MessageDisplayData {
+function hookPromptMessageStreamItemDataFromItem(item: HookPromptItem): MessageStreamTextData {
   return { id: item.id, text: item.fragments.map((fragment) => fragment.text).join("\n\n") || "Hook prompt" };
 }
 
-function hookPromptDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
+function hookPromptMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "hook",
@@ -270,15 +276,15 @@ function hookPromptDisplayItemFromData(data: MessageDisplayData, turnId?: string
   };
 }
 
-function reasoningDisplayItem(item: ReasoningItem, turnId?: string): DisplayItem {
-  return reasoningDisplayItemFromData(reasoningDisplayDataFromItem(item), turnId);
+function reasoningMessageStreamItem(item: ReasoningItem, turnId?: string): MessageStreamItem {
+  return reasoningMessageStreamItemFromData(reasoningMessageStreamItemDataFromItem(item), turnId);
 }
 
-function reasoningDisplayDataFromItem(item: ReasoningItem): MessageDisplayData {
+function reasoningMessageStreamItemDataFromItem(item: ReasoningItem): MessageStreamTextData {
   return { id: item.id, text: reasoningText(item) };
 }
 
-function reasoningDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
+function reasoningMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "reasoning",
@@ -289,11 +295,11 @@ function reasoningDisplayItemFromData(data: MessageDisplayData, turnId?: string)
   };
 }
 
-function mcpToolCallDisplayItem(item: McpToolCallItem, turnId?: string): DisplayItem {
-  return toolDisplayItemFromData(mcpToolCallDisplayDataFromItem(item), turnId);
+function mcpToolCallMessageStreamItem(item: McpToolCallItem, turnId?: string): MessageStreamItem {
+  return toolMessageStreamItemFromData(mcpToolCallMessageStreamItemDataFromItem(item), turnId);
 }
 
-function mcpToolCallDisplayDataFromItem(item: McpToolCallItem): ToolDisplayData {
+function mcpToolCallMessageStreamItemDataFromItem(item: McpToolCallItem): ToolMessageStreamData {
   const name = `${item.server}.${item.tool}`;
   const target = jsonTargetLabel(item.arguments);
   const failure = item.error?.message ? truncate(item.error.message, 96) : failedStatusLabel(item.status);
@@ -312,7 +318,7 @@ function mcpToolCallDisplayDataFromItem(item: McpToolCallItem): ToolDisplayData 
   };
 }
 
-function toolDisplayItemFromData(data: ToolDisplayData, turnId?: string): DisplayItem {
+function toolMessageStreamItemFromData(data: ToolMessageStreamData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "tool",
@@ -329,11 +335,11 @@ function toolDisplayItemFromData(data: ToolDisplayData, turnId?: string): Displa
   };
 }
 
-function dynamicToolCallDisplayItem(item: DynamicToolCallItem, turnId?: string): DisplayItem {
-  return toolDisplayItemFromData(dynamicToolCallDisplayDataFromItem(item), turnId);
+function dynamicToolCallMessageStreamItem(item: DynamicToolCallItem, turnId?: string): MessageStreamItem {
+  return toolMessageStreamItemFromData(dynamicToolCallMessageStreamItemDataFromItem(item), turnId);
 }
 
-function dynamicToolCallDisplayDataFromItem(item: DynamicToolCallItem): ToolDisplayData {
+function dynamicToolCallMessageStreamItemDataFromItem(item: DynamicToolCallItem): ToolMessageStreamData {
   const name = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
   const target = jsonTargetLabel(item.arguments);
   const failure = item.success === false ? "failed" : failedStatusLabel(item.status);
@@ -351,11 +357,11 @@ function dynamicToolCallDisplayDataFromItem(item: DynamicToolCallItem): ToolDisp
   };
 }
 
-function webSearchDisplayItem(item: WebSearchItem, turnId?: string): DisplayItem {
-  return toolDisplayItemFromData(webSearchDisplayDataFromItem(item), turnId);
+function webSearchMessageStreamItem(item: WebSearchItem, turnId?: string): MessageStreamItem {
+  return toolMessageStreamItemFromData(webSearchMessageStreamItemDataFromItem(item), turnId);
 }
 
-function webSearchDisplayDataFromItem(item: WebSearchItem): ToolDisplayData {
+function webSearchMessageStreamItemDataFromItem(item: WebSearchItem): ToolMessageStreamData {
   return {
     id: item.id,
     text: webSearchSummary(item),
@@ -365,11 +371,11 @@ function webSearchDisplayDataFromItem(item: WebSearchItem): ToolDisplayData {
   };
 }
 
-function imageViewDisplayItem(item: ImageViewItem, turnId?: string): DisplayItem {
-  return toolDisplayItemFromData(imageViewDisplayDataFromItem(item), turnId);
+function imageViewMessageStreamItem(item: ImageViewItem, turnId?: string): MessageStreamItem {
+  return toolMessageStreamItemFromData(imageViewMessageStreamItemDataFromItem(item), turnId);
 }
 
-function imageViewDisplayDataFromItem(item: ImageViewItem): ToolDisplayData {
+function imageViewMessageStreamItemDataFromItem(item: ImageViewItem): ToolMessageStreamData {
   return {
     id: item.id,
     text: compactToolSummary(null, item.path),
@@ -378,11 +384,11 @@ function imageViewDisplayDataFromItem(item: ImageViewItem): ToolDisplayData {
   };
 }
 
-function imageGenerationDisplayItem(item: ImageGenerationItem, turnId?: string): DisplayItem {
-  return toolDisplayItemFromData(imageGenerationDisplayDataFromItem(item), turnId);
+function imageGenerationMessageStreamItem(item: ImageGenerationItem, turnId?: string): MessageStreamItem {
+  return toolMessageStreamItemFromData(imageGenerationMessageStreamItemDataFromItem(item), turnId);
 }
 
-function imageGenerationDisplayDataFromItem(item: ImageGenerationItem): ToolDisplayData {
+function imageGenerationMessageStreamItemDataFromItem(item: ImageGenerationItem): ToolMessageStreamData {
   const target = item.savedPath ?? item.result;
   return {
     id: item.id,
@@ -400,11 +406,11 @@ function imageGenerationDisplayDataFromItem(item: ImageGenerationItem): ToolDisp
   };
 }
 
-function reviewModeDisplayItem(item: ReviewModeItem, turnId?: string): DisplayItem {
-  return toolDisplayItemFromData(reviewModeDisplayDataFromItem(item), turnId);
+function reviewModeMessageStreamItem(item: ReviewModeItem, turnId?: string): MessageStreamItem {
+  return toolMessageStreamItemFromData(reviewModeMessageStreamItemDataFromItem(item), turnId);
 }
 
-function reviewModeDisplayDataFromItem(item: ReviewModeItem): ToolDisplayData {
+function reviewModeMessageStreamItemDataFromItem(item: ReviewModeItem): ToolMessageStreamData {
   return {
     id: item.id,
     text: item.type === "enteredReviewMode" ? "Entered review mode" : "Exited review mode",
@@ -413,15 +419,15 @@ function reviewModeDisplayDataFromItem(item: ReviewModeItem): ToolDisplayData {
   };
 }
 
-function contextCompactionDisplayItem(item: ContextCompactionItem, turnId?: string): DisplayItem {
-  return contextCompactionDisplayItemFromData(contextCompactionDisplayDataFromItem(item), turnId);
+function contextCompactionMessageStreamItem(item: ContextCompactionItem, turnId?: string): MessageStreamItem {
+  return contextCompactionMessageStreamItemFromData(contextCompactionMessageStreamItemDataFromItem(item), turnId);
 }
 
-function contextCompactionDisplayDataFromItem(item: ContextCompactionItem): MessageDisplayData {
+function contextCompactionMessageStreamItemDataFromItem(item: ContextCompactionItem): MessageStreamTextData {
   return { id: item.id, text: "Context compaction" };
 }
 
-function contextCompactionDisplayItemFromData(data: MessageDisplayData, turnId?: string): DisplayItem {
+function contextCompactionMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "contextCompaction",
@@ -515,7 +521,7 @@ function quoteInline(value: string): string {
   return value.includes(" ") ? JSON.stringify(value) : value;
 }
 
-function fileChangeTargetLabel(changes: DisplayFileChange[]): string {
+function fileChangeTargetLabel(changes: MessageStreamFileChange[]): string {
   if (changes.length === 0) return "no files";
   if (changes.length === 1) return changes[0]?.path ?? "1 file";
   return `${String(changes.length)} files`;
@@ -554,7 +560,7 @@ function webSearchQueryList(
   return unique.join("; ");
 }
 
-function webSearchDetails(item: WebSearchItem): DisplayDetailSection[] {
+function webSearchDetails(item: WebSearchItem): MessageStreamDetailSection[] {
   const rows: { key: string; value: string }[] = [];
   if (item.action) rows.push({ key: "action", value: webSearchActionLabel(item.action.type) });
   if (item.action?.type === "search") {
@@ -572,11 +578,11 @@ function webSearchDetails(item: WebSearchItem): DisplayDetailSection[] {
   return metaDetail("web search", rows);
 }
 
-function commandDisplayItem(item: CommandExecutionItem, turnId?: string): DisplayItem {
-  return commandDisplayItemFromData(commandDisplayDataFromItem(item), turnId);
+function commandMessageStreamItem(item: CommandExecutionItem, turnId?: string): MessageStreamItem {
+  return commandMessageStreamItemFromData(commandMessageStreamItemDataFromItem(item), turnId);
 }
 
-function commandDisplayDataFromItem(item: CommandExecutionItem): CommandDisplayData {
+function commandMessageStreamItemDataFromItem(item: CommandExecutionItem): CommandMessageStreamData {
   const exitCode = typeof item.exitCode === "number" ? item.exitCode : undefined;
   const durationMs = typeof item.durationMs === "number" ? item.durationMs : undefined;
   const target = commandTargetLabel(item);
@@ -598,7 +604,7 @@ function commandDisplayDataFromItem(item: CommandExecutionItem): CommandDisplayD
   };
 }
 
-function commandDisplayItemFromData(data: CommandDisplayData, turnId?: string): DisplayItem {
+function commandMessageStreamItemFromData(data: CommandMessageStreamData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "command",
@@ -617,11 +623,11 @@ function commandDisplayItemFromData(data: CommandDisplayData, turnId?: string): 
   };
 }
 
-function fileChangeDisplayItem(item: FileChangeItem, turnId?: string): DisplayItem {
-  return fileChangeDisplayItemFromData(fileChangeDisplayDataFromItem(item), turnId);
+function fileChangeMessageStreamItem(item: FileChangeItem, turnId?: string): MessageStreamItem {
+  return fileChangeMessageStreamItemFromData(fileChangeMessageStreamItemDataFromItem(item), turnId);
 }
 
-function fileChangeDisplayDataFromItem(item: FileChangeItem): FileChangeDisplayData {
+function fileChangeMessageStreamItemDataFromItem(item: FileChangeItem): FileChangeMessageStreamData {
   const changes = normalizeFileChanges(item.changes);
   const qualifier = statusQualifier(item.status, failedStatusLabel(item.status));
   return {
@@ -633,7 +639,7 @@ function fileChangeDisplayDataFromItem(item: FileChangeItem): FileChangeDisplayD
   };
 }
 
-function fileChangeDisplayItemFromData(data: FileChangeDisplayData, turnId?: string): DisplayItem {
+function fileChangeMessageStreamItemFromData(data: FileChangeMessageStreamData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "fileChange",
@@ -647,7 +653,7 @@ function fileChangeDisplayItemFromData(data: FileChangeDisplayData, turnId?: str
   };
 }
 
-export function normalizeFileChanges(changes: FileUpdateChange[]): DisplayFileChange[] {
+export function normalizeFileChanges(changes: FileUpdateChange[]): MessageStreamFileChange[] {
   return changes.map((change) => ({
     kind: change.kind.type,
     path: change.path,

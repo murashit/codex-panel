@@ -8,15 +8,15 @@ import type {
   PendingTurnStart,
 } from "./reducer";
 import type { Thread } from "../../../domain/threads/model";
-import type { DisplayItem } from "../display/types";
-import { messageStreamDisplayItems, messageStreamIsEmpty } from "./message-stream";
+import type { MessageStreamItem } from "../message-stream/items";
+import { messageStreamItems, messageStreamIsEmpty } from "./message-stream";
 
 export interface SubmissionStateSnapshot {
   activeThreadId: string | null;
   activeTurnId: string | null;
   busy: boolean;
   listedThreads: readonly Thread[];
-  displayItems: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
   pendingTurnStart: PendingTurnStart | null;
 }
 
@@ -42,12 +42,12 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
     activeTurnId: selectActiveTurnId(state),
     busy: chatTurnBusy(state),
     listedThreads: state.threadList.listedThreads,
-    displayItems: messageStreamDisplayItems(state.messageStream),
+    items: messageStreamItems(state.messageStream),
     pendingTurnStart: pendingTurnStart(state),
   };
 }
 
-export function canImplementPlan(state: ChatState, item: DisplayItem): boolean {
+export function canImplementPlan(state: ChatState, item: MessageStreamItem): boolean {
   return item.id === implementPlanCandidateFromState(state)?.id;
 }
 
@@ -56,13 +56,12 @@ export function implementPlanCandidateFromState(state: {
   turn: ChatTurnState;
   runtime: Pick<ChatRuntimeState, "selectedCollaborationMode">;
   messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">;
-}): DisplayItem | null {
+}): MessageStreamItem | null {
   if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
     return null;
   }
   return (
-    [...messageStreamDisplayItems(state.messageStream)]
-      .reverse()
-      .find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null
+    [...messageStreamItems(state.messageStream)].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ??
+    null
   );
 }

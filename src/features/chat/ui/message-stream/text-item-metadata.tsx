@@ -1,10 +1,10 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 
-import type { DisplayDetailSection, DisplayItem } from "../../display/types";
+import type { MessageStreamDetailSection, MessageStreamItem } from "../../message-stream/items";
 import { IconButton } from "../../../../shared/ui/components";
 import type { TextItemDetailStateContext, TextItemMetadataContext } from "./context";
 
-export function ReferencedThread({ item }: { item: Extract<DisplayItem, { kind: "message" }> }): UiNode {
+export function ReferencedThread({ item }: { item: Extract<MessageStreamItem, { kind: "message" }> }): UiNode {
   const reference = item.referencedThread;
   if (!reference) return null;
   return (
@@ -25,7 +25,7 @@ export function EditedFiles({
   item,
   context,
 }: {
-  item: Extract<DisplayItem, { kind: "message" }>;
+  item: Extract<MessageStreamItem, { kind: "message" }>;
   context: TextItemMetadataContext;
 }): UiNode {
   const editedFiles = item.editedFiles ?? [];
@@ -75,7 +75,7 @@ export function MentionedFiles({
   item,
   context,
 }: {
-  item: Extract<DisplayItem, { kind: "message" }>;
+  item: Extract<MessageStreamItem, { kind: "message" }>;
   context: TextItemDetailStateContext;
 }): UiNode {
   const mentionedFiles = item.mentionedFiles ?? [];
@@ -116,12 +116,12 @@ export function AutoReviewSummaries({ summaries }: { summaries: string[] }): UiN
 }
 
 export function TextItemDetails({
-  displayItemId,
+  itemId,
   details,
   context,
 }: {
-  displayItemId: string;
-  details: DisplayDetailSection[];
+  itemId: string;
+  details: MessageStreamDetailSection[];
   context: TextItemDetailStateContext;
 }): UiNode {
   return (
@@ -130,7 +130,7 @@ export function TextItemDetails({
         <RememberedDetails
           key={`${section.title ?? "Details"}:${String(index)}`}
           detailsClassName="codex-panel__output"
-          detailsKey={`${displayItemId}:text-item-detail:${String(index)}`}
+          detailsKey={`${itemId}:text-item-detail:${String(index)}`}
           summary={section.title ?? "Details"}
           context={context}
         >
@@ -141,7 +141,7 @@ export function TextItemDetails({
   );
 }
 
-export function SystemDetails({ details }: { details: DisplayDetailSection[] }): UiNode {
+export function SystemDetails({ details }: { details: MessageStreamDetailSection[] }): UiNode {
   return (
     <>
       {details.map((section, index) => (
@@ -154,7 +154,7 @@ export function SystemDetails({ details }: { details: DisplayDetailSection[] }):
   );
 }
 
-function DetailSectionBody({ section }: { section: DisplayDetailSection }): UiNode {
+function DetailSectionBody({ section }: { section: MessageStreamDetailSection }): UiNode {
   return (
     <>
       {section.rows && section.rows.length > 0 ? (

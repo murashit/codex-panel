@@ -1,21 +1,21 @@
 import type {
-  AgentDisplayItem,
-  ApprovalResultDisplayItem,
-  CommandDisplayItem,
-  ContextCompactionDisplayItem,
-  DisplayDetailSection,
-  DisplayFileChange,
-  DisplayItem,
+  AgentMessageStreamItem,
+  ApprovalResultMessageStreamItem,
+  CommandMessageStreamItem,
+  ContextCompactionMessageStreamItem,
+  MessageStreamDetailSection,
+  MessageStreamFileChange,
+  MessageStreamItem,
   ExecutionState,
-  FileChangeDisplayItem,
-  GoalDisplayItem,
-  HookDisplayItem,
-  MessageDisplayItem,
-  ReasoningDisplayItem,
-  ReviewResultDisplayItem,
-  TaskProgressDisplayItem,
-  ToolCallDisplayItem,
-} from "../types";
+  FileChangeMessageStreamItem,
+  GoalMessageStreamItem,
+  HookMessageStreamItem,
+  MessageStreamMessageItem,
+  ReasoningMessageStreamItem,
+  ReviewResultMessageStreamItem,
+  TaskProgressMessageStreamItem,
+  ToolCallMessageStreamItem,
+} from "../items";
 
 export type TimelineSemanticKind =
   | "userPrompt"
@@ -56,7 +56,7 @@ export interface TimelineActions {
   isTurnOutcome: boolean;
 }
 
-interface TimelineBaseItem<Item extends DisplayItem = DisplayItem> {
+interface TimelineBaseItem<Item extends MessageStreamItem = MessageStreamItem> {
   id: string;
   sourceItemId?: string;
   turnId?: string;
@@ -69,31 +69,33 @@ interface TimelineBaseItem<Item extends DisplayItem = DisplayItem> {
   text: string;
   copyText?: string;
   actions: TimelineActions;
-  displayItem: Item;
+  streamItem: Item;
 }
 
-interface TimelineTextItem extends TimelineBaseItem<MessageDisplayItem | Extract<DisplayItem, { kind: "system" | "userInputResult" }>> {
+interface TimelineTextItem extends TimelineBaseItem<
+  MessageStreamMessageItem | Extract<MessageStreamItem, { kind: "system" | "userInputResult" }>
+> {
   detailShape: "markdownText" | "plainText" | "eventSummary";
   renderSurface: "textMessage";
 }
 
 interface TimelineToolResultItem extends TimelineBaseItem<
-  | CommandDisplayItem
-  | FileChangeDisplayItem
-  | GoalDisplayItem
-  | ToolCallDisplayItem
-  | HookDisplayItem
-  | ApprovalResultDisplayItem
-  | ReviewResultDisplayItem
+  | CommandMessageStreamItem
+  | FileChangeMessageStreamItem
+  | GoalMessageStreamItem
+  | ToolCallMessageStreamItem
+  | HookMessageStreamItem
+  | ApprovalResultMessageStreamItem
+  | ReviewResultMessageStreamItem
 > {
   detailShape: "commandAudit" | "diffSet" | "jsonAudit" | "eventSummary" | "plainText";
   renderSurface: "toolResult";
-  details?: readonly DisplayDetailSection[];
-  changes?: readonly DisplayFileChange[];
+  details?: readonly MessageStreamDetailSection[];
+  changes?: readonly MessageStreamFileChange[];
 }
 
 interface TimelineWorkItem extends TimelineBaseItem<
-  TaskProgressDisplayItem | AgentDisplayItem | ReasoningDisplayItem | ContextCompactionDisplayItem
+  TaskProgressMessageStreamItem | AgentMessageStreamItem | ReasoningMessageStreamItem | ContextCompactionMessageStreamItem
 > {
   detailShape: "taskList" | "agentActivity" | "plainText" | "eventSummary";
   renderSurface: "workItem";

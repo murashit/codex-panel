@@ -20,7 +20,7 @@ import { createConversationParts } from "./conversation/composition";
 import type { ComposerSubmitActions } from "./conversation/turns/composer-submit-actions";
 import { createStructuredSystemItem, createSystemItem } from "./display/items/system";
 import { codexPanelDisplayTitle } from "./threads/title-display";
-import type { DisplayDetailSection, DisplayItem } from "./display/types";
+import type { MessageStreamDetailSection, MessageStreamItem } from "./message-stream/items";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
@@ -146,7 +146,7 @@ interface ChatSessionSideEffects {
   status: {
     set: (statusText: string, phase?: ChatConnectionPhase) => void;
     addSystemMessage: (text: string) => void;
-    addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
+    addStructuredSystemMessage: (text: string, details: MessageStreamDetailSection[]) => void;
   };
   composer: {
     setText: (text: string) => void;
@@ -931,7 +931,7 @@ export class ChatPanelSession {
     });
   }
 
-  private connectionDiagnosticDetails(): DisplayDetailSection[] {
+  private connectionDiagnosticDetails(): MessageStreamDetailSection[] {
     return connectionDiagnosticsModel({
       state: this.state,
       connected: this.parts.connection.manager.isConnected(),
@@ -950,11 +950,11 @@ export class ChatPanelSession {
     return runtimeSnapshotForChatState(this.state);
   }
 
-  private systemItem(text: string): DisplayItem {
+  private systemItem(text: string): MessageStreamItem {
     return createSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text);
   }
 
-  private structuredSystemItem(text: string, details: DisplayDetailSection[]): DisplayItem {
+  private structuredSystemItem(text: string, details: MessageStreamDetailSection[]): MessageStreamItem {
     return createStructuredSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text, details);
   }
 }

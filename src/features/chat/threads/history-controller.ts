@@ -2,8 +2,8 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { TurnItem } from "../../../app-server/protocol/turn";
 import type { ThreadTurnsPage } from "../../../domain/threads/history";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
-import { displayItemsFromTurns } from "../display/turn-items";
-import { messageStreamDisplayItems } from "../state/message-stream";
+import { messageStreamItemsFromTurns } from "../message-stream/from-turn-items";
+import { messageStreamItems } from "../state/message-stream";
 
 export interface HistoryControllerHost {
   stateStore: ChatStateStore;
@@ -61,7 +61,7 @@ export class HistoryController {
     this.host.showLatestPageAtBottom();
     this.dispatch({
       type: "message-stream/items-replaced",
-      items: displayItemsFromTurns(response.data),
+      items: messageStreamItemsFromTurns(response.data),
       historyCursor: response.nextCursor,
     });
     return true;
@@ -78,8 +78,8 @@ export class HistoryController {
       const response = await client.threadTurnsList(threadId, cursor, 20);
       if (this.isStale(load)) return;
       const current = this.state;
-      const currentItems = messageStreamDisplayItems(current.messageStream);
-      const olderItems = displayItemsFromTurns(response.data);
+      const currentItems = messageStreamItems(current.messageStream);
+      const olderItems = messageStreamItemsFromTurns(response.data);
       const existingIds = new Set(currentItems.map((item) => item.id));
       this.host.keepCurrentScrollPosition();
       this.dispatch({

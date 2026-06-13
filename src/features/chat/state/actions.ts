@@ -4,7 +4,7 @@ import { parseServiceTier, type ServiceTier } from "../../../domain/runtime/poli
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../runtime/state";
 import type { CollaborationMode } from "../runtime/pending-settings";
-import type { DisplayItem } from "../display/types";
+import type { MessageStreamItem } from "../message-stream/items";
 import type { PendingTurnStart } from "../conversation/turns/turn-state";
 
 export interface ActiveThreadResumedAction {
@@ -17,7 +17,7 @@ export interface ActiveThreadResumedAction {
   approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
   activePermissionProfile: ChatRuntimeState["activePermissionProfile"];
-  displayItems?: readonly DisplayItem[];
+  items?: readonly MessageStreamItem[];
   status?: string;
   listedThreads?: readonly Thread[];
   preserveRequestedRuntimeSettings?: boolean;
@@ -96,24 +96,24 @@ export interface UserInputDraftSetAction {
 
 export interface TurnOptimisticStartedAction {
   type: "turn/optimistic-started";
-  item: DisplayItem;
+  item: MessageStreamItem;
   pendingTurnStart: PendingTurnStart;
 }
 
 export interface TurnStartAcknowledgedAction {
   type: "turn/start-acknowledged";
   turnId: string;
-  displayItems: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
 }
 
 export interface TurnStartFailedAction {
   type: "turn/start-failed";
-  displayItems: readonly DisplayItem[];
+  items: readonly MessageStreamItem[];
 }
 
 export interface MessageStreamItemAddedAction {
   type: "message-stream/item-added";
-  item: DisplayItem;
+  item: MessageStreamItem;
 }
 
 export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettingsAppliedActionSettings): ActiveThreadSettingsAppliedAction {

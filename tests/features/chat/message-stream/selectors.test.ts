@@ -4,35 +4,35 @@ import {
   forkCandidatesFromItems,
   isForkCandidateItem,
   isRollbackCandidateItem,
-} from "../../../../src/features/chat/display/item-selectors";
-import type { DisplayItem } from "../../../../src/features/chat/display/types";
+} from "../../../../src/features/chat/message-stream/selectors";
+import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
 
-describe("display item selectors", () => {
+describe("message stream item selectors", () => {
   it("selects final assistant messages as fork candidates", () => {
-    const items = displayItems();
+    const streamItems = messageStreamItems();
 
-    const candidates = forkCandidatesFromItems(items);
+    const candidates = forkCandidatesFromItems(streamItems);
 
     expect(candidates).toEqual([
-      { displayItemId: "a1", turnId: "turn-1" },
-      { displayItemId: "a2", turnId: "turn-2" },
-      { displayItemId: "a3", turnId: "turn-3" },
+      { itemId: "a1", turnId: "turn-1" },
+      { itemId: "a2", turnId: "turn-2" },
+      { itemId: "a3", turnId: "turn-3" },
     ]);
-    expect(isForkCandidateItem(expectPresent(items[4]), candidates)).toBe(true);
-    expect(isForkCandidateItem(expectPresent(items[3]), candidates)).toBe(false);
+    expect(isForkCandidateItem(expectPresent(streamItems[4]), candidates)).toBe(true);
+    expect(isForkCandidateItem(expectPresent(streamItems[3]), candidates)).toBe(false);
   });
 
   it("matches rollback candidate display items", () => {
-    const items = displayItems();
-    const candidate = { turnId: "turn-3", displayItemId: "u3" };
+    const streamItems = messageStreamItems();
+    const candidate = { turnId: "turn-3", itemId: "u3" };
 
-    expect(isRollbackCandidateItem(expectPresent(items[5]), candidate)).toBe(true);
-    expect(isRollbackCandidateItem(expectPresent(items[0]), candidate)).toBe(false);
-    expect(isRollbackCandidateItem({ ...expectPresent(items[5]), turnId: "turn-other" }, candidate)).toBe(false);
+    expect(isRollbackCandidateItem(expectPresent(streamItems[5]), candidate)).toBe(true);
+    expect(isRollbackCandidateItem(expectPresent(streamItems[0]), candidate)).toBe(false);
+    expect(isRollbackCandidateItem({ ...expectPresent(streamItems[5]), turnId: "turn-other" }, candidate)).toBe(false);
   });
 });
 
-function displayItems(): DisplayItem[] {
+function messageStreamItems(): MessageStreamItem[] {
   return [
     { id: "u1", kind: "message", messageKind: "user", role: "user", text: "first", turnId: "turn-1" },
     {

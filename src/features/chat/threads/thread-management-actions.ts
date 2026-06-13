@@ -22,7 +22,7 @@ import {
   STATUS_ROLLBACK_FAILED,
   STATUS_ROLLBACK_STARTING,
 } from "./messages";
-import { displayItemsFromTurns } from "../display/turn-items";
+import { messageStreamItemsFromTurns } from "../message-stream/from-turn-items";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../state/reducer";
 import { resumedThreadActionFromActiveRuntime } from "./resume";
@@ -301,7 +301,7 @@ export async function rollbackThread(host: ThreadManagementActionsHost, threadId
     );
     threadManagementDispatch(host, {
       type: "message-stream/items-replaced",
-      items: displayItemsFromTurns(snapshot.turns),
+      items: messageStreamItemsFromTurns(snapshot.turns),
       historyCursor: null,
       loadingHistory: false,
     });

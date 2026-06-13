@@ -13,9 +13,9 @@ import {
   type ChatState,
   type ChatStateStore,
 } from "../state/reducer";
-import { messageStreamDisplayItems } from "../state/message-stream";
+import { messageStreamItems } from "../state/message-stream";
 import { renameConnectedThread } from "./thread-management-actions";
-import { firstThreadTitleContextFromDisplayItems } from "./title-context";
+import { firstThreadTitleContextFromMessageStreamItems } from "./title-context";
 
 export interface RenameEditState {
   draft: string;
@@ -138,7 +138,7 @@ export class ThreadRenameEditorController {
     return (
       context ??
       (this.state.activeThread.id === threadId
-        ? firstThreadTitleContextFromDisplayItems(messageStreamDisplayItems(this.state.messageStream))
+        ? firstThreadTitleContextFromMessageStreamItems(messageStreamItems(this.state.messageStream))
         : null)
     );
   }

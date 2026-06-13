@@ -1,11 +1,11 @@
 import type { CodexInput, CodexInputItem } from "../../../../domain/chat/input";
-import type { DisplayFileMention } from "../types";
+import type { MessageStreamFileMention } from "../../message-stream/items";
 
 type TextRange = [number, number];
 
-export function fileMentionsFromInput(input: readonly CodexInputItem[]): DisplayFileMention[] {
+export function fileMentionsFromInput(input: readonly CodexInputItem[]): MessageStreamFileMention[] {
   const seen = new Set<string>();
-  const mentions: DisplayFileMention[] = [];
+  const mentions: MessageStreamFileMention[] = [];
   for (const item of input) {
     if (item.type !== "mention" || seen.has(item.path)) continue;
     seen.add(item.path);

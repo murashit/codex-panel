@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 import { MarkdownRenderer } from "obsidian";
 
-import type { DisplayItem } from "../../../../../src/features/chat/display/types";
+import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
 import { implementPlanCandidateFromState } from "../../../../../src/features/chat/state/selectors";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { deferred } from "../../../../support/async";
@@ -42,7 +42,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
           {
             id: "a1",
@@ -60,7 +60,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
           {
             id: "hook-1",
@@ -101,7 +101,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." }],
+      items: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." }],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -123,7 +123,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "review-1",
           kind: "reviewResult",
@@ -171,7 +171,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "system-help",
           kind: "system",
@@ -211,7 +211,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "goal-1",
           kind: "goal",
@@ -258,7 +258,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [...items],
+      items: [...items],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -284,7 +284,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "rendered user", copyText: "**user**", turnId: "turn-1" },
         {
           id: "a1",
@@ -319,7 +319,7 @@ describe("message stream rendering and message actions", () => {
   it("expands assistant fork actions in the copy action region and defaults repeat clicks to plain fork", () => {
     const onForkActionsToggle = vi.fn();
     const onForkItem = vi.fn();
-    const item: DisplayItem = {
+    const item: MessageStreamItem = {
       id: "a1",
       kind: "message",
       role: "assistant",
@@ -335,7 +335,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [item],
+      items: [item],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       onForkActionsToggle,
@@ -358,7 +358,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [item],
+      items: [item],
       disclosures: emptyDisclosures(),
       forkActionsItemId: "a1",
       onForkActionsToggle,
@@ -382,7 +382,7 @@ describe("message stream rendering and message actions", () => {
 
   it("runs fork and archive from the expanded assistant fork actions", () => {
     const onForkItem = vi.fn();
-    const item: DisplayItem = {
+    const item: MessageStreamItem = {
       id: "a1",
       kind: "message",
       role: "assistant",
@@ -397,7 +397,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [item],
+      items: [item],
       disclosures: emptyDisclosures(),
       forkActionsItemId: "a1",
       onForkActionsToggle: vi.fn(),
@@ -431,7 +431,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -451,7 +451,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -489,7 +489,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -510,7 +510,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -566,7 +566,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -587,7 +587,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -649,7 +649,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -668,7 +668,7 @@ describe("message stream rendering and message actions", () => {
       parent,
       messageStreamBlocks({
         ...baseContext,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -746,7 +746,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: runningTurnLifecycle("turn-1"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [item],
+      items: [item],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -768,7 +768,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "p1",
           kind: "message",
@@ -848,7 +848,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "tool-1",
           kind: "tool",
@@ -876,9 +876,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-1" },
-      ],
+      items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-1" }],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -917,7 +915,7 @@ describe("message stream rendering and message actions", () => {
             turnLifecycle: idleTurnLifecycle(),
             historyCursor: null,
             loadingHistory: false,
-            displayItems: [
+            items: [
               {
                 id: "u1",
                 kind: "message",
@@ -982,7 +980,7 @@ describe("message stream rendering and message actions", () => {
         turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        displayItems: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "short", turnId: "turn-1" }],
+        items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "short", turnId: "turn-1" }],
         disclosures: emptyDisclosures(),
         forkActionsItemId: null,
         loadOlderTurns: vi.fn(),
@@ -999,7 +997,7 @@ describe("message stream rendering and message actions", () => {
         turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        displayItems: [
+        items: [
           {
             id: "a1",
             kind: "message",
@@ -1027,7 +1025,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: startingTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "running", turnId: "turn-1" }],
+      items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "running", turnId: "turn-1" }],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -1045,7 +1043,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "cmd-1",
           kind: "command",
@@ -1083,7 +1081,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "cmd-1",
           kind: "command",
@@ -1118,7 +1116,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "cmd-1",
           kind: "command",
@@ -1151,7 +1149,7 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       workspaceRoot: "/vault/project",
-      displayItems: [
+      items: [
         {
           id: "patch-1",
           kind: "fileChange",
@@ -1189,7 +1187,7 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       workspaceRoot: "/vault/project",
-      displayItems: [
+      items: [
         {
           id: "patch-1",
           kind: "fileChange",
@@ -1242,7 +1240,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "u1",
           kind: "message",
@@ -1278,7 +1276,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "u1",
           kind: "message",
@@ -1311,7 +1309,7 @@ describe("message stream rendering and message actions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "patch-1",
           kind: "fileChange",

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { timelineItemsFromDisplayItems } from "../../../../../src/features/chat/display/timeline/from-display";
-import type { DisplayItem } from "../../../../../src/features/chat/display/types";
+import { timelineItemsFromMessageStreamItems } from "../../../../../src/features/chat/message-stream/timeline/from-items";
+import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
 
 describe("timeline item semantics", () => {
   it("classifies transcript messages separately from steering", () => {
-    const timeline = timelineItemsFromDisplayItems([
+    const timeline = timelineItemsFromMessageStreamItems([
       userMessage("u1", "do it", "turn"),
       userMessage("u2", "also check tests", "turn"),
       {
@@ -28,7 +28,7 @@ describe("timeline item semantics", () => {
   });
 
   it("keeps work logs out of the primary transcript", () => {
-    const timeline = timelineItemsFromDisplayItems([
+    const timeline = timelineItemsFromMessageStreamItems([
       commandItem("cmd"),
       {
         id: "patch",
@@ -56,7 +56,7 @@ describe("timeline item semantics", () => {
   });
 
   it("classifies thread and interaction events by meaning before renderer shape", () => {
-    const timeline = timelineItemsFromDisplayItems([
+    const timeline = timelineItemsFromMessageStreamItems([
       { id: "goal", kind: "goal", role: "tool", text: "set: Ship it" },
       { id: "approval", kind: "approvalResult", role: "tool", text: "Approved" },
       { id: "input", kind: "userInputResult", role: "tool", text: "Answered" },
@@ -78,7 +78,7 @@ describe("timeline item semantics", () => {
   });
 
   it("marks completed proposed plans as implementable turn outcomes", () => {
-    const [draft, completed] = timelineItemsFromDisplayItems([
+    const [draft, completed] = timelineItemsFromMessageStreamItems([
       { id: "draft", kind: "message", messageKind: "proposedPlan", messageState: "streaming", role: "assistant", text: "draft" },
       { id: "plan", kind: "message", messageKind: "proposedPlan", messageState: "completed", role: "assistant", text: "plan" },
     ]);
@@ -96,11 +96,11 @@ describe("timeline item semantics", () => {
   });
 });
 
-function userMessage(id: string, text: string, turnId: string): DisplayItem {
+function userMessage(id: string, text: string, turnId: string): MessageStreamItem {
   return { id, kind: "message", messageKind: "user", role: "user", text, turnId };
 }
 
-function commandItem(id: string): DisplayItem {
+function commandItem(id: string): MessageStreamItem {
   return {
     id,
     kind: "command",

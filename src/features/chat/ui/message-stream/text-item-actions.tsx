@@ -2,13 +2,13 @@ import { type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 
 import { activeTurnId } from "../../state/reducer";
-import type { DisplayItem } from "../../display/types";
-import { timelineItemFromDisplayItem } from "../../display/timeline/from-display";
+import type { MessageStreamItem } from "../../message-stream/items";
+import { timelineItemFromMessageStreamItem } from "../../message-stream/timeline/from-items";
 import { IconButton } from "../../../../shared/ui/components";
 import { listenDomEvent } from "../../../../shared/ui/dom-events";
-import type { TextItemActionContext, TextDisplayItem } from "./context";
+import type { TextItemActionContext, TextMessageStreamItem } from "./context";
 
-export function TextItemHeader({ item, context }: { item: TextDisplayItem; context: TextItemActionContext }): UiNode {
+export function TextItemHeader({ item, context }: { item: TextMessageStreamItem; context: TextItemActionContext }): UiNode {
   const forkActionsOpen = context.forkActionsItemId === item.id;
   const roleRef = useRef<HTMLDivElement | null>(null);
 
@@ -109,15 +109,15 @@ function TextItemAction({
   );
 }
 
-function displayRoleLabel(item: DisplayItem): string {
-  const timeline = timelineItemFromDisplayItem(item);
+function displayRoleLabel(item: MessageStreamItem): string {
+  const timeline = timelineItemFromMessageStreamItem(item);
   if (timeline.semanticKind === "userInputResult") return "Input";
   if (timeline.authorship === "user") return "You";
   if (timeline.authorship === "assistant") return "Codex";
   return "System";
 }
 
-function isMessageCopyActionVisible(item: DisplayItem, context: Pick<TextItemActionContext, "turnLifecycle">): boolean {
+function isMessageCopyActionVisible(item: MessageStreamItem, context: Pick<TextItemActionContext, "turnLifecycle">): boolean {
   if (item.kind !== "message" || item.copyText === undefined) return false;
   const activeTurn = activeTurnId({ lifecycle: context.turnLifecycle });
   return !(activeTurn && item.role === "assistant" && item.turnId === activeTurn);

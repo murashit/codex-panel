@@ -1,4 +1,4 @@
-import type { DisplayDetailMetaRow, DisplayDetailSection } from "../types";
+import type { MessageStreamDetailMetaRow, MessageStreamDetailSection } from "../../message-stream/items";
 import { jsonPreview, truncate } from "../../../../utils";
 
 const TOOL_SUMMARY_LIMIT = 140;
@@ -21,19 +21,19 @@ export function failedStatusLabel(status: unknown): string | null {
   return null;
 }
 
-export function metaDetail(title: string, rows: DisplayDetailMetaRow[]): DisplayDetailSection[] {
+export function metaDetail(title: string, rows: MessageStreamDetailMetaRow[]): MessageStreamDetailSection[] {
   return rows.length > 0 ? [{ title, rows }] : [];
 }
 
-export function bodyDetail(title: string, body: string | null | undefined): DisplayDetailSection[] {
+export function bodyDetail(title: string, body: string | null | undefined): MessageStreamDetailSection[] {
   return body ? [{ title, body }] : [];
 }
 
-function jsonDetail(title: string, value: unknown): DisplayDetailSection[] {
+function jsonDetail(title: string, value: unknown): MessageStreamDetailSection[] {
   return value === null || value === undefined ? [] : [{ title, body: jsonPreview(value) }];
 }
 
-export function jsonDetails(entries: [title: string, value: unknown][]): DisplayDetailSection[] {
+export function jsonDetails(entries: [title: string, value: unknown][]): MessageStreamDetailSection[] {
   return entries.flatMap(([title, value]) => jsonDetail(title, value));
 }
 

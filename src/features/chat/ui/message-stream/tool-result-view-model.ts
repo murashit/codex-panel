@@ -1,27 +1,27 @@
 import { pathRelativeToRoot } from "../../display/details/path-labels";
 import { definedProp } from "../../../../utils";
 import type {
-  ApprovalResultDisplayItem,
-  CommandDisplayItem,
-  DisplayDetailSection,
-  DisplayFileChange,
-  DisplayItem,
+  ApprovalResultMessageStreamItem,
+  CommandMessageStreamItem,
+  MessageStreamDetailSection,
+  MessageStreamFileChange,
+  MessageStreamItem,
   ExecutionState,
-  FileChangeDisplayItem,
-  GoalDisplayItem,
-  HookDisplayItem,
-  ReviewResultDisplayItem,
-  ToolCallDisplayItem,
-} from "../../display/types";
+  FileChangeMessageStreamItem,
+  GoalMessageStreamItem,
+  HookMessageStreamItem,
+  ReviewResultMessageStreamItem,
+  ToolCallMessageStreamItem,
+} from "../../message-stream/items";
 
-export type ToolResultDisplayItem =
-  | CommandDisplayItem
-  | FileChangeDisplayItem
-  | GoalDisplayItem
-  | ToolCallDisplayItem
-  | HookDisplayItem
-  | ApprovalResultDisplayItem
-  | ReviewResultDisplayItem;
+export type ToolResultMessageStreamItem =
+  | CommandMessageStreamItem
+  | FileChangeMessageStreamItem
+  | GoalMessageStreamItem
+  | ToolCallMessageStreamItem
+  | HookMessageStreamItem
+  | ApprovalResultMessageStreamItem
+  | ReviewResultMessageStreamItem;
 
 export type ToolResultDetailSection =
   | { kind: "meta"; title?: string; rows: { key: string; value: string }[] }
@@ -37,7 +37,7 @@ export interface ToolResultView {
   state: ExecutionState;
 }
 
-export function toolResultView(item: ToolResultDisplayItem, workspaceRoot?: string | null): ToolResultView {
+export function toolResultView(item: ToolResultMessageStreamItem, workspaceRoot?: string | null): ToolResultView {
   if (item.kind === "command") return commandToolView(item);
   if (item.kind === "fileChange") return fileChangeToolView(item, workspaceRoot);
   if (item.kind === "goal") return goalToolView(item);
@@ -46,7 +46,7 @@ export function toolResultView(item: ToolResultDisplayItem, workspaceRoot?: stri
   return genericToolView(item, workspaceRoot);
 }
 
-function commandToolView(item: CommandDisplayItem): ToolResultView {
+function commandToolView(item: CommandMessageStreamItem): ToolResultView {
   const rows = [
     { key: "command", value: item.command },
     { key: "cwd", value: item.cwd },
@@ -64,7 +64,7 @@ function commandToolView(item: CommandDisplayItem): ToolResultView {
   return toolView(item, "codex-panel__tool-item", item.actionLabel ?? "command", `${item.id}:command-details`, details);
 }
 
-function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string | null): ToolResultView {
+function fileChangeToolView(item: FileChangeMessageStreamItem, workspaceRoot?: string | null): ToolResultView {
   const displayChanges = item.changes.map((change) => ({
     ...change,
     displayPath: change.path && change.path !== "(unknown)" ? pathRelativeToRoot(change.path, workspaceRoot) : change.path,
@@ -94,7 +94,7 @@ function fileChangeToolView(item: FileChangeDisplayItem, workspaceRoot?: string 
   );
 }
 
-function goalToolView(item: GoalDisplayItem): ToolResultView {
+function goalToolView(item: GoalMessageStreamItem): ToolResultView {
   return toolView(
     item,
     "codex-panel__tool-item codex-panel__tool-item--goal",
@@ -104,7 +104,7 @@ function goalToolView(item: GoalDisplayItem): ToolResultView {
   );
 }
 
-function genericToolView(item: ToolCallDisplayItem | HookDisplayItem, workspaceRoot?: string | null): ToolResultView {
+function genericToolView(item: ToolCallMessageStreamItem | HookMessageStreamItem, workspaceRoot?: string | null): ToolResultView {
   return toolView(
     item,
     `codex-panel__tool-item codex-panel__tool-item--${item.kind}`,
@@ -115,7 +115,7 @@ function genericToolView(item: ToolCallDisplayItem | HookDisplayItem, workspaceR
   );
 }
 
-function reviewToolView(item: ReviewResultDisplayItem): ToolResultView {
+function reviewToolView(item: ReviewResultMessageStreamItem): ToolResultView {
   return resultToolView(
     item,
     "auto-review",
@@ -124,7 +124,7 @@ function reviewToolView(item: ReviewResultDisplayItem): ToolResultView {
   );
 }
 
-function approvalToolView(item: ApprovalResultDisplayItem): ToolResultView {
+function approvalToolView(item: ApprovalResultMessageStreamItem): ToolResultView {
   return resultToolView(
     item,
     "approval",
@@ -134,7 +134,7 @@ function approvalToolView(item: ApprovalResultDisplayItem): ToolResultView {
 }
 
 function resultToolView(
-  item: ApprovalResultDisplayItem | ReviewResultDisplayItem,
+  item: ApprovalResultMessageStreamItem | ReviewResultMessageStreamItem,
   label: string,
   detailsKey: string,
   className: string,
@@ -143,7 +143,7 @@ function resultToolView(
 }
 
 function toolView(
-  item: ToolResultDisplayItem,
+  item: ToolResultMessageStreamItem,
   className: string,
   label: string,
   detailsKey: string,
@@ -160,12 +160,12 @@ function toolView(
   };
 }
 
-function resultDetailSection(section: DisplayDetailSection): ToolResultDetailSection[] {
+function resultDetailSection(section: MessageStreamDetailSection): ToolResultDetailSection[] {
   if (section.rows && section.rows.length > 0) return [{ kind: "meta", rows: section.rows }];
   return detailSection(section);
 }
 
-function detailSection(section: DisplayDetailSection): ToolResultDetailSection[] {
+function detailSection(section: MessageStreamDetailSection): ToolResultDetailSection[] {
   if (section.rows && section.rows.length > 0) return [{ kind: "meta", ...definedProp("title", section.title), rows: section.rows }];
   if (section.body) return [{ kind: "output", title: section.title ?? "Output", body: section.body }];
   return [];
@@ -175,7 +175,7 @@ function outputSection(title: string, body: string | null | undefined): ToolResu
   return body ? [{ kind: "output", title, body }] : [];
 }
 
-function fileChangeSummary(item: DisplayItem, changes: (DisplayFileChange & { displayPath: string })[]): string {
+function fileChangeSummary(item: MessageStreamItem, changes: (MessageStreamFileChange & { displayPath: string })[]): string {
   if (item.kind !== "fileChange") return item.text;
   if (changes.length === 0) return item.text;
   if (changes.length > 1) return item.text;

@@ -5,7 +5,7 @@ import { HistoryController } from "../../../../src/features/chat/threads/history
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import { deferred } from "../../../support/async";
-import { chatStateDisplayItems } from "../support/message-stream";
+import { chatStateMessageStreamItems } from "../support/message-stream";
 
 describe("HistoryController", () => {
   it("keeps the latest history load when an older request resolves later", async () => {
@@ -40,7 +40,7 @@ describe("HistoryController", () => {
     pending.resolve(threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "stale-cursor"));
     await loading;
 
-    expect(chatStateDisplayItems(stateStore.getState())).toEqual([]);
+    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
     expect(stateStore.getState().messageStream.historyCursor).toBeNull();
     expect(stateStore.getState().messageStream.loadingHistory).toBe(false);
     expect(addSystemMessage).not.toHaveBeenCalled();
@@ -54,7 +54,7 @@ describe("HistoryController", () => {
 
     expect(applied).toBe(true);
     expect(threadTurnsList).not.toHaveBeenCalled();
-    expect(chatStateDisplayItems(stateStore.getState())).toEqual([
+    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([
       expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" }),
     ]);
     expect(stateStore.getState().messageStream.historyCursor).toBe("older");
@@ -67,7 +67,7 @@ describe("HistoryController", () => {
     const applied = loader.applyLatestPage("other", threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "older"));
 
     expect(applied).toBe(false);
-    expect(chatStateDisplayItems(stateStore.getState())).toEqual([]);
+    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
     expect(stateStore.getState().messageStream.historyCursor).toBeNull();
   });
 
@@ -79,7 +79,7 @@ describe("HistoryController", () => {
     await loader.loadOlder();
 
     expect(threadTurnsList).toHaveBeenCalledWith("thread", "cursor", 20);
-    expect(chatStateDisplayItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "current"]);
+    expect(chatStateMessageStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "current"]);
     expect(stateStore.getState().messageStream.historyCursor).toBe("next");
     expect(keepCurrentScrollPosition).toHaveBeenCalledOnce();
     expect(showLatestPageAtBottom).not.toHaveBeenCalled();

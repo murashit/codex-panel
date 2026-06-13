@@ -7,9 +7,9 @@ import {
   createPlanImplementation,
   type PlanImplementationHost,
 } from "../../../../../src/features/chat/conversation/turns/plan-implementation";
-import type { DisplayItem } from "../../../../../src/features/chat/display/types";
+import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
 
-const planItem = (id: string): DisplayItem => ({
+const planItem = (id: string): MessageStreamItem => ({
   id,
   kind: "message",
   role: "assistant",
@@ -18,7 +18,7 @@ const planItem = (id: string): DisplayItem => ({
   messageState: "completed",
 });
 
-function resumeThread(stateStore: ChatStateStore, displayItems: readonly DisplayItem[]): void {
+function resumeThread(stateStore: ChatStateStore, items: readonly MessageStreamItem[]): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
     thread: { id: "thread", cliVersion: "test" } as never,
@@ -29,7 +29,7 @@ function resumeThread(stateStore: ChatStateStore, displayItems: readonly Display
     approvalPolicy: null,
     approvalsReviewer: null,
     activePermissionProfile: null,
-    displayItems,
+    items,
   });
   stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
 }

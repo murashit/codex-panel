@@ -1,20 +1,20 @@
 import { type ComponentChild as UiNode, type Ref } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import type { DisplayItem, ExecutionState } from "../../display/types";
-import { timelineItemFromDisplayItem } from "../../display/timeline/from-display";
+import type { MessageStreamItem, ExecutionState } from "../../message-stream/items";
+import { timelineItemFromMessageStreamItem } from "../../message-stream/timeline/from-items";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
-import type { TextItemContentContext, TextItemContext, TextDisplayItem } from "./context";
+import type { TextItemContentContext, TextItemContext, TextMessageStreamItem } from "./context";
 import { TextItemHeader } from "./text-item-actions";
 import { AutoReviewSummaries, EditedFiles, MentionedFiles, TextItemDetails, ReferencedThread, SystemDetails } from "./text-item-metadata";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 
-export function textItemNode(item: TextDisplayItem, context: TextItemContext): UiNode {
+export function textItemNode(item: TextMessageStreamItem, context: TextItemContext): UiNode {
   return <TextItem item={item} context={context} />;
 }
 
-function TextItem({ item, context }: { item: TextDisplayItem; context: TextItemContext }): UiNode {
+function TextItem({ item, context }: { item: TextMessageStreamItem; context: TextItemContext }): UiNode {
   const collapsible = isCollapsibleUserMessage(item);
   const details = "details" in item ? item.details : undefined;
   return (
@@ -36,13 +36,13 @@ function TextItem({ item, context }: { item: TextDisplayItem; context: TextItemC
       {item.kind === "system" && item.details && item.details.length > 0 ? (
         <SystemDetails details={item.details} />
       ) : details && details.length > 0 ? (
-        <TextItemDetails displayItemId={item.id} details={details} context={context} />
+        <TextItemDetails itemId={item.id} details={details} context={context} />
       ) : null}
     </div>
   );
 }
 
-function CollapsibleTextItemContent({ item, context }: { item: TextDisplayItem; context: TextItemContentContext }): UiNode {
+function CollapsibleTextItemContent({ item, context }: { item: TextMessageStreamItem; context: TextItemContentContext }): UiNode {
   const renderModeKey = contentRenderMode(item);
   const collapseRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -111,7 +111,7 @@ function CollapsibleTextItemContent({ item, context }: { item: TextDisplayItem; 
 }
 
 interface TextContentProps {
-  item: TextDisplayItem;
+  item: TextMessageStreamItem;
   context: TextItemContentContext;
   contentRef?: Ref<HTMLDivElement>;
   collapsed?: boolean;
@@ -157,19 +157,19 @@ function TextContent({ item, context, contentRef, collapsed = false }: TextConte
   );
 }
 
-function textItemContentKey(item: TextDisplayItem): string {
+function textItemContentKey(item: TextMessageStreamItem): string {
   return `${item.id}\u001f${contentRenderMode(item)}`;
 }
 
-function contentRenderMode(item: TextDisplayItem): "markdown" | "text" {
-  return timelineItemFromDisplayItem(item).detailShape === "markdownText" ? "markdown" : "text";
+function contentRenderMode(item: TextMessageStreamItem): "markdown" | "text" {
+  return timelineItemFromMessageStreamItem(item).detailShape === "markdownText" ? "markdown" : "text";
 }
 
 function executionClassName(state: ExecutionState): string {
   return state ? ` codex-panel__execution codex-panel__execution--${state}` : "";
 }
 
-function isCollapsibleUserMessage(item: DisplayItem): boolean {
+function isCollapsibleUserMessage(item: MessageStreamItem): boolean {
   return item.kind === "message" && item.role === "user";
 }
 
@@ -179,7 +179,7 @@ function userMessageCollapseHeight(element: HTMLElement): number {
   return Math.min(USER_MESSAGE_COLLAPSE_HEIGHT_PX, viewportHeight * 0.45);
 }
 
-function textItemClass(item: DisplayItem): string {
+function textItemClass(item: MessageStreamItem): string {
   const classes = ["codex-panel__message", `codex-panel__message--${item.role}`];
   if (item.kind === "approvalResult") classes.push("codex-panel__message--approval-result");
   if (item.kind === "userInputResult") classes.push("codex-panel__message--user-input-result");

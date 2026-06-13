@@ -1,10 +1,10 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 
 import { activeTurnId } from "../../state/reducer";
-import { displayBlocksForItems } from "../../display/stream/blocks";
-import type { DisplayBlock, DisplayItem } from "../../display/types";
-import { timelineItemFromDisplayItem, timelineItemsFromDisplayItems } from "../../display/timeline/from-display";
-import type { TimelineItem } from "../../display/timeline/types";
+import { messageStreamLayoutBlocks } from "../../message-stream/layout";
+import type { MessageStreamLayoutBlock, MessageStreamItem } from "../../message-stream/items";
+import { timelineItemFromMessageStreamItem, timelineItemsFromMessageStreamItems } from "../../message-stream/timeline/from-items";
+import type { TimelineItem } from "../../message-stream/timeline/types";
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { toolResultNode } from "./tool-result";
 import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode } from "./work-items";
@@ -15,14 +15,14 @@ function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLife
   return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 
-function displayItemNode(item: DisplayItem, context: MessageStreamContext): UiNode {
-  return timelineItemNode(timelineItemFromDisplayItem(item), context);
+function streamItemNode(item: MessageStreamItem, context: MessageStreamContext): UiNode {
+  return timelineItemNode(timelineItemFromMessageStreamItem(item), context);
 }
 
 function timelineItemNode(item: TimelineItem, context: MessageStreamContext): UiNode {
-  if (item.renderSurface === "textMessage") return textItemNode(item.displayItem, context);
-  if (item.renderSurface === "toolResult") return toolResultNode(item.displayItem, context);
-  return workItemNode(item.displayItem, context);
+  if (item.renderSurface === "textMessage") return textItemNode(item.streamItem, context);
+  if (item.renderSurface === "toolResult") return toolResultNode(item.streamItem, context);
+  return workItemNode(item.streamItem, context);
 }
 
 export function messageStreamBlocks(context: MessageStreamContext): MessageStreamBlock[] {
@@ -44,11 +44,11 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
     return blocks;
   }
 
-  for (const block of displayBlocksForContext(context, activeTurn)) {
+  for (const block of layoutBlocksForContext(context, activeTurn)) {
     if (block.type === "item") {
       blocks.push({
         key: `item:${block.item.id}`,
-        node: displayItemNode(block.item, context),
+        node: streamItemNode(block.item, context),
       });
     } else {
       blocks.push({
@@ -64,17 +64,17 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
 }
 
 function messageStreamBlockItemsEmpty(context: MessageStreamContext): boolean {
-  if (!context.stableItems && !context.activeItems) return context.displayItems.length === 0;
+  if (!context.stableItems && !context.activeItems) return context.items.length === 0;
   return (context.stableItems?.length ?? 0) === 0 && (context.activeItems?.length ?? 0) === 0;
 }
 
-function displayBlocksForContext(context: MessageStreamContext, activeTurn: string | null): DisplayBlock[] {
+function layoutBlocksForContext(context: MessageStreamContext, activeTurn: string | null): MessageStreamLayoutBlock[] {
   if (!activeTurn || !context.stableItems || !context.activeItems) {
-    const streamItems = activeTurn ? withoutActiveTaskProgress(context.displayItems, activeTurn) : context.displayItems;
-    return displayBlocksForItems(streamItems, activeTurn, context.workspaceRoot, context.turnDiffs);
+    const streamItems = activeTurn ? withoutActiveTaskProgress(context.items, activeTurn) : context.items;
+    return messageStreamLayoutBlocks(streamItems, activeTurn, context.workspaceRoot, context.turnDiffs);
   }
-  const stableBlocks = displayBlocksForItems(context.stableItems, activeTurn, context.workspaceRoot, context.turnDiffs);
-  const activeBlocks = displayBlocksForItems(
+  const stableBlocks = messageStreamLayoutBlocks(context.stableItems, activeTurn, context.workspaceRoot, context.turnDiffs);
+  const activeBlocks = messageStreamLayoutBlocks(
     withoutActiveTaskProgress(context.activeItems, activeTurn),
     activeTurn,
     context.workspaceRoot,
@@ -107,8 +107,8 @@ function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | nu
 }
 
 function activeTurnLiveBlocks(context: MessageStreamContext, activeTurn: string): MessageStreamBlock[] {
-  const items = context.activeItems ?? context.displayItems;
-  const timelineItems = timelineItemsFromDisplayItems(items);
+  const items = context.activeItems ?? context.items;
+  const timelineItems = timelineItemsFromMessageStreamItems(items);
   const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(timelineItems, activeTurn);
   const agentSummary = agentSummaryAnchorId ? activeAgentRunSummaryBlock(context) : null;
   const blocks = timelineItems.flatMap((item): MessageStreamBlock[] => {
@@ -116,7 +116,7 @@ function activeTurnLiveBlocks(context: MessageStreamContext, activeTurn: string)
       return [
         {
           key: `live-task:${item.id}`,
-          node: workItemNode(asWorkItem(item).displayItem, context),
+          node: workItemNode(asWorkItem(item).streamItem, context),
         },
       ];
     }
@@ -145,7 +145,7 @@ function asWorkItem(item: TimelineItem): Extract<TimelineItem, { renderSurface: 
   return item;
 }
 
-function withoutActiveTaskProgress(items: readonly DisplayItem[], activeTurn: string): DisplayItem[] {
+function withoutActiveTaskProgress(items: readonly MessageStreamItem[], activeTurn: string): MessageStreamItem[] {
   return items.filter((item) => item.kind !== "taskProgress" || item.turnId !== activeTurn);
 }
 
@@ -167,7 +167,7 @@ function ActivityGroup({
   group,
   context,
 }: {
-  group: Extract<DisplayBlock, { type: "activityGroup" }>;
+  group: Extract<MessageStreamLayoutBlock, { type: "activityGroup" }>;
   context: MessageStreamContext;
 }): UiNode {
   const open = context.disclosures.activityGroups.has(group.turnId);
@@ -182,7 +182,7 @@ function ActivityGroup({
     >
       <summary tabIndex={-1}>{group.summary}</summary>
       {group.items.map((item) => (
-        <Fragment key={item.id}>{displayItemNode(item, context)}</Fragment>
+        <Fragment key={item.id}>{streamItemNode(item, context)}</Fragment>
       ))}
     </details>
   );

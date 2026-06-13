@@ -111,7 +111,7 @@ export const convert = threadTokenUsageFromAppServerUsage;
 
   it("allows turn protocol imports as the feature-side protocol exception", async () => {
     const messages = await lintSource(
-      "src/features/chat/display/turn-items.ts",
+      "src/features/chat/message-stream/from-turn-items.ts",
       `
 import type { TurnItem } from "../../../app-server/protocol/turn";
 

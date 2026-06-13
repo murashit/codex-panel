@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { DisplayItem } from "../../../../../src/features/chat/display/types";
+import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
@@ -24,7 +24,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "tool-1",
           kind: "tool",
@@ -64,7 +64,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "turn" },
         {
           id: "u2",
@@ -103,7 +103,7 @@ describe("work log renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       workspaceRoot: "/vault/project",
-      displayItems: [
+      items: [
         {
           id: "tool-path",
           kind: "tool",
@@ -142,7 +142,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [item] satisfies DisplayItem[],
+      items: [item] satisfies MessageStreamItem[],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
@@ -164,7 +164,7 @@ describe("work log renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       workspaceRoot: "/vault/project",
-      displayItems: [
+      items: [
         {
           id: "tool-path",
           kind: "tool",
@@ -193,7 +193,7 @@ describe("work log renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       workspaceRoot: "/vault/project",
-      displayItems: [
+      items: [
         {
           id: "tool-path-like",
           kind: "tool",
@@ -220,7 +220,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "hook-1",
           kind: "hook",
@@ -267,7 +267,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "turn" },
         {
           id: "hook-1",
@@ -321,7 +321,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "plan-progress-turn",
           kind: "taskProgress",
@@ -357,7 +357,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
           id: "plan-progress-turn",
@@ -432,7 +432,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
           id: "agent-1",
@@ -475,7 +475,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
           id: "agent-spawn",
@@ -539,7 +539,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "agent-1",
           kind: "agent",
@@ -582,7 +582,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "agent-1",
           kind: "agent",
@@ -620,7 +620,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "agent-1",
           kind: "agent",
@@ -665,7 +665,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "agent-1",
           kind: "agent",
@@ -703,7 +703,13 @@ describe("work log renderer decisions", () => {
 
   it("renders context compaction as a one-line work item while running and after completion", () => {
     const runningParent = document.createElement("div");
-    const item: DisplayItem = { id: "compact-1", kind: "contextCompaction", role: "tool", text: "Context compaction", turnId: "turn" };
+    const item: MessageStreamItem = {
+      id: "compact-1",
+      kind: "contextCompaction",
+      role: "tool",
+      text: "Context compaction",
+      turnId: "turn",
+    };
 
     renderMessageStreamBlocksInAct(
       runningParent,
@@ -712,7 +718,7 @@ describe("work log renderer decisions", () => {
         turnLifecycle: runningTurnLifecycle("turn"),
         historyCursor: null,
         loadingHistory: false,
-        displayItems: [item],
+        items: [item],
         disclosures: emptyDisclosures(),
         forkActionsItemId: null,
         loadOlderTurns: vi.fn(),
@@ -736,7 +742,7 @@ describe("work log renderer decisions", () => {
         turnLifecycle: idleTurnLifecycle(),
         historyCursor: null,
         loadingHistory: false,
-        displayItems: [item],
+        items: [item],
         disclosures: emptyDisclosures(),
         forkActionsItemId: null,
         loadOlderTurns: vi.fn(),
@@ -758,7 +764,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "agent-1",
           kind: "agent",
@@ -790,7 +796,7 @@ describe("work log renderer decisions", () => {
       turnLifecycle: runningTurnLifecycle("turn"),
       historyCursor: null,
       loadingHistory: false,
-      displayItems: [
+      items: [
         {
           id: "agent-1",
           kind: "agent",

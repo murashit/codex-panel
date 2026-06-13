@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../app-server/services/thread-goals";
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../domain/threads/goal";
 import type { ChatStateStore } from "../state/reducer";
-import type { GoalDisplayItem } from "../display/types";
+import type { GoalMessageStreamItem } from "../message-stream/items";
 import { goalChangeItem } from "../display/items/goal";
 import { emptyGoalObjectiveMessage } from "./messages";
 
@@ -11,7 +11,7 @@ export interface GoalActionsHost {
   currentClient: () => AppServerClient | null;
   ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
-  addGoalEvent: (item: GoalDisplayItem) => void;
+  addGoalEvent: (item: GoalMessageStreamItem) => void;
   refreshLiveState: () => void;
 }
 

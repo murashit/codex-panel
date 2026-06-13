@@ -1,6 +1,6 @@
 import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
 import { truncate } from "../../../../utils";
-import type { GoalDisplayItem } from "../types";
+import type { GoalMessageStreamItem } from "../../message-stream/items";
 
 const GOAL_SUMMARY_LIMIT = 140;
 
@@ -13,7 +13,7 @@ function goalChangeMessage(previous: ThreadGoal | null, next: ThreadGoal | null)
   return null;
 }
 
-export function goalChangeItem(id: string, previous: ThreadGoal | null, next: ThreadGoal | null): GoalDisplayItem | null {
+export function goalChangeItem(id: string, previous: ThreadGoal | null, next: ThreadGoal | null): GoalMessageStreamItem | null {
   const message = goalChangeMessage(previous, next);
   if (!message) return null;
   const objective = next?.objective ?? previous?.objective;

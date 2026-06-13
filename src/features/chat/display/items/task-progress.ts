@@ -1,4 +1,4 @@
-import type { DisplayItem, ExecutionState } from "../types";
+import type { MessageStreamItem, ExecutionState } from "../../message-stream/items";
 
 type DisplayExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
@@ -20,7 +20,11 @@ export function taskProgressExecutionState(status: string): ExecutionState {
   return executionStateFromStatus(status, TASK_STATES);
 }
 
-export function taskProgressDisplayItem(turnId: string, explanation: string | null, plan: readonly TaskPlanStep[]): DisplayItem {
+export function taskProgressMessageStreamItem(
+  turnId: string,
+  explanation: string | null,
+  plan: readonly TaskPlanStep[],
+): MessageStreamItem {
   const trimmedExplanation = explanation?.trim();
   const lines = plan.map((step) => `${taskProgressTextMarker(step.status)} ${step.step}`);
   const body = [trimmedExplanation, ...lines].filter((line): line is string => Boolean(line && line.length > 0)).join("\n");

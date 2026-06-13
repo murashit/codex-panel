@@ -1,5 +1,5 @@
 import { definedProp } from "../../../../utils";
-import type { DisplayDetailMetaRow, DisplayDetailSection, HookDisplayItem } from "../types";
+import type { MessageStreamDetailMetaRow, MessageStreamDetailSection, HookMessageStreamItem } from "../../message-stream/items";
 
 interface DisplayHookRun {
   id: string;
@@ -10,16 +10,16 @@ interface DisplayHookRun {
   entries: readonly { kind: string; text: string }[];
 }
 
-export function hookRunDisplayItem(run: DisplayHookRun, turnId: string | null, status: string): HookDisplayItem | null {
+export function hookRunMessageStreamItem(run: DisplayHookRun, turnId: string | null, status: string): HookMessageStreamItem | null {
   if (run.id.length === 0) return null;
   const entries = run.entries.map((entry) => `${entry.kind}: ${entry.text}`).join("\n");
-  const metaRows: DisplayDetailMetaRow[] = [
+  const metaRows: MessageStreamDetailMetaRow[] = [
     { key: "status", value: status },
     { key: "event", value: hookEventName(run.eventName) },
     ...(run.statusMessage ? [{ key: "message", value: run.statusMessage }] : []),
     ...(run.durationMs !== null ? [{ key: "duration", value: `${String(run.durationMs)}ms` }] : []),
   ];
-  const details: DisplayDetailSection[] = [{ rows: metaRows }, ...(entries ? [{ title: "Hook output", body: entries }] : [])];
+  const details: MessageStreamDetailSection[] = [{ rows: metaRows }, ...(entries ? [{ title: "Hook output", body: entries }] : [])];
   const displayId = hookRunDisplayId(run);
   return {
     id: displayId,

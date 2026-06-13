@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { messageStreamDisplayItems } from "../../../../src/features/chat/state/message-stream";
+import { messageStreamItems } from "../../../../src/features/chat/state/message-stream";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/ui/shell";
 import type { ChatPanelComposerShellState, ChatPanelMessageStreamShellState } from "../../../../src/features/chat/ui/shell-state";
 import type { ChatPanelSurface } from "../../../../src/features/chat/panel/surface/model";
@@ -130,7 +130,7 @@ describe("ChatPanelShell", () => {
     expect(testShell.messageStreamRenderState).toHaveBeenCalledOnce();
     const messageStreamCall = testShell.messageStreamRenderState.mock.calls[0];
     if (!messageStreamCall) throw new Error("Expected the message stream render state to run.");
-    expect(messageStreamDisplayItems(messageStreamCall[0].messageStream)).toHaveLength(1);
+    expect(messageStreamItems(messageStreamCall[0].messageStream)).toHaveLength(1);
     expect(testShell.toolbarConnected).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -349,7 +349,7 @@ function trackedShellParts(): TestShellParts {
     blocks: [
       {
         key: "count",
-        node: <div className="test-message-count">{String(messageStreamDisplayItems(state.messageStream).length)}</div>,
+        node: <div className="test-message-count">{String(messageStreamItems(state.messageStream).length)}</div>,
       },
     ],
     consumeScrollIntent: () => "auto" as const,
