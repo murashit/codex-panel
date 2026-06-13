@@ -1,10 +1,10 @@
-import { normalizeProposedPlanMarkdown } from "../display/items/message-content";
+import { normalizeProposedPlanMarkdown } from "../message-stream/proposed-plan";
 import { isAssistantAuthoredMessage } from "../message-stream/selectors";
 import {
   streamedItemOutputMessageStreamItem,
   streamedTextMessageStreamItem,
   streamedToolOutputMessageStreamItem,
-} from "../display/items/streaming";
+} from "../message-stream/streaming-items";
 import type {
   AssistantAuthoredMessageStreamItem,
   MessageStreamFileChange,

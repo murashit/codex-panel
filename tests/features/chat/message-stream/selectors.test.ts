@@ -22,7 +22,7 @@ describe("message stream item selectors", () => {
     expect(isForkCandidateItem(expectPresent(streamItems[3]), candidates)).toBe(false);
   });
 
-  it("matches rollback candidate display items", () => {
+  it("matches rollback candidate stream items", () => {
     const streamItems = messageStreamItems();
     const candidate = { turnId: "turn-3", itemId: "u3" };
 

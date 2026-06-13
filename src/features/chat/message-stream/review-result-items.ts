@@ -1,9 +1,9 @@
-import { permissionRows } from "../details/permission-rows";
-import type { MessageStreamItem, ExecutionState } from "../../message-stream/items";
-import { pathsRelativeToRoot } from "../details/path-labels";
+import type { MessageStreamItem, ExecutionState } from "./items";
+import { pathsRelativeToRoot } from "./path-labels";
+import { permissionRows } from "./permission-rows";
 
-type DisplayExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
+type MessageStreamExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
 
 const AUTO_REVIEW_STATES = {
   inProgress: "running",
@@ -52,7 +52,7 @@ type AutoReviewAction =
     }
   | { type: "requestPermissions"; reason: string | null; permissions: Parameters<typeof permissionRows>[0] };
 
-interface DisplayRow {
+interface MessageStreamDetailRow {
   key: string;
   value: string;
 }
@@ -128,7 +128,7 @@ function parseAutomaticApprovalReviewMessage(
   };
 }
 
-function autoReviewActionRows(action: AutoReviewAction): DisplayRow[] {
+function autoReviewActionRows(action: AutoReviewAction): MessageStreamDetailRow[] {
   if (action.type === "command") {
     return [
       { key: "action", value: "command" },

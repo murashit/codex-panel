@@ -10,9 +10,11 @@ import type { FileUpdateChange, TurnItem } from "../../../app-server/protocol/tu
 import { definedProp, truncate } from "../../../utils";
 import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../domain/threads/reference";
 import { turnUserItemText } from "../../../app-server/protocol/turn";
-import { agentMessageStreamItem } from "../display/items/agent";
-import { pathRelativeToRoot } from "../display/details/path-labels";
-import { fileMentionsFromInput, normalizeProposedPlanMarkdown, userMessageDisplayText } from "../display/items/message-content";
+import { agentMessageStreamItem } from "./agent-items";
+import { fileMentionsFromInput } from "./file-mentions";
+import { normalizeProposedPlanMarkdown } from "./proposed-plan";
+import { pathRelativeToRoot } from "./path-labels";
+import { userMessageDisplayText } from "./user-message-text";
 import {
   bodyDetail,
   compactToolSummary,
@@ -21,7 +23,7 @@ import {
   jsonTargetLabel,
   metaDetail,
   statusQualifier,
-} from "../display/details/tool-details";
+} from "./detail-sections";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
 type AgentMessageItem = Extract<TurnItem, { type: "agentMessage" }>;

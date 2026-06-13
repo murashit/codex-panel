@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { goalChangeItem } from "../../../../../src/features/chat/display/items/goal";
+import type { ThreadGoal } from "../../../../src/domain/threads/goal";
+import { goalChangeItem } from "../../../../src/features/chat/message-stream/goal-items";
 
-describe("goal display items", () => {
+describe("goal message stream items", () => {
   it("keeps goal event summaries compact while retaining the full objective in details", () => {
     const objective = `Ship ${"the feature ".repeat(20)}`.trim();
     const item = goalChangeItem("goal", null, goal({ objective }));

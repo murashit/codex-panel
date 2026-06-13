@@ -3,8 +3,8 @@ import type { McpServerStartupStatus } from "../../../../domain/server/diagnosti
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
-import { createStructuredSystemItem, createSystemItem } from "../../display/items/system";
 import type { MessageStreamDetailSection } from "../../message-stream/items";
+import { createStructuredSystemItem, createSystemItem } from "../../message-stream/system-items";
 import { approvalResponse, type ApprovalAction, type PendingApproval } from "../server-requests/approval";
 import { userInputResponse, type PendingUserInput } from "../server-requests/user-input";
 import {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { collabAgentStateExecutionState } from "../../../../src/features/chat/display/items/agent";
+import { collabAgentStateExecutionState } from "../../../../src/features/chat/message-stream/agent-items";
 import { activeAgentRunSummary } from "../../../../src/features/chat/display/stream/agent-summary";
 import { messageStreamLayoutBlocks } from "../../../../src/features/chat/message-stream/layout";
 import {
@@ -11,15 +11,15 @@ import {
   appendToolOutput,
   upsertMessageStreamItemById,
 } from "../../../../src/features/chat/state/message-stream-updates";
-import { taskProgressMessageStreamItem, taskProgressExecutionState } from "../../../../src/features/chat/display/items/task-progress";
-import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/display/items/message-content";
-import { pathRelativeToRoot } from "../../../../src/features/chat/display/details/path-labels";
-import { permissionRows } from "../../../../src/features/chat/display/details/permission-rows";
+import { taskProgressMessageStreamItem, taskProgressExecutionState } from "../../../../src/features/chat/message-stream/task-progress";
+import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/message-stream/proposed-plan";
+import { pathRelativeToRoot } from "../../../../src/features/chat/message-stream/path-labels";
+import { permissionRows } from "../../../../src/features/chat/message-stream/permission-rows";
 import {
   autoReviewExecutionState,
   createAutoReviewResultItem,
   createReviewResultItem,
-} from "../../../../src/features/chat/display/items/review-result";
+} from "../../../../src/features/chat/message-stream/review-result-items";
 import {
   commandExecutionState,
   dynamicToolCallExecutionState,
@@ -940,7 +940,7 @@ describe("streaming updates target item identity without mutating history", () =
     expect(updated).not.toBe(items);
   });
 
-  it("appends tool text and output without mutating existing display items", () => {
+  it("appends tool text and output without mutating existing stream items", () => {
     const tool: MessageStreamItem = { id: "tool1", sourceItemId: "tool1", kind: "tool", role: "tool", text: "plan: " };
     const command: MessageStreamItem = {
       id: "cmd1",
@@ -1037,7 +1037,8 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       items: [{ id: "hook-1" }, { id: "c1" }, { id: "r1" }, { id: "review-1" }, { id: "review-2" }],
     });
     expect(blocks[2]).toMatchObject({
-      item: { id: "a1", autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
+      item: { id: "a1" },
+      annotations: { autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
     });
   });
 
@@ -1403,7 +1404,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     ];
 
     const assistantBlock = messageStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
-    expect(assistantBlock).toMatchObject({ item: { editedFiles: ["src/main.ts", "styles.css"] } });
+    expect(assistantBlock).toMatchObject({ annotations: { editedFiles: ["src/main.ts", "styles.css"] } });
   });
 
   it("adds turn diff metadata to the final assistant message only when aggregated diff exists", () => {
@@ -1421,13 +1422,13 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     ];
 
     const withoutDiff = messageStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
-    expect(withoutDiff).toMatchObject({ item: { editedFiles: ["src/main.ts"] } });
-    expect(withoutDiff?.type === "item" ? withoutDiff.item : null).not.toHaveProperty("turnDiff");
+    expect(withoutDiff).toMatchObject({ annotations: { editedFiles: ["src/main.ts"] } });
+    expect(withoutDiff?.type === "item" ? withoutDiff.annotations : null).not.toHaveProperty("turnDiff");
 
     const withDiff = messageStreamLayoutBlocks(items, null, null, new Map([["t1", "@@\n-old\n+new"]])).find(
       (block) => block.type === "item" && block.item.role === "assistant",
     );
-    expect(withDiff).toMatchObject({ item: { editedFiles: ["src/main.ts"], turnDiff: { diff: "@@\n-old\n+new" } } });
+    expect(withDiff).toMatchObject({ annotations: { editedFiles: ["src/main.ts"], turnDiff: { diff: "@@\n-old\n+new" } } });
   });
 
   it("adds auto-review summaries to the final assistant message", () => {
@@ -1461,7 +1462,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
     const assistantBlock = messageStreamLayoutBlocks(items, null).find((block) => block.type === "item" && block.item.role === "assistant");
     expect(assistantBlock).toMatchObject({
-      item: { autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
+      annotations: { autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"] },
     });
   });
 
@@ -1488,8 +1489,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     ];
 
     const assistantBlock = messageStreamLayoutBlocks(items, "t1").find((block) => block.type === "item" && block.item.id === "a1");
-    expect(assistantBlock?.type === "item" ? assistantBlock.item : null).not.toHaveProperty("editedFiles");
-    expect(assistantBlock?.type === "item" ? assistantBlock.item : null).not.toHaveProperty("autoReviewSummaries");
+    expect(assistantBlock?.type === "item" ? assistantBlock.annotations : null).toBeUndefined();
   });
 });
 
@@ -1513,7 +1513,7 @@ describe("workspace path summaries stay readable without hiding audit paths", ()
     const assistantBlock = messageStreamLayoutBlocks(items, null, "/vault/project").find(
       (block) => block.type === "item" && block.item.role === "assistant",
     );
-    expect(assistantBlock).toMatchObject({ item: { editedFiles: ["/tmp/outside.txt", "src/main.ts", "styles.css"] } });
+    expect(assistantBlock).toMatchObject({ annotations: { editedFiles: ["/tmp/outside.txt", "src/main.ts", "styles.css"] } });
   });
 
   it("keeps Windows sibling paths outside the workspace root", () => {

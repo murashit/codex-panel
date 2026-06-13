@@ -1,6 +1,7 @@
 import type { PendingTurnStart } from "../../state/reducer";
 import type { MessageStreamFileMention, MessageStreamItem, MessageStreamMessageItem } from "../../message-stream/items";
-import { fileMentionsFromInput, userMessageDisplayText } from "../../display/items/message-content";
+import { fileMentionsFromInput } from "../../message-stream/file-mentions";
+import { userMessageDisplayText } from "../../message-stream/user-message-text";
 import { attachHookRunsToTurn } from "../../state/message-stream-updates";
 import type { CodexInput } from "../../../../domain/chat/input";
 

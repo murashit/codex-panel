@@ -1,5 +1,6 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 
+import type { MessageStreamItemAnnotations } from "../../message-stream/layout";
 import type { MessageStreamDetailSection, MessageStreamItem } from "../../message-stream/items";
 import { IconButton } from "../../../../shared/ui/components";
 import type { TextItemDetailStateContext, TextItemMetadataContext } from "./context";
@@ -23,12 +24,15 @@ export function ReferencedThread({ item }: { item: Extract<MessageStreamItem, { 
 
 export function EditedFiles({
   item,
+  annotations,
   context,
 }: {
   item: Extract<MessageStreamItem, { kind: "message" }>;
+  annotations?: MessageStreamItemAnnotations;
   context: TextItemMetadataContext;
 }): UiNode {
-  const editedFiles = item.editedFiles ?? [];
+  const editedFiles = annotations?.editedFiles ?? [];
+  const turnDiff = annotations?.turnDiff;
   const label = editedFiles.length === 1 ? "Edited 1 file" : `Edited ${String(editedFiles.length)} files`;
   return (
     <div className="codex-panel__edited-files">
@@ -36,7 +40,7 @@ export function EditedFiles({
         <summary tabIndex={-1}>
           <span className="codex-panel__edited-files-summary">
             <span>{label}</span>
-            {item.turnDiff && item.turnId && context.activeThreadId && context.openTurnDiff ? (
+            {turnDiff && item.turnId && context.activeThreadId && context.openTurnDiff ? (
               <>
                 <span className="codex-panel__edited-files-separator">·</span>
                 <IconButton
@@ -51,7 +55,7 @@ export function EditedFiles({
                       turnId: item.turnId ?? "",
                       cwd: context.workspaceRoot ?? null,
                       files: editedFiles,
-                      diff: item.turnDiff?.diff ?? "",
+                      diff: turnDiff.diff,
                     });
                   }}
                 >

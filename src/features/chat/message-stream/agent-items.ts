@@ -1,8 +1,8 @@
-import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "../../message-stream/items";
-import { definedProp } from "../../../../utils";
+import { definedProp } from "../../../utils";
+import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "./items";
 
-type DisplayExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
+type MessageStreamExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
 
 const AGENT_STATES = {
   pendingInit: "running",
@@ -22,7 +22,7 @@ const STANDARD_TOOL_STATES = {
   failed: "failed",
 } as const satisfies ExecutionStateByStatus;
 
-interface DisplayCollabAgentToolCall {
+interface MessageStreamCollabAgentToolCall {
   id: string;
   tool: string;
   status: string;
@@ -31,15 +31,15 @@ interface DisplayCollabAgentToolCall {
   prompt: string | null;
   model: string | null;
   reasoningEffort: string | null;
-  agentsStates: Record<string, DisplayCollabAgentState | undefined>;
+  agentsStates: Record<string, MessageStreamCollabAgentState | undefined>;
 }
 
-interface DisplayCollabAgentState {
+interface MessageStreamCollabAgentState {
   status?: string | null;
   message?: string | null;
 }
 
-export function agentMessageStreamItem(item: DisplayCollabAgentToolCall, turnId?: string): AgentMessageStreamItem {
+export function agentMessageStreamItem(item: MessageStreamCollabAgentToolCall, turnId?: string): AgentMessageStreamItem {
   const agents = agentStatesDisplay(item.agentsStates);
   const receiverText = item.receiverThreadIds.length > 0 ? `\ntargets: ${item.receiverThreadIds.join(", ")}` : "";
   const promptText = item.prompt ? `\n${item.prompt}` : "";
@@ -71,7 +71,7 @@ function agentActivitySummaryLabel(tool: string): string {
   return `Agent ${tool}`;
 }
 
-function agentStatesDisplay(states: DisplayCollabAgentToolCall["agentsStates"]): AgentStateSummary[] {
+function agentStatesDisplay(states: MessageStreamCollabAgentToolCall["agentsStates"]): AgentStateSummary[] {
   return Object.entries(states)
     .map(([threadId, state]) => ({
       threadId,

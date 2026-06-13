@@ -1,11 +1,11 @@
 import { upsertMessageStreamItemById } from "./message-stream-updates";
 import type { MessageStreamItem, MessageStreamMessageItem } from "../message-stream/items";
-import { normalizeProposedPlanMarkdown } from "../display/items/message-content";
+import { normalizeProposedPlanMarkdown } from "../message-stream/proposed-plan";
 import {
   streamedItemOutputMessageStreamItem,
   streamedTextMessageStreamItem,
   streamedToolOutputMessageStreamItem,
-} from "../display/items/streaming";
+} from "../message-stream/streaming-items";
 
 export interface ChatMessageStreamActiveSegment {
   turnId: string | null;

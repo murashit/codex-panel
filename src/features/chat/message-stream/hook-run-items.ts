@@ -1,7 +1,7 @@
-import { definedProp } from "../../../../utils";
-import type { MessageStreamDetailMetaRow, MessageStreamDetailSection, HookMessageStreamItem } from "../../message-stream/items";
+import { definedProp } from "../../../utils";
+import type { MessageStreamDetailMetaRow, MessageStreamDetailSection, HookMessageStreamItem } from "./items";
 
-interface DisplayHookRun {
+interface MessageStreamHookRun {
   id: string;
   eventName: string | null;
   statusMessage: string | null;
@@ -10,7 +10,7 @@ interface DisplayHookRun {
   entries: readonly { kind: string; text: string }[];
 }
 
-export function hookRunMessageStreamItem(run: DisplayHookRun, turnId: string | null, status: string): HookMessageStreamItem | null {
+export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: string | null, status: string): HookMessageStreamItem | null {
   if (run.id.length === 0) return null;
   const entries = run.entries.map((entry) => `${entry.kind}: ${entry.text}`).join("\n");
   const metaRows: MessageStreamDetailMetaRow[] = [
@@ -35,7 +35,7 @@ export function hookRunMessageStreamItem(run: DisplayHookRun, turnId: string | n
   };
 }
 
-function hookRunDisplayId(run: DisplayHookRun): string {
+function hookRunDisplayId(run: MessageStreamHookRun): string {
   return `hook-${run.id}-${run.startedAt.toString()}`;
 }
 

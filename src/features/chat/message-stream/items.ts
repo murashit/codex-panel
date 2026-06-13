@@ -47,9 +47,6 @@ interface MessageStreamMessageBase extends MessageStreamBase {
   copyText?: string;
   referencedThread?: ReferencedThreadMetadata;
   mentionedFiles?: MessageStreamFileMention[];
-  editedFiles?: string[];
-  turnDiff?: MessageStreamTurnDiff;
-  autoReviewSummaries?: string[];
 }
 
 interface UserMessageStreamItem extends MessageStreamMessageBase {
@@ -77,10 +74,6 @@ export type MessageStreamMessageItem = UserMessageStreamItem | AssistantAuthored
 export interface MessageStreamFileMention {
   name: string;
   path: string;
-}
-
-interface MessageStreamTurnDiff {
-  diff: string;
 }
 
 interface SystemMessageStreamItem extends MessageStreamBase {
@@ -228,16 +221,3 @@ export type MessageStreamItem =
   | AgentMessageStreamItem
   | ApprovalResultMessageStreamItem
   | ReviewResultMessageStreamItem;
-
-export type MessageStreamLayoutBlock =
-  | {
-      type: "item";
-      item: MessageStreamItem;
-    }
-  | {
-      type: "activityGroup";
-      id: string;
-      turnId: string;
-      summary: string;
-      items: MessageStreamItem[];
-    };

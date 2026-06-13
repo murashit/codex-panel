@@ -1,5 +1,5 @@
-import type { MessageStreamDetailMetaRow, MessageStreamDetailSection } from "../../message-stream/items";
-import { jsonPreview, truncate } from "../../../../utils";
+import { jsonPreview, truncate } from "../../../utils";
+import type { MessageStreamDetailMetaRow, MessageStreamDetailSection } from "./items";
 
 const TOOL_SUMMARY_LIMIT = 140;
 

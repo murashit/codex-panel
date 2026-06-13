@@ -2,6 +2,7 @@ import { type ComponentChild as UiNode, type Ref } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MessageStreamItem, ExecutionState } from "../../message-stream/items";
+import type { MessageStreamItemAnnotations } from "../../message-stream/layout";
 import { timelineItemFromMessageStreamItem } from "../../message-stream/timeline/from-items";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { TextItemContentContext, TextItemContext, TextMessageStreamItem } from "./context";
@@ -10,13 +11,23 @@ import { AutoReviewSummaries, EditedFiles, MentionedFiles, TextItemDetails, Refe
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 
-export function textItemNode(item: TextMessageStreamItem, context: TextItemContext): UiNode {
-  return <TextItem item={item} context={context} />;
+export function textItemNode(item: TextMessageStreamItem, context: TextItemContext, annotations?: MessageStreamItemAnnotations): UiNode {
+  return <TextItem item={item} context={context} {...definedProp("annotations", annotations)} />;
 }
 
-function TextItem({ item, context }: { item: TextMessageStreamItem; context: TextItemContext }): UiNode {
+function TextItem({
+  item,
+  context,
+  annotations,
+}: {
+  item: TextMessageStreamItem;
+  context: TextItemContext;
+  annotations?: MessageStreamItemAnnotations;
+}): UiNode {
   const collapsible = isCollapsibleUserMessage(item);
   const details = "details" in item ? item.details : undefined;
+  const editedFiles = annotations?.editedFiles ?? [];
+  const autoReviewSummaries = annotations?.autoReviewSummaries ?? [];
   return (
     <div className={`${textItemClass(item)}${executionClassName(item.executionState ?? null)}`}>
       <TextItemHeader item={item} context={context} />
@@ -25,14 +36,14 @@ function TextItem({ item, context }: { item: TextMessageStreamItem; context: Tex
       ) : (
         <TextContent key={textItemContentKey(item)} item={item} context={context} />
       )}
-      {item.kind === "message" && item.editedFiles && item.editedFiles.length > 0 ? <EditedFiles item={item} context={context} /> : null}
+      {item.kind === "message" && editedFiles.length > 0 ? (
+        <EditedFiles item={item} context={context} {...definedProp("annotations", annotations)} />
+      ) : null}
       {item.kind === "message" && item.referencedThread ? <ReferencedThread item={item} /> : null}
       {item.kind === "message" && item.mentionedFiles && item.mentionedFiles.length > 0 ? (
         <MentionedFiles item={item} context={context} />
       ) : null}
-      {item.kind === "message" && item.autoReviewSummaries && item.autoReviewSummaries.length > 0 ? (
-        <AutoReviewSummaries summaries={item.autoReviewSummaries} />
-      ) : null}
+      {item.kind === "message" && autoReviewSummaries.length > 0 ? <AutoReviewSummaries summaries={autoReviewSummaries} /> : null}
       {item.kind === "system" && item.details && item.details.length > 0 ? (
         <SystemDetails details={item.details} />
       ) : details && details.length > 0 ? (
@@ -185,4 +196,8 @@ function textItemClass(item: MessageStreamItem): string {
   if (item.kind === "userInputResult") classes.push("codex-panel__message--user-input-result");
   if (item.kind === "reviewResult") classes.push("codex-panel__message--review-result");
   return classes.join(" ");
+}
+
+function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
+  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
 }

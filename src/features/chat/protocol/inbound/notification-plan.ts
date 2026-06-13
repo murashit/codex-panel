@@ -12,24 +12,24 @@ import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
-import { createAutoReviewResultItem, createReviewResultItem } from "../../display/items/review-result";
 import { completeReasoningItems, upsertMessageStreamItemById } from "../../state/message-stream-updates";
 import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
 } from "../../message-stream/from-turn-items";
-import { taskProgressMessageStreamItem } from "../../display/items/task-progress";
-import { createSystemItem } from "../../display/items/system";
+import { taskProgressMessageStreamItem } from "../../message-stream/task-progress";
 import type { MessageStreamItem, MessageStreamItemKind, MessageStreamMessageItem } from "../../message-stream/items";
-import { goalChangeItem } from "../../display/items/goal";
-import { hookRunMessageStreamItem } from "../../display/items/hook-run";
+import { goalChangeItem } from "../../message-stream/goal-items";
+import { hookRunMessageStreamItem } from "../../message-stream/hook-run-items";
+import { createAutoReviewResultItem, createReviewResultItem } from "../../message-stream/review-result-items";
+import { createSystemItem } from "../../message-stream/system-items";
 import {
   STREAMED_COMMAND_RUNNING_TEXT,
   STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
   STREAMED_MCP_PROGRESS_LABEL,
   streamingFileChangeMessageStreamItem,
-} from "../../display/items/streaming";
+} from "../../message-stream/streaming-items";
 import { attachHookRunsToTurn } from "../../state/message-stream-updates";
 import { messageStreamItems } from "../../state/message-stream";
 import {
@@ -206,7 +206,7 @@ const TURN_LIFECYCLE_PLANNERS = {
       type: "turn/started",
       threadId: notification.params.threadId,
       turnId: notification.params.turn.id,
-      items: displayItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
+      items: messageStreamItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
     }),
   "turn/completed": (state, notification) => {
     if (activeTurnId(state) !== notification.params.turn.id) return EMPTY_PLAN;
@@ -471,7 +471,7 @@ function hookRunTurnId(
   return null;
 }
 
-function displayItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly MessageStreamItem[] {
+function messageStreamItemsWithPendingPromptSubmitHooks(state: ChatState, turnId: string): readonly MessageStreamItem[] {
   const pending = pendingTurnStartForState(state);
   const items = messageStreamItems(state.messageStream);
   if (!pending) return items;

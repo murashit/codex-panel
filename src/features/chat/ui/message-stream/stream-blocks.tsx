@@ -1,8 +1,8 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 
 import { activeTurnId } from "../../state/reducer";
-import { messageStreamLayoutBlocks } from "../../message-stream/layout";
-import type { MessageStreamLayoutBlock, MessageStreamItem } from "../../message-stream/items";
+import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type MessageStreamLayoutBlock } from "../../message-stream/layout";
+import type { MessageStreamItem } from "../../message-stream/items";
 import { timelineItemFromMessageStreamItem, timelineItemsFromMessageStreamItems } from "../../message-stream/timeline/from-items";
 import type { TimelineItem } from "../../message-stream/timeline/types";
 import { pendingRequestBlockNode } from "./pending-request-block";
@@ -15,12 +15,12 @@ function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLife
   return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 
-function streamItemNode(item: MessageStreamItem, context: MessageStreamContext): UiNode {
-  return timelineItemNode(timelineItemFromMessageStreamItem(item), context);
+function streamItemNode(item: MessageStreamItem, context: MessageStreamContext, annotations?: MessageStreamItemAnnotations): UiNode {
+  return timelineItemNode(timelineItemFromMessageStreamItem(item), context, annotations);
 }
 
-function timelineItemNode(item: TimelineItem, context: MessageStreamContext): UiNode {
-  if (item.renderSurface === "textMessage") return textItemNode(item.streamItem, context);
+function timelineItemNode(item: TimelineItem, context: MessageStreamContext, annotations?: MessageStreamItemAnnotations): UiNode {
+  if (item.renderSurface === "textMessage") return textItemNode(item.streamItem, context, annotations);
   if (item.renderSurface === "toolResult") return toolResultNode(item.streamItem, context);
   return workItemNode(item.streamItem, context);
 }
@@ -48,7 +48,7 @@ export function messageStreamBlocks(context: MessageStreamContext): MessageStrea
     if (block.type === "item") {
       blocks.push({
         key: `item:${block.item.id}`,
-        node: streamItemNode(block.item, context),
+        node: streamItemNode(block.item, context, block.annotations),
       });
     } else {
       blocks.push({

@@ -1,21 +1,21 @@
-import { jsonPreview } from "../../../../utils";
+import { jsonPreview } from "../../../utils";
 
 interface DetailRow {
   key: string;
   value: string;
 }
 
-export interface DisplayPermissionProfile {
+export interface MessageStreamPermissionProfile {
   network?: { enabled?: boolean | null } | null;
   fileSystem?: {
-    entries?: readonly { path: DisplayFileSystemPath; access?: unknown }[] | null;
+    entries?: readonly { path: MessageStreamFileSystemPath; access?: unknown }[] | null;
     read?: unknown;
     write?: unknown;
     globScanMaxDepth?: unknown;
   } | null;
 }
 
-type DisplayFileSystemPath =
+type MessageStreamFileSystemPath =
   | { type: "path"; path: string }
   | { type: "glob_pattern"; pattern: string }
   | {
@@ -26,7 +26,7 @@ type DisplayFileSystemPath =
         | { kind: string };
     };
 
-export function permissionRows(permissions: DisplayPermissionProfile): DetailRow[] {
+export function permissionRows(permissions: MessageStreamPermissionProfile): DetailRow[] {
   const rows: DetailRow[] = [];
   const networkEnabled = permissions.network?.enabled;
   if (typeof networkEnabled === "boolean") {
@@ -65,7 +65,7 @@ function stringValue(value: unknown, fallback = ""): string {
   return jsonPreview(value);
 }
 
-function fileSystemPathLabel(path: DisplayFileSystemPath): string {
+function fileSystemPathLabel(path: MessageStreamFileSystemPath): string {
   if (path.type === "path") return path.path;
   if (path.type === "glob_pattern") return path.pattern;
 

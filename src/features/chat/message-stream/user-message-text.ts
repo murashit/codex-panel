@@ -1,25 +1,6 @@
-import type { CodexInput, CodexInputItem } from "../../../../domain/chat/input";
-import type { MessageStreamFileMention } from "../../message-stream/items";
+import type { CodexInput } from "../../../domain/chat/input";
 
 type TextRange = [number, number];
-
-export function fileMentionsFromInput(input: readonly CodexInputItem[]): MessageStreamFileMention[] {
-  const seen = new Set<string>();
-  const mentions: MessageStreamFileMention[] = [];
-  for (const item of input) {
-    if (item.type !== "mention" || seen.has(item.path)) continue;
-    seen.add(item.path);
-    mentions.push({ name: item.name, path: item.path });
-  }
-  return mentions;
-}
-
-export function normalizeProposedPlanMarkdown(text: string): string {
-  return text
-    .replace(/^\s*<proposed_plan>\s*\n?/i, "")
-    .replace(/\n?\s*<\/proposed_plan>\s*$/i, "")
-    .trim();
-}
 
 export function userMessageDisplayText(text: string, input: CodexInput): string {
   const names = resolvedSkillNames(input);
@@ -33,7 +14,7 @@ export function userMessageDisplayText(text: string, input: CodexInput): string 
   });
 }
 
-function resolvedSkillNames(input: readonly CodexInputItem[]): string[] {
+function resolvedSkillNames(input: CodexInput): string[] {
   const seen = new Set<string>();
   const names: string[] = [];
   for (const item of input) {

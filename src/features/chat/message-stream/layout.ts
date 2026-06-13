@@ -1,10 +1,30 @@
-import { pathRelativeToRoot } from "../display/details/path-labels";
-import type { MessageStreamItem, MessageStreamLayoutBlock } from "./items";
+import type { MessageStreamItem } from "./items";
+import { pathRelativeToRoot } from "./path-labels";
 import { timelineItemsFromMessageStreamItems } from "./timeline/from-items";
 import type { TimelineItem, TimelineSemanticKind } from "./timeline/types";
 
 const STEERING_ACTIVITY_LABEL = "steer";
 const STEERING_ACTIVITY_KIND = "userSteered";
+
+export interface MessageStreamItemAnnotations {
+  editedFiles?: string[];
+  turnDiff?: { diff: string };
+  autoReviewSummaries?: string[];
+}
+
+export type MessageStreamLayoutBlock =
+  | {
+      type: "item";
+      item: MessageStreamItem;
+      annotations?: MessageStreamItemAnnotations;
+    }
+  | {
+      type: "activityGroup";
+      id: string;
+      turnId: string;
+      summary: string;
+      items: MessageStreamItem[];
+    };
 
 export function messageStreamLayoutBlocks(
   items: readonly MessageStreamItem[],
@@ -53,7 +73,11 @@ export function messageStreamLayoutBlocks(
     }
     blocks.push({
       type: "item",
-      item: itemWithTurnSummaries(item.streamItem, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
+      item: item.streamItem,
+      ...definedProp(
+        "annotations",
+        annotationsForTurnOutcome(item.streamItem, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
+      ),
     });
   }
 
@@ -96,22 +120,23 @@ function turnOutcomeItemsByTurn(items: readonly TimelineItem[]): Map<string, str
   return turnOutcomeIdByTurn;
 }
 
-function itemWithTurnSummaries(
+function annotationsForTurnOutcome(
   item: MessageStreamItem,
   editedFilesByTurn: Map<string, string[]>,
   autoReviewSummariesByTurn: Map<string, string[]>,
   turnOutcomeIdByTurn: Map<string, string>,
   turnDiffs?: ReadonlyMap<string, string>,
-): MessageStreamItem {
-  if (!item.turnId || turnOutcomeIdByTurn.get(item.turnId) !== item.id) return item;
-  if (item.kind !== "message") return item;
+): MessageStreamItemAnnotations | undefined {
+  if (!item.turnId || turnOutcomeIdByTurn.get(item.turnId) !== item.id) return undefined;
+  if (item.kind !== "message") return undefined;
   const editedFiles = editedFilesByTurn.get(item.turnId);
   const autoReviewSummaries = autoReviewSummariesByTurn.get(item.turnId);
   const diff = turnDiffs?.get(item.turnId);
   const turnDiff = diff && diff.trim().length > 0 ? { diff } : undefined;
-  if ((!editedFiles || editedFiles.length === 0) && (!autoReviewSummaries || autoReviewSummaries.length === 0) && !turnDiff) return item;
+  if ((!editedFiles || editedFiles.length === 0) && (!autoReviewSummaries || autoReviewSummaries.length === 0) && !turnDiff) {
+    return undefined;
+  }
   return {
-    ...item,
     ...(editedFiles && editedFiles.length > 0 ? { editedFiles } : {}),
     ...(turnDiff ? { turnDiff } : {}),
     ...(autoReviewSummaries && autoReviewSummaries.length > 0 ? { autoReviewSummaries } : {}),
@@ -185,4 +210,8 @@ function countSemanticLabel(
   if (count === 0) return null;
   if (count === 1) return label;
   return `${String(count)} ${pluralLabel}`;
+}
+
+function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
+  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
 }

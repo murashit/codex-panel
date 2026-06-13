@@ -3,7 +3,7 @@ import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../.
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../domain/threads/goal";
 import type { ChatStateStore } from "../state/reducer";
 import type { GoalMessageStreamItem } from "../message-stream/items";
-import { goalChangeItem } from "../display/items/goal";
+import { goalChangeItem } from "../message-stream/goal-items";
 import { emptyGoalObjectiveMessage } from "./messages";
 
 export interface GoalActionsHost {

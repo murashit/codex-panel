@@ -1,5 +1,5 @@
 import { truncate } from "../../../../utils";
-import { collabAgentStateExecutionState } from "../items/agent";
+import { collabAgentStateExecutionState } from "../../message-stream/agent-items";
 import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateSummary, MessageStreamItem } from "../../message-stream/items";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;

@@ -1,5 +1,5 @@
-import { pathRelativeToRoot } from "../../display/details/path-labels";
 import { definedProp } from "../../../../utils";
+import { pathRelativeToRoot } from "../../message-stream/path-labels";
 import type {
   ApprovalResultMessageStreamItem,
   CommandMessageStreamItem,

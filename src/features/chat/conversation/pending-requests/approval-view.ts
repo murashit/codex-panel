@@ -1,5 +1,5 @@
 import { jsonPreview } from "../../../../utils";
-import { permissionRows, type DisplayPermissionProfile } from "../../display/details/permission-rows";
+import { permissionRows, type MessageStreamPermissionProfile } from "../../message-stream/permission-rows";
 import {
   approvalActionKind,
   type ApprovalAction,
@@ -68,7 +68,7 @@ export function approvalDetails(approval: PendingApproval): { key: string; value
     case "item/permissions/requestApproval":
       addOptional(rows, "cwd", approval.params.cwd);
       addOptional(rows, "environment", approval.params.environmentId);
-      rows.push(...permissionRows(approval.params.permissions as DisplayPermissionProfile));
+      rows.push(...permissionRows(approval.params.permissions as MessageStreamPermissionProfile));
       break;
   }
   return rows;

@@ -18,9 +18,9 @@ import { createChatServerThreadActions, type ChatServerThreadActions } from "./c
 import type { ChatComposerController } from "./conversation/composer/controller";
 import { createConversationParts } from "./conversation/composition";
 import type { ComposerSubmitActions } from "./conversation/turns/composer-submit-actions";
-import { createStructuredSystemItem, createSystemItem } from "./display/items/system";
 import { codexPanelDisplayTitle } from "./threads/title-display";
 import type { MessageStreamDetailSection, MessageStreamItem } from "./message-stream/items";
+import { createStructuredSystemItem, createSystemItem } from "./message-stream/system-items";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,

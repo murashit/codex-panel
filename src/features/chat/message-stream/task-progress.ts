@@ -1,7 +1,7 @@
-import type { MessageStreamItem, ExecutionState } from "../../message-stream/items";
+import type { MessageStreamItem, ExecutionState } from "./items";
 
-type DisplayExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, DisplayExecutionState>>;
+type MessageStreamExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
 
 const TASK_STATES = {
   pending: "running",

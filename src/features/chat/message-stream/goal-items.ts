@@ -1,6 +1,6 @@
-import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
-import { truncate } from "../../../../utils";
-import type { GoalMessageStreamItem } from "../../message-stream/items";
+import type { ThreadGoal, ThreadGoalStatus } from "../../../domain/threads/goal";
+import { truncate } from "../../../utils";
+import type { GoalMessageStreamItem } from "./items";
 
 const GOAL_SUMMARY_LIMIT = 140;
 

@@ -435,12 +435,14 @@ describe("pending request renderer decisions", () => {
   });
 
   it("renders auto-review summaries under the final assistant message", () => {
-    const block = messageStreamBlocks({
+    const blocks = messageStreamBlocks({
       activeThreadId: "thread",
       turnLifecycle: idleTurnLifecycle(),
       historyCursor: null,
       loadingHistory: false,
       items: [
+        { id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review approved: npm test", turnId: "turn" },
+        { id: "review-2", kind: "reviewResult", role: "tool", text: "Auto-review approved: npm test", turnId: "turn" },
         {
           id: "assistant-1",
           kind: "message",
@@ -449,14 +451,15 @@ describe("pending request renderer decisions", () => {
           messageState: "completed",
           text: "Done",
           turnId: "turn",
-          autoReviewSummaries: ["Auto-review approved: npm test", "Auto-review approved: npm test"],
         },
       ],
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-    })[0];
+    });
+    const block = blocks.find((candidate) => candidate.key === "item:assistant-1");
+    if (!block) throw new Error("Expected assistant block");
 
     const element = renderMessageBlockElement(block);
 
