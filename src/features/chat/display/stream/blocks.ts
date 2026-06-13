@@ -1,6 +1,7 @@
-import type { DisplayBlock, DisplayItem, DisplayKind } from "../types";
-import { isCompletedTurnOutcomeMessage } from "../item-selectors";
+import type { DisplayBlock, DisplayItem, MessageStreamItem } from "../types";
 import { pathRelativeToRoot } from "../details/path-labels";
+import { timelineItemsFromDisplayItems } from "../timeline/from-display";
+import type { TimelineItem, TimelineSemanticKind } from "../timeline/types";
 
 const STEERING_ACTIVITY_LABEL = "steer";
 const STEERING_ACTIVITY_KIND = "userSteered";
@@ -11,27 +12,26 @@ export function displayBlocksForItems(
   workspaceRoot?: string | null,
   turnDiffs?: ReadonlyMap<string, string>,
 ): DisplayBlock[] {
-  const visibleItems = items.filter(shouldShowDisplayItem);
+  const visibleItems = timelineItemsFromDisplayItems(items).filter(shouldShowTimelineItem);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
   const turnOutcomeIdByTurn = turnOutcomeItemsByTurn(visibleItems);
   const groupedTurnIds = new Set([...turnOutcomeIdByTurn.keys()].filter((turnId) => turnId !== activeTurnId));
   const summaryOutcomeIdByTurn = new Map([...turnOutcomeIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
 
-  const groupedActivities = new Map<string, DisplayItem[]>();
-  const seenUserMessagesByTurn = new Map<string, number>();
+  const groupedActivities = new Map<string, GroupedActivity[]>();
   for (const item of visibleItems) {
     const turnId = item.turnId;
     if (!turnId || !groupedTurnIds.has(turnId)) continue;
-    if (isSteeringUserMessage(item, seenUserMessagesByTurn)) {
+    if (item.semanticKind === "steering" && item.displayItem.kind === "message") {
       const group = groupedActivities.get(turnId) ?? [];
-      group.push(steeringActivityItem(item, turnId));
+      group.push({ item: steeringActivityItem(item, turnId), semanticKind: "steering" });
       groupedActivities.set(turnId, group);
       continue;
     }
     if (!isCompletedTurnDetailItem(item, turnOutcomeIdByTurn)) continue;
     const group = groupedActivities.get(turnId) ?? [];
-    group.push(item);
+    group.push({ item: item.displayItem, semanticKind: item.semanticKind });
     groupedActivities.set(turnId, group);
   }
 
@@ -48,31 +48,28 @@ export function displayBlocksForItems(
         id: `turn-${turnId}-activity`,
         turnId,
         summary: turnActivitySummary(groupItems),
-        items: groupItems,
+        items: groupItems.map((activity) => activity.item),
       });
     }
     blocks.push({
       type: "item",
-      item: itemWithTurnSummaries(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
+      item: itemWithTurnSummaries(item.displayItem, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
     });
   }
 
   return blocks;
 }
 
-function shouldShowDisplayItem(item: DisplayItem): boolean {
-  return item.kind !== "reasoning" || item.executionState !== "completed" || item.text.trim().length > 0;
+interface GroupedActivity {
+  item: MessageStreamItem;
+  semanticKind: TimelineSemanticKind;
 }
 
-function isSteeringUserMessage(item: DisplayItem, seenUserMessagesByTurn: Map<string, number>): boolean {
-  if (!item.turnId || item.kind !== "message" || item.role !== "user") return false;
-  const seenCount = seenUserMessagesByTurn.get(item.turnId) ?? 0;
-  seenUserMessagesByTurn.set(item.turnId, seenCount + 1);
-  // App-server represents steering as subsequent user messages in the same turn.
-  return seenCount > 0;
+function shouldShowTimelineItem(item: TimelineItem): boolean {
+  return item.semanticKind !== "reasoningNote" || item.lifecycle !== "completed" || item.text.trim().length > 0;
 }
 
-function steeringActivityItem(item: DisplayItem, turnId: string): DisplayItem {
+function steeringActivityItem(item: TimelineItem, turnId: string): DisplayItem {
   return {
     id: `steer-activity-${item.id}`,
     kind: "tool",
@@ -85,15 +82,15 @@ function steeringActivityItem(item: DisplayItem, turnId: string): DisplayItem {
   };
 }
 
-function isCompletedTurnDetailItem(item: DisplayItem, turnOutcomeIdByTurn: Map<string, string>): boolean {
-  if (!item.turnId || item.role === "user") return false;
+function isCompletedTurnDetailItem(item: TimelineItem, turnOutcomeIdByTurn: Map<string, string>): boolean {
+  if (!item.turnId || item.semanticKind === "userPrompt" || item.semanticKind === "steering") return false;
   return turnOutcomeIdByTurn.get(item.turnId) !== item.id;
 }
 
-function turnOutcomeItemsByTurn(items: readonly DisplayItem[]): Map<string, string> {
+function turnOutcomeItemsByTurn(items: readonly TimelineItem[]): Map<string, string> {
   const turnOutcomeIdByTurn = new Map<string, string>();
   for (const item of items) {
-    if (!item.turnId || !isCompletedTurnOutcomeMessage(item)) continue;
+    if (!item.turnId || !item.actions.isTurnOutcome) continue;
     turnOutcomeIdByTurn.set(item.turnId, item.id);
   }
   return turnOutcomeIdByTurn;
@@ -121,11 +118,11 @@ function itemWithTurnSummaries(
   };
 }
 
-function editedFilesForTurns(items: readonly DisplayItem[], workspaceRoot?: string | null): Map<string, string[]> {
+function editedFilesForTurns(items: readonly TimelineItem[], workspaceRoot?: string | null): Map<string, string[]> {
   const byTurn = new Map<string, Set<string>>();
   for (const item of items) {
-    if (!item.turnId || item.kind !== "fileChange") continue;
-    const files = editedFilesForItem(item, workspaceRoot);
+    if (!item.turnId || item.semanticKind !== "filePatch") continue;
+    const files = editedFilesForItem(item.displayItem, workspaceRoot);
     if (files.length === 0) continue;
     const set = byTurn.get(item.turnId) ?? new Set<string>();
     files.forEach((file) => set.add(file));
@@ -142,10 +139,10 @@ function editedFilesForItem(item: DisplayItem, workspaceRoot?: string | null): s
   );
 }
 
-function autoReviewSummariesForTurns(items: readonly DisplayItem[]): Map<string, string[]> {
+function autoReviewSummariesForTurns(items: readonly TimelineItem[]): Map<string, string[]> {
   const byTurn = new Map<string, string[]>();
   for (const item of items) {
-    if (!item.turnId || item.kind !== "reviewResult") continue;
+    if (!item.turnId || item.semanticKind !== "reviewResult") continue;
     const summary = item.text.trim();
     if (!summary) continue;
     const summaries = byTurn.get(item.turnId) ?? [];
@@ -155,45 +152,36 @@ function autoReviewSummariesForTurns(items: readonly DisplayItem[]): Map<string,
   return byTurn;
 }
 
-function turnActivitySummary(items: readonly DisplayItem[]): string {
+function turnActivitySummary(items: readonly GroupedActivity[]): string {
   const parts = [
-    countMatchingLabel(items, (item) => item.kind === "message" && item.role === "assistant", "response", "responses"),
-    countMatchingLabel(items, isSteeringActivityDisplayItem, "steer", "steers"),
-    countLabel(items, "taskProgress", "task progress"),
-    countLabel(items, "agent", "agent"),
-    countLabel(items, "command", "command"),
-    countLabel(items, "fileChange", "file change"),
-    countMatchingLabel(items, (item) => item.kind === "tool" && !isSteeringActivityDisplayItem(item), "tool"),
-    countLabel(items, "hook", "hook"),
-    countLabel(items, "reasoning", "thought", "thought notes"),
-    countLabel(items, "contextCompaction", "context compaction"),
-    countLabel(items, "approvalResult", "approval"),
-    countLabel(items, "userInputResult", "input"),
-    countLabel(items, "reviewResult", "review"),
+    countSemanticLabel(items, "assistantResponse", "response", "responses"),
+    countSemanticLabel(items, "proposedPlan", "plan", "plans"),
+    countSemanticLabel(items, "steering", "steer", "steers"),
+    countSemanticLabel(items, "taskProgress", "task progress"),
+    countSemanticLabel(items, "agentActivity", "agent"),
+    countSemanticLabel(items, "commandRun", "command"),
+    countSemanticLabel(items, "filePatch", "file change"),
+    countSemanticLabel(items, "toolCall", "tool"),
+    countSemanticLabel(items, "hookRun", "hook"),
+    countSemanticLabel(items, "reasoningNote", "thought", "thought notes"),
+    countSemanticLabel(items, "contextCompaction", "context compaction"),
+    countSemanticLabel(items, "approvalResult", "approval"),
+    countSemanticLabel(items, "userInputResult", "input"),
+    countSemanticLabel(items, "reviewResult", "review"),
+    countSemanticLabel(items, "goalChange", "goal"),
   ].filter((part): part is string => Boolean(part));
 
   if (parts.length === 0) return "Work details";
   return `Work details: ${parts.join(", ")}`;
 }
 
-function isSteeringActivityDisplayItem(item: DisplayItem): boolean {
-  return item.kind === "tool" && item.activityKind === STEERING_ACTIVITY_KIND;
-}
-
-function countMatchingLabel(
-  items: readonly DisplayItem[],
-  predicate: (item: DisplayItem) => boolean,
+function countSemanticLabel(
+  items: readonly GroupedActivity[],
+  semanticKind: TimelineSemanticKind,
   label: string,
   pluralLabel = `${label}s`,
 ): string | null {
-  const count = items.filter(predicate).length;
-  if (count === 0) return null;
-  if (count === 1) return label;
-  return `${String(count)} ${pluralLabel}`;
-}
-
-function countLabel(items: readonly DisplayItem[], kind: DisplayKind, label: string, pluralLabel = `${label}s`): string | null {
-  const count = items.filter((item) => item.kind === kind).length;
+  const count = items.filter((item) => item.semanticKind === semanticKind).length;
   if (count === 0) return null;
   if (count === 1) return label;
   return `${String(count)} ${pluralLabel}`;

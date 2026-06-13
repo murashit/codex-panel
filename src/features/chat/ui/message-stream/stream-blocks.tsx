@@ -2,42 +2,27 @@ import { Fragment, type ComponentChild as UiNode } from "preact";
 
 import { activeTurnId } from "../../state/reducer";
 import { displayBlocksForItems } from "../../display/stream/blocks";
-import type { ToolResultDisplayItem } from "./tool-result-view-model";
 import type { DisplayBlock, DisplayItem } from "../../display/types";
+import { timelineItemFromDisplayItem, timelineItemsFromDisplayItems } from "../../display/timeline/from-display";
+import type { TimelineItem } from "../../display/timeline/types";
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { toolResultNode } from "./tool-result";
-import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode, type WorkItemDisplayItem } from "./work-items";
-import type { MessageStreamBlock, MessageStreamContext, TextDisplayItem } from "./context";
+import { activeAgentRunSummaryBlock, agentRunSummaryNode, workItemNode } from "./work-items";
+import type { MessageStreamBlock, MessageStreamContext } from "./context";
 import { textItemNode } from "./text-item";
 
 function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLifecycle">): string | null {
   return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 
-function isTextDisplayItem(item: DisplayItem): item is TextDisplayItem {
-  return item.kind === "message" || item.kind === "system" || item.kind === "userInputResult";
-}
-
-function isRenderableToolResultItem(item: DisplayItem): item is ToolResultDisplayItem {
-  return (
-    item.kind === "command" ||
-    item.kind === "fileChange" ||
-    item.kind === "goal" ||
-    item.kind === "tool" ||
-    item.kind === "hook" ||
-    item.kind === "reviewResult" ||
-    item.kind === "approvalResult"
-  );
-}
-
-function isRenderableWorkItem(item: DisplayItem): item is WorkItemDisplayItem {
-  return item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning" || item.kind === "contextCompaction";
-}
-
 function displayItemNode(item: DisplayItem, context: MessageStreamContext): UiNode {
-  if (isTextDisplayItem(item)) return textItemNode(item, context);
-  if (isRenderableToolResultItem(item)) return toolResultNode(item, context);
-  if (isRenderableWorkItem(item)) return workItemNode(item, context);
+  return timelineItemNode(timelineItemFromDisplayItem(item), context);
+}
+
+function timelineItemNode(item: TimelineItem, context: MessageStreamContext): UiNode {
+  if (item.renderSurface === "textMessage") return textItemNode(item.displayItem, context);
+  if (item.renderSurface === "toolResult") return toolResultNode(item.displayItem, context);
+  return workItemNode(item.displayItem, context);
 }
 
 export function messageStreamBlocks(context: MessageStreamContext): MessageStreamBlock[] {
@@ -123,14 +108,15 @@ function bottomLiveBlocks(context: MessageStreamContext, activeTurn: string | nu
 
 function activeTurnLiveBlocks(context: MessageStreamContext, activeTurn: string): MessageStreamBlock[] {
   const items = context.activeItems ?? context.displayItems;
-  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(items, activeTurn);
+  const timelineItems = timelineItemsFromDisplayItems(items);
+  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(timelineItems, activeTurn);
   const agentSummary = agentSummaryAnchorId ? activeAgentRunSummaryBlock(context) : null;
-  const blocks = items.flatMap((item): MessageStreamBlock[] => {
-    if (item.kind === "taskProgress" && item.turnId === activeTurn) {
+  const blocks = timelineItems.flatMap((item): MessageStreamBlock[] => {
+    if (item.semanticKind === "taskProgress" && item.turnId === activeTurn) {
       return [
         {
           key: `live-task:${item.id}`,
-          node: workItemNode(item, context),
+          node: workItemNode(asWorkItem(item).displayItem, context),
         },
       ];
     }
@@ -149,9 +135,14 @@ function activeTurnLiveBlocks(context: MessageStreamContext, activeTurn: string)
   return blocks;
 }
 
-function activeAgentRunSummaryAnchorId(items: readonly DisplayItem[], activeTurn: string): string | null {
-  const firstActiveAgent = items.find((item) => item.kind === "agent" && item.turnId === activeTurn);
+function activeAgentRunSummaryAnchorId(items: readonly TimelineItem[], activeTurn: string): string | null {
+  const firstActiveAgent = items.find((item) => item.semanticKind === "agentActivity" && item.turnId === activeTurn);
   return firstActiveAgent?.id ?? null;
+}
+
+function asWorkItem(item: TimelineItem): Extract<TimelineItem, { renderSurface: "workItem" }> {
+  if (item.renderSurface !== "workItem") throw new Error(`Expected work item timeline surface for ${item.id}`);
+  return item;
 }
 
 function withoutActiveTaskProgress(items: readonly DisplayItem[], activeTurn: string): DisplayItem[] {

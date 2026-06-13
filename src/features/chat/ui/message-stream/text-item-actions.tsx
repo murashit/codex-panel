@@ -3,6 +3,7 @@ import { useEffect, useRef } from "preact/hooks";
 
 import { activeTurnId } from "../../state/reducer";
 import type { DisplayItem } from "../../display/types";
+import { timelineItemFromDisplayItem } from "../../display/timeline/from-display";
 import { IconButton } from "../../../../shared/ui/components";
 import { listenDomEvent } from "../../../../shared/ui/dom-events";
 import type { TextItemActionContext, TextDisplayItem } from "./context";
@@ -109,11 +110,10 @@ function TextItemAction({
 }
 
 function displayRoleLabel(item: DisplayItem): string {
-  if (item.kind === "approvalResult") return "Approval";
-  if (item.kind === "userInputResult") return "Input";
-  if (item.kind === "reviewResult") return "Review";
-  if (item.role === "user") return "You";
-  if (item.role === "assistant") return "Codex";
+  const timeline = timelineItemFromDisplayItem(item);
+  if (timeline.semanticKind === "userInputResult") return "Input";
+  if (timeline.authorship === "user") return "You";
+  if (timeline.authorship === "assistant") return "Codex";
   return "System";
 }
 

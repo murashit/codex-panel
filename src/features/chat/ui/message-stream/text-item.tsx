@@ -2,6 +2,7 @@ import { type ComponentChild as UiNode, type Ref } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { DisplayItem, ExecutionState } from "../../display/types";
+import { timelineItemFromDisplayItem } from "../../display/timeline/from-display";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { TextItemContentContext, TextItemContext, TextDisplayItem } from "./context";
 import { TextItemHeader } from "./text-item-actions";
@@ -161,8 +162,7 @@ function textItemContentKey(item: TextDisplayItem): string {
 }
 
 function contentRenderMode(item: TextDisplayItem): "markdown" | "text" {
-  if (item.kind !== "message") return "text";
-  return item.messageKind === "proposedPlan" && item.messageState === "streaming" ? "text" : "markdown";
+  return timelineItemFromDisplayItem(item).detailShape === "markdownText" ? "markdown" : "text";
 }
 
 function executionClassName(state: ExecutionState): string {

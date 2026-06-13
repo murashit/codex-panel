@@ -1,4 +1,5 @@
 import type { AssistantAuthoredMessageDisplayItem, DisplayItem } from "./types";
+import { timelineActionsForDisplayItem, timelineItemsFromDisplayItems } from "./timeline/from-display";
 
 export interface ForkCandidate {
   displayItemId: string;
@@ -12,8 +13,8 @@ interface RollbackCandidateItem {
 
 export function forkCandidatesFromItems(items: readonly DisplayItem[]): readonly ForkCandidate[] {
   const turnOutcomeItemsByTurn = new Map<string, ForkCandidate>();
-  for (const item of items) {
-    if (!item.turnId || !isCompletedTurnOutcomeMessage(item)) continue;
+  for (const item of timelineItemsFromDisplayItems(items)) {
+    if (!item.turnId || !item.actions.isTurnOutcome) continue;
     turnOutcomeItemsByTurn.set(item.turnId, { displayItemId: item.id, turnId: item.turnId });
   }
   return [...turnOutcomeItemsByTurn.values()];
@@ -24,7 +25,7 @@ export function isAssistantAuthoredMessage(item: DisplayItem): item is Assistant
 }
 
 export function isCompletedTurnOutcomeMessage(item: DisplayItem): boolean {
-  return isAssistantAuthoredMessage(item) && item.messageState === "completed";
+  return timelineActionsForDisplayItem(item).isTurnOutcome;
 }
 
 export function isForkCandidateItem(item: DisplayItem, candidates: readonly ForkCandidate[]): boolean {

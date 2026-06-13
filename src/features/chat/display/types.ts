@@ -213,7 +213,7 @@ export interface AgentRunSummary {
   additionalAgents: number;
 }
 
-export type DisplayItem =
+export type MessageStreamItem =
   | MessageDisplayItem
   | SystemMessageDisplayItem
   | GoalDisplayItem
@@ -229,15 +229,17 @@ export type DisplayItem =
   | ApprovalResultDisplayItem
   | ReviewResultDisplayItem;
 
+export type DisplayItem = MessageStreamItem;
+
 export type DisplayBlock =
   | {
       type: "item";
-      item: DisplayItem;
+      item: MessageStreamItem;
     }
   | {
       type: "activityGroup";
       id: string;
       turnId: string;
       summary: string;
-      items: DisplayItem[];
+      items: MessageStreamItem[];
     };
