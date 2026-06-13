@@ -1,5 +1,4 @@
 import type { App, Component, EventRef } from "obsidian";
-import type { ComponentChild as UiNode } from "preact";
 
 import type { AppServerClient } from "../../app-server/connection/client";
 import type { ArchiveExportAdapter } from "../thread-export/archive-markdown";
@@ -9,8 +8,10 @@ import type { DisplayDetailSection, DisplayItem } from "./display/types";
 import type { ChatConnectionWorkTracker, ChatResumeWorkTracker, ChatViewDeferredTasks } from "./lifecycle";
 import type { ComposerMetaViewModel } from "./ui/composer";
 import type { CodexChatHost } from "./chat-host";
+import type { ChatPanelShellSlots } from "./ui/shell";
+import type { ChatPanelComposerShellState } from "./ui/shell-state";
 
-export interface ChatControllerCompositionPorts {
+export interface ChatControllerPorts {
   obsidian: ChatPanelObsidianContext;
   plugin: CodexChatHost;
   state: ChatPanelStateContext;
@@ -60,18 +61,15 @@ interface ChatPanelLifecycleContext {
 
 interface ChatPanelRenderContext {
   panelRoot: () => HTMLElement | null;
-  toolbarNode: () => UiNode;
-  goalNode: () => UiNode;
-  messageStreamNode: () => UiNode;
-  composerNode: () => UiNode;
+  shellSlots: () => ChatPanelShellSlots;
   closeToolbarPanelOnOutsidePointer: (event: PointerEvent) => void;
   schedule: () => void;
 }
 
 interface ChatPanelSurfaceContext {
   pendingRequestsSignature: () => string;
-  composerPlaceholder: () => string;
-  composerMetaViewModel: () => ComposerMetaViewModel;
+  composerPlaceholder: (state: ChatPanelComposerShellState) => string;
+  composerMetaViewModel: (state: ChatPanelComposerShellState) => ComposerMetaViewModel;
 }
 
 interface ChatPanelRuntimeContext {

@@ -54,67 +54,7 @@ type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;
 };
 
-const DEFAULT_COMPOSER_META: ComposerMetaViewModel = {
-  fatal: null,
-  context: {
-    cells: [
-      { text: "⣀", placeholder: true },
-      { text: "⣀", placeholder: true },
-      { text: "⣀", placeholder: true },
-      { text: "⣀", placeholder: true },
-    ],
-    percent: "--%",
-  },
-  statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-  model: "default",
-  effort: null,
-  planActive: false,
-  autoReviewActive: false,
-  fastActive: false,
-  modelChoices: [],
-  effortChoices: [],
-};
-
-export function composerShellNode(
-  viewId: string,
-  draft: string,
-  busy: boolean,
-  canInterrupt: boolean,
-  normalPlaceholder: string,
-  suggestions: readonly ComposerSuggestion[],
-  selectedSuggestionIndex: number,
-  callbacks: ComposerCallbacks,
-  meta: ComposerMetaViewModel = DEFAULT_COMPOSER_META,
-  onComposer: (composer: HTMLTextAreaElement | null) => void,
-): UiNode {
-  return (
-    <ComposerShell
-      viewId={viewId}
-      draft={draft}
-      busy={busy}
-      canInterrupt={canInterrupt}
-      normalPlaceholder={normalPlaceholder}
-      meta={meta}
-      suggestions={suggestions}
-      selectedSuggestionIndex={selectedSuggestionIndex}
-      callbacks={callbacks}
-      onComposer={onComposer}
-    />
-  );
-}
-
-function ComposerShell({
-  viewId,
-  draft,
-  busy,
-  canInterrupt,
-  normalPlaceholder,
-  meta,
-  suggestions,
-  selectedSuggestionIndex,
-  callbacks,
-  onComposer,
-}: {
+export interface ComposerShellProps {
   viewId: string;
   draft: string;
   busy: boolean;
@@ -125,7 +65,20 @@ function ComposerShell({
   selectedSuggestionIndex: number;
   callbacks: ComposerCallbacks;
   onComposer: (composer: HTMLTextAreaElement | null) => void;
-}): UiNode {
+}
+
+export function ComposerShell({
+  viewId,
+  draft,
+  busy,
+  canInterrupt,
+  normalPlaceholder,
+  meta,
+  suggestions,
+  selectedSuggestionIndex,
+  callbacks,
+  onComposer,
+}: ComposerShellProps): UiNode {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const selectedSuggestionRef = useRef<HTMLDivElement | null>(null);

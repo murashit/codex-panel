@@ -15,6 +15,7 @@ import {
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
+import { chatStateDisplayItems, setChatStateDisplayItems } from "../../support/message-stream";
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
 
@@ -68,14 +69,14 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
       } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
 
-      expect(state.messageStream.displayItems).toMatchObject([{ id: "a1", text: "hello" }]);
+      expect(chatStateDisplayItems(state)).toMatchObject([{ id: "a1", text: "hello" }]);
     });
 
     it("marks active reasoning completed when assistant text starts", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
       state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      state.messageStream.displayItems = [{ id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" }];
+      setChatStateDisplayItems(state, [{ id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" }]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -83,7 +84,7 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "answer" },
       } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
 
-      expect(state.messageStream.displayItems).toEqual(
+      expect(chatStateDisplayItems(state)).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "r1", kind: "reasoning", status: "completed", executionState: "completed" }),
           expect.objectContaining({ id: "a1", kind: "message", text: "answer" }),
@@ -102,7 +103,7 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta: "<proposed_plan>\n# Plan" },
       } satisfies Extract<ServerNotification, { method: "item/plan/delta" }>);
 
-      expect(state.messageStream.displayItems).toMatchObject([
+      expect(chatStateDisplayItems(state)).toMatchObject([
         { id: "p1", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "# Plan", messageState: "streaming" },
       ]);
     });
@@ -135,7 +136,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(state.messageStream.displayItems).toEqual([
+      expect(chatStateDisplayItems(state)).toEqual([
         expect.objectContaining({
           id: "p1",
           kind: "message",
@@ -163,7 +164,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/plan/updated" }>);
 
-      expect(state.messageStream.displayItems).toMatchObject([
+      expect(chatStateDisplayItems(state)).toMatchObject([
         {
           id: "plan-progress-turn-active",
           kind: "taskProgress",
@@ -254,7 +255,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(state.messageStream.displayItems).toMatchObject([
+      expect(chatStateDisplayItems(state)).toMatchObject([
         {
           id: "hook-hook-1-1",
           kind: "hook",
@@ -307,7 +308,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(state.messageStream.displayItems[0]).toMatchObject({
+      expect(chatStateDisplayItems(state)[0]).toMatchObject({
         kind: "hook",
         details: [
           {
@@ -350,7 +351,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(state.messageStream.displayItems[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook", turnId: "turn-active" });
+      expect(chatStateDisplayItems(state)[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook", turnId: "turn-active" });
     });
 
     it("leaves non-prompt unscoped hook runs outside the active turn", () => {
@@ -383,8 +384,8 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(state.messageStream.displayItems[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(state.messageStream.displayItems[0]?.turnId).toBeUndefined();
+      expect(chatStateDisplayItems(state)[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(chatStateDisplayItems(state)[0]?.turnId).toBeUndefined();
     });
 
     it("keeps repeated hook runs with the same run id as separate display items", () => {
@@ -418,7 +419,7 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", run: { ...baseRun, startedAt: 3n } },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(state.messageStream.displayItems.map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
+      expect(chatStateDisplayItems(state).map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
     });
 
     it("attaches pre-turn prompt submit hook runs when the turn starts", () => {
@@ -428,7 +429,7 @@ describe("ChatInboundController", () => {
         kind: "starting",
         pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
       };
-      state.messageStream.displayItems = [
+      setChatStateDisplayItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
@@ -438,7 +439,7 @@ describe("ChatInboundController", () => {
           toolLabel: "hook",
           status: "completed",
         },
-      ];
+      ]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -458,8 +459,8 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
-      expect(state.messageStream.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(state.messageStream.displayItems[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
+      expect(chatStateDisplayItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(chatStateDisplayItems(state)[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
       expect(pendingTurnStart(state)).toBeNull();
     });
 
@@ -524,8 +525,8 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(expectPresent(state.messageStream.displayItems[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(expectPresent(state.messageStream.displayItems[0]).turnId).toBeUndefined();
+      expect(expectPresent(chatStateDisplayItems(state)[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(expectPresent(chatStateDisplayItems(state)[0]).turnId).toBeUndefined();
       expect(expectPresent(pendingTurnStart(state)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
@@ -533,7 +534,7 @@ describe("ChatInboundController", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
       state.turn.lifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } };
-      state.messageStream.displayItems = [{ id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" }];
+      setChatStateDisplayItems(state, [{ id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" }]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -541,8 +542,8 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: null, run: promptSubmitHookRun("hook-1", 1n) },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(state.messageStream.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(expectPresent(state.messageStream.displayItems[1]).turnId).toBeUndefined();
+      expect(chatStateDisplayItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(expectPresent(chatStateDisplayItems(state)[1]).turnId).toBeUndefined();
       expect(expectPresent(pendingTurnStart(state)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
 
       controller.handleNotification({
@@ -562,9 +563,9 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
-      expect(state.messageStream.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(state.messageStream.displayItems.find((item) => item.id === "local-user-1")).not.toHaveProperty("turnId");
-      expect(state.messageStream.displayItems.find((item) => item.id === "hook-hook-1-1")).toMatchObject({ turnId: "turn-active" });
+      expect(chatStateDisplayItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(chatStateDisplayItems(state).find((item) => item.id === "local-user-1")).not.toHaveProperty("turnId");
+      expect(chatStateDisplayItems(state).find((item) => item.id === "hook-hook-1-1")).toMatchObject({ turnId: "turn-active" });
       expect(pendingTurnStart(state)).toBeNull();
 
       controller.handleNotification({
@@ -587,15 +588,15 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(state.messageStream.displayItems.map((item) => item.id)).toEqual(["u1", "hook-hook-1-1", "a1"]);
-      expect(state.messageStream.displayItems).toEqual(
+      expect(chatStateDisplayItems(state).map((item) => item.id)).toEqual(["u1", "hook-hook-1-1", "a1"]);
+      expect(chatStateDisplayItems(state)).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", text: "hello", turnId: "turn-active" }),
           expect.objectContaining({ id: "hook-hook-1-1", kind: "hook", turnId: "turn-active" }),
           expect.objectContaining({ id: "a1", text: "done", turnId: "turn-active" }),
         ]),
       );
-      expect(state.messageStream.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
+      expect(chatStateDisplayItems(state).some((item) => item.id === "local-user-1")).toBe(false);
     });
 
     it("ignores completed turn notifications while a new turn is still starting", () => {
@@ -605,7 +606,7 @@ describe("ChatInboundController", () => {
         kind: "starting",
         pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
       };
-      state.messageStream.displayItems = [
+      setChatStateDisplayItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
@@ -615,7 +616,7 @@ describe("ChatInboundController", () => {
           toolLabel: "hook",
           status: "completed",
         },
-      ];
+      ]);
       const maybeNameThread = vi.fn();
       const refreshThreads = vi.fn();
       const controller = controllerForState(state, { maybeNameThread, refreshThreads });
@@ -638,7 +639,7 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
       expect(pendingTurnStart(state)).toEqual({ anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] });
-      expect(state.messageStream.displayItems.map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(chatStateDisplayItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
       expect(refreshThreads).not.toHaveBeenCalled();
     });
@@ -686,7 +687,7 @@ describe("ChatInboundController", () => {
 
       expect(recordMcpStartupStatus).toHaveBeenCalledWith("github", "failed", "missing token");
       expect(publishAppServerMetadata).toHaveBeenCalledOnce();
-      expect(state.messageStream.displayItems).toEqual([]);
+      expect(chatStateDisplayItems(state)).toEqual([]);
     });
   });
 
@@ -720,7 +721,7 @@ describe("ChatInboundController", () => {
       controller.resolveUserInput(expectPresent(state.requests.pendingUserInputs[0]), { scope: "Narrow" });
       expect(respondToServerRequest).toHaveBeenCalledWith(42, { answers: { scope: { answers: ["Narrow"] } } });
       expect(state.requests.pendingUserInputs).toEqual([]);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+      expect(chatStateDisplayItems(state).at(-1)).toMatchObject({
         kind: "userInputResult",
         role: "tool",
         text: "Input submitted for 1 question.",
@@ -748,7 +749,7 @@ describe("ChatInboundController", () => {
       controller.cancelUserInput(expectPresent(state.requests.pendingUserInputs[0]));
       expect(rejectServerRequest).toHaveBeenCalledWith(43, -32000, "User cancelled input request.");
       expect(state.requests.pendingUserInputs).toEqual([]);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+      expect(chatStateDisplayItems(state).at(-1)).toMatchObject({
         kind: "userInputResult",
         role: "tool",
         text: "Input request cancelled for 1 question.",
@@ -772,7 +773,7 @@ describe("ChatInboundController", () => {
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(rejectServerRequest).not.toHaveBeenCalled();
       expect(state.requests.pendingUserInputs).toEqual([current]);
-      expect(state.messageStream.displayItems).toEqual([]);
+      expect(chatStateDisplayItems(state)).toEqual([]);
     });
 
     it("records manual permission approvals as colored result items", () => {
@@ -788,7 +789,7 @@ describe("ChatInboundController", () => {
         permissions: {},
       });
       expect(state.requests.approvals).toEqual([]);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+      expect(chatStateDisplayItems(state).at(-1)).toMatchObject({
         id: "approval-12",
         kind: "approvalResult",
         role: "tool",
@@ -822,7 +823,7 @@ describe("ChatInboundController", () => {
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(state.requests.approvals).toEqual([current]);
-      expect(state.messageStream.displayItems).toEqual([]);
+      expect(chatStateDisplayItems(state)).toEqual([]);
     });
 
     it("handles known server request families and rejects unsupported requests by default", () => {
@@ -853,8 +854,12 @@ describe("ChatInboundController", () => {
         -32601,
         "Rejected unknown app-server request: appServer/newFutureRequest",
       );
-      expect(state.messageStream.displayItems.map((item) => item.text)).toEqual(unsupportedMessages);
-      expect(state.messageStream.displayItems.map((item) => item.text).join("\n")).not.toContain("do-not-render");
+      expect(chatStateDisplayItems(state).map((item) => item.text)).toEqual(unsupportedMessages);
+      expect(
+        chatStateDisplayItems(state)
+          .map((item) => item.text)
+          .join("\n"),
+      ).not.toContain("do-not-render");
     });
 
     it("keeps unknown server request fallback out of the normal message stream", () => {
@@ -865,7 +870,7 @@ describe("ChatInboundController", () => {
       controller.handleServerRequest(unknownRequest());
 
       expect(rejectServerRequest).toHaveBeenCalledWith(27, -32601, "Rejected unknown app-server request: appServer/newFutureRequest");
-      expect(state.messageStream.displayItems).toEqual([]);
+      expect(chatStateDisplayItems(state)).toEqual([]);
     });
 
     it("rejects server requests scoped to a different active thread or turn", () => {
@@ -943,7 +948,7 @@ describe("ChatInboundController", () => {
       controller.resolveUserInput(expectPresent(state.requests.pendingUserInputs[0]), { note: "Later" });
 
       expect(state.requests.pendingUserInputs).toHaveLength(1);
-      expect(state.messageStream.displayItems).toEqual([
+      expect(chatStateDisplayItems(state)).toEqual([
         expect.objectContaining({ kind: "system", text: "Could not send user input because Codex app-server is not connected." }),
       ]);
     });
@@ -997,7 +1002,7 @@ describe("ChatInboundController", () => {
         params: { threadId: null, message: "careful" },
       } satisfies Extract<ServerNotification, { method: "warning" }>);
 
-      expect(state.messageStream.displayItems).toEqual([
+      expect(chatStateDisplayItems(state)).toEqual([
         expect.objectContaining({
           kind: "system",
           text: 'warning: {\n  "threadId": null,\n  "message": "careful"\n}',
@@ -1018,9 +1023,9 @@ describe("ChatInboundController", () => {
       };
       state.messageStream.historyCursor = "cursor";
       state.messageStream.loadingHistory = true;
-      state.messageStream.displayItems = [
+      setChatStateDisplayItems(state, [
         { id: "message", kind: "message", role: "assistant", text: "stale", messageKind: "assistantResponse", messageState: "completed" },
-      ];
+      ]);
       state.messageStream.turnDiffs = new Map([["turn-active", "@@\n-stale\n+stale"]]);
       state.composer.draft = "thread draft";
       state.requests.approvals = [
@@ -1061,7 +1066,7 @@ describe("ChatInboundController", () => {
       expect(state.activeThread.tokenUsage).toBeNull();
       expect(state.messageStream.historyCursor).toBeNull();
       expect(state.messageStream.loadingHistory).toBe(false);
-      expect(state.messageStream.displayItems).toEqual([]);
+      expect(chatStateDisplayItems(state)).toEqual([]);
       expect(state.messageStream.turnDiffs.size).toBe(0);
       expect(state.composer.draft).toBe("");
       expect(chatTurnBusy(state)).toBe(false);
@@ -1102,7 +1107,7 @@ describe("ChatInboundController", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
       state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      state.messageStream.displayItems = [
+      setChatStateDisplayItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello", turnId: "turn-active" },
         {
           id: "a1",
@@ -1114,7 +1119,7 @@ describe("ChatInboundController", () => {
           text: "partial",
           turnId: "turn-active",
         },
-      ];
+      ]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1137,22 +1142,22 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(state.messageStream.displayItems.filter((item) => item.kind === "message" && item.role === "user")).toEqual([
+      expect(chatStateDisplayItems(state).filter((item) => item.kind === "message" && item.role === "user")).toEqual([
         expect.objectContaining({ id: "u1", text: "hello" }),
       ]);
-      expect(state.messageStream.displayItems).toEqual(expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done" })]));
-      expect(state.messageStream.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
+      expect(chatStateDisplayItems(state)).toEqual(expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done" })]));
+      expect(chatStateDisplayItems(state).some((item) => item.id === "local-user-1")).toBe(false);
     });
 
     it("reconciles optimistic user echoes by client id before falling back to text only when client ids are absent", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
       state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      state.messageStream.displayItems = [
+      setChatStateDisplayItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
         { id: "local-steer-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
         { id: "local-user-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-other" },
-      ];
+      ]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1180,19 +1185,19 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(state.messageStream.displayItems).toEqual(
+      expect(chatStateDisplayItems(state)).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "same text" }),
           expect.objectContaining({ id: "local-steer-2", text: "same text" }),
           expect.objectContaining({ id: "local-user-2", text: "same text" }),
         ]),
       );
-      expect(state.messageStream.displayItems.some((item) => item.id === "local-user-1")).toBe(false);
+      expect(chatStateDisplayItems(state).some((item) => item.id === "local-user-1")).toBe(false);
 
       const fallbackStateWithoutClientId = createChatState();
       fallbackStateWithoutClientId.activeThread.id = "thread-active";
       fallbackStateWithoutClientId.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      fallbackStateWithoutClientId.messageStream.displayItems = [
+      setChatStateDisplayItems(fallbackStateWithoutClientId, [
         {
           id: "local-user-without-client-id",
           kind: "message",
@@ -1201,7 +1206,7 @@ describe("ChatInboundController", () => {
           text: "fallback text",
           turnId: "turn-active",
         },
-      ];
+      ]);
       const fallbackControllerWithoutClientId = controllerForState(fallbackStateWithoutClientId);
 
       fallbackControllerWithoutClientId.handleNotification({
@@ -1228,19 +1233,17 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(fallbackStateWithoutClientId.messageStream.displayItems).toEqual([
+      expect(chatStateDisplayItems(fallbackStateWithoutClientId)).toEqual([
         expect.objectContaining({ id: "server-u1", text: "fallback text" }),
       ]);
-      expect(fallbackStateWithoutClientId.messageStream.displayItems.some((item) => item.id === "local-user-without-client-id")).toBe(
-        false,
-      );
+      expect(chatStateDisplayItems(fallbackStateWithoutClientId).some((item) => item.id === "local-user-without-client-id")).toBe(false);
     });
 
     it("keeps the observed steer message order when completed turns reconcile by client id", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
       state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      state.messageStream.displayItems = [
+      setChatStateDisplayItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "start", turnId: "turn-active" },
         {
           id: "a1",
@@ -1253,7 +1256,7 @@ describe("ChatInboundController", () => {
           turnId: "turn-active",
         },
         { id: "local-steer-1", kind: "message", messageKind: "user", role: "user", text: "steer", turnId: "turn-active" },
-      ];
+      ]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1278,8 +1281,8 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(state.messageStream.displayItems.map((item) => item.id)).toEqual(["u1", "a1", "u2", "a2"]);
-      expect(state.messageStream.displayItems).toEqual(
+      expect(chatStateDisplayItems(state).map((item) => item.id)).toEqual(["u1", "a1", "u2", "a2"]);
+      expect(chatStateDisplayItems(state)).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "start" }),
           expect.objectContaining({ id: "a1", text: "first done" }),
@@ -1371,7 +1374,7 @@ describe("ChatInboundController", () => {
       expect(state.runtime.activeApprovalPolicy).toBe("on-request");
       expect(state.runtime.activeApprovalsReviewer).toBe("auto_review");
       expect(state.runtime.activePermissionProfile).toBeNull();
-      expect(state.messageStream.displayItems).toEqual([]);
+      expect(chatStateDisplayItems(state)).toEqual([]);
     });
 
     it("ignores settings notifications for inactive threads", () => {
@@ -1471,21 +1474,21 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
       expect(state.activeThread.goal).toEqual(goal);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({ kind: "goal", text: "set: Finish", objective: "Finish" });
+      expect(chatStateDisplayItems(state).at(-1)).toMatchObject({ kind: "goal", text: "set: Finish", objective: "Finish" });
 
-      const afterSetMessageCount = state.messageStream.displayItems.length;
+      const afterSetMessageCount = chatStateDisplayItems(state).length;
       controller.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(state.messageStream.displayItems).toHaveLength(afterSetMessageCount);
+      expect(chatStateDisplayItems(state)).toHaveLength(afterSetMessageCount);
 
       const updatedGoal = { ...goal, objective: "Finish well", updatedAt: 2 };
       controller.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: updatedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+      expect(chatStateDisplayItems(state).at(-1)).toMatchObject({
         kind: "goal",
         text: "updated: Finish well",
         objective: "Finish well",
@@ -1499,7 +1502,7 @@ describe("ChatInboundController", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: pausedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+      expect(chatStateDisplayItems(state).at(-1)).toMatchObject({
         kind: "goal",
         text: "paused: Finish well",
         objective: "Finish well",
@@ -1513,18 +1516,18 @@ describe("ChatInboundController", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: resumedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+      expect(chatStateDisplayItems(state).at(-1)).toMatchObject({
         kind: "goal",
         text: "resumed: Finish well",
         objective: "Finish well",
       });
 
-      const messageCount = state.messageStream.displayItems.length;
+      const messageCount = chatStateDisplayItems(state).length;
       controller.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: { ...resumedGoal, tokensUsed: 10, timeUsedSeconds: 20 } },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(state.messageStream.displayItems).toHaveLength(messageCount);
+      expect(chatStateDisplayItems(state)).toHaveLength(messageCount);
 
       controller.handleNotification({
         method: "thread/goal/cleared",
@@ -1532,7 +1535,7 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
 
       expect(state.activeThread.goal).toBeNull();
-      expect(state.messageStream.displayItems.at(-1)).toMatchObject({
+      expect(chatStateDisplayItems(state).at(-1)).toMatchObject({
         kind: "goal",
         text: "cleared: Finish well",
         objective: "Finish well",
@@ -1567,15 +1570,15 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
       expect(state.activeThread.goal).toEqual(completedGoal);
-      expect(state.messageStream.displayItems).toHaveLength(1);
-      expect(state.messageStream.displayItems[0]).toMatchObject({ kind: "goal", text: "completed: Finish", objective: "Finish" });
+      expect(chatStateDisplayItems(state)).toHaveLength(1);
+      expect(chatStateDisplayItems(state)[0]).toMatchObject({ kind: "goal", text: "completed: Finish", objective: "Finish" });
 
       controller.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: "turn-1", goal: { ...completedGoal, tokensUsed: 43 } },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
-      expect(state.messageStream.displayItems).toHaveLength(1);
+      expect(chatStateDisplayItems(state)).toHaveLength(1);
     });
 
     it("ignores goal notifications that do not match the active thread", () => {
@@ -1621,7 +1624,7 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", message: "Auto-review denied this command." },
       } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
 
-      expect(state.messageStream.displayItems).toMatchObject([
+      expect(chatStateDisplayItems(state)).toMatchObject([
         {
           kind: "reviewResult",
           role: "tool",
@@ -1663,14 +1666,14 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
 
-      expect(state.messageStream.displayItems).toHaveLength(1);
-      expect(state.messageStream.displayItems[0]).toMatchObject({
+      expect(chatStateDisplayItems(state)).toHaveLength(1);
+      expect(chatStateDisplayItems(state)[0]).toMatchObject({
         id: "review-review-1",
         kind: "reviewResult",
         text: "Auto-review approved: npm test",
         executionState: "completed",
       });
-      const reviewItem = expectPresent(state.messageStream.displayItems[0]);
+      const reviewItem = expectPresent(chatStateDisplayItems(state)[0]);
       expect("details" in reviewItem ? reviewItem.details[0] : null).toMatchObject({
         title: "Review",
         rows: expect.arrayContaining([{ key: "status", value: "approved" }]),
@@ -1702,8 +1705,8 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
 
-      expect(state.messageStream.displayItems).toHaveLength(1);
-      expect(state.messageStream.displayItems[0]).toMatchObject({
+      expect(chatStateDisplayItems(state)).toHaveLength(1);
+      expect(chatStateDisplayItems(state)[0]).toMatchObject({
         id: "review-review-1",
         kind: "reviewResult",
         text: "Auto-review approved: npm test",
@@ -1736,8 +1739,8 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
       } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
 
-      expect(state.messageStream.displayItems).toHaveLength(1);
-      expect(state.messageStream.displayItems[0]).toMatchObject({ id: "review-review-1" });
+      expect(chatStateDisplayItems(state)).toHaveLength(1);
+      expect(chatStateDisplayItems(state)[0]).toMatchObject({ id: "review-review-1" });
     });
   });
 });

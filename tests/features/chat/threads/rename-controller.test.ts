@@ -9,30 +9,27 @@ import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
 describe("RenameController", () => {
-  it("notifies subscribers without rerendering after updating a controlled rename draft", () => {
+  it("updates its signal version without rerendering after changing a controlled rename draft", () => {
     const { controller, render } = controllerFixture();
-    const listener = vi.fn();
-    controller.subscribe(listener);
+    const initialVersion = controller.version.value;
 
     controller.start("thread");
     controller.updateDraft("thread", "New name");
 
-    expect(listener).toHaveBeenCalledTimes(2);
+    expect(controller.version.value).toBe(initialVersion + 2);
     expect(render).not.toHaveBeenCalled();
     expect(controller.editState("thread")).toEqual({ draft: "New name", generating: false });
   });
 
-  it("notifies subscribers when inline rename state changes", () => {
+  it("updates its signal version when inline rename state changes", () => {
     const { controller } = controllerFixture();
-    const listener = vi.fn();
-    const unsubscribe = controller.subscribe(listener);
 
     controller.start("thread");
     controller.updateDraft("thread", "New name");
-    unsubscribe();
+    const changedVersion = controller.version.value;
     controller.cancel("thread");
 
-    expect(listener).toHaveBeenCalledTimes(2);
+    expect(controller.version.value).toBe(changedVersion + 1);
   });
 
   it("applies generated rename drafts and clears the generating state", async () => {

@@ -37,7 +37,7 @@ interface RuntimeSnapshotInput {
   availableModels: ChatState["connection"]["availableModels"];
 }
 
-function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): RuntimeSnapshot {
+export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): RuntimeSnapshot {
   return {
     runtimeConfig: input.runtimeConfig,
     activeThreadId: input.activeThread.id,

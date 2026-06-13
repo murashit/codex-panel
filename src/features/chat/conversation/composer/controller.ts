@@ -1,12 +1,12 @@
 import type { App, EventRef } from "obsidian";
-import type { ComponentChild as UiNode } from "preact";
 
 import type { CodexInput } from "../../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../../shared/ui/textarea-caret";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
-import type { ComposerMetaViewModel } from "../../ui/composer";
-import { composerShellNode, syncComposerHeight, type ComposerCallbacks } from "../../ui/composer";
+import type { ComposerMetaViewModel, ComposerShellProps } from "../../ui/composer";
+import { syncComposerHeight, type ComposerCallbacks } from "../../ui/composer";
+import type { ChatPanelComposerShellState } from "../../ui/shell-state";
 import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "./boundary-scroll";
 import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./obsidian-context";
 import {
@@ -26,9 +26,9 @@ export interface ChatComposerControllerOptions {
   viewId: string;
   sendShortcut: () => SendShortcut;
   scrollThreadFromComposerEdges: () => boolean;
-  canInterrupt: () => boolean;
-  composerPlaceholder: () => string;
-  composerMeta: () => ComposerMetaViewModel;
+  canInterrupt: (state: ChatPanelComposerShellState) => boolean;
+  composerPlaceholder: (state: ChatPanelComposerShellState) => string;
+  composerMeta: (state: ChatPanelComposerShellState) => ComposerMetaViewModel;
   currentModelForSuggestions: () => string | null;
   togglePlan: () => void;
   toggleAutoReview: () => void;
@@ -78,20 +78,19 @@ export class ChatComposerController {
     registerEvent(this.options.app.vault.on("modify", invalidate));
   }
 
-  renderNode(): UiNode {
-    const state = this.state;
-    return composerShellNode(
-      this.options.viewId,
-      state.composer.draft,
-      chatTurnBusy(state),
-      this.options.canInterrupt(),
-      this.options.composerPlaceholder(),
-      state.composer.suggestions,
-      state.composer.suggestSelected,
-      this.composerCallbacks(),
-      this.options.composerMeta(),
-      this.setComposerElement,
-    );
+  renderState(state: ChatPanelComposerShellState = this.state): ComposerShellProps {
+    return {
+      viewId: this.options.viewId,
+      draft: state.composer.draft,
+      busy: chatTurnBusy(state),
+      canInterrupt: this.options.canInterrupt(state),
+      normalPlaceholder: this.options.composerPlaceholder(state),
+      suggestions: state.composer.suggestions,
+      selectedSuggestionIndex: state.composer.suggestSelected,
+      callbacks: this.composerCallbacks(),
+      meta: this.options.composerMeta(state),
+      onComposer: this.setComposerElement,
+    };
   }
 
   private readonly setComposerElement = (composer: HTMLTextAreaElement | null): void => {

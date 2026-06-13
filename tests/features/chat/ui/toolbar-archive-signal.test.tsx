@@ -2,19 +2,18 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
+import { signal } from "@preact/signals";
 
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { runtimeSnapshotForChatState } from "../../../../src/features/chat/runtime/snapshot";
 import {
   createToolbarArchiveConfirmState,
   createToolbarPanelActions,
   type ToolbarPanelActions,
-} from "../../../../src/features/chat/panel/regions/toolbar";
-import type { ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/regions/ports";
+} from "../../../../src/features/chat/panel/toolbar-actions";
+import type { ChatPanelSurfacePorts, ChatPanelToolbarPorts } from "../../../../src/features/chat/panel/surface/ports";
 import type { ChatThreadActions } from "../../../../src/features/chat/threads/action-context";
-import { renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
-import { chatPanelToolbarRegionNode } from "../../../../src/features/chat/panel/regions/toolbar";
+import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellSlots } from "../../../../src/features/chat/ui/shell";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -40,10 +39,7 @@ describe("chat toolbar archive confirmation signal", () => {
       renderChatPanelShell(container, {
         stateStore: store,
         showToolbar: true,
-        toolbarNode: () => chatPanelToolbarRegionNode(toolbarPorts(store, toolbarActions)),
-        goalNode: () => null,
-        messageStreamNode: () => <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages" />,
-        composerNode: () => null,
+        slots: shellSlots(store, toolbarActions),
       });
       await settle();
     });
@@ -67,24 +63,18 @@ describe("chat toolbar archive confirmation signal", () => {
 function toolbarPorts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelToolbarPorts {
   return {
     state: {
-      chat: () => store.getState(),
       connected: () => false,
-      turnBusy: () => false,
     },
     settings: {
       vaultPath: () => "/vault",
       configuredCommand: () => "codex",
       archiveExportEnabled: () => true,
     },
-    runtime: {
-      snapshot: () => runtimeSnapshotForChatState(store.getState()),
-    },
     view: {
       toolbar: {
-        archiveConfirmId: () => toolbarActions.archiveConfirmId(),
-        archiveConfirmSubscribe: (listener) => toolbarActions.onArchiveConfirmChange(listener),
+        archiveConfirm: toolbarActions.archiveConfirm,
         renameState: () => null,
-        renameSubscribe: () => () => undefined,
+        renameVersion: signal(0),
       },
     },
     actions: {
@@ -107,6 +97,86 @@ function toolbarPorts(store: ReturnType<typeof createChatStateStore>, toolbarAct
         saveRenameThread: vi.fn(),
         cancelRenameThread: vi.fn(),
         autoNameThread: vi.fn(),
+      },
+    },
+  };
+}
+
+function shellSlots(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelShellSlots {
+  const ports = surfacePorts(store, toolbarActions);
+  return {
+    toolbar: ports.toolbar,
+    goal: ports.goal,
+    messageStream: {
+      renderState: () => ({
+        blocks: [],
+        consumeScrollIntent: () => "auto",
+      }),
+    },
+    composer: {
+      renderState: () => ({
+        viewId: "view",
+        draft: "",
+        busy: false,
+        canInterrupt: false,
+        normalPlaceholder: "Ask Codex to work on this task...",
+        suggestions: [],
+        selectedSuggestionIndex: 0,
+        callbacks: {
+          onInput: vi.fn(),
+          onUpdateSuggestions: vi.fn(),
+          onKeydown: vi.fn(),
+          onSendOrInterrupt: vi.fn(),
+          onHeightChange: vi.fn(),
+          onSuggestionHover: vi.fn(),
+          onSuggestionInsert: vi.fn(),
+        },
+        meta: {
+          fatal: null,
+          context: {
+            cells: [
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+            ],
+            percent: "--%",
+          },
+          statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+          model: "default",
+          effort: null,
+          planActive: false,
+          autoReviewActive: false,
+          fastActive: false,
+          modelChoices: [],
+          effortChoices: [],
+        },
+        onComposer: () => undefined,
+      }),
+    },
+  };
+}
+
+function surfacePorts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelSurfacePorts {
+  return {
+    toolbar: toolbarPorts(store, toolbarActions),
+    goal: {
+      settings: { sendShortcut: () => "enter" },
+      actions: {
+        goal: {
+          saveObjective: async () => undefined,
+          setStatus: async () => undefined,
+          clear: async () => undefined,
+          setEditingOpen: () => undefined,
+        },
+      },
+    },
+    composer: {
+      thread: { restoredPlaceholder: () => null },
+      runtime: {
+        requestModel: async () => undefined,
+        requestReasoningEffort: async () => undefined,
+        resetReasoningEffortToConfig: async () => undefined,
       },
     },
   };

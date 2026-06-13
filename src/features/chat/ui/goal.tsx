@@ -6,31 +6,27 @@ import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboar
 import { IconButton } from "../../../shared/ui/components";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 
-export interface GoalRegionActions {
+export interface GoalPanelActions {
   onSave: (objective: string, tokenBudget: number | null) => void;
   onPause: () => void;
   onResume: () => void;
   onClear: () => void;
 }
 
-export interface GoalRegionOptions {
+export interface GoalPanelOptions {
   sendShortcut: SendShortcut;
   editingRequested?: boolean | undefined;
   onEditingChange?: (editing: boolean) => void;
 }
 
-export function goalRegionNode(goal: ThreadGoal | null, actions: GoalRegionActions, options: GoalRegionOptions): UiNode {
-  return <GoalRegion goal={goal} actions={actions} options={options} />;
-}
-
-function GoalRegion({
+export function GoalPanel({
   goal,
   actions,
   options,
 }: {
   goal: ThreadGoal | null;
-  actions: GoalRegionActions;
-  options: GoalRegionOptions;
+  actions: GoalPanelActions;
+  options: GoalPanelOptions;
 }): UiNode {
   const [editing, setEditing] = useState(false);
   const [objective, setObjective] = useState(goal?.objective ?? "");

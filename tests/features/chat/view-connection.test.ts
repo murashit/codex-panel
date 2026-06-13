@@ -12,6 +12,7 @@ import type { ServerNotification } from "../../../src/app-server/connection/rpc-
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
+import { chatStateDisplayItems } from "./support/message-stream";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 
@@ -256,7 +257,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     expect((view as unknown as { state: ChatState }).state.activeThread.id).toBe("thread-new");
     expect((view as unknown as { state: ChatState }).state.activeThread.goal?.objective).toBe("Ship the feature");
-    expect((view as unknown as { state: ChatState }).state.messageStream.displayItems).toContainEqual(
+    expect(chatStateDisplayItems((view as unknown as { state: ChatState }).state)).toContainEqual(
       expect.objectContaining({ kind: "goal", text: "set: Ship the feature", objective: "Ship the feature" }),
     );
     expect(view.containerEl.textContent).toContain("Ship the feature");

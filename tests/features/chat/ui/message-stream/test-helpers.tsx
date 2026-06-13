@@ -10,7 +10,7 @@ import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/mes
 import type { ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
-import { messageStreamViewportNode } from "../../../../../src/features/chat/ui/message-stream/viewport";
+import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(
@@ -57,10 +57,12 @@ export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: Mess
   void act(() => {
     renderUiRoot(
       parent,
-      messageStreamViewportNode({
-        blocks,
-        consumeScrollIntent: () => "auto",
-      }),
+      <MessageStreamViewport
+        state={{
+          blocks,
+          consumeScrollIntent: () => "auto",
+        }}
+      />,
     );
   });
 }

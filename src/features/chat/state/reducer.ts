@@ -761,8 +761,7 @@ function cloneChatState(state: ChatState): ChatState {
 }
 
 function cloneMessageStreamState(state: ChatMessageStreamState): ChatMessageStreamState {
-  const legacyItems = !state.activeSegment && state.stableItems.length === 0 ? state.displayItems : [];
-  const next = initialChatMessageStreamState(legacyItems.length > 0 ? [...legacyItems] : [...state.stableItems]);
+  const next = initialChatMessageStreamState([...state.stableItems]);
   next.activeSegment = cloneActiveSegment(state.activeSegment);
   next.turnDiffs = new Map(state.turnDiffs);
   next.historyCursor = state.historyCursor;

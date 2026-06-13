@@ -6,11 +6,11 @@ import type { ChatServerThreadActions } from "../connection/server-actions/threa
 import type { ChatComposerController } from "../conversation/composer/controller";
 import type { ChatThreadActions } from "../threads/action-context";
 import { closeChatView, openChatView, type ChatViewLifecycleHost } from "./view-lifecycle";
-import { createToolbarArchiveConfirmState, createToolbarPanelActions } from "./regions/toolbar";
+import { createToolbarArchiveConfirmState, createToolbarPanelActions } from "./toolbar-actions";
 import { applyChatViewState } from "./view-state";
-import type { MessageStreamRenderer } from "../ui/message-stream/renderer";
+import type { MessageStreamRenderer } from "./surface/message-stream-renderer";
 import type { ChatViewDeferredTasks, RestoredThreadState } from "../lifecycle";
-import type { ChatControllerCompositionPorts } from "../composition-ports";
+import type { ChatControllerPorts } from "../controller-ports";
 import { renderChatPanelShell } from "../ui/shell";
 
 export interface CachedSharedAppServerStateSource {
@@ -18,7 +18,7 @@ export interface CachedSharedAppServerStateSource {
   cachedAppServerMetadata: () => SharedServerMetadata | null;
 }
 
-type ChatViewRendererPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state" | "lifecycle" | "render">;
+type ChatViewRendererPorts = Pick<ChatControllerPorts, "plugin" | "state" | "lifecycle" | "render">;
 
 export function createChatViewRenderer(context: ChatViewRendererPorts): () => void {
   const { plugin, render, lifecycle } = context;
@@ -31,15 +31,12 @@ export function createChatViewRenderer(context: ChatViewRendererPorts): () => vo
     renderChatPanelShell(root, {
       stateStore: context.state.stateStore,
       showToolbar: plugin.settings.showToolbar,
-      toolbarNode: context.render.toolbarNode,
-      goalNode: context.render.goalNode,
-      messageStreamNode: context.render.messageStreamNode,
-      composerNode: context.render.composerNode,
+      slots: context.render.shellSlots(),
     });
   };
 }
 
-type ConnectionLifecycleControllerGroupPorts = Pick<ChatControllerCompositionPorts, "plugin" | "liveState"> & {
+type ConnectionLifecycleControllerGroupPorts = Pick<ChatControllerPorts, "plugin" | "liveState"> & {
   obsidian: Pick<ChatViewLifecycleHost["events"], "registerEvent" | "registerPointerDown">;
   plugin: CachedSharedAppServerStateSource;
   client: {
@@ -137,7 +134,7 @@ export function createConnectionLifecycleControllerGroup(
   };
 }
 
-type PanelUiControllerGroupPorts = Pick<ChatControllerCompositionPorts, "state"> & {
+type PanelUiControllerGroupPorts = Pick<ChatControllerPorts, "state"> & {
   lifecycle: {
     invalidateResumeWork: () => void;
     clearDeferredRestoredThreadHydration: () => void;

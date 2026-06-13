@@ -2,78 +2,56 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
-import { useEffect } from "preact/hooks";
+import { signal } from "@preact/signals";
 
-import { chatTurnBusy, createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { renderChatPanelShell, unmountChatPanelShell, useChatPanelShellState } from "../../../../src/features/chat/ui/shell";
+import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
+import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellSlots } from "../../../../src/features/chat/ui/shell";
+import type { ChatPanelSurfacePorts } from "../../../../src/features/chat/panel/surface/ports";
 import { installObsidianDomShims } from "../../../support/dom";
+import { chatStateDisplayItems } from "../support/message-stream";
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("ChatPanelShell", () => {
-  it("renders the panel regions on the existing view content element", async () => {
+  it("composes toolbar, goal, message stream, and composer in one Preact root", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
 
     await act(async () => {
-      renderChatPanelShell(container, shellRenderers(store));
+      renderChatPanelShell(container, shellProps(store));
       await settleShellEffects();
     });
 
     expect(container.classList.contains("codex-panel")).toBe(true);
-    expect(container.textContent).toContain("Idle");
-    expect(container.textContent).toContain("no goal");
-    expect(container.textContent).toContain("0");
-    expect(container.textContent).toContain("ready");
-    expect(container.querySelector(".codex-panel__region--config")).toBeNull();
+    expect(container.querySelector(".codex-panel__toolbar .codex-panel__toolbar-primary")).not.toBeNull();
     expect(container.querySelector(".codex-panel__body > .codex-panel__region--message-stream")).toBe(
       container.querySelector(".codex-panel__body > .codex-panel__messages"),
     );
+    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("");
+    expect(container.querySelector(".codex-panel__message-block .test-message-count")?.textContent).toBe("0");
 
     await act(async () => {
       unmountChatPanelShell(container);
     });
   });
 
-  it("updates rendered panel content when the store changes", async () => {
+  it("updates signal-aware shell components from the state store without remounting the shell", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const renderers = shellRenderers(store);
+    const slots = shellSlots(store);
+    const composerRenderState = vi.spyOn(slots.composer, "renderState");
 
     await act(async () => {
-      renderChatPanelShell(container, renderers);
+      renderChatPanelShell(container, { stateStore: store, showToolbar: true, slots });
       await settleShellEffects();
     });
+    composerRenderState.mockClear();
 
     await act(async () => {
-      store.dispatch({ type: "connection/status-set", status: "Working" });
-      await settleShellEffects();
-    });
-
-    expect(container.textContent).toContain("Working");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("keeps panel content in its owning region after shell rerenders", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const renderers = nestedRootShellRenderers(store);
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-
-    await act(async () => {
-      store.dispatch({ type: "connection/status-set", status: "Working" });
-      store.dispatch({ type: "ui/panel-set", panel: "status-panel" });
+      store.dispatch({ type: "composer/draft-set", draft: "ready", clearSuggestions: true });
       store.dispatch({
         type: "message-stream/system-item-added",
         item: { id: "system-1", kind: "system", role: "system", text: "Model set." },
@@ -81,84 +59,60 @@ describe("ChatPanelShell", () => {
       await settleShellEffects();
     });
 
-    expect(container.querySelector(".codex-panel__toolbar .test-toolbar")?.textContent).toBe("Working");
-    expect(container.querySelector(".codex-panel__region--goal .test-goal")?.textContent).toBe("no goal");
-    expect(container.querySelector(".codex-panel__region--message-stream .test-messages")?.textContent).toBe("1");
-    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer .test-composer textarea")?.value).toBe("ready");
-    expect(container.querySelector(".codex-panel__region--composer .test-toolbar")).toBeNull();
-    expect(container.querySelector(".codex-panel__region--composer .test-messages")).toBeNull();
+    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("ready");
+    expect(container.querySelector(".codex-panel__message-block .test-message-count")?.textContent).toBe("1");
+    expect(composerRenderState).toHaveBeenCalled();
 
     await act(async () => {
       unmountChatPanelShell(container);
     });
   });
 
-  it("renders region nodes inside the single shell root", async () => {
+  it("does not invalidate unrelated shell surfaces for composer-only state changes", async () => {
     const store = createChatStateStore();
+    store.dispatch({
+      type: "thread-list/applied",
+      threads: [{ id: "thread-1", name: "Thread", preview: "", archived: false, createdAt: 1, updatedAt: 1 }],
+    });
+    store.dispatch({ type: "ui/panel-set", panel: "history" });
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const cleanup = vi.fn();
-    const renderers = nodeShellRenderers(store, cleanup);
+    const renameState = vi.fn(() => null);
+    const slots = shellSlots(store, { toolbarRenameState: renameState });
+    const composerRenderState = vi.spyOn(slots.composer, "renderState");
+    const messageStreamRenderState = vi.spyOn(slots.messageStream, "renderState");
 
     await act(async () => {
-      renderChatPanelShell(container, renderers);
+      renderChatPanelShell(container, { stateStore: store, showToolbar: true, slots });
+      await settleShellEffects();
+    });
+    renameState.mockClear();
+    composerRenderState.mockClear();
+    messageStreamRenderState.mockClear();
+
+    await act(async () => {
+      store.dispatch({ type: "composer/draft-set", draft: "composer only", clearSuggestions: true });
       await settleShellEffects();
     });
 
-    expect(container.querySelector(".codex-panel__toolbar .test-toolbar")?.textContent).toBe("Idle");
-    expect(container.querySelector(".codex-panel__region--message-stream .test-messages")?.textContent).toBe("0");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-      await settleShellEffects();
-    });
-
-    expect(cleanup).toHaveBeenCalledWith("toolbar");
-    expect(cleanup).toHaveBeenCalledWith("goal");
-    expect(cleanup).toHaveBeenCalledWith("messages");
-    expect(cleanup).toHaveBeenCalledWith("composer");
-  });
-
-  it("updates subscribed regions without rerunning node factories when the state store updates", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const cleanup = vi.fn();
-    const renderers = nodeShellRenderers(store, cleanup);
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-    renderers.toolbarNode.mockClear();
-    renderers.goalNode.mockClear();
-    renderers.messageStreamNode.mockClear();
-    renderers.composerNode.mockClear();
-
-    await act(async () => {
-      store.dispatch({ type: "connection/status-set", status: "Working" });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector(".test-toolbar")?.textContent).toBe("Working");
-    expect(renderers.toolbarNode).not.toHaveBeenCalled();
-    expect(renderers.goalNode).not.toHaveBeenCalled();
-    expect(renderers.messageStreamNode).not.toHaveBeenCalled();
-    expect(renderers.composerNode).not.toHaveBeenCalled();
+    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("composer only");
+    expect(composerRenderState).toHaveBeenCalled();
+    expect(messageStreamRenderState).not.toHaveBeenCalled();
+    expect(renameState).not.toHaveBeenCalled();
 
     await act(async () => {
       unmountChatPanelShell(container);
     });
   });
 
-  it("removes and restores the toolbar region from shell props", async () => {
+  it("removes and restores the toolbar from shell props without replacing the body regions", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
-    const renderers = shellRenderers(store);
+    const slots = shellSlots(store);
 
     await act(async () => {
-      renderChatPanelShell(container, { ...renderers, showToolbar: false });
+      renderChatPanelShell(container, { stateStore: store, showToolbar: false, slots });
       await settleShellEffects();
     });
 
@@ -167,12 +121,40 @@ describe("ChatPanelShell", () => {
     expect(container.querySelector(".codex-panel__region--composer")).not.toBeNull();
 
     await act(async () => {
-      renderChatPanelShell(container, { ...renderers, showToolbar: true });
+      renderChatPanelShell(container, { stateStore: store, showToolbar: true, slots });
       await settleShellEffects();
     });
 
     expect(container.querySelector(".codex-panel__toolbar")).not.toBeNull();
     expect(container.firstElementChild?.classList.contains("codex-panel__toolbar")).toBe(true);
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
+  it("repairs a damaged shell through the single root", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const slots = shellSlots(store);
+
+    await act(async () => {
+      renderChatPanelShell(container, { stateStore: store, showToolbar: true, slots });
+      await settleShellEffects();
+    });
+
+    container.querySelector<HTMLElement>(":scope .codex-panel__messages")?.remove();
+
+    await act(async () => {
+      store.dispatch({
+        type: "message-stream/system-item-added",
+        item: { id: "system-1", kind: "system", role: "system", text: "Restored." },
+      });
+      await settleShellEffects();
+    });
+
+    expect(container.querySelector(".codex-panel__messages .test-message-count")?.textContent).toBe("1");
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -194,21 +176,14 @@ describe("ChatPanelShell", () => {
     await act(async () => {
       statusBar.style.display = "flex";
       statusBar.style.position = "fixed";
-      renderChatPanelShell(container, shellRenderers(store));
+      renderChatPanelShell(container, shellProps(store));
       await settleShellEffects();
     });
     expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("26px");
 
     await act(async () => {
       statusBar.style.position = "static";
-      renderChatPanelShell(container, shellRenderers(store));
-      await settleShellEffects();
-    });
-    expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("0px");
-
-    await act(async () => {
-      statusBar.style.display = "none";
-      renderChatPanelShell(container, shellRenderers(store));
+      renderChatPanelShell(container, shellProps(store));
       await settleShellEffects();
     });
     expect(container.style.getPropertyValue("--codex-panel-status-bar-clearance")).toBe("0px");
@@ -218,291 +193,139 @@ describe("ChatPanelShell", () => {
     });
     statusBar.remove();
   });
-
-  it("repairs a removed ui root without inspecting shell children", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const cleanup = vi.fn();
-    const renderers = trackedRootShellRenderers(store, cleanup);
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-
-    container.replaceChildren();
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-
-    expect(cleanup).toHaveBeenCalledWith("toolbar");
-    expect(container.textContent).toContain("toolbar");
-    expect(container.textContent).toContain("goal");
-    expect(container.textContent).toContain("messages");
-    expect(container.textContent).toContain("composer");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("repairs damaged shell regions through the single root", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const cleanup = vi.fn();
-    const renderers = nodeShellRenderers(store, cleanup);
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-
-    container.querySelector<HTMLElement>(":scope .codex-panel__messages")?.remove();
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-
-    expect(cleanup).toHaveBeenCalledWith("messages");
-    expect(container.querySelector(".codex-panel__messages .test-messages")?.textContent).toBe("0");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("repairs damaged shell regions on subscribed store updates", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const cleanup = vi.fn();
-    const renderers = nodeShellRenderers(store, cleanup);
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-
-    container.querySelector<HTMLElement>(":scope .codex-panel__messages")?.remove();
-
-    await act(async () => {
-      store.dispatch({
-        type: "message-stream/system-item-added",
-        item: { id: "system-1", kind: "system", role: "system", text: "Restored." },
-      });
-      await settleShellEffects();
-    });
-
-    expect(cleanup).toHaveBeenCalledWith("messages");
-    expect(container.querySelector(".codex-panel__messages .test-messages")?.textContent).toBe("1");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("unmounts every shell region when the shell unmounts", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const cleanup = vi.fn();
-    const renderers = trackedRootShellRenderers(store, cleanup);
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-      await settleShellEffects();
-    });
-
-    expect(cleanup).toHaveBeenCalledWith("toolbar");
-    expect(cleanup).toHaveBeenCalledWith("goal");
-    expect(cleanup).toHaveBeenCalledWith("messages");
-    expect(cleanup).toHaveBeenCalledWith("composer");
-  });
-
-  it("stops subscribed region rendering after unmount", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const renderers = shellRenderers(store);
-
-    await act(async () => {
-      renderChatPanelShell(container, renderers);
-      await settleShellEffects();
-    });
-    renderers.toolbarNode.mockClear();
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-    store.dispatch({ type: "connection/status-set", status: "Closed" });
-    await settleShellEffects();
-
-    expect(renderers.toolbarNode).not.toHaveBeenCalled();
-  });
 });
 
-function shellRenderers(store: ReturnType<typeof createChatStateStore>) {
+function shellProps(store: ReturnType<typeof createChatStateStore>) {
   return {
     stateStore: store,
     showToolbar: true,
-    toolbarNode: vi.fn(() => <ShellStatus />),
-
-    goalNode: vi.fn(() => <ShellGoal />),
-
-    messageStreamNode: vi.fn(() => (
-      <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
-        <ShellMessageCount />
-      </div>
-    )),
-
-    composerNode: vi.fn(() => <ShellComposerStatus />),
+    slots: shellSlots(store),
   };
 }
 
-function nestedRootShellRenderers(store: ReturnType<typeof createChatStateStore>) {
+interface ShellSlotsOptions {
+  toolbarRenameState?: () => null;
+}
+
+function shellSlots(store: ReturnType<typeof createChatStateStore>, options: ShellSlotsOptions = {}): ChatPanelShellSlots {
+  const ports = surfacePorts(store, options);
   return {
-    stateStore: store,
-    showToolbar: true,
-    toolbarNode: vi.fn(() => (
-      <>
-        <ShellStatus className="test-toolbar" />
-        <div className="test-toolbar-panel">panel</div>
-      </>
-    )),
-
-    goalNode: vi.fn(() => <ShellGoal className="test-goal" />),
-
-    messageStreamNode: vi.fn(() => (
-      <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
-        <ShellMessageCount className="test-messages" />
-      </div>
-    )),
-
-    composerNode: vi.fn(() => (
-      <div className="test-composer">
-        <ShellComposerTextarea />
-        <button type="button">Send</button>
-      </div>
-    )),
+    toolbar: ports.toolbar,
+    goal: ports.goal,
+    messageStream: {
+      renderState: () => ({
+        blocks: [
+          {
+            key: "count",
+            node: <div className="test-message-count">{String(chatStateDisplayItems(store.getState()).length)}</div>,
+          },
+        ],
+        consumeScrollIntent: () => "auto",
+      }),
+    },
+    composer: {
+      renderState: () => ({
+        viewId: "view",
+        draft: store.getState().composer.draft,
+        busy: false,
+        canInterrupt: false,
+        normalPlaceholder: "Ask Codex to work on this task...",
+        suggestions: [],
+        selectedSuggestionIndex: 0,
+        callbacks: {
+          onInput: vi.fn(),
+          onUpdateSuggestions: vi.fn(),
+          onKeydown: vi.fn(),
+          onSendOrInterrupt: vi.fn(),
+          onHeightChange: vi.fn(),
+          onSuggestionHover: vi.fn(),
+          onSuggestionInsert: vi.fn(),
+        },
+        meta: {
+          fatal: null,
+          context: {
+            cells: [
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+              { text: "⣀", placeholder: true },
+            ],
+            percent: "--%",
+          },
+          statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+          model: "default",
+          effort: null,
+          planActive: false,
+          autoReviewActive: false,
+          fastActive: false,
+          modelChoices: [],
+          effortChoices: [],
+        },
+        onComposer: () => undefined,
+      }),
+    },
   };
 }
 
-function trackedRootShellRenderers(store: ReturnType<typeof createChatStateStore>, cleanup: (region: string) => void) {
+function surfacePorts(store: ReturnType<typeof createChatStateStore>, options: ShellSlotsOptions): ChatPanelSurfacePorts {
   return {
-    stateStore: store,
-    showToolbar: true,
-    toolbarNode: vi.fn(() => <TrackedSlot region="toolbar" cleanup={cleanup} />),
-
-    goalNode: vi.fn(() => <TrackedSlot region="goal" cleanup={cleanup} />),
-
-    messageStreamNode: vi.fn(() => (
-      <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
-        <TrackedSlot region="messages" cleanup={cleanup} />
-      </div>
-    )),
-
-    composerNode: vi.fn(() => <TrackedSlot region="composer" cleanup={cleanup} />),
+    toolbar: {
+      state: {
+        connected: () => false,
+      },
+      settings: {
+        vaultPath: () => "/vault",
+        configuredCommand: () => "codex",
+        archiveExportEnabled: () => true,
+      },
+      view: {
+        toolbar: {
+          archiveConfirm: signal(null),
+          renameState: options.toolbarRenameState ?? (() => null),
+          renameVersion: signal(0),
+        },
+      },
+      actions: {
+        toolbar: {
+          startNewThread: vi.fn(),
+          toggleChatActions: vi.fn(),
+          compactConversation: vi.fn(),
+          setGoal: vi.fn(),
+          toggleHistory: vi.fn(),
+          toggleStatusPanel: vi.fn(),
+          connect: vi.fn(),
+          refreshStatus: vi.fn(),
+          resumeThread: vi.fn(),
+          startArchiveThread: vi.fn(),
+          archiveThread: vi.fn(),
+          startRenameThread: vi.fn(),
+          updateRenameDraft: vi.fn(),
+          saveRenameThread: vi.fn(),
+          cancelRenameThread: vi.fn(),
+          autoNameThread: vi.fn(),
+        },
+      },
+    },
+    goal: {
+      settings: { sendShortcut: () => "enter" },
+      actions: {
+        goal: {
+          saveObjective: async () => undefined,
+          setStatus: async () => undefined,
+          clear: async () => undefined,
+          setEditingOpen: () => undefined,
+        },
+      },
+    },
+    composer: {
+      thread: { restoredPlaceholder: () => null },
+      runtime: {
+        requestModel: async () => undefined,
+        requestReasoningEffort: async () => undefined,
+        resetReasoningEffortToConfig: async () => undefined,
+      },
+    },
   };
-}
-
-function nodeShellRenderers(store: ReturnType<typeof createChatStateStore>, cleanup: (region: string) => void) {
-  return {
-    stateStore: store,
-    showToolbar: true,
-    toolbarNode: vi.fn(() => <TrackedStateSlot region="toolbar" cleanup={cleanup} className="test-toolbar" selector="status" />),
-
-    goalNode: vi.fn(() => <TrackedStateSlot region="goal" cleanup={cleanup} className="test-goal" selector="goal" />),
-
-    messageStreamNode: vi.fn(() => (
-      <div className="codex-panel__region codex-panel__region--message-stream codex-panel__messages">
-        <TrackedStateSlot region="messages" cleanup={cleanup} className="test-messages" selector="message-count" />
-      </div>
-    )),
-
-    composerNode: vi.fn(() => (
-      <TrackedStateSlot region="composer" cleanup={cleanup} className="test-composer" selector="composer-status" />
-    )),
-  };
-}
-
-function TrackedSlot({
-  region,
-  cleanup,
-  className,
-  text = region,
-}: {
-  region: string;
-  cleanup: (region: string) => void;
-  className?: string;
-  text?: string;
-}) {
-  useEffect(() => {
-    return () => {
-      cleanup(region);
-    };
-  }, [cleanup, region]);
-  return <div className={className}>{text}</div>;
-}
-
-function TrackedStateSlot({
-  region,
-  cleanup,
-  className,
-  selector,
-}: {
-  region: string;
-  cleanup: (region: string) => void;
-  className?: string;
-  selector: "status" | "goal" | "message-count" | "composer-status";
-}) {
-  return <TrackedSlot region={region} cleanup={cleanup} {...(className ? { className } : {})} text={useShellText(selector)} />;
-}
-
-function ShellStatus({ className }: { className?: string }) {
-  const { connection } = useChatPanelShellState();
-  return <div className={className}>{connection.value.status}</div>;
-}
-
-function ShellGoal({ className }: { className?: string }) {
-  const { activeThread } = useChatPanelShellState();
-  return <div className={className}>{activeThread.value.goal?.objective ?? "no goal"}</div>;
-}
-
-function ShellMessageCount({ className }: { className?: string }) {
-  const { messageStream } = useChatPanelShellState();
-  return <div className={className}>{String(messageStream.value.displayItems.length)}</div>;
-}
-
-function ShellComposerStatus() {
-  return <div>{useShellText("composer-status")}</div>;
-}
-
-function ShellComposerTextarea() {
-  return <textarea value={useShellText("composer-status")} readOnly />;
-}
-
-function useShellText(selector: "status" | "goal" | "message-count" | "composer-status"): string {
-  const shellState = useChatPanelShellState();
-  switch (selector) {
-    case "status":
-      return shellState.connection.value.status;
-    case "goal":
-      return shellState.activeThread.value.goal?.objective ?? "no goal";
-    case "message-count":
-      return String(shellState.messageStream.value.displayItems.length);
-    case "composer-status":
-      return chatTurnBusy({ ...shellState.latestState(), turn: shellState.turn.value }) ? "busy" : "ready";
-  }
 }
 
 async function settleShellEffects(): Promise<void> {

@@ -11,10 +11,10 @@ import type { GoalActions } from "../threads/goal-actions";
 import type { AutoTitleController } from "../threads/auto-title-controller";
 import { ChatInboundController } from "../protocol/inbound/controller";
 import type { ChatConnectionWorkTracker } from "../lifecycle";
-import type { ChatControllerCompositionPorts } from "../composition-ports";
+import type { ChatControllerPorts } from "../controller-ports";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 
-type ChatServerActionControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state">;
+type ChatServerActionControllerPorts = Pick<ChatControllerPorts, "plugin" | "state">;
 
 export function createChatServerActionControllers(
   context: ChatServerActionControllerPorts,
@@ -59,7 +59,7 @@ export function createChatServerActionControllers(
   return { serverThreads, serverMetadata, serverDiagnostics };
 }
 
-type ChatInboundControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state"> & {
+type ChatInboundControllerPorts = Pick<ChatControllerPorts, "plugin" | "state"> & {
   render: {
     schedule: () => void;
   };
@@ -105,7 +105,7 @@ export function createChatInboundController(
   });
 }
 
-type ChatConnectionControllerPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state" | "liveState"> & {
+type ChatConnectionControllerPorts = Pick<ChatControllerPorts, "plugin" | "state" | "liveState"> & {
   client: {
     setClient: (client: ReturnType<ConnectionManager["currentClient"]>) => void;
   };
@@ -176,7 +176,7 @@ export function createChatConnectionControllers(
   };
 }
 
-type ChatReconnectControllerGroupPorts = Pick<ChatControllerCompositionPorts, "state"> & {
+type ChatReconnectControllerGroupPorts = Pick<ChatControllerPorts, "state"> & {
   client: {
     clear: () => void;
     ensureConnected: () => Promise<void>;

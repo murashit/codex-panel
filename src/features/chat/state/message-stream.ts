@@ -10,8 +10,6 @@ export interface ChatMessageStreamActiveSegment {
 }
 
 export interface ChatMessageStreamState {
-  /** Compatibility projection for tests and legacy fixtures. Runtime code should use messageStreamDisplayItems. */
-  displayItems: readonly DisplayItem[];
   stableItems: readonly DisplayItem[];
   activeSegment: ChatMessageStreamActiveSegment | null;
   turnDiffs: ReadonlyMap<string, string>;
@@ -61,19 +59,17 @@ export type MessageStreamAction =
   | { type: "message-stream/turn-diff-updated"; turnId: string; diff: string };
 
 export function initialChatMessageStreamState(items: readonly DisplayItem[] = []): ChatMessageStreamState {
-  return withDisplayItemsAccessor({
+  return {
     stableItems: items,
     activeSegment: null,
     turnDiffs: new Map(),
     historyCursor: null,
     loadingHistory: false,
     reportedLogs: new Set(),
-  });
+  };
 }
 
 export function messageStreamDisplayItems(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): readonly DisplayItem[] {
-  const legacyItems = legacyDisplayItems(state);
-  if (legacyItems && state.stableItems.length === 0 && (!state.activeSegment || state.activeSegment.items.length === 0)) return legacyItems;
   if (!state.activeSegment || state.activeSegment.items.length === 0) return state.stableItems;
   return [...state.stableItems, ...state.activeSegment.items];
 }
@@ -87,8 +83,6 @@ export function messageStreamActiveItems(state: Pick<ChatMessageStreamState, "ac
 }
 
 export function messageStreamIsEmpty(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): boolean {
-  const legacyItems = legacyDisplayItems(state);
-  if (legacyItems) return legacyItems.length === 0;
   return state.stableItems.length === 0 && (!state.activeSegment || state.activeSegment.items.length === 0);
 }
 
@@ -451,35 +445,9 @@ function updatedTurnDiffs(turnDiffs: ReadonlyMap<string, string>, turnId: string
 
 function patchObject<T extends object>(current: T, patch: Partial<T>): T {
   if (Object.entries(patch).every(([key, value]) => Object.is(current[key as keyof T], value))) return current;
-  const next = { ...current, ...patch };
-  return isMessageStreamState(next) ? (withDisplayItemsAccessor(next) as unknown as T) : next;
+  return { ...current, ...patch };
 }
 
 function definedPatch<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
   return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
-}
-
-function isMessageStreamState(value: object): value is ChatMessageStreamState {
-  return "stableItems" in value && "activeSegment" in value && "turnDiffs" in value && "reportedLogs" in value;
-}
-
-function legacyDisplayItems(state: object): readonly DisplayItem[] | null {
-  if (!Object.prototype.propertyIsEnumerable.call(state, "displayItems")) return null;
-  const value = (state as { displayItems?: unknown }).displayItems;
-  return Array.isArray(value) ? (value as readonly DisplayItem[]) : null;
-}
-
-function withDisplayItemsAccessor(state: Omit<ChatMessageStreamState, "displayItems">): ChatMessageStreamState {
-  Object.defineProperty(state, "displayItems", {
-    configurable: true,
-    enumerable: false,
-    get() {
-      return messageStreamDisplayItems(this as ChatMessageStreamState);
-    },
-    set(items: readonly DisplayItem[]) {
-      (this as ChatMessageStreamState).stableItems = items;
-      (this as ChatMessageStreamState).activeSegment = null;
-    },
-  });
-  return state as unknown as ChatMessageStreamState;
 }

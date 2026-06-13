@@ -3,6 +3,7 @@ import { defineConfig } from "eslint/config";
 import eslintConfigPrettier from "eslint-config-prettier/flat";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import reactHooks from "eslint-plugin-react-hooks";
+import ts from "typescript";
 import tseslint from "typescript-eslint";
 
 const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
@@ -53,25 +54,59 @@ const unsafeIteratorRestrictions = [
     message: "Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.",
   },
 ];
-const imperativeDomWriteRestrictions = [
-  {
-    selector:
-      "CallExpression[callee.property.name=/^(createEl|createDiv|createSpan|appendChild|replaceChildren|insertBefore|removeChild|append|prepend|before|after|replaceWith|remove|insertAdjacentHTML|insertAdjacentElement|insertAdjacentText|setAttr|empty)$/]",
-    message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
-  },
-  {
-    selector:
-      "AssignmentExpression[left.type='MemberExpression'][left.property.name=/^(innerHTML|outerHTML|textContent|value|checked|onclick|ondblclick|oninput|onchange|onkeydown|onkeyup|onmousedown|onmouseup|onmousemove|onpointerdown|onpointerup|onblur|onfocus|onselect|onscroll)$/]",
-    message: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
-  },
-];
-const imperativeDomEventRestrictions = [
-  {
-    selector: "CallExpression[callee.property.name=/^(addEventListener|removeEventListener)$/]",
-    message: "Keep imperative DOM event wiring in an explicit bridge module or Obsidian-owned UI boundary.",
-  },
-];
-const imperativeDomRestrictions = [...imperativeDomWriteRestrictions, ...imperativeDomEventRestrictions];
+const imperativeDomWriteMethods = new Set([
+  "addClass",
+  "addClasses",
+  "append",
+  "appendChild",
+  "after",
+  "before",
+  "createDiv",
+  "createEl",
+  "createSpan",
+  "empty",
+  "hide",
+  "insertAdjacentElement",
+  "insertAdjacentHTML",
+  "insertAdjacentText",
+  "insertBefore",
+  "prepend",
+  "removeClass",
+  "removeClasses",
+  "remove",
+  "removeChild",
+  "replaceChildren",
+  "replaceWith",
+  "setCssProps",
+  "setCssStyles",
+  "setText",
+  "show",
+  "setAttr",
+  "toggleClass",
+]);
+const imperativeDomEventMethods = new Set(["addEventListener", "removeEventListener"]);
+const imperativeDomAssignmentProperties = new Set([
+  "checked",
+  "innerHTML",
+  "onblur",
+  "onchange",
+  "onclick",
+  "ondblclick",
+  "onfocus",
+  "oninput",
+  "onkeydown",
+  "onkeyup",
+  "onmousedown",
+  "onmousemove",
+  "onmouseup",
+  "onpointerdown",
+  "onpointerup",
+  "onscroll",
+  "onselect",
+  "outerHTML",
+  "textContent",
+  "value",
+]);
 const pureChatModelRestrictions = [
   {
     selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
@@ -116,6 +151,7 @@ const chatImperativeDomBridgeFiles = [...chatExternalDomBridgeFiles, ...chatPrea
 const nonChatImperativeDomBridgeFiles = [
   "src/features/selection-rewrite/popover.tsx",
   "src/features/thread-picker/modal.ts",
+  "src/features/threads-view/renderer.tsx",
   "src/settings/dynamic-sections.ts",
   "src/settings/tab.ts",
   "src/shared/diff/render.ts",
@@ -131,9 +167,8 @@ const baseSourceSyntaxRestrictions = [
   ...unsafeIteratorRestrictions,
   ...preactFormRestrictions,
 ];
-const sourceSyntaxRestrictions = [...baseSourceSyntaxRestrictions, ...imperativeDomRestrictions];
+const sourceSyntaxRestrictions = baseSourceSyntaxRestrictions;
 const domBridgeSyntaxRestrictions = baseSourceSyntaxRestrictions;
-const eventBridgeSyntaxRestrictions = [...baseSourceSyntaxRestrictions, ...imperativeDomWriteRestrictions];
 const pureChatModelSyntaxRestrictions = [...sourceSyntaxRestrictions, ...pureChatModelRestrictions];
 const codexPanelEslintPlugin = {
   rules: {
@@ -186,6 +221,74 @@ const codexPanelEslintPlugin = {
         };
       },
     },
+    "no-imperative-dom": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Disallow imperative DOM writes and event wiring outside explicit bridge files.",
+        },
+        messages: {
+          event: "Keep imperative DOM event wiring in an explicit bridge module or Obsidian-owned UI boundary.",
+          write: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
+        },
+        schema: [
+          {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              allowEvents: { type: "boolean" },
+              allowWrites: { type: "boolean" },
+            },
+          },
+        ],
+      },
+      create(context) {
+        const options = context.options[0] ?? {};
+        const allowEvents = options.allowEvents === true;
+        const allowWrites = options.allowWrites === true;
+        let parserServices = null;
+        let checker = null;
+
+        const typeChecker = () => {
+          if (!parserServices) {
+            parserServices = parserServicesFromContext(context);
+            checker = parserServices.program.getTypeChecker();
+          }
+          return checker;
+        };
+
+        const isDomTarget = (node) => {
+          const services = parserServices ?? parserServicesFromContext(context);
+          if (!parserServices) {
+            parserServices = services;
+            checker = services.program.getTypeChecker();
+          }
+          const tsNode = services.esTreeNodeToTSNodeMap.get(node);
+          return typeIncludesDom(typeChecker().getTypeAtLocation(tsNode), typeChecker());
+        };
+
+        return {
+          AssignmentExpression(node) {
+            if (allowWrites || !isMemberExpression(node.left)) return;
+            const property = staticPropertyName(node.left.property);
+            if (!property || !imperativeDomAssignmentProperties.has(property)) return;
+            if (isDomTarget(node.left.object)) context.report({ node: node.left, messageId: "write" });
+          },
+          CallExpression(node) {
+            if (!isMemberExpression(node.callee)) return;
+            const method = staticPropertyName(node.callee.property);
+            if (!method) return;
+            if (!allowWrites && imperativeDomWriteMethods.has(method) && isDomTarget(node.callee.object)) {
+              context.report({ node: node.callee, messageId: "write" });
+              return;
+            }
+            if (!allowEvents && imperativeDomEventMethods.has(method) && isDomTarget(node.callee.object)) {
+              context.report({ node: node.callee, messageId: "event" });
+            }
+          },
+        };
+      },
+    },
   },
 };
 
@@ -226,6 +329,40 @@ function isIdentifier(node, name) {
 
 function staticPropertyName(node) {
   return node?.type === "Identifier" ? node.name : node?.type === "Literal" && typeof node.value === "string" ? node.value : null;
+}
+
+function parserServicesFromContext(context) {
+  const services = context.sourceCode.parserServices;
+  if (!services?.program || !services.esTreeNodeToTSNodeMap) {
+    throw new Error("codex-panel/no-imperative-dom requires TypeScript parser services.");
+  }
+  return services;
+}
+
+function typeIncludesDom(type, checker, seen = new Set()) {
+  if (!type || seen.has(type.id)) return false;
+  seen.add(type.id);
+
+  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never)) return false;
+  if (type.isUnionOrIntersection()) return type.types.some((item) => typeIncludesDom(item, checker, seen));
+
+  const typeName = checker.typeToString(type);
+  if (domTypeName(typeName)) return true;
+
+  const symbolName = type.getSymbol()?.getName() ?? type.aliasSymbol?.getName() ?? "";
+  if (domTypeName(symbolName)) return true;
+
+  const apparent = checker.getApparentType(type);
+  if (apparent !== type && typeIncludesDom(apparent, checker, seen)) return true;
+
+  const bases = typeof type.getBaseTypes === "function" ? (type.getBaseTypes() ?? []) : [];
+  return bases.some((base) => typeIncludesDom(base, checker, seen));
+}
+
+function domTypeName(name) {
+  return /\b(?:AbortSignal|Document|Element|EventTarget|HTML[A-Za-z]*Element|HTMLElement|Node|SVG[A-Za-z]*Element|SVGElement|Window)\b/.test(
+    name,
+  );
 }
 
 function findInitializerCallbackReference(root, name) {
@@ -372,13 +509,17 @@ export default defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles, ...nonUiEventListenerFiles],
-    rules: restrictedSyntaxRule(sourceSyntaxRestrictions),
+    rules: {
+      ...restrictedSyntaxRule(sourceSyntaxRestrictions),
+      "codex-panel/no-imperative-dom": "error",
+    },
   },
   {
     files: ["src/features/chat/**/*.{ts,tsx}"],
     ignores: chatImperativeDomBridgeFiles,
     rules: {
       ...restrictedSyntaxRule(sourceSyntaxRestrictions),
+      "codex-panel/no-imperative-dom": "error",
       "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },
@@ -395,12 +536,16 @@ export default defineConfig([
   },
   {
     files: nonUiEventListenerFiles,
-    rules: restrictedSyntaxRule(eventBridgeSyntaxRestrictions),
+    rules: {
+      ...restrictedSyntaxRule(sourceSyntaxRestrictions),
+      "codex-panel/no-imperative-dom": ["error", { allowEvents: true }],
+    },
   },
   {
-    files: ["src/features/chat/state/reducer.ts", "src/features/chat/display/**/*.{ts,tsx}"],
+    files: ["src/features/chat/state/**/*.{ts,tsx}", "src/features/chat/display/**/*.{ts,tsx}"],
     rules: {
       ...restrictedSyntaxRule(pureChatModelSyntaxRestrictions),
+      "codex-panel/no-imperative-dom": "error",
       "codex-panel/no-chat-state-direct-mutation": "error",
     },
   },

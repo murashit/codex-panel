@@ -10,7 +10,7 @@ import type { ChatThreadActions } from "./threads/action-context";
 import type { AutoTitleController } from "./threads/auto-title-controller";
 import type { HistoryController } from "./threads/history-controller";
 import type { RenameController } from "./threads/rename-controller";
-import type { ToolbarPanelActions } from "./panel/regions/toolbar";
+import type { ToolbarPanelActions } from "./panel/toolbar-actions";
 import type { ChatConnectionController } from "./connection/connection-controller";
 import type { ChatReconnectActions } from "./connection/reconnect-actions";
 import type { PendingRequestController } from "./conversation/pending-requests/controller";
@@ -21,8 +21,8 @@ import type { RestorationController } from "./threads/restoration-controller";
 import type { IdentitySync } from "./threads/identity-sync";
 import type { ResumeController } from "./threads/resume-controller";
 import type { SelectionActions } from "./threads/selection-actions";
-import type { MessageStreamRenderer } from "./ui/message-stream/renderer";
-import type { ChatControllerCompositionPorts } from "./composition-ports";
+import type { MessageStreamRenderer } from "./panel/surface/message-stream-renderer";
+import type { ChatControllerPorts } from "./controller-ports";
 import { scheduleAppServerWarmup } from "./connection/app-server-warmup";
 import { runtimeSnapshotForChatState } from "./runtime/snapshot";
 import {
@@ -30,10 +30,10 @@ import {
   createChatConnectionControllers,
   createChatInboundController,
   createChatReconnectControllerGroup,
-} from "./connection/composition";
-import { createThreadControllerGroup, createThreadSelectionActionGroup } from "./threads/composition";
-import { createConversationSurfaceControllerGroup } from "./conversation/composition";
-import { createChatViewRenderer, createConnectionLifecycleControllerGroup, createPanelUiControllerGroup } from "./panel/composition";
+} from "./connection/controllers";
+import { createThreadControllerGroup, createThreadSelectionActionGroup } from "./threads/controllers";
+import { createConversationSurfaceControllerGroup } from "./conversation/controllers";
+import { createChatViewRenderer, createConnectionLifecycleControllerGroup, createPanelUiControllerGroup } from "./panel/controllers";
 
 export interface ChatViewControllers {
   connection: {
@@ -83,11 +83,11 @@ export interface ChatViewControllers {
   };
 }
 
-interface ChatCompositionSideEffects {
-  render: Pick<ChatControllerCompositionPorts["render"], "panelRoot" | "closeToolbarPanelOnOutsidePointer" | "schedule"> & {
+interface ChatControllerSideEffects {
+  render: Pick<ChatControllerPorts["render"], "panelRoot" | "closeToolbarPanelOnOutsidePointer" | "schedule"> & {
     now: () => void;
   };
-  status: ChatControllerCompositionPorts["status"] & {
+  status: ChatControllerPorts["status"] & {
     addSystemMessage: (text: string) => void;
     addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   };
@@ -96,7 +96,7 @@ interface ChatCompositionSideEffects {
   };
 }
 
-export function createChatViewControllers(ports: ChatControllerCompositionPorts): ChatViewControllers {
+export function createChatViewControllers(ports: ChatControllerPorts): ChatViewControllers {
   const connection = new ConnectionManager(() => ports.plugin.settings.codexPath, ports.plugin.vaultPath);
   const renderNow = createChatViewRenderer(ports);
   let connectionController: ChatConnectionController | null = null;
@@ -107,7 +107,7 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
   const refreshSkills = (forceReload?: boolean) =>
     requireComposedController(connectionController, "connection controller").refreshSkills(forceReload);
   const selectThread = (threadId: string) => requireComposedController(selection, "selection actions").selectThread(threadId);
-  const sideEffects = createChatCompositionSideEffects(ports, {
+  const sideEffects = createChatControllerSideEffects(ports, {
     renderNow,
     setComposerText: (text) => {
       requireComposedController(composerController, "composer controller").setDraft(text, { focus: true });
@@ -411,17 +411,17 @@ export function createChatViewControllers(ports: ChatControllerCompositionPorts)
 }
 
 function requireComposedController<T>(controller: T | null, name: string): T {
-  if (!controller) throw new Error(`Chat view controller composition did not initialize ${name}.`);
+  if (!controller) throw new Error(`Chat view controller graph did not initialize ${name}.`);
   return controller;
 }
 
-function createChatCompositionSideEffects(
-  ports: Pick<ChatControllerCompositionPorts, "render" | "state" | "status">,
+function createChatControllerSideEffects(
+  ports: Pick<ChatControllerPorts, "render" | "state" | "status">,
   deps: {
     renderNow: () => void;
     setComposerText: (text: string) => void;
   },
-): ChatCompositionSideEffects {
+): ChatControllerSideEffects {
   const render = {
     panelRoot: ports.render.panelRoot,
     closeToolbarPanelOnOutsidePointer: ports.render.closeToolbarPanelOnOutsidePointer,

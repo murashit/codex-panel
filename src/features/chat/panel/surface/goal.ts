@@ -1,36 +1,23 @@
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
-import { useComputed } from "@preact/signals";
 
-import type { GoalRegionActions, GoalRegionOptions } from "../../ui/goal";
-import { goalRegionNode } from "../../ui/goal";
-import { useChatPanelShellState } from "../../ui/shell";
+import type { GoalPanelActions, GoalPanelOptions } from "../../ui/goal";
+import { GoalPanel } from "../../ui/goal";
+import { goalStateFromShellState, useChatPanelShellState, type ChatPanelGoalShellState } from "../../ui/shell-state";
 import type { ChatPanelGoalPorts } from "./ports";
 
-export function chatPanelGoalRegionNode(ports: ChatPanelGoalPorts): UiNode {
-  return h(GoalRegion, { ports });
-}
-
-function GoalRegion({ ports }: { ports: ChatPanelGoalPorts }): UiNode {
-  const { activeThread, ui, renderVersion, latestState } = useChatPanelShellState();
-  const props = useComputed(() => {
-    void renderVersion.value;
-    return chatPanelGoalProps(ports, {
-      ...latestState(),
-      activeThread: activeThread.value,
-      ui: ui.value,
-    });
-  });
-  return goalRegionNode(props.value.goal, props.value.actions, props.value.options);
+export function ChatPanelGoal({ ports }: { ports: ChatPanelGoalPorts }): UiNode {
+  const props = chatPanelGoalProps(ports, goalStateFromShellState(useChatPanelShellState()));
+  return h(GoalPanel, props);
 }
 
 export function chatPanelGoalProps(
   ports: ChatPanelGoalPorts,
-  state: ReturnType<ChatPanelGoalPorts["state"]["chat"]>,
+  state: ChatPanelGoalShellState,
 ): {
-  goal: ReturnType<ChatPanelGoalPorts["state"]["chat"]>["activeThread"]["goal"];
-  actions: GoalRegionActions;
-  options: GoalRegionOptions;
+  goal: ChatPanelGoalShellState["activeThread"]["goal"];
+  actions: GoalPanelActions;
+  options: GoalPanelOptions;
 } {
   const goal = state.activeThread.goal;
   const goalThreadId = goal?.threadId ?? null;

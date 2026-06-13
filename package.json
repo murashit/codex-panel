@@ -27,7 +27,7 @@
     "lint:css": "stylelint \"src/**/*.css\" --max-warnings=0",
     "lint:css:usage": "node scripts/check-css-usage.mjs",
     "lint:css:usage:check": "node scripts/check-css-usage.mjs --fail-on-candidates",
-    "lint:ts": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0 --cache --cache-location node_modules/.cache/eslint/ --cache-strategy content",
+    "lint:ts": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0",
     "lint:ts:ci": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0",
     "release:check": "node scripts/release/check.mjs",
     "release:preflight": "node scripts/release/preflight.mjs",

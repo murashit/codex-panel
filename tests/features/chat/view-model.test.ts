@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import {
@@ -7,18 +7,19 @@ import {
   type RuntimeConfigSnapshot,
 } from "../../../src/app-server/protocol/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
-import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/regions/composer";
+import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
 import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/display/status/runtime";
-import { runtimeComposerChoices } from "../../../src/features/chat/panel/regions/composer";
+import { runtimeComposerChoices } from "../../../src/features/chat/panel/surface/composer";
 import { runtimeSnapshotForChatState } from "../../../src/features/chat/runtime/snapshot";
-import { toolbarViewModel } from "../../../src/features/chat/panel/regions/toolbar";
+import { toolbarViewModel } from "../../../src/features/chat/panel/surface/toolbar";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/domain/threads/model";
-import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "../../../src/features/chat/panel/regions/composer";
-import { chatPanelGoalProps } from "../../../src/features/chat/panel/regions/goal";
-import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/regions/ports";
+import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
+import { chatPanelGoalProps } from "../../../src/features/chat/panel/surface/goal";
+import type { ChatPanelComposerPorts, ChatPanelGoalPorts } from "../../../src/features/chat/panel/surface/ports";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
+import { setChatStateDisplayItems } from "./support/message-stream";
 
 describe("chat view model", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {
@@ -39,7 +40,8 @@ describe("chat view model", () => {
       configuredCommand: "codex",
       archiveConfirmThreadId: "thread-2",
       archiveExportEnabled: true,
-      renameState: (threadId) => (threadId === "thread-1" ? { draft: "Active", generating: false } : null),
+      renameRevision: 1,
+      renameState: (threadId, _renameRevision) => (threadId === "thread-1" ? { draft: "Active", generating: false } : null),
     });
 
     expect(model.openPanel).toBe("history");
@@ -89,7 +91,7 @@ describe("chat view model", () => {
   it("uses a neutral composer context indicator when usage is unavailable", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";
-    state.messageStream.displayItems = [
+    setChatStateDisplayItems(state, [
       {
         id: "item",
         turnId: "turn-1",
@@ -99,7 +101,7 @@ describe("chat view model", () => {
         text: "Existing turn",
         role: "assistant",
       },
-    ];
+    ]);
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5" });
 
     expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toMatchObject({
@@ -250,11 +252,6 @@ describe("chat view model", () => {
     const statuses: [string, string][] = [];
     const clears: string[] = [];
     const ports = {
-      state: {
-        chat: () => {
-          throw new Error("Goal status actions should not reread the active thread.");
-        },
-      },
       settings: {
         sendShortcut: () => "enter",
       },
@@ -285,29 +282,25 @@ describe("chat view model", () => {
     expect(clears).toEqual(["thread-rendered"]);
   });
 
-  it("builds composer meta from one captured chat state and runtime snapshot", () => {
+  it("builds composer meta from one captured chat state", () => {
     const state = createChatState();
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.availableModels = [modelFixture("gpt-5.5")];
-    const snapshot = runtimeSnapshotFixture(state);
-    const chat = vi.fn(() => state);
-    const runtimeSnapshot = vi.fn(() => snapshot);
 
-    const model = chatPanelComposerMetaViewModel({
-      state: { chat },
-      thread: {
-        restoredPlaceholder: () => null,
-      },
-      runtime: {
-        snapshot: runtimeSnapshot,
-        requestModel: async () => undefined,
-        requestReasoningEffort: async () => undefined,
-        resetReasoningEffortToConfig: async () => undefined,
-      },
-    } satisfies ChatPanelComposerPorts);
+    const model = chatPanelComposerMetaViewModel(
+      {
+        thread: {
+          restoredPlaceholder: () => null,
+        },
+        runtime: {
+          requestModel: async () => undefined,
+          requestReasoningEffort: async () => undefined,
+          resetReasoningEffortToConfig: async () => undefined,
+        },
+      } satisfies ChatPanelComposerPorts,
+      state,
+    );
 
-    expect(chat).toHaveBeenCalledOnce();
-    expect(runtimeSnapshot).toHaveBeenCalledOnce();
     expect(model).toMatchObject({
       model: "gpt-5.5",
       effort: "high",
@@ -330,18 +323,19 @@ describe("chat view model", () => {
     state.threadList.listedThreads = [threadFixture("thread-1", null)];
 
     expect(
-      chatPanelComposerPlaceholder({
-        state: { chat: () => state },
-        thread: {
-          restoredPlaceholder: () => ({ threadId: "thread-1", title: "Restored", explicitName: "Restored" }),
-        },
-        runtime: {
-          snapshot: () => runtimeSnapshotFixture(state),
-          requestModel: async () => undefined,
-          requestReasoningEffort: async () => undefined,
-          resetReasoningEffortToConfig: async () => undefined,
-        },
-      } satisfies ChatPanelComposerPorts),
+      chatPanelComposerPlaceholder(
+        {
+          thread: {
+            restoredPlaceholder: () => ({ threadId: "thread-1", title: "Restored", explicitName: "Restored" }),
+          },
+          runtime: {
+            requestModel: async () => undefined,
+            requestReasoningEffort: async () => undefined,
+            resetReasoningEffortToConfig: async () => undefined,
+          },
+        } satisfies ChatPanelComposerPorts,
+        state,
+      ),
     ).toBe("Ask Codex to work on “Restored”...");
   });
 });

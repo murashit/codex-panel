@@ -1,4 +1,5 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
+import { signal } from "@preact/signals";
 import { readCompletedConversationSummariesPage } from "../../../app-server/services/threads";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { Thread } from "../../../domain/threads/model";
@@ -42,7 +43,7 @@ export interface RenameControllerHost {
 }
 
 export class RenameController {
-  private readonly listeners = new Set<() => void>();
+  readonly version = signal(0);
   private nextRenameGenerationId = 1;
   private renameState: RenameLifecycleState = { kind: "idle" };
 
@@ -62,13 +63,6 @@ export class RenameController {
 
   isEditing(): boolean {
     return this.renameState.kind !== "idle";
-  }
-
-  subscribe(listener: () => void): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
   }
 
   start(threadId: string): void {
@@ -182,7 +176,7 @@ export class RenameController {
   }
 
   private notifyRenameStateChanged(): void {
-    for (const listener of this.listeners) listener();
+    this.version.value += 1;
   }
 
   private finishAutoNameDraftGeneration(threadId: string, generatingState: RenameGeneratingState): void {

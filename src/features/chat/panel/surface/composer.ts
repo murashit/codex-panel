@@ -14,19 +14,28 @@ import { contextSummary } from "../../display/status/runtime";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
+import { runtimeSnapshotForChatSlices } from "../../runtime/snapshot";
 import type { ChatState } from "../../state/reducer";
+import { messageStreamDisplayItems } from "../../state/message-stream";
 import type {
   ComposerContextMeterCellViewModel,
   ComposerContextMeterViewModel,
   ComposerMetaViewModel,
   RuntimeChoice,
 } from "../../ui/composer";
-import { useChatPanelShellState } from "../../ui/shell";
+import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
+import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../../ui/shell-state";
 import { explicitThreadName } from "../../../../domain/threads/model";
 import type { ChatPanelComposerPorts, RestoredThreadTitleSnapshot } from "./ports";
 
+type ComposerMetaState = Pick<ChatState, "connection" | "runtime">;
+
+export interface ChatPanelComposerController {
+  renderState(state: ChatPanelComposerShellState): ComposerShellProps;
+}
+
 export interface RuntimeComposerChoicesInput {
-  state: ChatState;
+  state: Pick<ChatState, "connection">;
   snapshot: RuntimeSnapshot;
   requestModel: (model: string) => void;
   requestReasoningEffort: (effort: ReasoningEffort) => void;
@@ -37,30 +46,30 @@ export function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
 }
 
-export function chatPanelComposerRegionNode(node: () => UiNode): UiNode {
-  return h(ComposerRegion, { node });
+export function ChatPanelComposer({ controller }: { controller: ChatPanelComposerController }): UiNode {
+  const state = composerStateFromShellState(useChatPanelShellState());
+  return h(ComposerShell, controller.renderState(state));
 }
 
-function ComposerRegion({ node }: { node: () => UiNode }): UiNode {
-  const { connection, threadList, activeThread, runtime, turn, messageStream, composer, renderVersion } = useChatPanelShellState();
-  void connection.value;
-  void threadList.value;
-  void activeThread.value;
-  void runtime.value;
-  void turn.value;
-  void messageStream.value;
-  void composer.value;
-  void renderVersion.value;
-  return node();
+export function chatPanelComposerPlaceholder(ports: ChatPanelComposerPorts, state: ChatPanelComposerShellState): string {
+  return composerPlaceholder(activeComposerThreadName(state, ports.thread.restoredPlaceholder()));
 }
 
-export function chatPanelComposerPlaceholder(ports: ChatPanelComposerPorts): string {
-  return composerPlaceholder(activeComposerThreadName(ports.state.chat(), ports.thread.restoredPlaceholder()));
-}
-
-export function chatPanelComposerMetaViewModel(ports: ChatPanelComposerPorts) {
-  const state = ports.state.chat();
-  const snapshot = ports.runtime.snapshot();
+export function chatPanelComposerMetaViewModel(
+  ports: ChatPanelComposerPorts,
+  state: ChatPanelComposerShellState,
+): ComposerMetaViewModel & {
+  modelChoices: RuntimeChoice[];
+  effortChoices: RuntimeChoice[];
+} {
+  const snapshot = runtimeSnapshotForChatSlices({
+    runtimeConfig: state.connection.runtimeConfig,
+    activeThread: state.activeThread,
+    runtime: state.runtime,
+    rateLimit: state.connection.rateLimit,
+    displayItems: messageStreamDisplayItems(state.messageStream),
+    availableModels: state.connection.availableModels,
+  });
   return {
     ...composerMetaViewModel(state, snapshot),
     ...runtimeComposerChoices({
@@ -73,7 +82,7 @@ export function chatPanelComposerMetaViewModel(ports: ChatPanelComposerPorts) {
   };
 }
 
-export function composerMetaViewModel(state: ChatState, snapshot: RuntimeSnapshot): ComposerMetaViewModel {
+export function composerMetaViewModel(state: ComposerMetaState, snapshot: RuntimeSnapshot): ComposerMetaViewModel {
   if (state.connection.status === "Connection failed.") {
     return {
       fatal: "Codex app-server disconnected",
@@ -181,7 +190,10 @@ function onOffLabel(active: boolean): string {
   return active ? "on" : "off";
 }
 
-function activeComposerThreadName(state: ChatState, restoredThread: RestoredThreadTitleSnapshot | null): string | null {
+function activeComposerThreadName(
+  state: Pick<ChatState, "activeThread" | "threadList">,
+  restoredThread: RestoredThreadTitleSnapshot | null,
+): string | null {
   const threadId = state.activeThread.id;
   if (!threadId) return null;
   const thread = state.threadList.listedThreads.find((item) => item.id === threadId);

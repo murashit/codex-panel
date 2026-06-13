@@ -14,16 +14,16 @@ import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
 import { currentModel, runtimeConfigOrDefault } from "../runtime/effective";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
-import { MessageStreamRenderer } from "../ui/message-stream/renderer";
-import type { ChatControllerCompositionPorts } from "../composition-ports";
+import { MessageStreamRenderer } from "../panel/surface/message-stream-renderer";
+import type { ChatControllerPorts } from "../controller-ports";
 import type { DisplayDetailSection } from "../display/types";
 
 type ConversationSurfaceControllerGroupPorts = Pick<
-  ChatControllerCompositionPorts,
+  ChatControllerPorts,
   "obsidian" | "plugin" | "state" | "lifecycle" | "surface" | "runtime" | "liveState"
 > & {
   client: {
-    getClient: ChatControllerCompositionPorts["client"]["getClient"];
+    getClient: ChatControllerPorts["client"]["getClient"];
     ensureConnected: () => Promise<void>;
   };
   render: {
@@ -35,15 +35,15 @@ type ConversationSurfaceControllerGroupPorts = Pick<
     addSystemMessage: (text: string) => void;
     addStructuredSystemMessage: (text: string, details: DisplayDetailSection[]) => void;
   };
-  scroll: Pick<ChatControllerCompositionPorts["scroll"], "forceBottom" | "followBottom">;
+  scroll: Pick<ChatControllerPorts["scroll"], "forceBottom" | "followBottom">;
   thread: {
-    ensureRestoredThreadLoaded: ChatControllerCompositionPorts["thread"]["ensureRestoredThreadLoaded"];
-    startNewThread: ChatControllerCompositionPorts["thread"]["startNewThread"];
+    ensureRestoredThreadLoaded: ChatControllerPorts["thread"]["ensureRestoredThreadLoaded"];
+    startNewThread: ChatControllerPorts["thread"]["startNewThread"];
     selectThread: (threadId: string) => Promise<void>;
     notifyIdentityChanged: () => void;
     resetTurnPresence: (hadTurns: boolean) => void;
   };
-  runtime: ChatControllerCompositionPorts["runtime"] & {
+  runtime: ChatControllerPorts["runtime"] & {
     mcpStatusLines: () => Promise<string[]>;
   };
 };
@@ -72,9 +72,8 @@ export function createConversationSurfaceControllerGroup(
     viewId,
     sendShortcut: () => plugin.settings.sendShortcut,
     scrollThreadFromComposerEdges: () => plugin.settings.scrollThreadFromComposerEdges,
-    canInterrupt: () => {
-      const current = stateStore.getState();
-      return current.turn.lifecycle.kind !== "idle" && Boolean(current.activeThread.id && activeTurnId(current));
+    canInterrupt: (state) => {
+      return state.turn.lifecycle.kind !== "idle" && Boolean(state.activeThread.id && activeTurnId(state));
     },
     composerPlaceholder: surface.composerPlaceholder,
     composerMeta: surface.composerMetaViewModel,

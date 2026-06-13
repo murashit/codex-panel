@@ -1,14 +1,12 @@
 import type { App, Component } from "obsidian";
-import type { ComponentChild as UiNode } from "preact";
-
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
 import type { ComposerBoundaryScrollAction } from "../../conversation/composer/boundary-scroll";
-import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "./virtualizer";
-import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./ports";
-import { createMessageStreamContextPort } from "./ports";
-import { MarkdownMessageRenderer } from "./markdown-renderer";
-import { messageStreamViewportNode, type MessageStreamViewportState } from "./viewport";
+import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
+import type { ChatMessageStreamActionPort, ChatMessageStreamContextPort, ChatMessageStreamRequestPort } from "./message-stream-ports";
+import { createMessageStreamContextPort } from "./message-stream-ports";
+import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
+import type { MessageStreamViewportState } from "../../ui/message-stream/viewport";
 import type { DisplayItem } from "../../display/types";
 import { implementPlanCandidateFromState } from "../../state/selectors";
 import { messageStreamActiveItems, messageStreamDisplayItems, messageStreamStableItems } from "../../state/message-stream";
@@ -18,8 +16,9 @@ import {
   isRollbackCandidateItem,
   rollbackCandidateFromItems,
 } from "../../display/item-actions";
-import { messageStreamBlocks } from "./stream-blocks";
-import type { MessageStreamContext } from "./context";
+import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
+import type { MessageStreamContext } from "../../ui/message-stream/context";
+import type { ChatPanelMessageStreamShellState } from "../../ui/shell-state";
 
 interface MessageStreamRendererObsidianPort {
   app: App;
@@ -72,12 +71,11 @@ export class MessageStreamRenderer {
     this.options.state.store.dispatch(action);
   }
 
-  renderNode(): UiNode {
-    const state = this.state;
-    return messageStreamViewportNode(this.renderStateFor(state));
+  renderState(state: ChatPanelMessageStreamShellState = this.state): MessageStreamViewportState {
+    return this.renderStateFor(state);
   }
 
-  private renderStateFor(state: ChatState): MessageStreamViewportState {
+  private renderStateFor(state: ChatPanelMessageStreamShellState): MessageStreamViewportState {
     return {
       blocks: messageStreamBlocks(this.messageStreamContext(state, this.messageStreamPort())),
       consumeScrollIntent: this.options.scroll.consumeIntent,
@@ -104,7 +102,7 @@ export class MessageStreamRenderer {
     });
   }
 
-  private messageStreamContext(state: ChatState, port: ChatMessageStreamContextPort): MessageStreamContext {
+  private messageStreamContext(state: ChatPanelMessageStreamShellState, port: ChatMessageStreamContextPort): MessageStreamContext {
     const busy = chatTurnBusy(state);
     const displayItems = messageStreamDisplayItems(state.messageStream);
     const rollbackCandidate = busy ? null : rollbackCandidateFromItems(displayItems);

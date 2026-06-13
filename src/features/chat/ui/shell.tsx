@@ -1,30 +1,24 @@
-import { createContext, type ComponentChild as UiNode } from "preact";
-import { useContext } from "preact/hooks";
-import { signal, type Signal } from "@preact/signals";
+import type { ComponentChild as UiNode } from "preact";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
-import type { ChatState, ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/reducer";
+import type { ChatPanelGoalPorts, ChatPanelToolbarPorts } from "../panel/surface/ports";
+import { ChatPanelToolbar } from "../panel/surface/toolbar";
+import { ChatPanelGoal } from "../panel/surface/goal";
+import { ChatPanelMessageStream, type ChatPanelMessageStreamRenderer } from "../panel/surface/message-stream";
+import { ChatPanelComposer, type ChatPanelComposerController } from "../panel/surface/composer";
+import { ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState, type ChatPanelShellState } from "./shell-state";
 
-export interface ChatPanelShellState {
-  connection: Signal<ChatState["connection"]>;
-  threadList: Signal<ChatState["threadList"]>;
-  activeThread: Signal<ChatState["activeThread"]>;
-  runtime: Signal<ChatState["runtime"]>;
-  turn: Signal<ChatState["turn"]>;
-  messageStream: Signal<ChatState["messageStream"]>;
-  requests: Signal<ChatState["requests"]>;
-  composer: Signal<ChatState["composer"]>;
-  ui: Signal<ChatState["ui"]>;
-  renderVersion: Signal<number>;
-  latestState: () => ChatState;
+export interface ChatPanelShellSlots {
+  toolbar: ChatPanelToolbarPorts;
+  goal: ChatPanelGoalPorts;
+  messageStream: ChatPanelMessageStreamRenderer;
+  composer: ChatPanelComposerController;
 }
 
 export interface ChatPanelShellProps {
   stateStore: ChatStateStore;
   showToolbar: boolean;
-  toolbarNode: () => UiNode;
-  goalNode: () => UiNode;
-  messageStreamNode: () => UiNode;
-  composerNode: () => UiNode;
+  slots: ChatPanelShellSlots;
 }
 
 interface ChatPanelShellMount {
@@ -36,14 +30,12 @@ interface ChatPanelShellMount {
 }
 
 const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
-const ChatPanelShellStateContext = createContext<ChatPanelShellState | null>(null);
 
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
   container.addClass("codex-panel");
   const existing = shellMounts.get(container);
   const mount = existing?.stateStore === props.stateStore ? existing : createShellMount(container, props);
   mount.props = props;
-  mount.shellState.renderVersion.value += 1;
   renderMountedShell(container, mount);
 }
 
@@ -61,50 +53,20 @@ function createShellMount(container: HTMLElement, props: ChatPanelShellProps): C
   const existing = shellMounts.get(container);
   existing?.unsubscribe();
   existing?.stopStatusBarClearanceSync();
-  let latestState = props.stateStore.getState();
   const mount: ChatPanelShellMount = {
     props,
     stateStore: props.stateStore,
-    shellState: createShellState(latestState, () => latestState),
+    shellState: createChatPanelShellState(props.stateStore.getState()),
     unsubscribe: props.stateStore.subscribe(() => {
       const current = shellMounts.get(container);
       if (!current) return;
-      latestState = props.stateStore.getState();
-      syncShellState(current.shellState, latestState);
+      syncChatPanelShellState(current.shellState, props.stateStore.getState());
       if (!uiRootIntact(container)) renderMountedShell(container, current);
     }),
     stopStatusBarClearanceSync: startStatusBarClearanceSync(container),
   };
   shellMounts.set(container, mount);
   return mount;
-}
-
-function createShellState(initialState: ChatState, latestState: () => ChatState): ChatPanelShellState {
-  return {
-    connection: signal(initialState.connection),
-    threadList: signal(initialState.threadList),
-    activeThread: signal(initialState.activeThread),
-    runtime: signal(initialState.runtime),
-    turn: signal(initialState.turn),
-    messageStream: signal(initialState.messageStream),
-    requests: signal(initialState.requests),
-    composer: signal(initialState.composer),
-    ui: signal(initialState.ui),
-    renderVersion: signal(0),
-    latestState,
-  };
-}
-
-function syncShellState(shellState: ChatPanelShellState, nextState: ChatState): void {
-  if (shellState.connection.value !== nextState.connection) shellState.connection.value = nextState.connection;
-  if (shellState.threadList.value !== nextState.threadList) shellState.threadList.value = nextState.threadList;
-  if (shellState.activeThread.value !== nextState.activeThread) shellState.activeThread.value = nextState.activeThread;
-  if (shellState.runtime.value !== nextState.runtime) shellState.runtime.value = nextState.runtime;
-  if (shellState.turn.value !== nextState.turn) shellState.turn.value = nextState.turn;
-  if (shellState.messageStream.value !== nextState.messageStream) shellState.messageStream.value = nextState.messageStream;
-  if (shellState.requests.value !== nextState.requests) shellState.requests.value = nextState.requests;
-  if (shellState.composer.value !== nextState.composer) shellState.composer.value = nextState.composer;
-  if (shellState.ui.value !== nextState.ui) shellState.ui.value = nextState.ui;
 }
 
 function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount): void {
@@ -126,30 +88,25 @@ function uiRootIntact(container: HTMLElement): boolean {
   );
 }
 
-function ChatPanelShell({
-  showToolbar,
-  toolbarNode,
-  goalNode,
-  messageStreamNode,
-  composerNode,
-  shellState,
-}: ChatPanelShellProps & { shellState: ChatPanelShellState }): UiNode {
+function ChatPanelShell({ showToolbar, slots, shellState }: ChatPanelShellProps & { shellState: ChatPanelShellState }): UiNode {
   return (
     <ChatPanelShellStateContext.Provider value={shellState}>
-      {showToolbar ? <div className="codex-panel__toolbar">{toolbarNode()}</div> : null}
+      {showToolbar ? (
+        <div className="codex-panel__toolbar">
+          <ChatPanelToolbar ports={slots.toolbar} />
+        </div>
+      ) : null}
       <div className="codex-panel__body">
-        <div className="codex-panel__region codex-panel__region--goal">{goalNode()}</div>
-        {messageStreamNode()}
-        <div className="codex-panel__region codex-panel__region--composer">{composerNode()}</div>
+        <div className="codex-panel__region codex-panel__region--goal">
+          <ChatPanelGoal ports={slots.goal} />
+        </div>
+        <ChatPanelMessageStream renderer={slots.messageStream} />
+        <div className="codex-panel__region codex-panel__region--composer">
+          <ChatPanelComposer controller={slots.composer} />
+        </div>
       </div>
     </ChatPanelShellStateContext.Provider>
   );
-}
-
-export function useChatPanelShellState(): ChatPanelShellState {
-  const context = useContext(ChatPanelShellStateContext);
-  if (!context) throw new Error("Chat panel shell state is only available inside ChatPanelShell.");
-  return context;
 }
 
 function startStatusBarClearanceSync(container: HTMLElement): () => void {

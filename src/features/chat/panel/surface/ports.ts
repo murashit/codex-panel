@@ -1,7 +1,5 @@
-import type { ComponentChild as UiNode } from "preact";
-import type { ChatState } from "../../state/reducer";
+import type { Signal } from "@preact/signals";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import type { SendShortcut } from "../../../../shared/ui/keyboard";
 import type { ToolbarActions } from "../../ui/toolbar";
 import type { ToolbarThreadRow } from "../../ui/toolbar";
@@ -13,10 +11,9 @@ export interface RestoredThreadTitleSnapshot {
 }
 
 interface ChatPanelToolbarState {
-  archiveConfirmId: () => string | null;
-  archiveConfirmSubscribe: (listener: () => void) => () => void;
+  archiveConfirm: Signal<string | null>;
   renameState: (threadId: string) => ToolbarThreadRow["rename"];
-  renameSubscribe: (listener: () => void) => () => void;
+  renameVersion: Signal<number>;
 }
 
 type ChatPanelToolbarActions = ToolbarActions;
@@ -28,24 +25,14 @@ interface ChatPanelGoalActions {
   setEditingOpen: (open: boolean) => void;
 }
 
-interface ChatPanelStatePort {
+export interface ChatPanelToolbarPorts {
   state: {
-    chat: () => ChatState;
-  };
-}
-
-export interface ChatPanelToolbarPorts extends ChatPanelStatePort {
-  state: ChatPanelStatePort["state"] & {
     connected: () => boolean;
-    turnBusy: () => boolean;
   };
   settings: {
     vaultPath: () => string;
     configuredCommand: () => string;
     archiveExportEnabled: () => boolean;
-  };
-  runtime: {
-    snapshot: () => RuntimeSnapshot;
   };
   view: {
     toolbar: ChatPanelToolbarState;
@@ -55,7 +42,7 @@ export interface ChatPanelToolbarPorts extends ChatPanelStatePort {
   };
 }
 
-export interface ChatPanelGoalPorts extends ChatPanelStatePort {
+export interface ChatPanelGoalPorts {
   settings: {
     sendShortcut: () => SendShortcut;
   };
@@ -64,27 +51,19 @@ export interface ChatPanelGoalPorts extends ChatPanelStatePort {
   };
 }
 
-export interface ChatPanelMessageStreamPorts extends ChatPanelStatePort {
-  render: {
-    node: () => UiNode;
-  };
-}
-
-export interface ChatPanelComposerPorts extends ChatPanelStatePort {
+export interface ChatPanelComposerPorts {
   thread: {
     restoredPlaceholder: () => RestoredThreadTitleSnapshot | null;
   };
   runtime: {
-    snapshot: () => RuntimeSnapshot;
     requestModel: (model: string) => Promise<void>;
     requestReasoningEffort: (effort: ReasoningEffort) => Promise<void>;
     resetReasoningEffortToConfig: () => Promise<void>;
   };
 }
 
-export interface ChatPanelRegionPorts {
+export interface ChatPanelSurfacePorts {
   toolbar: ChatPanelToolbarPorts;
   goal: ChatPanelGoalPorts;
-  messageStream: ChatPanelMessageStreamPorts;
   composer: ChatPanelComposerPorts;
 }

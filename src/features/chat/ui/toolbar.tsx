@@ -64,11 +64,7 @@ export interface ToolbarActions {
   autoNameThread: (threadId: string) => void;
 }
 
-export function toolbarNode(model: ToolbarViewModel, actions: ToolbarActions): UiNode {
-  return <Toolbar model={model} actions={actions} />;
-}
-
-function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
+export function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <>
       <div className="nav-header codex-panel__toolbar-primary">

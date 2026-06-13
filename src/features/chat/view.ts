@@ -19,18 +19,16 @@ import {
 } from "./display/status/runtime";
 import { runtimeSnapshotForChatState } from "./runtime/snapshot";
 import { codexPanelDisplayTitle, getThreadTitle } from "../../domain/threads/model";
-import { connectionDiagnosticsModel } from "./panel/regions/toolbar";
+import { connectionDiagnosticsModel } from "./panel/surface/toolbar";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
 import { ChatConnectionWorkTracker, ChatResumeWorkTracker, createChatViewDeferredTasks, type ChatViewDeferredTasks } from "./lifecycle";
 import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "./ui/message-stream/scroll-intent-state";
-import type { ChatControllerCompositionPorts } from "./composition-ports";
-import { createChatViewControllers, type ChatViewControllers } from "./composition";
-import type { ChatPanelRegionPorts } from "./panel/regions/ports";
-import { createChatPanelRegionPorts } from "./panel/regions/composition";
-import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder, chatPanelComposerRegionNode } from "./panel/regions/composer";
-import { chatPanelGoalRegionNode } from "./panel/regions/goal";
-import { chatPanelMessageStreamPendingRequestsSignature, chatPanelMessageStreamRegionNode } from "./panel/regions/message-stream";
-import { chatPanelToolbarRegionNode } from "./panel/regions/toolbar";
+import type { ChatControllerPorts } from "./controller-ports";
+import { createChatViewControllers, type ChatViewControllers } from "./controllers";
+import type { ChatPanelSurfacePorts } from "./panel/surface/ports";
+import { createChatPanelSurfacePorts } from "./panel/surface/create-ports";
+import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "./panel/surface/composer";
+import { pendingRequestsSignature as requestStateSignature } from "./conversation/pending-requests/signatures";
 
 export class CodexChatView extends ItemView {
   private client: AppServerClient | null = null;
@@ -39,7 +37,7 @@ export class CodexChatView extends ItemView {
   private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly messageScrollIntent: ChatMessageScrollIntentState;
-  private readonly panelPorts: ChatPanelRegionPorts;
+  private readonly panelSurface: ChatPanelSurfacePorts;
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork: ChatResumeWorkTracker;
   private opened = false;
@@ -54,21 +52,19 @@ export class CodexChatView extends ItemView {
     this.resumeWork = new ChatResumeWorkTracker();
     this.messageScrollIntent = createChatMessageScrollIntentState();
     this.controllers = createChatViewControllers(this.createControllerPorts());
-    this.panelPorts = createChatPanelRegionPorts(
+    this.panelSurface = createChatPanelSurfacePorts(
       {
         settings: this.plugin.settings,
         vaultPath: this.plugin.vaultPath,
         stateStore: this.chatState,
-        runtimeSnapshot: () => this.runtimeSnapshot(),
         restoredThreadPlaceholder: () => this.restoredThreadPlaceholder(),
-        messageStreamNode: () => this.controllers.render.messageStream.renderNode(),
         startNewThread: () => this.startNewThread(),
       },
       this.controllers,
     );
   }
 
-  private createControllerPorts(): ChatControllerCompositionPorts {
+  private createControllerPorts(): ChatControllerPorts {
     const refreshThreadsViewLiveState = () => {
       this.plugin.refreshThreadsViewLiveState();
     };
@@ -118,10 +114,12 @@ export class CodexChatView extends ItemView {
       },
       render: {
         panelRoot: () => this.panelRoot(),
-        toolbarNode: () => chatPanelToolbarRegionNode(this.panelPorts.toolbar),
-        goalNode: () => chatPanelGoalRegionNode(this.panelPorts.goal),
-        messageStreamNode: () => chatPanelMessageStreamRegionNode(this.panelPorts.messageStream),
-        composerNode: () => chatPanelComposerRegionNode(() => this.controllers.composer.controller.renderNode()),
+        shellSlots: () => ({
+          toolbar: this.panelSurface.toolbar,
+          goal: this.panelSurface.goal,
+          messageStream: this.controllers.render.messageStream,
+          composer: this.controllers.composer.controller,
+        }),
         closeToolbarPanelOnOutsidePointer: (event) => {
           this.closeToolbarPanelOnOutsidePointer(event);
         },
@@ -130,9 +128,10 @@ export class CodexChatView extends ItemView {
         },
       },
       surface: {
-        pendingRequestsSignature: () => chatPanelMessageStreamPendingRequestsSignature(this.panelPorts.messageStream),
-        composerPlaceholder: () => chatPanelComposerPlaceholder(this.panelPorts.composer),
-        composerMetaViewModel: () => chatPanelComposerMetaViewModel(this.panelPorts.composer),
+        pendingRequestsSignature: () =>
+          requestStateSignature(this.state.requests.approvals, this.state.requests.pendingUserInputs, this.state.requests.userInputDrafts),
+        composerPlaceholder: (state) => chatPanelComposerPlaceholder(this.panelSurface.composer, state),
+        composerMetaViewModel: (state) => chatPanelComposerMetaViewModel(this.panelSurface.composer, state),
       },
       runtime: {
         collaborationModeLabel: () => this.collaborationModeLabel(),

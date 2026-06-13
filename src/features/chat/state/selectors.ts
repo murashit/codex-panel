@@ -55,20 +55,14 @@ export function implementPlanCandidateFromState(state: {
   activeThread: Pick<ChatActiveThreadState, "id">;
   turn: ChatTurnState;
   runtime: Pick<ChatRuntimeState, "selectedCollaborationMode">;
-  messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment"> | Pick<ChatMessageStreamState, "displayItems">;
+  messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">;
 }): DisplayItem | null {
   if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
     return null;
   }
   return (
-    [...selectorDisplayItems(state.messageStream)]
+    [...messageStreamDisplayItems(state.messageStream)]
       .reverse()
       .find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ?? null
   );
-}
-
-function selectorDisplayItems(
-  messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment"> | Pick<ChatMessageStreamState, "displayItems">,
-): readonly DisplayItem[] {
-  return "stableItems" in messageStream ? messageStreamDisplayItems(messageStream) : messageStream.displayItems;
 }

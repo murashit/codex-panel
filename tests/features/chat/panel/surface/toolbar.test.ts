@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
-import { createToolbarArchiveConfirmState, createToolbarPanelActions } from "../../../../../src/features/chat/panel/regions/toolbar";
+import { createToolbarArchiveConfirmState, createToolbarPanelActions } from "../../../../../src/features/chat/panel/toolbar-actions";
 import type { ChatThreadActions } from "../../../../../src/features/chat/threads/action-context";
 
 describe("createToolbarPanelActions", () => {

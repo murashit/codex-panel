@@ -14,6 +14,7 @@ import type { DisplayItem } from "../../../../src/features/chat/display/types";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
+import { chatStateDisplayItems, setChatStateDisplayItems } from "../support/message-stream";
 
 type MockArchiveExportAdapter = ArchiveExportAdapter & {
   exists: ReturnType<typeof vi.fn<ArchiveExportAdapter["exists"]>>;
@@ -301,7 +302,7 @@ describe("chat thread actions", () => {
     await controller.rollbackThread("source");
 
     expect(client.rollbackThread).toHaveBeenCalledWith("source");
-    expect(host.stateStore.getState().messageStream.displayItems.slice(0, 2)).toMatchObject([
+    expect(chatStateDisplayItems(host.stateStore.getState()).slice(0, 2)).toMatchObject([
       { kind: "message", role: "user", text: "kept prompt", turnId: "kept-turn" },
       { kind: "message", role: "assistant", text: "kept answer", turnId: "kept-turn" },
     ]);
@@ -425,7 +426,8 @@ function hostMock({
   settings?: Partial<typeof DEFAULT_SETTINGS>;
 }) {
   const state = createChatState();
-  const stateStore = createChatStateStore({ ...state, messageStream: { ...state.messageStream, displayItems } });
+  setChatStateDisplayItems(state, displayItems);
+  const stateStore = createChatStateStore(state);
   return {
     stateStore,
     vaultPath: "/vault",

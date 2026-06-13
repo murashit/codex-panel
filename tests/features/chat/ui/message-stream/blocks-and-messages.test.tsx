@@ -720,7 +720,7 @@ describe("message stream rendering and message actions", () => {
       turn: { lifecycle: { kind: "idle" as const } },
       runtime: { selectedCollaborationMode: "plan" as const },
       messageStream: {
-        displayItems: [
+        stableItems: [
           firstPlan,
           {
             id: "a1",
@@ -732,6 +732,7 @@ describe("message stream rendering and message actions", () => {
           } as const,
           secondPlan,
         ],
+        activeSegment: null,
       },
     };
 

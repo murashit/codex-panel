@@ -15,14 +15,11 @@ import { createSelectionActions } from "./selection-actions";
 import { RestorationController } from "./restoration-controller";
 import type { ChatThreadActions, ChatThreadActionsHost } from "./action-context";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
-import type { ChatControllerCompositionPorts } from "../composition-ports";
+import type { ChatControllerPorts } from "../controller-ports";
 
-type ThreadControllerGroupPorts = Pick<
-  ChatControllerCompositionPorts,
-  "obsidian" | "plugin" | "state" | "lifecycle" | "thread" | "liveState"
-> & {
+type ThreadControllerGroupPorts = Pick<ChatControllerPorts, "obsidian" | "plugin" | "state" | "lifecycle" | "thread" | "liveState"> & {
   client: {
-    getClient: ChatControllerCompositionPorts["client"]["getClient"];
+    getClient: ChatControllerPorts["client"]["getClient"];
     ensureConnected: () => Promise<void>;
   };
   lifecycle: {
@@ -41,7 +38,7 @@ type ThreadControllerGroupPorts = Pick<
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
   };
-  scroll: Pick<ChatControllerCompositionPorts["scroll"], "preservePosition" | "forceBottom">;
+  scroll: Pick<ChatControllerPorts["scroll"], "preservePosition" | "forceBottom">;
   render: {
     now: () => void;
   };
@@ -199,11 +196,11 @@ export function createThreadControllerGroup(
 }
 
 function requireThreadController<T>(controller: T | null, name: string): T {
-  if (!controller) throw new Error(`Chat thread controller composition did not initialize ${name}.`);
+  if (!controller) throw new Error(`Chat thread controller graph did not initialize ${name}.`);
   return controller;
 }
 
-type ThreadSelectionActionGroupPorts = Pick<ChatControllerCompositionPorts, "plugin" | "state"> & {
+type ThreadSelectionActionGroupPorts = Pick<ChatControllerPorts, "plugin" | "state"> & {
   status: {
     addSystemMessage: (text: string) => void;
   };

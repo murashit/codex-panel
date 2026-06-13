@@ -14,11 +14,7 @@ export interface MessageStreamViewportState {
   registerVirtualizer?: (virtualizer: MessageStreamVirtualizerHandle) => () => void;
 }
 
-export function messageStreamViewportNode(state: MessageStreamViewportState): UiNode {
-  return <MessageStreamViewport state={state} />;
-}
-
-function MessageStreamViewport({ state }: { state: MessageStreamViewportState }): UiNode {
+export function MessageStreamViewport({ state }: { state: MessageStreamViewportState }): UiNode {
   const { blocks, consumeScrollIntent, registerVirtualizer } = state;
   const scrollElementRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useMessageStreamVirtualizer({ blocks, consumeScrollIntent, registerVirtualizer, scrollElementRef });

@@ -1,25 +1,17 @@
-import type { ComponentChild as UiNode } from "preact";
-
 import type { CodexPanelSettings } from "../../../../settings/model";
-import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import type { ChatViewControllers } from "../../composition";
-import { type ChatAction, type ChatState, type ChatStateStore, chatTurnBusy } from "../../state/reducer";
-import type { RestoredThreadTitleSnapshot, ChatPanelRegionPorts } from "./ports";
+import type { ChatViewControllers } from "../../controllers";
+import { type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
+import type { RestoredThreadTitleSnapshot, ChatPanelSurfacePorts } from "./ports";
 
-export interface ChatPanelRegionHost {
+export interface ChatPanelSurfaceHost {
   settings: CodexPanelSettings;
   vaultPath: string;
   stateStore: ChatStateStore;
-  runtimeSnapshot: () => RuntimeSnapshot;
   restoredThreadPlaceholder: () => RestoredThreadTitleSnapshot | null;
-  messageStreamNode: () => UiNode;
   startNewThread: () => Promise<void>;
 }
 
-export function createChatPanelRegionPorts(host: ChatPanelRegionHost, controllers: ChatViewControllers): ChatPanelRegionPorts {
-  const state = {
-    chat: () => host.stateStore.getState(),
-  };
+export function createChatPanelSurfacePorts(host: ChatPanelSurfaceHost, controllers: ChatViewControllers): ChatPanelSurfacePorts {
   const dispatch = (action: ChatAction): void => {
     host.stateStore.dispatch(action);
   };
@@ -35,24 +27,18 @@ export function createChatPanelRegionPorts(host: ChatPanelRegionHost, controller
   return {
     toolbar: {
       state: {
-        ...state,
         connected: () => controllers.connection.manager.isConnected(),
-        turnBusy: () => chatTurnBusy(host.stateStore.getState()),
       },
       settings: {
         vaultPath: () => host.vaultPath,
         configuredCommand: () => host.settings.codexPath,
         archiveExportEnabled: () => host.settings.archiveExportEnabled,
       },
-      runtime: {
-        snapshot: host.runtimeSnapshot,
-      },
       view: {
         toolbar: {
-          archiveConfirmId: () => controllers.toolbar.panels.archiveConfirmId(),
-          archiveConfirmSubscribe: (listener) => controllers.toolbar.panels.onArchiveConfirmChange(listener),
+          archiveConfirm: controllers.toolbar.panels.archiveConfirm,
           renameState: (threadId) => controllers.thread.rename.editState(threadId),
-          renameSubscribe: (listener) => controllers.thread.rename.subscribe(listener),
+          renameVersion: controllers.thread.rename.version,
         },
       },
       actions: {
@@ -109,7 +95,6 @@ export function createChatPanelRegionPorts(host: ChatPanelRegionHost, controller
       },
     },
     goal: {
-      state,
       settings: {
         sendShortcut: () => host.settings.sendShortcut,
       },
@@ -124,19 +109,11 @@ export function createChatPanelRegionPorts(host: ChatPanelRegionHost, controller
         },
       },
     },
-    messageStream: {
-      state,
-      render: {
-        node: host.messageStreamNode,
-      },
-    },
     composer: {
-      state,
       thread: {
         restoredPlaceholder: host.restoredThreadPlaceholder,
       },
       runtime: {
-        snapshot: host.runtimeSnapshot,
         requestModel: (model) => controllers.runtime.settings.requestModelFromUi(model),
         requestReasoningEffort: (effort) => controllers.runtime.settings.requestReasoningEffortFromUi(effort),
         resetReasoningEffortToConfig: () => controllers.runtime.settings.resetReasoningEffortToConfigFromUi(),

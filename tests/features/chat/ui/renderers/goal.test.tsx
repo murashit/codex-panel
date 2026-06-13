@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { goalRegionNode, type GoalRegionActions } from "../../../../../src/features/chat/ui/goal";
+import { GoalPanel, type GoalPanelActions } from "../../../../../src/features/chat/ui/goal";
 import type { SendShortcut } from "../../../../../src/shared/ui/keyboard";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../../support/dom";
@@ -12,7 +12,7 @@ import { installObsidianDomShims } from "../../../../support/dom";
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-describe("goalRegionNode", () => {
+describe("GoalPanel", () => {
   it("renders nothing when there is no goal", async () => {
     const parent = document.createElement("div");
 
@@ -30,7 +30,10 @@ describe("goalRegionNode", () => {
     const onEditingChange = vi.fn();
 
     await act(async () => {
-      renderUiRoot(parent, goalRegionNode(null, callbacks, { sendShortcut: "enter", editingRequested: true, onEditingChange }));
+      renderUiRoot(
+        parent,
+        <GoalPanel goal={null} actions={callbacks} options={{ sendShortcut: "enter", editingRequested: true, onEditingChange }} />,
+      );
     });
 
     expect(parent.textContent).toContain("Goal");
@@ -234,10 +237,10 @@ describe("goalRegionNode", () => {
 function renderGoal(
   parent: HTMLElement,
   currentGoal: ThreadGoal | null,
-  callbacks: GoalRegionActions = actions(),
+  callbacks: GoalPanelActions = actions(),
   sendShortcut: SendShortcut = "enter",
 ): void {
-  renderUiRoot(parent, goalRegionNode(currentGoal, callbacks, { sendShortcut }));
+  renderUiRoot(parent, <GoalPanel goal={currentGoal} actions={callbacks} options={{ sendShortcut }} />);
 }
 
 function actions() {

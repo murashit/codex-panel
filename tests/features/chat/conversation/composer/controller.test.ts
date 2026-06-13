@@ -2,14 +2,20 @@
 
 import type { App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
+import { h } from "preact";
 
 import { ChatComposerController } from "../../../../../src/features/chat/conversation/composer/controller";
+import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
 import { createChatStateStore } from "../../../../../src/features/chat/state/reducer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
+
+function renderComposerController(parent: HTMLElement, controller: ChatComposerController): void {
+  renderUiRoot(parent, h(ComposerShell, controller.renderState()));
+}
 
 describe("ChatComposerController", () => {
   it("updates slash suggestions in the same render as the input", () => {
@@ -18,7 +24,7 @@ describe("ChatComposerController", () => {
     const controllerRef: { current: ChatComposerController | null } = { current: null };
     const renderShell = vi.fn(() => {
       if (!controllerRef.current) throw new Error("Expected controller.");
-      renderUiRoot(parent, controllerRef.current.renderNode());
+      renderComposerController(parent, controllerRef.current);
     });
     const controller = new ChatComposerController({
       app: app(),
@@ -26,9 +32,9 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
-      canInterrupt: () => false,
-      composerPlaceholder: () => "Ask Codex to work on this task...",
-      composerMeta: () => ({
+      canInterrupt: (_state) => false,
+      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
+      composerMeta: (_state) => ({
         fatal: null,
         context: {
           cells: [
@@ -73,7 +79,7 @@ describe("ChatComposerController", () => {
     let controller: ChatComposerController | null = null;
     const renderShell = vi.fn(() => {
       if (!controller) throw new Error("Expected controller.");
-      renderUiRoot(parent, controller.renderNode());
+      renderComposerController(parent, controller);
     });
     controller = new ChatComposerController({
       app: app(),
@@ -81,9 +87,9 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
-      canInterrupt: () => false,
-      composerPlaceholder: () => "Ask Codex to work on this task...",
-      composerMeta: () => ({
+      canInterrupt: (_state) => false,
+      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
+      composerMeta: (_state) => ({
         fatal: null,
         context: {
           cells: [
@@ -135,7 +141,7 @@ describe("ChatComposerController", () => {
     let controller: ChatComposerController | null = null;
     const renderShell = vi.fn(() => {
       if (!controller) throw new Error("Expected controller.");
-      renderUiRoot(parent, controller.renderNode());
+      renderComposerController(parent, controller);
     });
     controller = new ChatComposerController({
       app: app(),
@@ -143,9 +149,9 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
-      canInterrupt: () => false,
-      composerPlaceholder: () => "Ask Codex to work on this task...",
-      composerMeta: () => ({
+      canInterrupt: (_state) => false,
+      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
+      composerMeta: (_state) => ({
         fatal: null,
         context: {
           cells: [
@@ -198,9 +204,9 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
-      canInterrupt: () => false,
-      composerPlaceholder: () => "Ask Codex to work on this task...",
-      composerMeta: () => ({
+      canInterrupt: (_state) => false,
+      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
+      composerMeta: (_state) => ({
         fatal: null,
         context: {
           cells: [
@@ -226,7 +232,7 @@ describe("ChatComposerController", () => {
       onHeightChange: vi.fn(),
     });
 
-    renderUiRoot(parent, controller.renderNode());
+    renderComposerController(parent, controller);
     expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.classList.contains("is-active")).toBe(false);
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-icon")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
@@ -246,9 +252,9 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
-      canInterrupt: () => false,
-      composerPlaceholder: () => "Ask Codex to work on this task...",
-      composerMeta: () => ({
+      canInterrupt: (_state) => false,
+      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
+      composerMeta: (_state) => ({
         fatal: null,
         context: {
           cells: [
@@ -278,7 +284,7 @@ describe("ChatComposerController", () => {
       threadScrollFromComposer: vi.fn(),
     });
 
-    renderUiRoot(parent, controller.renderNode());
+    renderComposerController(parent, controller);
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
 
     expect(submit).toHaveBeenCalledOnce();
@@ -294,9 +300,9 @@ describe("ChatComposerController", () => {
       viewId: "view",
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
-      canInterrupt: () => false,
-      composerPlaceholder: () => "Ask Codex to work on this task...",
-      composerMeta: () => ({
+      canInterrupt: (_state) => false,
+      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
+      composerMeta: (_state) => ({
         fatal: null,
         context: {
           cells: [
@@ -322,7 +328,7 @@ describe("ChatComposerController", () => {
       onHeightChange: vi.fn(),
     });
 
-    renderUiRoot(parent, controller.renderNode());
+    renderComposerController(parent, controller);
     const mountedComposer = composer(parent);
     setTextAreaValue(mountedComposer, "stale dom draft");
     const focus = vi.spyOn(mountedComposer, "focus");
