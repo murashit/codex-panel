@@ -13,12 +13,12 @@ import {
   type ChatStateStore,
 } from "../../../../../src/features/chat/state/reducer";
 import {
+  type ChatMessageStreamSurfaceContext,
   messageStreamContextFromState,
   messageStreamStateProjection,
   MessageStreamPresenter,
 } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import { MessageStreamScrollBridge } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
-import { createMessageStreamSurfaceContext } from "../../../../../src/features/chat/panel/surface/message-stream-context";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import {
   bindRenderedWikiLinks,
@@ -70,30 +70,10 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
   it("wires message stream disclosure actions through the surface context", () => {
     const store = createChatStateStore(createChatState());
-    const surfaceContext = createMessageStreamSurfaceContext({
+    const surfaceContext = messageStreamSurfaceContext({
       vaultPath: "/vault",
       dispatch: (action) => {
         store.dispatch(action);
-      },
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: vi.fn(),
-      copyMessageText: vi.fn(),
-      actions: {
-        rollbackThread: vi.fn(),
-        forkThreadFromTurn: vi.fn(),
-        implementPlan: vi.fn(),
-        openTurnDiff: vi.fn(),
-      },
-      requests: {
-        pendingSignature: () => "",
-        pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), approvalDetails: new Set() }),
-        pendingActions: () => ({
-          resolveApproval: vi.fn(),
-          resolveUserInput: vi.fn(),
-          cancelUserInput: vi.fn(),
-          setUserInputDraft: vi.fn(),
-        }),
-        consumePendingAutoFocus: () => false,
       },
     });
 
@@ -594,6 +574,41 @@ describe("MessageStreamPresenter scroll pinning", () => {
     expect(parent.querySelectorAll("[data-codex-panel-block-key]").length).toBeLessThan(chatStateDisplayItems(state).length);
   });
 });
+
+function messageStreamSurfaceContext(options: {
+  vaultPath: string;
+  dispatch: (action: ChatAction) => void;
+}): ChatMessageStreamSurfaceContext {
+  return {
+    vaultPath: options.vaultPath,
+    setDisclosureOpen: (bucket, id, open) => {
+      options.dispatch({ type: "ui/disclosure-set", bucket, id, open });
+    },
+    setForkActionsItem: (itemId) => {
+      options.dispatch({ type: "ui/message-fork-actions-set", itemId });
+    },
+    loadOlderTurns: vi.fn(),
+    renderMarkdown: vi.fn(),
+    copyMessageText: vi.fn(),
+    actions: {
+      rollbackThread: vi.fn(),
+      forkThreadFromTurn: vi.fn(),
+      implementPlan: vi.fn(),
+      openTurnDiff: vi.fn(),
+    },
+    requests: {
+      pendingSignature: () => "",
+      pendingSnapshot: () => ({ approvals: [], pendingUserInputs: [], userInputDrafts: new Map(), approvalDetails: new Set() }),
+      pendingActions: () => ({
+        resolveApproval: vi.fn(),
+        resolveUserInput: vi.fn(),
+        cancelUserInput: vi.fn(),
+        setUserInputDraft: vi.fn(),
+      }),
+      consumePendingAutoFocus: () => false,
+    },
+  };
+}
 
 function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vaultFiles: string[] = []): RenderedMarkdownLinkContext {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));

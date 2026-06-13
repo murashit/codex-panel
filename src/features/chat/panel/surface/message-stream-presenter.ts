@@ -1,11 +1,17 @@
+import type { ComponentChild as UiNode } from "preact";
+import { h } from "preact";
 import type { App, Component } from "obsidian";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
-import { chatTurnBusy, type ChatAction, type ChatDisclosureUiState, type ChatStateStore } from "../../state/reducer";
+import {
+  chatTurnBusy,
+  type ChatAction,
+  type ChatDisclosureBucket,
+  type ChatDisclosureUiState,
+  type ChatStateStore,
+} from "../../state/reducer";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
-import type { ChatMessageStreamActions, ChatMessageStreamRequests, ChatMessageStreamSurfaceContext } from "./message-stream-context";
-import { createMessageStreamSurfaceContext } from "./message-stream-context";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
-import type { MessageStreamViewportState } from "../../ui/message-stream/viewport";
+import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
 import type { DisplayItem } from "../../display/types";
 import { implementPlanCandidateFromState } from "../../state/selectors";
 import { messageStreamActiveItems, messageStreamDisplayItems, messageStreamStableItems } from "../../state/message-stream";
@@ -19,7 +25,57 @@ import {
 } from "../../display/item-actions";
 import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
-import type { ChatPanelMessageStreamShellState } from "../../ui/shell-state";
+import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../../ui/shell-state";
+import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
+import type { PendingRequestBlockActions } from "../../conversation/pending-requests/view-model";
+import type { ChatTurnDiffViewState } from "../../turn-diff/model";
+
+export interface ChatPanelMessageStreamPresenter {
+  renderState(state: ChatPanelMessageStreamShellState): MessageStreamViewportState;
+}
+
+export function ChatPanelMessageStream({ presenter }: { presenter: ChatPanelMessageStreamPresenter }): UiNode {
+  const state = messageStreamStateFromShellState(useChatPanelShellState());
+  return h(MessageStreamViewport, {
+    state: presenter.renderState(state),
+    rootAttributes: { "data-codex-panel-shell-region": "message-stream" },
+  });
+}
+
+interface ChatMessageStreamActions {
+  rollbackThread: (threadId: string) => void;
+  forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
+  implementPlan: (item: DisplayItem) => void;
+  openTurnDiff: (state: ChatTurnDiffViewState) => void;
+}
+
+interface ChatMessageStreamRequests {
+  pendingSignature: () => string;
+  pendingSnapshot: () => PendingRequestBlockSnapshot;
+  pendingActions: () => PendingRequestBlockActions;
+  consumePendingAutoFocus: () => boolean;
+}
+
+export interface ChatMessageStreamSurfaceContext {
+  vaultPath: string;
+  setDisclosureOpen: (bucket: ChatDisclosureBucket, id: string, open: boolean) => void;
+  setForkActionsItem: (itemId: string | null) => void;
+  loadOlderTurns: () => void;
+  renderMarkdown: (element: HTMLElement, text: string) => void;
+  copyMessageText: (text: string) => void;
+  actions: ChatMessageStreamActions;
+  requests: ChatMessageStreamRequests;
+}
+
+interface MessageStreamSurfaceContextOptions {
+  vaultPath: string;
+  dispatch: (action: ChatAction) => void;
+  loadOlderTurns: () => void;
+  renderMarkdown: (element: HTMLElement, text: string) => void;
+  copyMessageText: (text: string) => void;
+  actions: ChatMessageStreamActions;
+  requests: ChatMessageStreamRequests;
+}
 
 interface MessageStreamPresenterObsidianContext {
   app: App;
@@ -196,5 +252,22 @@ export function messageStreamStateProjection(state: ChatPanelMessageStreamShellS
     implementPlanCandidate,
     rollbackCandidate,
     forkCandidates,
+  };
+}
+
+function createMessageStreamSurfaceContext(options: MessageStreamSurfaceContextOptions): ChatMessageStreamSurfaceContext {
+  return {
+    vaultPath: options.vaultPath,
+    setDisclosureOpen: (bucket, id, open) => {
+      options.dispatch({ type: "ui/disclosure-set", bucket, id, open });
+    },
+    setForkActionsItem: (itemId) => {
+      options.dispatch({ type: "ui/message-fork-actions-set", itemId });
+    },
+    loadOlderTurns: options.loadOlderTurns,
+    renderMarkdown: options.renderMarkdown,
+    copyMessageText: options.copyMessageText,
+    actions: options.actions,
+    requests: options.requests,
   };
 }

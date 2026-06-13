@@ -4,7 +4,7 @@ import type { ChatStateStore } from "../state/reducer";
 import type { ChatPanelGoalSurface, ChatPanelToolbarSurface } from "../panel/surface/model";
 import { ChatPanelToolbar } from "../panel/surface/toolbar";
 import { ChatPanelGoal } from "../panel/surface/goal";
-import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "../panel/surface/message-stream";
+import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerController } from "../panel/surface/composer";
 import { ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState, type ChatPanelShellState } from "./shell-state";
 
