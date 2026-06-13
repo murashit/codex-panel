@@ -29,6 +29,14 @@ import { runtimeSnapshotForShellState } from "./runtime-snapshot";
 
 type ComposerMetaState = Pick<ChatState, "connection" | "runtime">;
 
+export interface ChatPanelComposerProjection {
+  placeholder: string;
+  meta: ComposerMetaViewModel & {
+    modelChoices: RuntimeChoice[];
+    effortChoices: RuntimeChoice[];
+  };
+}
+
 export interface ChatPanelComposerController {
   renderState(state: ChatPanelComposerShellState, actions: ChatPanelComposerActions): ComposerShellProps;
 }
@@ -60,27 +68,23 @@ export function ChatPanelComposer({
   return h(ComposerShell, controller.renderState(state, actions));
 }
 
-export function chatPanelComposerPlaceholder(surface: ChatPanelComposerSurface, state: ChatPanelComposerShellState): string {
-  return composerPlaceholder(activeComposerThreadName(state, surface.thread.restoredPlaceholder()));
-}
-
-export function chatPanelComposerMetaViewModel(
+export function chatPanelComposerProjection(
   surface: ChatPanelComposerSurface,
   state: ChatPanelComposerShellState,
-): ComposerMetaViewModel & {
-  modelChoices: RuntimeChoice[];
-  effortChoices: RuntimeChoice[];
-} {
+): ChatPanelComposerProjection {
   const snapshot = runtimeSnapshotForShellState(state);
   return {
-    ...composerMetaViewModel(state, snapshot),
-    ...runtimeComposerChoices({
-      state,
-      snapshot,
-      requestModel: (model) => void surface.runtime.requestModel(model),
-      requestReasoningEffort: (effort) => void surface.runtime.requestReasoningEffort(effort),
-      resetReasoningEffortToConfig: () => void surface.runtime.resetReasoningEffortToConfig(),
-    }),
+    placeholder: composerPlaceholder(activeComposerThreadName(state, surface.thread.restoredPlaceholder())),
+    meta: {
+      ...composerMetaViewModel(state, snapshot),
+      ...runtimeComposerChoices({
+        state,
+        snapshot,
+        requestModel: (model) => void surface.runtime.requestModel(model),
+        requestReasoningEffort: (effort) => void surface.runtime.requestReasoningEffort(effort),
+        resetReasoningEffortToConfig: () => void surface.runtime.resetReasoningEffortToConfig(),
+      }),
+    },
   };
 }
 

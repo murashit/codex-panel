@@ -6,21 +6,19 @@ import { GoalPanel } from "../../ui/goal";
 import { goalStateFromShellState, useChatPanelShellState, type ChatPanelGoalShellState } from "../../ui/shell-state";
 import type { ChatPanelGoalSurface } from "./model";
 
+export interface ChatPanelGoalProjection {
+  goal: ChatPanelGoalShellState["activeThread"]["goal"];
+  goalThreadId: string | null;
+  editor: GoalPanelEditorState;
+  display: GoalPanelDisplayState;
+}
+
 export function ChatPanelGoal({ surface }: { surface: ChatPanelGoalSurface }): UiNode {
-  const props = chatPanelGoalProps(surface, goalStateFromShellState(useChatPanelShellState()));
+  const props = chatPanelGoalViewModel(surface, goalStateFromShellState(useChatPanelShellState()));
   return h(GoalPanel, props);
 }
 
-export function chatPanelGoalProps(
-  surface: ChatPanelGoalSurface,
-  state: ChatPanelGoalShellState,
-): {
-  goal: ChatPanelGoalShellState["activeThread"]["goal"];
-  actions: GoalPanelActions;
-  options: GoalPanelOptions;
-  editor: GoalPanelEditorState;
-  display: GoalPanelDisplayState;
-} {
+export function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPanelGoalProjection {
   const goal = state.activeThread.goal;
   const goalThreadId = goal?.threadId ?? null;
   const goalEditor = state.ui.goalEditor;
@@ -30,25 +28,50 @@ export function chatPanelGoalProps(
       : { editing: false, objectiveDraft: goal?.objective ?? "", tokenBudgetDraft: goal?.tokenBudget ?? null };
   return {
     goal,
+    goalThreadId,
+    editor,
+    display: {
+      objectiveExpanded: goalThreadId ? state.ui.disclosures.goalObjectiveExpanded.has(goalThreadId) : false,
+    },
+  };
+}
+
+export function chatPanelGoalViewModel(
+  surface: ChatPanelGoalSurface,
+  state: ChatPanelGoalShellState,
+): {
+  goal: ChatPanelGoalShellState["activeThread"]["goal"];
+  actions: GoalPanelActions;
+  options: GoalPanelOptions;
+  editor: GoalPanelEditorState;
+  display: GoalPanelDisplayState;
+} {
+  const projection = chatPanelGoalProjection(state);
+  return {
+    goal: projection.goal,
     actions: {
       onSave: (objective, tokenBudget) => {
         void surface.actions.goal.saveObjective(objective, tokenBudget);
         surface.actions.goal.closeEditor();
       },
       onPause: () => {
-        if (!goalThreadId) return;
-        void surface.actions.goal.setStatus(goalThreadId, "paused");
+        if (!projection.goalThreadId) return;
+        void surface.actions.goal.setStatus(projection.goalThreadId, "paused");
       },
       onResume: () => {
-        if (!goalThreadId) return;
-        void surface.actions.goal.setStatus(goalThreadId, "active");
+        if (!projection.goalThreadId) return;
+        void surface.actions.goal.setStatus(projection.goalThreadId, "active");
       },
       onClear: () => {
-        if (!goalThreadId) return;
-        void surface.actions.goal.clear(goalThreadId);
+        if (!projection.goalThreadId) return;
+        void surface.actions.goal.clear(projection.goalThreadId);
       },
       onStartEditing: () => {
-        surface.actions.goal.startEditing(goal?.threadId ?? null, goal?.objective ?? "", goal?.tokenBudget ?? null);
+        surface.actions.goal.startEditing(
+          projection.goal?.threadId ?? null,
+          projection.goal?.objective ?? "",
+          projection.goal?.tokenBudget ?? null,
+        );
       },
       onCancelEditing: () => {
         surface.actions.goal.closeEditor();
@@ -57,16 +80,14 @@ export function chatPanelGoalProps(
         surface.actions.goal.updateObjectiveDraft(objective);
       },
       onObjectiveExpandedChange: (expanded) => {
-        if (!goalThreadId) return;
-        surface.actions.goal.setObjectiveExpanded(goalThreadId, expanded);
+        if (!projection.goalThreadId) return;
+        surface.actions.goal.setObjectiveExpanded(projection.goalThreadId, expanded);
       },
     },
     options: {
       sendShortcut: surface.settings.sendShortcut(),
     },
-    editor,
-    display: {
-      objectiveExpanded: goalThreadId ? state.ui.disclosures.goalObjectiveExpanded.has(goalThreadId) : false,
-    },
+    editor: projection.editor,
+    display: projection.display,
   };
 }

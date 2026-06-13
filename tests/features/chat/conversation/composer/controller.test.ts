@@ -10,6 +10,7 @@ import { createChatStateStore, type ChatStateStore } from "../../../../../src/fe
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { installObsidianDomShims } from "../../../../support/dom";
+import type { ChatPanelComposerShellState } from "../../../../../src/features/chat/ui/shell-state";
 
 installObsidianDomShims();
 
@@ -23,6 +24,38 @@ function renderComposerController(
 }
 
 describe("ChatComposerController", () => {
+  it("derives composer placeholder and meta from one projection per render", () => {
+    const stateStore = createChatStateStore();
+    const projection = vi.fn((state: ChatPanelComposerShellState) => ({
+      placeholder: `Projected ${state.composer.draft || "empty"}`,
+      meta: defaultComposerProjection(state).meta,
+    }));
+    const controller = new ChatComposerController({
+      app: app(),
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
+      canInterrupt: (_state) => false,
+      composerProjection: projection,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+
+    const props = controller.renderState(stateStore.getState(), { submit: vi.fn() });
+
+    expect(projection).toHaveBeenCalledOnce();
+    expect(props.normalPlaceholder).toBe("Projected empty");
+    expect(props.meta.statusSummary).toBe(
+      "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+    );
+  });
+
   it("updates slash suggestions in the same render as the input", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
@@ -39,25 +72,7 @@ describe("ChatComposerController", () => {
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
-      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
-      composerMeta: (_state) => ({
-        fatal: null,
-        context: {
-          cells: [
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-          ],
-          percent: "--%",
-        },
-        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-        model: "default",
-        effort: null,
-        planActive: false,
-        autoReviewActive: false,
-        fastActive: false,
-      }),
+      composerProjection: defaultComposerProjection,
       currentModelForSuggestions: () => null,
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
@@ -95,25 +110,7 @@ describe("ChatComposerController", () => {
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
-      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
-      composerMeta: (_state) => ({
-        fatal: null,
-        context: {
-          cells: [
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-          ],
-          percent: "--%",
-        },
-        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-        model: "default",
-        effort: null,
-        planActive: false,
-        autoReviewActive: false,
-        fastActive: false,
-      }),
+      composerProjection: defaultComposerProjection,
       currentModelForSuggestions: () => null,
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
@@ -158,25 +155,7 @@ describe("ChatComposerController", () => {
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
-      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
-      composerMeta: (_state) => ({
-        fatal: null,
-        context: {
-          cells: [
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-          ],
-          percent: "--%",
-        },
-        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-        model: "default",
-        effort: null,
-        planActive: false,
-        autoReviewActive: false,
-        fastActive: false,
-      }),
+      composerProjection: defaultComposerProjection,
       currentModelForSuggestions: () => null,
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
@@ -214,25 +193,7 @@ describe("ChatComposerController", () => {
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
-      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
-      composerMeta: (_state) => ({
-        fatal: null,
-        context: {
-          cells: [
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-          ],
-          percent: "--%",
-        },
-        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-        model: "default",
-        effort: null,
-        planActive: false,
-        autoReviewActive: false,
-        fastActive: false,
-      }),
+      composerProjection: defaultComposerProjection,
       currentModelForSuggestions: () => null,
       togglePlan,
       toggleAutoReview: vi.fn(),
@@ -263,25 +224,7 @@ describe("ChatComposerController", () => {
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
-      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
-      composerMeta: (_state) => ({
-        fatal: null,
-        context: {
-          cells: [
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-          ],
-          percent: "--%",
-        },
-        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-        model: "default",
-        effort: null,
-        planActive: false,
-        autoReviewActive: false,
-        fastActive: false,
-      }),
+      composerProjection: defaultComposerProjection,
       currentModelForSuggestions: () => null,
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
@@ -308,25 +251,7 @@ describe("ChatComposerController", () => {
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
       canInterrupt: (_state) => false,
-      composerPlaceholder: (_state) => "Ask Codex to work on this task...",
-      composerMeta: (_state) => ({
-        fatal: null,
-        context: {
-          cells: [
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-            { text: "⣀", placeholder: true },
-          ],
-          percent: "--%",
-        },
-        statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-        model: "default",
-        effort: null,
-        planActive: false,
-        autoReviewActive: false,
-        fastActive: false,
-      }),
+      composerProjection: defaultComposerProjection,
       currentModelForSuggestions: () => null,
       togglePlan: vi.fn(),
       toggleAutoReview: vi.fn(),
@@ -366,6 +291,30 @@ function skill(name: string): SkillMetadata {
     description: `${name} description`,
     path: `/vault/skills/${name}/SKILL.md`,
     enabled: true,
+  };
+}
+
+function defaultComposerProjection(_state: ChatPanelComposerShellState) {
+  return {
+    placeholder: "Ask Codex to work on this task...",
+    meta: {
+      fatal: null,
+      context: {
+        cells: [
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "--%",
+      },
+      statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+      model: "default",
+      effort: null,
+      planActive: false,
+      autoReviewActive: false,
+      fastActive: false,
+    },
   };
 }
 

@@ -27,8 +27,10 @@ export interface ChatComposerControllerOptions {
   sendShortcut: () => SendShortcut;
   scrollThreadFromComposerEdges: () => boolean;
   canInterrupt: (state: ChatPanelComposerShellState) => boolean;
-  composerPlaceholder: (state: ChatPanelComposerShellState) => string;
-  composerMeta: (state: ChatPanelComposerShellState) => ComposerMetaViewModel;
+  composerProjection: (state: ChatPanelComposerShellState) => {
+    placeholder: string;
+    meta: ComposerMetaViewModel;
+  };
   currentModelForSuggestions: () => string | null;
   threadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
   togglePlan: () => void;
@@ -74,16 +76,17 @@ export class ChatComposerController {
   }
 
   renderState(state: ChatPanelComposerShellState, actions: ChatComposerRenderActions): ComposerShellProps {
+    const projection = this.options.composerProjection(state);
     return {
       viewId: this.options.viewId,
       draft: state.composer.draft,
       busy: chatTurnBusy(state),
       canInterrupt: this.options.canInterrupt(state),
-      normalPlaceholder: this.options.composerPlaceholder(state),
+      normalPlaceholder: projection.placeholder,
       suggestions: state.composer.suggestions,
       selectedSuggestionIndex: state.composer.suggestSelected,
       callbacks: this.composerCallbacks(actions),
-      meta: this.options.composerMeta(state),
+      meta: projection.meta,
       onComposer: this.setComposerElement,
     };
   }

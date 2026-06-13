@@ -43,7 +43,7 @@ import { rejectServerRequest, respondToServerRequest } from "./protocol/server-r
 import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/pending-settings";
 import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "./runtime/settings-actions";
 import { runtimeSnapshotForChatState, type RuntimeSnapshot } from "./runtime/snapshot";
-import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "./panel/surface/composer";
+import { chatPanelComposerProjection } from "./panel/surface/composer";
 import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "./ui/message-stream/scroll-intent-state";
 import { renderChatPanelShell } from "./ui/shell";
 import {
@@ -561,8 +561,7 @@ export class ChatPanelSession {
               this.state.requests.pendingUserInputs,
               this.state.requests.userInputDrafts,
             ),
-          composerPlaceholder: (state) => chatPanelComposerPlaceholder(surface.composer, state),
-          composerMetaViewModel: (state) => chatPanelComposerMetaViewModel(surface.composer, state),
+          composerProjection: (state) => chatPanelComposerProjection(surface.composer, state),
         },
         runtime: {
           connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),

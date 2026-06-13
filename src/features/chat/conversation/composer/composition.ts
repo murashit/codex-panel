@@ -17,8 +17,10 @@ export interface ConversationComposerContext {
   stateStore: ChatStateStore;
   viewId: string;
   surface: {
-    composerPlaceholder: (state: ChatPanelComposerShellState) => string;
-    composerMetaViewModel: (state: ChatPanelComposerShellState) => ComposerMetaViewModel;
+    composerProjection: (state: ChatPanelComposerShellState) => {
+      placeholder: string;
+      meta: ComposerMetaViewModel;
+    };
   };
   liveState: {
     refresh: () => void;
@@ -51,8 +53,7 @@ export function createConversationComposer(
     canInterrupt: (state) => {
       return state.turn.lifecycle.kind !== "idle" && Boolean(state.activeThread.id && activeTurnId(state));
     },
-    composerPlaceholder: surface.composerPlaceholder,
-    composerMeta: surface.composerMetaViewModel,
+    composerProjection: surface.composerProjection,
     currentModelForSuggestions: () => {
       const current = stateStore.getState();
       return currentModel(runtimeSnapshotForChatState(current), runtimeConfigOrDefault(current.connection.runtimeConfig));

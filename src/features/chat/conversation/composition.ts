@@ -33,8 +33,10 @@ interface ConversationPartsContext {
   };
   surface: {
     pendingRequestsSignature: () => string;
-    composerPlaceholder: (state: ChatPanelComposerShellState) => string;
-    composerMetaViewModel: (state: ChatPanelComposerShellState) => ComposerMetaViewModel;
+    composerProjection: (state: ChatPanelComposerShellState) => {
+      placeholder: string;
+      meta: ComposerMetaViewModel;
+    };
   };
   runtime: {
     connectionDiagnosticDetails: () => DisplayDetailSection[];
@@ -92,8 +94,7 @@ export function createConversationParts(
       stateStore,
       viewId,
       surface: {
-        composerPlaceholder: surface.composerPlaceholder,
-        composerMetaViewModel: surface.composerMetaViewModel,
+        composerProjection: surface.composerProjection,
       },
       liveState: {
         refresh: liveState.refresh,

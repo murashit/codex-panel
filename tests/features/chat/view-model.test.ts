@@ -7,16 +7,15 @@ import {
   type RuntimeConfigSnapshot,
 } from "../../../src/app-server/protocol/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
-import { composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
+import { chatPanelComposerProjection, composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
 import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/display/status/runtime";
 import { runtimeComposerChoices } from "../../../src/features/chat/panel/surface/composer";
 import { runtimeSnapshotForChatState } from "../../../src/features/chat/runtime/snapshot";
-import { toolbarViewModel } from "../../../src/features/chat/panel/surface/toolbar";
+import { chatPanelToolbarProjection, toolbarStateProjection } from "../../../src/features/chat/panel/surface/toolbar";
 import type { ChatState } from "../../../src/features/chat/state/reducer";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/domain/threads/model";
-import { chatPanelComposerMetaViewModel, chatPanelComposerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
-import { chatPanelGoalProps } from "../../../src/features/chat/panel/surface/goal";
+import { chatPanelGoalProjection, chatPanelGoalViewModel } from "../../../src/features/chat/panel/surface/goal";
 import type { ChatPanelComposerSurface, ChatPanelGoalSurface } from "../../../src/features/chat/panel/surface/model";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import { setChatStateDisplayItems } from "./support/message-stream";
@@ -33,7 +32,7 @@ describe("chat view model", () => {
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.serverDiagnostics = createServerDiagnostics();
 
-    const model = toolbarViewModel({
+    const input = {
       state,
       snapshot: runtimeSnapshotFixture(state),
       connected: true,
@@ -42,7 +41,8 @@ describe("chat view model", () => {
       vaultPath: "/vault",
       configuredCommand: "codex",
       archiveExportEnabled: true,
-    });
+    };
+    const model = chatPanelToolbarProjection(input);
 
     expect(model.openPanel).toBe("history");
     expect(model.newChatDisabled).toBe(true);
@@ -50,6 +50,15 @@ describe("chat view model", () => {
       { threadId: "thread-1", title: "Active", selected: true, disabled: false, rename: { draft: "Active" } },
       { threadId: "thread-2", title: "Other", selected: false, disabled: true, archiveConfirm: { active: true } },
     ]);
+    expect(toolbarStateProjection(input)).toMatchObject({
+      newChatDisabled: true,
+      historyOpen: true,
+      openPanel: "history",
+      threads: [
+        { threadId: "thread-1", selected: true, disabled: false },
+        { threadId: "thread-2", selected: false, disabled: true },
+      ],
+    });
   });
 
   it("builds composer meta from context and runtime state", () => {
@@ -272,7 +281,7 @@ describe("chat view model", () => {
       },
     } satisfies ChatPanelGoalSurface;
 
-    const props = chatPanelGoalProps(surface, state);
+    const props = chatPanelGoalViewModel(surface, state);
     state.activeThread.id = "thread-current";
     props.actions.onPause();
     props.actions.onResume();
@@ -290,28 +299,19 @@ describe("chat view model", () => {
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.availableModels = [modelFixture("gpt-5.5")];
 
-    const model = chatPanelComposerMetaViewModel(
-      {
-        thread: {
-          restoredPlaceholder: () => null,
-        },
-        runtime: {
-          requestModel: async () => undefined,
-          requestReasoningEffort: async () => undefined,
-          resetReasoningEffortToConfig: async () => undefined,
-        },
-      } satisfies ChatPanelComposerSurface,
-      state,
-    );
+    const projection = chatPanelComposerProjection(composerSurfaceFixture(), state);
 
-    expect(model).toMatchObject({
-      model: "gpt-5.5",
-      effort: "high",
-      modelChoices: [{ label: "gpt-5.5", selected: true }],
-      effortChoices: [
-        { label: "Codex default", selected: false },
-        { label: "high", selected: true },
-      ],
+    expect(projection).toMatchObject({
+      placeholder: "Ask Codex to work on this task...",
+      meta: {
+        model: "gpt-5.5",
+        effort: "high",
+        modelChoices: [{ label: "gpt-5.5", selected: true }],
+        effortChoices: [
+          { label: "Codex default", selected: false },
+          { label: "high", selected: true },
+        ],
+      },
     });
   });
 
@@ -320,28 +320,52 @@ describe("chat view model", () => {
     expect(composerPlaceholder(null)).toBe("Ask Codex to work on this task...");
   });
 
-  it("uses restored thread names for composer region placeholders when the listed thread has no explicit name", () => {
+  it("uses restored thread names in the composer projection", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";
     state.threadList.listedThreads = [threadFixture("thread-1", null)];
 
     expect(
-      chatPanelComposerPlaceholder(
-        {
+      chatPanelComposerProjection(
+        composerSurfaceFixture({
           thread: {
             restoredPlaceholder: () => ({ threadId: "thread-1", title: "Restored", explicitName: "Restored" }),
           },
-          runtime: {
-            requestModel: async () => undefined,
-            requestReasoningEffort: async () => undefined,
-            resetReasoningEffortToConfig: async () => undefined,
-          },
-        } satisfies ChatPanelComposerSurface,
+        }),
         state,
-      ),
+      ).placeholder,
     ).toBe("Ask Codex to work on “Restored”...");
   });
+
+  it("projects goal editor and disclosure state before action wiring", () => {
+    const state = createChatState();
+    state.activeThread.goal = goalFixture("thread-1");
+    state.ui.goalEditor = { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 };
+    state.ui.disclosures.goalObjectiveExpanded = new Set(["thread-1"]);
+
+    expect(chatPanelGoalProjection(state)).toEqual({
+      goal: state.activeThread.goal,
+      goalThreadId: "thread-1",
+      editor: { editing: true, objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 },
+      display: { objectiveExpanded: true },
+    });
+  });
 });
+
+function composerSurfaceFixture(overrides: Partial<ChatPanelComposerSurface> = {}): ChatPanelComposerSurface {
+  return {
+    thread: {
+      restoredPlaceholder: () => null,
+      ...overrides.thread,
+    },
+    runtime: {
+      requestModel: async () => undefined,
+      requestReasoningEffort: async () => undefined,
+      resetReasoningEffortToConfig: async () => undefined,
+      ...overrides.runtime,
+    },
+  };
+}
 
 function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSnapshot {
   return runtimeConfigSnapshotFromAppServerConfig({

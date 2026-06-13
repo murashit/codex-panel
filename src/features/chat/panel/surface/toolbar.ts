@@ -25,6 +25,15 @@ export interface ToolbarViewModelInput {
   archiveExportEnabled: boolean;
 }
 
+export interface ToolbarStateProjection {
+  newChatDisabled: boolean;
+  chatActionsOpen: boolean;
+  historyOpen: boolean;
+  statusPanelOpen: boolean;
+  openPanel: ToolbarViewModel["openPanel"];
+  threads: ToolbarThreadRow[];
+}
+
 export interface ConnectionDiagnosticsModelInput {
   state: Pick<ChatState, "connection">;
   connected: boolean;
@@ -32,7 +41,7 @@ export interface ConnectionDiagnosticsModelInput {
 }
 
 function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, state: ChatPanelToolbarShellState) {
-  return toolbarViewModel({
+  return chatPanelToolbarProjection({
     state,
     snapshot: runtimeSnapshotForToolbarShellState(state),
     connected: surface.state.connected(),
@@ -49,33 +58,47 @@ export function ChatPanelToolbar({ surface }: { surface: ChatPanelToolbarSurface
   return h(Toolbar, { model: chatPanelToolbarViewModel(surface, state), actions: surface.actions.toolbar });
 }
 
-export function toolbarViewModel(input: ToolbarViewModelInput): ToolbarViewModel {
+export function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
+  const projection = toolbarStateProjection(input);
   const limit = rateLimitSummary(snapshot, input.nowMs);
-  const historyOpen = state.ui.toolbarPanel === "history";
-  const chatActionsOpen = state.ui.toolbarPanel === "chat-actions";
-  const statusPanelOpen = state.ui.toolbarPanel === "status-panel";
   return {
-    newChatDisabled: input.turnBusy,
-    chatActionsOpen,
-    historyOpen,
-    statusPanelOpen,
+    newChatDisabled: projection.newChatDisabled,
+    chatActionsOpen: projection.chatActionsOpen,
+    historyOpen: projection.historyOpen,
+    statusPanelOpen: projection.statusPanelOpen,
     rateLimit: limit,
     configSections: runtimeConfigSections(snapshot, input.vaultPath),
-    openPanel: historyOpen ? "history" : chatActionsOpen ? "chat-actions" : statusPanelOpen ? "status" : null,
-    threads: toolbarThreadRows({
-      threads: state.threadList.listedThreads,
-      activeThreadId: state.activeThread.id,
-      turnBusy: input.turnBusy,
-      archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
-      archiveExportEnabled: input.archiveExportEnabled,
-      renameState: state.ui.rename,
-    }),
+    openPanel: projection.openPanel,
+    threads: projection.threads,
     connectLabel: input.connected ? "Reconnect" : "Connect",
     diagnostics: connectionDiagnosticsModel({
       state,
       connected: input.connected,
       configuredCommand: input.configuredCommand,
+    }),
+  };
+}
+
+export function toolbarStateProjection(
+  input: Pick<ToolbarViewModelInput, "state" | "turnBusy" | "archiveExportEnabled">,
+): ToolbarStateProjection {
+  const historyOpen = input.state.ui.toolbarPanel === "history";
+  const chatActionsOpen = input.state.ui.toolbarPanel === "chat-actions";
+  const statusPanelOpen = input.state.ui.toolbarPanel === "status-panel";
+  return {
+    newChatDisabled: input.turnBusy,
+    chatActionsOpen,
+    historyOpen,
+    statusPanelOpen,
+    openPanel: historyOpen ? "history" : chatActionsOpen ? "chat-actions" : statusPanelOpen ? "status" : null,
+    threads: toolbarThreadRows({
+      threads: input.state.threadList.listedThreads,
+      activeThreadId: input.state.activeThread.id,
+      turnBusy: input.turnBusy,
+      archiveConfirmThreadId: input.state.ui.archiveConfirmThreadId,
+      archiveExportEnabled: input.archiveExportEnabled,
+      renameState: input.state.ui.rename,
     }),
   };
 }
