@@ -56,15 +56,22 @@ export function applySharedServerMetadata(
   metadata: SharedServerMetadata,
 ): SharedAppServerState {
   if (!sharedAppServerCacheContextIsComplete(context)) return state;
-  const clonedMetadata = cloneSharedServerMetadata(metadata);
+  const previous =
+    state.appServerMetadata.kind === "loaded" && sharedAppServerCacheContextMatches(state.appServerMetadata.context, context)
+      ? state.appServerMetadata.data
+      : null;
+  const clonedMetadata = mergeSharedServerMetadata(previous, metadata);
   return {
     ...state,
     appServerMetadata: { kind: "loaded", context: cloneSharedAppServerCacheContext(context), data: clonedMetadata },
-    availableModels: {
-      kind: "loaded",
-      context: cloneSharedAppServerCacheContext(context),
-      data: cloneModelMetadata(clonedMetadata.availableModels),
-    },
+    availableModels:
+      clonedMetadata.availableModels.length > 0
+        ? {
+            kind: "loaded",
+            context: cloneSharedAppServerCacheContext(context),
+            data: cloneModelMetadata(clonedMetadata.availableModels),
+          }
+        : state.availableModels,
   };
 }
 
@@ -122,6 +129,53 @@ function cloneSharedServerMetadata(metadata: SharedServerMetadata): SharedServer
       probes: { ...metadata.serverDiagnostics.probes },
       mcpServers: metadata.serverDiagnostics.mcpServers.map((server) => ({ ...server })),
     },
+  };
+}
+
+function mergeSharedServerMetadata(previous: SharedServerMetadata | null, next: SharedServerMetadata): SharedServerMetadata {
+  const clonedNext = cloneSharedServerMetadata(next);
+  const clonedPrevious = previous ? cloneSharedServerMetadata(previous) : emptySharedServerMetadataResourceCache(clonedNext);
+  return {
+    ...clonedNext,
+    availableModels: metadataResourceSucceeded(clonedNext, "model/list") ? clonedNext.availableModels : clonedPrevious.availableModels,
+    availableSkills: metadataResourceSucceeded(clonedNext, "skills/list") ? clonedNext.availableSkills : clonedPrevious.availableSkills,
+    rateLimit: metadataResourceSucceeded(clonedNext, "account/rateLimits/read") ? clonedNext.rateLimit : clonedPrevious.rateLimit,
+    serverDiagnostics: mergeServerDiagnostics(clonedPrevious, clonedNext),
+  };
+}
+
+function emptySharedServerMetadataResourceCache(metadata: SharedServerMetadata): SharedServerMetadata {
+  return {
+    ...metadata,
+    availableModels: [],
+    availableSkills: [],
+    rateLimit: null,
+    serverDiagnostics: {
+      probes: { ...metadata.serverDiagnostics.probes },
+      mcpServers: [],
+    },
+  };
+}
+
+function metadataResourceSucceeded(
+  metadata: SharedServerMetadata,
+  method: keyof SharedServerMetadata["serverDiagnostics"]["probes"],
+): boolean {
+  if (method === "model/list") return metadata.availableModels.length > 0 && metadata.serverDiagnostics.probes[method].status === "ok";
+  return metadata.serverDiagnostics.probes[method].status === "ok";
+}
+
+function mergeServerDiagnostics(previous: SharedServerMetadata, next: SharedServerMetadata): SharedServerMetadata["serverDiagnostics"] {
+  const probes = { ...next.serverDiagnostics.probes };
+  for (const method of Object.keys(probes) as (keyof typeof probes)[]) {
+    if (probes[method].status === "failed") probes[method] = previous.serverDiagnostics.probes[method];
+  }
+  return {
+    probes,
+    mcpServers:
+      next.serverDiagnostics.probes["mcpServerStatus/list"].status === "failed"
+        ? previous.serverDiagnostics.mcpServers.map((server) => ({ ...server }))
+        : next.serverDiagnostics.mcpServers.map((server) => ({ ...server })),
   };
 }
 

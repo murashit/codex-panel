@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createServerDiagnostics } from "../../src/domain/server/diagnostics";
+import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../src/domain/server/diagnostics";
 import type { RateLimitSnapshot } from "../../src/app-server/protocol/runtime-metrics";
 import { emptyRuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
 import {
@@ -45,7 +45,7 @@ describe("shared app-server cache state", () => {
       availableSkills: [{ name: "skill", description: "", path: "/tmp/skill", enabled: true }],
       rateLimit: sourceRateLimit,
       serverDiagnostics: {
-        ...createServerDiagnostics(),
+        ...diagnostics({}),
         mcpServers: [{ name: "server", startupStatus: "ready", authStatus: null, toolCount: 1, message: null }],
       },
     });
@@ -103,6 +103,50 @@ describe("shared app-server cache state", () => {
       expect(cachedSharedServerMetadata(state, incompleteContext)).toBeNull();
     }
   });
+
+  it("merges app-server metadata by successful resource", () => {
+    const context = cacheContext();
+    const first = applySharedServerMetadata(createSharedAppServerState(), context, {
+      runtimeConfig: emptyRuntimeConfigSnapshot(),
+      availableModels: [modelFixture("gpt-5.5")],
+      availableSkills: [{ name: "writer", description: "", path: "/tmp/writer", enabled: true }],
+      rateLimit: rateLimitFixture(),
+      serverDiagnostics: diagnostics({}),
+    });
+
+    const second = applySharedServerMetadata(first, context, {
+      runtimeConfig: emptyRuntimeConfigSnapshot(),
+      availableModels: [modelFixture("gpt-5.6")],
+      availableSkills: [{ name: "stale", description: "", path: "/tmp/stale", enabled: true }],
+      rateLimit: null,
+      serverDiagnostics: diagnostics({ skills: "failed", rateLimit: "failed" }),
+    });
+
+    const cached = expectPresent(cachedSharedServerMetadata(second, context));
+    expect(cached.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
+    expect(cached.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cached.rateLimit?.primary?.usedPercent).toBe(42);
+    expect(expectPresent(cachedSharedModels(second, context)).map((model) => model.model)).toEqual(["gpt-5.6"]);
+  });
+
+  it("loads initial app-server metadata while caching only successful resources", () => {
+    const context = cacheContext();
+    const state = applySharedServerMetadata(createSharedAppServerState(), context, {
+      runtimeConfig: emptyRuntimeConfigSnapshot(),
+      availableModels: [modelFixture("failed-model")],
+      availableSkills: [{ name: "writer", description: "", path: "/tmp/writer", enabled: true }],
+      rateLimit: rateLimitFixture(),
+      serverDiagnostics: diagnostics({ models: "failed", rateLimit: "failed" }),
+    });
+
+    const cached = expectPresent(cachedSharedServerMetadata(state, context));
+    expect(cached.runtimeConfig).not.toBeNull();
+    expect(cached.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    expect(cached.availableModels).toEqual([]);
+    expect(cached.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cached.rateLimit).toBeNull();
+    expect(cachedSharedModels(state, context)).toBeNull();
+  });
 });
 
 function cacheContext(overrides: Partial<SharedAppServerCacheContext> = {}): SharedAppServerCacheContext {
@@ -156,4 +200,17 @@ function rateLimitFixture(): RateLimitSnapshot {
     individualLimit: { limit: "100", used: "42", remainingPercent: 58, resetsAt: 3 },
     rateLimitReachedType: null,
   };
+}
+
+function diagnostics(overrides: { models?: "ok" | "failed"; skills?: "ok" | "failed"; rateLimit?: "ok" | "failed" }) {
+  const next = createServerDiagnostics();
+  next.probes["model/list"] =
+    overrides.models === "failed" ? diagnosticProbeError("model/list", new Error("offline")) : diagnosticProbeOk("model/list");
+  next.probes["skills/list"] =
+    overrides.skills === "failed" ? diagnosticProbeError("skills/list", new Error("offline")) : diagnosticProbeOk("skills/list");
+  next.probes["account/rateLimits/read"] =
+    overrides.rateLimit === "failed"
+      ? diagnosticProbeError("account/rateLimits/read", new Error("offline"))
+      : diagnosticProbeOk("account/rateLimits/read");
+  return next;
 }

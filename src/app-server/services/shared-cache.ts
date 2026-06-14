@@ -68,7 +68,6 @@ export class SharedAppServerCache {
   }
 
   applyAppServerMetadataSnapshot(context: SharedAppServerCacheContext, metadata: SharedServerMetadata): void {
-    if (!isCacheableSharedServerMetadata(metadata)) return;
     this.state = applySharedServerMetadata(this.state, context, metadata);
   }
 
@@ -84,13 +83,4 @@ export class SharedAppServerCache {
   cachedModels(context: SharedAppServerCacheContext): ModelMetadata[] | null {
     return cachedSharedModels(this.state, context);
   }
-}
-
-function isCacheableSharedServerMetadata(metadata: SharedServerMetadata): boolean {
-  return (
-    metadata.availableModels.length > 0 &&
-    metadata.serverDiagnostics.probes["model/list"].status === "ok" &&
-    metadata.serverDiagnostics.probes["skills/list"].status === "ok" &&
-    metadata.serverDiagnostics.probes["account/rateLimits/read"].status === "ok"
-  );
 }

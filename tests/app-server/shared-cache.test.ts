@@ -3,30 +3,63 @@ import { describe, expect, it, vi } from "vitest";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../src/domain/server/diagnostics";
 import { SharedAppServerCache } from "../../src/app-server/services/shared-cache";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
+import type { RateLimitSnapshot } from "../../src/app-server/protocol/runtime-metrics";
 import type { SharedAppServerCacheContext, SharedServerMetadata } from "../../src/app-server/services/shared-cache-state";
-import type { ModelMetadata } from "../../src/domain/catalog/metadata";
+import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
 
 describe("SharedAppServerCache", () => {
-  it("does not store failed or empty metadata snapshots as shared cache truth", () => {
+  it("updates successful metadata resources while preserving failed resource cache values", () => {
     const cache = new SharedAppServerCache();
     const context = cacheContext();
-    const goodMetadata = metadata();
+    const goodMetadata = metadata({
+      availableSkills: [skillMetadata("writer")],
+      rateLimit: rateLimit(42),
+    });
 
     cache.applyAppServerMetadataSnapshot(context, goodMetadata);
     expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
 
-    const invalidSnapshots = [
-      metadata({ availableModels: [] }),
-      metadata({ modelProbeStatus: "failed" }),
-      metadata({ skillsProbeStatus: "failed" }),
-      metadata({ rateLimitProbeStatus: "failed" }),
-    ];
+    cache.applyAppServerMetadataSnapshot(
+      context,
+      metadata({
+        availableModels: [modelMetadata("gpt-5.6")],
+        availableSkills: [skillMetadata("stale-skill")],
+        rateLimit: rateLimit(90),
+        skillsProbeStatus: "failed",
+        rateLimitProbeStatus: "failed",
+      }),
+    );
 
-    for (const snapshot of invalidSnapshots) {
-      cache.applyAppServerMetadataSnapshot(context, snapshot);
-    }
+    expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
+    expect(cache.cachedAppServerMetadata(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cache.cachedAppServerMetadata(context)?.rateLimit?.primary?.usedPercent).toBe(42);
 
-    expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
+    cache.applyAppServerMetadataSnapshot(context, metadata({ availableModels: [], modelProbeStatus: "failed" }));
+    expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
+  });
+
+  it("loads initial metadata snapshots without caching failed resource values", () => {
+    const cache = new SharedAppServerCache();
+    const context = cacheContext();
+
+    cache.applyAppServerMetadataSnapshot(
+      context,
+      metadata({
+        availableModels: [modelMetadata("failed-model")],
+        availableSkills: [skillMetadata("writer")],
+        rateLimit: rateLimit(90),
+        modelProbeStatus: "failed",
+        rateLimitProbeStatus: "failed",
+      }),
+    );
+
+    const cached = cache.cachedAppServerMetadata(context);
+    expect(cached?.runtimeConfig).not.toBeNull();
+    expect(cached?.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    expect(cached?.availableModels).toEqual([]);
+    expect(cached?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cached?.rateLimit).toBeNull();
+    expect(cache.cachedModels(context)).toBeNull();
   });
 
   it("does not share or store snapshots before the app-server identity is known", async () => {
@@ -148,6 +181,8 @@ function cacheContext(overrides: Partial<SharedAppServerCacheContext> = {}): Sha
 function metadata(
   overrides: {
     availableModels?: readonly ModelMetadata[];
+    availableSkills?: readonly SkillMetadata[];
+    rateLimit?: RateLimitSnapshot | null;
     runtimeConfig?: RuntimeConfigSnapshot | null;
     modelProbeStatus?: "ok" | "failed";
     skillsProbeStatus?: "ok" | "failed";
@@ -170,9 +205,24 @@ function metadata(
   return {
     runtimeConfig: overrides.runtimeConfig ?? emptyRuntimeConfigSnapshot(),
     availableModels: overrides.availableModels ?? [modelMetadata("gpt-5.5")],
-    availableSkills: [],
-    rateLimit: null,
+    availableSkills: overrides.availableSkills ?? [],
+    rateLimit: overrides.rateLimit ?? null,
     serverDiagnostics: diagnostics,
+  };
+}
+
+function skillMetadata(name: string): SkillMetadata {
+  return { name, description: "", path: `/tmp/${name}`, enabled: true };
+}
+
+function rateLimit(usedPercent: number): RateLimitSnapshot {
+  return {
+    limitId: "codex",
+    limitName: "Codex",
+    primary: { usedPercent, windowDurationMins: 300, resetsAt: 1 },
+    secondary: null,
+    individualLimit: null,
+    rateLimitReachedType: null,
   };
 }
 
