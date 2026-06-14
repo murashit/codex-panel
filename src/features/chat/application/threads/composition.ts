@@ -31,8 +31,6 @@ interface ThreadPartsContext {
     getClosing: () => boolean;
   };
   thread: {
-    selectThread: (threadId: string) => Promise<void>;
-    resumeRestoredThread: (threadId: string) => Promise<void>;
     refreshThreads: () => Promise<void>;
     notifyIdentityChanged: () => void;
     refreshTabHeader: () => void;
@@ -96,34 +94,6 @@ export function createThreadParts(context: ThreadPartsContext) {
     },
   });
 
-  const threadManagementHost: ThreadManagementActionsHost = {
-    stateStore,
-    vaultPath: settingsRef.vaultPath,
-    settings: () => settingsRef.settings,
-    archiveAdapter: obsidian.archiveAdapter,
-    ensureConnected: client.ensureConnected,
-    currentClient,
-    addSystemMessage: status.addSystemMessage,
-    showNotice: notify.showNotice,
-    setStatus: status.set,
-    setComposerText: composer.setText,
-    openThreadInNewView: (threadId) => workspace.openThreadInNewView(threadId),
-    openThreadInCurrentPanel: (threadId) => thread.selectThread(threadId),
-    notifyThreadArchived: (threadId) => {
-      threadSurfaces.notifyThreadArchived(threadId);
-    },
-    notifyThreadRenamed: (threadId, name) => {
-      threadSurfaces.notifyThreadRenamed(threadId, name);
-    },
-    notifyActiveThreadIdentityChanged: () => {
-      thread.notifyIdentityChanged();
-    },
-    refreshThreads: () => thread.refreshThreads(),
-    refreshSharedThreadListFromOpenSurface: () => {
-      threadSurfaces.refreshSharedThreadListFromOpenSurface();
-    },
-  };
-  const managementActions = createThreadManagementActions(threadManagementHost);
   const goals = createGoalActions({
     stateStore,
     currentClient,
@@ -143,7 +113,6 @@ export function createThreadParts(context: ThreadPartsContext) {
     },
     lifecycle,
     thread: {
-      resumeRestoredThread: thread.resumeRestoredThread,
       notifyIdentityChanged: thread.notifyIdentityChanged,
       refreshTabHeader: thread.refreshTabHeader,
     },
@@ -156,6 +125,34 @@ export function createThreadParts(context: ThreadPartsContext) {
     },
   });
   const { history, restoration, resume, identity } = threadLifecycle;
+  const threadManagementHost: ThreadManagementActionsHost = {
+    stateStore,
+    vaultPath: settingsRef.vaultPath,
+    settings: () => settingsRef.settings,
+    archiveAdapter: obsidian.archiveAdapter,
+    ensureConnected: client.ensureConnected,
+    currentClient,
+    addSystemMessage: status.addSystemMessage,
+    showNotice: notify.showNotice,
+    setStatus: status.set,
+    setComposerText: composer.setText,
+    openThreadInNewView: (threadId) => workspace.openThreadInNewView(threadId),
+    openThreadInCurrentPanel: (threadId) => resume.resumeThread(threadId),
+    notifyThreadArchived: (threadId) => {
+      threadSurfaces.notifyThreadArchived(threadId);
+    },
+    notifyThreadRenamed: (threadId, name) => {
+      threadSurfaces.notifyThreadRenamed(threadId, name);
+    },
+    notifyActiveThreadIdentityChanged: () => {
+      thread.notifyIdentityChanged();
+    },
+    refreshThreads: () => thread.refreshThreads(),
+    refreshSharedThreadListFromOpenSurface: () => {
+      threadSurfaces.refreshSharedThreadListFromOpenSurface();
+    },
+  };
+  const managementActions = createThreadManagementActions(threadManagementHost);
 
   return {
     history,

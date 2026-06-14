@@ -2,11 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import type {
-  AppServerClient,
-  AppServerClientHandlers,
-  AppServerStartStructuredTurnOptions,
-} from "../../src/app-server/connection/client";
+import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../src/app-server/connection/client";
 import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
 import type { RequestId, ServerNotification } from "../../src/app-server/connection/rpc-messages";
 import type { ServerInitialization } from "../../src/domain/server/initialization";

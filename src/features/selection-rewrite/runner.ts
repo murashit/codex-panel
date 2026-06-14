@@ -5,10 +5,8 @@ import {
   runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
-import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import { listModelMetadata } from "../../app-server/services/catalog";
-import type { ModelMetadata } from "../../domain/catalog/metadata";
-import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/runtime/overrides";
+import { resolvedRuntimeOverrideForClient } from "../../app-server/services/runtime-overrides";
+import type { RuntimeOverride } from "../../domain/runtime/overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText, type SelectionRewriteOutput } from "./output";
@@ -75,34 +73,11 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
   return output;
 }
 
-interface SelectionRewriteRuntimeOverride {
-  model?: string;
-  effort?: ReasoningEffort;
-}
-
-function selectionRewriteRuntimeOverride(settings: SelectionRewriteRuntimeSettings): SelectionRewriteRuntimeOverride {
-  return runtimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
-}
-
-function validatedSelectionRewriteRuntimeOverride(
-  settings: SelectionRewriteRuntimeSettings,
-  models: readonly ModelMetadata[],
-): SelectionRewriteRuntimeOverride {
-  return validatedRuntimeOverrideForModelMetadata(
-    { model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort },
-    models,
-  );
-}
+type SelectionRewriteRuntimeOverride = RuntimeOverride;
 
 async function selectionRewriteRuntimeOverrideForClient(
   client: EphemeralStructuredTurnRuntimeClient,
   settings: SelectionRewriteRuntimeSettings,
 ): Promise<SelectionRewriteRuntimeOverride> {
-  const runtime = selectionRewriteRuntimeOverride(settings);
-  if (!runtime.model || !runtime.effort) return runtime;
-  try {
-    return validatedSelectionRewriteRuntimeOverride(settings, await listModelMetadata(client));
-  } catch {
-    return runtime;
-  }
+  return resolvedRuntimeOverrideForClient(client, { model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
 }

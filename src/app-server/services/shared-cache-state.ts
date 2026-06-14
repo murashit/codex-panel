@@ -8,20 +8,12 @@ export type { SharedServerMetadata } from "../../domain/server/metadata";
 export interface SharedAppServerCacheContext {
   codexPath: string;
   vaultPath: string;
-  appServerUserAgent: string | null;
-}
-
-type SharedThreadListSnapshotStatus = "ready" | "stale" | "unavailable";
-
-interface SharedThreadListSnapshot {
-  status: SharedThreadListSnapshotStatus;
-  threads: readonly Thread[];
 }
 
 type SharedCache<T> = { kind: "unloaded" } | { kind: "loaded"; context: SharedAppServerCacheContext; data: T };
 
 export interface SharedAppServerState {
-  threads: SharedCache<SharedThreadListSnapshot>;
+  threads: SharedCache<readonly Thread[]>;
   appServerMetadata: SharedCache<SharedServerMetadata>;
   availableModels: SharedCache<readonly ModelMetadata[]>;
 }
@@ -45,7 +37,7 @@ export function applySharedThreadList(
     threads: {
       kind: "loaded",
       context: cloneSharedAppServerCacheContext(context),
-      data: cloneSharedThreadListSnapshot({ status: "ready", threads }),
+      data: cloneThreads(threads),
     },
   };
 }
@@ -99,8 +91,7 @@ export function applySharedModels(
 export function cachedSharedThreadList(state: SharedAppServerState, context: SharedAppServerCacheContext): readonly Thread[] | null {
   if (!sharedAppServerCacheContextIsComplete(context)) return null;
   if (state.threads.kind !== "loaded" || !sharedAppServerCacheContextMatches(state.threads.context, context)) return null;
-  if (state.threads.data.status !== "ready") return null;
-  return cloneThreads(state.threads.data.threads);
+  return cloneThreads(state.threads.data);
 }
 
 export function cachedSharedServerMetadata(state: SharedAppServerState, context: SharedAppServerCacheContext): SharedServerMetadata | null {
@@ -175,10 +166,6 @@ function mergeServerDiagnostics(previous: SharedServerMetadata, next: SharedServ
   };
 }
 
-function cloneSharedThreadListSnapshot(snapshot: SharedThreadListSnapshot): SharedThreadListSnapshot {
-  return { status: snapshot.status, threads: cloneThreads(snapshot.threads) };
-}
-
 function cloneRateLimitSnapshot(snapshot: RateLimitSnapshot): RateLimitSnapshot {
   return {
     ...snapshot,
@@ -215,18 +202,12 @@ export function sharedAppServerCacheContextMatches(left: SharedAppServerCacheCon
     sharedAppServerCacheContextIsComplete(left) &&
     sharedAppServerCacheContextIsComplete(right) &&
     left.codexPath === right.codexPath &&
-    left.vaultPath === right.vaultPath &&
-    left.appServerUserAgent === right.appServerUserAgent
+    left.vaultPath === right.vaultPath
   );
 }
 
 export function sharedAppServerCacheContextIsComplete(context: SharedAppServerCacheContext): boolean {
-  return (
-    nonEmptyString(context.codexPath) &&
-    nonEmptyString(context.vaultPath) &&
-    context.appServerUserAgent !== null &&
-    nonEmptyString(context.appServerUserAgent)
-  );
+  return nonEmptyString(context.codexPath) && nonEmptyString(context.vaultPath);
 }
 
 function nonEmptyString(value: string): boolean {

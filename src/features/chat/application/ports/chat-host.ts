@@ -8,7 +8,6 @@ export interface CodexChatHost {
   readonly workspace: WorkspacePanels;
   readonly sharedCache: SharedAppServerCacheFacade;
   readonly threadSurfaces: ThreadSurfaceBroadcaster;
-  readonly appServerIdentity: AppServerIdentityPublisher;
 }
 
 export interface PluginSettingsRef {
@@ -35,8 +34,4 @@ interface SharedAppServerCacheFacade {
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
   cachedThreadList(): readonly Thread[] | null;
   cachedAppServerMetadata(): SharedServerMetadata | null;
-}
-
-interface AppServerIdentityPublisher {
-  publishAppServerIdentity(userAgent: string | null): void;
 }

@@ -176,16 +176,13 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("publishes app-server metadata after connecting", async () => {
     const publishAppServerMetadata = vi.fn();
-    const publishAppServerIdentity = vi.fn();
     connectionMock.state.client = connectedClient();
     const view = await chatView({
-      host: chatHost({ publishAppServerMetadata, publishAppServerIdentity }),
+      host: chatHost({ publishAppServerMetadata }),
     });
 
     await view.connect();
 
-    expect(publishAppServerIdentity).toHaveBeenNthCalledWith(1, null);
-    expect(publishAppServerIdentity).toHaveBeenNthCalledWith(2, "codex-test");
     expect(publishAppServerMetadata).toHaveBeenCalledWith(
       expect.objectContaining({
         runtimeConfig: expect.any(Object),
@@ -1285,7 +1282,6 @@ interface ChatHostFixtureOverrides {
   refreshThreadList?: CodexChatHost["sharedCache"]["refreshThreadList"];
   cachedThreadList?: CodexChatHost["sharedCache"]["cachedThreadList"];
   cachedAppServerMetadata?: CodexChatHost["sharedCache"]["cachedAppServerMetadata"];
-  publishAppServerIdentity?: CodexChatHost["appServerIdentity"]["publishAppServerIdentity"];
 }
 
 function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
@@ -1321,9 +1317,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
         ) as CodexChatHost["sharedCache"]["refreshThreadList"]),
       cachedThreadList: overrides.cachedThreadList ?? vi.fn(() => null),
       cachedAppServerMetadata: overrides.cachedAppServerMetadata ?? vi.fn(() => null),
-    },
-    appServerIdentity: {
-      publishAppServerIdentity: overrides.publishAppServerIdentity ?? vi.fn(),
     },
   };
 }

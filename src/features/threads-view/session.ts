@@ -41,7 +41,6 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
   notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
   notifyThreadRenamed(threadId: string, name: string | null): void;
-  publishAppServerIdentity(userAgent: string | null): void;
   refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
   cachedThreadList(): readonly Thread[] | null;
 }
@@ -111,7 +110,6 @@ export class CodexThreadsSession {
     this.invalidateConnectionWork();
     this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
     this.deferredTasks.clearAll();
-    this.host.publishAppServerIdentity(null);
     this.connection.disconnect();
     this.client = null;
     unmountThreadsView(this.environment.root);
@@ -179,12 +177,10 @@ export class CodexThreadsSession {
     }
 
     const connection = this.beginConnectionWork();
-    this.host.publishAppServerIdentity(null);
     const promise = this.connection
       .connect()
-      .then((initialization) => {
+      .then(() => {
         if (this.isStaleConnectionWork(connection)) throw new StaleConnectionError();
-        this.host.publishAppServerIdentity(initialization.userAgent);
         this.client = this.connection.currentClient();
       })
       .finally(() => {

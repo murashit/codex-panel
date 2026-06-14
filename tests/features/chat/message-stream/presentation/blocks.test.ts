@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { messageStreamPresentationBlocks } from "../../../../../src/features/chat/presentation/message-stream/blocks";
+import { messageStreamPresentationBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 describe("message stream presentation blocks", () => {

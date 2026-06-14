@@ -5,15 +5,11 @@ import {
   type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "./ephemeral-structured-turn";
-import { listModelMetadata } from "./catalog";
+import { resolvedRuntimeOverrideForClient } from "./runtime-overrides";
 import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../protocol/turn";
-import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
-import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/runtime/overrides";
-import {
-  threadTitleFromGeneratedText,
-  threadTitlePrompt,
-  type ThreadTitleContext,
-} from "../../domain/threads/title-generation-model";
+import type { ReasoningEffort } from "../../domain/catalog/metadata";
+import type { RuntimeOverride } from "../../domain/runtime/overrides";
+import { threadTitleFromGeneratedText, threadTitlePrompt, type ThreadTitleContext } from "../../domain/threads/title-generation-model";
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
 const THREAD_TITLE_TIMEOUT_MS = 60_000;
@@ -71,36 +67,16 @@ export async function generateThreadTitleWithCodex(
   return threadTitleFromGenerationTurn(turn);
 }
 
-interface ThreadTitleRuntimeOverride {
-  model?: string;
-  effort?: ReasoningEffort;
-}
+type ThreadTitleRuntimeOverride = RuntimeOverride;
 
 function threadTitleFromGenerationTurn(turn: TurnRecord): string | null {
   const response = conversationAssistantTextFromTurnRecord(turn);
   return response ? threadTitleFromGeneratedText(response) : null;
 }
 
-function threadTitleRuntimeOverride(settings: ThreadTitleRuntimeSettings): ThreadTitleRuntimeOverride {
-  return runtimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort });
-}
-
-function validatedThreadTitleRuntimeOverride(
-  settings: ThreadTitleRuntimeSettings,
-  models: readonly ModelMetadata[],
-): ThreadTitleRuntimeOverride {
-  return validatedRuntimeOverrideForModelMetadata({ model: settings.threadNamingModel, effort: settings.threadNamingEffort }, models);
-}
-
 async function threadTitleRuntimeOverrideForClient(
   client: EphemeralStructuredTurnRuntimeClient,
   settings: ThreadTitleRuntimeSettings,
 ): Promise<ThreadTitleRuntimeOverride> {
-  const runtime = threadTitleRuntimeOverride(settings);
-  if (!runtime.model || !runtime.effort) return runtime;
-  try {
-    return validatedThreadTitleRuntimeOverride(settings, await listModelMetadata(client));
-  } catch {
-    return runtime;
-  }
+  return resolvedRuntimeOverrideForClient(client, { model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }

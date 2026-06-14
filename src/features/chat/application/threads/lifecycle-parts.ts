@@ -23,7 +23,6 @@ export interface ThreadLifecyclePartsContext {
     getClosing: () => boolean;
   };
   thread: {
-    resumeRestoredThread: (threadId: string) => Promise<void>;
     notifyIdentityChanged: () => void;
     refreshTabHeader: () => void;
   };
@@ -64,16 +63,17 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     resumeWork.invalidate();
     history.invalidate();
   };
+  let resume: ResumeController;
   const restoration = new RestorationController({
     deferredTasks,
     opened: lifecycle.getOpened,
-    resumeThread: thread.resumeRestoredThread,
+    resumeThread: (threadId) => resume.resumeThread(threadId),
     invalidateResumeWork,
     stateStore,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
   });
-  const resume = new ResumeController({
+  resume = new ResumeController({
     stateStore,
     vaultPath: settingsRef.vaultPath,
     resumeWork,

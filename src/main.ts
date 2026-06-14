@@ -47,15 +47,11 @@ interface PluginHostServices {
     cachedAppServerMetadata: () => SharedServerMetadata | null;
     cachedModels: () => ReturnType<CodexPanelSettingTabHost["cachedModels"]>;
   };
-  readonly appServerIdentity: {
-    publishAppServerIdentity: (userAgent: string | null) => void;
-  };
 }
 
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
   vaultPath = "";
-  private appServerUserAgent: string | null = null;
   private readonly sharedAppServerCache = new SharedAppServerCache();
   private readonly panels = new WorkspacePanelCoordinator({
     app: this.app,
@@ -167,12 +163,7 @@ export default class CodexPanelPlugin extends Plugin {
     return {
       codexPath: this.settings.codexPath,
       vaultPath: this.vaultPath,
-      appServerUserAgent: this.appServerUserAgent,
     };
-  }
-
-  private publishAppServerIdentity(userAgent: string | null): void {
-    this.appServerUserAgent = userAgent;
   }
 
   private applyThreadListSnapshot(threads: readonly Thread[]): void {
@@ -247,11 +238,6 @@ export default class CodexPanelPlugin extends Plugin {
         cachedAppServerMetadata: () => this.sharedAppServerCache.cachedAppServerMetadata(this.sharedAppServerCacheContext()),
         cachedModels: () => this.sharedAppServerCache.cachedModels(this.sharedAppServerCacheContext()),
       },
-      appServerIdentity: {
-        publishAppServerIdentity: (userAgent) => {
-          this.publishAppServerIdentity(userAgent);
-        },
-      },
     };
   }
 
@@ -266,7 +252,6 @@ export default class CodexPanelPlugin extends Plugin {
       },
       threadSurfaces: services.threadSurfaces,
       sharedCache: services.sharedCache,
-      appServerIdentity: services.appServerIdentity,
     };
   }
 
@@ -280,7 +265,6 @@ export default class CodexPanelPlugin extends Plugin {
       getOpenPanelSnapshots: services.workspace.getOpenPanelSnapshots,
       notifyThreadArchived: services.threadSurfaces.notifyThreadArchived,
       notifyThreadRenamed: services.threadSurfaces.notifyThreadRenamed,
-      publishAppServerIdentity: services.appServerIdentity.publishAppServerIdentity,
       refreshThreadList: services.sharedCache.refreshThreadList,
       cachedThreadList: services.sharedCache.cachedThreadList,
     };

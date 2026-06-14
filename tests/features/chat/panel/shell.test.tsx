@@ -7,7 +7,11 @@ import { createChatStateStore } from "../../../../src/features/chat/application/
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
 import type { ChatPanelComposerShellState, ChatPanelMessageStreamShellState } from "../../../../src/features/chat/panel/shell-state";
-import type { ChatPanelSurface } from "../../../../src/features/chat/panel/surface/model";
+import type {
+  ChatPanelComposerSurface,
+  ChatPanelGoalSurface,
+  ChatPanelToolbarSurface,
+} from "../../../../src/features/chat/panel/surface/model";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -418,7 +422,11 @@ function trackedShellParts(): TestShellParts {
   };
 }
 
-function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): ChatPanelSurface {
+function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): {
+  toolbar: ChatPanelToolbarSurface;
+  goal: ChatPanelGoalSurface;
+  composer: ChatPanelComposerSurface;
+} {
   return {
     toolbar: {
       state: {

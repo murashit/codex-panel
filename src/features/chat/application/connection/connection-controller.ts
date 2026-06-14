@@ -41,7 +41,6 @@ export interface ChatConnectionControllerHost {
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
   addSystemMessage: (text: string) => void;
-  publishAppServerIdentity: (userAgent: string | null) => void;
   configuredCommand: () => string;
   refreshLiveState: () => void;
   notifyConnectionFailed: () => void;
@@ -75,7 +74,6 @@ export class ChatConnectionController {
   handleExit(): void {
     this.invalidate();
     this.host.invalidateResumeWork();
-    this.host.publishAppServerIdentity(null);
     this.host.setStatus(STATUS_CONNECTION_STOPPED, { kind: "disconnected", message: STATUS_CONNECTION_STOPPED });
     this.host.stateStore.dispatch({ type: "connection/scoped-cleared" });
     this.host.resetThreadTurnPresence(false);
@@ -116,12 +114,10 @@ export class ChatConnectionController {
   }
 
   private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
-    this.host.publishAppServerIdentity(null);
     this.host.setStatus(STATUS_CONNECTION_STARTING, { kind: "connecting" });
     try {
       const initialization = await this.host.connection.connect();
       if (this.host.connectionWork.isStale(connection)) return;
-      this.host.publishAppServerIdentity(initialization.userAgent);
       this.host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
       const client = this.host.connection.currentClient();
       if (!client) throw new Error("Codex app-server connection did not initialize.");

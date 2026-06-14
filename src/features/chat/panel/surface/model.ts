@@ -83,9 +83,3 @@ export interface ChatPanelComposerSurface {
     requestReasoningEffort: (effort: ReasoningEffort) => Promise<void>;
   };
 }
-
-export interface ChatPanelSurface {
-  toolbar: ChatPanelToolbarSurface;
-  goal: ChatPanelGoalSurface;
-  composer: ChatPanelComposerSurface;
-}

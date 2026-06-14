@@ -6,7 +6,11 @@ import { act } from "preact/test-utils";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
-import type { ChatPanelSurface, ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/model";
+import type {
+  ChatPanelComposerSurface,
+  ChatPanelGoalSurface,
+  ChatPanelToolbarSurface,
+} from "../../../../src/features/chat/panel/surface/model";
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
 import { installObsidianDomShims } from "../../../support/dom";
@@ -146,7 +150,14 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActio
   };
 }
 
-function surfaceFixture(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelSurface {
+function surfaceFixture(
+  store: ReturnType<typeof createChatStateStore>,
+  toolbarActions: ToolbarPanelActions,
+): {
+  toolbar: ChatPanelToolbarSurface;
+  goal: ChatPanelGoalSurface;
+  composer: ChatPanelComposerSurface;
+} {
   return {
     toolbar: toolbarSurface(store, toolbarActions),
     goal: {

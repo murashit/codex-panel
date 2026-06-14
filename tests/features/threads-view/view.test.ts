@@ -99,8 +99,6 @@ describe("CodexThreadsView", () => {
     await view.refresh();
 
     expect(connectionMock.state.connectCalls).toBe(1);
-    expect(host.publishAppServerIdentity).toHaveBeenNthCalledWith(1, null);
-    expect(host.publishAppServerIdentity).toHaveBeenNthCalledWith(2, "codex-test");
     expect(view.containerEl.textContent).toContain("Thread preview");
   });
 
@@ -421,7 +419,6 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     getOpenPanelSnapshots: vi.fn(() => []),
     notifyThreadArchived: vi.fn(),
     notifyThreadRenamed: vi.fn(),
-    publishAppServerIdentity: vi.fn(),
     refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
     cachedThreadList: vi.fn(() => null),
     ...overrides,

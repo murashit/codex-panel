@@ -67,16 +67,10 @@ describe("shared app-server cache state", () => {
 
     expect(cachedSharedThreadList(state, cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
     expect(cachedSharedModels(state, cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
-    expect(cachedSharedThreadList(state, cacheContext({ appServerUserAgent: "codex-cli/9.9.9" }))).toBeNull();
-    expect(cachedSharedModels(state, cacheContext({ appServerUserAgent: "codex-cli/9.9.9" }))).toBeNull();
   });
 
-  it("does not load or return snapshots before the app-server identity is known", () => {
-    const incompleteContexts = [
-      cacheContext({ codexPath: "" }),
-      cacheContext({ vaultPath: "   " }),
-      cacheContext({ appServerUserAgent: null }),
-    ];
+  it("does not load or return snapshots before the cache context is complete", () => {
+    const incompleteContexts = [cacheContext({ codexPath: "" }), cacheContext({ vaultPath: "   " })];
 
     expect(sharedAppServerCacheContextIsComplete(cacheContext())).toBe(true);
 
@@ -155,7 +149,6 @@ function cacheContext(overrides: Partial<SharedAppServerCacheContext> = {}): Sha
   return {
     codexPath: "codex",
     vaultPath: "/vault",
-    appServerUserAgent: "codex-cli/1.2.3",
     ...overrides,
   };
 }

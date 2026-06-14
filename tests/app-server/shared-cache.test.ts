@@ -65,9 +65,9 @@ describe("SharedAppServerCache", () => {
     expect(cache.cachedModels(context)).toBeNull();
   });
 
-  it("does not share or store snapshots before the app-server identity is known", async () => {
+  it("does not share or store snapshots before the cache context is complete", async () => {
     const cache = new SharedAppServerCache();
-    const context = cacheContext({ appServerUserAgent: null });
+    const context = cacheContext({ codexPath: "" });
     const firstRefresh = deferred<readonly ReturnType<typeof thread>[]>();
     const firstFetch = vi.fn(() => firstRefresh.promise);
     const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
@@ -108,10 +108,8 @@ describe("SharedAppServerCache", () => {
 
     expect(cache.cachedAppServerMetadata(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
     expect(cache.cachedAppServerMetadata(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
-    expect(cache.cachedAppServerMetadata(cacheContext({ appServerUserAgent: "codex-cli/9.9.9" }))).toBeNull();
     expect(cache.cachedModels(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
     expect(cache.cachedModels(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
-    expect(cache.cachedModels(cacheContext({ appServerUserAgent: "codex-cli/9.9.9" }))).toBeNull();
   });
 
   it("stores successful empty thread list snapshots as shared cache truth", async () => {
@@ -131,8 +129,8 @@ describe("SharedAppServerCache", () => {
 
   it("ignores stale thread list refresh snapshots after the app-server cache context changes", async () => {
     const cache = new SharedAppServerCache();
-    const oldContext = cacheContext({ appServerUserAgent: "codex-cli/1.2.3" });
-    const newContext = cacheContext({ appServerUserAgent: "codex-cli/1.2.4" });
+    const oldContext = cacheContext({ codexPath: "codex-old" });
+    const newContext = cacheContext({ codexPath: "codex-new" });
     const oldRefresh = deferred<readonly ReturnType<typeof thread>[]>();
     const newRefresh = deferred<readonly ReturnType<typeof thread>[]>();
     const oldSnapshot = vi.fn();
@@ -155,13 +153,13 @@ describe("SharedAppServerCache", () => {
 
   it("keys in-flight thread list refreshes by the captured app-server cache context", async () => {
     const cache = new SharedAppServerCache();
-    const context = cacheContext({ appServerUserAgent: "codex-cli/1.2.3" });
+    const context = cacheContext({ codexPath: "codex-captured" });
     const capturedContext = { ...context };
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
     const onSnapshot = vi.fn();
 
     const promise = cache.refreshThreadList(context, () => refresh.promise, onSnapshot);
-    context.appServerUserAgent = "codex-cli/9.9.9";
+    context.codexPath = "codex-mutated";
 
     refresh.resolve([thread("captured")]);
     await expect(promise).resolves.toEqual([thread("captured")]);
@@ -176,7 +174,6 @@ function cacheContext(overrides: Partial<SharedAppServerCacheContext> = {}): Sha
   return {
     codexPath: "codex",
     vaultPath: "/vault",
-    appServerUserAgent: "codex-cli/1.2.3",
     ...overrides,
   };
 }

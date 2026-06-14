@@ -1,7 +1,6 @@
 import { Notice, type App, type Component, type EventRef } from "obsidian";
 
-import { ConnectionManager, type ConnectionManagerHandlers } from "../../../app-server/connection/connection-manager";
-import type { AppServerClient } from "../../../app-server/connection/client";
+import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import { getThreadTitle } from "../../../domain/threads/model";
@@ -10,11 +9,8 @@ import { shortThreadId } from "../../../utils";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import type { ArchiveExportAdapter } from "../../../domain/threads/archive-markdown";
 import type { CodexChatHost } from "../application/ports/chat-host";
-import { ChatConnectionController } from "../application/connection/connection-controller";
+import type { ChatConnectionController } from "../application/connection/connection-controller";
 import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
-import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
-import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
-import { createChatServerThreadActions, type ChatServerThreadActions } from "../app-server/actions/threads";
 import type { ChatComposerController } from "../panel/composer-controller";
 import { createConversationParts } from "./conversation";
 import type { ComposerSubmitActions } from "../application/conversation/composer-submit-actions";
@@ -31,8 +27,6 @@ import { ChatConnectionWorkTracker, ChatResumeWorkTracker, type ChatViewDeferred
 import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import { connectionDiagnosticsModel } from "../panel/surface/toolbar-projection";
 import { openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
-import { ChatInboundController } from "../app-server/inbound/controller";
-import { rejectServerRequest, respondToServerRequest } from "../app-server/requests/responder";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../presentation/runtime/messages";
 import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import { runtimeSnapshotForChatState, type RuntimeSnapshot } from "../application/runtime/snapshot";
@@ -41,19 +35,17 @@ import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState }
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell";
 import { chatTurnBusy, type ChatAction, type ChatConnectionPhase, type ChatState } from "../application/state/root-reducer";
 import { createChatStateStore, type ChatStateStore } from "../application/state/store";
-import type { GoalActions } from "../application/threads/goal-actions";
-import type { AutoTitleController } from "../application/threads/auto-title-controller";
 import type { HistoryController } from "../application/threads/history-controller";
 import type { IdentitySync } from "../application/threads/identity-sync";
 import type { ThreadRenameEditorController } from "../application/threads/rename-editor-controller";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeController } from "../application/threads/resume-controller";
-import type { SelectionActions } from "../application/threads/selection-actions";
 import { createThreadParts, createThreadSelectionActions } from "../application/threads/composition";
+import { createChatConnectionBundle, createChatConnectionEventRouter, type ChatConnectionBundle } from "./connection-bundle";
 import type { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import { pendingRequestsSignature } from "../domain/pending-requests/signatures";
-import { createChatPanelSurface } from "../panel/surface/create-surface";
-import type { ChatPanelSurface } from "../panel/surface/model";
+import { createChatPanelGoalSurface } from "../panel/surface/goal-surface";
+import type { ChatPanelComposerSurface, ChatPanelGoalSurface, ChatPanelToolbarSurface } from "../panel/surface/model";
 import type { ToolbarActions } from "../ui/toolbar";
 
 export interface ChatPanelEnvironment {
@@ -81,9 +73,9 @@ interface ChatPanelSessionParts {
     controller: ChatConnectionController;
   };
   serverActions: {
-    threads: ChatServerThreadActions;
-    metadata: ChatServerMetadataActions;
-    diagnostics: ChatServerDiagnosticsActions;
+    threads: ChatConnectionBundle["serverActions"]["threads"];
+    metadata: ChatConnectionBundle["serverActions"]["metadata"];
+    diagnostics: ChatConnectionBundle["serverActions"]["diagnostics"];
   };
   thread: {
     history: HistoryController;
@@ -103,32 +95,11 @@ interface ChatPanelSessionParts {
   render: {
     messageStreamPresenter: MessageStreamPresenter;
   };
-  surface: ChatPanelSurface;
-}
-
-interface ChatPanelSessionDeferredRef<T> {
-  get: () => T;
-  set: (value: T) => void;
-}
-
-interface ChatPanelSessionPorts {
-  currentClient: () => AppServerClient | null;
-  ensureConnected: () => Promise<void>;
-  refreshThreads: () => Promise<void>;
-  refreshSkills: (forceReload?: boolean) => Promise<void>;
-  selectThread: (threadId: string) => Promise<void>;
-  resumeRestoredThread: (threadId: string) => Promise<void>;
-}
-
-interface ChatPanelSessionServerParts {
-  connectionController: ChatConnectionController;
-  inboundController: ChatInboundController;
-  serverActions: ChatPanelSessionParts["serverActions"];
-}
-
-interface ChatPanelSessionConnectionEventTargets {
-  inbound: ChatInboundController;
-  connectionController: ChatConnectionController;
+  surface: {
+    toolbar: ChatPanelToolbarSurface;
+    goal: ChatPanelGoalSurface;
+    composer: ChatPanelComposerSurface;
+  };
 }
 
 interface ChatSessionSideEffects {
@@ -139,19 +110,6 @@ interface ChatSessionSideEffects {
   };
   composer: {
     setText: (text: string) => void;
-  };
-}
-
-function createChatPanelSessionDeferredRef<T>(name: string): ChatPanelSessionDeferredRef<T> {
-  let value: T | null = null;
-  return {
-    get: () => {
-      if (value === null) throw new Error(`${name} was used before chat session parts were initialized.`);
-      return value;
-    },
-    set: (nextValue) => {
-      value = nextValue;
-    },
   };
 }
 
@@ -342,32 +300,25 @@ export class ChatPanelSession {
   }
 
   private createSessionParts(): ChatPanelSessionParts {
-    const connectionHandlers = this.createConnectionHandlers();
+    const connectionHandlers = createChatConnectionEventRouter({
+      deferLiveStateRefresh: () => {
+        this.deferLiveStateRefresh();
+      },
+    });
     const connection = new ConnectionManager(
       () => this.environment.plugin.settingsRef.settings.codexPath,
       this.environment.plugin.settingsRef.vaultPath,
       connectionHandlers.handlers,
     );
-    const connectionControllerRef = createChatPanelSessionDeferredRef<ChatConnectionController>("chat connection controller");
-    const resumeRef = createChatPanelSessionDeferredRef<ResumeController>("chat thread resume controller");
-    const restorationRef = createChatPanelSessionDeferredRef<RestorationController>("chat thread restoration controller");
-    const selectionRef = createChatPanelSessionDeferredRef<SelectionActions>("chat thread selection actions");
-    const composerControllerRef = createChatPanelSessionDeferredRef<ChatComposerController>("chat composer controller");
-    const sideEffects = this.createSideEffects({
-      composerController: composerControllerRef.get,
-    });
-    const sessionPorts: ChatPanelSessionPorts = {
-      currentClient: () => connection.currentClient(),
-      ensureConnected: () => connectionControllerRef.get().ensureConnected(),
-      refreshThreads: () => connectionControllerRef.get().refreshThreads(),
-      refreshSkills: (forceReload) => connectionControllerRef.get().refreshSkills(forceReload),
-      selectThread: (threadId) => selectionRef.get().selectThread(threadId),
-      resumeRestoredThread: (threadId) => resumeRef.get().resumeThread(threadId),
-    };
+    const sideEffects = this.createSideEffects();
+    const currentClient = () => connection.currentClient();
+    const ensureConnected = () => this.parts.connection.controller.ensureConnected();
+    const refreshThreads = () => this.parts.connection.controller.refreshThreads();
+    const refreshSkills = (forceReload?: boolean) => this.parts.connection.controller.refreshSkills(forceReload);
 
     const runtimeSettings = createChatRuntimeSettingsActions({
       stateStore: this.stateStore,
-      currentClient: sessionPorts.currentClient,
+      currentClient,
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       collaborationModeLabel: () => this.collaborationModeLabel(),
       addSystemMessage: sideEffects.status.addSystemMessage,
@@ -389,8 +340,8 @@ export class ChatPanelSession {
         getClosing: () => this.closing,
       },
       client: {
-        getClient: sessionPorts.currentClient,
-        ensureConnected: sessionPorts.ensureConnected,
+        getClient: currentClient,
+        ensureConnected,
       },
       status: sideEffects.status,
       notify: {
@@ -399,9 +350,7 @@ export class ChatPanelSession {
         },
       },
       thread: {
-        selectThread: sessionPorts.selectThread,
-        resumeRestoredThread: sessionPorts.resumeRestoredThread,
-        refreshThreads: sessionPorts.refreshThreads,
+        refreshThreads,
         notifyIdentityChanged: () => {
           this.notifyActiveThreadIdentityChanged();
         },
@@ -425,8 +374,6 @@ export class ChatPanelSession {
       composer: sideEffects.composer,
     });
     const { history, managementActions: threadActions, goals, identity, restoration, resume, rename, autoTitle } = threadParts;
-    resumeRef.set(resume);
-    restorationRef.set(restoration);
     const toolbarPanels = createToolbarPanelActions({
       stateStore: this.stateStore,
       threadActions,
@@ -448,7 +395,6 @@ export class ChatPanelSession {
         },
       },
     );
-    selectionRef.set(selection);
 
     const reconnectHost: ChatReconnectActionsHost = {
       stateStore: this.stateStore,
@@ -465,20 +411,42 @@ export class ChatPanelSession {
         connection.reconnect();
       },
       setStatus: sideEffects.status.set,
-      ensureConnected: sessionPorts.ensureConnected,
+      ensureConnected,
       resumeThread: (threadId) => resume.resumeThread(threadId),
       addSystemMessage: sideEffects.status.addSystemMessage,
     };
     const reconnect = () => reconnectPanel(reconnectHost);
-    const serverParts = this.createServerParts({
+    const serverParts = createChatConnectionBundle({
+      stateStore: this.stateStore,
+      vaultPath: this.environment.plugin.settingsRef.vaultPath,
       connection,
-      sideEffects,
-      sessionPorts,
+      connectionWork: this.connectionWork,
+      deferredTasks: this.deferredTasks,
+      threadSurfaces: this.environment.plugin.threadSurfaces,
+      client: {
+        currentClient,
+      },
+      refresh: {
+        refreshThreads,
+        refreshSkills,
+      },
       goals,
       autoTitle,
+      status: sideEffects.status,
+      invalidateResumeWork: () => {
+        this.invalidateResumeWork();
+      },
+      loadSharedThreadList: () => this.loadSharedThreadList(),
+      refreshDeferredDiagnostics: () => this.refreshDeferredDiagnostics(),
+      refreshTabHeader: () => {
+        this.refreshTabHeader();
+      },
+      refreshLiveState: () => {
+        this.refreshLiveState();
+      },
+      configuredCommand: () => this.environment.plugin.settingsRef.settings.codexPath,
     });
     const { connectionController, inboundController } = serverParts;
-    connectionControllerRef.set(connectionController);
     connectionHandlers.attach({ inbound: inboundController, connectionController });
     const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
 
@@ -497,22 +465,38 @@ export class ChatPanelSession {
         selection,
       },
     );
-    const surface = createChatPanelSurface(
+    const toolbarSurface: ChatPanelToolbarSurface = {
+      state: {
+        connected: () => connection.isConnected(),
+        nowMs: () => Date.now(),
+      },
+      settings: {
+        vaultPath: () => this.environment.plugin.settingsRef.vaultPath,
+        configuredCommand: () => this.environment.plugin.settingsRef.settings.codexPath,
+        archiveExportEnabled: () => this.environment.plugin.settingsRef.settings.archiveExportEnabled,
+      },
+    };
+    const goalSurface = createChatPanelGoalSurface(
       {
         settings: this.environment.plugin.settingsRef.settings,
-        vaultPath: this.environment.plugin.settingsRef.vaultPath,
         stateStore: this.stateStore,
-        restoredThreadPlaceholder: () => restoration.placeholder(),
       },
       {
-        connection,
         connectionController,
         inboundController,
         threadStarter: serverThreads,
-        runtimeSettings,
         goals,
       },
     );
+    const composerSurface: ChatPanelComposerSurface = {
+      thread: {
+        restoredPlaceholder: () => restoration.placeholder(),
+      },
+      runtime: {
+        requestModel: (model) => runtimeSettings.requestModelFromUi(model),
+        requestReasoningEffort: (effort) => runtimeSettings.requestReasoningEffortFromUi(effort),
+      },
+    };
     const conversationParts = createConversationParts(
       {
         obsidian: {
@@ -535,7 +519,7 @@ export class ChatPanelSession {
               this.state.requests.pendingUserInputs,
               this.state.requests.userInputDrafts,
             ),
-          composerProjection: (state) => chatPanelComposerProjection(surface.composer, state),
+          composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
         },
         runtime: {
           connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
@@ -550,14 +534,14 @@ export class ChatPanelSession {
           },
         },
         client: {
-          getClient: sessionPorts.currentClient,
-          ensureConnected: sessionPorts.ensureConnected,
+          getClient: currentClient,
+          ensureConnected,
         },
         status: sideEffects.status,
         thread: {
-          ensureRestoredThreadLoaded: () => restorationRef.get().ensureLoaded(),
+          ensureRestoredThreadLoaded: () => restoration.ensureLoaded(),
           startNewThread: () => this.startNewThread(),
-          selectThread: sessionPorts.selectThread,
+          selectThread: (threadId) => selection.selectThread(threadId),
           notifyIdentityChanged: () => {
             this.notifyActiveThreadIdentityChanged();
           },
@@ -586,7 +570,6 @@ export class ChatPanelSession {
     );
     const { composerSubmit, messageStreamPresenter } = conversationParts;
     const composerController = conversationParts.composerController;
-    composerControllerRef.set(composerController);
 
     return {
       connection: {
@@ -612,168 +595,15 @@ export class ChatPanelSession {
       render: {
         messageStreamPresenter,
       },
-      surface,
-    };
-  }
-
-  private createServerParts({
-    connection,
-    sideEffects,
-    sessionPorts,
-    goals,
-    autoTitle,
-  }: {
-    connection: ConnectionManager;
-    sideEffects: ChatSessionSideEffects;
-    sessionPorts: ChatPanelSessionPorts;
-    goals: GoalActions;
-    autoTitle: AutoTitleController;
-  }): ChatPanelSessionServerParts {
-    const serverMetadata = createChatServerMetadataActions({
-      stateStore: this.stateStore,
-      vaultPath: this.environment.plugin.settingsRef.vaultPath,
-      currentClient: sessionPorts.currentClient,
-      publishAppServerMetadata: (metadata) => {
-        this.environment.plugin.threadSurfaces.publishAppServerMetadata(metadata);
-      },
-    });
-    const serverDiagnostics = createChatServerDiagnosticsActions({
-      stateStore: this.stateStore,
-      vaultPath: this.environment.plugin.settingsRef.vaultPath,
-      currentClient: sessionPorts.currentClient,
-      publishAppServerMetadata: (metadata) => {
-        this.environment.plugin.threadSurfaces.publishAppServerMetadata(metadata);
-      },
-      serverMetadataSnapshot: () => serverMetadata.serverMetadataSnapshot(),
-    });
-    const serverThreads = createChatServerThreadActions({
-      stateStore: this.stateStore,
-      vaultPath: this.environment.plugin.settingsRef.vaultPath,
-      currentClient: sessionPorts.currentClient,
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
-      publishThreadList: (threads) => {
-        this.environment.plugin.threadSurfaces.applyThreadListSnapshot(threads);
-      },
-      syncThreadGoal: (threadId) => {
-        void goals.syncThreadGoal(threadId);
-      },
-    });
-    const serverRequestHost = {
-      currentClient: sessionPorts.currentClient,
-    };
-    const inboundController = new ChatInboundController(this.stateStore, {
-      refreshThreads: () => {
-        void sessionPorts.refreshThreads();
-      },
-      refreshRateLimits: () => {
-        void serverMetadata.refreshPublishedRateLimits();
-      },
-      refreshSkills: (forceReload) => void sessionPorts.refreshSkills(forceReload),
-      publishAppServerMetadata: () => {
-        serverMetadata.publishAppServerMetadataSnapshot();
-      },
-      maybeNameThread: (threadId, turnId, completedSummary) => {
-        autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
-      },
-      notifyThreadArchived: (threadId) => {
-        this.environment.plugin.threadSurfaces.notifyThreadArchived(threadId);
-      },
-      notifyThreadRenamed: (threadId, name) => {
-        this.environment.plugin.threadSurfaces.notifyThreadRenamed(threadId, name);
-      },
-      recordMcpStartupStatus: (name, status, message) => {
-        serverDiagnostics.recordMcpStartupStatus(name, status, message);
-      },
-      respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
-      rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
-    });
-    const connectionController = new ChatConnectionController({
-      stateStore: this.stateStore,
-      connection,
-      connectionWork: this.connectionWork,
-      metadata: {
-        refreshPublishedAppServerMetadata: () => serverMetadata.refreshPublishedAppServerMetadata(),
-        refreshPublishedSkills: (forceReload) => serverMetadata.refreshPublishedSkills(forceReload),
-      },
-      diagnostics: {
-        refreshPublishedDiagnosticProbes: () => serverDiagnostics.refreshPublishedDiagnosticProbes(),
-      },
-      invalidateResumeWork: () => {
-        this.invalidateResumeWork();
-      },
-      loadSharedThreadList: () => this.loadSharedThreadList(),
-      scheduleDeferredDiagnostics: () => {
-        this.deferredTasks.scheduleDiagnostics(() => {
-          void this.refreshDeferredDiagnostics();
-        });
-      },
-      clearDeferredDiagnostics: () => {
-        this.deferredTasks.clearDiagnostics();
-      },
-      refreshTabHeader: () => {
-        this.refreshTabHeader();
-      },
-      resetThreadTurnPresence: (hadTurns) => {
-        autoTitle.resetThreadTurnPresence(hadTurns);
-      },
-      setStatus: sideEffects.status.set,
-      addSystemMessage: sideEffects.status.addSystemMessage,
-      publishAppServerIdentity: (userAgent) => {
-        this.environment.plugin.appServerIdentity.publishAppServerIdentity(userAgent);
-      },
-      configuredCommand: () => this.environment.plugin.settingsRef.settings.codexPath,
-      refreshLiveState: () => {
-        this.refreshLiveState();
-      },
-      notifyConnectionFailed: () => {
-        new Notice("Codex app-server connection failed.");
-      },
-    });
-
-    return {
-      connectionController,
-      inboundController,
-      serverActions: {
-        threads: serverThreads,
-        metadata: serverMetadata,
-        diagnostics: serverDiagnostics,
+      surface: {
+        toolbar: toolbarSurface,
+        goal: goalSurface,
+        composer: composerSurface,
       },
     };
   }
 
-  private createConnectionHandlers(): {
-    handlers: ConnectionManagerHandlers;
-    attach: (targets: ChatPanelSessionConnectionEventTargets) => void;
-  } {
-    let targets: ChatPanelSessionConnectionEventTargets | null = null;
-    const currentTargets = () => {
-      if (!targets) throw new Error("Codex app-server connection event received before chat session parts were initialized.");
-      return targets;
-    };
-    return {
-      handlers: {
-        onNotification: (notification) => {
-          currentTargets().inbound.handleNotification(notification);
-          this.deferLiveStateRefresh();
-        },
-        onServerRequest: (request) => {
-          currentTargets().inbound.handleServerRequest(request);
-          this.deferLiveStateRefresh();
-        },
-        onLog: (message) => {
-          currentTargets().inbound.handleAppServerLog(message);
-        },
-        onExit: () => {
-          currentTargets().connectionController.handleExit();
-        },
-      },
-      attach: (nextTargets) => {
-        targets = nextTargets;
-      },
-    };
-  }
-
-  private createSideEffects(refs: { composerController: () => ChatComposerController }): ChatSessionSideEffects {
+  private createSideEffects(): ChatSessionSideEffects {
     return {
       status: {
         set: (statusText, phase) => {
@@ -788,7 +618,7 @@ export class ChatPanelSession {
       },
       composer: {
         setText: (text) => {
-          refs.composerController().setDraft(text, { focus: true });
+          this.parts.composer.controller.setDraft(text, { focus: true });
         },
       },
     };
