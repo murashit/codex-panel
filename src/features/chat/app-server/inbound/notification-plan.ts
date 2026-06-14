@@ -2,7 +2,7 @@ import { activeThreadSettingsAppliedAction } from "../../application/state/actio
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import type { FileUpdateChange } from "../../../../app-server/protocol/file-change";
-import { completedConversationSummaryFromTurnRecord, type TurnItem, type TurnRecord } from "../../../../app-server/protocol/turn";
+import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
@@ -20,7 +20,7 @@ import {
   shouldSuppressLifecycleItem,
 } from "../mappers/message-stream/turn-items";
 import { taskProgressMessageStreamItem } from "../../domain/message-stream/factories/task-progress";
-import type { MessageStreamItem, MessageStreamItemKind, MessageStreamMessageItem } from "../../domain/message-stream/items";
+import type { MessageStreamItem, MessageStreamItemKind } from "../../domain/message-stream/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
 import { hookRunMessageStreamItem } from "../mappers/message-stream/hook-run-items";
 import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/message-stream/review-result-items";
@@ -33,7 +33,7 @@ import {
 import { streamingFileChangeMessageStreamItem } from "../mappers/message-stream/streaming-items";
 import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
 import { messageStreamItems } from "../../application/state/message-stream";
-import { isLocalUserMessageId } from "../../domain/local-id";
+import { reconcileCompletedTurnItems } from "../../domain/message-stream/completed-turn-reconciliation";
 import {
   routeServerNotification,
   type DiagnosticStatusNotificationMethod,
@@ -218,7 +218,14 @@ const TURN_LIFECYCLE_PLANNERS = {
           type: "turn/completed",
           turnId: notification.params.turn.id,
           status: notification.params.turn.status,
-          items: completeReasoningItems(reconciledCompletedTurnItems(state, notification.params.turn), notification.params.turn.id),
+          items: completeReasoningItems(
+            reconcileCompletedTurnItems({
+              currentItems: messageStreamItems(state.messageStream),
+              completedTurnId: notification.params.turn.id,
+              turnItems: messageStreamItemsFromTurns([notification.params.turn]),
+            }),
+            notification.params.turn.id,
+          ),
         },
       ],
       effects: [
@@ -480,29 +487,6 @@ function messageStreamItemsWithPendingPromptSubmitHooks(state: ChatState, turnId
   return attachHookRunsToTurn(items, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
 }
 
-function reconciledCompletedTurnItems(state: ChatState, turn: TurnRecord): readonly MessageStreamItem[] {
-  const turnItems = messageStreamItemsFromTurns([turn]);
-  const items = messageStreamItems(state.messageStream);
-  if (turnItems.length === 0) return items;
-  const serverUserMessages = turnItems.filter(isUserMessage);
-  const serverUserClientIds = new Set(serverUserMessages.map((item) => item.clientId).filter(isString));
-  const serverUserMessagesByClientId = new Map(
-    serverUserMessages.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
-  );
-  const serverUserFallbackTexts = serverUserClientIds.size > 0 ? new Set<string>() : new Set(serverUserMessages.map((item) => item.text));
-  const stateMessageStreamItems = items.map((item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item);
-  let mergedTurnItems = stateMessageStreamItems
-    .filter((item) => item.turnId === turn.id)
-    .filter((item) => !isReconciledOptimisticUserMessage(item, turn.id, serverUserClientIds, serverUserFallbackTexts));
-  for (const item of turnItems) {
-    mergedTurnItems = upsertMessageStreamItemById(mergedTurnItems, item);
-  }
-  const retainedItems = stateMessageStreamItems
-    .filter((item) => item.turnId !== turn.id)
-    .filter((item) => !isReconciledOptimisticUserMessage(item, turn.id, serverUserClientIds, serverUserFallbackTexts));
-  return [...retainedItems, ...mergedTurnItems];
-}
-
 function removeUnstructuredAutoReviewWarnings(items: readonly MessageStreamItem[]): MessageStreamItem[] {
   return items.filter((item) => !isUnstructuredAutoReviewWarning(item));
 }
@@ -523,42 +507,6 @@ function isUnstructuredAutoReviewWarning(item: MessageStreamItem): boolean {
 
 function isAutoReviewText(text: string): boolean {
   return /^Auto-review\b/i.test(text.trim());
-}
-
-function isUserMessage(item: MessageStreamItem): item is MessageStreamMessageItem & { role: "user" } {
-  return item.kind === "message" && item.role === "user";
-}
-
-function serverUserMessageForOptimisticItem(
-  item: MessageStreamItem,
-  serverUserMessagesByClientId: ReadonlyMap<string, MessageStreamMessageItem & { role: "user" }>,
-): (MessageStreamMessageItem & { role: "user" }) | null {
-  if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return null;
-  return serverUserMessagesByClientId.get(item.id) ?? null;
-}
-
-function isReconciledOptimisticUserMessage(
-  item: MessageStreamItem,
-  completedTurnId: string,
-  serverUserClientIds: Set<string>,
-  serverUserFallbackTexts: Set<string>,
-): boolean {
-  if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return false;
-  return serverUserClientIds.has(item.id) || isFallbackOptimisticUserMessageForTurn(item, completedTurnId, serverUserFallbackTexts);
-}
-
-function isFallbackOptimisticUserMessageForTurn(
-  item: MessageStreamMessageItem & { role: "user" },
-  completedTurnId: string,
-  serverUserFallbackTexts: Set<string>,
-): boolean {
-  if (serverUserFallbackTexts.size === 0) return false;
-  if (item.turnId && item.turnId !== completedTurnId) return false;
-  return serverUserFallbackTexts.has(item.copyText ?? item.text);
-}
-
-function isString(value: string | null | undefined): value is string {
-  return typeof value === "string";
 }
 
 function systemMessagePlan(message: { id: string; text: string }): ChatNotificationPlan {
