@@ -38,15 +38,9 @@ import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartR
 import type { TurnSteerResponse } from "../../generated/app-server/v2/TurnSteerResponse";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import { CLIENT_VERSION } from "../../constants";
+import { JsonRpcClient } from "./json-rpc-client";
 import { StdioAppServerTransport, type AppServerTransport, type AppServerTransportHandlers } from "./transport";
-import type {
-  ClientRequestMethod,
-  ClientRequestParams,
-  PendingRequest,
-  RpcError,
-  RpcInboundMessage,
-  RpcOutboundMessage,
-} from "./rpc-messages";
+import type { ClientRequestMethod, ClientRequestParams, RpcOutboundMessage } from "./rpc-messages";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
@@ -56,7 +50,6 @@ import { appServerThreadGoalUpdate, type ThreadGoalUpdate } from "../protocol/th
 import { appServerRuntimeSettingsPatch, type RuntimeServiceTierRequest, type RuntimeSettingsPatch } from "../protocol/thread-settings";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
-const MAX_SUPPRESSED_ORPHAN_RESPONSES = 256;
 
 export interface AppServerClientHandlers {
   onNotification: (notification: ServerNotification) => void;
@@ -119,24 +112,6 @@ export interface AppServerStartStructuredTurnOptions {
   runtime?: AppServerTurnRuntimeOverrides;
 }
 
-class AppServerRpcError extends Error {
-  readonly code?: number;
-  readonly data?: unknown;
-  readonly method: ClientRequestMethod;
-
-  constructor(method: ClientRequestMethod, error: RpcError) {
-    super(error.message || "Codex app-server request failed.");
-    this.name = "AppServerRpcError";
-    if (error.code !== undefined) this.code = error.code;
-    this.data = error.data;
-    this.method = method;
-  }
-}
-
-function isRpcError(value: unknown): value is RpcError {
-  return value !== null && typeof value === "object" && typeof (value as { message?: unknown }).message === "string";
-}
-
 interface ClientResponseByMethod {
   initialize: InitializeResponse;
   "config/batchWrite": ConfigWriteResponse;
@@ -194,9 +169,7 @@ function appServerTurnRuntimeParams(runtime: AppServerTurnRuntimeOverrides | und
 
 export class AppServerClient {
   private lifecycle: AppServerClientLifecycleState = { kind: "disconnected" };
-  private nextId = 1;
-  private pending = new Map<RequestId, PendingRequest>();
-  private suppressedOrphanResponses = new Set<RequestId>();
+  private readonly rpc: JsonRpcClient;
 
   constructor(
     private readonly codexPath: string,
@@ -204,7 +177,17 @@ export class AppServerClient {
     private readonly handlers: AppServerClientHandlers,
     private readonly requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
     private readonly transportFactory?: AppServerTransportFactory,
-  ) {}
+  ) {
+    this.rpc = new JsonRpcClient({
+      requestTimeoutMs: this.requestTimeoutMs,
+      send: (message) => {
+        this.send(message);
+      },
+      onNotification: this.handlers.onNotification,
+      onServerRequest: this.handlers.onServerRequest,
+      onLog: this.handlers.onLog,
+    });
+  }
 
   async connect(): Promise<InitializeResponse> {
     if (this.activeTransport()?.isRunning()) {
@@ -213,15 +196,15 @@ export class AppServerClient {
 
     const transportHandlers: AppServerTransportHandlers = {
       onLine: (line) => {
-        this.handleLine(line);
+        this.rpc.handleLine(line);
       },
       onLog: this.handlers.onLog,
       onError: (error) => {
-        this.rejectAll(error);
+        this.rpc.rejectAll(error);
       },
       onExit: (code, signal) => {
         this.lifecycle = { kind: "disconnected" };
-        this.rejectAll(new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`));
+        this.rpc.rejectAll(new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`));
         this.handlers.onExit(code, signal);
       },
     };
@@ -250,7 +233,7 @@ export class AppServerClient {
   disconnect(): void {
     this.activeTransport()?.stop();
     this.lifecycle = { kind: "disconnected" };
-    this.rejectAll(new Error("Codex app-server disconnected."));
+    this.rpc.rejectAll(new Error("Codex app-server disconnected."));
   }
 
   isConnected(): boolean {
@@ -492,11 +475,11 @@ export class AppServerClient {
   }
 
   respondToServerRequest(requestId: RequestId, result: unknown): void {
-    this.send({ id: requestId, result });
+    this.rpc.respond(requestId, result);
   }
 
   rejectServerRequest(requestId: RequestId, code: number, message: string): void {
-    this.send({ id: requestId, error: { code, message } });
+    this.rpc.reject(requestId, code, message);
   }
 
   private request<M extends TypedClientRequestMethod>(
@@ -504,37 +487,11 @@ export class AppServerClient {
     params: ClientRequestParams<M>,
     options: { timeoutMs?: number } = {},
   ): Promise<ClientResponseByMethod[M]> {
-    const id = this.nextId++;
-    const promise = new Promise<ClientResponseByMethod[M]>((resolve, reject) => {
-      const timeout = window.setTimeout(() => {
-        this.pending.delete(id);
-        this.suppressOrphanResponse(id);
-        reject(new Error(`Codex app-server request timed out: ${method}`));
-      }, options.timeoutMs ?? this.requestTimeoutMs);
-      this.pending.set(id, {
-        method,
-        resolve: resolve as (value: unknown) => void,
-        reject,
-        timeout,
-      });
-    });
-
-    try {
-      this.send({ id, method, params } as RpcOutboundMessage);
-    } catch (error) {
-      const pending = this.pending.get(id);
-      if (pending) {
-        window.clearTimeout(pending.timeout);
-        this.pending.delete(id);
-      }
-      throw error;
-    }
-
-    return promise;
+    return this.rpc.request<M, ClientResponseByMethod[M]>(method, params, options);
   }
 
   private notify(message: RpcOutboundMessage): void {
-    this.send(message);
+    this.rpc.notify(message);
   }
 
   private send(message: RpcOutboundMessage): void {
@@ -543,67 +500,6 @@ export class AppServerClient {
       throw new Error("Codex app-server is not running.");
     }
     transport.send(message);
-  }
-
-  private handleLine(line: string): void {
-    if (line.trim().length === 0) return;
-
-    let message: RpcInboundMessage;
-    try {
-      message = JSON.parse(line) as RpcInboundMessage;
-    } catch {
-      this.handlers.onLog(`Invalid app-server JSON: ${line}`);
-      return;
-    }
-
-    if ("id" in message && "method" in message) {
-      this.handlers.onServerRequest(message);
-      return;
-    }
-
-    if ("id" in message) {
-      const pending = this.pending.get(message.id);
-      if (!pending) {
-        if (this.suppressedOrphanResponses.delete(message.id)) return;
-        this.handlers.onLog(`Orphan app-server response: ${JSON.stringify(message)}`);
-        return;
-      }
-      window.clearTimeout(pending.timeout);
-      this.pending.delete(message.id);
-      if ("error" in message) {
-        if (!isRpcError(message.error)) {
-          pending.reject(new Error(`Codex app-server returned an invalid error response for ${pending.method}.`));
-          return;
-        }
-        pending.reject(new AppServerRpcError(pending.method, message.error));
-      } else {
-        pending.resolve(message.result);
-      }
-      return;
-    }
-
-    if ("method" in message) {
-      this.handlers.onNotification(message);
-    }
-  }
-
-  private rejectAll(error: Error): void {
-    for (const pending of this.pending.values()) {
-      window.clearTimeout(pending.timeout);
-      pending.reject(error);
-    }
-    this.pending.clear();
-    this.suppressedOrphanResponses.clear();
-  }
-
-  private suppressOrphanResponse(id: RequestId): void {
-    this.suppressedOrphanResponses.add(id);
-    while (this.suppressedOrphanResponses.size > MAX_SUPPRESSED_ORPHAN_RESPONSES) {
-      for (const oldest of this.suppressedOrphanResponses) {
-        this.suppressedOrphanResponses.delete(oldest);
-        break;
-      }
-    }
   }
 
   private activeTransport(): AppServerTransport | null {
