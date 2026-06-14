@@ -5,7 +5,6 @@ import type { CodexPanelSettings } from "../../../../settings/model";
 import type { ArchiveExportAdapter } from "../../../thread-operations/archive-markdown";
 import { archiveThreadOnAppServer } from "../../../thread-operations/archive";
 import { renameThreadOnAppServer, threadRenameFromValue, type ThreadRename } from "../../../thread-operations/rename";
-import type { PluginSettingsRef, ThreadSurfaceBroadcaster, WorkspacePanels } from "../ports/chat-host";
 import {
   archivedSourceOpenForkFailedMessage,
   finishBeforeArchivingThreadsMessage,
@@ -56,35 +55,6 @@ export interface ThreadManagementActions {
   rollbackThread: (threadId: string) => Promise<void>;
 }
 
-export interface ThreadManagementActionsContext {
-  obsidian: {
-    archiveAdapter: () => ArchiveExportAdapter;
-  };
-  settingsRef: PluginSettingsRef;
-  workspace: Pick<WorkspacePanels, "openThreadInNewView">;
-  threadSurfaces: Pick<ThreadSurfaceBroadcaster, "notifyThreadArchived" | "notifyThreadRenamed" | "refreshSharedThreadListFromOpenSurface">;
-  stateStore: ChatStateStore;
-  client: {
-    currentClient: () => AppServerClient | null;
-    ensureConnected: () => Promise<void>;
-  };
-  status: {
-    set: (status: string) => void;
-    addSystemMessage: (text: string) => void;
-  };
-  notify: {
-    showNotice: (text: string) => void;
-  };
-  thread: {
-    selectThread: (threadId: string) => Promise<void>;
-    refreshThreads: () => Promise<void>;
-    notifyIdentityChanged: () => void;
-  };
-  composer: {
-    setText: (text: string) => void;
-  };
-}
-
 type RenameThreadHost = Pick<
   ThreadManagementActionsHost,
   "ensureConnected" | "currentClient" | "stateStore" | "addSystemMessage" | "notifyThreadRenamed"
@@ -95,32 +65,7 @@ type ConnectedRenameThreadHost = Pick<
   "currentClient" | "stateStore" | "addSystemMessage" | "notifyThreadRenamed"
 >;
 
-export function createThreadManagementActions(context: ThreadManagementActionsContext): ThreadManagementActions {
-  const { obsidian, settingsRef, workspace, threadSurfaces, stateStore, client, status, notify, thread, composer } = context;
-  const host: ThreadManagementActionsHost = {
-    stateStore,
-    vaultPath: settingsRef.vaultPath,
-    settings: () => settingsRef.settings,
-    archiveAdapter: obsidian.archiveAdapter,
-    ensureConnected: client.ensureConnected,
-    currentClient: client.currentClient,
-    addSystemMessage: status.addSystemMessage,
-    showNotice: notify.showNotice,
-    setStatus: status.set,
-    setComposerText: composer.setText,
-    openThreadInNewView: workspace.openThreadInNewView,
-    openThreadInCurrentPanel: thread.selectThread,
-    notifyThreadArchived: threadSurfaces.notifyThreadArchived,
-    notifyThreadRenamed: (threadId, name) => {
-      threadSurfaces.notifyThreadRenamed(threadId, name);
-    },
-    notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
-    refreshThreads: thread.refreshThreads,
-    refreshSharedThreadListFromOpenSurface: () => {
-      threadSurfaces.refreshSharedThreadListFromOpenSurface();
-    },
-  };
-
+export function createThreadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
   return {
     compactThread: (threadId) => compactThread(host, threadId),
     archiveThread: (threadId, saveMarkdown) => archiveThread(host, threadId, saveMarkdown),

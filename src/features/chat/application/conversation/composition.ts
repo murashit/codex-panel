@@ -1,14 +1,14 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
-import type { ChatReconnectActions } from "../connection/reconnect-actions";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
+import { canImplementPlan } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { GoalActions } from "../threads/goal-actions";
-import { createComposerSubmitActions, type ComposerSubmitActions } from "./composer-submit-actions";
-import { createPlanImplementation, type PlanImplementation } from "./plan-implementation";
-import { createSlashCommandHandler } from "./slash-command-handler";
+import { submitComposer, type ComposerSubmitActions, type ComposerSubmitActionsHost } from "./composer-submit-actions";
+import { implementPlan, type PlanImplementation, type PlanImplementationHost } from "./plan-implementation";
+import { executeSlashCommandWithState, type SlashCommandHandlerHost } from "./slash-command-handler";
 import { TurnSubmissionController } from "./turn-submission-controller";
 
 export interface ConversationTurnActionsContext {
@@ -51,7 +51,7 @@ export interface ConversationTurnActionsRefs {
   threadStarter: ConversationThreadStarter;
   runtimeSettings: ChatRuntimeSettingsActions;
   threadActions: ThreadManagementActions;
-  reconnectActions: ChatReconnectActions;
+  reconnectPanel: () => Promise<void>;
   goals: GoalActions;
 }
 
@@ -83,7 +83,7 @@ export function createConversationTurnActions(
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
   });
-  const slashCommands = createSlashCommandHandler({
+  const slashCommandHost: SlashCommandHandlerHost = {
     stateStore,
     currentClient: client.currentClient,
     codexInput: composer.codexInput,
@@ -95,7 +95,7 @@ export function createConversationTurnActions(
     compactThread: (threadId) => refs.threadActions.compactThread(threadId),
     archiveThread: (threadId, saveMarkdown) => refs.threadActions.archiveThread(threadId, saveMarkdown),
     renameThread: (threadId, name) => refs.threadActions.renameThread(threadId, name).then(() => undefined),
-    reconnect: () => refs.reconnectActions.reconnectPanel(),
+    reconnect: refs.reconnectPanel,
     toggleFastMode: () => refs.runtimeSettings.toggleFastMode(),
     toggleCollaborationMode: () => refs.runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void refs.runtimeSettings.toggleAutoReview(),
@@ -115,8 +115,8 @@ export function createConversationTurnActions(
     mcpStatusLines: runtime.mcpStatusLines,
     modelStatusLines: runtime.modelStatusLines,
     effortStatusLines: runtime.effortStatusLines,
-  });
-  const planImplementation = createPlanImplementation({
+  };
+  const planImplementationHost: PlanImplementationHost = {
     stateStore,
     currentClient: client.currentClient,
     ensureConnected: client.ensureConnected,
@@ -124,8 +124,8 @@ export function createConversationTurnActions(
     requestDefaultCollaborationModeForNextTurn: () => {
       refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
     },
-  });
-  const composerSubmit = createComposerSubmitActions({
+  };
+  const composerSubmitHost: ComposerSubmitActionsHost = {
     stateStore,
     composer: {
       get trimmedDraft() {
@@ -133,7 +133,9 @@ export function createConversationTurnActions(
       },
       setDraft: composer.setDraft,
     },
-    slashCommands,
+    slashCommands: {
+      execute: (command, args) => executeSlashCommandWithState(slashCommandHost, command, args),
+    },
     turnSubmission,
     connection: {
       currentClient: client.currentClient,
@@ -144,11 +146,16 @@ export function createConversationTurnActions(
       addSystemMessage: status.addSystemMessage,
     },
     scroll,
-  });
+  };
 
   return {
-    planImplementation,
-    composerSubmit,
+    planImplementation: {
+      canImplement: (item) => canImplementPlan(stateStore.getState(), item),
+      implement: (item) => implementPlan(planImplementationHost, item),
+    },
+    composerSubmit: {
+      submit: () => submitComposer(composerSubmitHost),
+    },
   };
 }
 

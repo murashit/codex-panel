@@ -4,10 +4,7 @@ import type { AppServerClient } from "../../../../../src/app-server/connection/c
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { implementPlanCandidateFromState } from "../../../../../src/features/chat/application/state/selectors";
-import {
-  createPlanImplementation,
-  type PlanImplementationHost,
-} from "../../../../../src/features/chat/application/conversation/plan-implementation";
+import { implementPlan, type PlanImplementationHost } from "../../../../../src/features/chat/application/conversation/plan-implementation";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 const planItem = (id: string): MessageStreamItem => ({
@@ -59,15 +56,15 @@ function createController({ client = {} as AppServerClient } = {}) {
     requestDefaultCollaborationModeForNextTurn,
   };
   return {
-    controller: createPlanImplementation(host),
     ensureConnected,
+    host,
     requestDefaultCollaborationModeForNextTurn,
     sendTurnText,
     stateStore,
   };
 }
 
-describe("createPlanImplementation", () => {
+describe("implementPlan", () => {
   it("finds the latest proposed plan only when the thread is idle and in plan mode", () => {
     const stateStore = createChatStateStore(createChatState());
     const first = planItem("first");
@@ -91,12 +88,12 @@ describe("createPlanImplementation", () => {
   });
 
   it("switches out of plan mode and submits the implementation prompt", async () => {
-    const { controller, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createController();
+    const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createController();
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);
     stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
 
-    await controller.implement(plan);
+    await implementPlan(host, plan);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
@@ -106,12 +103,12 @@ describe("createPlanImplementation", () => {
   });
 
   it("ignores stale plan items", async () => {
-    const { controller, ensureConnected, sendTurnText, stateStore } = createController();
+    const { host, ensureConnected, sendTurnText, stateStore } = createController();
     const first = planItem("first");
     const latest = planItem("latest");
     resumeThread(stateStore, [first, latest]);
 
-    await controller.implement(first);
+    await implementPlan(host, first);
 
     expect(ensureConnected).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();

@@ -406,39 +406,7 @@ function clientMock() {
 }
 
 function threadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
-  return createThreadManagementActions({
-    obsidian: { archiveAdapter: host.archiveAdapter },
-    settingsRef: {
-      get settings() {
-        return host.settings();
-      },
-      get vaultPath() {
-        return host.vaultPath;
-      },
-    },
-    workspace: { openThreadInNewView: host.openThreadInNewView },
-    threadSurfaces: {
-      notifyThreadArchived: host.notifyThreadArchived,
-      notifyThreadRenamed: host.notifyThreadRenamed,
-      refreshSharedThreadListFromOpenSurface: host.refreshSharedThreadListFromOpenSurface,
-    },
-    stateStore: host.stateStore,
-    client: {
-      currentClient: host.currentClient,
-      ensureConnected: host.ensureConnected,
-    },
-    status: {
-      set: host.setStatus,
-      addSystemMessage: host.addSystemMessage,
-    },
-    notify: { showNotice: host.showNotice },
-    thread: {
-      selectThread: host.openThreadInCurrentPanel,
-      refreshThreads: host.refreshThreads,
-      notifyIdentityChanged: host.notifyActiveThreadIdentityChanged,
-    },
-    composer: { setText: host.setComposerText },
-  });
+  return createThreadManagementActions(host);
 }
 
 function hostMock({

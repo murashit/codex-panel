@@ -8,7 +8,8 @@ import { currentModel, currentReasoningEffort, fastRuntimeServiceTierRequestValu
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { effectiveCollaborationMode, type PendingRuntimeSetting } from "../../domain/runtime/pending-settings";
-import type { TurnCollaborationModeWarning } from "../../domain/runtime/warnings";
+
+export type TurnCollaborationModeWarning = "missing-model";
 
 type TurnCollaborationModeSettings =
   | {

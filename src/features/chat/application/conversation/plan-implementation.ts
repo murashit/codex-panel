@@ -18,14 +18,7 @@ export interface PlanImplementation {
   implement: (item: MessageStreamItem) => Promise<void>;
 }
 
-export function createPlanImplementation(host: PlanImplementationHost): PlanImplementation {
-  return {
-    canImplement: (item) => canImplementPlan(host.stateStore.getState(), item),
-    implement: (item) => implementPlan(host, item),
-  };
-}
-
-async function implementPlan(host: PlanImplementationHost, item: MessageStreamItem): Promise<void> {
+export async function implementPlan(host: PlanImplementationHost, item: MessageStreamItem): Promise<void> {
   if (!canImplementPlan(host.stateStore.getState(), item)) return;
   await host.ensureConnected();
   if (!host.currentClient() || !activeThreadId(host.stateStore.getState())) return;

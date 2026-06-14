@@ -1,6 +1,6 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { CollaborationMode } from "../../domain/runtime/pending-settings";
-import type { TurnCollaborationModeWarning } from "../../domain/runtime/warnings";
+import type { TurnCollaborationModeWarning } from "./thread-settings-update";
 
 const COLLABORATION_MODE_WARNING_MESSAGES: Record<TurnCollaborationModeWarning, string> = {
   "missing-model": "No effective model is available. Sending without a mode override.",

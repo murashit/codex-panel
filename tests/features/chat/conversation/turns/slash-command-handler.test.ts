@@ -6,7 +6,7 @@ import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protoco
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
-  createSlashCommandHandler,
+  executeSlashCommandWithState,
   type SlashCommandHandlerHost,
 } from "../../../../../src/features/chat/application/conversation/slash-command-handler";
 import type { Thread } from "../../../../../src/domain/threads/model";
@@ -68,12 +68,11 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
   return { compactThread, host, stateStore, threadTurnsList };
 }
 
-describe("createSlashCommandHandler", () => {
+describe("executeSlashCommandWithState", () => {
   it("executes slash commands against the current chat state", async () => {
     const { host } = createHost();
-    const controller = createSlashCommandHandler(host);
 
-    const result = await controller.execute("clear", "");
+    const result = await executeSlashCommandWithState(host, "clear", "");
 
     expect(host.startNewThread).toHaveBeenCalledOnce();
     expect(result).toBeUndefined();
@@ -96,9 +95,8 @@ describe("createSlashCommandHandler", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    const controller = createSlashCommandHandler(host);
 
-    await controller.execute("compact", "");
+    await executeSlashCommandWithState(host, "compact", "");
 
     expect(compactThread).toHaveBeenCalledWith("thread");
   });
@@ -116,18 +114,16 @@ describe("createSlashCommandHandler", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    const controller = createSlashCommandHandler(host);
 
-    await controller.execute("compact", "");
+    await executeSlashCommandWithState(host, "compact", "");
 
     expect(compactThread).toHaveBeenCalledWith("thread");
   });
 
   it("starts an empty panel before setting a slash command goal", async () => {
     const { host } = createHost();
-    const controller = createSlashCommandHandler(host);
 
-    await controller.execute("goal", "set Ship this");
+    await executeSlashCommandWithState(host, "goal", "set Ship this");
 
     expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this");
     expect(host.setGoalObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
@@ -135,9 +131,8 @@ describe("createSlashCommandHandler", () => {
 
   it("runs reconnect even when there is no current app-server client", async () => {
     const { host } = createHost({ currentClient: () => null });
-    const controller = createSlashCommandHandler(host);
 
-    await controller.execute("reconnect", "");
+    await executeSlashCommandWithState(host, "reconnect", "");
 
     expect(host.reconnect).toHaveBeenCalledOnce();
   });
@@ -148,9 +143,8 @@ describe("createSlashCommandHandler", () => {
       type: "thread-list/applied",
       threads: [thread("other", "Other")],
     });
-    const controller = createSlashCommandHandler(host);
 
-    const result = await controller.execute("refer", "Other summarize");
+    const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
 
     expect(threadTurnsList).toHaveBeenCalledWith("other", null, 20);
     expect(result).toBeUndefined();
@@ -167,9 +161,8 @@ describe("createSlashCommandHandler", () => {
       data: [turn([userMessage("u1", "元の依頼"), agentMessage("a1", "回答")])],
       nextCursor: null,
     });
-    const controller = createSlashCommandHandler(host);
 
-    const result = await controller.execute("refer", "Other summarize");
+    const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
 
     expect(result?.sendText).toBe("summarize");
     expect(host.setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createComposerSubmitActions } from "../../../../../src/features/chat/application/conversation/composer-submit-actions";
+import { submitComposer } from "../../../../../src/features/chat/application/conversation/composer-submit-actions";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
 function thread(id: string): Thread {
@@ -17,7 +17,7 @@ function thread(id: string): Thread {
   };
 }
 
-function createController(draft: string) {
+function createHost(draft: string) {
   const stateStore = createChatStateStore(createChatState());
   const interruptTurn = vi.fn().mockResolvedValue({});
   const client = { interruptTurn } as unknown as AppServerClient;
@@ -25,7 +25,7 @@ function createController(draft: string) {
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const execute = vi.fn().mockResolvedValue(undefined);
   const followBottom = vi.fn();
-  const controller = createComposerSubmitActions({
+  const host = {
     stateStore,
     composer: {
       get trimmedDraft() {
@@ -44,15 +44,15 @@ function createController(draft: string) {
       addSystemMessage: vi.fn(),
     },
     scroll: { followBottom },
-  });
-  return { controller, execute, followBottom, interruptTurn, sendTurnText, setDraft, stateStore };
+  };
+  return { host, execute, followBottom, interruptTurn, sendTurnText, setDraft, stateStore };
 }
 
-describe("createComposerSubmitActions", () => {
+describe("submitComposer", () => {
   it("sends plain drafts as turn text", async () => {
-    const { controller, followBottom, sendTurnText } = createController("hello");
+    const { host, followBottom, sendTurnText } = createHost("hello");
 
-    await controller.submit();
+    await submitComposer(host);
 
     expect(followBottom).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith("hello");
@@ -65,10 +65,10 @@ describe("createComposerSubmitActions", () => {
   });
 
   it("executes slash commands and forwards command send results", async () => {
-    const { controller, execute, followBottom, sendTurnText, setDraft } = createController("/clear hello");
+    const { host, execute, followBottom, sendTurnText, setDraft } = createHost("/clear hello");
     execute.mockResolvedValue({ sendText: "hello" });
 
-    await controller.submit();
+    await submitComposer(host);
 
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(execute).toHaveBeenCalledWith("clear", "hello");
@@ -77,10 +77,10 @@ describe("createComposerSubmitActions", () => {
   });
 
   it("restores slash command composer drafts from command results", async () => {
-    const { controller, execute, followBottom, sendTurnText, setDraft } = createController("/goal edit");
+    const { host, execute, followBottom, sendTurnText, setDraft } = createHost("/goal edit");
     execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });
 
-    await controller.submit();
+    await submitComposer(host);
 
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(setDraft).toHaveBeenCalledWith("/goal set Current objective", { focus: true, clearSuggestions: true });
@@ -89,7 +89,7 @@ describe("createComposerSubmitActions", () => {
   });
 
   it("interrupts a running turn when submitting an empty draft", async () => {
-    const { controller, followBottom, interruptTurn, stateStore } = createController("");
+    const { host, followBottom, interruptTurn, stateStore } = createHost("");
     stateStore.dispatch({
       type: "active-thread/resumed",
       thread: thread("thread"),
@@ -103,7 +103,7 @@ describe("createComposerSubmitActions", () => {
     });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
 
-    await controller.submit();
+    await submitComposer(host);
 
     expect(followBottom).not.toHaveBeenCalled();
     expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");

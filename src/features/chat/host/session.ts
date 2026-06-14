@@ -11,7 +11,7 @@ import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snaps
 import type { ArchiveExportAdapter } from "../../thread-operations/archive-markdown";
 import type { CodexChatHost } from "../application/ports/chat-host";
 import { ChatConnectionController } from "../application/connection/connection-controller";
-import { createChatReconnectActions } from "../application/connection/reconnect-actions";
+import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
 import { createChatServerThreadActions, type ChatServerThreadActions } from "../app-server/actions/threads";
@@ -450,7 +450,7 @@ export class ChatPanelSession {
     );
     selectionRef.set(selection);
 
-    const reconnectActions = createChatReconnectActions({
+    const reconnectHost: ChatReconnectActionsHost = {
       stateStore: this.stateStore,
       invalidateConnectionWork: () => {
         this.connectionWork.invalidate();
@@ -468,7 +468,8 @@ export class ChatPanelSession {
       ensureConnected: sessionPorts.ensureConnected,
       resumeThread: (threadId) => resume.resumeThread(threadId),
       addSystemMessage: sideEffects.status.addSystemMessage,
-    });
+    };
+    const reconnect = () => reconnectPanel(reconnectHost);
     const serverParts = this.createServerParts({
       connection,
       sideEffects,
@@ -488,7 +489,7 @@ export class ChatPanelSession {
       },
       {
         connectionController,
-        reconnectActions,
+        reconnectPanel: reconnect,
         inboundController,
         threadActions,
         toolbarPanels,
@@ -578,7 +579,7 @@ export class ChatPanelSession {
         threadStarter: serverThreads,
         runtimeSettings,
         threadActions,
-        reconnectActions,
+        reconnectPanel: reconnect,
         goals,
         history,
       },

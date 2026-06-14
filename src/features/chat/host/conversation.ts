@@ -1,7 +1,6 @@
 import type { App, Component } from "obsidian";
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatStateStore } from "../application/state/store";
-import type { ChatReconnectActions } from "../application/connection/reconnect-actions";
 import { PendingRequestController } from "../application/pending-requests/controller";
 import type { ChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
@@ -74,7 +73,7 @@ export function createConversationParts(
     threadStarter: ConversationThreadStarter;
     runtimeSettings: ChatRuntimeSettingsActions;
     threadActions: ThreadManagementActions;
-    reconnectActions: ChatReconnectActions;
+    reconnectPanel: () => Promise<void>;
     goals: GoalActions;
     history: HistoryController;
   },
@@ -137,7 +136,7 @@ export function createConversationParts(
       threadStarter: refs.threadStarter,
       runtimeSettings: refs.runtimeSettings,
       threadActions: refs.threadActions,
-      reconnectActions: refs.reconnectActions,
+      reconnectPanel: refs.reconnectPanel,
       goals: refs.goals,
     },
   );

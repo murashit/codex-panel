@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import {
-  createChatReconnectActions,
-  type ChatReconnectActionsHost,
-} from "../../../../src/features/chat/application/connection/reconnect-actions";
+import { reconnectPanel, type ChatReconnectActionsHost } from "../../../../src/features/chat/application/connection/reconnect-actions";
 
 function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -36,12 +33,11 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
   return { host, stateStore };
 }
 
-describe("createChatReconnectActions", () => {
+describe("reconnectPanel", () => {
   it("resets local connection state before reconnecting and resumes the active thread", async () => {
     const { host, stateStore } = createHost();
-    const controller = createChatReconnectActions(host);
 
-    await controller.reconnectPanel();
+    await reconnectPanel(host);
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.invalidateConnectionWork).toHaveBeenCalledOnce();
@@ -57,9 +53,8 @@ describe("createChatReconnectActions", () => {
     const { host } = createHost({
       resumeThread: vi.fn().mockRejectedValue(new Error("resume failed")),
     });
-    const controller = createChatReconnectActions(host);
 
-    await controller.reconnectPanel();
+    await reconnectPanel(host);
 
     expect(host.addSystemMessage).toHaveBeenCalledWith("resume failed");
   });

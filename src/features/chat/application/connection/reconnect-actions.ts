@@ -15,17 +15,7 @@ export interface ChatReconnectActionsHost {
   addSystemMessage: (text: string) => void;
 }
 
-export interface ChatReconnectActions {
-  reconnectPanel: () => Promise<void>;
-}
-
-export function createChatReconnectActions(host: ChatReconnectActionsHost): ChatReconnectActions {
-  return {
-    reconnectPanel: () => reconnectPanel(host),
-  };
-}
-
-async function reconnectPanel(host: ChatReconnectActionsHost): Promise<void> {
+export async function reconnectPanel(host: ChatReconnectActionsHost): Promise<void> {
   const threadId = activeThreadId(host.stateStore.getState());
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   host.invalidateConnectionWork();

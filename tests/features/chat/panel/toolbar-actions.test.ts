@@ -113,7 +113,7 @@ function toolbarActionDeps(): Parameters<typeof createChatPanelToolbarActions>[1
     connectionController: { refreshStatusPanel: vi.fn() } as unknown as Parameters<
       typeof createChatPanelToolbarActions
     >[1]["connectionController"],
-    reconnectActions: { reconnectPanel: vi.fn() } as Parameters<typeof createChatPanelToolbarActions>[1]["reconnectActions"],
+    reconnectPanel: vi.fn(),
     inboundController: { addSystemMessage: vi.fn() } as unknown as Parameters<typeof createChatPanelToolbarActions>[1]["inboundController"],
     threadActions: {
       archiveThread: vi.fn().mockResolvedValue(undefined),

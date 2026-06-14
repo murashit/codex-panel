@@ -27,17 +27,7 @@ export interface SlashCommandHandlerHost extends Omit<SlashCommandExecutionConte
   setStatus: (status: string) => void;
 }
 
-export interface SlashCommandHandler {
-  execute: (command: SlashCommandName, args: string) => Promise<SlashCommandExecutionResult | undefined>;
-}
-
-export function createSlashCommandHandler(host: SlashCommandHandlerHost): SlashCommandHandler {
-  return {
-    execute: (command, args) => executeSlashCommand(host, command, args),
-  };
-}
-
-async function executeSlashCommand(
+export async function executeSlashCommandWithState(
   host: SlashCommandHandlerHost,
   command: SlashCommandName,
   args: string,

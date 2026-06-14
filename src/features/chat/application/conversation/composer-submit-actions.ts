@@ -37,13 +37,7 @@ export interface ComposerSubmitActions {
   submit: () => Promise<void>;
 }
 
-export function createComposerSubmitActions(host: ComposerSubmitActionsHost): ComposerSubmitActions {
-  return {
-    submit: () => submitComposer(host),
-  };
-}
-
-async function submitComposer(host: ComposerSubmitActionsHost): Promise<void> {
+export async function submitComposer(host: ComposerSubmitActionsHost): Promise<void> {
   const draft = host.composer.trimmedDraft;
   const state = submissionStateSnapshot(host.stateStore.getState());
   if (state.busy && state.activeThreadId && state.activeTurnId && draft.length === 0) {

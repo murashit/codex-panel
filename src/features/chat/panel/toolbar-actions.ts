@@ -2,7 +2,6 @@ import type { ThreadManagementActions } from "../application/threads/thread-mana
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatConnectionController } from "../application/connection/connection-controller";
-import type { ChatReconnectActions } from "../application/connection/reconnect-actions";
 import type { ThreadRenameEditorController } from "../application/threads/rename-editor-controller";
 import type { SelectionActions } from "../application/threads/selection-actions";
 import type { ChatInboundController } from "../app-server/inbound/controller";
@@ -33,7 +32,7 @@ export interface ChatPanelToolbarActionsHost {
 
 export interface ChatPanelToolbarActionDependencies {
   connectionController: ChatConnectionController;
-  reconnectActions: ChatReconnectActions;
+  reconnectPanel: () => Promise<void>;
   inboundController: ChatInboundController;
   threadActions: ThreadManagementActions;
   toolbarPanels: ToolbarPanelActions;
@@ -154,7 +153,7 @@ export function createChatPanelToolbarActions(host: ChatPanelToolbarActionsHost,
       deps.toolbarPanels.toggleStatus();
     },
     connect: () => {
-      void deps.reconnectActions.reconnectPanel();
+      void deps.reconnectPanel();
     },
     refreshStatus: () => {
       void deps.connectionController.refreshStatusPanel();
