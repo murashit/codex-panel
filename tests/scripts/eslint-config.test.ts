@@ -362,6 +362,32 @@ export function timestamp(): number {
 
     expect(messages).toContain("no-restricted-syntax");
   });
+
+  it("keeps chat domain independent from outer chat layers", async () => {
+    const messages = await lintSource(
+      "src/features/chat/domain/message-stream/selectors.ts",
+      `
+import type { ChatStateStore } from "../../application/state/reducer";
+
+export type Store = ChatStateStore;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-syntax");
+  });
+
+  it("allows chat domain modules to depend on sibling domain modules", async () => {
+    const messages = await lintSource(
+      "src/features/chat/domain/message-stream/selectors.ts",
+      `
+import type { MessageStreamItem } from "./items";
+
+export type Item = MessageStreamItem;
+`,
+    );
+
+    expect(messages).not.toContain("no-restricted-syntax");
+  });
 });
 
 async function lintSource(filePath: string, source: string): Promise<string[]> {

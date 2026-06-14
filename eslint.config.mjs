@@ -28,6 +28,14 @@ const chatSignalAdapterRestrictions = [
     message: "Keep chat signals in panel/shell-state.tsx as a reducer-to-Preact notification adapter.",
   },
 ];
+const chatDomainLayerRestrictions = [
+  {
+    selector:
+      "ImportDeclaration[source.value=/^(?:\\.\\.\\/)+(?:app-server|application|host|panel|presentation|ui)(?:\\/|$)|^src\\/features\\/chat\\/(?:app-server|application|host|panel|presentation|ui)(?:\\/|$)/]",
+    message:
+      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
+  },
+];
 const uiRootImportRestrictions = [
   {
     selector: "ImportDeclaration[source.value=/shared\\/ui\\/ui-root$/]",
@@ -683,6 +691,10 @@ export default defineConfig([
       "codex-panel/no-imperative-dom": "error",
       "codex-panel/no-chat-state-direct-mutation": "error",
     },
+  },
+  {
+    files: ["src/features/chat/domain/**/*.{ts,tsx}"],
+    rules: restrictedSyntaxRule([...sourceSyntaxRestrictions, ...chatDomainLayerRestrictions]),
   },
   {
     files: ["src/app-server/**/*.{ts,tsx}", "src/domain/**/*.{ts,tsx}", "src/shared/**/*.{ts,tsx}"],
