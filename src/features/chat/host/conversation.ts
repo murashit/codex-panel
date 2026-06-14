@@ -10,11 +10,11 @@ import type { GoalActions } from "../application/threads/goal-actions";
 import type { HistoryController } from "../application/threads/history-controller";
 import type { ChatInboundController } from "../app-server/inbound/controller";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
-import type { ChatMessageScrollIntentState } from "../ui/message-stream/scroll-intent-state";
-import type { ComposerMetaViewModel } from "../ui/composer";
-import type { ChatPanelComposerShellState } from "../ui/shell-state";
+import type { ChatPanelComposerShellState } from "../panel/shell-state";
 import type { CodexChatHost } from "../application/chat-host";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
+import type { ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
+import type { ChatPanelComposerProjection } from "../panel/surface/model";
 import { createConversationComposer } from "./composer";
 import { createConversationTurnActions } from "../application/conversation/composition";
 
@@ -33,10 +33,7 @@ interface ConversationPartsContext {
   };
   surface: {
     pendingRequestsSignature: () => string;
-    composerProjection: (state: ChatPanelComposerShellState) => {
-      placeholder: string;
-      meta: ComposerMetaViewModel;
-    };
+    composerProjection: (state: ChatPanelComposerShellState) => ChatPanelComposerProjection;
   };
   runtime: {
     connectionDiagnosticDetails: () => MessageStreamNoticeSection[];

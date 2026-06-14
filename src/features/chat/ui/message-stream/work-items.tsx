@@ -2,11 +2,11 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ExecutionState, TaskProgressMessageStreamItem } from "../../domain/message-stream/items";
 import type { AgentRunSummaryView, MessageStreamWorkView } from "../../presentation/message-stream/work-view";
-import type { ChatDisclosureUiState } from "../../application/state/reducer";
+import type { MessageStreamDisclosureState } from "./context";
 import { createWorkMessageClassName } from "./work-message";
 
 export interface WorkItemContext {
-  disclosures: ChatDisclosureUiState;
+  disclosures: MessageStreamDisclosureState;
   onDisclosureToggle?: (bucket: "agentDetails", id: string, open: boolean) => void;
 }
 

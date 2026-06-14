@@ -3,7 +3,7 @@ import { h } from "preact";
 
 import type { GoalPanelActions, GoalPanelDisplayState, GoalPanelEditorState, GoalPanelOptions } from "../../ui/goal";
 import { GoalPanel } from "../../ui/goal";
-import { goalStateFromShellState, useChatPanelShellState, type ChatPanelGoalShellState } from "../../ui/shell-state";
+import { goalStateFromShellState, useChatPanelShellState, type ChatPanelGoalShellState } from "../shell-state";
 import type { ChatPanelGoalSurface } from "./model";
 
 export interface ChatPanelGoalProjection {

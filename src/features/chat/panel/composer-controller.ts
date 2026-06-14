@@ -4,14 +4,11 @@ import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../application/state/reducer";
-import type { ComposerMetaViewModel, ComposerShellProps } from "./composer";
-import { syncComposerHeight, type ComposerCallbacks } from "./composer";
+import type { ComposerShellProps } from "../ui/composer";
+import { syncComposerHeight, type ComposerCallbacks } from "../ui/composer";
 import type { ChatPanelComposerShellState } from "./shell-state";
 import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "../application/composer/boundary-scroll";
-import {
-  noteCandidates as appNoteCandidates,
-  resolveWikiLinkMention as resolveAppWikiLinkMention,
-} from "../application/composer/obsidian-context";
+import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./composer-obsidian-context";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -22,6 +19,7 @@ import {
   type NoteCandidate,
 } from "../application/composer/suggestions";
 import { userInputWithWikiLinkMentionsAndSkills } from "../application/composer/wikilink-context";
+import type { ChatPanelComposerProjection } from "./surface/model";
 
 export interface ChatComposerControllerOptions {
   app: App;
@@ -30,10 +28,7 @@ export interface ChatComposerControllerOptions {
   sendShortcut: () => SendShortcut;
   scrollThreadFromComposerEdges: () => boolean;
   canInterrupt: (state: ChatPanelComposerShellState) => boolean;
-  composerProjection: (state: ChatPanelComposerShellState) => {
-    placeholder: string;
-    meta: ComposerMetaViewModel;
-  };
+  composerProjection: (state: ChatPanelComposerShellState) => ChatPanelComposerProjection;
   currentModelForSuggestions: () => string | null;
   threadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
   togglePlan: () => void;

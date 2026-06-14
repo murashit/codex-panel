@@ -1,11 +1,20 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import type { ComposerSuggestion } from "../application/composer/suggestions";
 import { IconButton } from "../../../shared/ui/components";
 import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 import { renderComposerMetaIcon, scrollComposerSuggestionIntoView, updateComposerMetaStatusOverflow } from "./composer-dom";
+
+export interface ComposerSuggestion {
+  display: string;
+  detail: string;
+  replacement: string;
+  start: number;
+  appendSpaceOnInsert?: boolean;
+  tabCursorOffset?: number;
+  suffixOnInsert?: string;
+}
 
 export interface ComposerMetaViewModel {
   fatal: string | null;
@@ -20,7 +29,7 @@ export interface ComposerMetaViewModel {
   effortChoices?: RuntimeChoice[];
 }
 
-export interface RuntimeChoice {
+interface RuntimeChoice {
   label: string;
   selected?: boolean;
   disabled?: boolean;
@@ -28,12 +37,12 @@ export interface RuntimeChoice {
   onClick: () => void;
 }
 
-export interface ComposerContextMeterCellViewModel {
+interface ComposerContextMeterCellViewModel {
   text: string;
   placeholder: boolean;
 }
 
-export interface ComposerContextMeterViewModel {
+interface ComposerContextMeterViewModel {
   cells: ComposerContextMeterCellViewModel[];
   percent: string;
 }

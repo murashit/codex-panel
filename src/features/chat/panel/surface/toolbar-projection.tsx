@@ -7,7 +7,7 @@ import { runtimeConfigSections, rateLimitSummary } from "../../presentation/runt
 import { connectionDiagnosticSections } from "../../application/connection/diagnostics-display";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../application/state/reducer";
-import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../../ui/shell-state";
+import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../shell-state";
 import { Toolbar, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
 import type { ChatPanelToolbarSurface } from "./model";
 import { runtimeSnapshotForToolbarShellState } from "./runtime-snapshot";

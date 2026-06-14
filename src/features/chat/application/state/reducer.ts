@@ -76,7 +76,6 @@ export {
   chatTurnBusy,
   pendingTurnStart,
   transitionChatTurnLifecycleState,
-  type ChatTurnLifecycleState,
   type ChatTurnState,
   type PendingTurnStart,
 } from "../conversation/turn-state";

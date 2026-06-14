@@ -1,26 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
+import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import {
   runtimeConfigSnapshotFromAppServerConfig,
   type ConfigReadResult,
   type RuntimeConfigSnapshot,
-} from "../../../src/app-server/protocol/runtime-config";
-import { createChatState } from "../../../src/features/chat/application/state/reducer";
-import { chatPanelComposerProjection, composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
-import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/presentation/runtime/status";
-import { runtimeComposerChoices } from "../../../src/features/chat/panel/surface/composer";
-import { runtimeSnapshotForChatState } from "../../../src/features/chat/application/runtime/snapshot";
-import { chatPanelToolbarProjection, toolbarStateProjection } from "../../../src/features/chat/panel/surface/toolbar";
-import type { ChatState } from "../../../src/features/chat/application/state/reducer";
-import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
-import type { Thread } from "../../../src/domain/threads/model";
-import { chatPanelGoalProjection, chatPanelGoalViewModel } from "../../../src/features/chat/panel/surface/goal";
-import type { ChatPanelComposerSurface, ChatPanelGoalSurface } from "../../../src/features/chat/panel/surface/model";
-import type { ThreadGoal } from "../../../src/domain/threads/goal";
-import { setChatStateMessageStreamItems } from "./support/message-stream";
+} from "../../../../../src/app-server/protocol/runtime-config";
+import { createChatState } from "../../../../../src/features/chat/application/state/reducer";
+import {
+  chatPanelComposerProjection,
+  composerMetaViewModel,
+  composerPlaceholder,
+} from "../../../../../src/features/chat/panel/surface/composer-projection";
+import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../../../src/features/chat/presentation/runtime/status";
+import { runtimeComposerChoices } from "../../../../../src/features/chat/panel/surface/composer-projection";
+import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
+import { chatPanelToolbarProjection, toolbarStateProjection } from "../../../../../src/features/chat/panel/surface/toolbar-projection";
+import type { ChatState } from "../../../../../src/features/chat/application/state/reducer";
+import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
+import type { Thread } from "../../../../../src/domain/threads/model";
+import { chatPanelGoalProjection, chatPanelGoalViewModel } from "../../../../../src/features/chat/panel/surface/goal-projection";
+import type { ChatPanelComposerSurface, ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/model";
+import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
+import { setChatStateMessageStreamItems } from "../../support/message-stream";
 
-describe("chat view model", () => {
+describe("chat panel surface projections", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";

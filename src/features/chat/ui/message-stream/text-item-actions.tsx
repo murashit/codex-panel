@@ -1,7 +1,6 @@
 import { type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 
-import { activeTurnId } from "../../application/state/reducer";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { IconButton } from "../../../../shared/ui/components";
 import { listenDomEvent } from "../../../../shared/ui/dom-events";
@@ -117,6 +116,6 @@ function displayRoleLabel(item: MessageStreamItem): string {
 
 function isMessageCopyActionVisible(item: MessageStreamItem, context: Pick<TextItemActionContext, "turnLifecycle">): boolean {
   if (item.kind !== "message" || item.copyText === undefined) return false;
-  const activeTurn = activeTurnId({ lifecycle: context.turnLifecycle });
+  const activeTurn = context.turnLifecycle.kind === "running" ? context.turnLifecycle.turnId : null;
   return !(activeTurn && item.role === "assistant" && item.turnId === activeTurn);
 }

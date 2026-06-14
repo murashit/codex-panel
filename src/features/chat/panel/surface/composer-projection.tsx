@@ -15,27 +15,21 @@ import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import type { ChatState } from "../../application/state/reducer";
-import type {
-  ComposerContextMeterCellViewModel,
-  ComposerContextMeterViewModel,
-  ComposerMetaViewModel,
-  RuntimeChoice,
-} from "../../ui/composer";
 import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
-import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../../ui/shell-state";
+import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../shell-state";
 import { explicitThreadName } from "../../../../domain/threads/model";
-import type { ChatPanelComposerSurface, RestoredThreadTitleSnapshot } from "./model";
+import type {
+  ChatPanelComposerContextMeter,
+  ChatPanelComposerContextMeterCell,
+  ChatPanelComposerMeta,
+  ChatPanelComposerProjection,
+  ChatPanelComposerRuntimeChoice,
+  ChatPanelComposerSurface,
+  RestoredThreadTitleSnapshot,
+} from "./model";
 import { runtimeSnapshotForShellState } from "./runtime-snapshot";
 
 type ComposerMetaState = Pick<ChatState, "connection" | "runtime">;
-
-export interface ChatPanelComposerProjection {
-  placeholder: string;
-  meta: ComposerMetaViewModel & {
-    modelChoices: RuntimeChoice[];
-    effortChoices: RuntimeChoice[];
-  };
-}
 
 export interface ChatPanelComposerController {
   renderState(state: ChatPanelComposerShellState, actions: ChatPanelComposerActions): ComposerShellProps;
@@ -88,7 +82,10 @@ export function chatPanelComposerProjection(
   };
 }
 
-export function composerMetaViewModel(state: ComposerMetaState, snapshot: RuntimeSnapshot): ComposerMetaViewModel {
+export function composerMetaViewModel(
+  state: ComposerMetaState,
+  snapshot: RuntimeSnapshot,
+): Omit<ChatPanelComposerMeta, "modelChoices" | "effortChoices"> {
   if (state.connection.phase.kind === "failed" || state.connection.phase.kind === "disconnected") {
     return {
       fatal: "Codex app-server disconnected",
@@ -131,13 +128,13 @@ export function composerMetaViewModel(state: ComposerMetaState, snapshot: Runtim
 }
 
 export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
-  modelChoices: RuntimeChoice[];
-  effortChoices: RuntimeChoice[];
+  modelChoices: ChatPanelComposerRuntimeChoice[];
+  effortChoices: ChatPanelComposerRuntimeChoice[];
 } {
   const config = runtimeConfigOrDefault(input.state.connection.runtimeConfig);
   const activeModel = currentModel(input.snapshot, config);
   const models = sortedModelMetadata(input.state.connection.availableModels);
-  const modelChoices: RuntimeChoice[] = models.slice(0, 12).map((model) => ({
+  const modelChoices: ChatPanelComposerRuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
     selected: activeModel === model.model,
     onClick: () => {
@@ -153,7 +150,7 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   }
 
   const activeEffort = currentReasoningEffort(input.snapshot, config);
-  const effortChoices: RuntimeChoice[] = [
+  const effortChoices: ChatPanelComposerRuntimeChoice[] = [
     {
       label: "Codex default",
       selected: activeEffort === null,
@@ -174,7 +171,7 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
 }
 
 function composerStatusSummary(input: {
-  context: ComposerContextMeterViewModel;
+  context: ChatPanelComposerContextMeter;
   model: string;
   effort: string | null;
   planActive: boolean;
@@ -214,7 +211,7 @@ const CONTEXT_PARTIAL_DOTS = ["", "⣀", "⣤", "⣶", "⣿"] as const;
 const CONTEXT_FULL_DOT = "⣿";
 const CONTEXT_EMPTY_DOT = "⣀";
 
-function contextComposerMeter(percent: number | null): ComposerContextMeterViewModel {
+function contextComposerMeter(percent: number | null): ChatPanelComposerContextMeter {
   const percentLabel = percent === null ? "--%" : `${String(Math.round(Math.max(0, Math.min(100, percent)))).padStart(2, " ")}%`;
   return {
     cells: contextBrailleCells(percent),
@@ -222,10 +219,10 @@ function contextComposerMeter(percent: number | null): ComposerContextMeterViewM
   };
 }
 
-function contextBrailleCells(percent: number | null): ComposerContextMeterCellViewModel[] {
+function contextBrailleCells(percent: number | null): ChatPanelComposerContextMeterCell[] {
   if (percent === null) return Array.from({ length: CONTEXT_DOT_WIDTH }, () => ({ text: CONTEXT_EMPTY_DOT, placeholder: true }));
   const clamped = Math.max(0, Math.min(100, percent));
-  const cells: ComposerContextMeterCellViewModel[] = [];
+  const cells: ChatPanelComposerContextMeterCell[] = [];
   for (let index = 0; index < CONTEXT_DOT_WIDTH; index += 1) {
     const remaining = clamped - index * CONTEXT_CELL_PERCENT;
     if (remaining <= 0) {

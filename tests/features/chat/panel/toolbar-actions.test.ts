@@ -2,9 +2,9 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
-import { createToolbarPanelActions } from "../../../../../src/features/chat/panel/toolbar-actions";
-import type { ThreadManagementActions } from "../../../../../src/features/chat/application/threads/thread-management-actions";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
+import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 
 describe("createToolbarPanelActions", () => {
   it("tracks archive confirmation and delegates archive actions", async () => {

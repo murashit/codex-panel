@@ -68,7 +68,7 @@ export function setBoxValue(box: Box): void {
 
   it("does not confuse signal value writes with DOM writes", async () => {
     const messages = await lintSource(
-      "src/features/chat/ui/shell-state.tsx",
+      "src/features/chat/panel/shell-state.tsx",
       `
 import { signal } from "@preact/signals";
 
@@ -247,7 +247,7 @@ export function mutateState(store: ChatStateStore): void {
 
   it("allows signals in the chat shell-state adapter", async () => {
     const messages = await lintSource(
-      "src/features/chat/ui/shell-state.tsx",
+      "src/features/chat/panel/shell-state.tsx",
       `
 import { signal } from "@preact/signals";
 
@@ -339,7 +339,7 @@ export const render = renderUiRoot;
 
   it("allows Preact root adapter imports in explicit root bridge files", async () => {
     const messages = await lintSource(
-      "src/features/chat/ui/shell.tsx",
+      "src/features/chat/panel/shell.tsx",
       `
 import { renderUiRoot } from "../../../shared/ui/ui-root";
 

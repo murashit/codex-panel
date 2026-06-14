@@ -1,7 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ChatDisclosureBucket, ChatDisclosureUiState, ChatTurnLifecycleState } from "../../application/state/reducer";
-import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
+import type { ApprovalAction, PendingRequestId } from "../../domain/pending-requests/model";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { TextMessageStreamItem } from "../../presentation/message-stream/text-view";
@@ -14,9 +13,41 @@ export interface MessageStreamBlock {
 
 export type { TextMessageStreamItem };
 
+type MessageStreamDisclosureBucket =
+  | "toolResults"
+  | "activityGroups"
+  | "agentDetails"
+  | "textDetails"
+  | "userMessageExpanded"
+  | "goalObjectiveExpanded"
+  | "approvalDetails";
+
+export interface MessageStreamDisclosureState {
+  toolResults: ReadonlySet<string>;
+  activityGroups: ReadonlySet<string>;
+  agentDetails: ReadonlySet<string>;
+  textDetails: ReadonlySet<string>;
+  userMessageExpanded: ReadonlySet<string>;
+  goalObjectiveExpanded: ReadonlySet<string>;
+  approvalDetails: ReadonlySet<string>;
+}
+
+export type MessageStreamTurnLifecycleState =
+  | { kind: "idle" }
+  | { kind: "starting"; pendingTurnStart: unknown }
+  | { kind: "running"; turnId: string };
+
+export interface PendingRequestBlockActions {
+  resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
+  resolveUserInput: (requestId: PendingRequestId) => void;
+  cancelUserInput: (requestId: PendingRequestId) => void;
+  setApprovalDetailsExpanded?: (requestId: PendingRequestId, expanded: boolean) => void;
+  setUserInputDraft: (key: string, value: string) => void;
+}
+
 export interface TextItemDetailStateContext {
-  disclosures: ChatDisclosureUiState;
-  onDisclosureToggle?: (bucket: ChatDisclosureBucket, id: string, open: boolean) => void;
+  disclosures: MessageStreamDisclosureState;
+  onDisclosureToggle?: (bucket: MessageStreamDisclosureBucket, id: string, open: boolean) => void;
 }
 
 export interface TextItemContentContext extends TextItemDetailStateContext {
@@ -24,7 +55,7 @@ export interface TextItemContentContext extends TextItemDetailStateContext {
 }
 
 export interface TextItemActionContext extends TextItemDetailStateContext {
-  turnLifecycle: ChatTurnLifecycleState;
+  turnLifecycle: MessageStreamTurnLifecycleState;
   forkActionsItemId: string | null;
   onForkActionsToggle?: (itemId: string | null) => void;
   copyText?: (text: string) => void;
@@ -44,7 +75,7 @@ export interface TextItemMetadataContext extends TextItemDetailStateContext {
 
 interface MessageStreamRenderContext {
   activeThreadId: string | null;
-  turnLifecycle: ChatTurnLifecycleState;
+  turnLifecycle: MessageStreamTurnLifecycleState;
   workspaceRoot?: string | null;
   loadOlderTurns: () => void;
   pendingRequests?: PendingRequestBlockContext;

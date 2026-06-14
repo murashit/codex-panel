@@ -5,11 +5,11 @@ import { MessageStreamScrollBridge } from "../panel/surface/message-stream-scrol
 import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effective";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { activeTurnId, type ChatStateStore } from "../application/state/reducer";
-import type { ComposerMetaViewModel } from "../ui/composer";
-import type { ChatPanelComposerShellState } from "../ui/shell-state";
+import type { ChatPanelComposerShellState } from "../panel/shell-state";
 import type { CodexChatHost } from "../application/chat-host";
 import type { ChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
-import { ChatComposerController } from "../ui/composer-controller";
+import { ChatComposerController } from "../panel/composer-controller";
+import type { ChatPanelComposerProjection } from "../panel/surface/model";
 
 export interface ConversationComposerContext {
   app: App;
@@ -17,10 +17,7 @@ export interface ConversationComposerContext {
   stateStore: ChatStateStore;
   viewId: string;
   surface: {
-    composerProjection: (state: ChatPanelComposerShellState) => {
-      placeholder: string;
-      meta: ComposerMetaViewModel;
-    };
+    composerProjection: (state: ChatPanelComposerShellState) => ChatPanelComposerProjection;
   };
   liveState: {
     refresh: () => void;

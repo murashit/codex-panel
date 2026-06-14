@@ -15,7 +15,7 @@ import { createChatReconnectActions } from "../application/connection/reconnect-
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
 import { createChatServerThreadActions, type ChatServerThreadActions } from "../app-server/actions/threads";
-import type { ChatComposerController } from "../ui/composer-controller";
+import type { ChatComposerController } from "../panel/composer-controller";
 import { createConversationParts } from "./conversation";
 import type { ComposerSubmitActions } from "../application/conversation/composer-submit-actions";
 import { codexPanelDisplayTitle } from "../application/threads/title-display";
@@ -36,16 +36,16 @@ import {
 import { applyChatViewState } from "../panel/view-state";
 import { closeChatView, openChatView, type ChatViewLifecycleHost } from "../panel/view-lifecycle";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
-import { connectionDiagnosticsModel } from "../panel/surface/toolbar";
+import { connectionDiagnosticsModel } from "../panel/surface/toolbar-projection";
 import { openPanelTurnLifecycle } from "../panel/snapshot";
 import { ChatInboundController } from "../app-server/inbound/controller";
 import { rejectServerRequest, respondToServerRequest } from "../app-server/requests/responder";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../presentation/runtime/messages";
 import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import { runtimeSnapshotForChatState, type RuntimeSnapshot } from "../application/runtime/snapshot";
-import { chatPanelComposerProjection } from "../panel/surface/composer";
-import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "../ui/message-stream/scroll-intent-state";
-import { renderChatPanelShell } from "../ui/shell";
+import { chatPanelComposerProjection } from "../panel/surface/composer-projection";
+import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
+import { renderChatPanelShell } from "../panel/shell";
 import {
   chatTurnBusy,
   createChatStateStore,

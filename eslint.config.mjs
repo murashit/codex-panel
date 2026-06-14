@@ -25,7 +25,7 @@ const removedChatStateEscapeHatchRestrictions = [
 const chatSignalAdapterRestrictions = [
   {
     selector: "ImportDeclaration[source.value='@preact/signals']",
-    message: "Keep chat signals in ui/shell-state.tsx as a reducer-to-Preact notification adapter.",
+    message: "Keep chat signals in panel/shell-state.tsx as a reducer-to-Preact notification adapter.",
   },
 ];
 const uiRootImportRestrictions = [
@@ -154,12 +154,12 @@ const chatPreactDomBridgeFiles = [
   "src/features/chat/ui/message-stream/tool-result.tsx",
   "src/features/chat/ui/message-stream/viewport.tsx",
   "src/features/chat/ui/composer-dom.ts",
-  "src/features/chat/ui/shell.tsx",
+  "src/features/chat/panel/shell.tsx",
   "src/features/chat/ui/turn-diff/render.tsx",
 ];
 const chatImperativeDomBridgeFiles = [...chatExternalDomBridgeFiles, ...chatPreactDomBridgeFiles];
 const uiRootBridgeFiles = [
-  "src/features/chat/ui/shell.tsx",
+  "src/features/chat/panel/shell.tsx",
   "src/features/chat/ui/turn-diff/render.tsx",
   "src/features/chat/ui/turn-diff/view.ts",
   "src/features/selection-rewrite/popover.tsx",
@@ -639,7 +639,7 @@ export default defineConfig([
   },
   {
     files: ["src/features/chat/**/*.{ts,tsx}"],
-    ignores: ["src/features/chat/ui/shell-state.tsx", ...chatImperativeDomBridgeFiles],
+    ignores: ["src/features/chat/panel/shell-state.tsx", ...chatImperativeDomBridgeFiles],
     rules: {
       ...restrictedSyntaxRule(chatSourceSyntaxRestrictions),
       "codex-panel/no-imperative-dom": "error",
@@ -647,7 +647,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/features/chat/ui/shell-state.tsx"],
+    files: ["src/features/chat/panel/shell-state.tsx"],
     rules: {
       ...restrictedSyntaxRule(baseSourceSyntaxRestrictions),
       "codex-panel/no-imperative-dom": "error",

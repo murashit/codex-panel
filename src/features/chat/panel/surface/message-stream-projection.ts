@@ -22,7 +22,7 @@ import {
   type MessageStreamRollbackCandidate,
 } from "../../application/state/message-stream";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
-import type { ChatPanelMessageStreamShellState } from "../../ui/shell-state";
+import type { ChatPanelMessageStreamShellState } from "../shell-state";
 import { pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/snapshot";
 import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";

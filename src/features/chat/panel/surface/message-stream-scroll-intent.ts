@@ -1,4 +1,4 @@
-import type { MessageStreamScrollIntent } from "./virtualizer";
+import type { MessageStreamScrollIntent } from "../../ui/message-stream/virtualizer";
 
 export interface ChatMessageScrollIntentState {
   consumeIntent(): MessageStreamScrollIntent;

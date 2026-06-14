@@ -1,6 +1,5 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../../shared/ui/keyboard";
-import type { ToolbarActions } from "../../ui/toolbar";
 
 export interface RestoredThreadTitleSnapshot {
   threadId: string;
@@ -8,7 +7,60 @@ export interface RestoredThreadTitleSnapshot {
   explicitName: string | null;
 }
 
-type ChatPanelToolbarActions = ToolbarActions;
+export interface ChatPanelComposerContextMeterCell {
+  text: string;
+  placeholder: boolean;
+}
+
+export interface ChatPanelComposerContextMeter {
+  cells: ChatPanelComposerContextMeterCell[];
+  percent: string;
+}
+
+export interface ChatPanelComposerRuntimeChoice {
+  label: string;
+  selected?: boolean;
+  disabled?: boolean;
+  meta?: string;
+  onClick: () => void;
+}
+
+export interface ChatPanelComposerMeta {
+  fatal: string | null;
+  context: ChatPanelComposerContextMeter;
+  statusSummary: string;
+  model: string;
+  effort: string | null;
+  planActive: boolean;
+  autoReviewActive: boolean;
+  fastActive: boolean;
+  modelChoices?: ChatPanelComposerRuntimeChoice[];
+  effortChoices?: ChatPanelComposerRuntimeChoice[];
+}
+
+export interface ChatPanelComposerProjection {
+  placeholder: string;
+  meta: ChatPanelComposerMeta;
+}
+
+interface ChatPanelToolbarActions {
+  startNewThread: () => void;
+  toggleChatActions: () => void;
+  compactConversation: () => void;
+  setGoal: () => void;
+  toggleHistory: () => void;
+  toggleStatusPanel: () => void;
+  connect: () => void;
+  refreshStatus: () => void;
+  resumeThread: (threadId: string) => void;
+  startArchiveThread: (threadId: string) => void;
+  archiveThread: (threadId: string, saveMarkdown: boolean) => void;
+  startRenameThread: (threadId: string) => void;
+  updateRenameDraft: (threadId: string, value: string) => void;
+  saveRenameThread: (threadId: string, value: string) => void;
+  cancelRenameThread: (threadId: string) => void;
+  autoNameThread: (threadId: string) => void;
+}
 
 interface ChatPanelGoalActions {
   saveObjective: (objective: string, tokenBudget: number | null) => Promise<void>;

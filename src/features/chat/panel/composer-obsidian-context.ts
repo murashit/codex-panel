@@ -1,7 +1,7 @@
 import type { App } from "obsidian";
 import { stripHeadingForLink, TFile } from "obsidian";
 
-import type { NoteCandidate } from "./suggestions";
+import type { NoteCandidate } from "../application/composer/suggestions";
 
 export interface WikiLinkMention {
   name: string;

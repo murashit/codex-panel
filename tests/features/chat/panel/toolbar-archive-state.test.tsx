@@ -8,7 +8,7 @@ import { createChatStateStore } from "../../../../src/features/chat/application/
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
 import type { ChatPanelSurface, ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/model";
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
-import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/ui/shell";
+import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();

@@ -1,6 +1,6 @@
 import type { EventRef } from "obsidian";
 
-import { unmountChatPanelShell } from "../ui/shell";
+import { unmountChatPanelShell } from "./shell";
 
 export interface ChatViewLifecycleHost {
   lifecycle: {

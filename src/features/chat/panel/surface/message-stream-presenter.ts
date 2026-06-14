@@ -8,7 +8,7 @@ import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-render
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
-import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../../ui/shell-state";
+import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../shell-state";
 import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import {

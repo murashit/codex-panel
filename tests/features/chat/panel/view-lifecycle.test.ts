@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EventRef } from "obsidian";
 
 import { closeChatView, openChatView, type ChatViewLifecycleHost } from "../../../../src/features/chat/panel/view-lifecycle";
-import { unmountChatPanelShell } from "../../../../src/features/chat/ui/shell";
+import { unmountChatPanelShell } from "../../../../src/features/chat/panel/shell";
 
-vi.mock("../../../../src/features/chat/ui/shell", () => ({
+vi.mock("../../../../src/features/chat/panel/shell", () => ({
   unmountChatPanelShell: vi.fn(),
 }));
 

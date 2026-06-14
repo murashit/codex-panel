@@ -3,10 +3,10 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { type ToolResultDetailSection, type ToolResultView } from "../../presentation/message-stream/tool-result-view";
 import { renderRawDiffLines } from "../../../../shared/diff/render";
-import type { ChatDisclosureUiState } from "../../application/state/reducer";
+import type { MessageStreamDisclosureState } from "./context";
 
 export interface ToolResultRenderContext {
-  disclosures: ChatDisclosureUiState;
+  disclosures: MessageStreamDisclosureState;
   onDisclosureToggle?: (bucket: "toolResults", id: string, open: boolean) => void;
 }
 

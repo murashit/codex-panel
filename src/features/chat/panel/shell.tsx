@@ -1,11 +1,11 @@
 import type { ComponentChild as UiNode } from "preact";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
 import type { ChatStateStore } from "../application/state/reducer";
-import type { ChatPanelGoalSurface, ChatPanelToolbarSurface } from "../panel/surface/model";
-import { ChatPanelToolbar } from "../panel/surface/toolbar";
-import { ChatPanelGoal } from "../panel/surface/goal";
-import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "../panel/surface/message-stream-presenter";
-import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerController } from "../panel/surface/composer";
+import type { ChatPanelGoalSurface, ChatPanelToolbarSurface } from "./surface/model";
+import { ChatPanelToolbar } from "./surface/toolbar-projection";
+import { ChatPanelGoal } from "./surface/goal-projection";
+import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "./surface/message-stream-presenter";
+import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerController } from "./surface/composer-projection";
 import { ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState, type ChatPanelShellState } from "./shell-state";
 
 export interface ChatPanelShellParts {

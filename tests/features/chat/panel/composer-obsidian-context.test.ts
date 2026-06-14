@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TFile, type App } from "obsidian";
 
-import { noteCandidates, resolveWikiLinkMention } from "../../../../../src/features/chat/application/composer/obsidian-context";
+import { noteCandidates, resolveWikiLinkMention } from "../../../../src/features/chat/panel/composer-obsidian-context";
 
 describe("Obsidian composer context", () => {
   it("builds note candidates from markdown files", () => {

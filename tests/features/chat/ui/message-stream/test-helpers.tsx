@@ -4,15 +4,15 @@ import { act } from "preact/test-utils";
 
 import type { PendingApproval, PendingUserInput } from "../../../../../src/features/chat/domain/pending-requests/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
-import type { PendingRequestBlockActions } from "../../../../../src/features/chat/application/pending-requests/block";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
-import {
-  activeTurnId,
-  type ChatDisclosureUiState,
-  type ChatTurnLifecycleState,
-} from "../../../../../src/features/chat/application/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
-import type { MessageStreamBlock, MessageStreamContext } from "../../../../../src/features/chat/ui/message-stream/context";
+import type {
+  MessageStreamBlock,
+  MessageStreamContext,
+  MessageStreamDisclosureState,
+  MessageStreamTurnLifecycleState,
+  PendingRequestBlockActions,
+} from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
@@ -24,7 +24,7 @@ export function messageStreamBlocks(
   const normalized = normalizeMessageStreamContext(context);
   const viewBlocks = messageStreamViewBlocks({
     activeThreadId: normalized.activeThreadId,
-    activeTurnId: activeTurnId({ lifecycle: normalized.turnLifecycle }),
+    activeTurnId: activeTurnIdForMessageStream(normalized.turnLifecycle),
     historyCursor: context.historyCursor,
     loadingHistory: context.loadingHistory,
     items: context.items,
@@ -48,11 +48,13 @@ type TestMessageStreamContext = Omit<MessageStreamContext, "disclosures" | "fork
     turnDiffs?: ReadonlyMap<string, string>;
   };
 
-export function emptyDisclosures(): ChatDisclosureUiState {
+export function emptyDisclosures(): MessageStreamDisclosureState {
   return testDisclosures();
 }
 
-export function testDisclosures(overrides: Partial<Record<keyof ChatDisclosureUiState, readonly string[]>> = {}): ChatDisclosureUiState {
+export function testDisclosures(
+  overrides: Partial<Record<keyof MessageStreamDisclosureState, readonly string[]>> = {},
+): MessageStreamDisclosureState {
   return {
     toolResults: new Set(overrides.toolResults),
     activityGroups: new Set(overrides.activityGroups),
@@ -194,16 +196,20 @@ export function pendingRequestActions(overrides: Partial<PendingRequestBlockActi
   };
 }
 
-export function idleTurnLifecycle(): ChatTurnLifecycleState {
+export function idleTurnLifecycle(): MessageStreamTurnLifecycleState {
   return { kind: "idle" };
 }
 
-export function runningTurnLifecycle(turnId = "turn"): ChatTurnLifecycleState {
+export function runningTurnLifecycle(turnId = "turn"): MessageStreamTurnLifecycleState {
   return { kind: "running", turnId };
 }
 
-export function startingTurnLifecycle(): ChatTurnLifecycleState {
+export function startingTurnLifecycle(): MessageStreamTurnLifecycleState {
   return { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] } };
+}
+
+function activeTurnIdForMessageStream(lifecycle: MessageStreamTurnLifecycleState): string | null {
+  return lifecycle.kind === "running" ? lifecycle.turnId : null;
 }
 
 export function withMessageContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {
