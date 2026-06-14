@@ -8,7 +8,7 @@ import {
 } from "../../../src/app-server/protocol/runtime-config";
 import { createChatState } from "../../../src/features/chat/state/reducer";
 import { chatPanelComposerProjection, composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
-import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/display/status/runtime";
+import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/runtime/status";
 import { runtimeComposerChoices } from "../../../src/features/chat/panel/surface/composer";
 import { runtimeSnapshotForChatState } from "../../../src/features/chat/runtime/snapshot";
 import { chatPanelToolbarProjection, toolbarStateProjection } from "../../../src/features/chat/panel/surface/toolbar";

@@ -9,7 +9,7 @@ import {
   runtimeConfigOrDefault,
   supportedReasoningEfforts,
 } from "../../runtime/effective";
-import { contextSummary } from "../../display/status/runtime";
+import { contextSummary } from "../../runtime/status";
 import { compactReasoningEffortLabel } from "../../runtime/messages";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";

@@ -37,7 +37,7 @@ import {
   runtimeConfigSections,
   rateLimitSummary,
   serviceTierLabel,
-} from "../../src/features/chat/display/status/runtime";
+} from "../../src/features/chat/runtime/status";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {

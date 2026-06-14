@@ -12,7 +12,7 @@ import {
 } from "../../../../domain/server/diagnostics";
 import { readRateLimitMetadataProbe } from "../../../../app-server/services/metadata";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
-import { mcpStatusLines as buildMcpStatusLines } from "../../display/status/diagnostics";
+import { mcpStatusLines as buildMcpStatusLines } from "../diagnostics-display";
 import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";
 
 interface RefreshDiagnosticProbesOptions {

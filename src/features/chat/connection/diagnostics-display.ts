@@ -1,12 +1,12 @@
-import { DIAGNOSTIC_PROBE_METHODS, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
-import { CLIENT_VERSION } from "../../../../constants";
+import { DIAGNOSTIC_PROBE_METHODS, serverIdentity, serverPlatform } from "../../../domain/server/diagnostics";
+import { CLIENT_VERSION } from "../../../constants";
 import type {
   Diagnostics,
   InitializeDiagnostics,
   DiagnosticProbeResult,
   McpServerDiagnostic,
   McpServerStatusSummary,
-} from "../../../../domain/server/diagnostics";
+} from "../../../domain/server/diagnostics";
 
 interface DiagnosticRow {
   label: string;

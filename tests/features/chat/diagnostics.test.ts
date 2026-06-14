@@ -7,7 +7,7 @@ import {
   upsertMcpServerDiagnostic,
   upsertMcpServerStatusDiagnostics,
 } from "../../../src/domain/server/diagnostics";
-import { connectionDiagnosticSections, hasDiagnosticIssue } from "../../../src/features/chat/display/status/diagnostics";
+import { connectionDiagnosticSections, hasDiagnosticIssue } from "../../../src/features/chat/connection/diagnostics-display";
 
 describe("connection diagnostics", () => {
   it("formats base rows, capability probes, and MCP issues for /doctor", () => {

@@ -5,7 +5,7 @@ import {
   agentActivityMetaLabel,
   agentMessagePreview,
   agentRunSummaryLabel,
-} from "../../display/stream/agent-summary";
+} from "../../message-stream/agent-summary";
 import type {
   AgentMessageStreamItem,
   AgentRunSummary,

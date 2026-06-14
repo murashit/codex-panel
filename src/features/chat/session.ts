@@ -25,7 +25,7 @@ import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
   statusSummaryLines as buildStatusSummaryLines,
-} from "./display/status/runtime";
+} from "./runtime/status";
 import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,

@@ -1,8 +1,8 @@
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import { jsonPreview } from "../../../../utils";
-import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
-import { defaultEffortForModelMetadata } from "../../../../domain/catalog/metadata";
+import type { RuntimeConfigSnapshot } from "../../../domain/runtime/config";
+import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../domain/runtime/metrics";
+import { jsonPreview } from "../../../utils";
+import { sortedModelMetadata } from "../../../domain/catalog/metadata";
+import { defaultEffortForModelMetadata } from "../../../domain/catalog/metadata";
 import {
   currentApprovalsReviewer,
   currentApprovalPolicy,
@@ -13,15 +13,15 @@ import {
   fastModeActive,
   runtimeConfigOrDefault,
   supportedReasoningEfforts,
-} from "../../runtime/effective";
-import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import { effectiveCollaborationMode } from "../../runtime/pending-settings";
+} from "./effective";
+import type { RuntimeSnapshot } from "./snapshot";
+import { effectiveCollaborationMode } from "./pending-settings";
 import {
   collaborationModeLabel,
   fastModeLabel as formatFastModeLabel,
   pendingRuntimeSettingLabel,
   serviceTierLabel as formatServiceTierLabel,
-} from "../../runtime/messages";
+} from "./messages";
 
 export interface ContextSummary {
   label: string;

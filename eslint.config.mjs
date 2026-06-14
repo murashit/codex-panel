@@ -119,30 +119,30 @@ const imperativeDomAssignmentProperties = new Set([
   "textContent",
   "value",
 ]);
-const pureChatModelRestrictions = [
+const pureChatStateRestrictions = [
   {
     selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
-    message: "Keep chat state and display model transforms deterministic; generate IDs or timestamps at the controller/view boundary.",
+    message: "Keep chat state transforms deterministic; generate IDs or timestamps at the controller/view boundary.",
   },
   {
     selector: "NewExpression[callee.name='Date']",
-    message: "Keep chat state and display model transforms deterministic; pass dates in from the controller/view boundary.",
+    message: "Keep chat state transforms deterministic; pass dates in from the controller/view boundary.",
   },
   {
     selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
-    message: "Keep chat state and display model transforms deterministic; generate IDs at the controller/view boundary.",
+    message: "Keep chat state transforms deterministic; generate IDs at the controller/view boundary.",
   },
   {
     selector: "NewExpression[callee.name=/^(AppServerClient|ConnectionManager|Notice)$/]",
-    message: "Keep app-server and Obsidian side effects out of chat state and display model transforms.",
+    message: "Keep app-server and Obsidian side effects out of chat state transforms.",
   },
   {
     selector: "CallExpression[callee.property.name=/^(setTimeout|clearTimeout|requestAnimationFrame)$/]",
-    message: "Keep scheduling side effects out of chat state and display model transforms.",
+    message: "Keep scheduling side effects out of chat state transforms.",
   },
   {
     selector: "MemberExpression[object.name=/^(document|localStorage|sessionStorage)$/]",
-    message: "Keep browser globals out of chat state and display model transforms.",
+    message: "Keep browser globals out of chat state transforms.",
   },
 ];
 const chatExternalDomBridgeFiles = [
@@ -189,7 +189,7 @@ const sourceSyntaxRestrictions = [...sourceSyntaxRestrictionsWithoutUiRoot, ...u
 const chatSourceSyntaxRestrictions = sourceSyntaxRestrictions;
 const chatDomBridgeSyntaxRestrictions = sourceSyntaxRestrictions;
 const nonChatDomBridgeSyntaxRestrictions = sourceSyntaxRestrictions;
-const pureChatModelSyntaxRestrictions = [...sourceSyntaxRestrictions, ...pureChatModelRestrictions];
+const pureChatStateSyntaxRestrictions = [...sourceSyntaxRestrictions, ...pureChatStateRestrictions];
 const codexPanelEslintPlugin = {
   rules: {
     "no-self-referential-initializer-callback": {
@@ -677,9 +677,9 @@ export default defineConfig([
     rules: restrictedSyntaxRule(sourceSyntaxRestrictionsWithoutUiRoot),
   },
   {
-    files: ["src/features/chat/state/**/*.{ts,tsx}", "src/features/chat/display/**/*.{ts,tsx}"],
+    files: ["src/features/chat/state/**/*.{ts,tsx}"],
     rules: {
-      ...restrictedSyntaxRule(pureChatModelSyntaxRestrictions),
+      ...restrictedSyntaxRule(pureChatStateSyntaxRestrictions),
       "codex-panel/no-imperative-dom": "error",
       "codex-panel/no-chat-state-direct-mutation": "error",
     },

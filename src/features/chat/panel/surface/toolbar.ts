@@ -3,8 +3,8 @@ import { h } from "preact";
 
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import { runtimeConfigSections, rateLimitSummary } from "../../display/status/runtime";
-import { connectionDiagnosticSections } from "../../display/status/diagnostics";
+import { runtimeConfigSections, rateLimitSummary } from "../../runtime/status";
+import { connectionDiagnosticSections } from "../../connection/diagnostics-display";
 import type { RuntimeSnapshot } from "../../runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../state/reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../../ui/shell-state";
