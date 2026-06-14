@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyAppServerLog } from "../../../../../src/features/chat/protocol/inbound/app-server-logs";
+import { classifyAppServerLog } from "../../../../../src/features/chat/app-server/inbound/app-server-logs";
 
 describe("app-server log classification", () => {
   it("suppresses raw MCP token refresh stderr", () => {

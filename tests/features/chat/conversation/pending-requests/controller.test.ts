@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ChatInboundController } from "../../../../../src/features/chat/protocol/inbound/controller";
+import { ChatInboundController } from "../../../../../src/features/chat/app-server/inbound/controller";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
-import { PendingRequestController } from "../../../../../src/features/chat/conversation/pending-requests/controller";
-import { toPendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
+import { PendingRequestController } from "../../../../../src/features/chat/application/pending-requests/controller";
+import { toPendingUserInput } from "../../../../../src/features/chat/app-server/requests/user-input";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {

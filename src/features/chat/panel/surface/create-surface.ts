@@ -3,7 +3,7 @@ import type { ConnectionManager } from "../../../../app-server/connection/connec
 import type { ChatStateStore } from "../../state/reducer";
 import type { ChatConnectionController } from "../../connection/connection-controller";
 import type { ChatReconnectActions } from "../../connection/reconnect-actions";
-import type { ChatInboundController } from "../../protocol/inbound/controller";
+import type { ChatInboundController } from "../../app-server/inbound/controller";
 import type { ChatServerThreadActions } from "../../connection/server-actions/threads";
 import type { ThreadManagementActions } from "../../threads/thread-management-actions";
 import type { ToolbarPanelActions } from "../toolbar-actions";

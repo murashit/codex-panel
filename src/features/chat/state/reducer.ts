@@ -62,7 +62,7 @@ import {
   resolveChatRequest,
   type ChatRequestState,
   type RequestAction,
-} from "../conversation/pending-requests/state";
+} from "../application/pending-requests/state";
 import {
   initialChatTurnState,
   transitionChatTurnLifecycleState,

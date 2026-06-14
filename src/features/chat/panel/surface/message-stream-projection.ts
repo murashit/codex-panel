@@ -17,8 +17,8 @@ import {
 } from "../../state/message-stream";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
 import type { ChatPanelMessageStreamShellState } from "../../ui/shell-state";
-import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
-import type { PendingRequestBlockActions } from "../../conversation/pending-requests/view-model";
+import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
+import type { PendingRequestBlockActions } from "../../presentation/pending-requests/view-model";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 
 interface ChatMessageStreamActions {

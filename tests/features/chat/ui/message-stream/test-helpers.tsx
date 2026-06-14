@@ -2,10 +2,9 @@ import { vi } from "vitest";
 import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 
-import type { PendingApproval } from "../../../../../src/features/chat/protocol/server-requests/approval";
-import type { PendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
-import { pendingRequestBlockSnapshotFromRequests } from "../../../../../src/features/chat/conversation/pending-requests/snapshot";
-import type { PendingRequestBlockActions } from "../../../../../src/features/chat/conversation/pending-requests/view-model";
+import type { PendingApproval, PendingUserInput } from "../../../../../src/features/chat/domain/pending-requests/model";
+import { pendingRequestBlockSnapshotFromRequests } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
+import type { PendingRequestBlockActions } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
 import { activeTurnId, type ChatDisclosureUiState, type ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";

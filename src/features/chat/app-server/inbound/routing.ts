@@ -1,6 +1,7 @@
 import type { ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import { toPendingApproval, type PendingApproval } from "../server-requests/approval";
-import { toPendingUserInput, type PendingUserInput } from "../server-requests/user-input";
+import type { PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";
+import { toPendingApproval } from "../requests/approval";
+import { toPendingUserInput } from "../requests/user-input";
 
 export interface ActiveRouteScope {
   activeThreadId: string | null;

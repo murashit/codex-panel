@@ -13,12 +13,12 @@ import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
-} from "../../app-server/mappers/message-stream/turn-items";
+} from "../mappers/message-stream/turn-items";
 import { taskProgressMessageStreamItem } from "../../domain/message-stream/factories/task-progress";
 import type { MessageStreamItem, MessageStreamItemKind, MessageStreamMessageItem } from "../../domain/message-stream/model/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
-import { hookRunMessageStreamItem } from "../../app-server/mappers/message-stream/hook-run-items";
-import { createAutoReviewResultItem, createReviewResultItem } from "../../app-server/mappers/message-stream/review-result-items";
+import { hookRunMessageStreamItem } from "../mappers/message-stream/hook-run-items";
+import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/message-stream/review-result-items";
 import { createSystemItem } from "../../domain/message-stream/factories/system-items";
 import {
   STREAMED_COMMAND_RUNNING_TEXT,

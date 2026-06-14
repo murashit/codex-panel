@@ -6,7 +6,7 @@ import {
   type PendingRequestBlockActions,
   type PendingUserInputQuestionViewModel,
   type PendingUserInputViewModel,
-} from "../../conversation/pending-requests/view-model";
+} from "../../presentation/pending-requests/view-model";
 import { createWorkMessageClassName } from "./work-message";
 
 export function pendingRequestBlockNode(

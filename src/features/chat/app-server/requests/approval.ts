@@ -1,13 +1,19 @@
-import type { RequestId } from "../../../../app-server/connection/rpc-messages";
+import type {
+  ApprovalAction,
+  CommandApprovalDecision,
+  CommandApprovalParams,
+  FileChangeApprovalParams,
+  PendingApproval,
+  PendingRequestId,
+  PermissionProfile,
+  PermissionsApprovalParams,
+} from "../../domain/pending-requests/model";
+import { isCommandDecisionAction } from "../../domain/pending-requests/model";
 
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
-export type CommandApprovalDecision =
-  | SimpleApprovalDecision
-  | { acceptWithExecpolicyAmendment: unknown }
-  | { applyNetworkPolicyAmendment: { network_policy_amendment: { action: "allow" | "deny"; [key: string]: unknown } } };
 
 interface ApprovalRequestLike {
-  id: RequestId;
+  id: PendingRequestId;
   method: string;
   params: unknown;
 }
@@ -26,52 +32,6 @@ interface PermissionsApprovalRequest extends ApprovalRequestLike {
   params: PermissionsApprovalParams;
 }
 
-interface CommandApprovalParams {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  startedAtMs: number;
-  approvalId?: string | null;
-  reason?: string | null;
-  networkApprovalContext?: unknown;
-  command?: string | null;
-  cwd?: string | null;
-  commandActions?: unknown[] | null;
-  additionalPermissions?: unknown;
-  proposedExecpolicyAmendment?: unknown;
-  proposedNetworkPolicyAmendments?: unknown[] | null;
-  availableDecisions?: CommandApprovalDecision[] | null;
-}
-
-interface FileChangeApprovalParams {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  startedAtMs: number;
-  reason: string | null;
-  grantRoot: string | null;
-}
-
-interface PermissionsApprovalParams {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  startedAtMs: number;
-  reason: string | null;
-  cwd: string;
-  environmentId: string | null;
-  permissions: PermissionProfile;
-}
-
-interface PermissionProfile {
-  network?: { enabled?: boolean | null } | null;
-  fileSystem?: {
-    entries?: readonly { path: unknown; access?: unknown }[] | null;
-    read?: unknown;
-    write?: unknown;
-    globScanMaxDepth?: unknown;
-  } | null;
-}
 interface GrantedPermissionProfile {
   network?: PermissionProfile["network"];
   fileSystem?: PermissionProfile["fileSystem"];
@@ -81,20 +41,6 @@ type ApprovalResponse =
   | { decision: CommandApprovalDecision }
   | { decision: SimpleApprovalDecision }
   | { scope: "session" | "turn"; permissions: GrantedPermissionProfile };
-
-export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel" | CommandApprovalDecisionAction;
-interface CommandApprovalDecisionAction {
-  kind: "command-decision";
-  decision: CommandApprovalDecision;
-}
-type PendingApprovalFor<Request extends ApprovalRequest> = Request extends ApprovalRequest
-  ? {
-      requestId: RequestId;
-      method: Request["method"];
-      params: Request["params"];
-    }
-  : never;
-export type PendingApproval = PendingApprovalFor<ApprovalRequest>;
 
 export function toPendingApproval(request: ApprovalRequestLike): PendingApproval | null {
   if (!isApprovalRequest(request)) return null;
@@ -116,9 +62,9 @@ function isApprovalRequest(request: ApprovalRequestLike): request is ApprovalReq
   );
 }
 
-function pendingApproval(request: CommandApprovalRequest): PendingApprovalFor<CommandApprovalRequest>;
-function pendingApproval(request: FileChangeApprovalRequest): PendingApprovalFor<FileChangeApprovalRequest>;
-function pendingApproval(request: PermissionsApprovalRequest): PendingApprovalFor<PermissionsApprovalRequest>;
+function pendingApproval(request: CommandApprovalRequest): Extract<PendingApproval, { method: CommandApprovalRequest["method"] }>;
+function pendingApproval(request: FileChangeApprovalRequest): Extract<PendingApproval, { method: FileChangeApprovalRequest["method"] }>;
+function pendingApproval(request: PermissionsApprovalRequest): Extract<PendingApproval, { method: PermissionsApprovalRequest["method"] }>;
 function pendingApproval(request: ApprovalRequest): PendingApproval {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
@@ -126,19 +72,19 @@ function pendingApproval(request: ApprovalRequest): PendingApproval {
         requestId: request.id,
         method: request.method,
         params: request.params,
-      } satisfies PendingApprovalFor<CommandApprovalRequest>;
+      };
     case "item/fileChange/requestApproval":
       return {
         requestId: request.id,
         method: request.method,
         params: request.params,
-      } satisfies PendingApprovalFor<FileChangeApprovalRequest>;
+      };
     case "item/permissions/requestApproval":
       return {
         requestId: request.id,
         method: request.method,
         params: request.params,
-      } satisfies PendingApprovalFor<PermissionsApprovalRequest>;
+      };
   }
 }
 
@@ -166,24 +112,6 @@ function commandDecision(action: ApprovalAction): CommandApprovalDecision {
   if (action === "accept-session") return "acceptForSession";
   if (action === "cancel") return "cancel";
   return "decline";
-}
-
-export function approvalActionKind(action: ApprovalAction): "accept" | "accept-session" | "decline" | "cancel" {
-  if (!isCommandDecisionAction(action)) return action;
-  const decision = action.decision;
-  if (decision === "accept") return "accept";
-  if (decision === "acceptForSession") return "accept-session";
-  if (decision === "cancel") return "cancel";
-  if (decision === "decline") return "decline";
-  if ("acceptWithExecpolicyAmendment" in decision) return "accept-session";
-  if ("applyNetworkPolicyAmendment" in decision) {
-    return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "accept-session" : "decline";
-  }
-  return "decline";
-}
-
-function isCommandDecisionAction(action: ApprovalAction): action is CommandApprovalDecisionAction {
-  return typeof action === "object";
 }
 
 function fileChangeDecision(action: ApprovalAction): SimpleApprovalDecision {

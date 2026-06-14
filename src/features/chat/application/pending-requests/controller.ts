@@ -1,10 +1,14 @@
 import type { ChatStateStore } from "../../state/reducer";
-import type { ApprovalAction, PendingApproval } from "../../protocol/server-requests/approval";
-import type { ChatInboundController } from "../../protocol/inbound/controller";
-import { pendingRequestFocusSignature } from "./signatures";
-import { pendingRequestBlockSnapshot, type PendingRequestBlockSnapshot } from "./snapshot";
-import { answersForPendingUserInput, type PendingUserInput } from "../../protocol/server-requests/user-input";
-import type { PendingRequestBlockActions, PendingRequestId } from "./view-model";
+import type { ChatInboundController } from "../../app-server/inbound/controller";
+import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
+import { pendingRequestBlockSnapshot, type PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
+import {
+  answersForPendingUserInput,
+  type ApprovalAction,
+  type PendingApproval,
+  type PendingUserInput,
+} from "../../domain/pending-requests/model";
+import type { PendingRequestBlockActions, PendingRequestId } from "../../presentation/pending-requests/view-model";
 
 export interface PendingRequestControllerHost {
   stateStore: ChatStateStore;

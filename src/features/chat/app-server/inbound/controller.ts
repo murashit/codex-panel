@@ -5,16 +5,17 @@ import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../../state/reducer";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/model/items";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/message-stream/factories/system-items";
-import { approvalResponse, type ApprovalAction, type PendingApproval } from "../server-requests/approval";
-import { userInputResponse, type PendingUserInput } from "../server-requests/user-input";
+import type { ApprovalAction, PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";
+import { approvalResponse } from "../requests/approval";
+import { userInputResponse } from "../requests/user-input";
 import {
   cannotCancelUserInputMessage,
   cannotRejectServerRequestMessage,
   cannotSendApprovalResponseMessage,
   cannotSendUserInputMessage,
   userCancelledInputRequestMessage,
-} from "../../conversation/pending-requests/messages";
-import { createApprovalResultItem, createUserInputResultItem } from "../../conversation/pending-requests/result-items";
+} from "../../application/pending-requests/messages";
+import { createApprovalResultItem, createUserInputResultItem } from "../../domain/pending-requests/result-items";
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
 

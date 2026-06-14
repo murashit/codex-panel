@@ -38,8 +38,8 @@ import { closeChatView, openChatView, type ChatViewLifecycleHost } from "./panel
 import { createToolbarPanelActions, type ToolbarPanelActions } from "./panel/toolbar-actions";
 import { connectionDiagnosticsModel } from "./panel/surface/toolbar";
 import { openPanelTurnLifecycle } from "./panel/snapshot";
-import { ChatInboundController } from "./protocol/inbound/controller";
-import { rejectServerRequest, respondToServerRequest } from "./protocol/server-requests/responder";
+import { ChatInboundController } from "./app-server/inbound/controller";
+import { rejectServerRequest, respondToServerRequest } from "./app-server/requests/responder";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "./runtime/messages";
 import { createChatRuntimeSettingsActions } from "./runtime/settings-actions";
 import { runtimeSnapshotForChatState, type RuntimeSnapshot } from "./runtime/snapshot";
@@ -64,7 +64,7 @@ import type { ResumeController } from "./threads/resume-controller";
 import type { SelectionActions } from "./threads/selection-actions";
 import { createThreadParts, createThreadSelectionActions } from "./threads/composition";
 import type { MessageStreamPresenter } from "./panel/surface/message-stream-presenter";
-import { pendingRequestsSignature } from "./conversation/pending-requests/signatures";
+import { pendingRequestsSignature } from "./domain/pending-requests/signatures";
 import { createChatPanelSurface } from "./panel/surface/create-surface";
 import type { ChatPanelSurface } from "./panel/surface/model";
 

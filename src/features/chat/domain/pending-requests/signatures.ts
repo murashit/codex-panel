@@ -1,5 +1,4 @@
-import type { PendingApproval } from "../../protocol/server-requests/approval";
-import type { PendingUserInput } from "../../protocol/server-requests/user-input";
+import type { PendingApproval, PendingUserInput } from "./model";
 
 export function pendingRequestsSignature(
   approvals: readonly PendingApproval[],

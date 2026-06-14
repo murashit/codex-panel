@@ -9,8 +9,8 @@ import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui
 import type { MessageStreamItem } from "../../domain/message-stream/model/items";
 import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../../ui/shell-state";
-import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
-import type { PendingRequestBlockActions } from "../../conversation/pending-requests/view-model";
+import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
+import type { PendingRequestBlockActions } from "../../presentation/pending-requests/view-model";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 import {
   createMessageStreamSurfaceContext,

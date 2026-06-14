@@ -98,7 +98,7 @@ export const status = signal("idle");
 
   it("reports non-turn app-server protocol imports outside app-server", async () => {
     const messages = await lintSource(
-      "src/features/chat/protocol/inbound/notification-plan.ts",
+      "src/features/chat/application/pending-requests/controller.ts",
       `
 import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/protocol/runtime-metrics";
 
@@ -119,7 +119,7 @@ export type Item = TurnItem;
 `,
     );
     const ingestionMessages = await lintSource(
-      "src/features/chat/protocol/inbound/notification-plan.ts",
+      "src/features/chat/app-server/inbound/notification-plan.ts",
       `
 import type { TurnRecord } from "../../../../app-server/protocol/turn";
 

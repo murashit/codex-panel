@@ -1,7 +1,6 @@
-import { approvalActionKind, type ApprovalAction, type PendingApproval } from "../../protocol/server-requests/approval";
-import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval-view";
-import type { MessageStreamItem } from "../../domain/message-stream/model/items";
-import type { PendingUserInput } from "../../protocol/server-requests/user-input";
+import { approvalActionKind, type ApprovalAction, type PendingApproval, type PendingUserInput } from "./model";
+import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval";
+import type { MessageStreamItem } from "../message-stream/model/items";
 import { definedProp } from "../../../../utils";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): MessageStreamItem {

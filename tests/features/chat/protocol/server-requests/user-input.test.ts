@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  answersForPendingUserInput,
-  questionDefaultAnswer,
-  toPendingUserInput,
-  userInputResponse,
-} from "../../../../../src/features/chat/protocol/server-requests/user-input";
+import { answersForPendingUserInput, questionDefaultAnswer } from "../../../../../src/features/chat/domain/pending-requests/model";
+import { toPendingUserInput, userInputResponse } from "../../../../../src/features/chat/app-server/requests/user-input";
 import {
   pendingRequestFocusSignature,
   pendingRequestsSignature,
-} from "../../../../../src/features/chat/conversation/pending-requests/signatures";
+} from "../../../../../src/features/chat/domain/pending-requests/signatures";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {

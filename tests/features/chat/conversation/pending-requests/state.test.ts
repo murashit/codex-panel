@@ -4,7 +4,7 @@ import {
   initialChatRequestState,
   resolveChatRequest,
   type ChatRequestState,
-} from "../../../../../src/features/chat/conversation/pending-requests/state";
+} from "../../../../../src/features/chat/application/pending-requests/state";
 
 describe("chat pending request state", () => {
   it("ignores stale request resolutions", () => {

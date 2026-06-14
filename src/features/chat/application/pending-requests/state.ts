@@ -1,6 +1,10 @@
-import type { PendingApproval } from "../../protocol/server-requests/approval";
-import type { RequestId } from "../../../../app-server/connection/rpc-messages";
-import { userInputDraftKey, userInputOtherDraftKey, type PendingUserInput } from "../../protocol/server-requests/user-input";
+import {
+  userInputDraftKey,
+  userInputOtherDraftKey,
+  type PendingApproval,
+  type PendingRequestId,
+  type PendingUserInput,
+} from "../../domain/pending-requests/model";
 
 export interface ChatRequestState {
   approvals: readonly PendingApproval[];
@@ -34,7 +38,7 @@ export function reduceRequestSlice(state: ChatRequestState, action: RequestActio
   }
 }
 
-export function resolveChatRequest(state: ChatRequestState, requestId: RequestId): ChatRequestState {
+export function resolveChatRequest(state: ChatRequestState, requestId: PendingRequestId): ChatRequestState {
   const resolvedInputs = state.pendingUserInputs.filter((input) => input.requestId === requestId);
   const resolvedApprovals = state.approvals.filter((approval) => approval.requestId === requestId);
   if (resolvedApprovals.length === 0 && resolvedInputs.length === 0) return state;

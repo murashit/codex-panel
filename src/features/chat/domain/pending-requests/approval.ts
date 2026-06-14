@@ -1,17 +1,6 @@
 import { jsonPreview } from "../../../../utils";
-import { permissionRows, type MessageStreamPermissionProfile } from "../../domain/message-stream/format/permission-rows";
-import {
-  approvalActionKind,
-  type ApprovalAction,
-  type CommandApprovalDecision,
-  type PendingApproval,
-} from "../../protocol/server-requests/approval";
-
-export interface ApprovalActionOption {
-  label: string;
-  action: ApprovalAction;
-  className: string;
-}
+import { permissionRows, type MessageStreamPermissionProfile } from "../message-stream/format/permission-rows";
+import type { PendingApproval } from "./model";
 
 interface ApprovalSummaryParts {
   reason: string | null;
@@ -29,17 +18,6 @@ export function approvalTitle(approval: PendingApproval): string {
     case "item/permissions/requestApproval":
       return "Permission approval";
   }
-}
-
-export function approvalActionOptions(approval: PendingApproval): ApprovalActionOption[] {
-  if (approval.method !== "item/commandExecution/requestApproval") return defaultApprovalActionOptions();
-  const decisions = approval.params.availableDecisions;
-  if (!decisions || decisions.length === 0) return defaultApprovalActionOptions();
-  return decisions.map((decision) => ({
-    label: commandDecisionLabel(decision),
-    action: { kind: "command-decision", decision },
-    className: commandDecisionClassName(decision),
-  }));
 }
 
 export function approvalSummary(approval: PendingApproval): string {
@@ -100,34 +78,6 @@ function summaryParts(reason: string | null, target: string | null, fallback: st
     fallback,
     lines: lines.length > 0 ? lines : [fallback],
   };
-}
-
-function defaultApprovalActionOptions(): ApprovalActionOption[] {
-  return [
-    { label: "Allow", action: "accept", className: "mod-cta" },
-    { label: "Allow session", action: "accept-session", className: "" },
-    { label: "Deny", action: "decline", className: "mod-warning" },
-    { label: "Cancel", action: "cancel", className: "" },
-  ];
-}
-
-function commandDecisionLabel(decision: CommandApprovalDecision): string {
-  if (decision === "accept") return "Allow";
-  if (decision === "acceptForSession") return "Allow session";
-  if (decision === "decline") return "Deny";
-  if (decision === "cancel") return "Cancel";
-  if ("acceptWithExecpolicyAmendment" in decision) return "Allow rule";
-  if ("applyNetworkPolicyAmendment" in decision) {
-    return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "Allow network rule" : "Deny network rule";
-  }
-  return "Choose";
-}
-
-function commandDecisionClassName(decision: CommandApprovalDecision): string {
-  const kind = approvalActionKind({ kind: "command-decision", decision });
-  if (kind === "accept") return "mod-cta";
-  if (kind === "decline") return "mod-warning";
-  return "";
 }
 
 function addOptional(rows: { key: string; value: string }[], key: string, value: unknown): void {

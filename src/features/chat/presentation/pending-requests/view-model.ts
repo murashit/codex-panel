@@ -1,12 +1,14 @@
 import type { RequestId } from "../../../../app-server/connection/rpc-messages";
-import { approvalActionOptions, approvalDetails, approvalSummary, approvalTitle, type ApprovalActionOption } from "./approval-view";
-import { type ApprovalAction, type PendingApproval } from "../../protocol/server-requests/approval";
+import { approvalDetails, approvalSummary, approvalTitle } from "../../domain/pending-requests/approval";
+import { approvalActionOptions, type ApprovalActionOption } from "./approval-view";
 import {
+  type ApprovalAction,
+  type PendingApproval,
+  type PendingUserInput,
   questionDefaultAnswer,
   userInputDraftKey,
   userInputOtherDraftKey,
-  type PendingUserInput,
-} from "../../protocol/server-requests/user-input";
+} from "../../domain/pending-requests/model";
 
 export type PendingRequestId = RequestId;
 type PendingRequestApprovalAction = ApprovalAction;

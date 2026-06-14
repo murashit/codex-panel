@@ -1,6 +1,5 @@
 import type { ChatState } from "../../state/reducer";
-import type { PendingApproval } from "../../protocol/server-requests/approval";
-import type { PendingUserInput } from "../../protocol/server-requests/user-input";
+import type { PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";
 import {
   pendingApprovalViewModel,
   pendingUserInputViewModel,

@@ -2,10 +2,9 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { PendingRequestBlockSnapshot } from "../../../../../src/features/chat/conversation/pending-requests/snapshot";
-import { pendingApprovalViewModel } from "../../../../../src/features/chat/conversation/pending-requests/view-model";
-import type { PendingApproval } from "../../../../../src/features/chat/protocol/server-requests/approval";
-import type { PendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
+import type { PendingRequestBlockSnapshot } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
+import { pendingApprovalViewModel } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
+import type { PendingApproval, PendingUserInput } from "../../../../../src/features/chat/domain/pending-requests/model";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
 import { changeInputValue } from "../../../../support/dom";
