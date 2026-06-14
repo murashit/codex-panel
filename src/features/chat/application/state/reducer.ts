@@ -26,7 +26,7 @@ import {
   type ChatRuntimeState,
 } from "../../domain/runtime/state";
 import type { RequestedServiceTier } from "../../domain/runtime/pending-settings";
-import type { RequestId } from "../../../../app-server/connection/rpc-messages";
+import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { ComposerSuggestion } from "../composer/suggestions";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type {
@@ -278,7 +278,7 @@ export type ChatAction = ChatTransitionAction | ChatSliceAction;
 
 interface RequestResolvedAction {
   type: "request/resolved";
-  requestId: RequestId;
+  requestId: PendingRequestId;
   resultItem?: MessageStreamItem;
 }
 
@@ -1036,7 +1036,7 @@ function clearAllRequestDisclosures(state: ChatUiState): ChatUiState {
   });
 }
 
-function clearResolvedRequestDisclosures(state: ChatUiState, requestId: RequestId): ChatUiState {
+function clearResolvedRequestDisclosures(state: ChatUiState, requestId: PendingRequestId): ChatUiState {
   const id = String(requestId);
   const approvalDetails = filterStringSet(state.disclosures.approvalDetails, (key) => !key.startsWith(`${id}:`));
   if (approvalDetails === state.disclosures.approvalDetails) return state;

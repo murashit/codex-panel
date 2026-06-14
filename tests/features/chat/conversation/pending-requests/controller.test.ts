@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ChatInboundController } from "../../../../../src/features/chat/app-server/inbound/controller";
 import { createChatState, createChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
 import { PendingRequestController } from "../../../../../src/features/chat/application/pending-requests/controller";
 import { toPendingUserInput } from "../../../../../src/features/chat/app-server/requests/user-input";
@@ -14,23 +13,15 @@ function expectPresent<T>(value: T | null | undefined): T {
 describe("PendingRequestController", () => {
   it("resolves user input from immutable draft state and refreshes the host", () => {
     const stateStore = createChatStateStore(createChatState());
-    const respondToServerRequest = vi.fn().mockReturnValue(true);
+    const resolveUserInput = vi.fn();
     const refreshLiveState = vi.fn();
-    const controller = new ChatInboundController(stateStore, {
-      refreshThreads: vi.fn(),
-      refreshRateLimits: vi.fn(),
-      refreshSkills: vi.fn(),
-      publishAppServerMetadata: vi.fn(),
-      maybeNameThread: vi.fn(),
-      notifyThreadArchived: vi.fn(),
-      notifyThreadRenamed: vi.fn(),
-      recordMcpStartupStatus: vi.fn(),
-      respondToServerRequest,
-      rejectServerRequest: vi.fn(),
-    });
     const pendingRequests = new PendingRequestController({
       stateStore,
-      controller,
+      responder: {
+        resolveApproval: vi.fn(),
+        resolveUserInput,
+        cancelUserInput: vi.fn(),
+      },
       composerHasFocus: () => false,
       refreshLiveState,
     });
@@ -40,8 +31,7 @@ describe("PendingRequestController", () => {
 
     pendingRequests.resolveUserInput(input.requestId);
 
-    expect(respondToServerRequest).toHaveBeenCalledWith(7, { answers: { direction: { answers: ["Left"] } } });
-    expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
+    expect(resolveUserInput).toHaveBeenCalledWith(input, { direction: "Left" });
     expect(refreshLiveState).toHaveBeenCalledOnce();
   });
 });

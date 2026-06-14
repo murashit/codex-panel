@@ -1,5 +1,4 @@
 import type { ChatStateStore } from "../state/reducer";
-import type { ChatInboundController } from "../../app-server/inbound/controller";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import { pendingRequestBlockState } from "./snapshot";
 import {
@@ -10,9 +9,15 @@ import {
 } from "../../domain/pending-requests/model";
 import type { PendingRequestBlockActions, PendingRequestBlockState, PendingRequestId } from "./block";
 
+interface PendingRequestResponder {
+  resolveApproval: (approval: PendingApproval, action: ApprovalAction) => void;
+  resolveUserInput: (input: PendingUserInput, answers: Record<string, string>) => void;
+  cancelUserInput: (input: PendingUserInput) => void;
+}
+
 export interface PendingRequestControllerHost {
   stateStore: ChatStateStore;
-  controller: ChatInboundController;
+  responder: PendingRequestResponder;
   composerHasFocus: () => boolean;
   refreshLiveState: () => void;
 }
@@ -55,14 +60,14 @@ export class PendingRequestController {
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void {
     const approval = this.pendingApproval(requestId);
     if (!approval) return;
-    this.host.controller.resolveApproval(approval, action);
+    this.host.responder.resolveApproval(approval, action);
     this.commitRequestAction();
   }
 
   resolveUserInput(requestId: PendingRequestId): void {
     const input = this.pendingUserInput(requestId);
     if (!input) return;
-    this.host.controller.resolveUserInput(
+    this.host.responder.resolveUserInput(
       input,
       answersForPendingUserInput(input, pendingRequestBlockState(this.host.stateStore.getState()).userInputDrafts),
     );
@@ -72,7 +77,7 @@ export class PendingRequestController {
   cancelUserInput(requestId: PendingRequestId): void {
     const input = this.pendingUserInput(requestId);
     if (!input) return;
-    this.host.controller.cancelUserInput(input);
+    this.host.responder.cancelUserInput(input);
     this.commitRequestAction();
   }
 

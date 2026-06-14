@@ -105,7 +105,7 @@ export function createConversationParts(
 
   const pendingRequests = new PendingRequestController({
     stateStore,
-    controller: refs.controller,
+    responder: refs.controller,
     composerHasFocus: () => composerController.hasFocus(),
     refreshLiveState: liveState.refresh,
   });
