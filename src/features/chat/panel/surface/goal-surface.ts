@@ -1,9 +1,9 @@
 import type { CodexPanelSettings } from "../../../../settings/model";
-import type { ChatConnectionController } from "../../connection/connection-controller";
+import type { ChatConnectionController } from "../../application/connection/connection-controller";
 import type { ChatInboundController } from "../../app-server/inbound/controller";
-import type { ChatServerThreadActions } from "../../connection/server-actions/threads";
-import type { GoalActions } from "../../threads/goal-actions";
-import type { ChatAction, ChatState, ChatStateStore } from "../../state/reducer";
+import type { ChatServerThreadActions } from "../../app-server/actions/threads";
+import type { GoalActions } from "../../application/threads/goal-actions";
+import type { ChatAction, ChatState, ChatStateStore } from "../../application/state/reducer";
 import type { ChatPanelGoalSurface } from "./model";
 
 export interface ChatPanelGoalSurfaceHost {

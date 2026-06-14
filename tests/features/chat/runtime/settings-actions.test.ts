@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatRuntimeSettingsActions, type ChatRuntimeSettingsActions } from "../../../../src/features/chat/runtime/settings-actions";
-import { createChatState, createChatStateStore, type ChatState } from "../../../../src/features/chat/state/reducer";
-import { runtimeSnapshotForChatState } from "../../../../src/features/chat/runtime/snapshot";
-import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/state/actions";
+import {
+  createChatRuntimeSettingsActions,
+  type ChatRuntimeSettingsActions,
+} from "../../../../src/features/chat/application/runtime/settings-actions";
+import { createChatState, createChatStateStore, type ChatState } from "../../../../src/features/chat/application/state/reducer";
+import { runtimeSnapshotForChatState } from "../../../../src/features/chat/application/runtime/snapshot";
+import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/application/state/actions";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";

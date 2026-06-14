@@ -1,4 +1,4 @@
-import type { ExecutionState, MessageStreamItem } from "../../domain/message-stream/model/items";
+import type { ExecutionState, MessageStreamItem } from "../../domain/message-stream/items";
 import type { MessageStreamItemAnnotations } from "./layout";
 
 export type TextMessageStreamItem = Extract<MessageStreamItem, { kind: "message" | "system" | "userInputResult" }>;

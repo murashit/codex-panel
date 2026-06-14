@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 import { MarkdownRenderer } from "obsidian";
 
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
-import { implementPlanCandidateFromState } from "../../../../../src/features/chat/state/selectors";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import { implementPlanCandidateFromState } from "../../../../../src/features/chat/application/state/selectors";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { deferred } from "../../../../support/async";
 import { topLevelDetailsSummaries } from "../../../../support/dom";

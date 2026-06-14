@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {

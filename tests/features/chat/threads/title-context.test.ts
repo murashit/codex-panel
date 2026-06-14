@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   firstThreadTitleContextFromMessageStreamItems,
   threadTitleContextFromMessageStreamItems,
-} from "../../../../src/features/chat/threads/title-context";
+} from "../../../../src/features/chat/application/threads/title-context";
 
 describe("chat thread title context", () => {
   it("extracts title context from streamed message stream items when completed turn items are not loaded", () => {

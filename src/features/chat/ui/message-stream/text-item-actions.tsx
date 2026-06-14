@@ -1,8 +1,8 @@
 import { type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 
-import { activeTurnId } from "../../state/reducer";
-import type { MessageStreamItem } from "../../domain/message-stream/model/items";
+import { activeTurnId } from "../../application/state/reducer";
+import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { IconButton } from "../../../../shared/ui/components";
 import { listenDomEvent } from "../../../../shared/ui/dom-events";
 import type { TextItemActionContext, TextMessageStreamItem } from "./context";

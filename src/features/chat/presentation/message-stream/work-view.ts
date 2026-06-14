@@ -10,7 +10,7 @@ import type {
   MessageStreamItem,
   ReasoningMessageStreamItem,
   TaskProgressMessageStreamItem,
-} from "../../domain/message-stream/model/items";
+} from "../../domain/message-stream/items";
 
 const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
 const AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT = 96;

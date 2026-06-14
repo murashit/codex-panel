@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { messageStreamPresentationBlocks } from "../../../../../src/features/chat/presentation/message-stream/blocks";
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 describe("message stream presentation blocks", () => {
   it("keeps the empty state after the history affordance", () => {

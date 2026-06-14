@@ -3,10 +3,10 @@ import { h } from "preact";
 
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import { runtimeConfigSections, rateLimitSummary } from "../../runtime/status";
-import { connectionDiagnosticSections } from "../../connection/diagnostics-display";
-import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import { chatTurnBusy, type ChatState } from "../../state/reducer";
+import { runtimeConfigSections, rateLimitSummary } from "../../presentation/runtime/status";
+import { connectionDiagnosticSections } from "../../application/connection/diagnostics-display";
+import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
+import { chatTurnBusy, type ChatState } from "../../application/state/reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../../ui/shell-state";
 import { Toolbar, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
 import type { ChatPanelToolbarSurface } from "./model";

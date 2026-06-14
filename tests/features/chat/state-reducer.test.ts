@@ -9,10 +9,10 @@ import {
   pendingTurnStart,
   transitionChatTurnLifecycleState,
   type ChatState,
-} from "../../../src/features/chat/state/reducer";
-import { messageStreamItems } from "../../../src/features/chat/state/message-stream";
+} from "../../../src/features/chat/application/state/reducer";
+import { messageStreamItems } from "../../../src/features/chat/application/state/message-stream";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
-import type { MessageStreamItem } from "../../../src/features/chat/domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../../src/features/chat/domain/message-stream/items";
 import type { Thread } from "../../../src/domain/threads/model";
 import { chatStateMessageStreamItems, setChatStateMessageStreamItems } from "./support/message-stream";
 

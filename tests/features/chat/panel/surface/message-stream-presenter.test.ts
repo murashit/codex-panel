@@ -11,7 +11,7 @@ import {
   type ChatAction,
   type ChatState,
   type ChatStateStore,
-} from "../../../../../src/features/chat/state/reducer";
+} from "../../../../../src/features/chat/application/state/reducer";
 import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
   type ChatMessageStreamSurfaceContext,

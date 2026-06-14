@@ -1,5 +1,5 @@
 import { activeAgentRunSummary } from "./agent-summary";
-import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../../domain/message-stream/model/items";
+import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../../domain/message-stream/items";
 import {
   messageStreamIsCoordinationProgress,
   messageStreamIsTaskProgress,

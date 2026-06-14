@@ -1,14 +1,14 @@
-import type { ChatStateStore } from "../../state/reducer";
+import type { ChatStateStore } from "../state/reducer";
 import type { ChatInboundController } from "../../app-server/inbound/controller";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
-import { pendingRequestBlockSnapshot, type PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
+import { pendingRequestBlockState } from "./snapshot";
 import {
   answersForPendingUserInput,
   type ApprovalAction,
   type PendingApproval,
   type PendingUserInput,
 } from "../../domain/pending-requests/model";
-import type { PendingRequestBlockActions, PendingRequestId } from "../../presentation/pending-requests/view-model";
+import type { PendingRequestBlockActions, PendingRequestBlockState, PendingRequestId } from "./block";
 
 export interface PendingRequestControllerHost {
   stateStore: ChatStateStore;
@@ -44,8 +44,8 @@ export class PendingRequestController {
 
   constructor(private readonly host: PendingRequestControllerHost) {}
 
-  snapshot(): PendingRequestBlockSnapshot {
-    return pendingRequestBlockSnapshot(this.host.stateStore.getState());
+  snapshot(): PendingRequestBlockState {
+    return pendingRequestBlockState(this.host.stateStore.getState());
   }
 
   actions(): PendingRequestBlockActions {
@@ -64,7 +64,7 @@ export class PendingRequestController {
     if (!input) return;
     this.host.controller.resolveUserInput(
       input,
-      answersForPendingUserInput(input, pendingRequestBlockSnapshot(this.host.stateStore.getState()).userInputDrafts),
+      answersForPendingUserInput(input, pendingRequestBlockState(this.host.stateStore.getState()).userInputDrafts),
     );
     this.commitRequestAction();
   }

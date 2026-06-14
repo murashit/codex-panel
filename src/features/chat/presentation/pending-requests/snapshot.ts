@@ -1,4 +1,3 @@
-import type { ChatState } from "../../state/reducer";
 import type { PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";
 import {
   pendingApprovalViewModel,
@@ -14,21 +13,14 @@ export interface PendingRequestBlockSnapshot {
   approvalDetails: ReadonlySet<string>;
 }
 
-export function pendingRequestBlockSnapshot(state: ChatState): PendingRequestBlockSnapshot {
-  return pendingRequestBlockSnapshotFromRequests({
-    approvals: state.requests.approvals,
-    pendingUserInputs: state.requests.pendingUserInputs,
-    userInputDrafts: state.requests.userInputDrafts,
-    approvalDetails: state.ui.disclosures.approvalDetails,
-  });
-}
-
-export function pendingRequestBlockSnapshotFromRequests(source: {
+export interface PendingRequestBlockSnapshotSource {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
   userInputDrafts: ReadonlyMap<string, string>;
   approvalDetails: ReadonlySet<string>;
-}): PendingRequestBlockSnapshot {
+}
+
+export function pendingRequestBlockSnapshotFromState(source: PendingRequestBlockSnapshotSource): PendingRequestBlockSnapshot {
   return {
     approvals: source.approvals.map(pendingApprovalViewModel),
     pendingUserInputs: source.pendingUserInputs.map(pendingUserInputViewModel),

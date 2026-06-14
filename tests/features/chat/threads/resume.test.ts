@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ThreadActivationSnapshot } from "../../../../src/app-server/services/thread-activation";
-import { resumedThreadAction } from "../../../../src/features/chat/threads/resume";
+import { resumedThreadAction } from "../../../../src/features/chat/application/threads/resume";
 import type { Thread } from "../../../../src/domain/threads/model";
 
 describe("chat thread resume helpers", () => {

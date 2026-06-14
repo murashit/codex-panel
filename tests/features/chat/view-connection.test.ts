@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { CodexChatHost } from "../../../src/features/chat/chat-host";
+import type { CodexChatHost } from "../../../src/features/chat/application/chat-host";
 import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/protocol/runtime-config";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
@@ -1273,7 +1273,7 @@ async function chatView(
   options: { activeLeafChangeListeners?: ((leaf: unknown) => void)[]; host?: CodexChatHost; requestSaveLayout?: () => void } = {},
 ) {
   const host = options.host ?? chatHost();
-  const { CodexChatView } = await import("../../../src/features/chat/view");
+  const { CodexChatView } = await import("../../../src/features/chat/host/view");
   const containerEl = document.createElement("div");
   document.body.appendChild(containerEl);
   containerEl.createDiv();

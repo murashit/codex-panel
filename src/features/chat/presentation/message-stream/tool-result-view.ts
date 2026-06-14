@@ -13,7 +13,7 @@ import type {
   MessageStreamPrimaryTarget,
   ReviewResultMessageStreamItem,
   ToolCallMessageStreamItem,
-} from "../../domain/message-stream/model/items";
+} from "../../domain/message-stream/items";
 
 export type ToolResultMessageStreamItem =
   | CommandMessageStreamItem

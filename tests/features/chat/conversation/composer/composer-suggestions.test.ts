@@ -10,8 +10,8 @@ import {
   findWikiLinkSuggestions,
   nextComposerSuggestionIndex,
   parseSlashCommand,
-} from "../../../../../src/features/chat/conversation/composer/suggestions";
-import { userInputWithWikiLinkMentions } from "../../../../../src/features/chat/conversation/composer/wikilink-context";
+} from "../../../../../src/features/chat/application/composer/suggestions";
+import { userInputWithWikiLinkMentions } from "../../../../../src/features/chat/application/composer/wikilink-context";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

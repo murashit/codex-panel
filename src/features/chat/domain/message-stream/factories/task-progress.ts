@@ -1,4 +1,4 @@
-import type { ExecutionState, MessageStreamItem } from "../model/items";
+import type { ExecutionState, MessageStreamItem } from "../items";
 
 type MessageStreamExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;

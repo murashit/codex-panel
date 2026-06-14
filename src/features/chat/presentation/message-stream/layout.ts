@@ -1,4 +1,4 @@
-import type { MessageStreamItem } from "../../domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
 import {
   messageStreamIsApprovalResult,

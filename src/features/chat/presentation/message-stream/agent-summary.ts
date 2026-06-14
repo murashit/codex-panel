@@ -1,6 +1,6 @@
 import { truncate } from "../../../../utils";
-import { collabAgentStateExecutionState } from "../../app-server/mappers/message-stream/agent-items";
-import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateSummary, MessageStreamItem } from "../../domain/message-stream/model/items";
+import { collabAgentStateExecutionState } from "../../domain/message-stream/agent-state";
+import type { AgentRunSummary, AgentRunSummaryAgent, AgentStateSummary, MessageStreamItem } from "../../domain/message-stream/items";
 
 const ACTIVE_AGENT_PREVIEW_LIMIT = 96;
 type AgentRunState = "running" | "completed" | "failed";

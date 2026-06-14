@@ -1,14 +1,14 @@
 import type { CodexPanelSettings } from "../../../../settings/model";
 import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
-import type { ChatConnectionController } from "../../connection/connection-controller";
-import type { ChatReconnectActions } from "../../connection/reconnect-actions";
+import type { ChatConnectionController } from "../../application/connection/connection-controller";
+import type { ChatReconnectActions } from "../../application/connection/reconnect-actions";
 import type { ChatInboundController } from "../../app-server/inbound/controller";
-import type { ThreadManagementActions } from "../../threads/thread-management-actions";
+import type { ThreadManagementActions } from "../../application/threads/thread-management-actions";
 import type { ToolbarPanelActions } from "../toolbar-actions";
-import type { ThreadRenameEditorController } from "../../threads/rename-editor-controller";
-import type { SelectionActions } from "../../threads/selection-actions";
-import type { ChatStateStore } from "../../state/reducer";
-import { noActiveThreadToCompactMessage } from "../../threads/messages";
+import type { ThreadRenameEditorController } from "../../application/threads/rename-editor-controller";
+import type { SelectionActions } from "../../application/threads/selection-actions";
+import type { ChatStateStore } from "../../application/state/reducer";
+import { noActiveThreadToCompactMessage } from "../../application/threads/messages";
 import type { ChatPanelToolbarSurface } from "./model";
 
 export interface ChatPanelToolbarSurfaceHost {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { messageStreamItemFromTurnItem } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
 import { messageStreamSemanticClassifications } from "../../../../src/features/chat/domain/message-stream/semantics";
-import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import type { TurnItem } from "../../../../src/app-server/protocol/turn";
 
 describe("message stream semantic classification", () => {

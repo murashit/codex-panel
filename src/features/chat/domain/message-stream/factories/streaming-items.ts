@@ -1,6 +1,4 @@
-import type { FileUpdateChange } from "../../../../../app-server/protocol/file-change";
-import type { MessageStreamItem, MessageStreamItemKind } from "../model/items";
-import { normalizeFileChanges } from "../../../app-server/mappers/message-stream/turn-items";
+import type { MessageStreamItem, MessageStreamItemKind } from "../items";
 
 export const STREAMED_COMMAND_RUNNING_TEXT = "Command running";
 export const STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT = "File change inProgress";
@@ -73,22 +71,4 @@ export function streamedItemOutputMessageStreamItem(params: {
           executionState: "running",
         }),
   } as MessageStreamItem;
-}
-
-export function streamingFileChangeMessageStreamItem(
-  itemId: string,
-  turnId: string,
-  changes: FileUpdateChange[],
-  status: string,
-): MessageStreamItem {
-  return {
-    id: itemId,
-    kind: "fileChange",
-    role: "tool",
-    turnId,
-    sourceItemId: itemId,
-    provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: itemId },
-    status,
-    changes: normalizeFileChanges(changes),
-  };
 }

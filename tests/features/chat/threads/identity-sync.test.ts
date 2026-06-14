@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { createIdentitySync } from "../../../../src/features/chat/threads/identity-sync";
-import type { RestorationController } from "../../../../src/features/chat/threads/restoration-controller";
-import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/lifecycle";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createIdentitySync } from "../../../../src/features/chat/application/threads/identity-sync";
+import type { RestorationController } from "../../../../src/features/chat/application/threads/restoration-controller";
+import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/application/lifecycle";
 import type { Thread } from "../../../../src/domain/threads/model";
 
 function thread(id: string, name: string | null = null): Thread {

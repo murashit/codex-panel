@@ -2,16 +2,15 @@ import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
 import type { App, Component } from "obsidian";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
-import type { ChatAction, ChatStateStore } from "../../state/reducer";
+import type { ChatAction, ChatStateStore } from "../../application/state/reducer";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
-import type { MessageStreamItem } from "../../domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../../ui/shell-state";
-import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
-import type { PendingRequestBlockActions } from "../../presentation/pending-requests/view-model";
-import type { ChatTurnDiffViewState } from "../../turn-diff/model";
+import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
+import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import {
   createMessageStreamSurfaceContext,
   messageStreamSurfaceProjectionFromState,
@@ -39,7 +38,7 @@ interface ChatMessageStreamActions {
 
 interface ChatMessageStreamRequests {
   pendingSignature: () => string;
-  pendingSnapshot: () => PendingRequestBlockSnapshot;
+  pendingSnapshot: () => PendingRequestBlockState;
   pendingActions: () => PendingRequestBlockActions;
   consumePendingAutoFocus: () => boolean;
 }

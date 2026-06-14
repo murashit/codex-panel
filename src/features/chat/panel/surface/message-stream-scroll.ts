@@ -1,4 +1,4 @@
-import type { ComposerBoundaryScrollAction } from "../../conversation/composer/boundary-scroll";
+import type { ComposerBoundaryScrollAction } from "../../application/composer/boundary-scroll";
 import type { MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
 
 export class MessageStreamScrollBridge {

@@ -10,7 +10,7 @@ describe("eslint config", () => {
     "reports imperative DOM writes in non-bridge source files",
     async () => {
       const messages = await lintSource(
-        "src/features/chat/runtime/effective.ts",
+        "src/features/chat/domain/runtime/effective.ts",
         `
 export function setStatus(element: HTMLElement): void {
   element.textContent = "Loading";
@@ -25,7 +25,7 @@ export function setStatus(element: HTMLElement): void {
 
   it("reports Obsidian HTMLElement mutation helpers in non-bridge source files", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
 export function setStatus(element: HTMLElement): void {
   element.addClass("is-ready");
@@ -51,7 +51,7 @@ export function renderIcon(element: HTMLElement): void {
 
   it("does not confuse plain value properties with DOM writes", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
 interface Box {
   value: string;
@@ -85,7 +85,7 @@ export function setSignalStatus(): string {
 
   it("keeps chat signals inside the shell-state adapter", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
 import { signal } from "@preact/signals";
 
@@ -133,9 +133,9 @@ export type Turn = TurnRecord;
 
   it("reports direct ChatState alias mutation", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatState } from "../state/reducer";
+import type { ChatState } from "../../application/state/reducer";
 
 export function mutateState(current: ChatState): void {
   current.activeThread.id = "thread";
@@ -148,9 +148,9 @@ export function mutateState(current: ChatState): void {
 
   it("reports direct ChatState collection mutation from getState", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../../application/state/reducer";
 
 export function mutateState(store: ChatStateStore): void {
   store.getState().requests.userInputDrafts.set("key", "value");
@@ -163,9 +163,9 @@ export function mutateState(store: ChatStateStore): void {
 
   it("reports direct ChatState slice alias collection mutation", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../../application/state/reducer";
 
 export function mutateState(store: ChatStateStore): void {
   const requests = store.getState().requests;
@@ -179,9 +179,9 @@ export function mutateState(store: ChatStateStore): void {
 
   it("reports direct ChatState snapshot alias collection mutation", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../../application/state/reducer";
 
 export function mutateState(store: ChatStateStore): void {
   const current = store.getState();
@@ -195,9 +195,9 @@ export function mutateState(store: ChatStateStore): void {
 
   it("allows scalar values derived from ChatState", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatState } from "../state/reducer";
+import type { ChatState } from "../../application/state/reducer";
 
 export function updateThreadId(state: ChatState, response: { threadId?: string }): string | null {
   let threadId = state.activeThread.id;
@@ -212,9 +212,9 @@ export function updateThreadId(state: ChatState, response: { threadId?: string }
 
   it("allows replacing a ChatState snapshot reference", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatState } from "../state/reducer";
+import type { ChatState } from "../../application/state/reducer";
 
 export function replaceSnapshot(current: ChatState, next: ChatState): ChatState {
   current = next;
@@ -228,9 +228,9 @@ export function replaceSnapshot(current: ChatState, next: ChatState): ChatState 
 
   it("does not report shadowed ChatState alias names", async () => {
     const messages = await lintSource(
-      "src/features/chat/runtime/effective.ts",
+      "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../../application/state/reducer";
 
 export function mutateState(store: ChatStateStore): void {
   const requests = store.getState().requests;
@@ -352,7 +352,7 @@ export const render = renderUiRoot;
 
   it("keeps all chat state modules deterministic", async () => {
     const messages = await lintSource(
-      "src/features/chat/state/message-stream.ts",
+      "src/features/chat/application/state/message-stream.ts",
       `
 export function timestamp(): number {
   return Date.now();

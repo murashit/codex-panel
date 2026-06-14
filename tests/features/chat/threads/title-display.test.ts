@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../../src/domain/threads/model";
-import { codexPanelDisplayTitle } from "../../../../src/features/chat/threads/title-display";
+import { codexPanelDisplayTitle } from "../../../../src/features/chat/application/threads/title-display";
 
 describe("chat thread title display", () => {
   it("formats Codex panel display titles from the active thread", () => {

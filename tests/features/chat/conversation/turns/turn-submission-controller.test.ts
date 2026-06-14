@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { CodexInput } from "../../../../../src/app-server/protocol/request-input";
-import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
+import { createChatState, createChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
 import {
   TurnSubmissionController,
   type TurnSubmissionControllerHost,
-} from "../../../../../src/features/chat/conversation/turns/turn-submission-controller";
+} from "../../../../../src/features/chat/application/conversation/turn-submission-controller";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { chatStateMessageStreamItems } from "../../support/message-stream";
 

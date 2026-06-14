@@ -5,7 +5,7 @@ import {
   parsedWikiLinks,
   userInputWithWikiLinkMentions,
   userInputWithWikiLinkMentionsAndSkills,
-} from "../../../../../src/features/chat/conversation/composer/wikilink-context";
+} from "../../../../../src/features/chat/application/composer/wikilink-context";
 
 describe("wikilink context", () => {
   it("parses aliases, subpaths, and duplicate links", () => {

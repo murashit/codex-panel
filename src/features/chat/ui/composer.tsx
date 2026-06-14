@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import type { ComposerSuggestion } from "../conversation/composer/suggestions";
+import type { ComposerSuggestion } from "../application/composer/suggestions";
 import { IconButton } from "../../../shared/ui/components";
 import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";

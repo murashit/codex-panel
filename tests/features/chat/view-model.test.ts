@@ -6,13 +6,13 @@ import {
   type ConfigReadResult,
   type RuntimeConfigSnapshot,
 } from "../../../src/app-server/protocol/runtime-config";
-import { createChatState } from "../../../src/features/chat/state/reducer";
+import { createChatState } from "../../../src/features/chat/application/state/reducer";
 import { chatPanelComposerProjection, composerMetaViewModel, composerPlaceholder } from "../../../src/features/chat/panel/surface/composer";
-import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/runtime/status";
+import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../src/features/chat/presentation/runtime/status";
 import { runtimeComposerChoices } from "../../../src/features/chat/panel/surface/composer";
-import { runtimeSnapshotForChatState } from "../../../src/features/chat/runtime/snapshot";
+import { runtimeSnapshotForChatState } from "../../../src/features/chat/application/runtime/snapshot";
 import { chatPanelToolbarProjection, toolbarStateProjection } from "../../../src/features/chat/panel/surface/toolbar";
-import type { ChatState } from "../../../src/features/chat/state/reducer";
+import type { ChatState } from "../../../src/features/chat/application/state/reducer";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../src/domain/threads/model";
 import { chatPanelGoalProjection, chatPanelGoalViewModel } from "../../../src/features/chat/panel/surface/goal";

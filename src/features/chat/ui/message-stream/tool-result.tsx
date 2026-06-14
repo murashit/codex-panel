@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { type ToolResultDetailSection, type ToolResultView } from "../../presentation/message-stream/tool-result-view";
 import { renderRawDiffLines } from "../../../../shared/diff/render";
-import type { ChatDisclosureUiState } from "../../state/reducer";
+import type { ChatDisclosureUiState } from "../../application/state/reducer";
 
 export interface ToolResultRenderContext {
   disclosures: ChatDisclosureUiState;

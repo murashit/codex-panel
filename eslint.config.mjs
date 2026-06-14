@@ -155,13 +155,13 @@ const chatPreactDomBridgeFiles = [
   "src/features/chat/ui/message-stream/viewport.tsx",
   "src/features/chat/ui/composer-dom.ts",
   "src/features/chat/ui/shell.tsx",
-  "src/features/chat/turn-diff/render.tsx",
+  "src/features/chat/ui/turn-diff/render.tsx",
 ];
 const chatImperativeDomBridgeFiles = [...chatExternalDomBridgeFiles, ...chatPreactDomBridgeFiles];
 const uiRootBridgeFiles = [
   "src/features/chat/ui/shell.tsx",
-  "src/features/chat/turn-diff/render.tsx",
-  "src/features/chat/turn-diff/view.ts",
+  "src/features/chat/ui/turn-diff/render.tsx",
+  "src/features/chat/ui/turn-diff/view.ts",
   "src/features/selection-rewrite/popover.tsx",
   "src/features/threads-view/renderer.tsx",
 ];
@@ -677,7 +677,7 @@ export default defineConfig([
     rules: restrictedSyntaxRule(sourceSyntaxRestrictionsWithoutUiRoot),
   },
   {
-    files: ["src/features/chat/state/**/*.{ts,tsx}"],
+    files: ["src/features/chat/application/state/**/*.{ts,tsx}"],
     rules: {
       ...restrictedSyntaxRule(pureChatStateSyntaxRestrictions),
       "codex-panel/no-imperative-dom": "error",

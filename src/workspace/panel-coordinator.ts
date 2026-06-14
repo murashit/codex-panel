@@ -1,7 +1,7 @@
 import type { App, WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
-import { CodexChatView } from "../features/chat/view";
+import { CodexChatView } from "../features/chat/host/view";
 import type { OpenCodexPanelSnapshot } from "./open-panel-snapshot";
 
 const BOOT_RESTORED_PANEL_LOAD_DELAY_MS = 1_000;

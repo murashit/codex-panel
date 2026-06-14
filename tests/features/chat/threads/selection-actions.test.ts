@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { createSelectionActions, type SelectionActionsHost } from "../../../../src/features/chat/threads/selection-actions";
+import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createSelectionActions, type SelectionActionsHost } from "../../../../src/features/chat/application/threads/selection-actions";
 
 function resumeThreadState(stateStore: ChatStateStore, threadId: string): void {
   stateStore.dispatch({

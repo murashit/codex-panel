@@ -1,11 +1,11 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ChatDisclosureBucket, ChatDisclosureUiState, ChatTurnLifecycleState } from "../../state/reducer";
+import type { ChatDisclosureBucket, ChatDisclosureUiState, ChatTurnLifecycleState } from "../../application/state/reducer";
+import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
-import type { PendingRequestBlockActions } from "../../presentation/pending-requests/view-model";
-import type { MessageStreamItem } from "../../domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { TextMessageStreamItem } from "../../presentation/message-stream/text-view";
-import type { ChatTurnDiffViewState } from "../../turn-diff/model";
+import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 
 export interface MessageStreamBlock {
   key: string;

@@ -6,13 +6,12 @@ import {
   type RuntimeConfigSnapshot,
 } from "../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../src/features/chat/application/runtime/messages";
+import { compactModelLabel, compactReasoningEffortLabel } from "../../src/features/chat/presentation/runtime/messages";
 import {
-  compactModelLabel,
-  compactReasoningEffortLabel,
-  modelOverrideMessage,
-  reasoningEffortOverrideMessage,
-} from "../../src/features/chat/runtime/messages";
-import { parseModelOverride, parseReasoningEffortOverride } from "../../src/features/chat/conversation/turns/runtime-setting-commands";
+  parseModelOverride,
+  parseReasoningEffortOverride,
+} from "../../src/features/chat/application/conversation/runtime-setting-commands";
 import {
   autoReviewActive,
   currentApprovalsReviewer,
@@ -23,21 +22,21 @@ import {
   fastRuntimeServiceTierRequestValue,
   runtimeConfigOrDefault,
   supportedReasoningEfforts,
-} from "../../src/features/chat/runtime/effective";
-import type { RuntimeSnapshot } from "../../src/features/chat/runtime/snapshot";
-import { resetRuntimeSettingToConfig, setPendingRuntimeSetting } from "../../src/features/chat/runtime/pending-settings";
+} from "../../src/features/chat/domain/runtime/effective";
+import type { RuntimeSnapshot } from "../../src/features/chat/application/runtime/snapshot";
+import { resetRuntimeSettingToConfig, setPendingRuntimeSetting } from "../../src/features/chat/domain/runtime/pending-settings";
 import {
   pendingRuntimeSettingsPatch,
   requestedTurnCollaborationModeSettings,
   serviceTierRequestForThreadStart,
-} from "../../src/features/chat/runtime/thread-settings-update";
+} from "../../src/features/chat/application/runtime/thread-settings-update";
 import {
   contextSummary,
   fastModeLabel,
   runtimeConfigSections,
   rateLimitSummary,
   serviceTierLabel,
-} from "../../src/features/chat/runtime/status";
+} from "../../src/features/chat/presentation/runtime/status";
 
 describe("runtime settings", () => {
   it("parses model overrides", () => {

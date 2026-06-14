@@ -1,17 +1,15 @@
-import type { RequestId } from "../../../../app-server/connection/rpc-messages";
 import { approvalDetails, approvalSummary, approvalTitle } from "../../domain/pending-requests/approval";
 import { approvalActionOptions, type ApprovalActionOption } from "./approval-view";
 import {
-  type ApprovalAction,
   type PendingApproval,
+  type PendingRequestId as DomainPendingRequestId,
   type PendingUserInput,
   questionDefaultAnswer,
   userInputDraftKey,
   userInputOtherDraftKey,
 } from "../../domain/pending-requests/model";
 
-export type PendingRequestId = RequestId;
-type PendingRequestApprovalAction = ApprovalAction;
+type PendingRequestId = DomainPendingRequestId;
 
 type PendingRequestApprovalOption = ApprovalActionOption;
 
@@ -50,14 +48,6 @@ export interface PendingUserInputViewModel {
   title: string;
   body: string;
   questions: PendingUserInputQuestionViewModel[];
-}
-
-export interface PendingRequestBlockActions {
-  resolveApproval: (requestId: PendingRequestId, action: PendingRequestApprovalAction) => void;
-  resolveUserInput: (requestId: PendingRequestId) => void;
-  cancelUserInput: (requestId: PendingRequestId) => void;
-  setApprovalDetailsExpanded?: (requestId: PendingRequestId, expanded: boolean) => void;
-  setUserInputDraft: (key: string, value: string) => void;
 }
 
 export function pendingApprovalViewModel(approval: PendingApproval): PendingApprovalViewModel {

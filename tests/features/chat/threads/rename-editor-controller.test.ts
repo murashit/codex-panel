@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { ThreadRenameEditorController } from "../../../../src/features/chat/threads/rename-editor-controller";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { ThreadRenameEditorController } from "../../../../src/features/chat/application/threads/rename-editor-controller";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ArchiveExportAdapter } from "../../../../src/features/thread-export/archive-markdown";
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
 import {
   archiveThread,
   compactThread,
@@ -12,8 +12,8 @@ import {
   rollbackThread as rollbackThreadAction,
   type ThreadManagementActions,
   type ThreadManagementActionsHost,
-} from "../../../../src/features/chat/threads/thread-management-actions";
-import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/model/items";
+} from "../../../../src/features/chat/application/threads/thread-management-actions";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";

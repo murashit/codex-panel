@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ChatInboundController } from "../../../../../src/features/chat/app-server/inbound/controller";
-import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/operations/updates";
+import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
 import {
   activeTurnId,
   chatReducer,
@@ -11,7 +11,7 @@ import {
   type ChatAction,
   type ChatState,
   type ChatStateStore,
-} from "../../../../../src/features/chat/state/reducer";
+} from "../../../../../src/features/chat/application/state/reducer";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";

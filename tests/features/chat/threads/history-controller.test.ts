@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { HistoryController } from "../../../../src/features/chat/threads/history-controller";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import { deferred } from "../../../support/async";

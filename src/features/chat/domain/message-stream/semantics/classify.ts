@@ -1,4 +1,4 @@
-import type { MessageStreamItem } from "../model/items";
+import type { MessageStreamItem } from "../items";
 import type {
   MessageStreamLifecycle,
   MessageStreamMeaning,

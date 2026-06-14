@@ -4,9 +4,9 @@ import type { App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 
-import { ChatComposerController, type ChatComposerRenderActions } from "../../../../../src/features/chat/conversation/composer/controller";
+import { ChatComposerController, type ChatComposerRenderActions } from "../../../../../src/features/chat/ui/composer-controller";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
-import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/state/reducer";
+import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { installObsidianDomShims } from "../../../../support/dom";

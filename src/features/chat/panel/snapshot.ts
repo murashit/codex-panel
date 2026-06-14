@@ -1,8 +1,8 @@
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
-import type { ChatState } from "../state/reducer";
-import type { MessageStreamItem } from "../domain/message-stream/model/items";
-import { latestProposedPlanFromItems } from "../domain/message-stream/queries/selectors";
-import type { RestoredThreadState } from "../lifecycle";
+import type { ChatState } from "../application/state/reducer";
+import type { MessageStreamItem } from "../domain/message-stream/items";
+import { latestProposedPlanFromItems } from "../domain/message-stream/selectors";
+import type { RestoredThreadState } from "../application/lifecycle";
 
 export function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
   if (state.kind === "running") return { kind: "running", turnId: state.turnId };

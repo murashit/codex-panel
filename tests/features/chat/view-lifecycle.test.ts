@@ -5,12 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
-  createChatViewDeferredTasks,
   transitionChatConnectionLifecycle,
   transitionChatResumeLifecycle,
   transitionRestoredThreadLifecycle,
   type ActiveChatConnection,
-} from "../../../src/features/chat/lifecycle";
+} from "../../../src/features/chat/application/lifecycle";
+import { createChatViewDeferredTasks } from "../../../src/features/chat/host/lifecycle";
 
 describe("createChatViewDeferredTasks", () => {
   beforeEach(() => {

@@ -3,13 +3,17 @@ import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 
 import type { PendingApproval, PendingUserInput } from "../../../../../src/features/chat/domain/pending-requests/model";
-import { pendingRequestBlockSnapshotFromRequests } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
-import type { PendingRequestBlockActions } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
+import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
+import type { PendingRequestBlockActions } from "../../../../../src/features/chat/application/pending-requests/block";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
-import { activeTurnId, type ChatDisclosureUiState, type ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
+import {
+  activeTurnId,
+  type ChatDisclosureUiState,
+  type ChatTurnLifecycleState,
+} from "../../../../../src/features/chat/application/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type { MessageStreamBlock, MessageStreamContext } from "../../../../../src/features/chat/ui/message-stream/context";
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
@@ -159,7 +163,7 @@ export function renderPendingRequestNode(
   consumeAutoFocus?: () => boolean,
   autoFocusSignature = "",
 ): void {
-  const snapshot = pendingRequestBlockSnapshotFromRequests({
+  const snapshot = pendingRequestBlockSnapshotFromState({
     approvals,
     pendingUserInputs,
     userInputDrafts: drafts.values,

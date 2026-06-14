@@ -5,7 +5,7 @@ import type {
   MessageStreamItem,
   MessageStreamNoticeSection,
   MessageStreamUserInputQuestionResult,
-} from "../../domain/message-stream/model/items";
+} from "../../domain/message-stream/items";
 import { IconButton } from "../../../../shared/ui/components";
 import type { TextItemDetailStateContext, TextItemMetadataContext } from "./context";
 

@@ -1,25 +1,31 @@
-import { activeTurnId, chatTurnBusy, type ChatAction, type ChatDisclosureBucket, type ChatDisclosureUiState } from "../../state/reducer";
-import type { MessageStreamItem } from "../../domain/message-stream/model/items";
+import {
+  activeTurnId,
+  chatTurnBusy,
+  type ChatAction,
+  type ChatDisclosureBucket,
+  type ChatDisclosureUiState,
+} from "../../application/state/reducer";
+import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
-import { implementPlanCandidateFromState } from "../../state/selectors";
+import { implementPlanCandidateFromState } from "../../application/state/selectors";
 import {
   type ForkCandidate,
   forkCandidatesFromItems,
   isForkCandidateItem,
   isRollbackCandidateItem,
-} from "../../domain/message-stream/queries/selectors";
+} from "../../domain/message-stream/selectors";
 import {
   messageStreamActiveItems,
   messageStreamItems,
   messageStreamRollbackCandidate,
   messageStreamStableItems,
   type MessageStreamRollbackCandidate,
-} from "../../state/message-stream";
+} from "../../application/state/message-stream";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
 import type { ChatPanelMessageStreamShellState } from "../../ui/shell-state";
-import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
-import type { PendingRequestBlockActions } from "../../presentation/pending-requests/view-model";
-import type { ChatTurnDiffViewState } from "../../turn-diff/model";
+import { pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/snapshot";
+import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
+import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
@@ -30,7 +36,7 @@ interface ChatMessageStreamActions {
 
 interface ChatMessageStreamRequests {
   pendingSignature: () => string;
-  pendingSnapshot: () => PendingRequestBlockSnapshot;
+  pendingSnapshot: () => PendingRequestBlockState;
   pendingActions: () => PendingRequestBlockActions;
   consumePendingAutoFocus: () => boolean;
 }
@@ -149,7 +155,7 @@ function messageStreamContextFromProjection(
     },
     pendingRequests: {
       signature: context.requests.pendingSignature(),
-      snapshot: context.requests.pendingSnapshot,
+      snapshot: () => pendingRequestBlockSnapshotFromState(context.requests.pendingSnapshot()),
       actions: context.requests.pendingActions,
       consumeAutoFocus: context.requests.consumePendingAutoFocus,
     },

@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, TargetedKeyboardEvent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import type { RuntimeConfigSection, RateLimitSummary } from "../runtime/status";
+import type { RuntimeConfigSection, RateLimitSummary } from "../presentation/runtime/status";
 import { IconButton } from "../../../shared/ui/components";
 
 type ButtonProps = ButtonHTMLAttributes & {

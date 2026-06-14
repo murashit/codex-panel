@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   composerBoundaryScrollDirection,
   type ComposerBoundaryScrollAction,
-} from "../../../../../src/features/chat/conversation/composer/boundary-scroll";
+} from "../../../../../src/features/chat/application/composer/boundary-scroll";
 
 describe("composer boundary scroll shortcuts", () => {
   it("scrolls up from the first composer line", () => {

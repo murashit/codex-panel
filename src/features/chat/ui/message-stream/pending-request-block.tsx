@@ -3,10 +3,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import {
   type PendingApprovalViewModel,
-  type PendingRequestBlockActions,
   type PendingUserInputQuestionViewModel,
   type PendingUserInputViewModel,
 } from "../../presentation/pending-requests/view-model";
+import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
 import { createWorkMessageClassName } from "./work-message";
 
 export function pendingRequestBlockNode(

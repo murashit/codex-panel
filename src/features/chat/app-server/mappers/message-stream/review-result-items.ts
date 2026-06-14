@@ -1,4 +1,4 @@
-import type { ExecutionState, MessageStreamAuditFact, MessageStreamItem } from "../../../domain/message-stream/model/items";
+import type { ExecutionState, MessageStreamAuditFact, MessageStreamItem } from "../../../domain/message-stream/items";
 import { pathsRelativeToRoot } from "../../../domain/message-stream/format/path-labels";
 import { permissionRows } from "../../../domain/message-stream/format/permission-rows";
 

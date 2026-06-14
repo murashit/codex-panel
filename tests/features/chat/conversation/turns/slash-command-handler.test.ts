@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { CodexInput } from "../../../../../src/app-server/protocol/request-input";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
-import { createChatState, createChatStateStore } from "../../../../../src/features/chat/state/reducer";
+import { createChatState, createChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
 import {
   createSlashCommandHandler,
   type SlashCommandHandlerHost,
-} from "../../../../../src/features/chat/conversation/turns/slash-command-handler";
+} from "../../../../../src/features/chat/application/conversation/slash-command-handler";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];

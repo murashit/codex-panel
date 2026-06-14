@@ -2,8 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { scheduleAppServerWarmup } from "../../../../src/features/chat/connection/app-server-warmup";
-import { createChatViewDeferredTasks } from "../../../../src/features/chat/lifecycle";
+import { scheduleAppServerWarmup } from "../../../../src/features/chat/application/connection/app-server-warmup";
+import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
 
 function createWarmupHost({
   opened = true,

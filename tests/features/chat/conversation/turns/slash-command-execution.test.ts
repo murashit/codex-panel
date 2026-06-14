@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../../src/features/chat/conversation/composer/slash-commands";
+import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../../src/features/chat/application/composer/slash-commands";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import {
   executeSlashCommand,
   type SlashCommandExecutionContext,
-} from "../../../../../src/features/chat/conversation/turns/slash-command-execution";
+} from "../../../../../src/features/chat/application/conversation/slash-command-execution";
 
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {

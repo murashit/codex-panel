@@ -5,8 +5,8 @@ import type {
   MessageStreamFileMention,
   MessageStreamItem,
   MessageStreamPrimaryTarget,
-} from "../../../domain/message-stream/model/items";
-import type { MessageStreamItemProvenance } from "../../../domain/message-stream/model/provenance";
+} from "../../../domain/message-stream/items";
+import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { FileUpdateChange } from "../../../../../app-server/protocol/file-change";
 import type { TurnItem } from "../../../../../app-server/protocol/turn";

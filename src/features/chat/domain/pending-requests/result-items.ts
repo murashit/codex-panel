@@ -1,6 +1,6 @@
 import { approvalActionKind, type ApprovalAction, type PendingApproval, type PendingUserInput } from "./model";
 import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval";
-import type { MessageStreamItem } from "../message-stream/model/items";
+import type { MessageStreamItem } from "../message-stream/items";
 import { definedProp } from "../../../../utils";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): MessageStreamItem {

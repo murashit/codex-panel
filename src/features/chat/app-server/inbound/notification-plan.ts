@@ -1,4 +1,4 @@
-import { activeThreadSettingsAppliedAction } from "../../state/actions";
+import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import type { FileUpdateChange } from "../../../../app-server/protocol/file-change";
@@ -7,15 +7,20 @@ import type { ServerNotification } from "../../../../app-server/connection/rpc-m
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
-import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
-import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/operations/updates";
+import {
+  activeTurnId,
+  pendingTurnStart as pendingTurnStartForState,
+  type ChatAction,
+  type ChatState,
+} from "../../application/state/reducer";
+import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/updates";
 import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
 } from "../mappers/message-stream/turn-items";
 import { taskProgressMessageStreamItem } from "../../domain/message-stream/factories/task-progress";
-import type { MessageStreamItem, MessageStreamItemKind, MessageStreamMessageItem } from "../../domain/message-stream/model/items";
+import type { MessageStreamItem, MessageStreamItemKind, MessageStreamMessageItem } from "../../domain/message-stream/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
 import { hookRunMessageStreamItem } from "../mappers/message-stream/hook-run-items";
 import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/message-stream/review-result-items";
@@ -24,10 +29,10 @@ import {
   STREAMED_COMMAND_RUNNING_TEXT,
   STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
   STREAMED_MCP_PROGRESS_LABEL,
-  streamingFileChangeMessageStreamItem,
 } from "../../domain/message-stream/factories/streaming-items";
-import { attachHookRunsToTurn } from "../../domain/message-stream/operations/updates";
-import { messageStreamItems } from "../../state/message-stream";
+import { streamingFileChangeMessageStreamItem } from "../mappers/message-stream/streaming-items";
+import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
+import { messageStreamItems } from "../../application/state/message-stream";
 import {
   routeServerNotification,
   type DiagnosticStatusNotificationMethod,

@@ -7,8 +7,8 @@ import {
   localUserMessageItemFromInput,
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
-} from "../../../../../src/features/chat/conversation/turns/optimistic-turn-start";
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
+} from "../../../../../src/features/chat/application/conversation/optimistic-turn-start";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 describe("optimistic turn start helpers", () => {
   it("builds local user messages without sharing mentioned file arrays", () => {

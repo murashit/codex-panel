@@ -1,8 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ExecutionState, TaskProgressMessageStreamItem } from "../../domain/message-stream/model/items";
+import type { ExecutionState, TaskProgressMessageStreamItem } from "../../domain/message-stream/items";
 import type { AgentRunSummaryView, MessageStreamWorkView } from "../../presentation/message-stream/work-view";
-import type { ChatDisclosureUiState } from "../../state/reducer";
+import type { ChatDisclosureUiState } from "../../application/state/reducer";
 import { createWorkMessageClassName } from "./work-message";
 
 export interface WorkItemContext {

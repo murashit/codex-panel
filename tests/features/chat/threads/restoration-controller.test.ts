@@ -2,9 +2,9 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
-import { RestorationController } from "../../../../src/features/chat/threads/restoration-controller";
-import { createChatViewDeferredTasks } from "../../../../src/features/chat/lifecycle";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { RestorationController } from "../../../../src/features/chat/application/threads/restoration-controller";
+import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
 import { deferred } from "../../../support/async";
 
 describe("RestorationController", () => {

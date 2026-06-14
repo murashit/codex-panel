@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/state/reducer";
+import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
 import {
   ChatConnectionController,
   type ChatConnectionAdapter,
   type ChatConnectionDiagnosticsActions,
   type ChatConnectionMetadataActions,
-} from "../../../../src/features/chat/connection/connection-controller";
-import { ChatConnectionWorkTracker } from "../../../../src/features/chat/lifecycle";
+} from "../../../../src/features/chat/application/connection/connection-controller";
+import { ChatConnectionWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 
 function createController({ connected = false, client = {} as AppServerClient } = {}) {
   const stateStore = createChatStateStore(createChatState());

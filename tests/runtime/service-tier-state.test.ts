@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isFastServiceTier } from "../../src/features/chat/runtime/effective";
+import { isFastServiceTier } from "../../src/features/chat/domain/runtime/effective";
 
 describe("service tier runtime state", () => {
   it("recognizes Codex fast tier aliases without rejecting other tier ids", () => {

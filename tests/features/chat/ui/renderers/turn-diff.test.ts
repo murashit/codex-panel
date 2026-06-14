@@ -3,9 +3,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceLeaf } from "obsidian";
 
-import { persistedChatTurnDiffViewState } from "../../../../../src/features/chat/turn-diff/model";
-import { renderChatTurnDiffView } from "../../../../../src/features/chat/turn-diff/render";
-import { CodexChatTurnDiffView } from "../../../../../src/features/chat/turn-diff/view";
+import { persistedChatTurnDiffViewState } from "../../../../../src/features/chat/domain/turn-diff";
+import { renderChatTurnDiffView } from "../../../../../src/features/chat/ui/turn-diff/render";
+import { CodexChatTurnDiffView } from "../../../../../src/features/chat/ui/turn-diff/view";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();

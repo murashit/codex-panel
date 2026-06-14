@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { collabAgentStateExecutionState } from "../../../../src/features/chat/app-server/mappers/message-stream/agent-items";
+import { collabAgentStateExecutionState } from "../../../../src/features/chat/domain/message-stream/agent-state";
 import { activeAgentRunSummary } from "../../../../src/features/chat/presentation/message-stream/agent-summary";
 import { messageStreamLayoutBlocks } from "../../../../src/features/chat/presentation/message-stream/layout";
 import {
@@ -10,7 +10,7 @@ import {
   appendPlanDelta,
   appendToolOutput,
   upsertMessageStreamItemById,
-} from "../../../../src/features/chat/domain/message-stream/operations/updates";
+} from "../../../../src/features/chat/domain/message-stream/updates";
 import {
   taskProgressMessageStreamItem,
   taskProgressExecutionState,
@@ -34,7 +34,7 @@ import {
   messageStreamItemsFromTurns,
 } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
-import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/model/items";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 

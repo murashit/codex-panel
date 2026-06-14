@@ -1,7 +1,7 @@
-import { messageStreamItems } from "../../state/message-stream";
-import type { ChatState } from "../../state/reducer";
-import type { RuntimeSnapshot } from "../../runtime/snapshot";
-import { runtimeSnapshotForChatSlices } from "../../runtime/snapshot";
+import { messageStreamItems } from "../../application/state/message-stream";
+import type { ChatState } from "../../application/state/reducer";
+import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
+import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
 
 export function runtimeSnapshotForShellState(
   state: Pick<ChatState, "connection" | "activeThread" | "runtime" | "messageStream">,
