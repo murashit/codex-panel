@@ -60,7 +60,6 @@ export function createChatPanelSurface(host: ChatPanelSurfaceHost, deps: ChatPan
       runtime: {
         requestModel: (model) => deps.runtimeSettings.requestModelFromUi(model),
         requestReasoningEffort: (effort) => deps.runtimeSettings.requestReasoningEffortFromUi(effort),
-        resetReasoningEffortToConfig: () => deps.runtimeSettings.resetReasoningEffortToConfigFromUi(),
       },
     },
   };

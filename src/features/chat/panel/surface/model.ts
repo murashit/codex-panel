@@ -81,7 +81,6 @@ export interface ChatPanelComposerSurface {
   runtime: {
     requestModel: (model: string) => Promise<void>;
     requestReasoningEffort: (effort: ReasoningEffort) => Promise<void>;
-    resetReasoningEffortToConfig: () => Promise<void>;
   };
 }
 

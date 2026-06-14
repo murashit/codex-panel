@@ -168,7 +168,6 @@ function surfaceFixture(store: ReturnType<typeof createChatStateStore>, toolbarA
       runtime: {
         requestModel: async () => undefined,
         requestReasoningEffort: async () => undefined,
-        resetReasoningEffortToConfig: async () => undefined,
       },
     },
   };

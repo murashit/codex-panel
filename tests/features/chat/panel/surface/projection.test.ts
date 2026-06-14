@@ -225,7 +225,6 @@ describe("chat panel surface projections", () => {
     state.connection.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
     const selectedModels: string[] = [];
     const selectedEfforts: string[] = [];
-    let resetEffortCount = 0;
 
     const choices = runtimeComposerChoices({
       state,
@@ -236,25 +235,17 @@ describe("chat panel surface projections", () => {
       requestReasoningEffort: (effort) => {
         selectedEfforts.push(effort);
       },
-      resetReasoningEffortToConfig: () => {
-        resetEffortCount += 1;
-      },
     });
 
     expect(choices.modelChoices).toMatchObject([
       { label: "gpt-5-mini", selected: false },
       { label: "gpt-5.5", selected: true },
     ]);
-    expect(choices.effortChoices).toMatchObject([
-      { label: "Codex default", selected: false },
-      { label: "high", selected: true },
-    ]);
+    expect(choices.effortChoices).toMatchObject([{ label: "high", selected: true }]);
 
     choices.modelChoices[0]?.onClick();
     choices.effortChoices[0]?.onClick();
-    choices.effortChoices[1]?.onClick();
     expect(selectedModels).toEqual(["gpt-5-mini"]);
-    expect(resetEffortCount).toBe(1);
     expect(selectedEfforts).toEqual(["high"]);
   });
 
@@ -311,10 +302,7 @@ describe("chat panel surface projections", () => {
         model: "gpt-5.5",
         effort: "high",
         modelChoices: [{ label: "gpt-5.5", selected: true }],
-        effortChoices: [
-          { label: "Codex default", selected: false },
-          { label: "high", selected: true },
-        ],
+        effortChoices: [{ label: "high", selected: true }],
       },
     });
   });
@@ -365,7 +353,6 @@ function composerSurfaceFixture(overrides: Partial<ChatPanelComposerSurface> = {
     runtime: {
       requestModel: async () => undefined,
       requestReasoningEffort: async () => undefined,
-      resetReasoningEffortToConfig: async () => undefined,
       ...overrides.runtime,
     },
   };

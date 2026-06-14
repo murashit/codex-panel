@@ -44,7 +44,6 @@ export interface RuntimeComposerChoicesInput {
   snapshot: RuntimeSnapshot;
   requestModel: (model: string) => void;
   requestReasoningEffort: (effort: ReasoningEffort) => void;
-  resetReasoningEffortToConfig: () => void;
 }
 
 export function composerPlaceholder(threadName: string | null): string {
@@ -76,7 +75,6 @@ export function chatPanelComposerProjection(
         snapshot,
         requestModel: (model) => void surface.runtime.requestModel(model),
         requestReasoningEffort: (effort) => void surface.runtime.requestReasoningEffort(effort),
-        resetReasoningEffortToConfig: () => void surface.runtime.resetReasoningEffortToConfig(),
       }),
     },
   };
@@ -150,22 +148,13 @@ export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   }
 
   const activeEffort = currentReasoningEffort(input.snapshot, config);
-  const effortChoices: ChatPanelComposerRuntimeChoice[] = [
-    {
-      label: "Codex default",
-      selected: activeEffort === null,
-      onClick: () => {
-        input.resetReasoningEffortToConfig();
-      },
+  const effortChoices: ChatPanelComposerRuntimeChoice[] = supportedReasoningEfforts(input.snapshot, config).map((effort) => ({
+    label: effort,
+    selected: activeEffort === effort,
+    onClick: () => {
+      input.requestReasoningEffort(effort);
     },
-    ...supportedReasoningEfforts(input.snapshot, config).map((effort) => ({
-      label: effort,
-      selected: activeEffort === effort,
-      onClick: () => {
-        input.requestReasoningEffort(effort);
-      },
-    })),
-  ];
+  }));
 
   return { modelChoices, effortChoices };
 }

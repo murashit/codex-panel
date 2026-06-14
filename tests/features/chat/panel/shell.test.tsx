@@ -450,7 +450,6 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): Cha
       runtime: {
         requestModel: async () => undefined,
         requestReasoningEffort: async () => undefined,
-        resetReasoningEffortToConfig: async () => undefined,
       },
     },
   };
