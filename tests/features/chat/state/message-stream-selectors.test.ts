@@ -5,7 +5,6 @@ import {
   initialChatMessageStreamState,
   messageStreamRollbackCandidate,
   messageStreamTurnsAfterTurnId,
-  messageStreamTurnIds,
   messageStreamWithActiveTurnItems,
 } from "../../../../src/features/chat/application/state/message-stream";
 
@@ -13,7 +12,6 @@ describe("message stream selectors", () => {
   it("counts turns after a turn id from message stream state", () => {
     const state = initialChatMessageStreamState(items());
 
-    expect(messageStreamTurnIds(state)).toEqual(["turn-1", "turn-2", "turn-3"]);
     expect(messageStreamTurnsAfterTurnId(state, "turn-1")).toBe(2);
     expect(messageStreamTurnsAfterTurnId(state, "turn-2")).toBe(1);
     expect(messageStreamTurnsAfterTurnId(state, "turn-3")).toBe(0);
@@ -23,7 +21,6 @@ describe("message stream selectors", () => {
   it("includes the active segment when counting turns", () => {
     const state = messageStreamWithActiveTurnItems(initialChatMessageStreamState(items()), "turn-3", items());
 
-    expect(messageStreamTurnIds(state)).toEqual(["turn-1", "turn-2", "turn-3"]);
     expect(messageStreamTurnsAfterTurnId(state, "turn-2")).toBe(1);
   });
 

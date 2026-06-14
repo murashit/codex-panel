@@ -8,7 +8,7 @@ import type { ChatRuntimeState } from "../../domain/runtime/state";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { ActiveThreadResumedAction } from "../state/actions";
 
-export interface ResumedThreadActionParams {
+interface ResumedThreadActionParams {
   response: ThreadActivationSnapshot;
   listedThreads?: readonly Thread[];
   items?: readonly MessageStreamItem[];
@@ -64,7 +64,7 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
   });
 }
 
-export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
+function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
   const { response } = params;
   return {
     type: "active-thread/resumed",

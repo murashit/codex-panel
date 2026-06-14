@@ -1,12 +1,5 @@
-import { normalizeProposedPlanMarkdown } from "./format/proposed-plan";
-import { isAssistantAuthoredMessage } from "./selectors";
 import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "./semantics";
-import {
-  streamedItemOutputMessageStreamItem,
-  streamedTextMessageStreamItem,
-  streamedToolOutputMessageStreamItem,
-} from "./factories/streaming-items";
-import type { AssistantAuthoredMessageStreamItem, MessageStreamFileChange, MessageStreamItem, MessageStreamItemKind } from "./items";
+import type { MessageStreamFileChange, MessageStreamItem } from "./items";
 
 export function upsertMessageStreamItemById(items: readonly MessageStreamItem[], next: MessageStreamItem): MessageStreamItem[] {
   const index = items.findIndex((item) => item.id === next.id);
@@ -35,45 +28,6 @@ function mergeChanges(previous: MessageStreamItem, next: MessageStreamItem): Mes
   return nextChanges && nextChanges.length > 0 ? nextChanges : previousChanges;
 }
 
-export function appendAssistantDelta(
-  items: readonly MessageStreamItem[],
-  sourceItemId: string,
-  turnId: string,
-  delta: string,
-): MessageStreamItem[] {
-  const index = items.findIndex(
-    (item) => item.sourceItemId === sourceItemId && item.kind === "message" && item.messageKind === "assistantResponse",
-  );
-  if (index !== -1) {
-    return items.map((item, itemIndex) =>
-      itemIndex === index && item.kind === "message" && item.messageKind === "assistantResponse"
-        ? {
-            ...item,
-            text: `${item.text}${delta}`,
-            copyText: `${item.text}${delta}`,
-            turnId: item.turnId ?? turnId,
-            messageState: "streaming",
-          }
-        : item,
-    );
-  }
-  return [
-    ...items,
-    {
-      id: sourceItemId,
-      kind: "message",
-      messageKind: "assistantResponse",
-      role: "assistant",
-      text: delta,
-      copyText: delta,
-      turnId,
-      sourceItemId,
-      provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId },
-      messageState: "streaming",
-    },
-  ];
-}
-
 export function completeReasoningItems(items: readonly MessageStreamItem[], turnId: string): MessageStreamItem[] {
   return items.map((item) =>
     item.kind === "reasoning" && item.turnId === turnId
@@ -84,103 +38,6 @@ export function completeReasoningItems(items: readonly MessageStreamItem[], turn
         }
       : item,
   );
-}
-
-export function appendPlanDelta(
-  items: readonly MessageStreamItem[],
-  sourceItemId: string,
-  turnId: string,
-  delta: string,
-): MessageStreamItem[] {
-  const index = items.findIndex((item) => item.sourceItemId === sourceItemId && isAssistantAuthoredMessage(item));
-  if (index !== -1) {
-    return items.map((item, itemIndex) =>
-      itemIndex === index && isAssistantAuthoredMessage(item) ? appendPlanDeltaToMessage(item, turnId, delta) : item,
-    );
-  }
-  const text = normalizeProposedPlanMarkdown(delta);
-  return [
-    ...items,
-    {
-      id: sourceItemId,
-      kind: "message",
-      messageKind: "proposedPlan",
-      role: "assistant",
-      text,
-      copyText: text,
-      turnId,
-      sourceItemId,
-      provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId },
-      messageState: "streaming",
-    },
-  ];
-}
-
-function appendPlanDeltaToMessage(item: AssistantAuthoredMessageStreamItem, turnId: string, delta: string): MessageStreamItem {
-  const text = normalizeProposedPlanMarkdown(`${item.text}${delta}`);
-  return {
-    ...item,
-    messageKind: "proposedPlan",
-    text,
-    copyText: text,
-    turnId: item.turnId ?? turnId,
-    messageState: "streaming",
-  };
-}
-
-export function appendItemText(
-  items: readonly MessageStreamItem[],
-  sourceItemId: string,
-  turnId: string,
-  label: string,
-  delta: string,
-  kind: Extract<MessageStreamItemKind, "tool" | "hook" | "reasoning"> = "tool",
-): MessageStreamItem[] {
-  const index = items.findIndex((item) => item.sourceItemId === sourceItemId);
-  if (index !== -1) {
-    return items.map((item, itemIndex) => (itemIndex === index ? { ...item, text: `${"text" in item ? item.text : ""}${delta}` } : item));
-  }
-  return [...items, streamedTextMessageStreamItem({ id: sourceItemId, kind, label, delta, turnId })];
-}
-
-export function appendToolOutput(
-  items: readonly MessageStreamItem[],
-  sourceItemId: string,
-  turnId: string,
-  delta: string,
-  fallbackLabel: string,
-): MessageStreamItem[] {
-  const index = items.findIndex((item) => item.sourceItemId === sourceItemId);
-  if (index !== -1) {
-    return items.map((item, itemIndex) =>
-      itemIndex === index && (item.kind === "tool" || item.kind === "hook" || item.kind === "reasoning")
-        ? { ...item, output: `${item.output ?? ""}${delta}` }
-        : item,
-    );
-  }
-  return [...items, streamedToolOutputMessageStreamItem({ id: sourceItemId, turnId, output: delta, fallbackLabel })];
-}
-
-export function appendItemOutput(
-  items: readonly MessageStreamItem[],
-  sourceItemId: string,
-  turnId: string,
-  delta: string,
-  kind: "command" | "fileChange",
-  fallbackText: string,
-): MessageStreamItem[] {
-  const index = items.findIndex((item) => item.sourceItemId === sourceItemId);
-  if (index !== -1) {
-    return items.map((item, itemIndex) =>
-      itemIndex === index && (item.kind === "command" || item.kind === "fileChange")
-        ? { ...item, output: `${item.output ?? ""}${delta}` }
-        : item,
-    );
-  }
-  return [
-    ...items,
-    streamedItemOutputMessageStreamItem({ id: sourceItemId, kind, turnId, output: delta, fallbackText }),
-  ] as MessageStreamItem[];
 }
 
 export function attachHookRunsToTurn(

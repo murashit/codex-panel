@@ -1,18 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  parseRolloutTokenUsageJsonl,
-  recoverRolloutTokenUsage,
-  ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES,
-  ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS,
-} from "../../src/app-server/services/rollout-token-usage";
+import { recoverRolloutTokenUsage } from "../../src/app-server/services/rollout-token-usage";
 
 describe("rollout token usage recovery", () => {
-  it("parses the last valid token_count event", () => {
+  it("parses the last valid token_count event", async () => {
     const first = tokenCountLine({ input: 100, total: 120, context: 1000 });
     const second = tokenCountLine({ input: 250, total: 300, context: 2000 });
 
-    expect(parseRolloutTokenUsageJsonl(["not json", first, '{"type":"response_item","payload":{}}', second, ""].join("\n"))).toEqual({
+    const readFileBase64 = vi
+      .fn()
+      .mockResolvedValue(btoa(["not json", first, '{"type":"response_item","payload":{}}', second, ""].join("\n")));
+
+    await expect(recoverRolloutTokenUsage("/tmp/rollout.jsonl", readFileBase64)).resolves.toEqual({
       last: {
         inputTokens: 250,
         cachedInputTokens: 25,
@@ -31,24 +30,27 @@ describe("rollout token usage recovery", () => {
     });
   });
 
-  it("returns null for missing or invalid token usage shapes", () => {
-    expect(parseRolloutTokenUsageJsonl("")).toBeNull();
-    expect(parseRolloutTokenUsageJsonl('{"type":"event_msg","payload":{"type":"agent_message"}}')).toBeNull();
-    expect(
-      parseRolloutTokenUsageJsonl(
-        JSON.stringify({
-          type: "event_msg",
-          payload: {
-            type: "token_count",
-            info: {
-              last_token_usage: { input_tokens: -1 },
-              total_token_usage: {},
-              model_context_window: 1000,
-            },
-          },
-        }),
+  it("returns null for missing or invalid token usage shapes", async () => {
+    const invalidShape = JSON.stringify({
+      type: "event_msg",
+      payload: {
+        type: "token_count",
+        info: {
+          last_token_usage: { input_tokens: -1 },
+          total_token_usage: {},
+          model_context_window: 1000,
+        },
+      },
+    });
+
+    await expect(recoverRolloutTokenUsage("/tmp/empty.jsonl", vi.fn().mockResolvedValue(btoa("")))).resolves.toBeNull();
+    await expect(
+      recoverRolloutTokenUsage(
+        "/tmp/message.jsonl",
+        vi.fn().mockResolvedValue(btoa('{"type":"event_msg","payload":{"type":"agent_message"}}')),
       ),
-    ).toBeNull();
+    ).resolves.toBeNull();
+    await expect(recoverRolloutTokenUsage("/tmp/invalid.jsonl", vi.fn().mockResolvedValue(btoa(invalidShape)))).resolves.toBeNull();
   });
 
   it("recovers usage from an absolute rollout path through app-server file reads", async () => {
@@ -58,7 +60,7 @@ describe("rollout token usage recovery", () => {
       last: { inputTokens: 42, totalTokens: 50 },
       modelContextWindow: 1000,
     });
-    expect(readFileBase64).toHaveBeenCalledWith("/tmp/rollout.jsonl", { timeoutMs: ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS });
+    expect(readFileBase64).toHaveBeenCalledWith("/tmp/rollout.jsonl", { timeoutMs: 2_000 });
   });
 
   it("skips relative paths, read failures, invalid base64, and oversized payloads", async () => {
@@ -69,7 +71,7 @@ describe("rollout token usage recovery", () => {
     await expect(recoverRolloutTokenUsage("/tmp/rollout.jsonl", vi.fn().mockRejectedValue(new Error("missing")))).resolves.toBeNull();
     await expect(recoverRolloutTokenUsage("/tmp/rollout.jsonl", vi.fn().mockResolvedValue("%%%"))).resolves.toBeNull();
     await expect(
-      recoverRolloutTokenUsage("/tmp/rollout.jsonl", vi.fn().mockResolvedValue("a".repeat(ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES + 1))),
+      recoverRolloutTokenUsage("/tmp/rollout.jsonl", vi.fn().mockResolvedValue("a".repeat(12 * 1024 * 1024 + 1))),
     ).resolves.toBeNull();
   });
 });

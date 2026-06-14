@@ -1,5 +1,5 @@
-import type { AssistantAuthoredMessageStreamItem, MessageStreamItem } from "./items";
-import { messageStreamIsProposedPlan, messageStreamSemanticClassifications } from "./semantics";
+import type { MessageStreamItem } from "./items";
+import { messageStreamSemanticClassifications } from "./semantics";
 
 export interface ForkCandidate {
   itemId: string;
@@ -20,16 +20,8 @@ export function forkCandidatesFromItems(items: readonly MessageStreamItem[]): re
   return [...turnOutcomeItemsByTurn.values()];
 }
 
-export function latestProposedPlanFromItems(items: readonly MessageStreamItem[]): MessageStreamItem | null {
-  return [...messageStreamSemanticClassifications(items)].reverse().find(messageStreamIsProposedPlan)?.item ?? null;
-}
-
 export function latestImplementablePlanFromItems(items: readonly MessageStreamItem[]): MessageStreamItem | null {
   return [...messageStreamSemanticClassifications(items)].reverse().find((item) => item.actions.canImplementPlan)?.item ?? null;
-}
-
-export function isAssistantAuthoredMessage(item: MessageStreamItem): item is AssistantAuthoredMessageStreamItem {
-  return item.kind === "message" && (item.messageKind === "assistantResponse" || item.messageKind === "proposedPlan");
 }
 
 export function isCompletedTurnOutcomeMessage(item: MessageStreamItem): boolean {

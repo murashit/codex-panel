@@ -5,10 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ChatConnectionWorkTracker,
   ChatResumeWorkTracker,
-  transitionChatConnectionLifecycle,
-  transitionChatResumeLifecycle,
   transitionRestoredThreadLifecycle,
-  type ActiveChatConnection,
 } from "../../../src/features/chat/application/lifecycle";
 import { createChatViewDeferredTasks } from "../../../src/features/chat/host/lifecycle";
 
@@ -66,22 +63,18 @@ describe("chat view lifecycle transitions", () => {
   it("keeps stale connection completions from clearing the active connection", () => {
     const firstPromise = Promise.resolve();
     const secondPromise = Promise.resolve();
-    const first: ActiveChatConnection = { kind: "connecting", promise: firstPromise };
-    const second: ActiveChatConnection = { kind: "connecting", promise: secondPromise };
-    const state = transitionChatConnectionLifecycle({ kind: "idle" }, { type: "started", connection: second });
+    const tracker = new ChatConnectionWorkTracker();
+    const first = tracker.begin();
+    first.promise = firstPromise;
+    const second = tracker.begin();
+    second.promise = secondPromise;
 
-    expect(transitionChatConnectionLifecycle(state, { type: "finished", connection: first, promise: firstPromise })).toBe(state);
-    expect(transitionChatConnectionLifecycle(state, { type: "finished", connection: second, promise: firstPromise })).toBe(state);
-    expect(transitionChatConnectionLifecycle(state, { type: "finished", connection: second, promise: secondPromise })).toEqual({
-      kind: "idle",
-    });
-  });
-
-  it("invalidates resume work explicitly", () => {
-    const resume = { kind: "resuming" as const, threadId: "thread" };
-
-    expect(transitionChatResumeLifecycle({ kind: "idle" }, { type: "started", resume })).toBe(resume);
-    expect(transitionChatResumeLifecycle(resume, { type: "invalidated" })).toEqual({ kind: "idle" });
+    tracker.finish(first, firstPromise);
+    expect(tracker.active()).toBe(second);
+    tracker.finish(second, firstPromise);
+    expect(tracker.active()).toBe(second);
+    tracker.finish(second, secondPromise);
+    expect(tracker.active()).toBeNull();
   });
 
   it("clears restored-thread loading only for the active loading promise", () => {

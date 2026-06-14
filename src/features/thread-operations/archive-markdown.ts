@@ -55,7 +55,7 @@ export async function exportArchivedThreadMarkdown(
   return { path };
 }
 
-export function markdownFromThread(thread: ArchiveThreadInput, exportedAt = new Date(), settings?: Partial<ArchiveExportSettings>): string {
+function markdownFromThread(thread: ArchiveThreadInput, exportedAt = new Date(), settings?: Partial<ArchiveExportSettings>): string {
   const title = exportThreadTitle(thread);
   const tags = normalizedArchiveTags(settings?.archiveExportTags ?? "");
   const lines = [
@@ -74,7 +74,7 @@ export function markdownFromThread(thread: ArchiveThreadInput, exportedAt = new 
   return settings?.vaultPath ? normalizeExportedMarkdownLinks(markdown, settings.vaultPath) : markdown;
 }
 
-export function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string): string {
+function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string): string {
   const lines = markdown.split("\n");
   let inFence = false;
   return lines
@@ -105,7 +105,7 @@ function normalizeExportedMarkdownLinksInLine(line: string, vaultPath: string): 
   return output;
 }
 
-export function normalizedArchiveTags(value: string): string[] {
+function normalizedArchiveTags(value: string): string[] {
   const seen = new Set<string>();
   const tags: string[] = [];
   for (const rawTag of value.split(",")) {

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
-  localUserMessageItem,
   localUserMessageItemFromInput,
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
@@ -11,16 +10,6 @@ import {
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 describe("optimistic turn start helpers", () => {
-  it("builds local user messages without sharing mentioned file arrays", () => {
-    const mentionedFiles = [{ name: "Note", path: "Note.md" }];
-    const item = localUserMessageItem({ id: "local", text: "hello", mentionedFiles });
-
-    mentionedFiles.push({ name: "Other", path: "Other.md" });
-
-    expect(item).toMatchObject({ id: "local", kind: "message", messageKind: "user", role: "user", text: "hello", copyText: "hello" });
-    expect(item.mentionedFiles).toEqual([{ name: "Note", path: "Note.md" }]);
-  });
-
   it("builds optimistic turn starts from immutable input snapshots", () => {
     const input = [
       { type: "text" as const, text: "hello [[Note]]" },
@@ -108,7 +97,7 @@ describe("optimistic turn start helpers", () => {
 
   it("attaches acknowledged turn ids and pending hook runs immutably", () => {
     const items: MessageStreamItem[] = [
-      localUserMessageItem({ id: "local-user", text: "hello" }),
+      localUserMessage("local-user", "hello"),
       hookItem("hook-1"),
       { id: "assistant", kind: "message", role: "assistant", text: "working", messageKind: "assistantResponse", messageState: "completed" },
     ];
@@ -128,7 +117,7 @@ describe("optimistic turn start helpers", () => {
   });
 
   it("removes optimistic user and pending hook items after start failure", () => {
-    const items: MessageStreamItem[] = [localUserMessageItem({ id: "local-user", text: "hello" }), hookItem("hook-1"), hookItem("keep")];
+    const items: MessageStreamItem[] = [localUserMessage("local-user", "hello"), hookItem("hook-1"), hookItem("keep")];
 
     expect(
       cleanupFailedTurnStart({
@@ -140,6 +129,10 @@ describe("optimistic turn start helpers", () => {
     expect(items.map((item) => item.id)).toEqual(["local-user", "hook-1", "keep"]);
   });
 });
+
+function localUserMessage(id: string, text: string): MessageStreamItem {
+  return localUserMessageItemFromInput({ id, text, codexInput: [{ type: "text", text }] });
+}
 
 function hookItem(id: string): MessageStreamItem {
   return {

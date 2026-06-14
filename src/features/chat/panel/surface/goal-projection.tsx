@@ -6,7 +6,7 @@ import { GoalPanel } from "../../ui/goal";
 import { goalStateFromShellState, useChatPanelShellState, type ChatPanelGoalShellState } from "../shell-state";
 import type { ChatPanelGoalSurface } from "./model";
 
-export interface ChatPanelGoalProjection {
+interface ChatPanelGoalProjection {
   goal: ChatPanelGoalShellState["activeThread"]["goal"];
   goalThreadId: string | null;
   editor: GoalPanelEditorState;
@@ -18,7 +18,7 @@ export function ChatPanelGoal({ surface }: { surface: ChatPanelGoalSurface }): U
   return h(GoalPanel, props);
 }
 
-export function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPanelGoalProjection {
+function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPanelGoalProjection {
   const goal = state.activeThread.goal;
   const goalThreadId = goal?.threadId ?? null;
   const goalEditor = state.ui.goalEditor;
@@ -36,7 +36,7 @@ export function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPan
   };
 }
 
-export function chatPanelGoalViewModel(
+function chatPanelGoalViewModel(
   surface: ChatPanelGoalSurface,
   state: ChatPanelGoalShellState,
 ): {

@@ -155,7 +155,7 @@ function createChatPanelSessionDeferredRef<T>(name: string): ChatPanelSessionDef
   };
 }
 
-export interface ChatPanelWarmupHost {
+interface ChatPanelWarmupHost {
   deferredTasks: ChatViewDeferredTasks;
   opened: () => boolean;
   closing: () => boolean;
@@ -163,7 +163,7 @@ export interface ChatPanelWarmupHost {
   ensureConnected: () => Promise<void>;
 }
 
-export function scheduleChatPanelWarmup(host: ChatPanelWarmupHost): void {
+function scheduleChatPanelWarmup(host: ChatPanelWarmupHost): void {
   const shouldWarmup = (): boolean => host.opened() && !host.connected();
 
   if (!shouldWarmup()) return;
@@ -174,7 +174,7 @@ export function scheduleChatPanelWarmup(host: ChatPanelWarmupHost): void {
   });
 }
 
-export function codexPanelDisplayTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {
+function codexPanelDisplayTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {
   if (!activeThreadId) return "Codex";
 
   const thread = threads.find((item) => item.id === activeThreadId);

@@ -7,7 +7,7 @@ import {
   upsertMcpServerDiagnostic,
   upsertMcpServerStatusDiagnostics,
 } from "../../../src/domain/server/diagnostics";
-import { connectionDiagnosticSections, hasDiagnosticIssue } from "../../../src/features/chat/application/connection/diagnostics-display";
+import { connectionDiagnosticSections } from "../../../src/features/chat/application/connection/diagnostics-display";
 
 describe("connection diagnostics", () => {
   it("formats base rows, capability probes, and MCP issues for /doctor", () => {
@@ -57,34 +57,6 @@ describe("connection diagnostics", () => {
     expect(sections.find((section) => section.title === "MCP issues")?.rows).toEqual(
       expect.arrayContaining([expect.objectContaining({ label: "mcp github", value: "failed - missing token" })]),
     );
-  });
-
-  it("detects diagnostic issues without treating unknown probes as issues", () => {
-    expect(hasDiagnosticIssue(createServerDiagnostics())).toBe(false);
-
-    const failed = createServerDiagnostics();
-    failed.probes["model/list"] = diagnosticProbeError("model/list", new Error("network down"), 1);
-    expect(hasDiagnosticIssue(failed)).toBe(true);
-  });
-
-  it("detects MCP diagnostic issues", () => {
-    let authIssue = upsertMcpServerDiagnostic(createServerDiagnostics(), {
-      name: "docs",
-      startupStatus: "ready",
-      authStatus: "notLoggedIn",
-      toolCount: 0,
-      message: null,
-    });
-    expect(hasDiagnosticIssue(authIssue)).toBe(true);
-
-    authIssue = upsertMcpServerDiagnostic(authIssue, {
-      name: "github",
-      startupStatus: "failed",
-      authStatus: null,
-      toolCount: null,
-      message: "missing token",
-    });
-    expect(hasDiagnosticIssue(authIssue)).toBe(true);
   });
 
   it("maps app-server MCP status snapshots into diagnostics", () => {

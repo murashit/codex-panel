@@ -14,7 +14,7 @@ export type WikiLinkMentionResolver = (target: string) => { name: string; path: 
 const WIKILINK_PATTERN = /\[\[([^\]\n]+?)\]\]/g;
 const SKILL_REFERENCE_PATTERN = /(^|[\s([{])\$([^\s\])}.,;!?]{1,120})(?=$|[\s\])}.,;!?])/g;
 
-export function parsedWikiLinks(text: string): ParsedWikiLink[] {
+function parsedWikiLinks(text: string): ParsedWikiLink[] {
   const links: ParsedWikiLink[] = [];
   const seen = new Set<string>();
   for (const match of text.matchAll(WIKILINK_PATTERN)) {
@@ -29,10 +29,6 @@ export function parsedWikiLinks(text: string): ParsedWikiLink[] {
     links.push(link);
   }
   return links;
-}
-
-export function userInputWithWikiLinkMentions(text: string, resolveMention: WikiLinkMentionResolver) {
-  return userInputWithWikiLinkMentionsAndSkills(text, resolveMention, []);
 }
 
 export function userInputWithWikiLinkMentionsAndSkills(
@@ -63,7 +59,7 @@ export function userInputWithWikiLinkMentionsAndSkills(
   return codexTextInputWithMentions(text, mentions, resolvedSkills);
 }
 
-export function parsedSkillReferences(text: string): string[] {
+function parsedSkillReferences(text: string): string[] {
   const references: string[] = [];
   const seen = new Set<string>();
   for (const match of text.matchAll(SKILL_REFERENCE_PATTERN)) {

@@ -39,7 +39,7 @@ export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
   }
 }
 
-export function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {
+function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {
   const query = queryText.trim().toLowerCase();
   return [...threads]
     .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -70,7 +70,7 @@ export function threadPickerSuggestions(threads: readonly Thread[], queryText: s
     }));
 }
 
-export function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMode {
+function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMode {
   if (evt instanceof KeyboardEvent && (evt.metaKey || evt.ctrlKey)) return "available";
   return "current";
 }

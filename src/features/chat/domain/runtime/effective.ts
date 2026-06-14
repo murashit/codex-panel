@@ -55,7 +55,7 @@ export function fastModeActive(snapshot: RuntimeSnapshot, config: RuntimeConfigS
   return isFastServiceTier(currentServiceTier(snapshot, config), currentModelServiceTiers(snapshot, config));
 }
 
-export function isFastServiceTier(value: string | null | undefined, serviceTiers: ModelMetadata["serviceTiers"] = []): boolean {
+function isFastServiceTier(value: string | null | undefined, serviceTiers: ModelMetadata["serviceTiers"] = []): boolean {
   if (!value) return false;
   if (value === "fast") return true;
   if (serviceTiers.length === 0) return value === "priority";

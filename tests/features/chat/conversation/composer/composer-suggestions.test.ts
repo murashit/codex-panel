@@ -7,15 +7,18 @@ import {
   applyComposerSuggestionInsertion,
   composerSuggestionSignature,
   composerSuggestionNavigationDirection,
-  findWikiLinkSuggestions,
   nextComposerSuggestionIndex,
   parseSlashCommand,
 } from "../../../../../src/features/chat/application/composer/suggestions";
-import { userInputWithWikiLinkMentions } from "../../../../../src/features/chat/application/composer/wikilink-context";
+import { userInputWithWikiLinkMentionsAndSkills } from "../../../../../src/features/chat/application/composer/wikilink-context";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
+}
+
+function wikiLinkSuggestions(query: string, notes: Parameters<typeof activeComposerSuggestions>[1]) {
+  return activeComposerSuggestions(`[[${query}`, notes, []);
 }
 
 function thread(overrides: Partial<Thread> = {}): Thread {
@@ -128,20 +131,20 @@ describe("composer suggestions", () => {
   });
 
   it("ranks wikilinks with Obsidian fuzzy search and uses Obsidian linktext", () => {
-    const suggestions = findWikiLinkSuggestions("alp", 0, notes);
+    const suggestions = wikiLinkSuggestions("alp", notes);
     expect(suggestions[0]).toMatchObject({
       display: "Alpha",
       detail: "projects/Alpha.md",
       replacement: "[[projects/Alpha]]",
     });
-    expect(findWikiLinkSuggestions("btnt", 0, notes)[0]).toMatchObject({
+    expect(wikiLinkSuggestions("btnt", notes)[0]).toMatchObject({
       display: "Beta Note",
       replacement: "[[Beta Note]]",
     });
   });
 
   it("uses recent files only for empty wikilink suggestions", () => {
-    expect(findWikiLinkSuggestions("", 0, notes).map((suggestion) => suggestion.replacement)).toEqual([
+    expect(wikiLinkSuggestions("", notes).map((suggestion) => suggestion.replacement)).toEqual([
       "[[projects/Alpha]]",
       "[[thoughts/Alpha]]",
       "[[Assets/Diagram.png]]",
@@ -149,12 +152,12 @@ describe("composer suggestions", () => {
   });
 
   it("suggests non-markdown vault files when filtering wikilinks", () => {
-    expect(findWikiLinkSuggestions("projects", 0, notes)[0]).toMatchObject({
+    expect(wikiLinkSuggestions("projects", notes)[0]).toMatchObject({
       display: "Projects.base",
       detail: "Bases/Projects.base",
       replacement: "[[Bases/Projects.base]]",
     });
-    expect(findWikiLinkSuggestions("paper", 0, notes)[0]).toMatchObject({
+    expect(wikiLinkSuggestions("paper", notes)[0]).toMatchObject({
       display: "Paper.pdf",
       detail: "References/Paper.pdf",
       replacement: "[[References/Paper.pdf]]",
@@ -162,10 +165,12 @@ describe("composer suggestions", () => {
   });
 
   it("keeps non-markdown wikilink completions compatible with mention parsing", () => {
-    const suggestion = expectPresent(findWikiLinkSuggestions("diagram", 0, notes)[0]);
+    const suggestion = expectPresent(wikiLinkSuggestions("diagram", notes)[0]);
     const text = `Please inspect ${suggestion.replacement}`;
-    const input = userInputWithWikiLinkMentions(text, (target) =>
-      target === "Assets/Diagram.png" ? { name: "Diagram", path: "Assets/Diagram.png" } : null,
+    const input = userInputWithWikiLinkMentionsAndSkills(
+      text,
+      (target) => (target === "Assets/Diagram.png" ? { name: "Diagram", path: "Assets/Diagram.png" } : null),
+      [],
     );
 
     expect(suggestion).toMatchObject({

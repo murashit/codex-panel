@@ -3,45 +3,23 @@ import { describe, expect, it } from "vitest";
 import { collabAgentStateExecutionState } from "../../../../src/features/chat/domain/message-stream/agent-state";
 import { activeAgentRunSummary } from "../../../../src/features/chat/presentation/message-stream/agent-summary";
 import { messageStreamLayoutBlocks } from "../../../../src/features/chat/presentation/message-stream/layout";
-import {
-  appendAssistantDelta,
-  appendItemOutput,
-  appendItemText,
-  appendPlanDelta,
-  appendToolOutput,
-  upsertMessageStreamItemById,
-} from "../../../../src/features/chat/domain/message-stream/updates";
-import {
-  taskProgressMessageStreamItem,
-  taskProgressExecutionState,
-} from "../../../../src/features/chat/domain/message-stream/factories/task-progress";
+import { upsertMessageStreamItemById } from "../../../../src/features/chat/domain/message-stream/updates";
+import { taskProgressMessageStreamItem } from "../../../../src/features/chat/domain/message-stream/factories/task-progress";
 import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/domain/message-stream/format/proposed-plan";
 import { pathRelativeToRoot } from "../../../../src/features/chat/domain/message-stream/format/path-labels";
 import { permissionRows } from "../../../../src/features/chat/domain/message-stream/format/permission-rows";
 import {
-  autoReviewExecutionState,
   createAutoReviewResultItem,
   createReviewResultItem,
 } from "../../../../src/features/chat/app-server/mappers/message-stream/review-result-items";
 import {
-  commandExecutionState,
-  dynamicToolCallExecutionState,
-  mcpToolCallExecutionState,
-  patchApplyExecutionState,
-} from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
-import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
 } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
-import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
+import { referencedThreadPromptBundle } from "../../../../src/domain/threads/reference";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
-
-function expectPresent<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) throw new Error("Expected value to be present");
-  return value;
-}
 
 function commandItem(id: string, text: string, turnId: string): MessageStreamItem {
   return {
@@ -140,7 +118,7 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("hides persisted /refer context in displayed user messages", () => {
-    const text = referencedThreadPrompt(
+    const { prompt: text } = referencedThreadPromptBundle(
       { id: "thread-reference", name: "参照元", preview: "", archived: false, createdAt: 1, updatedAt: 1 } satisfies Thread,
       [
         { userText: "元の依頼", assistantText: "元の回答" },
@@ -232,38 +210,6 @@ describe("turn item conversion preserves app-server semantics", () => {
 
   it("normalizes proposed plan wrappers before markdown rendering", () => {
     expect(normalizeProposedPlanMarkdown("<proposed_plan>\n## Summary\n- Ship it\n</proposed_plan>")).toBe("## Summary\n- Ship it");
-  });
-
-  it("streams assistant deltas as markdown", () => {
-    const items = appendAssistantDelta([], "a1", "t1", "**Hello**");
-    const updated = appendAssistantDelta(items, "a1", "t1", "\n\n- world");
-    expect(updated).toMatchObject([
-      {
-        id: "a1",
-        kind: "message",
-        role: "assistant",
-        text: "**Hello**\n\n- world",
-        copyText: "**Hello**\n\n- world",
-        messageKind: "assistantResponse",
-        messageState: "streaming",
-      },
-    ]);
-  });
-
-  it("streams plan deltas as plain assistant text until completion", () => {
-    const items = appendPlanDelta([], "p1", "t1", "<proposed_plan>\n# Plan");
-    const updated = appendPlanDelta(items, "p1", "t1", "\n</proposed_plan>");
-    expect(updated).toMatchObject([
-      {
-        id: "p1",
-        kind: "message",
-        role: "assistant",
-        text: "# Plan",
-        copyText: "# Plan",
-        messageKind: "proposedPlan",
-        messageState: "streaming",
-      },
-    ]);
   });
 
   it("formats structured plan progress as task progress", () => {
@@ -924,56 +870,6 @@ describe("permission detail rows", () => {
   });
 });
 
-describe("streaming updates target item identity without mutating history", () => {
-  it("upserts assistant deltas by item id, not by last position", () => {
-    const items: MessageStreamItem[] = [
-      {
-        id: "a1",
-        sourceItemId: "a1",
-        kind: "message",
-        role: "assistant",
-        text: "hello",
-        messageKind: "assistantResponse",
-        messageState: "completed",
-      },
-      { id: "tool1", sourceItemId: "tool1", kind: "tool", role: "tool", text: "tool" },
-    ];
-
-    const updated = appendAssistantDelta(items, "a1", "t1", " world");
-    expect(expectPresent(updated[0])).toMatchObject({ text: "hello world" });
-    expect(expectPresent(updated[0])).toMatchObject({ copyText: "hello world" });
-    expect(updated).toHaveLength(2);
-    expect(expectPresent(items[0])).toMatchObject({ text: "hello" });
-    expect(updated).not.toBe(items);
-  });
-
-  it("appends tool text and output without mutating existing stream items", () => {
-    const tool: MessageStreamItem = { id: "tool1", sourceItemId: "tool1", kind: "tool", role: "tool", text: "plan: " };
-    const command: MessageStreamItem = {
-      id: "cmd1",
-      sourceItemId: "cmd1",
-      kind: "command",
-      role: "tool",
-      commandAction: "command",
-      commandTarget: { kind: "command", commandLine: "Command running" },
-      command: "npm test",
-      cwd: "/vault",
-      status: "running",
-      output: "one",
-    };
-
-    const withText = appendItemText([tool], "tool1", "t1", "plan", "two");
-    const withOutput = appendItemOutput([command], "cmd1", "t1", "two", "command", "Command running");
-    const withToolOutput = appendToolOutput([tool], "tool1", "t1", "progress", "mcp progress");
-
-    expect(withText[0]).toMatchObject({ text: "plan: two" });
-    expect(withOutput[0]).toMatchObject({ output: "onetwo" });
-    expect(withToolOutput[0]).toMatchObject({ text: "plan: ", output: "progress" });
-    expect(tool.text).toBe("plan: ");
-    expect(command).toMatchObject({ output: "one" });
-  });
-});
-
 describe("display block grouping keeps work logs subordinate to conversation messages", () => {
   it("groups completed turn activities before the final assistant message", () => {
     const items: MessageStreamItem[] = [
@@ -1512,50 +1408,47 @@ describe("workspace path summaries stay readable without hiding audit paths", ()
 
 describe("execution state uses typed status adapters before rendered text", () => {
   it("detects failed command state", () => {
-    expect(commandExecutionState("failed", 1)).toBe("failed");
+    expect(commandExecutionItem({ status: "failed", exitCode: 1 })).toMatchObject({ executionState: "failed" });
   });
 
   it("does not infer command failure from the command text", () => {
-    expect(commandExecutionState("completed", 0)).toBe("completed");
+    expect(commandExecutionItem({ command: "echo failed", status: "completed", exitCode: 0 })).toMatchObject({
+      executionState: "completed",
+    });
   });
 
   it("uses typed command status before command text", () => {
-    expect(commandExecutionState("inProgress")).toBe("running");
+    expect(commandExecutionItem({ command: "echo completed", status: "inProgress" })).toMatchObject({ executionState: "running" });
   });
 
   it("keeps command exit code precedence as a Panel display rule", () => {
-    expect(commandExecutionState("completed", 1)).toBe("failed");
-    expect(commandExecutionState("unknown", 0)).toBe("completed");
+    expect(commandExecutionItem({ status: "completed", exitCode: 1 })).toMatchObject({ executionState: "failed" });
+    expect(commandExecutionItem({ status: "unknown", exitCode: 0 })).toMatchObject({ executionState: "completed" });
   });
 
   it("maps app-server status strings into Panel execution states", () => {
-    expect(patchApplyExecutionState("declined")).toBe("failed");
-    expect(mcpToolCallExecutionState("completed")).toBe("completed");
-    expect(taskProgressExecutionState("pending")).toBe("running");
-    expect(autoReviewExecutionState("approved")).toBe("completed");
-    expect(autoReviewExecutionState("timedOut")).toBe("failed");
+    expect(fileChangeStreamItem({ status: "declined" })).toMatchObject({ executionState: "failed" });
+    expect(mcpToolCallItem({ status: "completed" })).toMatchObject({ executionState: "completed" });
+    expect(
+      taskProgressMessageStreamItem("turn", "Planning", [
+        { step: "Read context", status: "pending" },
+        { step: "Patch code", status: "completed" },
+      ]),
+    ).toMatchObject({ executionState: "running" });
+    expect(autoReviewItem("approved")).toMatchObject({ executionState: "completed" });
+    expect(autoReviewItem("timedOut")).toMatchObject({ executionState: "failed" });
     expect(collabAgentStateExecutionState("inProgress")).toBe("running");
     expect(collabAgentStateExecutionState("failed")).toBe("failed");
   });
 
   it("uses dynamic tool success as a display fallback", () => {
-    expect(dynamicToolCallExecutionState("unknown", true)).toBe("completed");
-    expect(dynamicToolCallExecutionState("completed", false)).toBe("failed");
+    expect(dynamicToolCallItem({ status: "unknown", success: true })).toMatchObject({ executionState: "completed" });
+    expect(dynamicToolCallItem({ status: "completed", success: false })).toMatchObject({ executionState: "failed" });
   });
 
   it("does not infer unknown status strings with broad matching", () => {
-    expect(patchApplyExecutionState("done_with_errors")).toBeNull();
-    const item: MessageStreamItem = {
-      id: "c1",
-      kind: "command",
-      role: "tool",
-      commandAction: "command",
-      commandTarget: { kind: "command", commandLine: "Command" },
-      command: "npm test",
-      cwd: "/vault",
-      status: "done_with_errors",
-    };
-    expect(item.executionState ?? null).toBeNull();
+    expect(fileChangeStreamItem({ status: "done_with_errors" })).toMatchObject({ executionState: null });
+    expect(commandExecutionItem({ status: "done_with_errors", exitCode: null })).toMatchObject({ executionState: null });
   });
 
   it("does not overwrite streamed output with an empty completed item", () => {
@@ -1587,3 +1480,92 @@ describe("execution state uses typed status adapters before rendered text", () =
     expect(upsertMessageStreamItemById([streamed], completed)[0]).toMatchObject({ output: "partial output", status: "completed" });
   });
 });
+
+type CommandExecutionOverrides = Omit<Partial<Extract<TurnItem, { type: "commandExecution" }>>, "status"> & { status?: string };
+type FileChangeOverrides = Omit<Partial<Extract<TurnItem, { type: "fileChange" }>>, "status"> & { status?: string };
+type McpToolCallOverrides = Omit<Partial<Extract<TurnItem, { type: "mcpToolCall" }>>, "status"> & { status?: string };
+type DynamicToolCallOverrides = Omit<Partial<Extract<TurnItem, { type: "dynamicToolCall" }>>, "status"> & { status?: string };
+
+function commandExecutionItem(overrides: CommandExecutionOverrides = {}): MessageStreamItem | null {
+  return messageStreamItemFromTurnItem(
+    {
+      type: "commandExecution",
+      id: "command-1",
+      command: "npm test",
+      cwd: "/vault",
+      processId: null,
+      source: "agent",
+      status: "completed",
+      commandActions: [{ type: "unknown", command: "npm test" }],
+      aggregatedOutput: null,
+      exitCode: null,
+      durationMs: null,
+      ...overrides,
+    } as Extract<TurnItem, { type: "commandExecution" }>,
+    "turn",
+  );
+}
+
+function fileChangeStreamItem(overrides: FileChangeOverrides = {}): MessageStreamItem | null {
+  return messageStreamItemFromTurnItem(
+    {
+      type: "fileChange",
+      id: "patch-1",
+      status: "completed",
+      changes: [{ path: "src/main.ts", kind: { type: "update", move_path: null }, diff: "@@\n-old\n+new" }],
+      ...overrides,
+    } as Extract<TurnItem, { type: "fileChange" }>,
+    "turn",
+  );
+}
+
+function mcpToolCallItem(overrides: McpToolCallOverrides = {}): MessageStreamItem | null {
+  return messageStreamItemFromTurnItem(
+    {
+      type: "mcpToolCall",
+      id: "mcp-1",
+      server: "github",
+      tool: "pull_request_read",
+      status: "completed",
+      arguments: { id: 123 },
+      pluginId: null,
+      result: null,
+      error: null,
+      durationMs: null,
+      ...overrides,
+    } as Extract<TurnItem, { type: "mcpToolCall" }>,
+    "turn",
+  );
+}
+
+function dynamicToolCallItem(overrides: DynamicToolCallOverrides = {}): MessageStreamItem | null {
+  return messageStreamItemFromTurnItem(
+    {
+      type: "dynamicToolCall",
+      id: "dynamic-1",
+      namespace: "web",
+      tool: "open",
+      arguments: { url: "https://example.com" },
+      status: "completed",
+      contentItems: null,
+      success: true,
+      durationMs: null,
+      ...overrides,
+    } as Extract<TurnItem, { type: "dynamicToolCall" }>,
+    "turn",
+  );
+}
+
+function autoReviewItem(status: string): MessageStreamItem {
+  return createAutoReviewResultItem({
+    threadId: "thread",
+    turnId: "turn",
+    startedAtMs: 1,
+    completedAtMs: 2,
+    reviewId: `review-${status}`,
+    targetItemId: "target-1",
+    decisionSource: "agent",
+    review: { status, riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
+    action: { type: "applyPatch", cwd: "/vault", files: ["/vault/src/main.ts"] },
+  });
+}

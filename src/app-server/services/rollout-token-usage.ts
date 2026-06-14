@@ -1,7 +1,7 @@
 import type { ThreadTokenUsage, TokenUsageBreakdown } from "../../domain/runtime/metrics";
 
-export const ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS = 2_000;
-export const ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES = 12 * 1024 * 1024;
+const ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS = 2_000;
+const ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES = 12 * 1024 * 1024;
 
 export type RolloutReadFileBase64 = (path: string, options: { timeoutMs: number }) => Promise<string>;
 
@@ -23,7 +23,7 @@ export async function recoverRolloutTokenUsage(
   return text ? parseRolloutTokenUsageJsonl(text) : null;
 }
 
-export function parseRolloutTokenUsageJsonl(text: string): ThreadTokenUsage | null {
+function parseRolloutTokenUsageJsonl(text: string): ThreadTokenUsage | null {
   const lines = text.split(/\r?\n/);
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const line = lines[index]?.trim();

@@ -235,7 +235,7 @@ export function routeServerNotification(notification: ServerNotification, scope:
   return { kind: "unhandled", notification };
 }
 
-export function isMessageInActiveScope(message: ServerNotification | ServerRequest, scope: ActiveRouteScope): boolean {
+function isMessageInActiveScope(message: ServerNotification | ServerRequest, scope: ActiveRouteScope): boolean {
   const threadId = messageThreadId(message);
   // Scope identifiers are filters only when both the notification and the
   // active panel have one. Thread catalog and idle-thread notifications often
@@ -248,13 +248,13 @@ export function isMessageInActiveScope(message: ServerNotification | ServerReque
   return true;
 }
 
-export function messageThreadId(message: ServerNotification | ServerRequest): string | null {
+function messageThreadId(message: ServerNotification | ServerRequest): string | null {
   if (isServerRequest(message)) return serverRequestScope(message).threadId;
   if (isServerNotification(message)) return serverNotificationScope(message).threadId;
   return fallbackMessageScope(message).threadId;
 }
 
-export function messageTurnId(message: ServerNotification | ServerRequest): string | null {
+function messageTurnId(message: ServerNotification | ServerRequest): string | null {
   if (isServerRequest(message)) return serverRequestScope(message).turnId;
   if (isServerNotification(message)) return serverNotificationScope(message).turnId;
   return fallbackMessageScope(message).turnId;

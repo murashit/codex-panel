@@ -112,7 +112,7 @@ function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandidate[])
   return findWikiLinkSuggestions(queryText, start, notes);
 }
 
-export function findWikiLinkSuggestions(queryText: string, start: number, notes: NoteCandidate[]): ComposerSuggestion[] {
+function findWikiLinkSuggestions(queryText: string, start: number, notes: NoteCandidate[]): ComposerSuggestion[] {
   const headingCompletion = wikiLinkHeadingCompletion(queryText, start, notes);
   if (headingCompletion) return headingCompletion;
 

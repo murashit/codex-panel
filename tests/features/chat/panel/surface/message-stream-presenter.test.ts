@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TFile } from "obsidian";
+import { MarkdownRenderer, TFile } from "obsidian";
 import { h } from "preact";
 
 import {
@@ -14,15 +14,11 @@ import { createChatStateStore, type ChatStateStore } from "../../../../../src/fe
 import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
   type ChatMessageStreamSurfaceContext,
-  messageStreamContextFromState,
-  messageStreamStateProjection,
+  messageStreamSurfaceProjectionFromState,
 } from "../../../../../src/features/chat/panel/surface/message-stream-projection";
 import { MessageStreamScrollBridge } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
-import {
-  bindRenderedWikiLinks,
-  type RenderedMarkdownLinkContext,
-} from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
+import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import type { MessageStreamScrollIntent } from "../../../../../src/features/chat/ui/message-stream/virtualizer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
@@ -58,13 +54,21 @@ describe("MessageStreamPresenter scroll pinning", () => {
       activePermissionProfile: null,
     });
 
-    const projection = messageStreamStateProjection(store.getState(), "/vault");
+    const projection = messageStreamSurfaceProjectionFromState(
+      store.getState(),
+      messageStreamSurfaceContext({
+        vaultPath: "/vault",
+        dispatch: (action) => {
+          store.dispatch(action);
+        },
+      }),
+    );
 
-    expect(projection.activeThreadId).toBe("thread-1");
-    expect(projection.workspaceRoot).toBe("/repo");
-    expect(projection.items).toEqual([]);
-    expect(projection.disclosures.textDetails.size).toBe(0);
-    expect(projection.forkActionsItemId).toBeNull();
+    expect(projection.context.activeThreadId).toBe("thread-1");
+    expect(projection.context.workspaceRoot).toBe("/repo");
+    expect(projection.blocks).toEqual([{ kind: "empty", key: "empty" }]);
+    expect(projection.context.disclosures.textDetails.size).toBe(0);
+    expect(projection.context.forkActionsItemId).toBeNull();
   });
 
   it("wires message stream disclosure actions through the surface context", () => {
@@ -76,18 +80,17 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    const context = messageStreamContextFromState(store.getState(), surfaceContext);
+    const context = messageStreamSurfaceProjectionFromState(store.getState(), surfaceContext).context;
     if (!context.onDisclosureToggle) throw new Error("Expected message stream disclosure action");
     context.onDisclosureToggle("textDetails", "message:details", true);
 
     expect(store.getState().ui.disclosures.textDetails.has("message:details")).toBe(true);
   });
 
-  it("normalizes rendered internal links that point at absolute vault paths", () => {
+  it("normalizes rendered internal links that point at absolute vault paths", async () => {
     const openLinkText = vi.fn();
     const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault", ["docs/Guide.md"]);
-    const parent = document.createElement("div");
-    const link = parent.createEl("a", {
+    const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "Guide.md",
       attr: {
@@ -96,17 +99,16 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).toHaveBeenCalledWith("docs/Guide.md", "Inbox.md", false);
+    cleanup();
   });
 
-  it("normalizes rendered internal links for missing files inside the vault", () => {
+  it("normalizes rendered internal links for missing files inside the vault", async () => {
     const openLinkText = vi.fn();
     const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
-    const parent = document.createElement("div");
-    const link = parent.createEl("a", {
+    const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "Missing.md",
       attr: {
@@ -115,17 +117,16 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).toHaveBeenCalledWith("docs/Missing.md", "Inbox.md", false);
+    cleanup();
   });
 
-  it("keeps rendered internal links unchanged when they are not vault file paths", () => {
+  it("keeps rendered internal links unchanged when they are not vault file paths", async () => {
     const openLinkText = vi.fn();
     const context = markdownLinkContext(openLinkText);
-    const parent = document.createElement("div");
-    const link = parent.createEl("a", {
+    const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "Project",
       attr: {
@@ -134,17 +135,16 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).toHaveBeenCalledWith("Project", "Inbox.md", false);
+    cleanup();
   });
 
-  it("does not open rendered internal links for absolute paths outside the vault", () => {
+  it("does not open rendered internal links for absolute paths outside the vault", async () => {
     const openLinkText = vi.fn();
     const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
-    const parent = document.createElement("div");
-    const link = parent.createEl("a", {
+    const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "README.md",
       attr: {
@@ -153,18 +153,17 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).not.toHaveBeenCalled();
     expect(notices).toEqual(["Cannot open files outside the vault."]);
+    cleanup();
   });
 
-  it("does not open rendered internal links for vault config paths", () => {
+  it("does not open rendered internal links for vault config paths", async () => {
     const openLinkText = vi.fn();
     const context = markdownLinkContext(openLinkText, "/Users/showhey/Vault");
-    const parent = document.createElement("div");
-    const link = parent.createEl("a", {
+    const { link, cleanup } = await renderedInternalLink(context, {
       cls: "internal-link",
       text: "main.js",
       attr: {
@@ -173,11 +172,11 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    bindRenderedWikiLinks(parent, "Inbox.md", context);
     link.click();
 
     expect(openLinkText).not.toHaveBeenCalled();
     expect(notices).toEqual(["Cannot open files outside the vault."]);
+    cleanup();
   });
 
   it("pins to the scroll container bottom without aligning the last message element", async () => {
@@ -609,12 +608,12 @@ function messageStreamSurfaceContext(options: {
   };
 }
 
-function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vaultFiles: string[] = []): RenderedMarkdownLinkContext {
+function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vaultFiles: string[] = []) {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   return {
     app: {
       workspace: {
-        getActiveFile: vi.fn(() => null),
+        getActiveFile: vi.fn(() => tFile("Inbox.md")),
         openLinkText,
       },
       vault: {
@@ -623,6 +622,37 @@ function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vault
       },
     } as never,
     vaultPath,
+  };
+}
+
+async function renderedInternalLink(
+  context: ReturnType<typeof markdownLinkContext>,
+  linkOptions: Parameters<HTMLElement["createEl"]>[1],
+): Promise<{ link: HTMLAnchorElement; cleanup: () => void }> {
+  const parent = document.createElement("div");
+  document.body.appendChild(parent);
+  const renderMarkdown = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
+    staging.createEl("a", linkOptions);
+    return Promise.resolve();
+  });
+  const markdownRenderer = new MarkdownMessageRenderer({
+    app: context.app,
+    owner: {} as never,
+    vaultPath: context.vaultPath,
+  });
+
+  markdownRenderer.renderMarkdown(parent, "[[Link]]");
+  await Promise.resolve();
+  await Promise.resolve();
+  renderMarkdown.mockRestore();
+
+  const link = parent.querySelector<HTMLAnchorElement>("a.internal-link");
+  if (!link) throw new Error("Expected rendered internal link");
+  return {
+    link,
+    cleanup: () => {
+      parent.remove();
+    },
   };
 }
 

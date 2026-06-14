@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { ThreadActivationSnapshot } from "../../../../src/app-server/services/thread-activation";
-import { resumedThreadAction } from "../../../../src/features/chat/application/threads/resume";
+import type { ThreadActivationResponse, ThreadActivationSnapshot } from "../../../../src/app-server/services/thread-activation";
+import {
+  resumedThreadActionFromActiveRuntime,
+  resumedThreadActionFromAppServerResponse,
+} from "../../../../src/features/chat/application/threads/resume";
 import type { Thread } from "../../../../src/domain/threads/model";
 
 describe("chat thread resume helpers", () => {
@@ -10,8 +13,17 @@ describe("chat thread resume helpers", () => {
     const resumed = threadFixture("thread", "Resumed");
     const loading = { id: "loading", kind: "system" as const, role: "system" as const, text: "Loading thread..." };
 
-    const action = resumedThreadAction({
-      response: responseFixture(resumed),
+    const action = resumedThreadActionFromActiveRuntime({
+      thread: resumed,
+      cwd: "/vault",
+      runtime: {
+        activeModel: "gpt-5.5",
+        activeReasoningEffort: "high",
+        activeServiceTier: "fast",
+        activeApprovalPolicy: "on-request",
+        activeApprovalsReviewer: "user",
+        activePermissionProfile: null,
+      },
       listedThreads: [existing],
       items: [loading],
     });
@@ -34,8 +46,8 @@ describe("chat thread resume helpers", () => {
   it("can build thread start actions without mutating the thread list", () => {
     const resumed = threadFixture("thread", "Started");
 
-    const action = resumedThreadAction({
-      response: responseFixture(resumed),
+    const action = resumedThreadActionFromAppServerResponse({
+      response: responseRecordFixture(resumed),
       preserveRequestedRuntimeSettings: true,
     });
 
@@ -58,6 +70,34 @@ function responseFixture(thread: Thread): ThreadActivationSnapshot {
     approvalsReviewer: "user",
     activePermissionProfile: null,
     reasoningEffort: "high",
+  };
+}
+
+function responseRecordFixture(thread: Thread): ThreadActivationResponse {
+  return {
+    ...responseFixture(thread),
+    thread: {
+      id: thread.id,
+      sessionId: thread.id,
+      forkedFromId: null,
+      parentThreadId: null,
+      preview: thread.preview,
+      ephemeral: false,
+      modelProvider: "openai",
+      createdAt: thread.createdAt,
+      updatedAt: thread.updatedAt,
+      status: { type: "idle" },
+      path: null,
+      cwd: "/vault",
+      cliVersion: "codex-cli 0.0.0",
+      source: "unknown",
+      threadSource: null,
+      agentNickname: null,
+      agentRole: null,
+      gitInfo: null,
+      name: thread.name,
+      turns: [],
+    },
   };
 }
 

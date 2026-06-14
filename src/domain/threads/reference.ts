@@ -21,7 +21,7 @@ export interface ReferencedThreadPromptBundle {
   referencedThread: ReferencedThreadMetadata;
 }
 
-export function referencedThreadPrompt(thread: Thread, turns: readonly ThreadConversationSummary[], userRequest: string): string {
+function referencedThreadPrompt(thread: Thread, turns: readonly ThreadConversationSummary[], userRequest: string): string {
   const reference = referencedThreadMetadata(thread, turns.length);
   const envelope = referencedThreadEnvelope(reference, userRequest);
 

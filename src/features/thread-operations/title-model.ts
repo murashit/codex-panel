@@ -58,7 +58,7 @@ export async function findThreadTitleContext(options: {
   return null;
 }
 
-export function normalizeGeneratedThreadTitle(value: unknown): string | null {
+function normalizeGeneratedThreadTitle(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const title = value
     .trim()

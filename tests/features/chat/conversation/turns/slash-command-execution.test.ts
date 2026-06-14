@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { slashCommandHelpLines, slashCommandHelpSections } from "../../../../../src/features/chat/application/composer/slash-commands";
+import { slashCommandHelpSections } from "../../../../../src/features/chat/application/composer/slash-commands";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import {
   executeSlashCommand,
@@ -472,9 +472,7 @@ describe("slash commands", () => {
   });
 
   it("documents archive", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/archive"))).toBe(
-      "/archive <thread> - Archive the selected Codex thread.",
-    );
+    expect(slashCommandHelpValue("/archive <thread>")).toBe("Archive the selected Codex thread.");
   });
 
   it("shows slash command help as a structured system result", async () => {
@@ -574,40 +572,28 @@ describe("slash commands", () => {
   });
 
   it("documents that /plan can take a message", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/plan"))).toBe(
-      "/plan [message] - Toggle Plan mode, optionally with a message.",
-    );
+    expect(slashCommandHelpValue("/plan [message]")).toBe("Toggle Plan mode, optionally with a message.");
   });
 
   it("documents auto-review", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/auto-review"))).toBe("/auto-review - Toggle approval auto-review.");
+    expect(slashCommandHelpValue("/auto-review")).toBe("Toggle approval auto-review.");
   });
 
   it("documents rollback", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/rollback"))).toBe(
-      "/rollback - Roll back the latest turn and restore its prompt.",
-    );
+    expect(slashCommandHelpValue("/rollback")).toBe("Roll back the latest turn and restore its prompt.");
   });
 
   it("documents rename", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/rename"))).toBe(
-      "/rename <thread> <name> - Rename the selected Codex thread.",
-    );
+    expect(slashCommandHelpValue("/rename <thread> <name>")).toBe("Rename the selected Codex thread.");
   });
 
   it("documents refer history size", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/refer"))).toBe(
-      "/refer <thread> <message> - Send a message with recent turns from another non-archived thread.",
-    );
+    expect(slashCommandHelpValue("/refer <thread> <message>")).toBe("Send a message with recent turns from another non-archived thread.");
   });
 
   it("documents status and doctor as separate commands", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/status"))).toBe(
-      "/status - Show current thread, context, and usage limits.",
-    );
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/doctor"))).toBe(
-      "/doctor - Show Codex CLI and Codex App Server diagnostics.",
-    );
+    expect(slashCommandHelpValue("/status")).toBe("Show current thread, context, and usage limits.");
+    expect(slashCommandHelpValue("/doctor")).toBe("Show Codex CLI and Codex App Server diagnostics.");
   });
 
   it("rejects unsupported reasoning effort with usage", async () => {
@@ -646,6 +632,35 @@ describe("slash commands", () => {
     expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Model reset to default for subsequent turns.");
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort reset to default for subsequent turns.");
+  });
+
+  it("routes runtime reset aliases through reset commands", async () => {
+    const ctx = context();
+
+    for (const alias of ["reset", "clear", "off"]) {
+      await executeSlashCommand("model", alias, ctx);
+      await executeSlashCommand("reasoning", alias, ctx);
+    }
+
+    expect(ctx.resetModelToConfig).toHaveBeenCalledTimes(3);
+    expect(ctx.resetReasoningEffortToConfig).toHaveBeenCalledTimes(3);
+    expect(ctx.requestModel).not.toHaveBeenCalled();
+    expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
+  });
+
+  it("shows model and reasoning status for empty runtime commands", async () => {
+    const ctx = context({
+      modelStatusLines: () => ["model: gpt-5.5"],
+      effortStatusLines: () => ["effort: high"],
+    });
+
+    await executeSlashCommand("model", "", ctx);
+    await executeSlashCommand("reasoning", "", ctx);
+
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Model settings", [{ auditFacts: [{ key: "model", value: "gpt-5.5" }] }]);
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Reasoning effort", [{ auditFacts: [{ key: "effort", value: "high" }] }]);
+    expect(ctx.requestModel).not.toHaveBeenCalled();
+    expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
   });
 
   it("preserves supported reasoning effort casing", async () => {
@@ -687,6 +702,12 @@ describe("slash commands", () => {
   });
 
   it("documents MCP status", () => {
-    expect(slashCommandHelpLines().find((line) => line.startsWith("/mcp"))).toBe("/mcp - Show MCP servers reported by Codex App Server.");
+    expect(slashCommandHelpValue("/mcp")).toBe("Show MCP servers reported by Codex App Server.");
   });
 });
+
+function slashCommandHelpValue(key: string): string | undefined {
+  return slashCommandHelpSections()
+    .flatMap((section) => section.rows)
+    .find((row) => row.key === key)?.value;
+}

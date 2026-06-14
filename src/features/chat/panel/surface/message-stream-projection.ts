@@ -62,7 +62,7 @@ export interface MessageStreamSurfaceContextOptions {
   requests: ChatMessageStreamRequests;
 }
 
-export interface MessageStreamStateProjection {
+interface MessageStreamStateProjection {
   activeThreadId: string | null;
   turnLifecycle: ChatPanelMessageStreamShellState["turn"]["lifecycle"];
   historyCursor: string | null;
@@ -100,14 +100,6 @@ export function createMessageStreamSurfaceContext(options: MessageStreamSurfaceC
     actions: options.actions,
     requests: options.requests,
   };
-}
-
-export function messageStreamContextFromState(
-  state: ChatPanelMessageStreamShellState,
-  context: ChatMessageStreamSurfaceContext,
-): MessageStreamContext {
-  const projection = messageStreamStateProjection(state, context.vaultPath);
-  return messageStreamContextFromProjection(projection, context);
 }
 
 export function messageStreamSurfaceProjectionFromState(
@@ -162,7 +154,7 @@ function messageStreamContextFromProjection(
   };
 }
 
-export function messageStreamStateProjection(state: ChatPanelMessageStreamShellState, vaultPath: string): MessageStreamStateProjection {
+function messageStreamStateProjection(state: ChatPanelMessageStreamShellState, vaultPath: string): MessageStreamStateProjection {
   const busy = chatTurnBusy(state);
   const items = messageStreamItems(state.messageStream);
   const stableItems = messageStreamStableItems(state.messageStream);

@@ -7,7 +7,6 @@ import {
   diagnosticProbeError,
   diagnosticProbeOk,
   createServerDiagnostics,
-  shortErrorMessage,
   upsertMcpServerDiagnostic,
 } from "../../src/domain/server/diagnostics";
 import type { InitializeDiagnostics } from "../../src/domain/server/diagnostics";
@@ -58,8 +57,8 @@ describe("app-server diagnostics", () => {
   });
 
   it("shortens error messages and tracks MCP server diagnostics", () => {
-    expect(shortErrorMessage("a\n b\t c")).toBe("a b c");
-    expect(shortErrorMessage("x".repeat(200))).toHaveLength(160);
+    expect(diagnosticProbeError("model/list", "a\n b\t c").message).toBe("a b c");
+    expect(diagnosticProbeError("model/list", "x".repeat(200)).message).toHaveLength(160);
 
     let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",

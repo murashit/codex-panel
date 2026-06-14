@@ -39,14 +39,14 @@ export interface ChatPanelComposerActions {
   submit: () => void;
 }
 
-export interface RuntimeComposerChoicesInput {
+interface RuntimeComposerChoicesInput {
   state: Pick<ChatState, "connection">;
   snapshot: RuntimeSnapshot;
   requestModel: (model: string) => void;
   requestReasoningEffort: (effort: ReasoningEffort) => void;
 }
 
-export function composerPlaceholder(threadName: string | null): string {
+function composerPlaceholder(threadName: string | null): string {
   return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
 }
 
@@ -80,7 +80,7 @@ export function chatPanelComposerProjection(
   };
 }
 
-export function composerMetaViewModel(
+function composerMetaViewModel(
   state: ComposerMetaState,
   snapshot: RuntimeSnapshot,
 ): Omit<ChatPanelComposerMeta, "modelChoices" | "effortChoices"> {
@@ -125,7 +125,7 @@ export function composerMetaViewModel(
   };
 }
 
-export function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
+function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   modelChoices: ChatPanelComposerRuntimeChoice[];
   effortChoices: ChatPanelComposerRuntimeChoice[];
 } {

@@ -75,16 +75,16 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
   return output;
 }
 
-export interface SelectionRewriteRuntimeOverride {
+interface SelectionRewriteRuntimeOverride {
   model?: string;
   effort?: ReasoningEffort;
 }
 
-export function selectionRewriteRuntimeOverride(settings: SelectionRewriteRuntimeSettings): SelectionRewriteRuntimeOverride {
+function selectionRewriteRuntimeOverride(settings: SelectionRewriteRuntimeSettings): SelectionRewriteRuntimeOverride {
   return runtimeOverride({ model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
 }
 
-export function validatedSelectionRewriteRuntimeOverride(
+function validatedSelectionRewriteRuntimeOverride(
   settings: SelectionRewriteRuntimeSettings,
   models: readonly ModelMetadata[],
 ): SelectionRewriteRuntimeOverride {

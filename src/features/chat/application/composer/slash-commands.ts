@@ -187,10 +187,6 @@ export function slashCommandSubcommandDefinition(command: SlashCommandName, subc
   return slashCommandSubcommands(command).find((item) => item.subcommand === subcommand) ?? null;
 }
 
-export function slashCommandHelpLines(): string[] {
-  return SLASH_COMMANDS.map((item) => `${item.usage} - ${item.detail}`);
-}
-
 export function slashCommandHelpSections(): { title: string; rows: { key: string; value: string }[] }[] {
   return (Object.keys(SLASH_COMMAND_SURFACE_LABELS) as SlashCommandSurface[])
     .map((surface) => ({

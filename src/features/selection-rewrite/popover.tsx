@@ -17,7 +17,7 @@ import { SelectionRewriteSession, type SelectionRewriteSessionStatus } from "./s
 
 const POPOVER_MARGIN = 8;
 
-export function isSelectionRewriteActionKey(event: {
+function isSelectionRewriteActionKey(event: {
   key: string;
   shiftKey: boolean;
   metaKey?: boolean;

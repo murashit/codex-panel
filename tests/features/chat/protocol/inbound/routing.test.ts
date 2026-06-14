@@ -1,18 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  isMessageInActiveScope,
-  messageThreadId,
-  messageTurnId,
-  routeServerNotification,
-  routeServerRequest,
-} from "../../../../../src/features/chat/app-server/inbound/routing";
+import { routeServerNotification, routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/routing";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
 
 describe("chat inbound routing", () => {
-  it("extracts thread and turn ids from app-server messages", () => {
+  it("routes turn-scoped app-server messages for the active scope", () => {
     const notification = {
       method: "turn/completed",
       params: {
@@ -30,27 +24,19 @@ describe("chat inbound routing", () => {
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;
 
-    expect(messageThreadId(notification)).toBe("thread-active");
-    expect(messageTurnId(notification)).toBe("turn-active");
-    expect(isMessageInActiveScope(notification, activeScope)).toBe(true);
+    expect(routeServerNotification(notification, activeScope).kind).toBe("turnLifecycle");
+    expect(routeServerNotification(notification, { activeThreadId: "thread-other", activeTurnId: "turn-active" }).kind).toBe("inactive");
+    expect(routeServerNotification(notification, { activeThreadId: "thread-active", activeTurnId: "turn-other" }).kind).toBe("inactive");
   });
 
-  it("extracts the thread id from thread started notifications", () => {
+  it("routes thread-started notifications for the active thread", () => {
     const notification = {
       method: "thread/started",
       params: { thread: threadSnapshot("thread-active") },
     } satisfies Extract<ServerNotification, { method: "thread/started" }>;
 
-    expect(messageThreadId(notification)).toBe("thread-active");
-    expect(messageTurnId(notification)).toBeNull();
-    expect(isMessageInActiveScope(notification, activeScope)).toBe(true);
-  });
-
-  it("extracts thread and turn ids from approval and user input requests", () => {
-    expect(messageThreadId(commandApprovalRequest())).toBe("thread-active");
-    expect(messageTurnId(commandApprovalRequest())).toBe("turn-active");
-    expect(messageThreadId(userInputRequest())).toBe("thread-other");
-    expect(messageTurnId(userInputRequest())).toBe("turn-active");
+    expect(routeServerNotification(notification, activeScope).kind).toBe("threadLifecycle");
+    expect(routeServerNotification(notification, { activeThreadId: "thread-other", activeTurnId: "turn-active" }).kind).toBe("inactive");
   });
 
   it("classifies every active-thread server request method and extracts its scope", () => {
@@ -64,8 +50,6 @@ describe("chat inbound routing", () => {
     ] as const;
 
     for (const { request, kind } of requests) {
-      expect(messageThreadId(request)).toBe("thread-active");
-      expect(messageTurnId(request)).toBe("turn-active");
       expect(routeServerRequest(request, activeScope).kind).toBe(kind);
       expect(
         routeServerRequest({ ...request, params: { ...request.params, turnId: "turn-other" } } as ServerRequest, activeScope).kind,
@@ -97,8 +81,6 @@ describe("chat inbound routing", () => {
     const idleActiveThreadScope = { activeThreadId: "thread-active", activeTurnId: null };
     const request = userInputRequest({ threadId: "thread-active" });
 
-    expect(messageThreadId(request)).toBe("thread-active");
-    expect(messageTurnId(request)).toBe("turn-active");
     expect(routeServerRequest(request, idleActiveThreadScope).kind).toBe("inactive");
   });
 
@@ -142,8 +124,6 @@ describe("chat inbound routing", () => {
 
   it("keeps unscoped unsupported requests out of active-turn routing", () => {
     for (const request of unscopedUnsupportedRequests()) {
-      expect(messageThreadId(request)).toBeNull();
-      expect(messageTurnId(request)).toBeNull();
       expect(routeServerRequest(request, activeScope).kind).toBe("unsupported");
     }
   });
@@ -155,8 +135,6 @@ describe("chat inbound routing", () => {
       params: { threadId: "thread-active", turnId: "turn-active" },
     } as unknown as ServerRequest;
 
-    expect(messageThreadId(request)).toBe("thread-active");
-    expect(messageTurnId(request)).toBe("turn-active");
     expect(routeServerRequest(request, activeScope).kind).toBe("unknown");
     expect(
       routeServerRequest(
@@ -198,8 +176,6 @@ describe("chat inbound routing", () => {
       params: { threadId: "thread-active", turnId: "turn-active" },
     } as unknown as ServerNotification;
 
-    expect(messageThreadId(notification)).toBe("thread-active");
-    expect(messageTurnId(notification)).toBe("turn-active");
     expect(routeServerNotification(notification, activeScope).kind).toBe("unhandled");
     expect(
       routeServerNotification(
@@ -240,7 +216,6 @@ describe("chat inbound routing", () => {
   });
 
   it("scopes MCP startup status notifications when app-server provides a thread id", () => {
-    expect(messageThreadId(mcpStartupStatusNotificationForThread("thread-active"))).toBe("thread-active");
     expect(routeServerNotification(mcpStartupStatusNotificationForThread("thread-active"), activeScope).kind).toBe("diagnosticStatus");
     expect(routeServerNotification(mcpStartupStatusNotificationForThread("thread-other"), activeScope).kind).toBe("inactive");
   });

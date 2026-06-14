@@ -16,7 +16,7 @@ export interface TaskPlanStep {
   status: TaskStepStatus;
 }
 
-export function taskProgressExecutionState(status: string): ExecutionState {
+function taskProgressExecutionState(status: string): ExecutionState {
   return executionStateFromStatus(status, TASK_STATES);
 }
 

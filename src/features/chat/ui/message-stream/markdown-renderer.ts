@@ -29,12 +29,12 @@ export class MarkdownMessageRenderer {
   }
 }
 
-export interface RenderedMarkdownLinkContext {
+interface RenderedMarkdownLinkContext {
   app: App;
   vaultPath: string;
 }
 
-export function bindRenderedWikiLinks(parent: HTMLElement, sourcePath: string, context: RenderedMarkdownLinkContext): void {
+function bindRenderedWikiLinks(parent: HTMLElement, sourcePath: string, context: RenderedMarkdownLinkContext): void {
   parent.querySelectorAll<HTMLAnchorElement>("a.internal-link").forEach((link) => {
     link.addClass("codex-panel__wikilink");
     link.onclick = (event) => {

@@ -146,7 +146,7 @@ export function mcpServerStatusSummariesFromStatuses(servers: readonly McpServer
   return servers.map(mcpServerStatusSummaryFromStatus);
 }
 
-export function shortErrorMessage(error: unknown, maxLength = 160): string {
+function shortErrorMessage(error: unknown, maxLength = 160): string {
   const message = error instanceof Error ? error.message : String(error);
   const compact = message.replace(/\s+/g, " ").trim() || "Codex app-server request failed.";
   return compact.length > maxLength ? `${compact.slice(0, maxLength - 3)}...` : compact;

@@ -659,7 +659,7 @@ function assertNever(_item: never): null {
   return null;
 }
 
-export function commandExecutionState(status: string, exitCode?: number): ExecutionState {
+function commandExecutionState(status: string, exitCode?: number): ExecutionState {
   if (typeof exitCode === "number" && exitCode !== 0) return "failed";
   const state = executionStateFromStatus(status, COMMAND_STATES);
   if (state) return state;
@@ -667,15 +667,15 @@ export function commandExecutionState(status: string, exitCode?: number): Execut
   return null;
 }
 
-export function patchApplyExecutionState(status: string): ExecutionState {
+function patchApplyExecutionState(status: string): ExecutionState {
   return executionStateFromStatus(status, PATCH_STATES);
 }
 
-export function mcpToolCallExecutionState(status: string): ExecutionState {
+function mcpToolCallExecutionState(status: string): ExecutionState {
   return standardToolCallExecutionState(status);
 }
 
-export function dynamicToolCallExecutionState(status: string, success?: boolean | null): ExecutionState {
+function dynamicToolCallExecutionState(status: string, success?: boolean | null): ExecutionState {
   if (success === false) return "failed";
   const state = standardToolCallExecutionState(status);
   if (state) return state;

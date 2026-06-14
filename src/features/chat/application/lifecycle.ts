@@ -13,11 +13,11 @@ export interface RestoredThreadState {
 
 export type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; threadId: string };
 export type ActiveChatResume = Extract<ChatResumeLifecycleState, { kind: "resuming" }>;
-export type ChatResumeLifecycleEvent = { type: "started"; resume: ActiveChatResume } | { type: "invalidated" };
+type ChatResumeLifecycleEvent = { type: "started"; resume: ActiveChatResume } | { type: "invalidated" };
 
 export type ChatConnectionLifecycleState = ConnectionWorkLifecycleState;
 export type ActiveChatConnection = ActiveConnectionWork;
-export type ChatConnectionLifecycleEvent = ConnectionWorkLifecycleEvent;
+type ChatConnectionLifecycleEvent = ConnectionWorkLifecycleEvent;
 
 export type RestoredThreadLifecycleState =
   | { kind: "idle" }
@@ -84,14 +84,14 @@ export class ChatResumeWorkTracker {
   }
 }
 
-export function transitionChatConnectionLifecycle(
+function transitionChatConnectionLifecycle(
   state: ChatConnectionLifecycleState,
   event: ChatConnectionLifecycleEvent,
 ): ChatConnectionLifecycleState {
   return transitionConnectionWorkLifecycle(state, event);
 }
 
-export function transitionChatResumeLifecycle(state: ChatResumeLifecycleState, event: ChatResumeLifecycleEvent): ChatResumeLifecycleState {
+function transitionChatResumeLifecycle(state: ChatResumeLifecycleState, event: ChatResumeLifecycleEvent): ChatResumeLifecycleState {
   switch (event.type) {
     case "started":
       return event.resume;

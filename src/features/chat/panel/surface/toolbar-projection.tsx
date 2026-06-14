@@ -14,7 +14,7 @@ import { runtimeSnapshotForToolbarShellState } from "./runtime-snapshot";
 
 type ToolbarState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "ui">;
 
-export interface ToolbarViewModelInput {
+interface ToolbarViewModelInput {
   state: ToolbarState;
   snapshot: RuntimeSnapshot;
   connected: boolean;
@@ -25,7 +25,7 @@ export interface ToolbarViewModelInput {
   archiveExportEnabled: boolean;
 }
 
-export interface ToolbarStateProjection {
+interface ToolbarStateProjection {
   newChatDisabled: boolean;
   chatActionsOpen: boolean;
   historyOpen: boolean;
@@ -58,7 +58,7 @@ export function ChatPanelToolbar({ surface, actions }: { surface: ChatPanelToolb
   return h(Toolbar, { model: chatPanelToolbarViewModel(surface, state), actions });
 }
 
-export function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewModel {
+function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewModel {
   const { state, snapshot } = input;
   const projection = toolbarStateProjection(input);
   const limit = rateLimitSummary(snapshot, input.nowMs);
@@ -80,9 +80,7 @@ export function chatPanelToolbarProjection(input: ToolbarViewModelInput): Toolba
   };
 }
 
-export function toolbarStateProjection(
-  input: Pick<ToolbarViewModelInput, "state" | "turnBusy" | "archiveExportEnabled">,
-): ToolbarStateProjection {
+function toolbarStateProjection(input: Pick<ToolbarViewModelInput, "state" | "turnBusy" | "archiveExportEnabled">): ToolbarStateProjection {
   const historyOpen = input.state.ui.toolbarPanel === "history";
   const chatActionsOpen = input.state.ui.toolbarPanel === "chat-actions";
   const statusPanelOpen = input.state.ui.toolbarPanel === "status-panel";

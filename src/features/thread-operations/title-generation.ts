@@ -67,21 +67,21 @@ export async function generateThreadTitleWithCodex(
   return threadTitleFromGenerationTurn(turn);
 }
 
-export interface ThreadTitleRuntimeOverride {
+interface ThreadTitleRuntimeOverride {
   model?: string;
   effort?: ReasoningEffort;
 }
 
-export function threadTitleFromGenerationTurn(turn: TurnRecord): string | null {
+function threadTitleFromGenerationTurn(turn: TurnRecord): string | null {
   const response = conversationAssistantTextFromTurnRecord(turn);
   return response ? threadTitleFromGeneratedText(response) : null;
 }
 
-export function threadTitleRuntimeOverride(settings: ThreadTitleRuntimeSettings): ThreadTitleRuntimeOverride {
+function threadTitleRuntimeOverride(settings: ThreadTitleRuntimeSettings): ThreadTitleRuntimeOverride {
   return runtimeOverride({ model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }
 
-export function validatedThreadTitleRuntimeOverride(
+function validatedThreadTitleRuntimeOverride(
   settings: ThreadTitleRuntimeSettings,
   models: readonly ModelMetadata[],
 ): ThreadTitleRuntimeOverride {

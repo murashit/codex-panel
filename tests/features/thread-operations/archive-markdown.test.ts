@@ -2,18 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   exportArchivedThreadMarkdown,
-  markdownFromThread,
-  normalizeExportedMarkdownLinks,
-  normalizedArchiveTags,
   type ArchiveExportAdapter,
+  type ArchiveExportSettings,
 } from "../../../src/features/thread-operations/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
-import { referencedThreadPrompt } from "../../../src/domain/threads/reference";
+import { referencedThreadPromptBundle } from "../../../src/domain/threads/reference";
 import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";
 
 describe("thread archive export", () => {
-  it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
-    const output = markdownFromThread(
+  it("writes frontmatter and readable user/codex turns with turn timestamps", async () => {
+    const output = await exportedMarkdown(
       thread({
         id: "thread-12345678",
         name: "Exported thread",
@@ -56,8 +54,8 @@ describe("thread archive export", () => {
     expect(output).not.toContain("npm test");
   });
 
-  it("falls back when turn timestamps are missing and uses start time for incomplete agent output", () => {
-    const output = markdownFromThread(
+  it("falls back when turn timestamps are missing and uses start time for incomplete agent output", async () => {
+    const output = await exportedMarkdown(
       thread({
         transcriptEntries: [
           transcriptEntry("user", "古い依頼", null),
@@ -75,7 +73,7 @@ describe("thread archive export", () => {
     expect(output).toContain("## Codex - 2026-05-18 10:01\n\n途中の回答");
   });
 
-  it("exports only the thread history remaining after rollback", () => {
+  it("exports only the thread history remaining after rollback", async () => {
     const rolledBackUserText = "rollbackされた依頼";
     const rolledBackAssistantText = "rollbackされた回答";
     const remainingEntries = [
@@ -86,7 +84,7 @@ describe("thread archive export", () => {
       transcriptEntry("user", rolledBackUserText, timestamp(2026, 5, 18, 10, 0)),
       transcriptEntry("assistant", rolledBackAssistantText, timestamp(2026, 5, 18, 10, 3)),
     ];
-    const output = markdownFromThread(
+    const output = await exportedMarkdown(
       thread({
         transcriptEntries: remainingEntries,
       }),
@@ -100,14 +98,14 @@ describe("thread archive export", () => {
     expect(output).not.toContain(rolledBackAssistantText);
   });
 
-  it("hides embedded /refer context and keeps a compact reference line", () => {
-    const prompt = referencedThreadPrompt(
+  it("hides embedded /refer context and keeps a compact reference line", async () => {
+    const { prompt } = referencedThreadPromptBundle(
       thread({ id: "thread-ref", name: "参照元" }),
       [{ userText: "元の依頼", assistantText: "回答" }],
       "続きです",
     );
 
-    const output = markdownFromThread(thread({ transcriptEntries: [transcriptEntry("user", prompt, 1)] }), new Date(2026, 4, 18));
+    const output = await exportedMarkdown(thread({ transcriptEntries: [transcriptEntry("user", prompt, 1)] }), new Date(2026, 4, 18));
 
     expect(output).toContain("続きです");
     expect(output).toContain("> Referenced: 参照元 (1/20 turns, thread-ref)");
@@ -115,47 +113,55 @@ describe("thread archive export", () => {
     expect(output).not.toContain("元の依頼");
   });
 
-  it("writes optional frontmatter tags from fixed comma-separated settings", () => {
-    const output = markdownFromThread(thread({ name: "Tagged thread" }), new Date(2026, 4, 18), {
+  it("writes optional frontmatter tags from fixed comma-separated settings", async () => {
+    const output = await exportedMarkdown(thread({ name: "Tagged thread" }), new Date(2026, 4, 18), {
       archiveExportTags: '#codex, "archive", codex, {{title}}',
     });
 
     expect(output).toContain('tags: ["codex", "archive", "{{title}}"]');
   });
 
-  it("omits frontmatter tags when archive tags are empty", () => {
-    const output = markdownFromThread(thread(), new Date(2026, 4, 18), { archiveExportTags: " , # , " });
+  it("omits frontmatter tags when archive tags are empty", async () => {
+    const output = await exportedMarkdown(thread(), new Date(2026, 4, 18), { archiveExportTags: " , # , " });
 
     expect(output).not.toContain("tags:");
   });
 
-  it("normalizes archive tags without sorting or changing unmatched quotes", () => {
-    expect(normalizedArchiveTags(` "codex" , 'archive', #note/tag, codex, "unfinished `)).toEqual([
-      "codex",
-      "archive",
-      "note/tag",
-      '"unfinished',
-    ]);
+  it("normalizes archive tags without sorting or changing unmatched quotes", async () => {
+    const output = await exportedMarkdown(thread(), new Date(2026, 4, 18), {
+      archiveExportTags: ` "codex" , 'archive', #note/tag, codex, "unfinished `,
+    });
+
+    expect(output).toContain('tags: ["codex", "archive", "note/tag", "\\"unfinished"]');
   });
 
-  it("normalizes exported markdown links for vault and external absolute paths", () => {
-    const output = normalizeExportedMarkdownLinks(
-      [
-        "[Vault note](</Users/showhey/Vault/topics/My Note.md>)",
-        "[Vault note with parens](</Users/showhey/Vault/topics/My (Note).md>)",
-        "[External file](/Users/showhey/Repos/project/README.md)",
-        "[Relative](topics/Other.md)",
-        "[Website](https://example.com/docs)",
-        "![Image](/Users/showhey/Repos/project/image.png)",
-        "`[Code link](/Users/showhey/Repos/project/README.md)`",
-        "```",
-        "[Code block link](/Users/showhey/Repos/project/README.md)",
-        "```",
-      ].join("\n"),
-      "/Users/showhey/Vault",
+  it("normalizes exported markdown links for vault and external absolute paths", async () => {
+    const output = await exportedMarkdown(
+      thread({
+        transcriptEntries: [
+          transcriptEntry(
+            "assistant",
+            [
+              "[Vault note](</Users/showhey/Vault/topics/My Note.md>)",
+              "[Vault note with parens](</Users/showhey/Vault/topics/My (Note).md>)",
+              "[External file](/Users/showhey/Repos/project/README.md)",
+              "[Relative](topics/Other.md)",
+              "[Website](https://example.com/docs)",
+              "![Image](/Users/showhey/Repos/project/image.png)",
+              "`[Code link](/Users/showhey/Repos/project/README.md)`",
+              "```",
+              "[Code block link](/Users/showhey/Repos/project/README.md)",
+              "```",
+            ].join("\n"),
+            1,
+          ),
+        ],
+      }),
+      new Date(2026, 4, 18),
+      { vaultPath: "/Users/showhey/Vault" },
     );
 
-    expect(output).toBe(
+    expect(output).toContain(
       [
         "[Vault note](<topics/My Note.md>)",
         "[Vault note with parens](<topics/My (Note).md>)",
@@ -171,8 +177,8 @@ describe("thread archive export", () => {
     );
   });
 
-  it("normalizes exported thread markdown links when vault path is provided", () => {
-    const output = markdownFromThread(
+  it("normalizes exported thread markdown links when vault path is provided", async () => {
+    const output = await exportedMarkdown(
       thread({
         transcriptEntries: [
           transcriptEntry(
@@ -225,6 +231,27 @@ describe("thread archive export", () => {
     ).rejects.toThrow("empty filename");
   });
 });
+
+async function exportedMarkdown(
+  source: Thread & { transcriptEntries: ThreadTranscriptEntry[] },
+  now: Date,
+  settings: Partial<ArchiveExportSettings> = {},
+): Promise<string> {
+  const adapter = new MemoryAdapter();
+  const result = await exportArchivedThreadMarkdown(
+    source,
+    {
+      archiveExportFolderTemplate: "Exports",
+      archiveExportFilenameTemplate: "{{title}}",
+      ...settings,
+    },
+    adapter,
+    now,
+  );
+  const markdown = adapter.files.get(result.path);
+  if (markdown === undefined) throw new Error(`Expected exported markdown at ${result.path}`);
+  return markdown;
+}
 
 class MemoryAdapter implements ArchiveExportAdapter {
   readonly files = new Map<string, string>();

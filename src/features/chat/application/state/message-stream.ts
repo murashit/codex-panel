@@ -98,7 +98,7 @@ export function messageStreamIsEmpty(state: Pick<ChatMessageStreamState, "stable
   return state.stableItems.length === 0 && (!state.activeSegment || state.activeSegment.items.length === 0);
 }
 
-export function messageStreamTurnIds(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): string[] {
+function messageStreamTurnIds(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): string[] {
   return orderedTurnIds(messageStreamItems(state));
 }
 

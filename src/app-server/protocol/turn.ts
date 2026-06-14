@@ -11,7 +11,7 @@ import {
 export type TurnItem = GeneratedTurnItem;
 export type TurnRecord = GeneratedTurnRecord;
 
-export function transcriptEntriesFromTurnRecord(turn: TurnRecord): ThreadTranscriptEntry[] {
+function transcriptEntriesFromTurnRecord(turn: TurnRecord): ThreadTranscriptEntry[] {
   return turn.items.flatMap((item) => transcriptEntriesFromTurnItem(item, turn));
 }
 

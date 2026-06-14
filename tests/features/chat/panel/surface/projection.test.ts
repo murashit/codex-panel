@@ -1,4 +1,7 @@
+// @vitest-environment jsdom
+
 import { describe, expect, it } from "vitest";
+import { h, type ComponentChild } from "preact";
 
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import {
@@ -7,22 +10,23 @@ import {
   type RuntimeConfigSnapshot,
 } from "../../../../../src/app-server/protocol/runtime-config";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
-import {
-  chatPanelComposerProjection,
-  composerMetaViewModel,
-  composerPlaceholder,
-} from "../../../../../src/features/chat/panel/surface/composer-projection";
+import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../../../src/features/chat/presentation/runtime/status";
-import { runtimeComposerChoices } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import { chatPanelToolbarProjection, toolbarStateProjection } from "../../../../../src/features/chat/panel/surface/toolbar-projection";
+import { ChatPanelToolbar } from "../../../../../src/features/chat/panel/surface/toolbar-projection";
 import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { chatPanelGoalProjection, chatPanelGoalViewModel } from "../../../../../src/features/chat/panel/surface/goal-projection";
+import { ChatPanelGoal } from "../../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelComposerSurface, ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/model";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { setChatStateMessageStreamItems } from "../../support/message-stream";
+import { ChatPanelShellStateContext, createChatPanelShellState } from "../../../../../src/features/chat/panel/shell-state";
+import type { ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { installObsidianDomShims } from "../../../../support/dom";
+
+installObsidianDomShims();
 
 describe("chat panel surface projections", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {
@@ -36,33 +40,21 @@ describe("chat panel surface projections", () => {
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
     state.connection.serverDiagnostics = createServerDiagnostics();
 
-    const input = {
+    const parent = renderWithShellState(
       state,
-      snapshot: runtimeSnapshotFixture(state),
-      connected: true,
-      nowMs: 0,
-      turnBusy: true,
-      vaultPath: "/vault",
-      configuredCommand: "codex",
-      archiveExportEnabled: true,
-    };
-    const model = chatPanelToolbarProjection(input);
+      h(ChatPanelToolbar, { surface: toolbarSurfaceFixture({ archiveExportEnabled: true }), actions: toolbarActionsFixture() }),
+    );
 
-    expect(model.openPanel).toBe("history");
-    expect(model.newChatDisabled).toBe(true);
-    expect(model.threads).toMatchObject([
-      { threadId: "thread-1", title: "Active", selected: true, disabled: false, rename: { draft: "Active" } },
-      { threadId: "thread-2", title: "Other", selected: false, disabled: true, archiveConfirm: { active: true } },
-    ]);
-    expect(toolbarStateProjection(input)).toMatchObject({
-      newChatDisabled: true,
-      historyOpen: true,
-      openPanel: "history",
-      threads: [
-        { threadId: "thread-1", selected: true, disabled: false },
-        { threadId: "thread-2", selected: false, disabled: true },
-      ],
-    });
+    expect(parent.querySelector(".codex-panel__toolbar-panel--history")).not.toBeNull();
+    expect(parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat")?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-row--selected .codex-panel__thread-rename-input")?.value).toBe(
+      "Active",
+    );
+    expect(parent.querySelector(".codex-panel__thread-row--archive-confirming .codex-panel__toolbar-panel-label")?.textContent).toBe(
+      "Other",
+    );
+    expect(parent.querySelectorAll<HTMLElement>(".codex-panel__thread")[1]?.getAttribute("aria-disabled")).toBe("true");
+    unmountUiRoot(parent);
   });
 
   it("builds composer meta from context and runtime state", () => {
@@ -81,7 +73,7 @@ describe("chat panel surface projections", () => {
       modelContextWindow: 100,
     };
 
-    expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toEqual({
+    expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: null,
       context: {
         cells: [
@@ -97,7 +89,6 @@ describe("chat panel surface projections", () => {
       effort: "high",
       planActive: true,
       autoReviewActive: true,
-      fastActive: true,
     });
   });
 
@@ -117,7 +108,7 @@ describe("chat panel surface projections", () => {
     ]);
     state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5" });
 
-    expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toMatchObject({
+    expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: null,
       context: {
         cells: [
@@ -143,7 +134,7 @@ describe("chat panel surface projections", () => {
       modelContextWindow: 100,
     };
 
-    expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toMatchObject({
+    expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
       context: {
         cells: [
           { text: "⣀", placeholder: true },
@@ -161,7 +152,7 @@ describe("chat panel surface projections", () => {
     const state = createChatState();
     state.connection.phase = { kind: "failed", message: "Connection failed." };
 
-    expect(composerMetaViewModel(state, runtimeSnapshotFixture(state))).toEqual({
+    expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: "Codex app-server disconnected",
       context: {
         cells: [
@@ -177,7 +168,6 @@ describe("chat panel surface projections", () => {
       effort: null,
       planActive: false,
       autoReviewActive: false,
-      fastActive: false,
     });
   });
 
@@ -226,25 +216,31 @@ describe("chat panel surface projections", () => {
     const selectedModels: string[] = [];
     const selectedEfforts: string[] = [];
 
-    const choices = runtimeComposerChoices({
+    const choices = chatPanelComposerProjection(
+      composerSurfaceFixture({
+        runtime: {
+          requestModel: async (model) => {
+            selectedModels.push(model);
+          },
+          requestReasoningEffort: async (effort) => {
+            selectedEfforts.push(effort);
+          },
+        },
+      }),
       state,
-      snapshot: runtimeSnapshotFixture(state),
-      requestModel: (model) => {
-        selectedModels.push(model);
-      },
-      requestReasoningEffort: (effort) => {
-        selectedEfforts.push(effort);
-      },
-    });
+    ).meta;
 
-    expect(choices.modelChoices).toMatchObject([
+    const modelChoices = choices.modelChoices ?? [];
+    const effortChoices = choices.effortChoices ?? [];
+
+    expect(modelChoices).toMatchObject([
       { label: "gpt-5-mini", selected: false },
       { label: "gpt-5.5", selected: true },
     ]);
-    expect(choices.effortChoices).toMatchObject([{ label: "high", selected: true }]);
+    expect(effortChoices).toMatchObject([{ label: "high", selected: true }]);
 
-    choices.modelChoices[0]?.onClick();
-    choices.effortChoices[0]?.onClick();
+    modelChoices[0]?.onClick();
+    effortChoices[0]?.onClick();
     expect(selectedModels).toEqual(["gpt-5-mini"]);
     expect(selectedEfforts).toEqual(["high"]);
   });
@@ -276,17 +272,23 @@ describe("chat panel surface projections", () => {
       },
     } satisfies ChatPanelGoalSurface;
 
-    const props = chatPanelGoalViewModel(surface, state);
+    const parent = renderWithShellState(state, h(ChatPanelGoal, { surface }));
     state.activeThread.id = "thread-current";
-    props.actions.onPause();
-    props.actions.onResume();
-    props.actions.onClear();
+    clickLabeledButton(parent, "Pause goal");
+    clickLabeledButton(parent, "Clear goal");
+
+    state.activeThread.goal = { ...goalFixture("thread-rendered"), status: "paused" };
+    const resumeParent = renderWithShellState(state, h(ChatPanelGoal, { surface }));
+    state.activeThread.id = "thread-current";
+    clickLabeledButton(resumeParent, "Resume goal");
 
     expect(statuses).toEqual([
       ["thread-rendered", "paused"],
       ["thread-rendered", "active"],
     ]);
     expect(clears).toEqual(["thread-rendered"]);
+    unmountUiRoot(parent);
+    unmountUiRoot(resumeParent);
   });
 
   it("builds composer meta from one captured chat state", () => {
@@ -308,8 +310,12 @@ describe("chat panel surface projections", () => {
   });
 
   it("derives composer placeholders", () => {
-    expect(composerPlaceholder("Active")).toBe("Ask Codex to work on “Active”...");
-    expect(composerPlaceholder(null)).toBe("Ask Codex to work on this task...");
+    const activeState = createChatState();
+    activeState.activeThread.id = "thread-1";
+    activeState.threadList.listedThreads = [threadFixture("thread-1", "Active")];
+
+    expect(chatPanelComposerProjection(composerSurfaceFixture(), activeState).placeholder).toBe("Ask Codex to work on “Active”...");
+    expect(chatPanelComposerProjection(composerSurfaceFixture(), createChatState()).placeholder).toBe("Ask Codex to work on this task...");
   });
 
   it("uses restored thread names in the composer projection", () => {
@@ -335,14 +341,78 @@ describe("chat panel surface projections", () => {
     state.ui.goalEditor = { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 };
     state.ui.disclosures.goalObjectiveExpanded = new Set(["thread-1"]);
 
-    expect(chatPanelGoalProjection(state)).toEqual({
-      goal: state.activeThread.goal,
-      goalThreadId: "thread-1",
-      editor: { editing: true, objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 },
-      display: { objectiveExpanded: true },
-    });
+    const parent = renderWithShellState(state, h(ChatPanelGoal, { surface: goalSurfaceFixture() }));
+
+    expect(parent.querySelector<HTMLTextAreaElement>(".codex-panel__goal-objective-input")?.value).toBe("Draft goal");
+    unmountUiRoot(parent);
   });
 });
+
+function renderWithShellState(state: ChatState, node: ComponentChild): HTMLElement {
+  const parent = document.createElement("div");
+  renderUiRoot(parent, h(ChatPanelShellStateContext.Provider, { value: createChatPanelShellState(state) }, node));
+  return parent;
+}
+
+function clickLabeledButton(parent: HTMLElement, label: string): void {
+  const button = Array.from(parent.querySelectorAll<HTMLButtonElement>("button")).find((item) => item.getAttribute("aria-label") === label);
+  if (!button) throw new Error(`Expected button: ${label}`);
+  button.click();
+}
+
+function toolbarSurfaceFixture(overrides: { archiveExportEnabled?: boolean } = {}) {
+  return {
+    state: {
+      connected: () => true,
+      nowMs: () => 0,
+    },
+    settings: {
+      vaultPath: () => "/vault",
+      configuredCommand: () => "codex",
+      archiveExportEnabled: () => overrides.archiveExportEnabled ?? false,
+    },
+  };
+}
+
+function toolbarActionsFixture(): ToolbarActions {
+  return {
+    startNewThread: () => undefined,
+    toggleChatActions: () => undefined,
+    compactConversation: () => undefined,
+    setGoal: () => undefined,
+    toggleHistory: () => undefined,
+    toggleStatusPanel: () => undefined,
+    connect: () => undefined,
+    refreshStatus: () => undefined,
+    resumeThread: () => undefined,
+    startArchiveThread: () => undefined,
+    archiveThread: () => undefined,
+    startRenameThread: () => undefined,
+    updateRenameDraft: () => undefined,
+    saveRenameThread: () => undefined,
+    cancelRenameThread: () => undefined,
+    autoNameThread: () => undefined,
+  };
+}
+
+function goalSurfaceFixture(): ChatPanelGoalSurface {
+  return {
+    settings: {
+      sendShortcut: () => "enter",
+    },
+    actions: {
+      goal: {
+        saveObjective: async () => undefined,
+        setStatus: async () => undefined,
+        clear: async () => undefined,
+        startEditing: () => undefined,
+        updateObjectiveDraft: () => undefined,
+        setObjectiveExpanded: () => undefined,
+        closeEditor: () => undefined,
+      },
+    },
+  };
+}
 
 function composerSurfaceFixture(overrides: Partial<ChatPanelComposerSurface> = {}): ChatPanelComposerSurface {
   return {

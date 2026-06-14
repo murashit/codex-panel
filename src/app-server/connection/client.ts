@@ -119,7 +119,7 @@ export interface AppServerStartStructuredTurnOptions {
   runtime?: AppServerTurnRuntimeOverrides;
 }
 
-export class AppServerRpcError extends Error {
+class AppServerRpcError extends Error {
   readonly code?: number;
   readonly data?: unknown;
   readonly method: ClientRequestMethod;

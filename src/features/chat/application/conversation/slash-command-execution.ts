@@ -269,14 +269,14 @@ function applyReasoningEffortOverride(
   return requested === null ? context.resetReasoningEffortToConfig() : context.requestReasoningEffort(requested);
 }
 
-export function parseModelOverride(args: string): string | null | undefined {
+function parseModelOverride(args: string): string | null | undefined {
   const model = args.trim();
   if (!model) return undefined;
   if (DEFAULT_RUNTIME_SETTING_ALIASES.has(model.toLowerCase())) return null;
   return model;
 }
 
-export function parseReasoningEffortOverride(args: string): ReasoningEffort | null | undefined {
+function parseReasoningEffortOverride(args: string): ReasoningEffort | null | undefined {
   const effort = args.trim();
   if (!effort) return undefined;
   if (DEFAULT_RUNTIME_SETTING_ALIASES.has(effort.toLowerCase())) return null;

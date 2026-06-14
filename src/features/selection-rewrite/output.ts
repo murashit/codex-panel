@@ -17,7 +17,7 @@ export class SelectionRewriteOutputError extends Error {
   }
 }
 
-export function parseSelectionRewriteOutput(text: string): SelectionRewriteOutput | null {
+function parseSelectionRewriteOutput(text: string): SelectionRewriteOutput | null {
   try {
     const parsed = JSON.parse(text.trim()) as unknown;
     if (!parsed || typeof parsed !== "object") return null;
@@ -27,10 +27,6 @@ export function parseSelectionRewriteOutput(text: string): SelectionRewriteOutpu
   } catch {
     return null;
   }
-}
-
-export function selectionRewriteOutputFromText(text: string | null): SelectionRewriteOutput | null {
-  return selectionRewriteOutputParseResultFromText(text).output;
 }
 
 export function selectionRewriteOutputParseResultFromText(text: string | null): SelectionRewriteOutputParseResult {

@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
-import {
-  referencedThreadMetadataFromPrompt,
-  referencedThreadPromptBundle,
-  referencedThreadPrompt,
-} from "../../../src/domain/threads/reference";
+import { referencedThreadMetadataFromPrompt, referencedThreadPromptBundle } from "../../../src/domain/threads/reference";
 
 function thread(overrides: Partial<Thread> = {}): Thread {
   return {
@@ -22,7 +18,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
 describe("thread reference context", () => {
   it("builds an untruncated reference prompt with the 20 turn limit noted", () => {
     const longText = "x".repeat(5000);
-    const prompt = referencedThreadPrompt(thread(), [{ userText: longText, assistantText: "回答" }], "この続きです");
+    const { prompt } = referencedThreadPromptBundle(thread(), [{ userText: longText, assistantText: "回答" }], "この続きです");
 
     expect(prompt).toContain("[Codex Panel referenced thread v1]");
     expect(prompt).toContain('"version":1');
@@ -33,7 +29,7 @@ describe("thread reference context", () => {
   });
 
   it("extracts display text and metadata from a reference prompt", () => {
-    const prompt = referencedThreadPrompt(thread(), [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
+    const { prompt } = referencedThreadPromptBundle(thread(), [{ userText: "元の依頼", assistantText: "回答" }], "この続きです");
 
     expect(referencedThreadMetadataFromPrompt(prompt)).toEqual({
       text: "この続きです",

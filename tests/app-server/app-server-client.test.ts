@@ -1,11 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../../src/app-server/connection/client";
-import type {
-  AppServerRpcError,
-  AppServerStartStructuredTurnOptions,
-  AppServerStartTurnOptions,
-} from "../../src/app-server/connection/client";
+import type { AppServerStartStructuredTurnOptions, AppServerStartTurnOptions } from "../../src/app-server/connection/client";
 import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
 import type { RpcOutboundMessage } from "../../src/app-server/connection/rpc-messages";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
@@ -780,7 +776,7 @@ describe("AppServerClient", () => {
       code: -32601,
       method: "model/list",
       message: "Method not found",
-    } satisfies Partial<AppServerRpcError>);
+    });
   });
 
   it("resumes and forks threads without loading full turn history", async () => {

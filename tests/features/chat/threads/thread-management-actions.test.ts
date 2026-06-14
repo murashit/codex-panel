@@ -6,11 +6,7 @@ import type { ArchiveExportAdapter } from "../../../../src/features/thread-opera
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import {
-  archiveThread,
-  compactThread,
-  forkThreadFromTurn,
-  renameThread,
-  rollbackThread as rollbackThreadAction,
+  createThreadManagementActions,
   type ThreadManagementActions,
   type ThreadManagementActionsHost,
 } from "../../../../src/features/chat/application/threads/thread-management-actions";
@@ -410,14 +406,39 @@ function clientMock() {
 }
 
 function threadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
-  return {
-    compactThread: (threadId) => compactThread(host, threadId),
-    archiveThread: (threadId, saveMarkdown) => archiveThread(host, threadId, saveMarkdown),
-    forkThread: (threadId) => forkThreadFromTurn(host, threadId, null, false),
-    forkThreadFromTurn: (threadId, turnId, archiveSource) => forkThreadFromTurn(host, threadId, turnId, archiveSource),
-    renameThread: (threadId, name) => renameThread(host, threadId, name),
-    rollbackThread: (threadId) => rollbackThreadAction(host, threadId),
-  };
+  return createThreadManagementActions({
+    obsidian: { archiveAdapter: host.archiveAdapter },
+    settingsRef: {
+      get settings() {
+        return host.settings();
+      },
+      get vaultPath() {
+        return host.vaultPath;
+      },
+    },
+    workspace: { openThreadInNewView: host.openThreadInNewView },
+    threadSurfaces: {
+      notifyThreadArchived: host.notifyThreadArchived,
+      notifyThreadRenamed: host.notifyThreadRenamed,
+      refreshSharedThreadListFromOpenSurface: host.refreshSharedThreadListFromOpenSurface,
+    },
+    stateStore: host.stateStore,
+    client: {
+      currentClient: host.currentClient,
+      ensureConnected: host.ensureConnected,
+    },
+    status: {
+      set: host.setStatus,
+      addSystemMessage: host.addSystemMessage,
+    },
+    notify: { showNotice: host.showNotice },
+    thread: {
+      selectThread: host.openThreadInCurrentPanel,
+      refreshThreads: host.refreshThreads,
+      notifyIdentityChanged: host.notifyActiveThreadIdentityChanged,
+    },
+    composer: { setText: host.setComposerText },
+  });
 }
 
 function hostMock({

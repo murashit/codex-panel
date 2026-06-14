@@ -9,19 +9,14 @@ import type {
 } from "../../../src/app-server/connection/client";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { RequestId, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
-import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { ServerInitialization } from "../../../src/domain/server/initialization";
 import {
   generateThreadTitleWithCodex,
-  threadTitleFromGenerationTurn,
-  threadTitleRuntimeOverride,
-  validatedThreadTitleRuntimeOverride,
   type ThreadTitleClient,
   type ThreadTitleClientFactory,
 } from "../../../src/features/thread-operations/title-generation";
 import {
   findThreadTitleContext,
-  normalizeGeneratedThreadTitle,
   threadTitleContextFromConversationSummary,
   threadTitleFromGeneratedText,
   threadTitlePrompt,
@@ -81,26 +76,33 @@ describe("thread title", () => {
     ]);
   });
 
-  it("parses structured title responses", () => {
-    expect(
-      threadTitleFromGenerationTurn(
-        turn([
-          {
-            type: "agentMessage",
-            id: "a1",
-            text: '```json\n{"title":"Codex Panelの自動命名"}\n```',
-            phase: "final_answer",
-            memoryCitation: null,
-          },
-        ]),
-      ),
-    ).toBe("Codex Panelの自動命名");
+  it("parses structured title responses", async () => {
+    const { clientFactory } = fakeThreadTitleClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => ({
+        turn: turn(
+          [
+            {
+              type: "agentMessage",
+              id: "a1",
+              text: '```json\n{"title":"Codex Panelの自動命名"}\n```',
+              phase: "final_answer",
+              memoryCitation: null,
+            },
+          ],
+          { status: "completed" },
+        ),
+      });
+    });
+
+    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), clientFactory)).resolves.toBe(
+      "Codex Panelの自動命名",
+    );
   });
 
   it("normalizes generated titles", () => {
-    expect(normalizeGeneratedThreadTitle('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
-    expect(normalizeGeneratedThreadTitle("")).toBeNull();
-    expect(normalizeGeneratedThreadTitle("x".repeat(80))).toHaveLength(40);
+    expect(threadTitleFromGeneratedText('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
+    expect(threadTitleFromGeneratedText("")).toBeNull();
+    expect(threadTitleFromGeneratedText("x".repeat(80))).toHaveLength(40);
   });
 
   it("parses generated title text", () => {
@@ -122,31 +124,67 @@ describe("thread title", () => {
     expect(prompt).not.toContain("English words");
   });
 
-  it("uses explicit title runtime overrides", () => {
-    expect(threadTitleRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" })).toEqual({
+  it("uses explicit title runtime overrides", async () => {
+    const { clientFactory, client } = fakeThreadTitleClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([], { status: "completed" }) });
+    });
+
+    await generateThreadTitleWithCodex(
+      "/bin/codex",
+      "/vault",
+      titleContext(),
+      { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
+      clientFactory,
+    );
+
+    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({
       model: "gpt-5.4-mini",
       effort: "minimal",
     });
   });
 
-  it("omits title runtime overrides that are set to Codex default", () => {
-    expect(threadTitleRuntimeOverride({ threadNamingModel: null, threadNamingEffort: null })).toEqual({});
+  it("omits title runtime overrides that are set to Codex default", async () => {
+    const { clientFactory, client } = fakeThreadTitleClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([], { status: "completed" }) });
+    });
+
+    await generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), clientFactory);
+
+    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({});
   });
 
-  it("omits an explicit title effort when the selected model does not support it", () => {
-    expect(
-      validatedThreadTitleRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" }, [
-        model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
-      ]),
-    ).toEqual({ model: "gpt-5.4-mini" });
+  it("omits an explicit title effort when the selected model does not support it", async () => {
+    const { clientFactory, client } = fakeThreadTitleClientFactory((fake) => {
+      fake.modelList = [appServerModel("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])];
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([], { status: "completed" }) });
+    });
+
+    await generateThreadTitleWithCodex(
+      "/bin/codex",
+      "/vault",
+      titleContext(),
+      { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
+      clientFactory,
+    );
+
+    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({ model: "gpt-5.4-mini" });
   });
 
-  it("keeps an explicit title effort when the selected model supports it", () => {
-    expect(
-      validatedThreadTitleRuntimeOverride({ threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" }, [
-        model("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
-      ]),
-    ).toEqual({ model: "gpt-5.4-mini", effort: "low" });
+  it("keeps an explicit title effort when the selected model supports it", async () => {
+    const { clientFactory, client } = fakeThreadTitleClientFactory((fake) => {
+      fake.modelList = [appServerModel("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])];
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([], { status: "completed" }) });
+    });
+
+    await generateThreadTitleWithCodex(
+      "/bin/codex",
+      "/vault",
+      titleContext(),
+      { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" },
+      clientFactory,
+    );
+
+    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({ model: "gpt-5.4-mini", effort: "low" });
   });
 
   it("keeps pre-acknowledgement completion when title notifications arrive before turn/start resolves", async () => {
@@ -195,6 +233,8 @@ function fakeThreadTitleClientFactory(configure?: (client: FakeThreadTitleClient
 
 class FakeThreadTitleClient implements ThreadTitleClient {
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
+  startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
+  modelList: ModelListResponse["data"] = [];
 
   constructor(private readonly handlers: AppServerClientHandlers) {}
 
@@ -207,7 +247,7 @@ class FakeThreadTitleClient implements ThreadTitleClient {
   }
 
   async listModels(): Promise<ModelListResponse> {
-    return { data: [], nextCursor: null };
+    return { data: this.modelList, nextCursor: null };
   }
 
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {
@@ -218,7 +258,8 @@ class FakeThreadTitleClient implements ThreadTitleClient {
     return threadStartResponse("thread");
   }
 
-  async startStructuredTurn(_options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
+  async startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
+    this.startStructuredTurnOptions = options;
     return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
   }
 
@@ -301,16 +342,24 @@ function turnCompletedNotification(threadId: string, completedTurn: Turn): Serve
   };
 }
 
-function model(name: string, efforts: string[]): ModelMetadata {
+function appServerModel(name: string, efforts: string[]): ModelListResponse["data"][number] {
   return {
     id: name,
     model: name,
+    upgrade: null,
+    upgradeInfo: null,
+    availabilityNux: null,
     displayName: name,
     description: "",
     hidden: false,
-    supportedReasoningEfforts: efforts,
-    defaultReasoningEffort: efforts[0] ?? "low",
+    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({
+      reasoningEffort: reasoningEffort as never,
+      label: reasoningEffort,
+      description: "",
+    })),
+    defaultReasoningEffort: (efforts[0] ?? "low") as never,
     inputModalities: ["text"],
+    supportsPersonality: false,
     additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,

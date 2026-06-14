@@ -73,11 +73,11 @@ export interface EffortStatusLinesInput {
 const CODEX_DEFAULT_LABEL = "(Codex default)";
 const NOT_REPORTED_LABEL = "(not reported)";
 
-export function serviceTierLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
+function serviceTierLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
   return formatServiceTierLabel(currentServiceTier(snapshot, config));
 }
 
-export function fastModeLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
+function fastModeLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
   return formatFastModeLabel({
     requestedOff: snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off",
     active: fastModeActive(snapshot, config),

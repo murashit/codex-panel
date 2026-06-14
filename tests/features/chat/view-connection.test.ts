@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/application/ports/chat-host";
 import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
+import type { Thread } from "../../../src/domain/threads/model";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/protocol/runtime-config";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
@@ -342,6 +343,21 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
+  });
+
+  it("formats the panel title from listed thread metadata", async () => {
+    const view = await chatView();
+
+    await view.setState({ threadId: "thread-named" }, {} as never);
+    view.applyThreadListSnapshot([panelThread({ id: "thread-named", name: "作業メモ" })]);
+    expect(view.getDisplayText()).toBe("Codex: 作業メモ");
+
+    view.applyThreadListSnapshot([panelThread({ id: "thread-named", name: null, preview: "初回依頼" })]);
+    expect(view.getDisplayText()).toBe("Codex: 初回依頼");
+
+    await view.setState({ threadId: "019e061e-0000-7000-8000-000000000001" }, {} as never);
+    view.applyThreadListSnapshot([]);
+    expect(view.getDisplayText()).toBe("Codex: 019e061e");
   });
 
   it("hydrates a restored thread when workspace state arrives after open", async () => {
@@ -1072,6 +1088,18 @@ function threadFixture(threadId: string): ThreadRecord {
     gitInfo: null,
     name: null,
     turns: [],
+  };
+}
+
+function panelThread(overrides: Partial<Thread> = {}): Thread {
+  return {
+    id: "thread-1",
+    preview: "",
+    createdAt: 1,
+    updatedAt: 1,
+    name: null,
+    archived: false,
+    ...overrides,
   };
 }
 

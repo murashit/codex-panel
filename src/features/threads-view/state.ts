@@ -4,7 +4,7 @@ import { explicitThreadName, getThreadTitle } from "../../domain/threads/model";
 
 type ThreadsLiveStatus = "needs-input" | "approval" | "running" | "draft" | "offline" | "open";
 
-export interface ThreadsLiveState {
+interface ThreadsLiveState {
   status: ThreadsLiveStatus;
   label: string;
   viewId: string;
@@ -65,7 +65,7 @@ export function threadRows(
     });
 }
 
-export function liveStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): ThreadsLiveState | null {
+function liveStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): ThreadsLiveState | null {
   const liveSnapshots = snapshots.filter((snapshot) => snapshot.threadId !== null);
   if (liveSnapshots.length === 0) return null;
   const winner = [...liveSnapshots].sort((a, b) => STATUS_PRIORITY[snapshotStatus(b)] - STATUS_PRIORITY[snapshotStatus(a)]).at(0);
@@ -79,7 +79,7 @@ export function liveStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): Thre
   };
 }
 
-export function selectedStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): boolean {
+function selectedStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): boolean {
   return snapshots.some((snapshot) => snapshot.threadId !== null && snapshot.lastFocused);
 }
 

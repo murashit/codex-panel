@@ -7,7 +7,7 @@ import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
 import { isLocalSteerMessageClientId } from "../../domain/local-id";
 import type { CodexInput } from "../../../../domain/chat/input";
 
-export interface LocalUserMessageParams {
+interface LocalUserMessageParams {
   id: string;
   text: string;
   copyText?: string;
@@ -49,7 +49,7 @@ export interface FailedTurnStartCleanupParams {
   pendingTurnStart: PendingTurnStart | null;
 }
 
-export function localUserMessageItem(params: LocalUserMessageParams): MessageStreamMessageItem {
+function localUserMessageItem(params: LocalUserMessageParams): MessageStreamMessageItem {
   const mentionedFiles = params.mentionedFiles ?? [];
   return {
     id: params.id,

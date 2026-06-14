@@ -3,12 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { renderThreadsView } from "../../../src/features/threads-view/renderer";
-import {
-  liveStateForSnapshots,
-  selectedStateForSnapshots,
-  threadRows,
-  type ThreadsRowModel,
-} from "../../../src/features/threads-view/state";
+import { threadRows, type ThreadsRowModel } from "../../../src/features/threads-view/state";
 import type { Thread } from "../../../src/domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../src/workspace/open-panel-snapshot";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -89,31 +84,48 @@ function threadsViewActions() {
 describe("threads view renderer decisions", () => {
   it("prioritizes open panel live state per thread", () => {
     expect(
-      liveStateForSnapshots([
-        openPanelSnapshot({ viewId: "open", threadId: "thread" }),
-        openPanelSnapshot({ viewId: "running", threadId: "thread", turnLifecycle: { kind: "running", turnId: "turn" } }),
-        openPanelSnapshot({ viewId: "approval", threadId: "thread", pendingApprovals: 1 }),
-        openPanelSnapshot({ viewId: "input", threadId: "thread", pendingUserInputs: 1 }),
-      ]),
+      threadRows(
+        [threadFixture({ id: "thread" })],
+        [
+          openPanelSnapshot({ viewId: "open", threadId: "thread" }),
+          openPanelSnapshot({ viewId: "running", threadId: "thread", turnLifecycle: { kind: "running", turnId: "turn" } }),
+          openPanelSnapshot({ viewId: "approval", threadId: "thread", pendingApprovals: 1 }),
+          openPanelSnapshot({ viewId: "input", threadId: "thread", pendingUserInputs: 1 }),
+        ],
+        new Map(),
+      )[0]?.live,
     ).toMatchObject({ status: "needs-input", label: "Needs input", viewId: "input", openPanels: 4 });
 
-    expect(liveStateForSnapshots([openPanelSnapshot({ viewId: "draft", threadId: "thread", hasComposerDraft: true })])).toMatchObject({
+    expect(
+      threadRows(
+        [threadFixture({ id: "thread" })],
+        [openPanelSnapshot({ viewId: "draft", threadId: "thread", hasComposerDraft: true })],
+        new Map(),
+      )[0]?.live,
+    ).toMatchObject({
       status: "draft",
       label: "Draft",
     });
-    expect(liveStateForSnapshots([openPanelSnapshot({ viewId: "offline", threadId: "thread", connected: false })])).toMatchObject({
+    expect(
+      threadRows(
+        [threadFixture({ id: "thread" })],
+        [openPanelSnapshot({ viewId: "offline", threadId: "thread", connected: false })],
+        new Map(),
+      )[0]?.live,
+    ).toMatchObject({
       status: "offline",
       label: "Offline",
     });
     expect(
-      liveStateForSnapshots([openPanelSnapshot({ viewId: "none", threadId: null, turnLifecycle: { kind: "running", turnId: "turn" } })]),
+      threadRows(
+        [threadFixture({ id: "thread" })],
+        [openPanelSnapshot({ viewId: "none", threadId: null, turnLifecycle: { kind: "running", turnId: "turn" } })],
+        new Map(),
+      )[0]?.live,
     ).toBeNull();
   });
 
   it("marks a row selected when one open panel for the thread was last focused", () => {
-    expect(selectedStateForSnapshots([openPanelSnapshot({ threadId: null, lastFocused: true })])).toBe(false);
-    expect(selectedStateForSnapshots([openPanelSnapshot({ threadId: "thread", lastFocused: true })])).toBe(true);
-
     const rows = threadRows(
       [
         threadFixture({ id: "closed", preview: "Closed thread" }),

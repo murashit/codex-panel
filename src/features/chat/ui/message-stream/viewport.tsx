@@ -51,7 +51,7 @@ export function MessageStreamViewport({ state, rootAttributes }: MessageStreamVi
   );
 }
 
-export function messageStreamVirtualItems(
+function messageStreamVirtualItems(
   virtualItems: { index: number; key: unknown; start: number }[],
   blocks: readonly MessageStreamBlock[],
   scrollOffset = 0,

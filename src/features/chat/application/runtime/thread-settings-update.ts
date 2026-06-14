@@ -10,7 +10,7 @@ import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { effectiveCollaborationMode, type PendingRuntimeSetting } from "../../domain/runtime/pending-settings";
 import type { TurnCollaborationModeWarning } from "../../domain/runtime/warnings";
 
-export type TurnCollaborationModeSettings =
+type TurnCollaborationModeSettings =
   | {
       collaborationMode: NonNullable<RuntimeSettingsPatch["collaborationMode"]>;
       warning: null;
@@ -35,10 +35,7 @@ export function serviceTierRequestForThreadStart(snapshot: RuntimeSnapshot, conf
   return config.serviceTier ?? undefined;
 }
 
-export function requestedTurnCollaborationModeSettings(
-  snapshot: RuntimeSnapshot,
-  config: RuntimeConfigSnapshot,
-): TurnCollaborationModeSettings {
+function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): TurnCollaborationModeSettings {
   const model = currentModel(snapshot, config);
   const effort = currentReasoningEffort(snapshot, config);
   if (!model) return { collaborationMode: null, warning: "missing-model" };

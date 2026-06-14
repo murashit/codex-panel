@@ -131,7 +131,7 @@ export function createThreadManagementActions(context: ThreadManagementActionsCo
   };
 }
 
-export async function compactThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
+async function compactThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
   await host.ensureConnected();
   const client = host.currentClient();
   if (!client) return;
@@ -146,7 +146,7 @@ export async function compactThread(host: ThreadManagementActionsHost, threadId:
   }
 }
 
-export async function archiveThread(
+async function archiveThread(
   host: ThreadManagementActionsHost,
   threadId: string,
   saveMarkdown = host.settings().archiveExportEnabled,
@@ -189,7 +189,7 @@ function forkThread(host: ThreadManagementActionsHost, threadId: string): Promis
   return forkThreadFromTurn(host, threadId, null, false);
 }
 
-export async function forkThreadFromTurn(
+async function forkThreadFromTurn(
   host: ThreadManagementActionsHost,
   threadId: string,
   turnId: string | null,
@@ -251,7 +251,7 @@ export async function forkThreadFromTurn(
   }
 }
 
-export async function renameThread(host: RenameThreadHost, threadId: string, value: string): Promise<boolean> {
+async function renameThread(host: RenameThreadHost, threadId: string, value: string): Promise<boolean> {
   const rename = threadRenameFromValue(value);
   if (!rename) return false;
 
@@ -278,7 +278,7 @@ export async function renameConnectedThread(host: ConnectedRenameThreadHost, thr
   }
 }
 
-export async function rollbackThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
+async function rollbackThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
   if (chatTurnBusy(threadManagementState(host))) {
     host.addSystemMessage(interruptBeforeRollbackMessage());
     return;

@@ -7,7 +7,6 @@ import {
   conversationAssistantTextFromTurnRecord,
   lastAgentMessageTextFromTurnRecord,
   transcriptEntriesFromTurnRecords,
-  transcriptEntriesFromTurnRecord,
   type TurnItem,
   type TurnRecord,
 } from "../../src/app-server/protocol/turn";
@@ -15,12 +14,12 @@ import {
 describe("app-server turn records", () => {
   it("projects readable transcript entries without command log items", () => {
     expect(
-      transcriptEntriesFromTurnRecord(
+      transcriptEntriesFromTurnRecords([
         turn([userMessage("u1", "  依頼です  "), commandItem("cmd"), agentMessage("a1", "回答です"), planItem("p1", "計画です")], {
           startedAt: 10,
           completedAt: 12,
         }),
-      ),
+      ]),
     ).toEqual([
       { kind: "user", text: "依頼です", timestamp: 10 },
       { kind: "assistant", text: "回答です", timestamp: 12 },

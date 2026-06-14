@@ -9,18 +9,12 @@ import {
   transitionSelectionRewriteState,
   type SelectionRewriteState,
 } from "../../../src/features/selection-rewrite/model";
-import {
-  parseSelectionRewriteOutput,
-  selectionRewriteOutputFromText,
-  selectionRewriteOutputParseResultFromText,
-} from "../../../src/features/selection-rewrite/output";
-import { isSelectionRewriteActionKey, SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
+import { selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
+import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
 import {
   runSelectionRewrite,
-  selectionRewriteRuntimeOverride,
-  validatedSelectionRewriteRuntimeOverride,
   type SelectionRewriteClient,
   type SelectionRewriteClientFactory,
 } from "../../../src/features/selection-rewrite/runner";
@@ -33,7 +27,6 @@ import type { RequestId, ServerNotification } from "../../../src/app-server/conn
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
 import type { ServerInitialization } from "../../../src/domain/server/initialization";
-import type { ComposerSendKeyEvent } from "../../../src/shared/ui/keyboard";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
@@ -58,17 +51,13 @@ afterEach(() => {
 
 describe("selection selection rewrite output", () => {
   it("parses valid selection rewrite JSON", () => {
-    expect(parseSelectionRewriteOutput('{"replacementText":"rewritten"}')).toEqual({ replacementText: "rewritten" });
+    expect(selectionRewriteOutputParseResultFromText('{"replacementText":"rewritten"}').output).toEqual({ replacementText: "rewritten" });
   });
 
   it("rejects invalid selection rewrite JSON", () => {
-    expect(parseSelectionRewriteOutput("replacementText: rewritten")).toBeNull();
-    expect(parseSelectionRewriteOutput('{"replacementText":42}')).toBeNull();
-    expect(parseSelectionRewriteOutput('{"text":"rewritten"}')).toBeNull();
-  });
-
-  it("parses selection rewrite output text", () => {
-    expect(selectionRewriteOutputFromText('{"replacementText":"final"}')).toEqual({ replacementText: "final" });
+    expect(selectionRewriteOutputParseResultFromText("replacementText: rewritten").output).toBeNull();
+    expect(selectionRewriteOutputParseResultFromText('{"replacementText":42}').output).toBeNull();
+    expect(selectionRewriteOutputParseResultFromText('{"text":"rewritten"}').output).toBeNull();
   });
 
   it("keeps raw model text when selection rewrite output parsing fails", () => {
@@ -224,6 +213,26 @@ describe("selection rewrite runner lifecycle", () => {
 
     await expect(rewriting).resolves.toEqual({ replacementText: "final" });
     expect(previews).toEqual(['{"replacementText":"stream', '{"replacementText":"streamed"}']);
+  });
+
+  it("passes validated runtime overrides to the structured rewrite turn", async () => {
+    const { clientFactory, client } = fakeSelectionRewriteClientFactory((fake) => {
+      fake.modelList = { data: [modelMetadata("gpt-5.4-mini", ["low", "medium", "high"]) as never], nextCursor: null };
+      fake.startStructuredTurnImpl = async () => {
+        fake.emit(completedItemNotification("thread", "turn", agentMessage("answer", '{"replacementText":"final"}')));
+        fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
+        return { turn: turn([], { id: "turn", status: "inProgress" }) };
+      };
+    });
+
+    await expect(
+      runSelectionRewrite({
+        ...runOptions(clientFactory),
+        runtimeSettings: { rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" },
+      }),
+    ).resolves.toEqual({ replacementText: "final" });
+
+    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({ model: "gpt-5.4-mini" });
   });
 });
 
@@ -532,46 +541,6 @@ describe("selection rewrite popover", () => {
   });
 });
 
-describe("selection rewrite runtime overrides", () => {
-  it("uses explicit selection rewrite runtime overrides", () => {
-    expect(selectionRewriteRuntimeOverride({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" })).toEqual({
-      model: "gpt-5.4-mini",
-      effort: "minimal",
-    });
-  });
-
-  it("omits selection rewrite runtime overrides that are set to Codex default", () => {
-    expect(selectionRewriteRuntimeOverride({ rewriteSelectionModel: null, rewriteSelectionEffort: null })).toEqual({});
-  });
-
-  it("omits an explicit selection rewrite effort when the selected model does not support it", () => {
-    expect(
-      validatedSelectionRewriteRuntimeOverride({ rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" }, [
-        modelMetadata("gpt-5.4-mini", ["low", "medium", "high", "xhigh"]),
-      ]),
-    ).toEqual({ model: "gpt-5.4-mini" });
-  });
-});
-
-describe("selection rewrite keys", () => {
-  const baseEvent: ComposerSendKeyEvent = {
-    key: "Enter",
-    shiftKey: false,
-    metaKey: false,
-    ctrlKey: false,
-    altKey: false,
-    isComposing: false,
-  };
-
-  it("treats plain Enter and Cmd/Ctrl+Enter as preview action keys", () => {
-    expect(isSelectionRewriteActionKey(baseEvent)).toBe(true);
-    expect(isSelectionRewriteActionKey({ ...baseEvent, metaKey: true })).toBe(true);
-    expect(isSelectionRewriteActionKey({ ...baseEvent, ctrlKey: true })).toBe(true);
-    expect(isSelectionRewriteActionKey({ ...baseEvent, shiftKey: true })).toBe(false);
-    expect(isSelectionRewriteActionKey({ ...baseEvent, isComposing: true })).toBe(false);
-  });
-});
-
 function rewriteState(overrides: Partial<SelectionRewriteState> = {}): SelectionRewriteState {
   return {
     filePath: "Note.md",
@@ -696,6 +665,8 @@ function fakeSelectionRewriteClientFactory(configure?: (client: FakeSelectionRew
 
 class FakeSelectionRewriteClient implements SelectionRewriteClient {
   disconnected = false;
+  modelList: ModelListResponse = { data: [], nextCursor: null };
+  startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
   readonly structuredTurnStarted: Promise<void>;
   private resolveStructuredTurnStarted!: () => void;
@@ -715,7 +686,7 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
   }
 
   async listModels(): Promise<ModelListResponse> {
-    return { data: [], nextCursor: null };
+    return this.modelList;
   }
 
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {
@@ -726,7 +697,8 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
     return threadStartResponse("thread");
   }
 
-  async startStructuredTurn(_options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
+  async startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
+    this.startStructuredTurnOptions = options;
     this.resolveStructuredTurnStarted();
     return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
   }

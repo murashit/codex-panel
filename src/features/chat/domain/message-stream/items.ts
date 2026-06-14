@@ -143,9 +143,7 @@ interface ProposedPlanMessageStreamItem extends MessageStreamMessageBase {
   messageState: MessageState;
 }
 
-export type AssistantAuthoredMessageStreamItem = AssistantResponseMessageStreamItem | ProposedPlanMessageStreamItem;
-
-export type MessageStreamMessageItem = UserMessageStreamItem | AssistantAuthoredMessageStreamItem;
+export type MessageStreamMessageItem = UserMessageStreamItem | AssistantResponseMessageStreamItem | ProposedPlanMessageStreamItem;
 
 export interface MessageStreamFileMention {
   name: string;

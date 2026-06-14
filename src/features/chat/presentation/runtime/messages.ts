@@ -1,12 +1,6 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { CollaborationMode } from "../../domain/runtime/pending-settings";
 
-export function compactModelLabel(model: string | null): string {
-  if (!model) return "default";
-  const match = /^gpt-(.+)$/.exec(model);
-  return match?.[1] ?? model;
-}
-
 export function compactReasoningEffortLabel(effort: ReasoningEffort | null): string {
   if (!effort) return "default";
   if (effort === "minimal") return "min";

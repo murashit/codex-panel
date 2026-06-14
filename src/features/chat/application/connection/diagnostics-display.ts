@@ -51,17 +51,6 @@ export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput):
   ];
 }
 
-export function hasDiagnosticIssue(diagnostics: Diagnostics): boolean {
-  for (const probe of Object.values(diagnostics.probes)) {
-    if (probe.status === "failed") return true;
-  }
-  for (const server of diagnostics.mcpServers) {
-    if (server.startupStatus === "failed") return true;
-    if (server.authStatus === "notLoggedIn") return true;
-  }
-  return false;
-}
-
 function diagnosticProbeRow(probe: DiagnosticProbeResult): DiagnosticRow {
   const detail = probe.message ? ` - ${probe.message}` : probe.summary ? ` (${probe.summary})` : "";
   return {

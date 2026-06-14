@@ -186,7 +186,7 @@ function autoReviewActionLabel(action: AutoReviewAction): string {
   return action.reason ?? "permission request";
 }
 
-export function autoReviewExecutionState(status: string): ExecutionState {
+function autoReviewExecutionState(status: string): ExecutionState {
   return executionStateFromStatus(status, AUTO_REVIEW_STATES);
 }
 
