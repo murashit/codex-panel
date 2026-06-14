@@ -126,6 +126,8 @@ describe("shared app-server cache state", () => {
     expect(cached.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
     expect(cached.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(cached.rateLimit?.primary?.usedPercent).toBe(42);
+    expect(cached.serverDiagnostics.probes["skills/list"].status).toBe("failed");
+    expect(cached.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("failed");
     expect(expectPresent(cachedSharedModels(second, context)).map((model) => model.model)).toEqual(["gpt-5.6"]);
   });
 

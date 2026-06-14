@@ -166,12 +166,8 @@ function metadataResourceSucceeded(
 }
 
 function mergeServerDiagnostics(previous: SharedServerMetadata, next: SharedServerMetadata): SharedServerMetadata["serverDiagnostics"] {
-  const probes = { ...next.serverDiagnostics.probes };
-  for (const method of Object.keys(probes) as (keyof typeof probes)[]) {
-    if (probes[method].status === "failed") probes[method] = previous.serverDiagnostics.probes[method];
-  }
   return {
-    probes,
+    probes: { ...next.serverDiagnostics.probes },
     mcpServers:
       next.serverDiagnostics.probes["mcpServerStatus/list"].status === "failed"
         ? previous.serverDiagnostics.mcpServers.map((server) => ({ ...server }))

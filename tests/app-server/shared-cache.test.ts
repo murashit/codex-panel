@@ -33,9 +33,12 @@ describe("SharedAppServerCache", () => {
     expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
     expect(cache.cachedAppServerMetadata(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(cache.cachedAppServerMetadata(context)?.rateLimit?.primary?.usedPercent).toBe(42);
+    expect(cache.cachedAppServerMetadata(context)?.serverDiagnostics.probes["skills/list"].status).toBe("failed");
+    expect(cache.cachedAppServerMetadata(context)?.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("failed");
 
     cache.applyAppServerMetadataSnapshot(context, metadata({ availableModels: [], modelProbeStatus: "failed" }));
     expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
+    expect(cache.cachedAppServerMetadata(context)?.serverDiagnostics.probes["model/list"].status).toBe("failed");
   });
 
   it("loads initial metadata snapshots without caching failed resource values", () => {
