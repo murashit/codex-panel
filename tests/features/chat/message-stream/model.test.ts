@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { collabAgentStateExecutionState } from "../../../../src/features/chat/message-stream/agent-items";
 import { activeAgentRunSummary } from "../../../../src/features/chat/message-stream/agent-summary";
-import { messageStreamLayoutBlocks } from "../../../../src/features/chat/message-stream/layout";
+import { messageStreamLayoutBlocks } from "../../../../src/features/chat/message-stream/presentation/layout";
 import {
   appendAssistantDelta,
   appendItemOutput,

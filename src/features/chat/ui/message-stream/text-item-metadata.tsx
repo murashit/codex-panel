@@ -1,6 +1,6 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 
-import type { MessageStreamItemAnnotations } from "../../message-stream/layout";
+import type { MessageStreamItemAnnotations } from "../../message-stream/presentation/layout";
 import type { MessageStreamItem, MessageStreamNoticeSection, MessageStreamUserInputQuestionResult } from "../../message-stream/items";
 import { IconButton } from "../../../../shared/ui/components";
 import type { TextItemDetailStateContext, TextItemMetadataContext } from "./context";

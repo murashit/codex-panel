@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { timelineItemsFromMessageStreamItems } from "../../../../../src/features/chat/message-stream/timeline/from-items";
+import { presentationClassificationsFromMessageStreamItems } from "../../../../../src/features/chat/message-stream/presentation/from-items";
 import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
 
-describe("timeline item semantics", () => {
+describe("message stream presentation classification", () => {
   it("classifies transcript messages separately from steering", () => {
-    const timeline = timelineItemsFromMessageStreamItems([
+    const presentation = presentationClassificationsFromMessageStreamItems([
       userMessage("u1", "do it", "turn"),
       userMessage("u2", "also check tests", "turn"),
       {
@@ -19,16 +19,12 @@ describe("timeline item semantics", () => {
       },
     ]);
 
-    expect(timeline.map(({ semanticKind, authorship, placement }) => ({ semanticKind, authorship, placement }))).toEqual([
-      { semanticKind: "userPrompt", authorship: "user", placement: "primaryTranscript" },
-      { semanticKind: "steering", authorship: "user", placement: "workLog" },
-      { semanticKind: "assistantResponse", authorship: "assistant", placement: "primaryTranscript" },
-    ]);
-    expect(timeline[2]?.actions).toMatchObject({ isTurnOutcome: true, canForkFromHere: true });
+    expect(presentation.map(({ semanticKind }) => semanticKind)).toEqual(["userPrompt", "steering", "assistantResponse"]);
+    expect(presentation[2]?.actions).toMatchObject({ isTurnOutcome: true, canForkFromHere: true });
   });
 
-  it("keeps work logs out of the primary transcript", () => {
-    const timeline = timelineItemsFromMessageStreamItems([
+  it("classifies work log item semantics", () => {
+    const presentation = presentationClassificationsFromMessageStreamItems([
       commandItem("cmd"),
       {
         id: "patch",
@@ -43,19 +39,17 @@ describe("timeline item semantics", () => {
       { id: "reasoning", kind: "reasoning", role: "tool", text: "thinking" },
     ]);
 
-    expect(
-      timeline.map(({ semanticKind, placement, detailShape, renderSurface }) => ({ semanticKind, placement, detailShape, renderSurface })),
-    ).toEqual([
-      { semanticKind: "commandRun", placement: "workLog", detailShape: "commandAudit", renderSurface: "toolResult" },
-      { semanticKind: "filePatch", placement: "workLog", detailShape: "diffSet", renderSurface: "toolResult" },
-      { semanticKind: "toolCall", placement: "workLog", detailShape: "jsonAudit", renderSurface: "toolResult" },
-      { semanticKind: "hookRun", placement: "workLog", detailShape: "plainText", renderSurface: "toolResult" },
-      { semanticKind: "reasoningNote", placement: "workLog", detailShape: "plainText", renderSurface: "workItem" },
+    expect(presentation.map(({ semanticKind }) => semanticKind)).toEqual([
+      "commandRun",
+      "filePatch",
+      "toolCall",
+      "hookRun",
+      "reasoningNote",
     ]);
   });
 
-  it("classifies thread and interaction events by meaning before renderer shape", () => {
-    const timeline = timelineItemsFromMessageStreamItems([
+  it("classifies thread and interaction events by meaning", () => {
+    const presentation = presentationClassificationsFromMessageStreamItems([
       { id: "goal", kind: "goal", role: "tool", text: "set: Ship it", action: "set" },
       {
         id: "approval",
@@ -70,32 +64,28 @@ describe("timeline item semantics", () => {
       { id: "system", kind: "system", role: "system", text: "Disconnected" },
     ]);
 
-    expect(
-      timeline.map(({ semanticKind, authorship, placement, renderSurface }) => ({ semanticKind, authorship, placement, renderSurface })),
-    ).toEqual([
-      { semanticKind: "goalChange", authorship: "runtime", placement: "workLog", renderSurface: "toolResult" },
-      { semanticKind: "approvalResult", authorship: "runtime", placement: "workLog", renderSurface: "toolResult" },
-      { semanticKind: "userInputResult", authorship: "user", placement: "workLog", renderSurface: "textMessage" },
-      { semanticKind: "reviewResult", authorship: "runtime", placement: "workLog", renderSurface: "toolResult" },
-      { semanticKind: "contextCompaction", authorship: "runtime", placement: "workLog", renderSurface: "workItem" },
-      { semanticKind: "systemNotice", authorship: "panel", placement: "panelNotice", renderSurface: "textMessage" },
+    expect(presentation.map(({ semanticKind }) => semanticKind)).toEqual([
+      "goalChange",
+      "approvalResult",
+      "userInputResult",
+      "reviewResult",
+      "contextCompaction",
+      "systemNotice",
     ]);
   });
 
   it("marks completed proposed plans as implementable turn outcomes", () => {
-    const [draft, completed] = timelineItemsFromMessageStreamItems([
+    const [draft, completed] = presentationClassificationsFromMessageStreamItems([
       { id: "draft", kind: "message", messageKind: "proposedPlan", messageState: "streaming", role: "assistant", text: "draft" },
       { id: "plan", kind: "message", messageKind: "proposedPlan", messageState: "completed", role: "assistant", text: "plan" },
     ]);
 
     expect(draft).toMatchObject({
       semanticKind: "proposedPlan",
-      detailShape: "plainText",
       actions: { canImplementPlan: false, isTurnOutcome: false },
     });
     expect(completed).toMatchObject({
       semanticKind: "proposedPlan",
-      detailShape: "markdownText",
       actions: { canImplementPlan: true, isTurnOutcome: true },
     });
   });

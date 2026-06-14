@@ -1,11 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import {
-  activeAgentRunSummary,
-  agentActivityMetaLabel,
-  agentMessagePreview,
-  agentRunSummaryLabel,
-} from "../../message-stream/agent-summary";
+import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel } from "../../message-stream/agent-summary";
 import type {
   AgentMessageStreamItem,
   AgentRunSummary,
@@ -40,10 +35,6 @@ export interface WorkItemContext {
 
 function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">): string | null {
   return activeTurnId({ lifecycle: context.turnLifecycle });
-}
-
-export function activeAgentRunSummaryBlock(context: WorkItemContext): AgentRunSummary | null {
-  return activeAgentRunSummary(context.activeItems ?? context.items, workItemsActiveTurnId(context));
 }
 
 export function agentRunSummaryNode(summary: AgentRunSummary): UiNode {

@@ -3,7 +3,6 @@ import { useEffect, useRef } from "preact/hooks";
 
 import { activeTurnId } from "../../state/reducer";
 import type { MessageStreamItem } from "../../message-stream/items";
-import { timelineItemFromMessageStreamItem } from "../../message-stream/timeline/from-items";
 import { IconButton } from "../../../../shared/ui/components";
 import { listenDomEvent } from "../../../../shared/ui/dom-events";
 import type { TextItemActionContext, TextMessageStreamItem } from "./context";
@@ -110,10 +109,9 @@ function TextItemAction({
 }
 
 function displayRoleLabel(item: MessageStreamItem): string {
-  const timeline = timelineItemFromMessageStreamItem(item);
-  if (timeline.semanticKind === "userInputResult") return "Input";
-  if (timeline.authorship === "user") return "You";
-  if (timeline.authorship === "assistant") return "Codex";
+  if (item.kind === "userInputResult") return "Input";
+  if (item.role === "user") return "You";
+  if (item.role === "assistant") return "Codex";
   return "System";
 }
 

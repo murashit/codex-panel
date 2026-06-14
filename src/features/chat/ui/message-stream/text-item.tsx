@@ -2,8 +2,7 @@ import { type ComponentChild as UiNode, type Ref } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MessageStreamItem, ExecutionState } from "../../message-stream/items";
-import type { MessageStreamItemAnnotations } from "../../message-stream/layout";
-import { timelineItemFromMessageStreamItem } from "../../message-stream/timeline/from-items";
+import type { MessageStreamItemAnnotations } from "../../message-stream/presentation/layout";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { TextItemContentContext, TextItemContext, TextMessageStreamItem } from "./context";
 import { TextItemHeader } from "./text-item-actions";
@@ -180,7 +179,7 @@ function textItemContentKey(item: TextMessageStreamItem): string {
 }
 
 function contentRenderMode(item: TextMessageStreamItem): "markdown" | "text" {
-  return timelineItemFromMessageStreamItem(item).detailShape === "markdownText" ? "markdown" : "text";
+  return item.kind === "message" && (item.messageKind !== "proposedPlan" || item.messageState === "completed") ? "markdown" : "text";
 }
 
 function executionClassName(state: ExecutionState): string {

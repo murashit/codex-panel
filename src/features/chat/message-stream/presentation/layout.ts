@@ -1,7 +1,7 @@
-import type { MessageStreamItem } from "./items";
-import { pathRelativeToRoot } from "./path-labels";
-import { timelineItemsFromMessageStreamItems } from "./timeline/from-items";
-import type { TimelineItem, TimelineSemanticKind } from "./timeline/types";
+import type { MessageStreamItem } from "../items";
+import { pathRelativeToRoot } from "../path-labels";
+import { presentationClassificationsFromMessageStreamItems } from "./from-items";
+import type { PresentationClassification, PresentationSemanticKind } from "./types";
 
 const STEERING_ACTIVITY_LABEL = "steer";
 const STEERING_ACTIVITY_KIND = "userSteered";
@@ -32,7 +32,7 @@ export function messageStreamLayoutBlocks(
   workspaceRoot?: string | null,
   turnDiffs?: ReadonlyMap<string, string>,
 ): MessageStreamLayoutBlock[] {
-  const visibleItems = timelineItemsFromMessageStreamItems(items).filter(shouldShowTimelineItem);
+  const visibleItems = presentationClassificationsFromMessageStreamItems(items).filter(shouldShowPresentationItem);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
   const turnOutcomeIdByTurn = turnOutcomeItemsByTurn(visibleItems);
@@ -40,25 +40,27 @@ export function messageStreamLayoutBlocks(
   const summaryOutcomeIdByTurn = new Map([...turnOutcomeIdByTurn].filter(([turnId]) => groupedTurnIds.has(turnId)));
 
   const groupedActivities = new Map<string, GroupedActivity[]>();
-  for (const item of visibleItems) {
+  for (const classification of visibleItems) {
+    const { item, semanticKind } = classification;
     const turnId = item.turnId;
     if (!turnId || !groupedTurnIds.has(turnId)) continue;
-    if (item.semanticKind === "steering" && item.streamItem.kind === "message") {
+    if (semanticKind === "steering" && item.kind === "message") {
       const group = groupedActivities.get(turnId) ?? [];
-      group.push({ item: steeringActivityItem(item, turnId), semanticKind: "steering" });
+      group.push({ item: steeringActivityItem(classification, turnId), semanticKind: "steering" });
       groupedActivities.set(turnId, group);
       continue;
     }
-    if (!isCompletedTurnDetailItem(item, turnOutcomeIdByTurn)) continue;
+    if (!isCompletedTurnDetailItem(classification, turnOutcomeIdByTurn)) continue;
     const group = groupedActivities.get(turnId) ?? [];
-    group.push({ item: item.streamItem, semanticKind: item.semanticKind });
+    group.push({ item, semanticKind });
     groupedActivities.set(turnId, group);
   }
 
   const blocks: MessageStreamLayoutBlock[] = [];
-  for (const item of visibleItems) {
+  for (const classification of visibleItems) {
+    const { item } = classification;
     const turnId = item.turnId;
-    if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(item, turnOutcomeIdByTurn)) {
+    if (turnId && groupedActivities.has(turnId) && isCompletedTurnDetailItem(classification, turnOutcomeIdByTurn)) {
       continue;
     }
     if (turnId && turnOutcomeIdByTurn.get(turnId) === item.id && groupedActivities.has(turnId)) {
@@ -73,10 +75,10 @@ export function messageStreamLayoutBlocks(
     }
     blocks.push({
       type: "item",
-      item: item.streamItem,
+      item,
       ...definedProp(
         "annotations",
-        annotationsForTurnOutcome(item.streamItem, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
+        annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
       ),
     });
   }
@@ -86,19 +88,20 @@ export function messageStreamLayoutBlocks(
 
 interface GroupedActivity {
   item: MessageStreamItem;
-  semanticKind: TimelineSemanticKind;
+  semanticKind: PresentationSemanticKind;
 }
 
-function shouldShowTimelineItem(item: TimelineItem): boolean {
-  return item.semanticKind !== "reasoningNote" || item.lifecycle !== "completed" || item.text.trim().length > 0;
+function shouldShowPresentationItem(classification: PresentationClassification): boolean {
+  const { item, semanticKind } = classification;
+  return semanticKind !== "reasoningNote" || item.executionState !== "completed" || textForMessageStreamItem(item).trim().length > 0;
 }
 
-function steeringActivityItem(item: TimelineItem, turnId: string): MessageStreamItem {
+function steeringActivityItem({ item }: PresentationClassification, turnId: string): MessageStreamItem {
   return {
     id: `steer-activity-${item.id}`,
     kind: "tool",
     role: "tool",
-    text: item.text,
+    text: textForMessageStreamItem(item),
     turnId,
     ...(item.sourceItemId ? { sourceItemId: item.sourceItemId } : {}),
     activityKind: STEERING_ACTIVITY_KIND,
@@ -106,15 +109,16 @@ function steeringActivityItem(item: TimelineItem, turnId: string): MessageStream
   };
 }
 
-function isCompletedTurnDetailItem(item: TimelineItem, turnOutcomeIdByTurn: Map<string, string>): boolean {
-  if (!item.turnId || item.semanticKind === "userPrompt" || item.semanticKind === "steering") return false;
+function isCompletedTurnDetailItem(classification: PresentationClassification, turnOutcomeIdByTurn: Map<string, string>): boolean {
+  const { item, semanticKind } = classification;
+  if (!item.turnId || semanticKind === "userPrompt" || semanticKind === "steering") return false;
   return turnOutcomeIdByTurn.get(item.turnId) !== item.id;
 }
 
-function turnOutcomeItemsByTurn(items: readonly TimelineItem[]): Map<string, string> {
+function turnOutcomeItemsByTurn(items: readonly PresentationClassification[]): Map<string, string> {
   const turnOutcomeIdByTurn = new Map<string, string>();
-  for (const item of items) {
-    if (!item.turnId || !item.actions.isTurnOutcome) continue;
+  for (const { item, actions } of items) {
+    if (!item.turnId || !actions.isTurnOutcome) continue;
     turnOutcomeIdByTurn.set(item.turnId, item.id);
   }
   return turnOutcomeIdByTurn;
@@ -143,11 +147,11 @@ function annotationsForTurnOutcome(
   };
 }
 
-function editedFilesForTurns(items: readonly TimelineItem[], workspaceRoot?: string | null): Map<string, string[]> {
+function editedFilesForTurns(items: readonly PresentationClassification[], workspaceRoot?: string | null): Map<string, string[]> {
   const byTurn = new Map<string, Set<string>>();
-  for (const item of items) {
-    if (!item.turnId || item.semanticKind !== "filePatch") continue;
-    const files = editedFilesForItem(item.streamItem, workspaceRoot);
+  for (const { item, semanticKind } of items) {
+    if (!item.turnId || semanticKind !== "filePatch") continue;
+    const files = editedFilesForItem(item, workspaceRoot);
     if (files.length === 0) continue;
     const set = byTurn.get(item.turnId) ?? new Set<string>();
     files.forEach((file) => set.add(file));
@@ -164,11 +168,11 @@ function editedFilesForItem(item: MessageStreamItem, workspaceRoot?: string | nu
   );
 }
 
-function autoReviewSummariesForTurns(items: readonly TimelineItem[]): Map<string, string[]> {
+function autoReviewSummariesForTurns(items: readonly PresentationClassification[]): Map<string, string[]> {
   const byTurn = new Map<string, string[]>();
-  for (const item of items) {
-    if (!item.turnId || item.semanticKind !== "reviewResult") continue;
-    const summary = item.text.trim();
+  for (const { item, semanticKind } of items) {
+    if (!item.turnId || semanticKind !== "reviewResult") continue;
+    const summary = textForMessageStreamItem(item).trim();
     if (!summary) continue;
     const summaries = byTurn.get(item.turnId) ?? [];
     summaries.push(summary);
@@ -202,7 +206,7 @@ function turnActivitySummary(items: readonly GroupedActivity[]): string {
 
 function countSemanticLabel(
   items: readonly GroupedActivity[],
-  semanticKind: TimelineSemanticKind,
+  semanticKind: PresentationSemanticKind,
   label: string,
   pluralLabel = `${label}s`,
 ): string | null {
@@ -210,6 +214,10 @@ function countSemanticLabel(
   if (count === 0) return null;
   if (count === 1) return label;
   return `${String(count)} ${pluralLabel}`;
+}
+
+function textForMessageStreamItem(item: MessageStreamItem): string {
+  return "text" in item && typeof item.text === "string" ? item.text : "";
 }
 
 function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {

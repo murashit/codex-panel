@@ -1,5 +1,5 @@
 import type { AssistantAuthoredMessageStreamItem, MessageStreamItem } from "./items";
-import { timelineActionsForMessageStreamItem, timelineItemsFromMessageStreamItems } from "./timeline/from-items";
+import { presentationActionsForMessageStreamItem, presentationClassificationsFromMessageStreamItems } from "./presentation/from-items";
 
 export interface ForkCandidate {
   itemId: string;
@@ -13,19 +13,24 @@ interface RollbackCandidateItem {
 
 export function forkCandidatesFromItems(items: readonly MessageStreamItem[]): readonly ForkCandidate[] {
   const turnOutcomeItemsByTurn = new Map<string, ForkCandidate>();
-  for (const item of timelineItemsFromMessageStreamItems(items)) {
-    if (!item.turnId || !item.actions.isTurnOutcome) continue;
+  for (const { item, actions } of presentationClassificationsFromMessageStreamItems(items)) {
+    if (!item.turnId || !actions.isTurnOutcome) continue;
     turnOutcomeItemsByTurn.set(item.turnId, { itemId: item.id, turnId: item.turnId });
   }
   return [...turnOutcomeItemsByTurn.values()];
 }
 
 export function latestProposedPlanFromItems(items: readonly MessageStreamItem[]): MessageStreamItem | null {
-  return [...timelineItemsFromMessageStreamItems(items)].reverse().find((item) => item.semanticKind === "proposedPlan")?.streamItem ?? null;
+  return (
+    [...presentationClassificationsFromMessageStreamItems(items)].reverse().find((item) => item.semanticKind === "proposedPlan")?.item ??
+    null
+  );
 }
 
 export function latestImplementablePlanFromItems(items: readonly MessageStreamItem[]): MessageStreamItem | null {
-  return [...timelineItemsFromMessageStreamItems(items)].reverse().find((item) => item.actions.canImplementPlan)?.streamItem ?? null;
+  return (
+    [...presentationClassificationsFromMessageStreamItems(items)].reverse().find((item) => item.actions.canImplementPlan)?.item ?? null
+  );
 }
 
 export function isAssistantAuthoredMessage(item: MessageStreamItem): item is AssistantAuthoredMessageStreamItem {
@@ -33,7 +38,7 @@ export function isAssistantAuthoredMessage(item: MessageStreamItem): item is Ass
 }
 
 export function isCompletedTurnOutcomeMessage(item: MessageStreamItem): boolean {
-  return timelineActionsForMessageStreamItem(item).isTurnOutcome;
+  return presentationActionsForMessageStreamItem(item).isTurnOutcome;
 }
 
 export function isForkCandidateItem(item: MessageStreamItem, candidates: readonly ForkCandidate[]): boolean {
