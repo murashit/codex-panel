@@ -3,6 +3,7 @@ import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import { submissionStateSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
+import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../../domain/local-id";
 import { currentTurnNotSteerableMessage, STATUS_STEERED_CURRENT_TURN, STATUS_TURN_RUNNING } from "./messages";
 import {
   acknowledgeOptimisticTurnStart,
@@ -28,9 +29,11 @@ export interface TurnSubmissionControllerHost {
 }
 
 export class TurnSubmissionController {
-  private static localItemSequence = 0;
+  private readonly localItemIds: LocalChatItemIdFactory;
 
-  constructor(private readonly host: TurnSubmissionControllerHost) {}
+  constructor(private readonly host: TurnSubmissionControllerHost) {
+    this.localItemIds = createLocalChatItemIdFactory();
+  }
 
   async sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadMetadata): Promise<void> {
     if (!(await this.host.ensureRestoredThreadLoaded())) return;
@@ -56,7 +59,7 @@ export class TurnSubmissionController {
       if (!(await this.host.applyPendingThreadSettings())) return;
 
       const codexInput = codexInputOverride ?? this.host.codexInput(text);
-      optimisticUserId = TurnSubmissionController.nextLocalItemId("local-user");
+      optimisticUserId = this.localItemIds.next("local-user");
       const optimistic = optimisticTurnStart({
         id: optimisticUserId,
         text,
@@ -127,7 +130,7 @@ export class TurnSubmissionController {
     }
 
     const codexInput = codexInputOverride ?? this.host.codexInput(text);
-    const localSteerId = TurnSubmissionController.nextLocalItemId("local-steer");
+    const localSteerId = this.localItemIds.next("local-steer");
     this.host.setDraft("", { clearSuggestions: true });
 
     try {
@@ -154,10 +157,5 @@ export class TurnSubmissionController {
   private isCurrentTurn(threadId: string, turnId: string): boolean {
     const state = submissionStateSnapshot(this.host.stateStore.getState());
     return state.activeThreadId === threadId && state.activeTurnId === turnId;
-  }
-
-  private static nextLocalItemId(prefix: "local-user" | "local-steer"): string {
-    this.localItemSequence += 1;
-    return `${prefix}-${String(Date.now())}-${String(this.localItemSequence)}`;
   }
 }

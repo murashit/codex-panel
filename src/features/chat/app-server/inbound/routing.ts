@@ -237,6 +237,9 @@ export function routeServerNotification(notification: ServerNotification, scope:
 
 export function isMessageInActiveScope(message: ServerNotification | ServerRequest, scope: ActiveRouteScope): boolean {
   const threadId = messageThreadId(message);
+  // Scope identifiers are filters only when both the notification and the
+  // active panel have one. Thread catalog and idle-thread notifications often
+  // omit active turn scope, so missing ids stay eligible for the active route.
   if (threadId && scope.activeThreadId && threadId !== scope.activeThreadId) return false;
 
   const turnId = messageTurnId(message);

@@ -4,6 +4,7 @@ import type { MessageStreamItemProvenance } from "../../domain/message-stream/pr
 import { fileMentionsFromInput } from "../../domain/message-stream/format/file-mentions";
 import { userMessageDisplayText } from "../../domain/message-stream/format/user-message-text";
 import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
+import { isLocalSteerMessageClientId } from "../../domain/local-id";
 import type { CodexInput } from "../../../../domain/chat/input";
 
 export interface LocalUserMessageParams {
@@ -68,7 +69,7 @@ function localUserMessageProvenance(id: string): MessageStreamItemProvenance {
   return {
     source: "localUser",
     channel: "optimistic",
-    interaction: id.startsWith("local-steer-") ? "steer" : "prompt",
+    interaction: isLocalSteerMessageClientId(id) ? "steer" : "prompt",
     sourceId: id,
   };
 }

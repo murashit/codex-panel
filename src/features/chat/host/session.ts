@@ -21,6 +21,7 @@ import type { ComposerSubmitActions } from "../application/conversation/composer
 import { codexPanelDisplayTitle } from "../application/threads/title-display";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
+import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../domain/local-id";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
@@ -174,6 +175,7 @@ export class ChatPanelSession {
   private readonly connectionWork = new ChatConnectionWorkTracker();
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly messageScrollIntent: ChatMessageScrollIntentState = createChatMessageScrollIntentState();
+  private readonly localItemIds: LocalChatItemIdFactory = createLocalChatItemIdFactory();
   private opened = false;
   private closing = false;
 
@@ -951,10 +953,10 @@ export class ChatPanelSession {
   }
 
   private systemItem(text: string): MessageStreamItem {
-    return createSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text);
+    return createSystemItem(this.localItemIds.next("system"), text);
   }
 
   private structuredSystemItem(text: string, details: MessageStreamNoticeSection[]): MessageStreamItem {
-    return createStructuredSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text, details);
+    return createStructuredSystemItem(this.localItemIds.next("system"), text, details);
   }
 }

@@ -451,7 +451,7 @@ describe("CodexChatView connection lifecycle", () => {
         threadId: "thread-1",
         cwd: "/vault",
         input: [{ type: "text", text: "hello" }],
-        clientUserMessageId: expect.stringMatching(/^local-user-\d+-\d+$/),
+        clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
       });
     });
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });

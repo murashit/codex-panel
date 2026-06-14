@@ -78,7 +78,7 @@ describe("TurnSubmissionController", () => {
       threadId: "thread",
       cwd: "/vault",
       input: textInput("hello"),
-      clientUserMessageId: expect.stringMatching(/^local-user-\d+-\d+$/),
+      clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
     });
     expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.setDraft).toHaveBeenCalledWith("");
@@ -147,7 +147,12 @@ describe("TurnSubmissionController", () => {
 
     await controller.sendTurnText("follow up");
 
-    expect(steerTurn).toHaveBeenCalledWith("thread", "turn", textInput("follow up"), expect.stringMatching(/^local-steer-\d+-\d+$/));
+    expect(steerTurn).toHaveBeenCalledWith(
+      "thread",
+      "turn",
+      textInput("follow up"),
+      expect.stringMatching(/^local-steer-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
+    );
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
     const localSteerId = steerTurn.mock.calls[0]?.[3];
@@ -182,8 +187,8 @@ describe("TurnSubmissionController", () => {
 
       const firstId = first.startTurn.mock.calls[0]?.[0].clientUserMessageId;
       const secondId = second.startTurn.mock.calls[0]?.[0].clientUserMessageId;
-      expect(firstId).toMatch(/^local-user-1234-\d+$/);
-      expect(secondId).toMatch(/^local-user-1234-\d+$/);
+      expect(firstId).toMatch(/^local-user-1234-[A-Za-z0-9_-]+-[a-z0-9]+$/);
+      expect(secondId).toMatch(/^local-user-1234-[A-Za-z0-9_-]+-[a-z0-9]+$/);
       expect(firstId).not.toBe(secondId);
     } finally {
       now.mockRestore();

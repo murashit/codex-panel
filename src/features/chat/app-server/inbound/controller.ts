@@ -16,6 +16,7 @@ import {
   userCancelledInputRequestMessage,
 } from "../../application/pending-requests/messages";
 import { createApprovalResultItem, createUserInputResultItem } from "../../domain/pending-requests/result-items";
+import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../../domain/local-id";
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
 
@@ -33,6 +34,8 @@ export interface ChatInboundControllerActions {
 }
 
 export class ChatInboundController {
+  private readonly localItemIds: LocalChatItemIdFactory = createLocalChatItemIdFactory();
+
   constructor(
     private readonly store: ChatStateStore,
     private readonly actions: ChatInboundControllerActions,
@@ -162,7 +165,7 @@ export class ChatInboundController {
   }
 
   private localItemId(prefix: string): string {
-    return `${prefix}-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
+    return this.localItemIds.next(prefix);
   }
 
   private runNotificationEffect(effect: ChatNotificationEffect): void {

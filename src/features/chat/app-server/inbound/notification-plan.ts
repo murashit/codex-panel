@@ -33,6 +33,7 @@ import {
 import { streamingFileChangeMessageStreamItem } from "../mappers/message-stream/streaming-items";
 import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
 import { messageStreamItems } from "../../application/state/message-stream";
+import { isLocalUserMessageId } from "../../domain/local-id";
 import {
   routeServerNotification,
   type DiagnosticStatusNotificationMethod,
@@ -554,10 +555,6 @@ function isFallbackOptimisticUserMessageForTurn(
   if (serverUserFallbackTexts.size === 0) return false;
   if (item.turnId && item.turnId !== completedTurnId) return false;
   return serverUserFallbackTexts.has(item.copyText ?? item.text);
-}
-
-function isLocalUserMessageId(id: string): boolean {
-  return id.startsWith("local-user-") || id.startsWith("local-steer-");
 }
 
 function isString(value: string | null | undefined): value is string {

@@ -1,4 +1,5 @@
 import type { MessageStreamItem } from "../items";
+import { isLocalSteerMessageClientId } from "../../local-id";
 import type {
   MessageStreamLifecycle,
   MessageStreamMeaning,
@@ -130,7 +131,7 @@ function isSteeringUserMessage(
   if (!item.turnId) return false;
   const seenCount = seenUserMessagesByTurn.get(item.turnId) ?? 0;
   seenUserMessagesByTurn.set(item.turnId, seenCount + 1);
-  return (item.clientId?.startsWith("local-steer-") ?? false) || seenCount > 0;
+  return isLocalSteerMessageClientId(item.clientId) || seenCount > 0;
 }
 
 function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {

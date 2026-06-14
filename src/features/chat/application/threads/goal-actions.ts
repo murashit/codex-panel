@@ -4,6 +4,7 @@ import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../..
 import type { ChatStateStore } from "../state/reducer";
 import type { GoalMessageStreamItem } from "../../domain/message-stream/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
+import { createLocalChatItemIdFactory } from "../../domain/local-id";
 import { emptyGoalObjectiveMessage } from "./messages";
 
 export interface GoalActionsHost {
@@ -24,26 +25,37 @@ export interface GoalActions {
 }
 
 export function createGoalActions(host: GoalActionsHost): GoalActions {
+  const localItemIds = createLocalChatItemIdFactory();
   return {
     activeGoal: () => host.stateStore.getState().activeThread.goal,
-    syncThreadGoal: (threadId) => syncThreadGoal(host, threadId),
-    setObjective: (threadId, objective, tokenBudget) => setObjective(host, threadId, objective, tokenBudget),
-    setStatus: (threadId, status) => setGoalStatus(host, threadId, status),
-    clear: (threadId) => clearGoal(host, threadId),
+    syncThreadGoal: (threadId) => syncThreadGoal(host, localItemIds, threadId),
+    setObjective: (threadId, objective, tokenBudget) => setObjective(host, localItemIds, threadId, objective, tokenBudget),
+    setStatus: (threadId, status) => setGoalStatus(host, localItemIds, threadId, status),
+    clear: (threadId) => clearGoal(host, localItemIds, threadId),
   };
 }
 
-async function syncThreadGoal(host: GoalActionsHost, threadId: string): Promise<void> {
+async function syncThreadGoal(
+  host: GoalActionsHost,
+  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  threadId: string,
+): Promise<void> {
   const client = host.currentClient();
   if (!client) return;
   try {
-    applyGoalIfActive(host, threadId, await readThreadGoal(client, threadId), { reportChange: false });
+    applyGoalIfActive(host, localItemIds, threadId, await readThreadGoal(client, threadId), { reportChange: false });
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, `Could not load thread goal: ${errorMessage(error)}`);
   }
 }
 
-async function setObjective(host: GoalActionsHost, threadId: string, objective: string, tokenBudget: number | null): Promise<boolean> {
+async function setObjective(
+  host: GoalActionsHost,
+  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  threadId: string,
+  objective: string,
+  tokenBudget: number | null,
+): Promise<boolean> {
   const trimmed = objective.trim();
   if (!trimmed) {
     host.addSystemMessage(emptyGoalObjectiveMessage());
@@ -51,7 +63,7 @@ async function setObjective(host: GoalActionsHost, threadId: string, objective: 
   }
   const current = host.stateStore.getState().activeThread.goal;
   const isNewGoal = current === null;
-  const applied = await setGoal(host, threadId, {
+  const applied = await setGoal(host, localItemIds, threadId, {
     objective: trimmed,
     status: current?.status ?? "active",
     tokenBudget,
@@ -62,17 +74,26 @@ async function setObjective(host: GoalActionsHost, threadId: string, objective: 
   return applied;
 }
 
-function setGoalStatus(host: GoalActionsHost, threadId: string, status: ThreadGoalStatus): Promise<boolean> {
-  return setGoal(host, threadId, { status });
+function setGoalStatus(
+  host: GoalActionsHost,
+  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  threadId: string,
+  status: ThreadGoalStatus,
+): Promise<boolean> {
+  return setGoal(host, localItemIds, threadId, { status });
 }
 
-async function clearGoal(host: GoalActionsHost, threadId: string): Promise<boolean> {
+async function clearGoal(
+  host: GoalActionsHost,
+  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  threadId: string,
+): Promise<boolean> {
   await host.ensureConnected();
   const client = host.currentClient();
   if (!client) return false;
   try {
     await client.clearThreadGoal(threadId);
-    applyGoalIfActive(host, threadId, null, { reportChange: true });
+    applyGoalIfActive(host, localItemIds, threadId, null, { reportChange: true });
     return true;
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, errorMessage(error));
@@ -80,22 +101,33 @@ async function clearGoal(host: GoalActionsHost, threadId: string): Promise<boole
   }
 }
 
-async function setGoal(host: GoalActionsHost, threadId: string, params: ThreadGoalUpdate): Promise<boolean> {
+async function setGoal(
+  host: GoalActionsHost,
+  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  threadId: string,
+  params: ThreadGoalUpdate,
+): Promise<boolean> {
   await host.ensureConnected();
   const client = host.currentClient();
   if (!client) return false;
   try {
-    return applyGoalIfActive(host, threadId, await setThreadGoal(client, threadId, params), { reportChange: true });
+    return applyGoalIfActive(host, localItemIds, threadId, await setThreadGoal(client, threadId, params), { reportChange: true });
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, errorMessage(error));
     return false;
   }
 }
 
-function applyGoalIfActive(host: GoalActionsHost, threadId: string, goal: ThreadGoal | null, options: { reportChange: boolean }): boolean {
+function applyGoalIfActive(
+  host: GoalActionsHost,
+  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  threadId: string,
+  goal: ThreadGoal | null,
+  options: { reportChange: boolean },
+): boolean {
   const state = host.stateStore.getState();
   if (state.activeThread.id !== threadId) return false;
-  const item = options.reportChange ? goalChangeItem(goalEventId(), state.activeThread.goal, goal) : null;
+  const item = options.reportChange ? goalChangeItem(localItemIds.next("goal"), state.activeThread.goal, goal) : null;
   host.stateStore.dispatch({ type: "active-thread/goal-set", goal });
   if (item) host.addGoalEvent(item);
   host.refreshLiveState();
@@ -119,8 +151,4 @@ function addThreadScopedSystemMessage(host: GoalActionsHost, threadId: string, t
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function goalEventId(): string {
-  return `goal-${String(Date.now())}-${Math.random().toString(36).slice(2)}`;
 }
