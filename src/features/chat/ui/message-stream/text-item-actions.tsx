@@ -49,7 +49,7 @@ export function TextItemHeader({ item, context }: { item: TextMessageStreamItem;
       )}
       {context.canForkItem?.(item) ? (
         <TextItemAction
-          icon="git-fork"
+          icon={forkActionsOpen ? "file-plus-corner" : "lucide-split"}
           label={forkActionsOpen ? "Fork" : "Fork from here"}
           className="codex-panel__fork-message"
           onClick={() => {

@@ -347,6 +347,7 @@ describe("message stream rendering and message actions", () => {
     expect(closedElement.querySelector(".codex-panel__copy-message")).not.toBeNull();
     const initialFork = expectPresent(closedElement.querySelector<HTMLButtonElement>(".codex-panel__fork-message"));
     expect(initialFork.getAttribute("aria-label")).toBe("Fork from here");
+    expect(initialFork.getAttribute("data-icon")).toBe("lucide-split");
     initialFork.click();
     expect(onForkActionsToggle).toHaveBeenCalledWith("a1");
 
@@ -373,6 +374,7 @@ describe("message stream rendering and message actions", () => {
     );
     const openFork = expectPresent(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-message"));
     expect(openFork.getAttribute("aria-label")).toBe("Fork");
+    expect(openFork.getAttribute("data-icon")).toBe("file-plus-corner");
     openFork.click();
     expect(onForkItem).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }), false);
   });
