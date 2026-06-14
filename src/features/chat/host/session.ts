@@ -6,10 +6,10 @@ import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
+import { shortThreadId } from "../../../utils";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import type { ArchiveExportAdapter } from "../../thread-operations/archive-markdown";
 import type { CodexChatHost } from "../application/ports/chat-host";
-import { scheduleAppServerWarmup } from "../application/connection/app-server-warmup";
 import { ChatConnectionController } from "../application/connection/connection-controller";
 import { createChatReconnectActions } from "../application/connection/reconnect-actions";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
@@ -18,7 +18,6 @@ import { createChatServerThreadActions, type ChatServerThreadActions } from "../
 import type { ChatComposerController } from "../panel/composer-controller";
 import { createConversationParts } from "./conversation";
 import type { ComposerSubmitActions } from "../application/conversation/composer-submit-actions";
-import { codexPanelDisplayTitle } from "../application/threads/title-display";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../domain/local-id";
@@ -28,16 +27,10 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
 } from "../presentation/runtime/status";
 import { createChatViewDeferredTasks } from "./lifecycle";
-import {
-  ChatConnectionWorkTracker,
-  ChatResumeWorkTracker,
-  type ChatViewDeferredTasks,
-  type RestoredThreadState,
-} from "../application/lifecycle";
-import { applyChatViewState } from "../panel/view-state";
+import { ChatConnectionWorkTracker, ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../application/lifecycle";
 import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import { connectionDiagnosticsModel } from "../panel/surface/toolbar-projection";
-import { openPanelTurnLifecycle } from "../panel/snapshot";
+import { openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
 import { ChatInboundController } from "../app-server/inbound/controller";
 import { rejectServerRequest, respondToServerRequest } from "../app-server/requests/responder";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../presentation/runtime/messages";
@@ -162,6 +155,33 @@ function createChatPanelSessionDeferredRef<T>(name: string): ChatPanelSessionDef
   };
 }
 
+export interface ChatPanelWarmupHost {
+  deferredTasks: ChatViewDeferredTasks;
+  opened: () => boolean;
+  closing: () => boolean;
+  connected: () => boolean;
+  ensureConnected: () => Promise<void>;
+}
+
+export function scheduleChatPanelWarmup(host: ChatPanelWarmupHost): void {
+  const shouldWarmup = (): boolean => host.opened() && !host.connected();
+
+  if (!shouldWarmup()) return;
+
+  host.deferredTasks.scheduleAppServerWarmup(() => {
+    if (!shouldWarmup() || host.closing()) return;
+    void host.ensureConnected();
+  });
+}
+
+export function codexPanelDisplayTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {
+  if (!activeThreadId) return "Codex";
+
+  const thread = threads.find((item) => item.id === activeThreadId);
+  const title = thread ? getThreadTitle(thread).replace(/\s+/g, " ").trim() : (fallbackTitle ?? shortThreadId(activeThreadId));
+  return title ? `Codex: ${title}` : "Codex";
+}
+
 export class ChatPanelSession {
   private readonly stateStore: ChatStateStore = createChatStateStore();
   private readonly parts: ChatPanelSessionParts;
@@ -204,26 +224,16 @@ export class ChatPanelSession {
   }
 
   applyViewState(state: unknown): void {
-    applyChatViewState(
-      {
-        invalidateResumeWork: () => {
-          this.invalidateResumeWork();
-        },
-        clearRestoredThreadLifecycle: () => {
-          this.parts.thread.restoration.clear();
-        },
-        clearDeferredRestoredThreadHydration: () => {
-          this.parts.thread.restoration.clearHydration();
-        },
-        scheduleDeferredAppServerWarmup: () => {
-          this.scheduleWarmup();
-        },
-        restoreThreadPlaceholder: (restoredThread: RestoredThreadState) => {
-          this.parts.thread.restoration.restore(restoredThread);
-        },
-      },
-      state,
-    );
+    const restoredThread = parseRestoredThreadState(state);
+    if (restoredThread) {
+      this.parts.thread.restoration.restore(restoredThread);
+      return;
+    }
+
+    this.invalidateResumeWork();
+    this.parts.thread.restoration.clear();
+    this.parts.thread.restoration.clearHydration();
+    this.scheduleWarmup();
   }
 
   refreshSettings(): void {
@@ -814,7 +824,7 @@ export class ChatPanelSession {
   }
 
   private scheduleWarmup(): void {
-    scheduleAppServerWarmup({
+    scheduleChatPanelWarmup({
       deferredTasks: this.deferredTasks,
       opened: () => this.opened,
       closing: () => this.closing,

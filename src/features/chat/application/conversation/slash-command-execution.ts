@@ -1,6 +1,7 @@
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { normalizeReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
@@ -22,7 +23,8 @@ import {
   noActiveThreadToForkMessage,
   noActiveThreadToRollbackMessage,
 } from "../threads/messages";
-import { parseModelOverride, parseReasoningEffortOverride } from "./runtime-setting-commands";
+
+const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
 export interface SlashCommandExecutionContext {
   activeThreadId: string | null;
@@ -265,6 +267,20 @@ function applyReasoningEffortOverride(
   requested: ReasoningEffort | null,
 ): boolean | undefined | Promise<boolean | undefined> {
   return requested === null ? context.resetReasoningEffortToConfig() : context.requestReasoningEffort(requested);
+}
+
+export function parseModelOverride(args: string): string | null | undefined {
+  const model = args.trim();
+  if (!model) return undefined;
+  if (DEFAULT_RUNTIME_SETTING_ALIASES.has(model.toLowerCase())) return null;
+  return model;
+}
+
+export function parseReasoningEffortOverride(args: string): ReasoningEffort | null | undefined {
+  const effort = args.trim();
+  if (!effort) return undefined;
+  if (DEFAULT_RUNTIME_SETTING_ALIASES.has(effort.toLowerCase())) return null;
+  return normalizeReasoningEffort(effort) ?? undefined;
 }
 
 function validateSlashCommandArguments(command: SlashCommandName, args: string): string | null {

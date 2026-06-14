@@ -8,10 +8,7 @@ import {
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../src/features/chat/application/runtime/messages";
 import { compactModelLabel, compactReasoningEffortLabel } from "../../src/features/chat/presentation/runtime/messages";
-import {
-  parseModelOverride,
-  parseReasoningEffortOverride,
-} from "../../src/features/chat/application/conversation/runtime-setting-commands";
+import { parseModelOverride, parseReasoningEffortOverride } from "../../src/features/chat/application/conversation/slash-command-execution";
 import {
   autoReviewActive,
   currentApprovalsReviewer,

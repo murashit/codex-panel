@@ -1,6 +1,5 @@
 import type { ChatStateStore } from "../state/store";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
-import { pendingRequestBlockState } from "./snapshot";
 import {
   answersForPendingUserInput,
   type ApprovalAction,
@@ -8,6 +7,7 @@ import {
   type PendingUserInput,
 } from "../../domain/pending-requests/model";
 import type { PendingRequestBlockActions, PendingRequestBlockState, PendingRequestId } from "./block";
+import type { ChatState } from "../state/root-reducer";
 
 interface PendingRequestResponder {
   resolveApproval: (approval: PendingApproval, action: ApprovalAction) => void;
@@ -104,4 +104,13 @@ export class PendingRequestController {
     this.lastFocusSignature = signature;
     return this.host.composerHasFocus();
   }
+}
+
+function pendingRequestBlockState(state: ChatState): PendingRequestBlockState {
+  return {
+    approvals: state.requests.approvals,
+    pendingUserInputs: state.requests.pendingUserInputs,
+    userInputDrafts: state.requests.userInputDrafts,
+    approvalDetails: state.ui.disclosures.approvalDetails,
+  };
 }

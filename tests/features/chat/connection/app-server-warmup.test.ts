@@ -2,8 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { scheduleAppServerWarmup } from "../../../../src/features/chat/application/connection/app-server-warmup";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
+import { scheduleChatPanelWarmup } from "../../../../src/features/chat/host/session";
 
 function createWarmupHost({
   opened = true,
@@ -21,7 +21,7 @@ function createWarmupHost({
   return { host, ensureConnected };
 }
 
-describe("scheduleAppServerWarmup", () => {
+describe("scheduleChatPanelWarmup", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -29,7 +29,7 @@ describe("scheduleAppServerWarmup", () => {
   it("connects on the next tick when the opened view is disconnected", async () => {
     const { host, ensureConnected } = createWarmupHost();
 
-    scheduleAppServerWarmup(host);
+    scheduleChatPanelWarmup(host);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
@@ -39,8 +39,8 @@ describe("scheduleAppServerWarmup", () => {
     const closed = createWarmupHost({ opened: false });
     const connected = createWarmupHost({ connected: true });
 
-    scheduleAppServerWarmup(closed.host);
-    scheduleAppServerWarmup(connected.host);
+    scheduleChatPanelWarmup(closed.host);
+    scheduleChatPanelWarmup(connected.host);
 
     await vi.advanceTimersByTimeAsync(0);
 
@@ -51,7 +51,7 @@ describe("scheduleAppServerWarmup", () => {
   it("skips a scheduled warmup if the view is closing", async () => {
     const { host, ensureConnected } = createWarmupHost({ closing: true });
 
-    scheduleAppServerWarmup(host);
+    scheduleChatPanelWarmup(host);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(ensureConnected).not.toHaveBeenCalled();

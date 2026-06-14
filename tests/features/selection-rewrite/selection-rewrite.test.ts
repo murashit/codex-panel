@@ -4,7 +4,6 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
-import { isSelectionRewriteActionKey } from "../../../src/features/selection-rewrite/keys";
 import {
   canApplySelectionRewrite,
   transitionSelectionRewriteState,
@@ -15,7 +14,7 @@ import {
   selectionRewriteOutputFromText,
   selectionRewriteOutputParseResultFromText,
 } from "../../../src/features/selection-rewrite/output";
-import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
+import { isSelectionRewriteActionKey, SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
 import {

@@ -10,13 +10,24 @@ import { textareaCursorAtVisualBoundary, type TextareaCaretBoundaryDirection } f
 import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
 import { buildSelectionUnifiedDiff } from "./diff";
-import { isSelectionRewriteActionKey } from "./keys";
 import { canApplySelectionRewrite, type SelectionRewriteRuntimeSettings, type SelectionRewriteState } from "./model";
 
 import { positionSelectionRewritePopover } from "./position";
 import { SelectionRewriteSession, type SelectionRewriteSessionStatus } from "./session";
 
 const POPOVER_MARGIN = 8;
+
+export function isSelectionRewriteActionKey(event: {
+  key: string;
+  shiftKey: boolean;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+  altKey: boolean;
+  isComposing: boolean;
+}): boolean {
+  if (event.isComposing || event.key !== "Enter" || event.shiftKey || event.altKey) return false;
+  return true;
+}
 
 export interface SelectionRewritePopoverOptions {
   codexPath: string;

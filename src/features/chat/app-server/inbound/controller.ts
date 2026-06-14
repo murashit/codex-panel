@@ -9,17 +9,30 @@ import { createStructuredSystemItem, createSystemItem } from "../../domain/messa
 import type { ApprovalAction, PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";
 import { approvalResponse } from "../requests/approval";
 import { userInputResponse } from "../requests/user-input";
-import {
-  cannotCancelUserInputMessage,
-  cannotRejectServerRequestMessage,
-  cannotSendApprovalResponseMessage,
-  cannotSendUserInputMessage,
-  userCancelledInputRequestMessage,
-} from "../../application/pending-requests/messages";
 import { createApprovalResultItem, createUserInputResultItem } from "../../domain/pending-requests/result-items";
 import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../../domain/local-id";
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
+
+function cannotSendApprovalResponseMessage(): string {
+  return "Could not send approval response because Codex app-server is not connected.";
+}
+
+function cannotSendUserInputMessage(): string {
+  return "Could not send user input because Codex app-server is not connected.";
+}
+
+function cannotCancelUserInputMessage(): string {
+  return "Could not cancel user input because Codex app-server is not connected.";
+}
+
+function userCancelledInputRequestMessage(): string {
+  return "User cancelled input request.";
+}
+
+function cannotRejectServerRequestMessage(): string {
+  return "Could not reject app-server request because Codex app-server is not connected.";
+}
 
 export interface ChatInboundControllerActions {
   refreshThreads: () => void;
