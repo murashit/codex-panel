@@ -23,26 +23,100 @@ interface MessageStreamBase {
   id: string;
   kind: MessageStreamItemKind;
   role: MessageStreamRole;
-  text: string;
   turnId?: string;
   sourceItemId?: string;
   executionState?: ExecutionState;
 }
 
-export interface MessageStreamDetailMetaRow {
+export type MessageStreamPrimaryTarget =
+  | {
+      kind: "path";
+      path: string;
+    }
+  | {
+      kind: "value";
+      value: string;
+    };
+
+interface MessageStreamToolCallDetails {
+  arguments?: unknown;
+  result?: unknown;
+  error?: unknown;
+}
+
+interface MessageStreamWebSearchDetails {
+  action?: string;
+  query?: string;
+  url?: string;
+  pattern?: string;
+}
+
+interface MessageStreamImageGenerationDetails {
+  savedPath?: string;
+  revisedPrompt?: string | null;
+  result?: string;
+}
+
+interface MessageStreamHookRunDetails {
+  eventName: string;
+  statusMessage?: string;
+  durationMs?: string;
+  entries: readonly { kind: string; text: string }[];
+}
+
+export interface MessageStreamAuditFact {
   key: string;
   value: string;
 }
 
-export interface MessageStreamDetailSection {
+export interface MessageStreamNoticeSection {
   title?: string;
+  auditFacts?: MessageStreamAuditFact[];
   body?: string;
-  rows?: MessageStreamDetailMetaRow[];
 }
+
+interface MessageStreamApprovalResultDetails {
+  status: string;
+  scope: "session" | "turn";
+  request: string;
+  auditFacts: MessageStreamAuditFact[];
+}
+
+export interface MessageStreamUserInputQuestionResult {
+  id: string;
+  header: string;
+  question: string;
+  answer?: string;
+}
+
+interface MessageStreamReviewResultDetails {
+  auditFacts: MessageStreamAuditFact[];
+}
+
+export type CommandMessageStreamTarget =
+  | {
+      kind: "read";
+      path?: string;
+      name: string;
+    }
+  | {
+      kind: "search";
+      query?: string;
+      path?: string;
+    }
+  | {
+      kind: "listFiles";
+      path?: string;
+    }
+  | {
+      kind: "command";
+      commandLine: string;
+    };
 
 interface MessageStreamMessageBase extends MessageStreamBase {
   kind: "message";
   role: "user" | "assistant";
+  text: string;
   clientId?: string;
   copyText?: string;
   referencedThread?: ReferencedThreadMetadata;
@@ -79,38 +153,44 @@ export interface MessageStreamFileMention {
 interface SystemMessageStreamItem extends MessageStreamBase {
   kind: "system";
   role: "system";
-  details?: MessageStreamDetailSection[];
+  text: string;
+  noticeSections?: MessageStreamNoticeSection[];
 }
 
 export interface GoalMessageStreamItem extends MessageStreamBase {
   kind: "goal";
   role: "tool";
+  text: string;
+  action: string;
   objective?: string;
-  details?: MessageStreamDetailSection[];
 }
 
 interface UserInputResultMessageStreamItem extends MessageStreamBase {
   kind: "userInputResult";
   role: "tool";
-  details?: MessageStreamDetailSection[];
+  text: string;
+  questions: MessageStreamUserInputQuestionResult[];
 }
 
 export interface ApprovalResultMessageStreamItem extends MessageStreamBase {
   kind: "approvalResult";
   role: "tool";
-  details?: MessageStreamDetailSection[];
+  text: string;
+  approval: MessageStreamApprovalResultDetails;
 }
 
 export interface ReviewResultMessageStreamItem extends MessageStreamBase {
   kind: "reviewResult";
   role: "tool";
-  details?: MessageStreamDetailSection[];
+  text: string;
+  review?: MessageStreamReviewResultDetails;
 }
 
 export interface CommandMessageStreamItem extends MessageStreamBase {
   kind: "command";
   role: "tool";
-  actionLabel?: string;
+  commandAction: "read" | "search" | "listFiles" | "command";
+  commandTarget: CommandMessageStreamTarget;
   command: string;
   cwd: string;
   status: string;
@@ -135,24 +215,31 @@ export interface FileChangeMessageStreamItem extends MessageStreamBase {
 
 interface ToolMessageStreamBase extends MessageStreamBase {
   role: "tool";
+  text?: string;
   activityKind?: "userSteered";
-  toolLabel?: string;
-  summaryPath?: boolean;
+  toolName?: string;
+  primaryTarget?: MessageStreamPrimaryTarget;
+  operation?: string;
+  failureReason?: string;
   status?: string;
   output?: string;
-  details?: MessageStreamDetailSection[];
 }
 
 export interface ToolCallMessageStreamItem extends ToolMessageStreamBase {
   kind: "tool";
+  toolCall?: MessageStreamToolCallDetails;
+  webSearch?: MessageStreamWebSearchDetails;
+  imageGeneration?: MessageStreamImageGenerationDetails;
 }
 
 export interface HookMessageStreamItem extends ToolMessageStreamBase {
   kind: "hook";
+  hookRun?: MessageStreamHookRunDetails;
 }
 
 export interface ReasoningMessageStreamItem extends ToolMessageStreamBase {
   kind: "reasoning";
+  text: string;
 }
 
 export interface ContextCompactionMessageStreamItem extends MessageStreamBase {
@@ -168,6 +255,7 @@ interface TaskProgressStep {
 export interface TaskProgressMessageStreamItem extends MessageStreamBase {
   kind: "taskProgress";
   role: "tool";
+  text?: string;
   explanation: string | null;
   steps: TaskProgressStep[];
   status: string;
@@ -188,6 +276,7 @@ export interface AgentRunSummaryAgent {
 export interface AgentMessageStreamItem extends MessageStreamBase {
   kind: "agent";
   role: "tool";
+  text?: string;
   tool: string;
   status: string;
   senderThreadId: string;

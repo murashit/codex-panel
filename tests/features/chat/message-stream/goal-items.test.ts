@@ -11,8 +11,8 @@ describe("goal message stream items", () => {
     expect(item).toMatchObject({
       kind: "goal",
       role: "tool",
+      action: "set",
       objective,
-      details: [{ rows: [{ key: "action", value: "set" }] }, { title: "Objective", body: objective }],
     });
     expect(item?.text.startsWith("set: Ship the feature")).toBe(true);
     expect(item?.text.length).toBeLessThan(objective.length);

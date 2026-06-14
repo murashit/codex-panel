@@ -12,7 +12,7 @@ import {
   type SlashCommandName,
   type SlashCommandSubcommandDefinition,
 } from "../composer/slash-commands";
-import type { MessageStreamDetailSection, MessageStreamDetailMetaRow } from "../../message-stream/items";
+import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../message-stream/items";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/messages";
 import { currentThreadReferenceMessage } from "./messages";
 import {
@@ -42,7 +42,7 @@ export interface SlashCommandExecutionContext {
   toggleCollaborationMode: () => void | Promise<void>;
   toggleAutoReview: () => void | Promise<void>;
   addSystemMessage: (text: string) => void;
-  addStructuredSystemMessage: (text: string, details: MessageStreamDetailSection[]) => void;
+  addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
   requestModel: (model: string) => boolean | undefined | Promise<boolean | undefined>;
   resetModelToConfig: () => boolean | undefined | Promise<boolean | undefined>;
   requestReasoningEffort: (effort: ReasoningEffort) => boolean | undefined | Promise<boolean | undefined>;
@@ -53,7 +53,7 @@ export interface SlashCommandExecutionContext {
   setGoalStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
   clearGoal: (threadId: string) => Promise<boolean>;
   statusSummaryLines: () => string[];
-  connectionDiagnosticDetails: () => MessageStreamDetailSection[];
+  connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
   mcpStatusLines: () => Promise<string[]>;
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
@@ -371,8 +371,8 @@ function goalUsageError(message: string): string {
   );
 }
 
-function goalDetails(goal: ThreadGoal): MessageStreamDetailSection[] {
-  const rows: MessageStreamDetailMetaRow[] = [
+function goalDetails(goal: ThreadGoal): MessageStreamNoticeSection[] {
+  const auditFacts: MessageStreamAuditFact[] = [
     { key: "status", value: goal.status },
     { key: "objective", value: goal.objective },
     {
@@ -381,7 +381,7 @@ function goalDetails(goal: ThreadGoal): MessageStreamDetailSection[] {
     },
     { key: "elapsed", value: formatGoalElapsed(goal.timeUsedSeconds) },
   ];
-  return [{ rows }];
+  return [{ auditFacts }];
 }
 
 function formatGoalElapsed(seconds: number): string {
@@ -399,13 +399,13 @@ function usageError(command: SlashCommandName, message: string): string {
   return `${definition.command} ${message}. Usage: ${definition.usage}`;
 }
 
-function detailsFromLines(lines: string[]): MessageStreamDetailSection[] {
+function detailsFromLines(lines: string[]): MessageStreamNoticeSection[] {
   const first = lines[0] ?? "";
   const content = first.includes(": ") ? lines : lines.slice(1);
-  return [{ rows: content.map(lineToRow) }];
+  return [{ auditFacts: content.map(lineToRow) }];
 }
 
-function lineToRow(line: string): MessageStreamDetailMetaRow {
+function lineToRow(line: string): MessageStreamAuditFact {
   const separator = line.indexOf(": ");
   if (separator > 0) {
     return {

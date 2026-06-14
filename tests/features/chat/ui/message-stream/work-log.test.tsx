@@ -30,13 +30,13 @@ describe("work log renderer decisions", () => {
           kind: "tool",
           role: "tool",
           text: "123",
-          toolLabel: "github.pull_request_read",
+          toolName: "github.pull_request_read",
           turnId: "turn",
           status: "completed",
-          details: [
-            { title: "Arguments JSON", body: '{\n  "id": 123\n}' },
-            { title: "Result JSON", body: '{\n  "ok": true\n}' },
-          ],
+          toolCall: {
+            arguments: { id: 123 },
+            result: { ok: true },
+          },
         },
       ],
       disclosures: emptyDisclosures(),
@@ -109,8 +109,8 @@ describe("work log renderer decisions", () => {
           kind: "tool",
           role: "tool",
           text: "/vault/project/assets/image.png",
-          toolLabel: "imageView",
-          summaryPath: true,
+          toolName: "imageView",
+          primaryTarget: { kind: "path", path: "/vault/project/assets/image.png" },
           turnId: "turn",
         },
       ],
@@ -126,6 +126,36 @@ describe("work log renderer decisions", () => {
     expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBeNull();
   });
 
+  it("derives generic tool summaries from primary targets instead of item text", () => {
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: runningTurnLifecycle("turn"),
+      historyCursor: null,
+      loadingHistory: false,
+      workspaceRoot: "/vault/project",
+      items: [
+        {
+          id: "tool-1",
+          kind: "tool",
+          role: "tool",
+          text: "legacy text",
+          toolName: "web search",
+          operation: "search",
+          primaryTarget: { kind: "value", value: "codex app-server" },
+          turnId: "turn",
+        },
+      ],
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("search: codex app-server");
+  });
+
   it("updates path summary tools when the workspace root changes", () => {
     const parent = document.createElement("div");
     const item = {
@@ -133,8 +163,8 @@ describe("work log renderer decisions", () => {
       kind: "tool",
       role: "tool",
       text: "/vault/project/assets/image.png",
-      toolLabel: "imageView",
-      summaryPath: true,
+      toolName: "imageView",
+      primaryTarget: { kind: "path", path: "/vault/project/assets/image.png" },
       turnId: "turn",
     } as const;
     const baseContext = {
@@ -170,8 +200,8 @@ describe("work log renderer decisions", () => {
           kind: "tool",
           role: "tool",
           text: "/tmp/image.png",
-          toolLabel: "imageView",
-          summaryPath: true,
+          toolName: "imageView",
+          primaryTarget: { kind: "path", path: "/tmp/image.png" },
           turnId: "turn",
         },
       ],
@@ -199,7 +229,7 @@ describe("work log renderer decisions", () => {
           kind: "tool",
           role: "tool",
           text: "/vault/project",
-          toolLabel: "example.tool",
+          toolName: "example.tool",
           turnId: "turn",
         },
       ],
@@ -226,20 +256,15 @@ describe("work log renderer decisions", () => {
           kind: "hook",
           role: "tool",
           text: "postToolUse: Formatted 1 file.",
-          toolLabel: "hook",
+          toolName: "hook",
           turnId: "turn",
           status: "completed",
-          details: [
-            {
-              rows: [
-                { key: "status", value: "completed" },
-                { key: "event", value: "postToolUse" },
-                { key: "message", value: "Formatted 1 file." },
-                { key: "duration", value: "1ms" },
-              ],
-            },
-            { title: "Hook output", body: "feedback: ok" },
-          ],
+          hookRun: {
+            eventName: "postToolUse",
+            statusMessage: "Formatted 1 file.",
+            durationMs: "1ms",
+            entries: [{ kind: "feedback", text: "ok" }],
+          },
         },
       ],
       disclosures: emptyDisclosures(),
@@ -274,19 +299,14 @@ describe("work log renderer decisions", () => {
           kind: "hook",
           role: "tool",
           text: "postToolUse: Formatted 1 file.",
-          toolLabel: "hook",
+          toolName: "hook",
           turnId: "turn",
           status: "completed",
-          details: [
-            {
-              rows: [
-                { key: "status", value: "completed" },
-                { key: "event", value: "postToolUse" },
-                { key: "message", value: "Formatted 1 file." },
-              ],
-            },
-            { title: "Hook output", body: "feedback: ok" },
-          ],
+          hookRun: {
+            eventName: "postToolUse",
+            statusMessage: "Formatted 1 file.",
+            entries: [{ kind: "feedback", text: "ok" }],
+          },
         },
         {
           id: "a1",
@@ -707,7 +727,6 @@ describe("work log renderer decisions", () => {
       id: "compact-1",
       kind: "contextCompaction",
       role: "tool",
-      text: "Context compaction",
       turnId: "turn",
     };
 

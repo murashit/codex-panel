@@ -370,7 +370,7 @@ describe("pending request renderer decisions", () => {
           text: "Input submitted for 1 question.",
           turnId: "turn",
           executionState: "completed",
-          details: [{ title: "Question: Scope", rows: [{ key: "Answer", value: "Narrow" }] }],
+          questions: [{ id: "scope", header: "Scope", question: "How broad?", answer: "Narrow" }],
         },
       ],
       disclosures: emptyDisclosures(),
@@ -404,15 +404,12 @@ describe("pending request renderer decisions", () => {
           text: "Allowed for this session: Need access",
           turnId: "turn",
           executionState: "completed",
-          details: [
-            {
-              title: "Approval",
-              rows: [
-                { key: "status", value: "allowed for session" },
-                { key: "scope", value: "session" },
-              ],
-            },
-          ],
+          approval: {
+            status: "allowed for session",
+            scope: "session",
+            request: "Permission approval",
+            auditFacts: [],
+          },
         },
       ],
       disclosures: emptyDisclosures(),

@@ -168,7 +168,7 @@ describe("ChatInboundController", () => {
         {
           id: "plan-progress-turn-active",
           kind: "taskProgress",
-          text: "Plan\n[>] Inspect code",
+          explanation: "Plan",
           steps: [{ step: "Inspect code", status: "inProgress" }],
           status: "inProgress",
         },
@@ -259,21 +259,17 @@ describe("ChatInboundController", () => {
         {
           id: "hook-hook-1-1",
           kind: "hook",
-          text: "postToolUse: Formatted 1 file.",
-          toolLabel: "hook",
+          toolName: "hook",
+          operation: "postToolUse",
+          primaryTarget: { kind: "value", value: "Formatted 1 file." },
           status: "completed",
           output: "",
-          details: [
-            {
-              rows: [
-                { key: "status", value: "completed" },
-                { key: "event", value: "postToolUse" },
-                { key: "message", value: "Formatted 1 file." },
-                { key: "duration", value: "1ms" },
-              ],
-            },
-            { title: "Hook output", body: "feedback: ok" },
-          ],
+          hookRun: {
+            eventName: "postToolUse",
+            statusMessage: "Formatted 1 file.",
+            durationMs: "1ms",
+            entries: [{ kind: "feedback", text: "ok" }],
+          },
         },
       ]);
     });
@@ -310,14 +306,10 @@ describe("ChatInboundController", () => {
 
       expect(chatStateMessageStreamItems(state)[0]).toMatchObject({
         kind: "hook",
-        details: [
-          {
-            rows: [
-              { key: "status", value: "completed" },
-              { key: "event", value: "postToolUse" },
-            ],
-          },
-        ],
+        hookRun: {
+          eventName: "postToolUse",
+          entries: [],
+        },
       });
     });
 
@@ -436,7 +428,7 @@ describe("ChatInboundController", () => {
           kind: "hook",
           role: "tool",
           text: "userPromptSubmit: Saving jj baseline",
-          toolLabel: "hook",
+          toolName: "hook",
           status: "completed",
         },
       ]);
@@ -472,7 +464,7 @@ describe("ChatInboundController", () => {
             kind: "hook",
             role: "tool",
             text: "userPromptSubmit: Stale hook",
-            toolLabel: "hook",
+            toolName: "hook",
             status: "completed",
           },
           {
@@ -480,7 +472,7 @@ describe("ChatInboundController", () => {
             kind: "hook",
             role: "tool",
             text: "userPromptSubmit: Saving jj baseline",
-            toolLabel: "hook",
+            toolName: "hook",
             status: "completed",
           },
           { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
@@ -613,7 +605,7 @@ describe("ChatInboundController", () => {
           kind: "hook",
           role: "tool",
           text: "userPromptSubmit: Saving jj baseline",
-          toolLabel: "hook",
+          toolName: "hook",
           status: "completed",
         },
       ]);
@@ -726,7 +718,7 @@ describe("ChatInboundController", () => {
         role: "tool",
         text: "Input submitted for 1 question.",
         turnId: "turn-active",
-        details: [{ title: "Question: Scope", rows: expect.arrayContaining([{ key: "Answer", value: "Narrow" }]) }],
+        questions: [expect.objectContaining({ id: "scope", header: "Scope", answer: "Narrow" })],
       });
     });
 
@@ -796,17 +788,12 @@ describe("ChatInboundController", () => {
         text: "Allowed for this session: Need access",
         turnId: "turn",
         executionState: "completed",
-        details: [
-          {
-            title: "Approval",
-            rows: expect.arrayContaining([
-              { key: "status", value: "allowed for session" },
-              { key: "scope", value: "session" },
-              { key: "request", value: "Permission approval" },
-              { key: "cwd", value: "/tmp/project" },
-            ]),
-          },
-        ],
+        approval: {
+          status: "allowed for session",
+          scope: "session",
+          request: "Permission approval",
+          auditFacts: expect.arrayContaining([{ key: "cwd", value: "/tmp/project" }]),
+        },
       });
     });
 
@@ -854,10 +841,10 @@ describe("ChatInboundController", () => {
         -32601,
         "Rejected unknown app-server request: appServer/newFutureRequest",
       );
-      expect(chatStateMessageStreamItems(state).map((item) => item.text)).toEqual(unsupportedMessages);
+      expect(chatStateMessageStreamItems(state).map((item) => ("text" in item ? item.text : ""))).toEqual(unsupportedMessages);
       expect(
         chatStateMessageStreamItems(state)
-          .map((item) => item.text)
+          .map((item) => ("text" in item ? item.text : ""))
           .join("\n"),
       ).not.toContain("do-not-render");
     });
@@ -1676,10 +1663,7 @@ describe("ChatInboundController", () => {
         executionState: "completed",
       });
       const reviewItem = expectPresent(chatStateMessageStreamItems(state)[0]);
-      expect("details" in reviewItem ? reviewItem.details[0] : null).toMatchObject({
-        title: "Review",
-        rows: expect.arrayContaining([{ key: "status", value: "approved" }]),
-      });
+      expect(reviewItem).toMatchObject({ review: { auditFacts: expect.arrayContaining([{ key: "status", value: "approved" }]) } });
     });
 
     it("replaces guardian auto-review warnings when structured auto-review notifications arrive", () => {

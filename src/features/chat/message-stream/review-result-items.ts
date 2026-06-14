@@ -1,4 +1,4 @@
-import type { MessageStreamItem, ExecutionState } from "./items";
+import type { MessageStreamAuditFact, MessageStreamItem, ExecutionState } from "./items";
 import { pathsRelativeToRoot } from "./path-labels";
 import { permissionRows } from "./permission-rows";
 
@@ -52,11 +52,6 @@ type AutoReviewAction =
     }
   | { type: "requestPermissions"; reason: string | null; permissions: Parameters<typeof permissionRows>[0] };
 
-interface MessageStreamDetailRow {
-  key: string;
-  value: string;
-}
-
 export function createReviewResultItem(id: string, text: string): MessageStreamItem {
   const parsed = parseAutomaticApprovalReviewMessage(text);
   if (parsed) {
@@ -66,7 +61,7 @@ export function createReviewResultItem(id: string, text: string): MessageStreamI
       role: "tool",
       text: parsed.summary,
       executionState: autoReviewExecutionState(parsed.status),
-      details: [{ title: "Review", rows: parsed.rows }],
+      review: { auditFacts: parsed.rows },
     };
   }
   return {
@@ -98,7 +93,7 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Mess
     text,
     turnId: params.turnId,
     executionState: completed ? autoReviewExecutionState(status) : "running",
-    details: [{ title: "Review", rows }],
+    review: { auditFacts: rows },
   };
 }
 
@@ -128,7 +123,7 @@ function parseAutomaticApprovalReviewMessage(
   };
 }
 
-function autoReviewActionRows(action: AutoReviewAction): MessageStreamDetailRow[] {
+function autoReviewActionRows(action: AutoReviewAction): MessageStreamAuditFact[] {
   if (action.type === "command") {
     return [
       { key: "action", value: "command" },

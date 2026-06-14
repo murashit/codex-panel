@@ -19,7 +19,7 @@ import type { ChatComposerController } from "./conversation/composer/controller"
 import { createConversationParts } from "./conversation/composition";
 import type { ComposerSubmitActions } from "./conversation/turns/composer-submit-actions";
 import { codexPanelDisplayTitle } from "./threads/title-display";
-import type { MessageStreamDetailSection, MessageStreamItem } from "./message-stream/items";
+import type { MessageStreamItem, MessageStreamNoticeSection } from "./message-stream/items";
 import { createStructuredSystemItem, createSystemItem } from "./message-stream/system-items";
 import {
   effortStatusLines as buildEffortStatusLines,
@@ -146,7 +146,7 @@ interface ChatSessionSideEffects {
   status: {
     set: (statusText: string, phase?: ChatConnectionPhase) => void;
     addSystemMessage: (text: string) => void;
-    addStructuredSystemMessage: (text: string, details: MessageStreamDetailSection[]) => void;
+    addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
   };
   composer: {
     setText: (text: string) => void;
@@ -931,14 +931,14 @@ export class ChatPanelSession {
     });
   }
 
-  private connectionDiagnosticDetails(): MessageStreamDetailSection[] {
+  private connectionDiagnosticDetails(): MessageStreamNoticeSection[] {
     return connectionDiagnosticsModel({
       state: this.state,
       connected: this.parts.connection.manager.isConnected(),
       configuredCommand: this.environment.plugin.settings.codexPath,
     }).map((section) => ({
       title: section.title,
-      rows: section.rows.map((row) => ({ key: row.label, value: row.value })),
+      auditFacts: section.rows.map((row) => ({ key: row.label, value: row.value })),
     }));
   }
 
@@ -954,7 +954,7 @@ export class ChatPanelSession {
     return createSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text);
   }
 
-  private structuredSystemItem(text: string, details: MessageStreamDetailSection[]): MessageStreamItem {
+  private structuredSystemItem(text: string, details: MessageStreamNoticeSection[]): MessageStreamItem {
     return createStructuredSystemItem(`system-${String(Date.now())}-${Math.random().toString(36).slice(2)}`, text, details);
   }
 }

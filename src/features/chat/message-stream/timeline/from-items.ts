@@ -31,14 +31,17 @@ export function timelineItemFromMessageStreamItem(
     detailShape: detailShapeForMessageStreamItem(item, semanticKind),
     renderSurface: renderSurfaceForMessageStreamItem(item),
     lifecycle: lifecycleForMessageStreamItem(item),
-    text: item.text,
+    text: timelineTextForMessageStreamItem(item),
     ...definedProp("copyText", copyText),
     actions,
     streamItem: item,
   };
-  if ("details" in item) return { ...base, ...definedProp("details", item.details) } as TimelineItem;
   if (item.kind === "fileChange") return { ...base, changes: item.changes } as TimelineItem;
   return base as TimelineItem;
+}
+
+function timelineTextForMessageStreamItem(item: MessageStreamItem): string {
+  return "text" in item && typeof item.text === "string" ? item.text : "";
 }
 
 export function timelineActionsForMessageStreamItem(
@@ -141,10 +144,15 @@ function detailShapeForMessageStreamItem(item: MessageStreamItem, semanticKind: 
       return "eventSummary";
     case "tool":
     case "hook":
-      return item.details && item.details.length > 0 ? "jsonAudit" : "plainText";
+      return hasGenericToolDetails(item) ? "jsonAudit" : "plainText";
     case "reasoning":
       return "plainText";
   }
+}
+
+function hasGenericToolDetails(item: Extract<MessageStreamItem, { kind: "tool" | "hook" }>): boolean {
+  if (item.kind === "hook") return Boolean(item.hookRun);
+  return Boolean(item.toolCall ?? item.webSearch ?? item.imageGeneration);
 }
 
 function renderSurfaceForMessageStreamItem(item: MessageStreamItem): TimelineRenderSurface {

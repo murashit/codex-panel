@@ -1,7 +1,7 @@
 import type { ThreadTitleContext } from "../../thread-title/model";
 import { truncate } from "../../../utils";
 import { isCompletedTurnOutcomeMessage } from "../message-stream/selectors";
-import type { MessageStreamItem } from "../message-stream/items";
+import type { MessageStreamItem, MessageStreamMessageItem } from "../message-stream/items";
 
 const MAX_CONTEXT_CHARS = 4_000;
 
@@ -11,7 +11,11 @@ export function threadTitleContextFromMessageStreamItems(turnId: string, items: 
     turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ??
     precedingUnscopedTitleSeed(turnId, items) ??
     "";
-  const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeMessage)?.text.trim() ?? "";
+  const assistantResponse =
+    [...turnItems]
+      .reverse()
+      .find((item): item is MessageStreamMessageItem => item.kind === "message" && isCompletedTurnOutcomeMessage(item))
+      ?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
   return {
     userRequest: truncateForPrompt(userRequest),

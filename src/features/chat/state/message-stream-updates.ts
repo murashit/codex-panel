@@ -140,7 +140,7 @@ export function appendItemText(
 ): MessageStreamItem[] {
   const index = items.findIndex((item) => item.sourceItemId === sourceItemId);
   if (index !== -1) {
-    return items.map((item, itemIndex) => (itemIndex === index ? { ...item, text: `${item.text}${delta}` } : item));
+    return items.map((item, itemIndex) => (itemIndex === index ? { ...item, text: `${"text" in item ? item.text : ""}${delta}` } : item));
   }
   return [...items, streamedTextMessageStreamItem({ id: sourceItemId, kind, label, delta, turnId })];
 }

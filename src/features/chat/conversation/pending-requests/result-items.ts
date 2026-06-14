@@ -1,6 +1,6 @@
 import { approvalActionKind, type ApprovalAction, type PendingApproval } from "../../protocol/server-requests/approval";
 import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval-view";
-import type { MessageStreamDetailSection, MessageStreamItem } from "../../message-stream/items";
+import type { MessageStreamItem } from "../../message-stream/items";
 import type { PendingUserInput } from "../../protocol/server-requests/user-input";
 import { definedProp } from "../../../../utils";
 
@@ -15,17 +15,12 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     text: approvalResultText(approval, action),
     ...definedProp("turnId", approvalTurnId(approval)),
     executionState: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
-    details: [
-      {
-        title: "Approval",
-        rows: [
-          { key: "status", value: status },
-          { key: "scope", value: scope },
-          { key: "request", value: approvalTitle(approval) },
-          ...approvalDetails(approval),
-        ],
-      },
-    ],
+    approval: {
+      status,
+      scope,
+      request: approvalTitle(approval),
+      auditFacts: approvalDetails(approval),
+    },
   };
 }
 
@@ -36,12 +31,11 @@ export function createUserInputResultItem(
 ): MessageStreamItem {
   const questionCount = input.params.questions.length;
   const label = questionCount === 1 ? "1 question" : `${String(questionCount)} questions`;
-  const details: MessageStreamDetailSection[] = input.params.questions.map((question) => ({
-    title: `Question: ${question.header || question.id}`,
-    rows: [
-      { key: "Prompt", value: question.question },
-      ...(status === "submitted" ? [{ key: "Answer", value: answers[question.id] ?? "" }] : []),
-    ],
+  const questions = input.params.questions.map((question) => ({
+    id: question.id,
+    header: question.header || question.id,
+    question: question.question,
+    ...(status === "submitted" ? { answer: answers[question.id] ?? "" } : {}),
   }));
   return {
     id: `user-input-${status}-${String(input.requestId)}`,
@@ -50,7 +44,7 @@ export function createUserInputResultItem(
     text: status === "submitted" ? `Input submitted for ${label}.` : `Input request cancelled for ${label}.`,
     ...definedProp("turnId", input.params.turnId),
     executionState: status === "submitted" ? "completed" : "failed",
-    details,
+    questions,
   };
 }
 

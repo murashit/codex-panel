@@ -167,8 +167,8 @@ describe("createGoalActions", () => {
         kind: "goal",
         role: "tool",
         text: "set: Finish",
+        action: "set",
         objective: "Finish",
-        details: [{ rows: [{ key: "action", value: "set" }] }, { title: "Objective", body: "Finish" }],
       }),
     );
     expect(injectThreadItems).toHaveBeenCalledWith("thread", [

@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ChatServerThreadActions } from "../../connection/server-actions/threads";
 import type { ChatReconnectActions } from "../../connection/reconnect-actions";
-import type { MessageStreamDetailSection } from "../../message-stream/items";
+import type { MessageStreamNoticeSection } from "../../message-stream/items";
 import type { ChatRuntimeSettingsActions } from "../../runtime/settings-actions";
 import type { ChatStateStore } from "../../state/reducer";
 import type { ThreadManagementActions } from "../../threads/thread-management-actions";
@@ -22,10 +22,10 @@ export interface ConversationTurnActionsContext {
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
-    addStructuredSystemMessage: (text: string, details: MessageStreamDetailSection[]) => void;
+    addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
   };
   runtime: {
-    connectionDiagnosticDetails: () => MessageStreamDetailSection[];
+    connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
     modelStatusLines: () => string[];
     effortStatusLines: () => string[];
     statusSummaryLines: () => string[];

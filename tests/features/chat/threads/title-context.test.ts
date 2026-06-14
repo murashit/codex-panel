@@ -67,6 +67,7 @@ describe("chat thread title context", () => {
           kind: "goal",
           role: "tool",
           text: "Goal set.",
+          action: "set",
           objective: "ゴールから始めたスレッドを命名したい",
         },
         {

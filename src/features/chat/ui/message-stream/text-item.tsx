@@ -7,7 +7,15 @@ import { timelineItemFromMessageStreamItem } from "../../message-stream/timeline
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { TextItemContentContext, TextItemContext, TextMessageStreamItem } from "./context";
 import { TextItemHeader } from "./text-item-actions";
-import { AutoReviewSummaries, EditedFiles, MentionedFiles, TextItemDetails, ReferencedThread, SystemDetails } from "./text-item-metadata";
+import {
+  AutoReviewSummaries,
+  EditedFiles,
+  MentionedFiles,
+  TextItemDetails,
+  ReferencedThread,
+  SystemDetails,
+  userInputQuestionDetails,
+} from "./text-item-metadata";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 
@@ -25,7 +33,6 @@ function TextItem({
   annotations?: MessageStreamItemAnnotations;
 }): UiNode {
   const collapsible = isCollapsibleUserMessage(item);
-  const details = "details" in item ? item.details : undefined;
   const editedFiles = annotations?.editedFiles ?? [];
   const autoReviewSummaries = annotations?.autoReviewSummaries ?? [];
   return (
@@ -44,10 +51,10 @@ function TextItem({
         <MentionedFiles item={item} context={context} />
       ) : null}
       {item.kind === "message" && autoReviewSummaries.length > 0 ? <AutoReviewSummaries summaries={autoReviewSummaries} /> : null}
-      {item.kind === "system" && item.details && item.details.length > 0 ? (
-        <SystemDetails details={item.details} />
-      ) : details && details.length > 0 ? (
-        <TextItemDetails itemId={item.id} details={details} context={context} />
+      {item.kind === "system" && item.noticeSections && item.noticeSections.length > 0 ? (
+        <SystemDetails details={item.noticeSections} />
+      ) : item.kind === "userInputResult" && item.questions.length > 0 ? (
+        <TextItemDetails itemId={item.id} details={userInputQuestionDetails(item.questions)} context={context} />
       ) : null}
     </div>
   );

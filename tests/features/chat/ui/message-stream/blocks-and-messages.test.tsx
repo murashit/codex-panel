@@ -67,7 +67,7 @@ describe("message stream rendering and message actions", () => {
             kind: "hook",
             role: "tool",
             text: "userPromptSubmit: Saving jj baseline",
-            toolLabel: "hook",
+            toolName: "hook",
             turnId: "t1",
             status: "completed",
           },
@@ -131,16 +131,13 @@ describe("message stream rendering and message actions", () => {
           text: "Auto-review approved: npm test",
           turnId: "turn",
           executionState: "completed",
-          details: [
-            {
-              title: "Review",
-              rows: [
-                { key: "status", value: "approved" },
-                { key: "action", value: "apply patch" },
-                { key: "files", value: "src/ui/tool-result-view.ts\nsrc/ui/message-stream.ts" },
-              ],
-            },
-          ],
+          review: {
+            auditFacts: [
+              { key: "status", value: "approved" },
+              { key: "action", value: "apply patch" },
+              { key: "files", value: "src/ui/tool-result-view.ts\nsrc/ui/message-stream.ts" },
+            ],
+          },
         },
       ],
       disclosures: emptyDisclosures(),
@@ -177,9 +174,9 @@ describe("message stream rendering and message actions", () => {
           kind: "system",
           role: "system",
           text: "Available slash commands",
-          details: [
+          noticeSections: [
             {
-              rows: [
+              auditFacts: [
                 { key: "/help", value: "Show available Codex slash commands." },
                 { key: "/resume [thread]", value: "Resume a recent Codex thread." },
               ],
@@ -217,8 +214,8 @@ describe("message stream rendering and message actions", () => {
           kind: "goal",
           role: "tool",
           text: "set: Ship the feature",
+          action: "set",
           objective: "Ship the feature",
-          details: [{ rows: [{ key: "action", value: "set" }] }, { title: "Objective", body: "Ship the feature" }],
         },
       ],
       disclosures: emptyDisclosures(),
@@ -855,7 +852,7 @@ describe("message stream rendering and message actions", () => {
           role: "tool",
           text: "tool summary",
           turnId: "turn",
-          toolLabel: "web search",
+          toolName: "web search",
         },
       ],
       disclosures: emptyDisclosures(),
@@ -1048,7 +1045,8 @@ describe("message stream rendering and message actions", () => {
           id: "cmd-1",
           kind: "command",
           role: "tool",
-          text: "npm run check (exit 1)",
+          commandAction: "command",
+          commandTarget: { kind: "command", commandLine: "npm run check" },
           turnId: "turn",
           command: "npm run check",
           cwd: "/vault",
@@ -1086,7 +1084,8 @@ describe("message stream rendering and message actions", () => {
           id: "cmd-1",
           kind: "command",
           role: "tool",
-          text: "npm run check",
+          commandAction: "command",
+          commandTarget: { kind: "command", commandLine: "npm run check" },
           turnId: "turn",
           command: "npm run check",
           cwd: "/vault",
@@ -1121,8 +1120,8 @@ describe("message stream rendering and message actions", () => {
           id: "cmd-1",
           kind: "command",
           role: "tool",
-          actionLabel: "read",
-          text: "sed /vault/src/main.ts",
+          commandAction: "read",
+          commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
           turnId: "turn",
           command: "sed -n '1,20p' src/main.ts",
           cwd: "/vault",
@@ -1142,6 +1141,37 @@ describe("message stream rendering and message actions", () => {
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["read"]);
   });
 
+  it("derives command summaries from semantic command targets instead of item text", () => {
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: runningTurnLifecycle("turn"),
+      historyCursor: null,
+      loadingHistory: false,
+      items: [
+        {
+          id: "cmd-1",
+          kind: "command",
+          role: "tool",
+          commandAction: "search",
+          commandTarget: { kind: "search", query: "semantic target", path: "/vault/src" },
+          turnId: "turn",
+          command: "rg 'semantic target' /vault/src",
+          cwd: "/vault",
+          status: "completed",
+          output: "results",
+        },
+      ],
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe('"semantic target" in src');
+  });
+
   it("renders file diffs inside a single file change details block", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
@@ -1154,7 +1184,6 @@ describe("message stream rendering and message actions", () => {
           id: "patch-1",
           kind: "fileChange",
           role: "tool",
-          text: "/vault/project/src/main.ts",
           turnId: "turn",
           status: "completed",
           changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
@@ -1179,6 +1208,34 @@ describe("message stream rendering and message actions", () => {
     ]);
   });
 
+  it("derives file change summaries from changes and status instead of item text", () => {
+    const block = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: runningTurnLifecycle("turn"),
+      historyCursor: null,
+      loadingHistory: false,
+      workspaceRoot: "/vault/project",
+      items: [
+        {
+          id: "patch-1",
+          kind: "fileChange",
+          role: "tool",
+          turnId: "turn",
+          status: "failed",
+          changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
+        },
+      ],
+      disclosures: emptyDisclosures(),
+      forkActionsItemId: null,
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (parent, text) => parent.createDiv({ text }),
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+
+    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/main.ts (failed)");
+  });
+
   it("renders the edited files footer with an open diff action when aggregated turn diff exists", () => {
     const openTurnDiff = vi.fn();
     const blocks = messageStreamBlocks({
@@ -1192,7 +1249,6 @@ describe("message stream rendering and message actions", () => {
           id: "patch-1",
           kind: "fileChange",
           role: "tool",
-          text: "File change completed",
           turnId: "turn",
           status: "completed",
           changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
@@ -1314,7 +1370,6 @@ describe("message stream rendering and message actions", () => {
           id: "patch-1",
           kind: "fileChange",
           role: "tool",
-          text: "File change completed",
           turnId: "turn",
           status: "completed",
           changes: [{ kind: "update", path: "src/main.ts", diff: "@@\n-old\n+new" }],

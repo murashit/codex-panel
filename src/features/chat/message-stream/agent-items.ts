@@ -41,13 +41,10 @@ interface MessageStreamCollabAgentState {
 
 export function agentMessageStreamItem(item: MessageStreamCollabAgentToolCall, turnId?: string): AgentMessageStreamItem {
   const agents = agentStatesDisplay(item.agentsStates);
-  const receiverText = item.receiverThreadIds.length > 0 ? `\ntargets: ${item.receiverThreadIds.join(", ")}` : "";
-  const promptText = item.prompt ? `\n${item.prompt}` : "";
   return {
     id: item.id,
     kind: "agent",
     role: "tool",
-    text: `${agentActivitySummaryLabel(item.tool)}\nstatus: ${item.status}${receiverText}${promptText}`,
     ...definedProp("turnId", turnId),
     sourceItemId: item.id,
     tool: item.tool,
@@ -60,15 +57,6 @@ export function agentMessageStreamItem(item: MessageStreamCollabAgentToolCall, t
     agents,
     executionState: collabAgentExecutionState(item.tool, item.status, item.receiverThreadIds, agents),
   };
-}
-
-function agentActivitySummaryLabel(tool: string): string {
-  if (tool === "spawnAgent") return "Spawn agent";
-  if (tool === "sendInput") return "Send input to agent";
-  if (tool === "resumeAgent") return "Resume agent";
-  if (tool === "wait") return "Wait for agent";
-  if (tool === "closeAgent") return "Close agent";
-  return `Agent ${tool}`;
 }
 
 function agentStatesDisplay(states: MessageStreamCollabAgentToolCall["agentsStates"]): AgentStateSummary[] {

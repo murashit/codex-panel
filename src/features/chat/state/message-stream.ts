@@ -123,7 +123,7 @@ export function messageStreamRollbackCandidate(
   return {
     turnId: lastTurnId,
     itemId: userMessage.id,
-    text: userMessage.text,
+    text: userMessage.copyText ?? userMessage.text,
   };
 }
 
@@ -302,7 +302,7 @@ function appendItemTextToMessageStream(
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) => ({ ...item, text: `${item.text}${delta}` }));
+      return replaceActiveSegmentItem(segment, index, (item) => ({ ...item, text: `${"text" in item ? item.text : ""}${delta}` }));
     }
     return appendActiveSegmentItem(segment, {
       ...streamedTextMessageStreamItem({

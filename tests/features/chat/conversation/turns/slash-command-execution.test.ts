@@ -238,7 +238,7 @@ describe("slash commands", () => {
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith(
       "Thread goal",
       expect.arrayContaining([
-        expect.objectContaining({ rows: expect.arrayContaining([expect.objectContaining({ key: "objective", value: "Finish" })]) }),
+        expect.objectContaining({ auditFacts: expect.arrayContaining([expect.objectContaining({ key: "objective", value: "Finish" })]) }),
       ]),
     );
   });
@@ -535,7 +535,7 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Thread status", [
       {
-        rows: [
+        auditFacts: [
           { key: "Thread", value: "thread-1" },
           { key: "message", value: "Usage limits" },
           { key: "5h", value: "42%" },
@@ -665,7 +665,7 @@ describe("slash commands", () => {
     await executeSlashCommand("mcp", "", ctx);
 
     expect(ctx.mcpStatusLines).toHaveBeenCalledOnce();
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("MCP servers", [{ rows: [] }]);
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("MCP servers", [{ auditFacts: [] }]);
   });
 
   it("rejects /mcp arguments", async () => {

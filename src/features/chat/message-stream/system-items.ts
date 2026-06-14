@@ -1,4 +1,4 @@
-import type { MessageStreamDetailSection, MessageStreamItem } from "./items";
+import type { MessageStreamItem, MessageStreamNoticeSection } from "./items";
 
 export function createSystemItem(id: string, text: string): MessageStreamItem {
   return {
@@ -9,12 +9,12 @@ export function createSystemItem(id: string, text: string): MessageStreamItem {
   };
 }
 
-export function createStructuredSystemItem(id: string, text: string, details: MessageStreamDetailSection[]): MessageStreamItem {
+export function createStructuredSystemItem(id: string, text: string, noticeSections: MessageStreamNoticeSection[]): MessageStreamItem {
   return {
     id,
     kind: "system",
     role: "system",
     text,
-    details,
+    noticeSections,
   };
 }

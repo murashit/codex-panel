@@ -2,7 +2,6 @@ import type { FileUpdateChange } from "../../../app-server/protocol/turn";
 import type { MessageStreamItem, MessageStreamItemKind } from "./items";
 import { normalizeFileChanges } from "./from-turn-items";
 
-const STREAMED_TOOL_DETAILS_TEXT = "details";
 export const STREAMED_COMMAND_RUNNING_TEXT = "Command running";
 export const STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT = "File change inProgress";
 export const STREAMED_MCP_PROGRESS_LABEL = "mcp progress";
@@ -35,8 +34,7 @@ export function streamedToolOutputMessageStreamItem(params: {
     id: params.id,
     kind: "tool",
     role: "tool",
-    text: STREAMED_TOOL_DETAILS_TEXT,
-    toolLabel: params.fallbackLabel,
+    toolName: params.fallbackLabel,
     turnId: params.turnId,
     sourceItemId: params.id,
     output: params.output,
@@ -54,7 +52,6 @@ export function streamedItemOutputMessageStreamItem(params: {
     id: params.id,
     kind: params.kind,
     role: "tool",
-    text: params.fallbackText,
     turnId: params.turnId,
     sourceItemId: params.id,
     output: params.output,
@@ -65,6 +62,8 @@ export function streamedItemOutputMessageStreamItem(params: {
           executionState: "running",
         }
       : {
+          commandAction: "command",
+          commandTarget: { kind: "command", commandLine: params.fallbackText },
           command: params.fallbackText,
           cwd: UNKNOWN_STREAMED_COMMAND_CWD,
           status: "running",
@@ -83,7 +82,6 @@ export function streamingFileChangeMessageStreamItem(
     id: itemId,
     kind: "fileChange",
     role: "tool",
-    text: `File change ${status}`,
     turnId,
     sourceItemId: itemId,
     status,

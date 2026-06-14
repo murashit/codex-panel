@@ -1,5 +1,5 @@
 import { definedProp } from "../../../utils";
-import type { MessageStreamDetailMetaRow, MessageStreamDetailSection, HookMessageStreamItem } from "./items";
+import type { HookMessageStreamItem } from "./items";
 
 interface MessageStreamHookRun {
   id: string;
@@ -12,25 +12,24 @@ interface MessageStreamHookRun {
 
 export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: string | null, status: string): HookMessageStreamItem | null {
   if (run.id.length === 0) return null;
-  const entries = run.entries.map((entry) => `${entry.kind}: ${entry.text}`).join("\n");
-  const metaRows: MessageStreamDetailMetaRow[] = [
-    { key: "status", value: status },
-    { key: "event", value: hookEventName(run.eventName) },
-    ...(run.statusMessage ? [{ key: "message", value: run.statusMessage }] : []),
-    ...(run.durationMs !== null ? [{ key: "duration", value: `${String(run.durationMs)}ms` }] : []),
-  ];
-  const details: MessageStreamDetailSection[] = [{ rows: metaRows }, ...(entries ? [{ title: "Hook output", body: entries }] : [])];
+  const eventName = hookEventName(run.eventName);
   const displayId = hookRunDisplayId(run);
   return {
     id: displayId,
     kind: "hook",
     role: "tool",
-    text: hookSummary(run.eventName, run.statusMessage),
-    toolLabel: "hook",
+    toolName: "hook",
+    operation: eventName,
+    ...(run.statusMessage ? { primaryTarget: { kind: "value" as const, value: run.statusMessage } } : {}),
     ...definedProp("turnId", turnId),
     sourceItemId: displayId,
     status,
-    details,
+    hookRun: {
+      eventName,
+      ...definedProp("statusMessage", run.statusMessage ?? undefined),
+      ...(run.durationMs !== null ? { durationMs: `${String(run.durationMs)}ms` } : {}),
+      entries: run.entries,
+    },
     output: "",
   };
 }
@@ -42,10 +41,4 @@ function hookRunDisplayId(run: MessageStreamHookRun): string {
 function hookEventName(eventName: string | null | undefined): string {
   const trimmed = eventName?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : "Hook";
-}
-
-function hookSummary(eventName: string | null | undefined, statusMessage: string | null | undefined): string {
-  const message = statusMessage?.trim();
-  const event = hookEventName(eventName);
-  return message ? `${event}: ${message}` : event;
 }

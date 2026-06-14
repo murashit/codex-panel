@@ -33,6 +33,26 @@ describe("message stream selectors", () => {
     expect(messageStreamRollbackCandidate(state)).toEqual({ turnId: "turn-3", itemId: "u3", text: "third" });
   });
 
+  it("restores the raw user message text instead of rendered display text", () => {
+    const state = initialChatMessageStreamState([
+      {
+        id: "u1",
+        kind: "message",
+        messageKind: "user",
+        role: "user",
+        text: "Use `$obsidian-codex-panel-maintain`.",
+        copyText: "Use $obsidian-codex-panel-maintain.",
+        turnId: "turn-1",
+      },
+    ]);
+
+    expect(messageStreamRollbackCandidate(state)).toEqual({
+      turnId: "turn-1",
+      itemId: "u1",
+      text: "Use $obsidian-codex-panel-maintain.",
+    });
+  });
+
   it("returns null when rollback has no user message candidate", () => {
     expect(messageStreamRollbackCandidate(initialChatMessageStreamState([]))).toBeNull();
     expect(

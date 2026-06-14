@@ -34,12 +34,11 @@ describe("timeline item semantics", () => {
         id: "patch",
         kind: "fileChange",
         role: "tool",
-        text: "File change completed",
         status: "completed",
         changes: [{ kind: "update", path: "src/main.ts", diff: "@@" }],
         executionState: "completed",
       },
-      { id: "tool", kind: "tool", role: "tool", text: "tool", details: [{ rows: [{ key: "k", value: "v" }] }] },
+      { id: "tool", kind: "tool", role: "tool", text: "tool", toolCall: { arguments: { k: "v" } } },
       { id: "hook", kind: "hook", role: "tool", text: "hook" },
       { id: "reasoning", kind: "reasoning", role: "tool", text: "thinking" },
     ]);
@@ -57,11 +56,17 @@ describe("timeline item semantics", () => {
 
   it("classifies thread and interaction events by meaning before renderer shape", () => {
     const timeline = timelineItemsFromMessageStreamItems([
-      { id: "goal", kind: "goal", role: "tool", text: "set: Ship it" },
-      { id: "approval", kind: "approvalResult", role: "tool", text: "Approved" },
-      { id: "input", kind: "userInputResult", role: "tool", text: "Answered" },
+      { id: "goal", kind: "goal", role: "tool", text: "set: Ship it", action: "set" },
+      {
+        id: "approval",
+        kind: "approvalResult",
+        role: "tool",
+        text: "Approved",
+        approval: { status: "allowed", scope: "turn", request: "Approval", auditFacts: [] },
+      },
+      { id: "input", kind: "userInputResult", role: "tool", text: "Answered", questions: [] },
       { id: "review", kind: "reviewResult", role: "tool", text: "Auto-review approved" },
-      { id: "compact", kind: "contextCompaction", role: "tool", text: "Context compaction" },
+      { id: "compact", kind: "contextCompaction", role: "tool" },
       { id: "system", kind: "system", role: "system", text: "Disconnected" },
     ]);
 
@@ -105,7 +110,8 @@ function commandItem(id: string): MessageStreamItem {
     id,
     kind: "command",
     role: "tool",
-    text: "npm test",
+    commandAction: "command",
+    commandTarget: { kind: "command", commandLine: "npm test" },
     command: "npm test",
     cwd: "/vault",
     status: "completed",

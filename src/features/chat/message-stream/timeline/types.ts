@@ -3,7 +3,6 @@ import type {
   ApprovalResultMessageStreamItem,
   CommandMessageStreamItem,
   ContextCompactionMessageStreamItem,
-  MessageStreamDetailSection,
   MessageStreamFileChange,
   MessageStreamItem,
   ExecutionState,
@@ -90,7 +89,6 @@ interface TimelineToolResultItem extends TimelineBaseItem<
 > {
   detailShape: "commandAudit" | "diffSet" | "jsonAudit" | "eventSummary" | "plainText";
   renderSurface: "toolResult";
-  details?: readonly MessageStreamDetailSection[];
   changes?: readonly MessageStreamFileChange[];
 }
 

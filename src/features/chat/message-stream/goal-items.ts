@@ -23,7 +23,7 @@ export function goalChangeItem(id: string, previous: ThreadGoal | null, next: Th
     kind: "goal",
     role: "tool",
     text: goalEventSummary(message, objective),
-    details: [{ rows: [{ key: "action", value: action }] }, ...(objective ? [{ title: "Objective", body: objective }] : [])],
+    action,
     ...(objective ? { objective } : {}),
   };
 }

@@ -102,7 +102,7 @@ function steeringActivityItem(item: TimelineItem, turnId: string): MessageStream
     turnId,
     ...(item.sourceItemId ? { sourceItemId: item.sourceItemId } : {}),
     activityKind: STEERING_ACTIVITY_KIND,
-    toolLabel: STEERING_ACTIVITY_LABEL,
+    toolName: STEERING_ACTIVITY_LABEL,
   };
 }
 

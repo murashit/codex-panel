@@ -26,14 +26,11 @@ export function taskProgressMessageStreamItem(
   plan: readonly TaskPlanStep[],
 ): MessageStreamItem {
   const trimmedExplanation = explanation?.trim();
-  const lines = plan.map((step) => `${taskProgressTextMarker(step.status)} ${step.step}`);
-  const body = [trimmedExplanation, ...lines].filter((line): line is string => Boolean(line && line.length > 0)).join("\n");
   const status = plan.some((step) => step.status === "inProgress" || step.status === "pending") ? "inProgress" : "completed";
   return {
     id: `plan-progress-${turnId}`,
     kind: "taskProgress",
     role: "tool",
-    text: body.length > 0 ? body : "Plan updated",
     turnId,
     sourceItemId: `plan-progress-${turnId}`,
     explanation: trimmedExplanation !== undefined && trimmedExplanation.length > 0 ? trimmedExplanation : null,
@@ -41,12 +38,6 @@ export function taskProgressMessageStreamItem(
     status,
     executionState: taskProgressExecutionState(status),
   };
-}
-
-function taskProgressTextMarker(status: TaskStepStatus): string {
-  if (status === "completed") return "[x]";
-  if (status === "inProgress") return "[>]";
-  return "[ ]";
 }
 
 function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {

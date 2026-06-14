@@ -1,7 +1,7 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 
 import type { MessageStreamItemAnnotations } from "../../message-stream/layout";
-import type { MessageStreamDetailSection, MessageStreamItem } from "../../message-stream/items";
+import type { MessageStreamItem, MessageStreamNoticeSection, MessageStreamUserInputQuestionResult } from "../../message-stream/items";
 import { IconButton } from "../../../../shared/ui/components";
 import type { TextItemDetailStateContext, TextItemMetadataContext } from "./context";
 
@@ -125,7 +125,7 @@ export function TextItemDetails({
   context,
 }: {
   itemId: string;
-  details: MessageStreamDetailSection[];
+  details: TextItemDetailSection[];
   context: TextItemDetailStateContext;
 }): UiNode {
   return (
@@ -145,25 +145,49 @@ export function TextItemDetails({
   );
 }
 
-export function SystemDetails({ details }: { details: MessageStreamDetailSection[] }): UiNode {
+export function SystemDetails({ details }: { details: MessageStreamNoticeSection[] }): UiNode {
   return (
     <>
       {details.map((section, index) => (
         <div key={`${section.title ?? ""}:${String(index)}`} className="codex-panel__output codex-panel__system-result-section">
           {section.title ? <div className="codex-panel__output-title">{section.title}</div> : null}
-          <DetailSectionBody section={section} />
+          <DetailSectionBody section={noticeDetailSection(section)} />
         </div>
       ))}
     </>
   );
 }
 
-function DetailSectionBody({ section }: { section: MessageStreamDetailSection }): UiNode {
+export function userInputQuestionDetails(questions: readonly MessageStreamUserInputQuestionResult[]): TextItemDetailSection[] {
+  return questions.map((question) => ({
+    title: `Question: ${question.header}`,
+    facts: [
+      { key: "Prompt", value: question.question },
+      ...(question.answer !== undefined ? [{ key: "Answer", value: question.answer }] : []),
+    ],
+  }));
+}
+
+interface TextItemDetailSection {
+  title?: string;
+  facts?: { key: string; value: string }[];
+  body?: string;
+}
+
+function noticeDetailSection(section: MessageStreamNoticeSection): TextItemDetailSection {
+  return {
+    ...(section.title !== undefined ? { title: section.title } : {}),
+    ...(section.auditFacts !== undefined ? { facts: section.auditFacts } : {}),
+    ...(section.body !== undefined ? { body: section.body } : {}),
+  };
+}
+
+function DetailSectionBody({ section }: { section: TextItemDetailSection }): UiNode {
   return (
     <>
-      {section.rows && section.rows.length > 0 ? (
+      {section.facts && section.facts.length > 0 ? (
         <dl className="codex-panel__meta-grid">
-          {section.rows.map((row) => (
+          {section.facts.map((row) => (
             <Fragment key={`${row.key}\n${row.value}`}>
               <dt>{row.key}</dt>
               <dd>{row.value}</dd>

@@ -42,8 +42,9 @@ function commandItem(id: string, text: string, turnId: string): MessageStreamIte
     id,
     kind: "command",
     role: "tool",
-    text,
     turnId,
+    commandAction: "command",
+    commandTarget: { kind: "command", commandLine: text },
     command: text,
     cwd: "/vault",
     status: "completed",
@@ -56,7 +57,6 @@ function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): Messa
     id,
     kind: "fileChange",
     role: "tool",
-    text: "File change completed",
     turnId,
     status: "completed",
     executionState: "completed",
@@ -87,7 +87,11 @@ describe("turn item conversion preserves app-server semantics", () => {
       { id: "old", items: [userMessage], itemsView: "full", status: "completed", startedAt: 1, completedAt: 2, durationMs: 1, error: null },
     ];
 
-    expect(messageStreamItemsFromTurns(turns).map((item) => item.text)).toEqual(["hello", "world"]);
+    expect(
+      messageStreamItemsFromTurns(turns)
+        .filter((item) => item.kind === "message")
+        .map((item) => item.text),
+    ).toEqual(["hello", "world"]);
     expect(messageStreamItemFromTurnItem(userMessage)).toMatchObject({ role: "user", copyText: "hello" });
     expect(messageStreamItemFromTurnItem(assistantMessage)).toMatchObject({ role: "assistant", copyText: "world" });
   });
@@ -186,12 +190,12 @@ describe("turn item conversion preserves app-server semantics", () => {
 
   it("preserves reasoning text", () => {
     const item: TurnItem = { type: "reasoning", id: "r1", summary: ["summary"], content: ["detail"] };
-    expect(messageStreamItemFromTurnItem(item)?.text).toBe("summary\n\ndetail");
+    expect(messageStreamItemFromTurnItem(item)).toMatchObject({ kind: "reasoning", text: "summary\n\ndetail" });
   });
 
   it("keeps empty reasoning text empty so completed placeholders can be hidden", () => {
     const item: TurnItem = { type: "reasoning", id: "r1", summary: [], content: [] };
-    expect(messageStreamItemFromTurnItem(item)?.text).toBe("");
+    expect(messageStreamItemFromTurnItem(item)).toMatchObject({ kind: "reasoning", text: "" });
   });
 
   it("renders completed proposed plans as copyable assistant markdown", () => {
@@ -255,7 +259,6 @@ describe("turn item conversion preserves app-server semantics", () => {
       id: "plan-progress-t1",
       kind: "taskProgress",
       role: "tool",
-      text: "Working plan\n[x] Inspect code\n[>] Patch UI\n[ ] Run tests",
       explanation: "Working plan",
       steps: [
         { step: "Inspect code", status: "completed" },
@@ -334,7 +337,7 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      text: "npm run check (exit 1)",
+      commandTarget: { kind: "command", commandLine: "npm run check" },
       output: "stderr with many details",
       executionState: "failed",
     });
@@ -357,8 +360,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "read",
-      text: "src/main.ts",
+      commandAction: "read",
+      commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
       executionState: "completed",
     });
   });
@@ -380,8 +383,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "read",
-      text: "src/main.ts",
+      commandAction: "read",
+      commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
       command: "nl -ba src/main.ts | sed -n '1,20p'",
       cwd: "/vault",
       executionState: "completed",
@@ -405,8 +408,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "read",
-      text: "/vault/src/main.ts",
+      commandAction: "read",
+      commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
       executionState: "completed",
     });
   });
@@ -428,8 +431,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "command",
-      text: "npm run check",
+      commandAction: "command",
+      commandTarget: { kind: "command", commandLine: "npm run check" },
       command: "/bin/zsh -lc 'npm run check'",
       cwd: "/vault",
       executionState: "completed",
@@ -453,8 +456,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "search",
-      text: '"command target" in src/display',
+      commandAction: "search",
+      commandTarget: { kind: "search", query: "command target", path: "src/display" },
       command: "rg 'command target' src/display",
       cwd: "/vault",
       executionState: "completed",
@@ -478,8 +481,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "search",
-      text: "target in src/display",
+      commandAction: "search",
+      commandTarget: { kind: "search", query: "target", path: "/vault/src/display" },
       executionState: "completed",
     });
   });
@@ -501,8 +504,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "search",
-      text: "target in src/display",
+      commandAction: "search",
+      commandTarget: { kind: "search", query: "target", path: "C:\\Vault\\src\\display" },
       executionState: "completed",
     });
   });
@@ -524,8 +527,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "list files",
-      text: "src/display",
+      commandAction: "listFiles",
+      commandTarget: { kind: "listFiles", path: "src/display" },
       executionState: "completed",
     });
   });
@@ -550,8 +553,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "search",
-      text: "target in src",
+      commandAction: "search",
+      commandTarget: { kind: "search", query: "target", path: "src" },
       executionState: "completed",
     });
   });
@@ -573,8 +576,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      actionLabel: "list files",
-      text: "workspace",
+      commandAction: "listFiles",
+      commandTarget: { kind: "listFiles" },
       executionState: "completed",
     });
   });
@@ -596,7 +599,7 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "command",
-      text: "rg error src",
+      commandTarget: { kind: "command", commandLine: "rg error src" },
       executionState: "completed",
     });
   });
@@ -635,16 +638,16 @@ describe("turn item conversion preserves app-server semantics", () => {
     };
 
     expect(messageStreamItemFromTurnItem(command, "t1")).toMatchObject({
-      text: "npm run check",
+      commandTarget: { kind: "command", commandLine: "npm run check" },
       executionState: "running",
     });
     expect(messageStreamItemFromTurnItem(fileChange, "t1")).toMatchObject({
-      text: "src/main.ts",
+      changes: [{ path: "src/main.ts" }],
       executionState: "running",
     });
     expect(messageStreamItemFromTurnItem(tool, "t1")).toMatchObject({
-      text: "123",
-      toolLabel: "github.pull_request_read",
+      primaryTarget: { kind: "value", value: "123" },
+      toolName: "github.pull_request_read",
       executionState: "running",
     });
   });
@@ -665,12 +668,13 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
-      text: "123 (Not found)",
-      toolLabel: "github.pull_request_read",
-      details: [
-        { title: "Arguments JSON", body: expect.stringContaining('"id": 123') },
-        { title: "Error JSON", body: expect.stringContaining("Not found") },
-      ],
+      primaryTarget: { kind: "value", value: "123" },
+      failureReason: "Not found",
+      toolName: "github.pull_request_read",
+      toolCall: {
+        arguments: expect.objectContaining({ id: 123 }),
+        error: { message: "Not found" },
+      },
       executionState: "failed",
     });
   });
@@ -690,12 +694,12 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
-      text: "https://example.com",
-      toolLabel: "web.open",
-      details: [
-        { title: "Arguments JSON", body: expect.stringContaining("https://example.com") },
-        { title: "Result JSON", body: expect.stringContaining("ok") },
-      ],
+      primaryTarget: { kind: "value", value: "https://example.com" },
+      toolName: "web.open",
+      toolCall: {
+        arguments: { url: "https://example.com" },
+        result: [{ type: "inputText", text: "ok" }],
+      },
       executionState: "completed",
     });
   });
@@ -709,9 +713,8 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
-      text: "/vault/project/assets/image.png",
-      toolLabel: "imageView",
-      summaryPath: true,
+      toolName: "imageView",
+      primaryTarget: { kind: "path", path: "/vault/project/assets/image.png" },
     });
   });
 
@@ -727,15 +730,14 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
-      text: "/vault/project/assets/generated.png",
-      toolLabel: "imageGeneration",
-      summaryPath: true,
+      toolName: "imageGeneration",
+      primaryTarget: { kind: "path", path: "/vault/project/assets/generated.png" },
       status: "completed",
-      details: [
-        { title: "Saved path", body: "/vault/project/assets/generated.png" },
-        { title: "Revised prompt", body: "A precise UI mockup." },
-        { title: "Result", body: "image result" },
-      ],
+      imageGeneration: {
+        savedPath: "/vault/project/assets/generated.png",
+        revisedPrompt: "A precise UI mockup.",
+        result: "image result",
+      },
       executionState: "completed",
     });
   });
@@ -751,13 +753,12 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
-      text: "image result",
-      toolLabel: "imageGeneration",
-      summaryPath: false,
-      details: [
-        { title: "Revised prompt", body: "A precise UI mockup." },
-        { title: "Result", body: "image result" },
-      ],
+      toolName: "imageGeneration",
+      primaryTarget: { kind: "value", value: "image result" },
+      imageGeneration: {
+        revisedPrompt: "A precise UI mockup.",
+        result: "image result",
+      },
     });
   });
 
@@ -776,8 +777,7 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
-      text: "details",
-      toolLabel: "multi_tool_use.parallel",
+      toolName: "multi_tool_use.parallel",
       executionState: "completed",
     });
   });
@@ -792,17 +792,13 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "tool",
-      text: "search: codex app-server; obsidian codex panel; fallback query",
-      toolLabel: "web search",
-      details: [
-        {
-          title: "web search",
-          rows: [
-            { key: "action", value: "search" },
-            { key: "query", value: "codex app-server; obsidian codex panel; fallback query" },
-          ],
-        },
-      ],
+      toolName: "web search",
+      operation: "search",
+      primaryTarget: { kind: "value", value: "codex app-server; obsidian codex panel; fallback query" },
+      webSearch: {
+        action: "search",
+        query: "codex app-server; obsidian codex panel; fallback query",
+      },
     });
   });
 
@@ -812,14 +808,14 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(entered, "t1")).toMatchObject({
       kind: "tool",
-      text: "Entered review mode",
-      toolLabel: "enteredReviewMode",
+      toolName: "enteredReviewMode",
+      primaryTarget: { kind: "value", value: "Entered review mode" },
       output: "Review started",
     });
     expect(messageStreamItemFromTurnItem(exited, "t1")).toMatchObject({
       kind: "tool",
-      text: "Exited review mode",
-      toolLabel: "exitedReviewMode",
+      toolName: "exitedReviewMode",
+      primaryTarget: { kind: "value", value: "Exited review mode" },
       output: "Review finished",
     });
   });
@@ -829,7 +825,6 @@ describe("turn item conversion preserves app-server semantics", () => {
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
       kind: "contextCompaction",
-      text: "Context compaction",
       turnId: "t1",
       sourceItemId: "compact-1",
     });
@@ -845,17 +840,14 @@ describe("turn item conversion preserves app-server semantics", () => {
       kind: "reviewResult",
       text: "Auto-review approved: Auto-review returned a low-risk allow decision.",
       executionState: "completed",
-      details: [
-        {
-          title: "Review",
-          rows: [
-            { key: "status", value: "approved" },
-            { key: "risk", value: "low" },
-            { key: "authorization", value: "unknown" },
-            { key: "message", value: "Auto-review returned a low-risk allow decision." },
-          ],
-        },
-      ],
+      review: {
+        auditFacts: [
+          { key: "status", value: "approved" },
+          { key: "risk", value: "low" },
+          { key: "authorization", value: "unknown" },
+          { key: "message", value: "Auto-review returned a low-risk allow decision." },
+        ],
+      },
     });
   });
 
@@ -875,16 +867,13 @@ describe("turn item conversion preserves app-server semantics", () => {
     ).toMatchObject({
       kind: "reviewResult",
       text: "Auto-review approved: apply patch (2 files)",
-      details: [
-        {
-          title: "Review",
-          rows: expect.arrayContaining([
-            { key: "action", value: "apply patch" },
-            { key: "cwd", value: "/vault" },
-            { key: "files", value: "src/display/thread-items.ts\ntests/display-model.test.ts" },
-          ]),
-        },
-      ],
+      review: {
+        auditFacts: expect.arrayContaining([
+          { key: "action", value: "apply patch" },
+          { key: "cwd", value: "/vault" },
+          { key: "files", value: "src/display/thread-items.ts\ntests/display-model.test.ts" },
+        ]),
+      },
     });
   });
 });
@@ -933,10 +922,10 @@ describe("streaming updates target item identity without mutating history", () =
     ];
 
     const updated = appendAssistantDelta(items, "a1", "t1", " world");
-    expect(expectPresent(updated[0]).text).toBe("hello world");
+    expect(expectPresent(updated[0])).toMatchObject({ text: "hello world" });
     expect(expectPresent(updated[0])).toMatchObject({ copyText: "hello world" });
     expect(updated).toHaveLength(2);
-    expect(expectPresent(items[0]).text).toBe("hello");
+    expect(expectPresent(items[0])).toMatchObject({ text: "hello" });
     expect(updated).not.toBe(items);
   });
 
@@ -947,7 +936,8 @@ describe("streaming updates target item identity without mutating history", () =
       sourceItemId: "cmd1",
       kind: "command",
       role: "tool",
-      text: "Command running",
+      commandAction: "command",
+      commandTarget: { kind: "command", commandLine: "Command running" },
       command: "npm test",
       cwd: "/vault",
       status: "running",
@@ -962,7 +952,7 @@ describe("streaming updates target item identity without mutating history", () =
     expect(withOutput[0]).toMatchObject({ output: "onetwo" });
     expect(withToolOutput[0]).toMatchObject({ text: "plan: ", output: "progress" });
     expect(tool.text).toBe("plan: ");
-    expect(command.output).toBe("one");
+    expect(command).toMatchObject({ output: "one" });
   });
 });
 
@@ -996,7 +986,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
         kind: "hook",
         role: "tool",
         text: "userPromptSubmit: Saving jj baseline",
-        toolLabel: "hook",
+        toolName: "hook",
         turnId: "t1",
         status: "completed",
       },
@@ -1149,7 +1139,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       summary: "Work details: steer, 2 commands",
       items: [
         { id: "c1" },
-        { id: "steer-activity-u2", text: "also check tests", activityKind: "userSteered", toolLabel: "steer" },
+        { id: "steer-activity-u2", text: "also check tests", activityKind: "userSteered", toolName: "steer" },
         { id: "c2" },
       ],
     });
@@ -1561,7 +1551,8 @@ describe("execution state uses typed status adapters before rendered text", () =
       id: "c1",
       kind: "command",
       role: "tool",
-      text: "Command",
+      commandAction: "command",
+      commandTarget: { kind: "command", commandLine: "Command" },
       command: "npm test",
       cwd: "/vault",
       status: "done_with_errors",
@@ -1575,7 +1566,8 @@ describe("execution state uses typed status adapters before rendered text", () =
       sourceItemId: "c1",
       kind: "command",
       role: "tool",
-      text: "Command running",
+      commandAction: "command",
+      commandTarget: { kind: "command", commandLine: "Command running" },
       command: "npm test",
       cwd: "/vault",
       status: "running",
@@ -1586,7 +1578,8 @@ describe("execution state uses typed status adapters before rendered text", () =
       sourceItemId: "c1",
       kind: "command",
       role: "tool",
-      text: "npm test",
+      commandAction: "command",
+      commandTarget: { kind: "command", commandLine: "npm test" },
       command: "npm test",
       cwd: "/vault",
       status: "completed",

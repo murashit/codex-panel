@@ -1,29 +1,21 @@
 import type {
-  MessageStreamDetailSection,
   MessageStreamFileChange,
   MessageStreamFileMention,
   MessageStreamItem,
+  CommandMessageStreamTarget,
   ExecutionState,
+  MessageStreamPrimaryTarget,
 } from "./items";
 import type { HistoricalTurn } from "../../../domain/threads/history";
 import type { FileUpdateChange, TurnItem } from "../../../app-server/protocol/turn";
-import { definedProp, truncate } from "../../../utils";
+import { definedProp } from "../../../utils";
 import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../domain/threads/reference";
 import { turnUserItemText } from "../../../app-server/protocol/turn";
 import { agentMessageStreamItem } from "./agent-items";
 import { fileMentionsFromInput } from "./file-mentions";
 import { normalizeProposedPlanMarkdown } from "./proposed-plan";
-import { pathRelativeToRoot } from "./path-labels";
 import { userMessageDisplayText } from "./user-message-text";
-import {
-  bodyDetail,
-  compactToolSummary,
-  failedStatusLabel,
-  jsonDetails,
-  jsonTargetLabel,
-  metaDetail,
-  statusQualifier,
-} from "./detail-sections";
+import { failedStatusLabel, jsonTargetLabel } from "./item-labels";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
 type AgentMessageItem = Extract<TurnItem, { type: "agentMessage" }>;
@@ -63,18 +55,22 @@ interface MessageStreamTextData extends BaseStreamItemData {
 }
 
 interface ToolMessageStreamData extends BaseStreamItemData {
-  text: string;
-  toolLabel?: string;
+  text?: string;
+  toolName?: string;
+  primaryTarget?: MessageStreamPrimaryTarget;
+  operation?: string;
+  failureReason?: string;
   status?: string;
   output?: string;
-  details?: MessageStreamDetailSection[];
+  toolCall?: Extract<MessageStreamItem, { kind: "tool" }>["toolCall"];
+  webSearch?: Extract<MessageStreamItem, { kind: "tool" }>["webSearch"];
+  imageGeneration?: Extract<MessageStreamItem, { kind: "tool" }>["imageGeneration"];
   executionState?: ExecutionState;
-  summaryPath?: boolean;
 }
 
 interface CommandMessageStreamData extends BaseStreamItemData {
-  actionLabel: string;
-  text: string;
+  commandAction: "read" | "search" | "listFiles" | "command";
+  commandTarget: CommandMessageStreamTarget;
   command: string;
   cwd: string;
   status: string;
@@ -85,7 +81,6 @@ interface CommandMessageStreamData extends BaseStreamItemData {
 }
 
 interface FileChangeMessageStreamData extends BaseStreamItemData {
-  text: string;
   status: string;
   changes: MessageStreamFileChange[];
   executionState: ExecutionState;
@@ -304,17 +299,17 @@ function mcpToolCallMessageStreamItem(item: McpToolCallItem, turnId?: string): M
 function mcpToolCallMessageStreamItemDataFromItem(item: McpToolCallItem): ToolMessageStreamData {
   const name = `${item.server}.${item.tool}`;
   const target = jsonTargetLabel(item.arguments);
-  const failure = item.error?.message ? truncate(item.error.message, 96) : failedStatusLabel(item.status);
   return {
     id: item.id,
-    text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
-    toolLabel: name,
+    toolName: name,
+    ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
+    ...(item.error?.message ? { failureReason: item.error.message } : {}),
     status: item.status,
-    details: jsonDetails([
-      ["Arguments JSON", item.arguments],
-      ["Result JSON", item.result],
-      ["Error JSON", item.error],
-    ]),
+    toolCall: {
+      arguments: item.arguments,
+      result: item.result,
+      error: item.error,
+    },
     output: "",
     executionState: mcpToolCallExecutionState(item.status),
   };
@@ -325,13 +320,17 @@ function toolMessageStreamItemFromData(data: ToolMessageStreamData, turnId?: str
     id: data.id,
     kind: "tool",
     role: "tool",
-    text: data.text,
-    ...definedProp("toolLabel", data.toolLabel),
-    ...definedProp("summaryPath", data.summaryPath),
+    ...definedProp("text", data.text),
+    ...definedProp("toolName", data.toolName),
+    ...definedProp("primaryTarget", data.primaryTarget),
+    ...definedProp("operation", data.operation),
+    ...definedProp("failureReason", data.failureReason),
     ...definedProp("turnId", turnId),
     sourceItemId: data.id,
     ...definedProp("status", data.status),
-    ...definedProp("details", data.details),
+    ...definedProp("toolCall", data.toolCall),
+    ...definedProp("webSearch", data.webSearch),
+    ...definedProp("imageGeneration", data.imageGeneration),
     ...definedProp("output", data.output),
     ...("executionState" in data ? { executionState: data.executionState } : {}),
   };
@@ -347,13 +346,14 @@ function dynamicToolCallMessageStreamItemDataFromItem(item: DynamicToolCallItem)
   const failure = item.success === false ? "failed" : failedStatusLabel(item.status);
   return {
     id: item.id,
-    text: compactToolSummary(null, target, statusQualifier(item.status, failure)),
-    toolLabel: name,
+    toolName: name,
+    ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
+    ...(failure ? { failureReason: failure } : {}),
     status: item.status,
-    details: jsonDetails([
-      ["Arguments JSON", item.arguments],
-      ["Result JSON", item.contentItems],
-    ]),
+    toolCall: {
+      arguments: item.arguments,
+      result: item.contentItems,
+    },
     output: "",
     executionState: dynamicToolCallExecutionState(item.status, item.success),
   };
@@ -366,9 +366,10 @@ function webSearchMessageStreamItem(item: WebSearchItem, turnId?: string): Messa
 function webSearchMessageStreamItemDataFromItem(item: WebSearchItem): ToolMessageStreamData {
   return {
     id: item.id,
-    text: webSearchSummary(item),
-    toolLabel: "web search",
-    details: webSearchDetails(item),
+    toolName: "web search",
+    operation: item.action?.type ?? (item.query ? "search" : "webSearch"),
+    ...(webSearchTarget(item) ? { primaryTarget: { kind: "value" as const, value: webSearchTarget(item) ?? "" } } : {}),
+    webSearch: webSearchDetails(item),
     output: "",
   };
 }
@@ -380,9 +381,8 @@ function imageViewMessageStreamItem(item: ImageViewItem, turnId?: string): Messa
 function imageViewMessageStreamItemDataFromItem(item: ImageViewItem): ToolMessageStreamData {
   return {
     id: item.id,
-    text: compactToolSummary(null, item.path),
-    toolLabel: "imageView",
-    summaryPath: true,
+    toolName: "imageView",
+    primaryTarget: { kind: "path", path: item.path },
   };
 }
 
@@ -392,17 +392,20 @@ function imageGenerationMessageStreamItem(item: ImageGenerationItem, turnId?: st
 
 function imageGenerationMessageStreamItemDataFromItem(item: ImageGenerationItem): ToolMessageStreamData {
   const target = item.savedPath ?? item.result;
+  const failureReason = failedStatusLabel(item.status);
   return {
     id: item.id,
-    text: compactToolSummary(null, target, statusQualifier(item.status, failedStatusLabel(item.status))),
-    toolLabel: "imageGeneration",
-    summaryPath: Boolean(item.savedPath),
+    toolName: "imageGeneration",
+    ...(target
+      ? { primaryTarget: item.savedPath ? { kind: "path" as const, path: item.savedPath } : { kind: "value" as const, value: target } }
+      : {}),
+    ...(failureReason ? { failureReason } : {}),
     status: item.status,
-    details: [
-      ...bodyDetail("Saved path", item.savedPath),
-      ...bodyDetail("Revised prompt", item.revisedPrompt),
-      ...bodyDetail("Result", item.result),
-    ],
+    imageGeneration: {
+      ...definedProp("savedPath", item.savedPath),
+      revisedPrompt: item.revisedPrompt,
+      result: item.result,
+    },
     output: "",
     executionState: imageGenerationExecutionState(item.status),
   };
@@ -415,8 +418,8 @@ function reviewModeMessageStreamItem(item: ReviewModeItem, turnId?: string): Mes
 function reviewModeMessageStreamItemDataFromItem(item: ReviewModeItem): ToolMessageStreamData {
   return {
     id: item.id,
-    text: item.type === "enteredReviewMode" ? "Entered review mode" : "Exited review mode",
-    toolLabel: item.type,
+    toolName: item.type,
+    primaryTarget: { kind: "value", value: item.type === "enteredReviewMode" ? "Entered review mode" : "Exited review mode" },
     output: item.review,
   };
 }
@@ -425,16 +428,15 @@ function contextCompactionMessageStreamItem(item: ContextCompactionItem, turnId?
   return contextCompactionMessageStreamItemFromData(contextCompactionMessageStreamItemDataFromItem(item), turnId);
 }
 
-function contextCompactionMessageStreamItemDataFromItem(item: ContextCompactionItem): MessageStreamTextData {
-  return { id: item.id, text: "Context compaction" };
+function contextCompactionMessageStreamItemDataFromItem(item: ContextCompactionItem): BaseStreamItemData {
+  return { id: item.id };
 }
 
-function contextCompactionMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
+function contextCompactionMessageStreamItemFromData(data: BaseStreamItemData, turnId?: string): MessageStreamItem {
   return {
     id: data.id,
     kind: "contextCompaction",
     role: "tool",
-    text: data.text,
     ...definedProp("turnId", turnId),
     sourceItemId: data.id,
   };
@@ -447,25 +449,29 @@ function reasoningText(item: ReasoningItem): string {
     .join("\n\n");
 }
 
-function commandTargetLabel(item: CommandExecutionItem): string {
+function commandTarget(item: CommandExecutionItem): CommandMessageStreamTarget {
   const action = representativeCommandAction(item.commandActions);
   if (action?.type === "search") {
-    const query = commandActionValue(action.query);
-    const path = commandActionPathLabel(action.path, item.cwd);
-    if (query && path) return `${quoteInline(query)} in ${path}`;
-    if (query) return quoteInline(query);
-    if (path) return path;
+    const query = commandActionValue(action.query) ?? undefined;
+    const path = commandActionValue(action.path) ?? undefined;
+    return { kind: "search", ...(query ? { query } : {}), ...(path ? { path } : {}) };
   }
-  if (action?.type === "read") return commandReadTargetLabel(action, item.cwd);
-  if (action?.type === "listFiles") return commandActionPathLabel(action.path, item.cwd) ?? "workspace";
-  return unwrapShellLoginCommand(firstCommandLine(item.command));
+  if (action?.type === "read") {
+    const path = commandActionValue(action.path) ?? undefined;
+    return { kind: "read", name: action.name, ...(path ? { path } : {}) };
+  }
+  if (action?.type === "listFiles") {
+    const path = commandActionValue(action.path) ?? undefined;
+    return { kind: "listFiles", ...(path ? { path } : {}) };
+  }
+  return { kind: "command", commandLine: unwrapShellLoginCommand(firstCommandLine(item.command)) };
 }
 
-function commandActionLabel(item: CommandExecutionItem): string {
+function commandActionKind(item: CommandExecutionItem): "read" | "search" | "listFiles" | "command" {
   const action = representativeCommandAction(item.commandActions);
   if (action?.type === "read") return "read";
   if (action?.type === "search") return "search";
-  if (action?.type === "listFiles") return "list files";
+  if (action?.type === "listFiles") return "listFiles";
   return "command";
 }
 
@@ -482,17 +488,6 @@ function representativeCommandAction(actions: CommandAction[]): CommandAction | 
 function commandActionValue(value: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed !== undefined && trimmed.length > 0 ? trimmed : null;
-}
-
-function commandActionPathLabel(value: string | null, cwd: string): string | null {
-  const path = commandActionValue(value);
-  return path ? pathRelativeToWorkspace(path, cwd) : null;
-}
-
-function commandReadTargetLabel(action: Extract<CommandAction, { type: "read" }>, cwd: string): string {
-  const path = commandActionValue(action.path);
-  if (path) return pathRelativeToWorkspace(path, cwd);
-  return action.name;
 }
 
 function firstCommandLine(command: string): string {
@@ -519,27 +514,11 @@ function unquoteShellCommand(value: string): string {
   return quote === "'" ? inner.replace(/'\\''/g, "'") : inner.replace(/\\(["\\$`])/g, "$1");
 }
 
-function quoteInline(value: string): string {
-  return value.includes(" ") ? JSON.stringify(value) : value;
-}
-
-function fileChangeTargetLabel(changes: MessageStreamFileChange[]): string {
-  if (changes.length === 0) return "no files";
-  if (changes.length === 1) return changes[0]?.path ?? "1 file";
-  return `${String(changes.length)} files`;
-}
-
 function webSearchTarget(item: WebSearchItem): string | null {
   if (item.action?.type === "openPage") return item.action.url;
   if (item.action?.type === "findInPage") return item.action.pattern ?? item.action.url;
   if (item.action?.type === "search") return webSearchQueryList(item.action.query, item.action.queries, item.query);
   return item.query;
-}
-
-function webSearchSummary(item: WebSearchItem): string {
-  const actionType = item.action?.type ?? (item.query ? "search" : "web search");
-  const label = webSearchActionLabel(actionType);
-  return compactToolSummary(label, webSearchTarget(item));
 }
 
 function webSearchActionLabel(actionType: string): string {
@@ -562,22 +541,22 @@ function webSearchQueryList(
   return unique.join("; ");
 }
 
-function webSearchDetails(item: WebSearchItem): MessageStreamDetailSection[] {
-  const rows: { key: string; value: string }[] = [];
-  if (item.action) rows.push({ key: "action", value: webSearchActionLabel(item.action.type) });
+function webSearchDetails(item: WebSearchItem): Extract<MessageStreamItem, { kind: "tool" }>["webSearch"] {
+  const details: NonNullable<Extract<MessageStreamItem, { kind: "tool" }>["webSearch"]> = {};
+  if (item.action) details.action = webSearchActionLabel(item.action.type);
   if (item.action?.type === "search") {
     const queries = webSearchQueryList(item.action.query, item.action.queries, item.query);
-    if (queries) rows.push({ key: "query", value: queries });
+    if (queries) details.query = queries;
   } else if (item.action?.type === "openPage") {
-    if (item.action.url) rows.push({ key: "url", value: item.action.url });
+    if (item.action.url) details.url = item.action.url;
   } else if (item.action?.type === "findInPage") {
-    if (item.action.pattern) rows.push({ key: "pattern", value: item.action.pattern });
-    if (item.action.url) rows.push({ key: "url", value: item.action.url });
+    if (item.action.pattern) details.pattern = item.action.pattern;
+    if (item.action.url) details.url = item.action.url;
   } else if (item.query) {
-    rows.push({ key: "query", value: item.query });
+    details.query = item.query;
   }
 
-  return metaDetail("web search", rows);
+  return Object.keys(details).length > 0 ? details : undefined;
 }
 
 function commandMessageStreamItem(item: CommandExecutionItem, turnId?: string): MessageStreamItem {
@@ -587,15 +566,10 @@ function commandMessageStreamItem(item: CommandExecutionItem, turnId?: string): 
 function commandMessageStreamItemDataFromItem(item: CommandExecutionItem): CommandMessageStreamData {
   const exitCode = typeof item.exitCode === "number" ? item.exitCode : undefined;
   const durationMs = typeof item.durationMs === "number" ? item.durationMs : undefined;
-  const target = commandTargetLabel(item);
-  const qualifier =
-    typeof exitCode === "number" && exitCode !== 0
-      ? `exit ${String(exitCode)}`
-      : statusQualifier(item.status, failedStatusLabel(item.status));
   return {
     id: item.id,
-    actionLabel: commandActionLabel(item),
-    text: compactToolSummary(null, target, qualifier),
+    commandAction: commandActionKind(item),
+    commandTarget: commandTarget(item),
     command: item.command,
     cwd: item.cwd,
     status: item.status,
@@ -611,8 +585,8 @@ function commandMessageStreamItemFromData(data: CommandMessageStreamData, turnId
     id: data.id,
     kind: "command",
     role: "tool",
-    actionLabel: data.actionLabel,
-    text: data.text,
+    commandAction: data.commandAction,
+    commandTarget: data.commandTarget,
     ...definedProp("turnId", turnId),
     sourceItemId: data.id,
     command: data.command,
@@ -631,10 +605,8 @@ function fileChangeMessageStreamItem(item: FileChangeItem, turnId?: string): Mes
 
 function fileChangeMessageStreamItemDataFromItem(item: FileChangeItem): FileChangeMessageStreamData {
   const changes = normalizeFileChanges(item.changes);
-  const qualifier = statusQualifier(item.status, failedStatusLabel(item.status));
   return {
     id: item.id,
-    text: compactToolSummary(null, fileChangeTargetLabel(changes), qualifier),
     status: item.status,
     changes,
     executionState: patchApplyExecutionState(item.status),
@@ -646,7 +618,6 @@ function fileChangeMessageStreamItemFromData(data: FileChangeMessageStreamData, 
     id: data.id,
     kind: "fileChange",
     role: "tool",
-    text: data.text,
     ...definedProp("turnId", turnId),
     sourceItemId: data.id,
     status: data.status,
@@ -665,10 +636,6 @@ export function normalizeFileChanges(changes: FileUpdateChange[]): MessageStream
 
 export function shouldSuppressLifecycleItem(item: TurnItem): boolean {
   return item.type === "agentMessage" || item.type === "userMessage";
-}
-
-function pathRelativeToWorkspace(path: string, workspaceRoot?: string | null): string {
-  return pathRelativeToRoot(path, workspaceRoot);
 }
 
 function assertNever(_item: never): null {
