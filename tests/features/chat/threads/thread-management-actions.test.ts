@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
@@ -15,7 +15,6 @@ import {
 } from "../../../../src/features/chat/application/threads/thread-management-actions";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { chatStateMessageStreamItems, setChatStateMessageStreamItems } from "../support/message-stream";
 
@@ -26,10 +25,6 @@ type MockArchiveExportAdapter = ArchiveExportAdapter & {
 };
 
 describe("thread management actions", () => {
-  beforeEach(() => {
-    notices.length = 0;
-  });
-
   it("requests thread compaction and reports the shared status", async () => {
     const client = clientMock();
     const host = hostMock({ client, items: [] });
@@ -109,7 +104,7 @@ describe("thread management actions", () => {
     );
     expect(client.archiveThread).toHaveBeenCalledWith("source");
     expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
-    expect(notices).toEqual(["Saved archived thread to Archive/Archived Thread abcdef12.md."]);
+    expect(host.showNotice).toHaveBeenCalledWith("Saved archived thread to Archive/Archived Thread abcdef12.md.");
     expect(callOrder(adapter.write)).toBeLessThan(callOrder(client.archiveThread));
     expect(callOrder(host.ensureConnected)).toBeLessThan(callOrder(client.readThread));
     expect(callOrder(client.archiveThread)).toBeLessThan(callOrder(host.notifyThreadArchived));
@@ -446,6 +441,7 @@ function hostMock({
     ensureConnected: vi.fn().mockResolvedValue(undefined),
     currentClient: () => client as unknown as AppServerClient,
     addSystemMessage: vi.fn(),
+    showNotice: vi.fn(),
     setStatus: vi.fn(),
     setComposerText: vi.fn(),
     openThreadInNewView: vi.fn().mockResolvedValue(undefined),

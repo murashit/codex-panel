@@ -7,7 +7,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import type CodexPanelPlugin from "../src/main";
 import type { CodexChatView } from "../src/features/chat/host/view";
-import type { CodexChatHost } from "../src/features/chat/application/chat-host";
+import type { CodexChatHost } from "../src/features/chat/application/ports/chat-host";
 import type { Thread } from "../src/domain/threads/model";
 import type { SharedAppServerCache } from "../src/app-server/services/shared-cache";
 import type { SharedAppServerCacheContext } from "../src/app-server/services/shared-cache-state";

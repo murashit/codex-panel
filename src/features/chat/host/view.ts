@@ -5,7 +5,7 @@ import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
-import type { CodexChatHost } from "../application/chat-host";
+import type { CodexChatHost } from "../application/ports/chat-host";
 import { ChatPanelSession } from "./session";
 
 export class CodexChatView extends ItemView {

@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { CodexChatHost } from "../../../src/features/chat/application/chat-host";
+import type { CodexChatHost } from "../../../src/features/chat/application/ports/chat-host";
 import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/protocol/runtime-config";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";

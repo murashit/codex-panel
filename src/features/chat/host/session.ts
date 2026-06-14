@@ -8,7 +8,7 @@ import { getThreadTitle } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import type { ArchiveExportAdapter } from "../../thread-export/archive-markdown";
-import type { CodexChatHost } from "../application/chat-host";
+import type { CodexChatHost } from "../application/ports/chat-host";
 import { scheduleAppServerWarmup } from "../application/connection/app-server-warmup";
 import { ChatConnectionController } from "../application/connection/connection-controller";
 import { createChatReconnectActions } from "../application/connection/reconnect-actions";
@@ -343,56 +343,56 @@ export class ChatPanelSession {
       collaborationModeLabel: () => this.collaborationModeLabel(),
       addSystemMessage: sideEffects.status.addSystemMessage,
     });
-    const threadParts = createThreadParts(
-      {
-        obsidian: {
-          archiveAdapter: this.environment.obsidian.archiveAdapter,
-        },
-        plugin: this.environment.plugin,
-        state: {
-          stateStore: this.stateStore,
-        },
-        lifecycle: {
-          deferredTasks: this.deferredTasks,
-          resumeWork: this.resumeWork,
-          getOpened: () => this.opened,
-          getClosing: () => this.closing,
-        },
-        client: {
-          getClient: sessionPorts.currentClient,
-          ensureConnected: sessionPorts.ensureConnected,
-        },
-        status: sideEffects.status,
-        thread: {
-          selectThread: sessionPorts.selectThread,
-          resumeRestoredThread: sessionPorts.resumeRestoredThread,
-          refreshThreads: sessionPorts.refreshThreads,
-          notifyIdentityChanged: () => {
-            this.notifyActiveThreadIdentityChanged();
-          },
-          refreshTabHeader: () => {
-            this.refreshTabHeader();
-          },
-        },
-        liveState: {
-          refresh: () => {
-            this.refreshLiveState();
-          },
-        },
-        scroll: {
-          preservePosition: () => {
-            this.messageScrollIntent.preservePosition();
-          },
-          forceBottom: () => {
-            this.messageScrollIntent.forceBottom();
-          },
-        },
-        composer: sideEffects.composer,
+    const threadParts = createThreadParts({
+      obsidian: {
+        archiveAdapter: this.environment.obsidian.archiveAdapter,
       },
-      {
-        connection,
+      plugin: this.environment.plugin,
+      state: {
+        stateStore: this.stateStore,
       },
-    );
+      lifecycle: {
+        deferredTasks: this.deferredTasks,
+        resumeWork: this.resumeWork,
+        getOpened: () => this.opened,
+        getClosing: () => this.closing,
+      },
+      client: {
+        getClient: sessionPorts.currentClient,
+        ensureConnected: sessionPorts.ensureConnected,
+      },
+      status: sideEffects.status,
+      notify: {
+        showNotice: (text) => {
+          new Notice(text);
+        },
+      },
+      thread: {
+        selectThread: sessionPorts.selectThread,
+        resumeRestoredThread: sessionPorts.resumeRestoredThread,
+        refreshThreads: sessionPorts.refreshThreads,
+        notifyIdentityChanged: () => {
+          this.notifyActiveThreadIdentityChanged();
+        },
+        refreshTabHeader: () => {
+          this.refreshTabHeader();
+        },
+      },
+      liveState: {
+        refresh: () => {
+          this.refreshLiveState();
+        },
+      },
+      scroll: {
+        preservePosition: () => {
+          this.messageScrollIntent.preservePosition();
+        },
+        forceBottom: () => {
+          this.messageScrollIntent.forceBottom();
+        },
+      },
+      composer: sideEffects.composer,
+    });
     const { history, managementActions: threadActions, goals, identity, restoration, resume, rename, autoTitle } = threadParts;
     resumeRef.set(resume);
     restorationRef.set(restoration);
@@ -463,7 +463,7 @@ export class ChatPanelSession {
         connectionController,
         reconnectActions,
         inboundController,
-        serverThreads,
+        threadStarter: serverThreads,
         threadActions,
         toolbarPanels,
         rename,
@@ -534,7 +534,7 @@ export class ChatPanelSession {
       },
       {
         controller: inboundController,
-        serverThreads,
+        threadStarter: serverThreads,
         runtimeSettings,
         threadActions,
         reconnectActions,

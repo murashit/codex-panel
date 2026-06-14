@@ -3,7 +3,7 @@ import { Plugin } from "obsidian";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
 import { CodexChatView } from "./features/chat/host/view";
-import type { CodexChatHost } from "./features/chat/application/chat-host";
+import type { CodexChatHost } from "./features/chat/application/ports/chat-host";
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
 import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";

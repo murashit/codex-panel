@@ -1,11 +1,10 @@
-import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ArchiveExportAdapter } from "../../../thread-export/archive-markdown";
 import { createGoalActions } from "./goal-actions";
 import { createSelectionActions } from "./selection-actions";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../chat-host";
+import type { CodexChatHost } from "../ports/chat-host";
 import { createThreadNamingParts } from "./naming-parts";
 import { createThreadManagementActions } from "./thread-management-actions";
 import { createThreadLifecycleParts } from "./lifecycle-parts";
@@ -39,6 +38,9 @@ interface ThreadPartsContext {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
   };
+  notify: {
+    showNotice: (text: string) => void;
+  };
   liveState: {
     refresh: () => void;
   };
@@ -51,33 +53,23 @@ interface ThreadPartsContext {
   };
 }
 
-export function createThreadParts(
-  context: ThreadPartsContext,
-  refs: {
-    connection: ConnectionManager;
-  },
-) {
-  const { obsidian, plugin, state, thread, status, liveState, scroll, client, composer, lifecycle } = context;
+export function createThreadParts(context: ThreadPartsContext) {
+  const { obsidian, plugin, state, thread, status, notify, liveState, scroll, client, composer, lifecycle } = context;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
 
-  const naming = createThreadNamingParts(
-    {
-      plugin,
-      stateStore,
-      client: {
-        currentClient,
-        ensureConnected: client.ensureConnected,
-      },
-      status: {
-        addSystemMessage: status.addSystemMessage,
-      },
+  const naming = createThreadNamingParts({
+    plugin,
+    stateStore,
+    client: {
+      currentClient,
+      ensureConnected: client.ensureConnected,
     },
-    {
-      connection: refs.connection,
+    status: {
+      addSystemMessage: status.addSystemMessage,
     },
-  );
-  const { rename, autoTitle, resetThreadTurnPresence } = naming;
+  });
+  const { rename, autoTitle } = naming;
 
   const managementActions = createThreadManagementActions({
     obsidian,
@@ -88,6 +80,7 @@ export function createThreadParts(
       ensureConnected: client.ensureConnected,
     },
     status,
+    notify,
     thread: {
       selectThread: thread.selectThread,
       refreshThreads: thread.refreshThreads,
@@ -122,7 +115,9 @@ export function createThreadParts(
     liveState,
     scroll,
     goals,
-    resetThreadTurnPresence,
+    resetThreadTurnPresence: (hadTurns) => {
+      autoTitle.resetThreadTurnPresence(hadTurns);
+    },
   });
   const { history, restoration, resume, identity } = threadLifecycle;
 
@@ -162,9 +157,7 @@ export function createThreadSelectionActions(
 
   return createSelectionActions({
     stateStore,
-    closeForThreadSelection: () => {
-      refs.closeForThreadSelection();
-    },
+    closeForThreadSelection: refs.closeForThreadSelection,
     focusThreadInOpenView: (threadId) => plugin.focusThreadInOpenView(threadId),
     resumeThread: thread.resumeThread,
     addSystemMessage: status.addSystemMessage,

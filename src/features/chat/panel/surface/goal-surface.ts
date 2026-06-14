@@ -1,7 +1,6 @@
 import type { CodexPanelSettings } from "../../../../settings/model";
 import type { ChatConnectionController } from "../../application/connection/connection-controller";
 import type { ChatInboundController } from "../../app-server/inbound/controller";
-import type { ChatServerThreadActions } from "../../app-server/actions/threads";
 import type { GoalActions } from "../../application/threads/goal-actions";
 import type { ChatAction, ChatState, ChatStateStore } from "../../application/state/reducer";
 import type { ChatPanelGoalSurface } from "./model";
@@ -14,8 +13,12 @@ export interface ChatPanelGoalSurfaceHost {
 export interface ChatPanelGoalSurfaceDependencies {
   connectionController: ChatConnectionController;
   inboundController: ChatInboundController;
-  serverThreads: ChatServerThreadActions;
+  threadStarter: ChatPanelGoalThreadStarter;
   goals: GoalActions;
+}
+
+interface ChatPanelGoalThreadStarter {
+  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
 }
 
 export function createChatPanelGoalSurface(host: ChatPanelGoalSurfaceHost, deps: ChatPanelGoalSurfaceDependencies): ChatPanelGoalSurface {
@@ -59,7 +62,7 @@ async function saveGoalObjective(
   if (!threadId) {
     try {
       await deps.connectionController.ensureConnected();
-      const response = await deps.serverThreads.startThread(objective, { syncGoal: false });
+      const response = await deps.threadStarter.startThread(objective, { syncGoal: false });
       threadId = response?.threadId ?? null;
     } catch (error) {
       deps.inboundController.addSystemMessage(error instanceof Error ? error.message : String(error));

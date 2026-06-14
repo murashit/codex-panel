@@ -1,7 +1,7 @@
-import type { Thread } from "../../../domain/threads/model";
-import type { SharedServerMetadata } from "../../../domain/server/metadata";
-import type { CodexPanelSettings } from "../../../settings/model";
-import type { ChatTurnDiffViewState } from "../domain/turn-diff";
+import type { Thread } from "../../../../domain/threads/model";
+import type { SharedServerMetadata } from "../../../../domain/server/metadata";
+import type { CodexPanelSettings } from "../../../../settings/model";
+import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 
 export interface CodexChatHost {
   readonly settings: CodexPanelSettings;

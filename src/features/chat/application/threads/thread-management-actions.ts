@@ -1,12 +1,10 @@
-import { Notice } from "obsidian";
-
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { readThreadForArchiveExport, rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/services/threads";
 import { inheritedForkThreadName, normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../../settings/model";
 import type { ArchiveExportAdapter } from "../../../thread-export/archive-markdown";
 import { exportArchivedThreadMarkdown } from "../../../thread-export/archive-markdown";
-import type { CodexChatHost } from "../chat-host";
+import type { CodexChatHost } from "../ports/chat-host";
 import {
   archivedSourceOpenForkFailedMessage,
   finishBeforeArchivingThreadsMessage,
@@ -35,6 +33,7 @@ export interface ThreadManagementActionsHost {
   ensureConnected: () => Promise<void>;
   currentClient: () => AppServerClient | null;
   addSystemMessage: (text: string) => void;
+  showNotice: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<unknown>;
@@ -69,6 +68,9 @@ export interface ThreadManagementActionsContext {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
   };
+  notify: {
+    showNotice: (text: string) => void;
+  };
   thread: {
     selectThread: (threadId: string) => Promise<void>;
     refreshThreads: () => Promise<void>;
@@ -90,7 +92,7 @@ type ConnectedRenameThreadHost = Pick<
 >;
 
 export function createThreadManagementActions(context: ThreadManagementActionsContext): ThreadManagementActions {
-  const { obsidian, plugin, stateStore, client, status, thread, composer } = context;
+  const { obsidian, plugin, stateStore, client, status, notify, thread, composer } = context;
   const host: ThreadManagementActionsHost = {
     stateStore,
     vaultPath: plugin.vaultPath,
@@ -99,6 +101,7 @@ export function createThreadManagementActions(context: ThreadManagementActionsCo
     ensureConnected: client.ensureConnected,
     currentClient: client.currentClient,
     addSystemMessage: status.addSystemMessage,
+    showNotice: notify.showNotice,
     setStatus: status.set,
     setComposerText: composer.setText,
     openThreadInNewView: (threadId) => plugin.openThreadInNewView(threadId),
@@ -169,7 +172,7 @@ async function archiveThreadOnServer(
         { ...settings, vaultPath: host.vaultPath },
         host.archiveAdapter(),
       );
-      new Notice(`Saved archived thread to ${result.path}.`);
+      host.showNotice(`Saved archived thread to ${result.path}.`);
     }
     await client.archiveThread(threadId);
     return true;

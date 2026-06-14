@@ -1,6 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
-import type { ChatServerThreadActions } from "../../app-server/actions/threads";
 import type { ChatReconnectActions } from "../connection/reconnect-actions";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
@@ -49,11 +48,15 @@ export interface ConversationTurnActionsContext {
 }
 
 export interface ConversationTurnActionsRefs {
-  serverThreads: ChatServerThreadActions;
+  threadStarter: ConversationThreadStarter;
   runtimeSettings: ChatRuntimeSettingsActions;
   threadActions: ThreadManagementActions;
   reconnectActions: ChatReconnectActions;
   goals: GoalActions;
+}
+
+export interface ConversationThreadStarter {
+  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
 }
 
 export interface ConversationTurnActions {
@@ -71,7 +74,7 @@ export function createConversationTurnActions(
     vaultPath,
     currentClient: client.currentClient,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
-    startThread: (preview) => refs.serverThreads.startThread(preview),
+    startThread: (preview) => refs.threadStarter.startThread(preview),
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     resetThreadTurnPresence: thread.resetTurnPresence,
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
@@ -85,7 +88,7 @@ export function createConversationTurnActions(
     currentClient: client.currentClient,
     codexInput: composer.codexInput,
     startNewThread: thread.startNewThread,
-    startThreadForGoal: (objective) => startThreadForGoal(refs.serverThreads, objective),
+    startThreadForGoal: (objective) => startThreadForGoal(refs.threadStarter, objective),
     resumeThread: thread.selectThread,
     forkThread: (threadId) => refs.threadActions.forkThread(threadId),
     rollbackThread: (threadId) => refs.threadActions.rollbackThread(threadId),
@@ -149,7 +152,7 @@ export function createConversationTurnActions(
   };
 }
 
-async function startThreadForGoal(actions: ChatServerThreadActions, objective: string): Promise<string | null> {
+async function startThreadForGoal(actions: ConversationThreadStarter, objective: string): Promise<string | null> {
   const response = await actions.startThread(objective, { syncGoal: false });
   return response?.threadId ?? null;
 }

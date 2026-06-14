@@ -4,7 +4,6 @@ import type { ChatStateStore } from "../../application/state/reducer";
 import type { ChatConnectionController } from "../../application/connection/connection-controller";
 import type { ChatReconnectActions } from "../../application/connection/reconnect-actions";
 import type { ChatInboundController } from "../../app-server/inbound/controller";
-import type { ChatServerThreadActions } from "../../app-server/actions/threads";
 import type { ThreadManagementActions } from "../../application/threads/thread-management-actions";
 import type { ToolbarPanelActions } from "../toolbar-actions";
 import type { ThreadRenameEditorController } from "../../application/threads/rename-editor-controller";
@@ -28,13 +27,17 @@ export interface ChatPanelSurfaceDependencies {
   connectionController: ChatConnectionController;
   reconnectActions: ChatReconnectActions;
   inboundController: ChatInboundController;
-  serverThreads: ChatServerThreadActions;
+  threadStarter: ChatPanelThreadStarter;
   threadActions: ThreadManagementActions;
   toolbarPanels: ToolbarPanelActions;
   rename: ThreadRenameEditorController;
   selection: SelectionActions;
   runtimeSettings: ChatRuntimeSettingsActions;
   goals: GoalActions;
+}
+
+interface ChatPanelThreadStarter {
+  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
 }
 
 export function createChatPanelSurface(host: ChatPanelSurfaceHost, deps: ChatPanelSurfaceDependencies): ChatPanelSurface {
@@ -65,7 +68,7 @@ export function createChatPanelSurface(host: ChatPanelSurfaceHost, deps: ChatPan
       {
         connectionController: deps.connectionController,
         inboundController: deps.inboundController,
-        serverThreads: deps.serverThreads,
+        threadStarter: deps.threadStarter,
         goals: deps.goals,
       },
     ),

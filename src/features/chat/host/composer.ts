@@ -1,12 +1,11 @@
 import type { App } from "obsidian";
 
-import type { CodexInput } from "../../../domain/chat/input";
 import { MessageStreamScrollBridge } from "../panel/surface/message-stream-scroll";
 import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effective";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { activeTurnId, type ChatStateStore } from "../application/state/reducer";
 import type { ChatPanelComposerShellState } from "../panel/shell-state";
-import type { CodexChatHost } from "../application/chat-host";
+import type { CodexChatHost } from "../application/ports/chat-host";
 import type { ChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import { ChatComposerController } from "../panel/composer-controller";
 import type { ChatPanelComposerProjection } from "../panel/surface/model";
@@ -31,8 +30,6 @@ export interface ConversationComposerRefs {
 export interface ConversationComposerParts {
   controller: ChatComposerController;
   scrollBridge: MessageStreamScrollBridge;
-  codexInput: (text: string) => CodexInput;
-  setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
 }
 
 export function createConversationComposer(
@@ -70,9 +67,5 @@ export function createConversationComposer(
   return {
     controller,
     scrollBridge,
-    codexInput: (text) => controller.codexInput(text),
-    setDraft: (text, options) => {
-      controller.setDraft(text, options);
-    },
   };
 }

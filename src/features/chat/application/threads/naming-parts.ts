@@ -1,7 +1,6 @@
-import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../chat-host";
+import type { CodexChatHost } from "../ports/chat-host";
 import { AutoTitleController } from "./auto-title-controller";
 import { ThreadRenameEditorController } from "./rename-editor-controller";
 
@@ -17,24 +16,19 @@ export interface ThreadNamingPartsContext {
   };
 }
 
-export interface ThreadNamingPartsRefs {
-  connection: ConnectionManager;
-}
-
 export interface ThreadNamingParts {
   rename: ThreadRenameEditorController;
   autoTitle: AutoTitleController;
-  resetThreadTurnPresence: (hadTurns: boolean) => void;
 }
 
-export function createThreadNamingParts(context: ThreadNamingPartsContext, refs: ThreadNamingPartsRefs): ThreadNamingParts {
+export function createThreadNamingParts(context: ThreadNamingPartsContext): ThreadNamingParts {
   const { plugin, stateStore, client, status } = context;
   const rename = new ThreadRenameEditorController({
     stateStore,
     vaultPath: plugin.vaultPath,
     settings: () => plugin.settings,
     ensureConnected: client.ensureConnected,
-    currentClient: () => refs.connection.currentClient(),
+    currentClient: client.currentClient,
     addSystemMessage: status.addSystemMessage,
     notifyThreadRenamed: plugin.notifyThreadRenamed.bind(plugin),
   });
@@ -49,8 +43,5 @@ export function createThreadNamingParts(context: ThreadNamingPartsContext, refs:
   return {
     rename,
     autoTitle,
-    resetThreadTurnPresence: (hadTurns) => {
-      autoTitle.resetThreadTurnPresence(hadTurns);
-    },
   };
 }

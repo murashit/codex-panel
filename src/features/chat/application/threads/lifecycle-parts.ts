@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../chat-host";
+import type { CodexChatHost } from "../ports/chat-host";
 import type { GoalActions } from "./goal-actions";
 import { HistoryController } from "./history-controller";
 import { createIdentitySync } from "./identity-sync";

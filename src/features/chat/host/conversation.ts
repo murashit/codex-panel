@@ -1,6 +1,5 @@
 import type { App, Component } from "obsidian";
 import type { AppServerClient } from "../../../app-server/connection/client";
-import type { ChatServerThreadActions } from "../app-server/actions/threads";
 import { type ChatStateStore } from "../application/state/reducer";
 import type { ChatReconnectActions } from "../application/connection/reconnect-actions";
 import { PendingRequestController } from "../application/pending-requests/controller";
@@ -11,12 +10,12 @@ import type { HistoryController } from "../application/threads/history-controlle
 import type { ChatInboundController } from "../app-server/inbound/controller";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatPanelComposerShellState } from "../panel/shell-state";
-import type { CodexChatHost } from "../application/chat-host";
+import type { CodexChatHost } from "../application/ports/chat-host";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
 import type { ChatPanelComposerProjection } from "../panel/surface/model";
 import { createConversationComposer } from "./composer";
-import { createConversationTurnActions } from "../application/conversation/composition";
+import { createConversationTurnActions, type ConversationThreadStarter } from "../application/conversation/composition";
 
 interface ConversationPartsContext {
   obsidian: {
@@ -71,7 +70,7 @@ export function createConversationParts(
   context: ConversationPartsContext,
   refs: {
     controller: ChatInboundController;
-    serverThreads: ChatServerThreadActions;
+    threadStarter: ConversationThreadStarter;
     runtimeSettings: ChatRuntimeSettingsActions;
     threadActions: ThreadManagementActions;
     reconnectActions: ChatReconnectActions;
@@ -123,16 +122,18 @@ export function createConversationParts(
       runtime,
       thread,
       composer: {
-        codexInput: composer.codexInput,
+        codexInput: (text) => composerController.codexInput(text),
         trimmedDraft: () => composerController.trimmedDraft,
-        setDraft: composer.setDraft,
+        setDraft: (text, options) => {
+          composerController.setDraft(text, options);
+        },
       },
       scroll: {
         followBottom: scroll.followBottom,
       },
     },
     {
-      serverThreads: refs.serverThreads,
+      threadStarter: refs.threadStarter,
       runtimeSettings: refs.runtimeSettings,
       threadActions: refs.threadActions,
       reconnectActions: refs.reconnectActions,
