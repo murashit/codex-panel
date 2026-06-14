@@ -9,13 +9,13 @@ import type { ThreadManagementActions } from "../threads/thread-management-actio
 import type { GoalActions } from "../threads/goal-actions";
 import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
-import type { MessageStreamNoticeSection } from "../message-stream/items";
+import type { MessageStreamItem, MessageStreamNoticeSection } from "../message-stream/items";
 import type { ChatMessageScrollIntentState } from "../ui/message-stream/scroll-intent-state";
 import type { ComposerMetaViewModel } from "../ui/composer";
 import type { ChatPanelComposerShellState } from "../ui/shell-state";
 import type { CodexChatHost } from "../chat-host";
+import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import { createConversationComposer } from "./composer/composition";
-import { createConversationMessageStreamPresenter } from "./message-stream/composition";
 import { createConversationTurnActions } from "./turns/composition";
 
 interface ConversationPartsContext {
@@ -143,29 +143,40 @@ export function createConversationParts(
     },
   );
 
-  const messageStreamPresenter = createConversationMessageStreamPresenter(
-    {
-      obsidian: {
-        app,
-        owner,
-      },
-      plugin,
-      stateStore,
-      lifecycle,
-      scroll: {
-        bridge: messageStreamScrollBridge,
-      },
-      surface: {
-        pendingRequestsSignature: surface.pendingRequestsSignature,
+  const messageStreamPresenter = new MessageStreamPresenter({
+    obsidian: {
+      app,
+      owner,
+    },
+    state: {
+      store: stateStore,
+    },
+    workspace: {
+      vaultPath: plugin.vaultPath,
+    },
+    scroll: {
+      consumeIntent: () => lifecycle.messageScrollIntent.consumeIntent(),
+      registerVirtualizer: messageStreamScrollBridge.registerVirtualizer,
+      dispose: () => {
+        messageStreamScrollBridge.dispose();
       },
     },
-    {
-      history: refs.history,
-      threadActions: refs.threadActions,
-      pendingRequests,
-      planImplementation: turnActions.planImplementation,
+    history: {
+      loadOlderTurns: () => void refs.history.loadOlder(),
     },
-  );
+    actions: {
+      rollbackThread: (threadId) => void refs.threadActions.rollbackThread(threadId),
+      forkThreadFromTurn: (threadId, turnId, archiveSource) => void refs.threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
+      implementPlan: (item: MessageStreamItem) => void turnActions.planImplementation.implement(item),
+      openTurnDiff: (state) => void plugin.openTurnDiff(state),
+    },
+    requests: {
+      pendingSignature: surface.pendingRequestsSignature,
+      pendingSnapshot: () => pendingRequests.snapshot(),
+      pendingActions: () => pendingRequests.actions(),
+      consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
+    },
+  });
 
   return {
     pendingRequests,

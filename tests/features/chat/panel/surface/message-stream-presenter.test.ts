@@ -12,12 +12,12 @@ import {
   type ChatState,
   type ChatStateStore,
 } from "../../../../../src/features/chat/state/reducer";
+import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
   type ChatMessageStreamSurfaceContext,
   messageStreamContextFromState,
   messageStreamStateProjection,
-  MessageStreamPresenter,
-} from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
+} from "../../../../../src/features/chat/panel/surface/message-stream-projection";
 import { MessageStreamScrollBridge } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import {
