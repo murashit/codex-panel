@@ -66,6 +66,16 @@ describe("chat toolbar CSS", () => {
     expect(toolbarActionMouseFocus).toContain("color: var(--icon-color)");
   });
 
+  it("does not color toolbar panel items as hovered for retained click focus", () => {
+    const hoverSelectors = [
+      ...styles.matchAll(
+        /\.codex-panel__toolbar-panel-item:where\((?<states>[^)]+)\):not\(:disabled\):not\(\.is-disabled\)\s+\.codex-panel__toolbar-panel-(?:label|meta) \{/g,
+      ),
+    ].map((match) => match.groups?.["states"] ?? "");
+
+    expect(hoverSelectors).toEqual([":hover, :focus-visible, :active", ":hover, :focus-visible, :active"]);
+  });
+
   it("uses the shared active state for toolbar actions", () => {
     const toolbarActionActive =
       /\.codex-panel-ui__toolbar-action\.is-active,\n\.codex-panel-ui__toolbar-action\.is-active:hover,\n\.codex-panel-ui__toolbar-action\.is-active:focus-visible,\n\.codex-panel-ui__toolbar-action\.is-active:active \{(?<body>[^}]+)\}/.exec(

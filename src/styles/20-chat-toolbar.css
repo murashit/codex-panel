@@ -42,13 +42,11 @@
   font-size: var(--codex-panel-toolbar-meta-size);
 }
 
-.codex-panel__toolbar-panel-item:where(:hover, :focus, :focus-visible, :active):not(:disabled):not(.is-disabled)
-  .codex-panel__toolbar-panel-label {
+.codex-panel__toolbar-panel-item:where(:hover, :focus-visible, :active):not(:disabled):not(.is-disabled) .codex-panel__toolbar-panel-label {
   color: var(--nav-item-color-hover, var(--text-normal));
 }
 
-.codex-panel__toolbar-panel-item:where(:hover, :focus, :focus-visible, :active):not(:disabled):not(.is-disabled)
-  .codex-panel__toolbar-panel-meta {
+.codex-panel__toolbar-panel-item:where(:hover, :focus-visible, :active):not(:disabled):not(.is-disabled) .codex-panel__toolbar-panel-meta {
   color: var(--nav-item-color-hover, var(--text-normal));
 }
 
