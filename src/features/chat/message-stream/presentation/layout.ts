@@ -1,10 +1,28 @@
 import type { MessageStreamItem } from "../items";
 import { pathRelativeToRoot } from "../path-labels";
-import { presentationClassificationsFromMessageStreamItems } from "./from-items";
-import type { PresentationClassification, PresentationSemanticKind } from "./types";
+import {
+  messageStreamIsApprovalResult,
+  messageStreamIsAssistantResponse,
+  messageStreamIsCommandEvidence,
+  messageStreamIsContextCompaction,
+  messageStreamIsCoordinationProgress,
+  messageStreamIsGoalChange,
+  messageStreamIsHookEvidence,
+  messageStreamIsPermissionDecision,
+  messageStreamIsProposedPlan,
+  messageStreamIsReasoningProgress,
+  messageStreamIsReviewResult,
+  messageStreamIsTaskProgress,
+  messageStreamIsToolEvidence,
+  messageStreamIsTurnInitiator,
+  messageStreamIsTurnSteer,
+  messageStreamIsUserInputResult,
+  messageStreamIsWorkspaceResult,
+  messageStreamSemanticClassifications,
+} from "../semantics";
+import type { MessageStreamSemanticClassification } from "../semantics";
 
 const STEERING_ACTIVITY_LABEL = "steer";
-const STEERING_ACTIVITY_KIND = "userSteered";
 
 export interface MessageStreamItemAnnotations {
   editedFiles?: string[];
@@ -12,10 +30,26 @@ export interface MessageStreamItemAnnotations {
   autoReviewSummaries?: string[];
 }
 
+type MessageStreamActivityGroupItem =
+  | {
+      type: "item";
+      id: string;
+      item: MessageStreamItem;
+      classification: MessageStreamSemanticClassification;
+    }
+  | {
+      type: "steering";
+      id: string;
+      label: typeof STEERING_ACTIVITY_LABEL;
+      text: string;
+      sourceItemId: string;
+    };
+
 export type MessageStreamLayoutBlock =
   | {
       type: "item";
       item: MessageStreamItem;
+      classification: MessageStreamSemanticClassification;
       annotations?: MessageStreamItemAnnotations;
     }
   | {
@@ -23,7 +57,7 @@ export type MessageStreamLayoutBlock =
       id: string;
       turnId: string;
       summary: string;
-      items: MessageStreamItem[];
+      items: MessageStreamActivityGroupItem[];
     };
 
 export function messageStreamLayoutBlocks(
@@ -32,7 +66,7 @@ export function messageStreamLayoutBlocks(
   workspaceRoot?: string | null,
   turnDiffs?: ReadonlyMap<string, string>,
 ): MessageStreamLayoutBlock[] {
-  const visibleItems = presentationClassificationsFromMessageStreamItems(items).filter(shouldShowPresentationItem);
+  const visibleItems = messageStreamSemanticClassifications(items).filter(shouldShowPresentationItem);
   const editedFilesByTurn = editedFilesForTurns(visibleItems, workspaceRoot);
   const autoReviewSummariesByTurn = autoReviewSummariesForTurns(visibleItems);
   const turnOutcomeIdByTurn = turnOutcomeItemsByTurn(visibleItems);
@@ -41,18 +75,18 @@ export function messageStreamLayoutBlocks(
 
   const groupedActivities = new Map<string, GroupedActivity[]>();
   for (const classification of visibleItems) {
-    const { item, semanticKind } = classification;
+    const { item } = classification;
     const turnId = item.turnId;
     if (!turnId || !groupedTurnIds.has(turnId)) continue;
-    if (semanticKind === "steering" && item.kind === "message") {
+    if (messageStreamIsTurnSteer(classification) && item.kind === "message") {
       const group = groupedActivities.get(turnId) ?? [];
-      group.push({ item: steeringActivityItem(classification, turnId), semanticKind: "steering" });
+      group.push(steeringActivityGroupItem(classification));
       groupedActivities.set(turnId, group);
       continue;
     }
     if (!isCompletedTurnDetailItem(classification, turnOutcomeIdByTurn)) continue;
     const group = groupedActivities.get(turnId) ?? [];
-    group.push({ item, semanticKind });
+    group.push({ type: "item", id: item.id, item, classification });
     groupedActivities.set(turnId, group);
   }
 
@@ -70,12 +104,13 @@ export function messageStreamLayoutBlocks(
         id: `turn-${turnId}-activity`,
         turnId,
         summary: turnActivitySummary(groupItems),
-        items: groupItems.map((activity) => activity.item),
+        items: groupItems,
       });
     }
     blocks.push({
       type: "item",
       item,
+      classification,
       ...definedProp(
         "annotations",
         annotationsForTurnOutcome(item, editedFilesByTurn, autoReviewSummariesByTurn, summaryOutcomeIdByTurn, turnDiffs),
@@ -86,36 +121,34 @@ export function messageStreamLayoutBlocks(
   return blocks;
 }
 
-interface GroupedActivity {
-  item: MessageStreamItem;
-  semanticKind: PresentationSemanticKind;
+type GroupedActivity = MessageStreamActivityGroupItem;
+
+function shouldShowPresentationItem(classification: MessageStreamSemanticClassification): boolean {
+  const { item } = classification;
+  return (
+    !messageStreamIsReasoningProgress(classification) ||
+    item.executionState !== "completed" ||
+    textForMessageStreamItem(item).trim().length > 0
+  );
 }
 
-function shouldShowPresentationItem(classification: PresentationClassification): boolean {
-  const { item, semanticKind } = classification;
-  return semanticKind !== "reasoningNote" || item.executionState !== "completed" || textForMessageStreamItem(item).trim().length > 0;
-}
-
-function steeringActivityItem({ item }: PresentationClassification, turnId: string): MessageStreamItem {
+function steeringActivityGroupItem(classification: MessageStreamSemanticClassification): MessageStreamActivityGroupItem {
   return {
-    id: `steer-activity-${item.id}`,
-    kind: "tool",
-    role: "tool",
-    text: textForMessageStreamItem(item),
-    turnId,
-    ...(item.sourceItemId ? { sourceItemId: item.sourceItemId } : {}),
-    activityKind: STEERING_ACTIVITY_KIND,
-    toolName: STEERING_ACTIVITY_LABEL,
+    type: "steering",
+    id: `steer-activity-${classification.item.id}`,
+    label: STEERING_ACTIVITY_LABEL,
+    text: textForMessageStreamItem(classification.item),
+    sourceItemId: classification.item.sourceItemId ?? classification.item.id,
   };
 }
 
-function isCompletedTurnDetailItem(classification: PresentationClassification, turnOutcomeIdByTurn: Map<string, string>): boolean {
-  const { item, semanticKind } = classification;
-  if (!item.turnId || semanticKind === "userPrompt" || semanticKind === "steering") return false;
-  return turnOutcomeIdByTurn.get(item.turnId) !== item.id;
+function isCompletedTurnDetailItem(classification: MessageStreamSemanticClassification, turnOutcomeIdByTurn: Map<string, string>): boolean {
+  const turnId = classification.item.turnId;
+  if (!turnId || messageStreamIsTurnInitiator(classification) || messageStreamIsTurnSteer(classification)) return false;
+  return turnOutcomeIdByTurn.get(turnId) !== classification.item.id;
 }
 
-function turnOutcomeItemsByTurn(items: readonly PresentationClassification[]): Map<string, string> {
+function turnOutcomeItemsByTurn(items: readonly MessageStreamSemanticClassification[]): Map<string, string> {
   const turnOutcomeIdByTurn = new Map<string, string>();
   for (const { item, actions } of items) {
     if (!item.turnId || !actions.isTurnOutcome) continue;
@@ -147,10 +180,11 @@ function annotationsForTurnOutcome(
   };
 }
 
-function editedFilesForTurns(items: readonly PresentationClassification[], workspaceRoot?: string | null): Map<string, string[]> {
+function editedFilesForTurns(items: readonly MessageStreamSemanticClassification[], workspaceRoot?: string | null): Map<string, string[]> {
   const byTurn = new Map<string, Set<string>>();
-  for (const { item, semanticKind } of items) {
-    if (!item.turnId || semanticKind !== "filePatch") continue;
+  for (const classification of items) {
+    const { item } = classification;
+    if (!item.turnId || !messageStreamIsWorkspaceResult(classification)) continue;
     const files = editedFilesForItem(item, workspaceRoot);
     if (files.length === 0) continue;
     const set = byTurn.get(item.turnId) ?? new Set<string>();
@@ -168,10 +202,13 @@ function editedFilesForItem(item: MessageStreamItem, workspaceRoot?: string | nu
   );
 }
 
-function autoReviewSummariesForTurns(items: readonly PresentationClassification[]): Map<string, string[]> {
+function autoReviewSummariesForTurns(items: readonly MessageStreamSemanticClassification[]): Map<string, string[]> {
   const byTurn = new Map<string, string[]>();
-  for (const { item, semanticKind } of items) {
-    if (!item.turnId || semanticKind !== "reviewResult") continue;
+  for (const classification of items) {
+    const { item } = classification;
+    if (!item.turnId || !messageStreamIsReviewResult(classification) || !messageStreamIsPermissionDecision(classification)) {
+      continue;
+    }
     const summary = textForMessageStreamItem(item).trim();
     if (!summary) continue;
     const summaries = byTurn.get(item.turnId) ?? [];
@@ -183,34 +220,48 @@ function autoReviewSummariesForTurns(items: readonly PresentationClassification[
 
 function turnActivitySummary(items: readonly GroupedActivity[]): string {
   const parts = [
-    countSemanticLabel(items, "assistantResponse", "response", "responses"),
-    countSemanticLabel(items, "proposedPlan", "plan", "plans"),
-    countSemanticLabel(items, "steering", "steer", "steers"),
-    countSemanticLabel(items, "taskProgress", "task progress"),
-    countSemanticLabel(items, "agentActivity", "agent"),
-    countSemanticLabel(items, "commandRun", "command"),
-    countSemanticLabel(items, "filePatch", "file change"),
-    countSemanticLabel(items, "toolCall", "tool"),
-    countSemanticLabel(items, "hookRun", "hook"),
-    countSemanticLabel(items, "reasoningNote", "thought", "thought notes"),
-    countSemanticLabel(items, "contextCompaction", "context compaction"),
-    countSemanticLabel(items, "approvalResult", "approval"),
-    countSemanticLabel(items, "userInputResult", "input"),
-    countSemanticLabel(items, "reviewResult", "review"),
-    countSemanticLabel(items, "goalChange", "goal"),
+    countActivityLabel(
+      items,
+      (item) => item.type === "item" && messageStreamIsAssistantResponse(item.classification),
+      "response",
+      "responses",
+    ),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsProposedPlan(item.classification), "plan", "plans"),
+    countActivityLabel(items, (item) => item.type === "steering", "steer", "steers"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsTaskProgress(item.classification), "task progress"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsCoordinationProgress(item.classification), "agent"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsCommandEvidence(item.classification), "command"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsWorkspaceResult(item.classification), "file change"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsToolEvidence(item.classification), "tool"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsHookEvidence(item.classification), "hook"),
+    countActivityLabel(
+      items,
+      (item) => item.type === "item" && messageStreamIsReasoningProgress(item.classification),
+      "thought",
+      "thought notes",
+    ),
+    countActivityLabel(
+      items,
+      (item) => item.type === "item" && messageStreamIsContextCompaction(item.classification),
+      "context compaction",
+    ),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsApprovalResult(item.classification), "approval"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsUserInputResult(item.classification), "input"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsReviewResult(item.classification), "review"),
+    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsGoalChange(item.classification), "goal"),
   ].filter((part): part is string => Boolean(part));
 
   if (parts.length === 0) return "Work details";
   return `Work details: ${parts.join(", ")}`;
 }
 
-function countSemanticLabel(
+function countActivityLabel(
   items: readonly GroupedActivity[],
-  semanticKind: PresentationSemanticKind,
+  predicate: (item: GroupedActivity) => boolean,
   label: string,
   pluralLabel = `${label}s`,
 ): string | null {
-  const count = items.filter((item) => item.semanticKind === semanticKind).length;
+  const count = items.filter(predicate).length;
   if (count === 0) return null;
   if (count === 1) return label;
   return `${String(count)} ${pluralLabel}`;

@@ -1,5 +1,6 @@
 import type { PendingTurnStart } from "../../state/reducer";
 import type { MessageStreamFileMention, MessageStreamItem, MessageStreamMessageItem } from "../../message-stream/items";
+import type { MessageStreamItemProvenance } from "../../message-stream/provenance";
 import { fileMentionsFromInput } from "../../message-stream/file-mentions";
 import { userMessageDisplayText } from "../../message-stream/user-message-text";
 import { attachHookRunsToTurn } from "../../state/message-stream-updates";
@@ -56,9 +57,19 @@ export function localUserMessageItem(params: LocalUserMessageParams): MessageStr
     role: "user",
     text: params.text,
     copyText: params.copyText ?? params.text,
+    provenance: localUserMessageProvenance(params.id),
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     ...(mentionedFiles.length > 0 ? { mentionedFiles: [...mentionedFiles] } : {}),
+  };
+}
+
+function localUserMessageProvenance(id: string): MessageStreamItemProvenance {
+  return {
+    source: "localUser",
+    channel: "optimistic",
+    interaction: id.startsWith("local-steer-") ? "steer" : "prompt",
+    sourceId: id,
   };
 }
 

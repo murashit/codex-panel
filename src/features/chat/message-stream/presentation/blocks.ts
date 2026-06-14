@@ -1,8 +1,8 @@
 import { activeAgentRunSummary } from "../agent-summary";
 import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../items";
+import { messageStreamIsCoordinationProgress, messageStreamIsTaskProgress, messageStreamSemanticClassifications } from "../semantics";
+import type { MessageStreamSemanticClassification } from "../semantics";
 import { messageStreamLayoutBlocks, type MessageStreamLayoutBlock } from "./layout";
-import { presentationClassificationsFromMessageStreamItems } from "./from-items";
-import type { PresentationClassification } from "./types";
 
 export interface MessageStreamPresentationBlockInput {
   activeThreadId: string | null;
@@ -102,12 +102,13 @@ function activeTurnLiveBlocks(
   activeTurnId: string,
 ): MessageStreamPresentationBlock[] {
   const items = input.activeItems ?? input.items;
-  const presentationItems = presentationClassificationsFromMessageStreamItems(items);
-  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(presentationItems, activeTurnId);
+  const semanticItems = messageStreamSemanticClassifications(items);
+  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(semanticItems, activeTurnId);
   const agentSummary = agentSummaryAnchorId ? activeAgentRunSummary(items, activeTurnId) : null;
 
-  return presentationItems.flatMap(({ item, semanticKind }): MessageStreamPresentationBlock[] => {
-    if (semanticKind === "taskProgress" && item.turnId === activeTurnId) {
+  return semanticItems.flatMap((classification): MessageStreamPresentationBlock[] => {
+    const { item } = classification;
+    if (messageStreamIsTaskProgress(classification) && item.turnId === activeTurnId) {
       return [
         {
           kind: "liveTask",
@@ -123,8 +124,10 @@ function activeTurnLiveBlocks(
   });
 }
 
-function activeAgentRunSummaryAnchorId(items: readonly PresentationClassification[], activeTurnId: string): string | null {
-  const firstActiveAgent = items.find(({ item, semanticKind }) => semanticKind === "agentActivity" && item.turnId === activeTurnId);
+function activeAgentRunSummaryAnchorId(items: readonly MessageStreamSemanticClassification[], activeTurnId: string): string | null {
+  const firstActiveAgent = items.find(
+    (classification) => messageStreamIsCoordinationProgress(classification) && classification.item.turnId === activeTurnId,
+  );
   return firstActiveAgent?.item.id ?? null;
 }
 

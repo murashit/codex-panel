@@ -23,6 +23,7 @@ export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: stri
     ...(run.statusMessage ? { primaryTarget: { kind: "value" as const, value: run.statusMessage } } : {}),
     ...definedProp("turnId", turnId),
     sourceItemId: displayId,
+    provenance: { source: "appServer", channel: "notification", event: "hookRun", sourceItemId: displayId },
     status,
     hookRun: {
       eventName,

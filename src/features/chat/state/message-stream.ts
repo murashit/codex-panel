@@ -1,6 +1,7 @@
 import { upsertMessageStreamItemById } from "./message-stream-updates";
 import type { MessageStreamItem, MessageStreamMessageItem } from "../message-stream/items";
 import { normalizeProposedPlanMarkdown } from "../message-stream/proposed-plan";
+import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "../message-stream/semantics";
 import {
   streamedItemOutputMessageStreamItem,
   streamedTextMessageStreamItem,
@@ -117,7 +118,7 @@ export function messageStreamRollbackCandidate(
   const lastTurnId = latestTurnId(items);
   if (!lastTurnId) return null;
 
-  const userMessage = items.find((item): item is MessageStreamMessageItem => isUserMessageForTurn(item, lastTurnId));
+  const userMessage = promptMessageForTurn(items, lastTurnId);
   if (!userMessage) return null;
 
   return {
@@ -249,6 +250,7 @@ function appendAssistantDeltaToMessageStream(
       copyText: delta,
       turnId,
       sourceItemId,
+      provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId },
       messageState: "streaming",
     });
   });
@@ -286,6 +288,7 @@ function appendPlanDeltaToMessageStream(
       copyText: text,
       turnId,
       sourceItemId,
+      provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId },
       messageState: "streaming",
     });
   });
@@ -494,8 +497,12 @@ function latestTurnId(items: readonly MessageStreamItem[]): string | null {
   return null;
 }
 
-function isUserMessageForTurn(item: MessageStreamItem, turnId: string): item is MessageStreamMessageItem {
-  return item.kind === "message" && item.role === "user" && item.turnId === turnId;
+function promptMessageForTurn(items: readonly MessageStreamItem[], turnId: string): MessageStreamMessageItem | null {
+  const classification = messageStreamSemanticClassifications(items).find(
+    (classification) => classification.item.turnId === turnId && messageStreamIsTurnInitiator(classification),
+  );
+  const item = classification?.item;
+  return item?.kind === "message" ? item : null;
 }
 
 function patchObject<T extends object>(current: T, patch: Partial<T>): T {

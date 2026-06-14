@@ -1,5 +1,6 @@
 import { normalizeProposedPlanMarkdown } from "../message-stream/proposed-plan";
 import { isAssistantAuthoredMessage } from "../message-stream/selectors";
+import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "../message-stream/semantics";
 import {
   streamedItemOutputMessageStreamItem,
   streamedTextMessageStreamItem,
@@ -72,6 +73,7 @@ export function appendAssistantDelta(
       copyText: delta,
       turnId,
       sourceItemId,
+      provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId },
       messageState: "streaming",
     },
   ];
@@ -113,6 +115,7 @@ export function appendPlanDelta(
       copyText: text,
       turnId,
       sourceItemId,
+      provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId },
       messageState: "streaming",
     },
   ];
@@ -204,8 +207,11 @@ export function attachHookRunsToTurn(
 }
 
 function lastUserMessageAnchorId(items: readonly MessageStreamItem[], turnId: string): string | null {
-  const anchor = [...items]
+  const anchor = [...messageStreamSemanticClassifications(items)]
     .reverse()
-    .find((item) => item.kind === "message" && item.role === "user" && (!item.turnId || item.turnId === turnId));
-  return anchor?.id ?? null;
+    .find(
+      (classification) =>
+        messageStreamIsTurnInitiator(classification) && (!classification.item.turnId || classification.item.turnId === turnId),
+    );
+  return anchor?.item.id ?? null;
 }

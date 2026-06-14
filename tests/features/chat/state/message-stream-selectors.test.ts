@@ -33,6 +33,24 @@ describe("message stream selectors", () => {
     expect(messageStreamRollbackCandidate(state)).toEqual({ turnId: "turn-3", itemId: "u3", text: "third" });
   });
 
+  it("uses the semantic prompt instead of steering messages for rollback restoration", () => {
+    const state = initialChatMessageStreamState([
+      { id: "u1", kind: "message", messageKind: "user", role: "user", text: "initial", turnId: "turn-1" },
+      { id: "u2", kind: "message", messageKind: "user", role: "user", text: "steer", turnId: "turn-1", clientId: "local-steer-1" },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "done",
+        turnId: "turn-1",
+        messageKind: "assistantResponse",
+        messageState: "completed",
+      },
+    ]);
+
+    expect(messageStreamRollbackCandidate(state)).toEqual({ turnId: "turn-1", itemId: "u1", text: "initial" });
+  });
+
   it("restores the raw user message text instead of rendered display text", () => {
     const state = initialChatMessageStreamState([
       {

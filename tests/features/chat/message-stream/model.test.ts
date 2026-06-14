@@ -64,6 +64,18 @@ function fileChangeItem(id: string, turnId: string, path = "src/main.ts"): Messa
   };
 }
 
+function autoReviewResultItem(id: string, turnId: string, text = "Auto-review approved: npm test"): MessageStreamItem {
+  return {
+    id,
+    kind: "reviewResult",
+    role: "tool",
+    text,
+    turnId,
+    provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: id },
+    executionState: "completed",
+  };
+}
+
 describe("turn item conversion preserves app-server semantics", () => {
   it("sorts app-server turns oldest first before converting messages", () => {
     const userMessage: TurnItem = {
@@ -992,22 +1004,8 @@ describe("display block grouping keeps work logs subordinate to conversation mes
       },
       commandItem("c1", "npm test", "t1"),
       { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "t1", status: "completed" },
-      {
-        id: "review-1",
-        kind: "reviewResult",
-        role: "tool",
-        text: "Auto-review approved: npm test",
-        turnId: "t1",
-        executionState: "completed",
-      },
-      {
-        id: "review-2",
-        kind: "reviewResult",
-        role: "tool",
-        text: "Auto-review approved: npm test",
-        turnId: "t1",
-        executionState: "completed",
-      },
+      autoReviewResultItem("review-1", "t1"),
+      autoReviewResultItem("review-2", "t1"),
       {
         id: "a1",
         kind: "message",
@@ -1024,7 +1022,13 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "turn-t1-activity", "a1"]);
     expect(blocks[1]).toMatchObject({
       summary: "Work details: command, hook, thought, 2 reviews",
-      items: [{ id: "hook-1" }, { id: "c1" }, { id: "r1" }, { id: "review-1" }, { id: "review-2" }],
+      items: [
+        { item: { id: "hook-1" } },
+        { item: { id: "c1" } },
+        { item: { id: "r1" } },
+        { item: { id: "review-1" } },
+        { item: { id: "review-2" } },
+      ],
     });
     expect(blocks[2]).toMatchObject({
       item: { id: "a1" },
@@ -1089,7 +1093,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(blocks.map((block) => block.type)).toEqual(["item", "activityGroup", "item"]);
     expect(blocks[1]).toMatchObject({
       summary: "Work details: 2 responses, command, file change",
-      items: [{ id: "a1" }, { id: "c1" }, { id: "a2" }, { id: "f1" }],
+      items: [{ item: { id: "a1" } }, { item: { id: "c1" } }, { item: { id: "a2" } }, { item: { id: "f1" } }],
     });
     expect(blocks[2]).toMatchObject({ item: { id: "a3" } });
   });
@@ -1138,9 +1142,15 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(blocks[2]).toMatchObject({
       summary: "Work details: steer, 2 commands",
       items: [
-        { id: "c1" },
-        { id: "steer-activity-u2", text: "also check tests", activityKind: "userSteered", toolName: "steer" },
-        { id: "c2" },
+        { type: "item", item: { id: "c1" } },
+        {
+          type: "steering",
+          id: "steer-activity-u2",
+          label: "steer",
+          text: "also check tests",
+          sourceItemId: "u2",
+        },
+        { type: "item", item: { id: "c2" } },
       ],
     });
   });
@@ -1166,7 +1176,10 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
     expect(activityGroup).toMatchObject({
       summary: "Work details: 2 steers",
-      items: [{ id: "steer-activity-u2" }, { id: "steer-activity-u3" }],
+      items: [
+        { type: "steering", id: "steer-activity-u2" },
+        { type: "steering", id: "steer-activity-u3" },
+      ],
     });
   });
 
@@ -1423,22 +1436,8 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
   it("adds auto-review summaries to the final assistant message", () => {
     const items: MessageStreamItem[] = [
-      {
-        id: "review-1",
-        kind: "reviewResult",
-        role: "tool",
-        text: "Auto-review approved: npm test",
-        turnId: "t1",
-        executionState: "completed",
-      },
-      {
-        id: "review-2",
-        kind: "reviewResult",
-        role: "tool",
-        text: "Auto-review approved: npm test",
-        turnId: "t1",
-        executionState: "completed",
-      },
+      autoReviewResultItem("review-1", "t1"),
+      autoReviewResultItem("review-2", "t1"),
       {
         id: "a1",
         kind: "message",
@@ -1459,14 +1458,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
   it("does not add edited file or auto-review summaries to active turn messages", () => {
     const items: MessageStreamItem[] = [
       fileChangeItem("f1", "t1", "src/main.ts"),
-      {
-        id: "review-1",
-        kind: "reviewResult",
-        role: "tool",
-        text: "Auto-review approved: npm test",
-        turnId: "t1",
-        executionState: "completed",
-      },
+      autoReviewResultItem("review-1", "t1"),
       {
         id: "a1",
         kind: "message",

@@ -1,11 +1,12 @@
 import type {
+  CommandMessageStreamTarget,
+  ExecutionState,
   MessageStreamFileChange,
   MessageStreamFileMention,
   MessageStreamItem,
-  CommandMessageStreamTarget,
-  ExecutionState,
   MessageStreamPrimaryTarget,
 } from "./items";
+import type { MessageStreamItemProvenance } from "./provenance";
 import type { HistoricalTurn } from "../../../domain/threads/history";
 import type { FileUpdateChange } from "../../../app-server/protocol/file-change";
 import type { TurnItem } from "../../../app-server/protocol/turn";
@@ -120,6 +121,11 @@ export function messageStreamItemsFromTurns(turns: readonly HistoricalTurn<TurnI
 }
 
 export function messageStreamItemFromTurnItem(item: TurnItem, turnId?: string): MessageStreamItem | null {
+  const streamItem = messageStreamItemFromTurnItemData(item, turnId);
+  return streamItem ? withTurnItemProvenance(streamItem, item) : null;
+}
+
+function messageStreamItemFromTurnItemData(item: TurnItem, turnId?: string): MessageStreamItem | null {
   switch (item.type) {
     case "userMessage":
       return userMessageStreamItem(item, turnId);
@@ -155,6 +161,16 @@ export function messageStreamItemFromTurnItem(item: TurnItem, turnId?: string): 
     default:
       return assertNever(item);
   }
+}
+
+function withTurnItemProvenance(item: MessageStreamItem, turnItem: TurnItem): MessageStreamItem {
+  const provenance: MessageStreamItemProvenance = {
+    source: "appServer",
+    channel: "turnItem",
+    itemType: turnItem.type,
+    itemId: turnItem.id,
+  };
+  return { ...item, provenance };
 }
 
 function userMessageStreamItem(item: UserMessageItem, turnId?: string): MessageStreamItem {

@@ -1,4 +1,5 @@
 import type { ReferencedThreadMetadata } from "../../../domain/threads/reference";
+import type { MessageStreamItemProvenance } from "./provenance";
 
 export type MessageStreamItemKind =
   | "message"
@@ -25,6 +26,7 @@ interface MessageStreamBase {
   role: MessageStreamRole;
   turnId?: string;
   sourceItemId?: string;
+  provenance?: MessageStreamItemProvenance;
   executionState?: ExecutionState;
 }
 
@@ -216,7 +218,6 @@ export interface FileChangeMessageStreamItem extends MessageStreamBase {
 interface ToolMessageStreamBase extends MessageStreamBase {
   role: "tool";
   text?: string;
-  activityKind?: "userSteered";
   toolName?: string;
   primaryTarget?: MessageStreamPrimaryTarget;
   operation?: string;

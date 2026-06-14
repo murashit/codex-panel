@@ -14,6 +14,7 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     role: "tool",
     text: approvalResultText(approval, action),
     ...definedProp("turnId", approvalTurnId(approval)),
+    provenance: { source: "localUser", channel: "response", interaction: "approvalResponse", sourceId: String(approval.requestId) },
     executionState: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
     approval: {
       status,
@@ -43,6 +44,7 @@ export function createUserInputResultItem(
     role: "tool",
     text: status === "submitted" ? `Input submitted for ${label}.` : `Input request cancelled for ${label}.`,
     ...definedProp("turnId", input.params.turnId),
+    provenance: { source: "localUser", channel: "response", interaction: "userInputResponse", sourceId: String(input.requestId) },
     executionState: status === "submitted" ? "completed" : "failed",
     questions,
   };

@@ -23,6 +23,7 @@ export function goalChangeItem(id: string, previous: ThreadGoal | null, next: Th
     kind: "goal",
     role: "tool",
     text: goalEventSummary(message, objective),
+    provenance: { source: "panel", channel: "notice", reason: "goalChange", sourceId: id },
     action,
     ...(objective ? { objective } : {}),
   };

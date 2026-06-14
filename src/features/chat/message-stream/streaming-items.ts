@@ -21,6 +21,7 @@ export function streamedTextMessageStreamItem(params: {
     text: `${params.label}: ${params.delta}`,
     turnId: params.turnId,
     sourceItemId: params.id,
+    provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: params.id },
   };
 }
 
@@ -37,6 +38,7 @@ export function streamedToolOutputMessageStreamItem(params: {
     toolName: params.fallbackLabel,
     turnId: params.turnId,
     sourceItemId: params.id,
+    provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: params.id },
     output: params.output,
   };
 }
@@ -54,6 +56,7 @@ export function streamedItemOutputMessageStreamItem(params: {
     role: "tool",
     turnId: params.turnId,
     sourceItemId: params.id,
+    provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: params.id },
     output: params.output,
     ...(params.kind === "fileChange"
       ? {
@@ -84,6 +87,7 @@ export function streamingFileChangeMessageStreamItem(
     role: "tool",
     turnId,
     sourceItemId: itemId,
+    provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: itemId },
     status,
     changes: normalizeFileChanges(changes),
   };

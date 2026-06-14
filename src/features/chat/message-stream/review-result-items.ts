@@ -60,6 +60,7 @@ export function createReviewResultItem(id: string, text: string): MessageStreamI
       kind: "reviewResult",
       role: "tool",
       text: parsed.summary,
+      provenance: { source: "panel", channel: "notice", reason: "parsedAutoReview", sourceId: id },
       executionState: autoReviewExecutionState(parsed.status),
       review: { auditFacts: parsed.rows },
     };
@@ -69,6 +70,7 @@ export function createReviewResultItem(id: string, text: string): MessageStreamI
     kind: "reviewResult",
     role: "tool",
     text,
+    provenance: { source: "panel", channel: "notice", reason: "reviewMessage", sourceId: id },
   };
 }
 
@@ -92,6 +94,7 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Mess
     role: "tool",
     text,
     turnId: params.turnId,
+    provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: params.reviewId },
     executionState: completed ? autoReviewExecutionState(status) : "running",
     review: { auditFacts: rows },
   };

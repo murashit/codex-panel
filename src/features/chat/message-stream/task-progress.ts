@@ -33,6 +33,7 @@ export function taskProgressMessageStreamItem(
     role: "tool",
     turnId,
     sourceItemId: `plan-progress-${turnId}`,
+    provenance: { source: "appServer", channel: "notification", event: "taskProgress", sourceItemId: `plan-progress-${turnId}` },
     explanation: trimmedExplanation !== undefined && trimmedExplanation.length > 0 ? trimmedExplanation : null,
     steps: plan.map((step) => ({ step: step.step, status: step.status })),
     status,

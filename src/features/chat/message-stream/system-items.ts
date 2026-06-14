@@ -6,6 +6,7 @@ export function createSystemItem(id: string, text: string): MessageStreamItem {
     kind: "system",
     role: "system",
     text,
+    provenance: { source: "panel", channel: "notice", reason: "system", sourceId: id },
   };
 }
 
@@ -15,6 +16,7 @@ export function createStructuredSystemItem(id: string, text: string, noticeSecti
     kind: "system",
     role: "system",
     text,
+    provenance: { source: "panel", channel: "notice", reason: "system", sourceId: id },
     noticeSections,
   };
 }

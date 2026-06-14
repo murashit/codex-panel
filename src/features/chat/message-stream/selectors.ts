@@ -1,5 +1,5 @@
 import type { AssistantAuthoredMessageStreamItem, MessageStreamItem } from "./items";
-import { presentationActionsForMessageStreamItem, presentationClassificationsFromMessageStreamItems } from "./presentation/from-items";
+import { messageStreamIsProposedPlan, messageStreamSemanticClassifications } from "./semantics";
 
 export interface ForkCandidate {
   itemId: string;
@@ -13,7 +13,7 @@ interface RollbackCandidateItem {
 
 export function forkCandidatesFromItems(items: readonly MessageStreamItem[]): readonly ForkCandidate[] {
   const turnOutcomeItemsByTurn = new Map<string, ForkCandidate>();
-  for (const { item, actions } of presentationClassificationsFromMessageStreamItems(items)) {
+  for (const { item, actions } of messageStreamSemanticClassifications(items)) {
     if (!item.turnId || !actions.isTurnOutcome) continue;
     turnOutcomeItemsByTurn.set(item.turnId, { itemId: item.id, turnId: item.turnId });
   }
@@ -21,16 +21,11 @@ export function forkCandidatesFromItems(items: readonly MessageStreamItem[]): re
 }
 
 export function latestProposedPlanFromItems(items: readonly MessageStreamItem[]): MessageStreamItem | null {
-  return (
-    [...presentationClassificationsFromMessageStreamItems(items)].reverse().find((item) => item.semanticKind === "proposedPlan")?.item ??
-    null
-  );
+  return [...messageStreamSemanticClassifications(items)].reverse().find(messageStreamIsProposedPlan)?.item ?? null;
 }
 
 export function latestImplementablePlanFromItems(items: readonly MessageStreamItem[]): MessageStreamItem | null {
-  return (
-    [...presentationClassificationsFromMessageStreamItems(items)].reverse().find((item) => item.actions.canImplementPlan)?.item ?? null
-  );
+  return [...messageStreamSemanticClassifications(items)].reverse().find((item) => item.actions.canImplementPlan)?.item ?? null;
 }
 
 export function isAssistantAuthoredMessage(item: MessageStreamItem): item is AssistantAuthoredMessageStreamItem {
@@ -38,7 +33,7 @@ export function isAssistantAuthoredMessage(item: MessageStreamItem): item is Ass
 }
 
 export function isCompletedTurnOutcomeMessage(item: MessageStreamItem): boolean {
-  return presentationActionsForMessageStreamItem(item).isTurnOutcome;
+  return messageStreamSemanticClassifications([item])[0]?.actions.isTurnOutcome ?? false;
 }
 
 export function isForkCandidateItem(item: MessageStreamItem, candidates: readonly ForkCandidate[]): boolean {

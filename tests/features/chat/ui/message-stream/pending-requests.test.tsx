@@ -438,8 +438,22 @@ describe("pending request renderer decisions", () => {
       historyCursor: null,
       loadingHistory: false,
       items: [
-        { id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review approved: npm test", turnId: "turn" },
-        { id: "review-2", kind: "reviewResult", role: "tool", text: "Auto-review approved: npm test", turnId: "turn" },
+        {
+          id: "review-1",
+          kind: "reviewResult",
+          role: "tool",
+          text: "Auto-review approved: npm test",
+          turnId: "turn",
+          provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: "review-1" },
+        },
+        {
+          id: "review-2",
+          kind: "reviewResult",
+          role: "tool",
+          text: "Auto-review approved: npm test",
+          turnId: "turn",
+          provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: "review-2" },
+        },
         {
           id: "assistant-1",
           kind: "message",

@@ -7,7 +7,7 @@ import {
   type MessageStreamPresentationBlock,
 } from "../../message-stream/presentation/blocks";
 import type { MessageStreamItemAnnotations, MessageStreamLayoutBlock } from "../../message-stream/presentation/layout";
-import type { MessageStreamItem } from "../../message-stream/items";
+import { messageStreamRenderFamily, type MessageStreamSemanticClassification } from "../../message-stream/semantics";
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { toolResultNode } from "./tool-result";
 import type { ToolResultMessageStreamItem } from "./tool-result-view-model";
@@ -19,11 +19,16 @@ function messageStreamActiveTurnId(context: Pick<MessageStreamContext, "turnLife
   return activeTurnId({ lifecycle: context.turnLifecycle });
 }
 
-function streamItemNode(item: MessageStreamItem, context: MessageStreamContext, annotations?: MessageStreamItemAnnotations): UiNode {
-  if (isTextItem(item)) return textItemNode(item, context, annotations);
-  if (isToolResultItem(item)) return toolResultNode(item, context);
-  if (isWorkItem(item)) return workItemNode(item, context);
-  return assertNeverMessageStreamItem(item);
+function streamItemNode(
+  classification: MessageStreamSemanticClassification,
+  context: MessageStreamContext,
+  annotations?: MessageStreamItemAnnotations,
+): UiNode {
+  const renderFamily = messageStreamRenderFamily(classification);
+  if (renderFamily === "text") return textItemNode(textItemFromSemantic(classification), context, annotations);
+  if (renderFamily === "toolResult") return toolResultNode(toolResultItemFromSemantic(classification), context);
+  if (renderFamily === "work") return workItemNode(workItemFromSemantic(classification), context);
+  return unhandledClassification(classification);
 }
 
 export function messageStreamBlocks(context: MessageStreamContext): MessageStreamBlock[] {
@@ -77,7 +82,7 @@ function presentationBlockNode(block: MessageStreamPresentationBlock, context: M
   if (block.kind === "item") {
     return {
       key: block.key,
-      node: streamItemNode(block.block.item, context, block.block.annotations),
+      node: streamItemNode(block.block.classification, context, block.block.annotations),
     };
   }
   if (block.kind === "activityGroup") {
@@ -112,12 +117,13 @@ function EmptyMessage(): UiNode {
   return <div className="codex-panel__message codex-panel__message--system">Send a message to start a conversation.</div>;
 }
 
-function isTextItem(item: MessageStreamItem): item is TextMessageStreamItem {
-  return item.kind === "message" || item.kind === "system" || item.kind === "userInputResult";
+function textItemFromSemantic({ item }: MessageStreamSemanticClassification): TextMessageStreamItem {
+  if (item.kind === "message" || item.kind === "system" || item.kind === "userInputResult") return item;
+  throw new Error(`Message stream semantic expected text item: ${JSON.stringify(item)}`);
 }
 
-function isToolResultItem(item: MessageStreamItem): item is ToolResultMessageStreamItem {
-  return (
+function toolResultItemFromSemantic({ item }: MessageStreamSemanticClassification): ToolResultMessageStreamItem {
+  if (
     item.kind === "command" ||
     item.kind === "fileChange" ||
     item.kind === "goal" ||
@@ -125,15 +131,19 @@ function isToolResultItem(item: MessageStreamItem): item is ToolResultMessageStr
     item.kind === "hook" ||
     item.kind === "approvalResult" ||
     item.kind === "reviewResult"
-  );
+  ) {
+    return item;
+  }
+  throw new Error(`Message stream semantic expected tool result item: ${JSON.stringify(item)}`);
 }
 
-function isWorkItem(item: MessageStreamItem): item is WorkMessageStreamItem {
-  return item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning" || item.kind === "contextCompaction";
+function workItemFromSemantic({ item }: MessageStreamSemanticClassification): WorkMessageStreamItem {
+  if (item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning" || item.kind === "contextCompaction") return item;
+  throw new Error(`Message stream semantic expected work item: ${JSON.stringify(item)}`);
 }
 
-function assertNeverMessageStreamItem(item: never): never {
-  throw new Error(`Unhandled message stream item kind: ${JSON.stringify(item)}`);
+function unhandledClassification(classification: MessageStreamSemanticClassification): never {
+  throw new Error(`Unhandled message stream classification: ${JSON.stringify(classification)}`);
 }
 
 function ActivityGroup({
@@ -154,9 +164,26 @@ function ActivityGroup({
       }}
     >
       <summary tabIndex={-1}>{group.summary}</summary>
-      {group.items.map((item) => (
-        <Fragment key={item.id}>{streamItemNode(item, context)}</Fragment>
+      {group.items.map((activity) => (
+        <Fragment key={activity.id}>
+          {activity.type === "steering" ? <SteeringActivity activity={activity} /> : streamItemNode(activity.classification, context)}
+        </Fragment>
       ))}
     </details>
+  );
+}
+
+function SteeringActivity({
+  activity,
+}: {
+  activity: Extract<Extract<MessageStreamLayoutBlock, { type: "activityGroup" }>["items"][number], { type: "steering" }>;
+}): UiNode {
+  return (
+    <div className="codex-panel__message codex-panel__message--tool codex-panel__tool-item codex-panel__tool-result codex-panel__tool-result--plain">
+      <div className="codex-panel__tool-result-header">
+        <span className="codex-panel__message-role codex-panel__tool-result-label">{activity.label}</span>
+      </div>
+      <div className="codex-panel__tool-summary">{activity.text}</div>
+    </div>
   );
 }
