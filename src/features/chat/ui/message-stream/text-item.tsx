@@ -1,10 +1,9 @@
 import { type ComponentChild as UiNode, type Ref } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import type { MessageStreamItem, ExecutionState } from "../../message-stream/items";
-import type { MessageStreamItemAnnotations } from "../../message-stream/presentation/layout";
+import type { MessageStreamTextView } from "../../presentation/message-stream/text-view";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
-import type { TextItemContentContext, TextItemContext, TextMessageStreamItem } from "./context";
+import type { TextItemContentContext, TextItemContext } from "./context";
 import { TextItemHeader } from "./text-item-actions";
 import {
   AutoReviewSummaries,
@@ -18,38 +17,30 @@ import {
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 
-export function textItemNode(item: TextMessageStreamItem, context: TextItemContext, annotations?: MessageStreamItemAnnotations): UiNode {
-  return <TextItem item={item} context={context} {...definedProp("annotations", annotations)} />;
+export function textItemNode(view: MessageStreamTextView, context: TextItemContext): UiNode {
+  return <TextItem view={view} context={context} />;
 }
 
-function TextItem({
-  item,
-  context,
-  annotations,
-}: {
-  item: TextMessageStreamItem;
-  context: TextItemContext;
-  annotations?: MessageStreamItemAnnotations;
-}): UiNode {
-  const collapsible = isCollapsibleUserMessage(item);
-  const editedFiles = annotations?.editedFiles ?? [];
-  const autoReviewSummaries = annotations?.autoReviewSummaries ?? [];
+function TextItem({ view, context }: { view: MessageStreamTextView; context: TextItemContext }): UiNode {
+  const { item } = view;
   return (
-    <div className={`${textItemClass(item)}${executionClassName(item.executionState ?? null)}`}>
+    <div className={view.className}>
       <TextItemHeader item={item} context={context} />
-      {collapsible ? (
-        <CollapsibleTextItemContent item={item} context={context} />
+      {view.collapsible ? (
+        <CollapsibleTextItemContent view={view} context={context} />
       ) : (
-        <TextContent key={textItemContentKey(item)} item={item} context={context} />
+        <TextContent key={view.contentKey} view={view} context={context} />
       )}
-      {item.kind === "message" && editedFiles.length > 0 ? (
-        <EditedFiles item={item} context={context} {...definedProp("annotations", annotations)} />
+      {item.kind === "message" && view.editedFiles.length > 0 ? (
+        <EditedFiles item={item} context={context} {...definedProp("annotations", view.annotations)} />
       ) : null}
       {item.kind === "message" && item.referencedThread ? <ReferencedThread item={item} /> : null}
       {item.kind === "message" && item.mentionedFiles && item.mentionedFiles.length > 0 ? (
         <MentionedFiles item={item} context={context} />
       ) : null}
-      {item.kind === "message" && autoReviewSummaries.length > 0 ? <AutoReviewSummaries summaries={autoReviewSummaries} /> : null}
+      {item.kind === "message" && view.autoReviewSummaries.length > 0 ? (
+        <AutoReviewSummaries summaries={[...view.autoReviewSummaries]} />
+      ) : null}
       {item.kind === "system" && item.noticeSections && item.noticeSections.length > 0 ? (
         <SystemDetails details={item.noticeSections} />
       ) : item.kind === "userInputResult" && item.questions.length > 0 ? (
@@ -59,8 +50,8 @@ function TextItem({
   );
 }
 
-function CollapsibleTextItemContent({ item, context }: { item: TextMessageStreamItem; context: TextItemContentContext }): UiNode {
-  const renderModeKey = contentRenderMode(item);
+function CollapsibleTextItemContent({ view, context }: { view: MessageStreamTextView; context: TextItemContentContext }): UiNode {
+  const { item } = view;
   const collapseRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [overflows, setOverflows] = useState(false);
@@ -78,7 +69,7 @@ function CollapsibleTextItemContent({ item, context }: { item: TextMessageStream
     return () => {
       content.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
     };
-  }, [item.id, item.text, renderModeKey]);
+  }, [item.id, item.text, view.contentMode]);
 
   useEffect(() => {
     if (!overflows || !expanded) return;
@@ -105,13 +96,7 @@ function CollapsibleTextItemContent({ item, context }: { item: TextMessageStream
         .filter(Boolean)
         .join(" ")}
     >
-      <TextContent
-        key={textItemContentKey(item)}
-        item={item}
-        context={context}
-        contentRef={contentRef}
-        collapsed={overflows && !expanded}
-      />
+      <TextContent key={view.contentKey} view={view} context={context} contentRef={contentRef} collapsed={overflows && !expanded} />
       <details
         className="codex-panel__message-collapse-details"
         hidden={!overflows || expanded}
@@ -128,15 +113,15 @@ function CollapsibleTextItemContent({ item, context }: { item: TextMessageStream
 }
 
 interface TextContentProps {
-  item: TextMessageStreamItem;
+  view: MessageStreamTextView;
   context: TextItemContentContext;
   contentRef?: Ref<HTMLDivElement>;
   collapsed?: boolean;
 }
 
-function TextContent({ item, context, contentRef, collapsed = false }: TextContentProps): UiNode {
-  const renderModeKey = contentRenderMode(item);
-  const rendersMarkdown = renderModeKey === "markdown";
+function TextContent({ view, context, contentRef, collapsed = false }: TextContentProps): UiNode {
+  const rendersMarkdown = view.contentMode === "markdown";
+  const { item } = view;
   const text = item.text;
   const localRef = useRef<HTMLDivElement | null>(null);
   const contextRef = useRef(context);
@@ -152,7 +137,7 @@ function TextContent({ item, context, contentRef, collapsed = false }: TextConte
     } else {
       content.textContent = text;
     }
-  }, [renderModeKey, rendersMarkdown, text]);
+  }, [view.contentMode, rendersMarkdown, text]);
   return (
     <div
       ref={(element) => {
@@ -174,34 +159,10 @@ function TextContent({ item, context, contentRef, collapsed = false }: TextConte
   );
 }
 
-function textItemContentKey(item: TextMessageStreamItem): string {
-  return `${item.id}\u001f${contentRenderMode(item)}`;
-}
-
-function contentRenderMode(item: TextMessageStreamItem): "markdown" | "text" {
-  return item.kind === "message" && (item.messageKind !== "proposedPlan" || item.messageState === "completed") ? "markdown" : "text";
-}
-
-function executionClassName(state: ExecutionState): string {
-  return state ? ` codex-panel__execution codex-panel__execution--${state}` : "";
-}
-
-function isCollapsibleUserMessage(item: MessageStreamItem): boolean {
-  return item.kind === "message" && item.role === "user";
-}
-
 function userMessageCollapseHeight(element: HTMLElement): number {
   const viewportHeight = element.win.innerHeight;
   if (viewportHeight <= 0) return USER_MESSAGE_COLLAPSE_HEIGHT_PX;
   return Math.min(USER_MESSAGE_COLLAPSE_HEIGHT_PX, viewportHeight * 0.45);
-}
-
-function textItemClass(item: MessageStreamItem): string {
-  const classes = ["codex-panel__message", `codex-panel__message--${item.role}`];
-  if (item.kind === "approvalResult") classes.push("codex-panel__message--approval-result");
-  if (item.kind === "userInputResult") classes.push("codex-panel__message--user-input-result");
-  if (item.kind === "reviewResult") classes.push("codex-panel__message--review-result");
-  return classes.join(" ");
 }
 
 function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {

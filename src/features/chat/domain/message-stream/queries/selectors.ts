@@ -1,5 +1,5 @@
-import type { AssistantAuthoredMessageStreamItem, MessageStreamItem } from "./items";
-import { messageStreamIsProposedPlan, messageStreamSemanticClassifications } from "./semantics";
+import type { AssistantAuthoredMessageStreamItem, MessageStreamItem } from "../model/items";
+import { messageStreamIsProposedPlan, messageStreamSemanticClassifications } from "../semantics";
 
 export interface ForkCandidate {
   itemId: string;

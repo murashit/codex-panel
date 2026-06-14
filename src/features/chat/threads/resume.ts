@@ -5,7 +5,7 @@ import {
   type ThreadActivationSnapshot,
 } from "../../../app-server/services/thread-activation";
 import type { ChatRuntimeState } from "../runtime/state";
-import type { MessageStreamItem } from "../message-stream/items";
+import type { MessageStreamItem } from "../domain/message-stream/model/items";
 import type { ActiveThreadResumedAction } from "../state/actions";
 
 export interface ResumedThreadActionParams {

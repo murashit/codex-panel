@@ -1,7 +1,7 @@
 import type { ThreadTitleContext } from "../../thread-title/model";
 import { truncate } from "../../../utils";
-import { isCompletedTurnOutcomeMessage } from "../message-stream/selectors";
-import type { MessageStreamItem, MessageStreamMessageItem } from "../message-stream/items";
+import { isCompletedTurnOutcomeMessage } from "../domain/message-stream/queries/selectors";
+import type { MessageStreamItem, MessageStreamMessageItem } from "../domain/message-stream/model/items";
 
 const MAX_CONTEXT_CHARS = 4_000;
 

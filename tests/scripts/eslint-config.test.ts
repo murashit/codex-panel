@@ -111,9 +111,9 @@ export const convert = threadTokenUsageFromAppServerUsage;
 
   it("allows turn protocol imports at chat ingestion and message-stream conversion boundaries", async () => {
     const conversionMessages = await lintSource(
-      "src/features/chat/message-stream/from-turn-items.ts",
+      "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
       `
-import type { TurnItem } from "../../../app-server/protocol/turn";
+import type { TurnItem } from "../../../../../app-server/protocol/turn";
 
 export type Item = TurnItem;
 `,

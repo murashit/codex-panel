@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { collabAgentStateExecutionState } from "../../../../src/features/chat/message-stream/agent-items";
-import { activeAgentRunSummary } from "../../../../src/features/chat/message-stream/agent-summary";
-import { messageStreamLayoutBlocks } from "../../../../src/features/chat/message-stream/presentation/layout";
+import { collabAgentStateExecutionState } from "../../../../src/features/chat/app-server/mappers/message-stream/agent-items";
+import { activeAgentRunSummary } from "../../../../src/features/chat/presentation/message-stream/agent-summary";
+import { messageStreamLayoutBlocks } from "../../../../src/features/chat/presentation/message-stream/layout";
 import {
   appendAssistantDelta,
   appendItemOutput,
@@ -10,25 +10,31 @@ import {
   appendPlanDelta,
   appendToolOutput,
   upsertMessageStreamItemById,
-} from "../../../../src/features/chat/state/message-stream-updates";
-import { taskProgressMessageStreamItem, taskProgressExecutionState } from "../../../../src/features/chat/message-stream/task-progress";
-import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/message-stream/proposed-plan";
-import { pathRelativeToRoot } from "../../../../src/features/chat/message-stream/path-labels";
-import { permissionRows } from "../../../../src/features/chat/message-stream/permission-rows";
+} from "../../../../src/features/chat/domain/message-stream/operations/updates";
+import {
+  taskProgressMessageStreamItem,
+  taskProgressExecutionState,
+} from "../../../../src/features/chat/domain/message-stream/factories/task-progress";
+import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/domain/message-stream/format/proposed-plan";
+import { pathRelativeToRoot } from "../../../../src/features/chat/domain/message-stream/format/path-labels";
+import { permissionRows } from "../../../../src/features/chat/domain/message-stream/format/permission-rows";
 import {
   autoReviewExecutionState,
   createAutoReviewResultItem,
   createReviewResultItem,
-} from "../../../../src/features/chat/message-stream/review-result-items";
+} from "../../../../src/features/chat/app-server/mappers/message-stream/review-result-items";
 import {
   commandExecutionState,
   dynamicToolCallExecutionState,
   mcpToolCallExecutionState,
   patchApplyExecutionState,
-} from "../../../../src/features/chat/message-stream/from-turn-items";
-import { messageStreamItemFromTurnItem, messageStreamItemsFromTurns } from "../../../../src/features/chat/message-stream/from-turn-items";
+} from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
+import {
+  messageStreamItemFromTurnItem,
+  messageStreamItemsFromTurns,
+} from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
 import { referencedThreadPrompt } from "../../../../src/domain/threads/reference";
-import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/model/items";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 

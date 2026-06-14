@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { TurnItem } from "../../../app-server/protocol/turn";
 import type { ThreadTurnsPage } from "../../../domain/threads/history";
 import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
-import { messageStreamItemsFromTurns } from "../message-stream/from-turn-items";
+import { messageStreamItemsFromTurns } from "../app-server/mappers/message-stream/turn-items";
 import { messageStreamItems } from "../state/message-stream";
 
 export interface HistoryControllerHost {

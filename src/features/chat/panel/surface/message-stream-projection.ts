@@ -1,7 +1,13 @@
-import { chatTurnBusy, type ChatAction, type ChatDisclosureBucket, type ChatDisclosureUiState } from "../../state/reducer";
-import type { MessageStreamItem } from "../../message-stream/items";
+import { activeTurnId, chatTurnBusy, type ChatAction, type ChatDisclosureBucket, type ChatDisclosureUiState } from "../../state/reducer";
+import type { MessageStreamItem } from "../../domain/message-stream/model/items";
+import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
 import { implementPlanCandidateFromState } from "../../state/selectors";
-import { type ForkCandidate, forkCandidatesFromItems, isForkCandidateItem, isRollbackCandidateItem } from "../../message-stream/selectors";
+import {
+  type ForkCandidate,
+  forkCandidatesFromItems,
+  isForkCandidateItem,
+  isRollbackCandidateItem,
+} from "../../domain/message-stream/queries/selectors";
 import {
   messageStreamActiveItems,
   messageStreamItems,
@@ -65,6 +71,12 @@ export interface MessageStreamStateProjection {
   implementPlanCandidate: MessageStreamItem | null;
   rollbackCandidate: MessageStreamRollbackCandidate | null;
   forkCandidates: readonly ForkCandidate[];
+  viewBlocks: readonly MessageStreamViewBlock[];
+}
+
+export interface MessageStreamSurfaceProjection {
+  blocks: readonly MessageStreamViewBlock[];
+  context: MessageStreamContext;
 }
 
 export function createMessageStreamSurfaceContext(options: MessageStreamSurfaceContextOptions): ChatMessageStreamSurfaceContext {
@@ -89,16 +101,27 @@ export function messageStreamContextFromState(
   context: ChatMessageStreamSurfaceContext,
 ): MessageStreamContext {
   const projection = messageStreamStateProjection(state, context.vaultPath);
+  return messageStreamContextFromProjection(projection, context);
+}
 
+export function messageStreamSurfaceProjectionFromState(
+  state: ChatPanelMessageStreamShellState,
+  context: ChatMessageStreamSurfaceContext,
+): MessageStreamSurfaceProjection {
+  const projection = messageStreamStateProjection(state, context.vaultPath);
+  return {
+    blocks: projection.viewBlocks,
+    context: messageStreamContextFromProjection(projection, context),
+  };
+}
+
+function messageStreamContextFromProjection(
+  projection: MessageStreamStateProjection,
+  context: ChatMessageStreamSurfaceContext,
+): MessageStreamContext {
   return {
     activeThreadId: projection.activeThreadId,
     turnLifecycle: projection.turnLifecycle,
-    historyCursor: projection.historyCursor,
-    loadingHistory: projection.loadingHistory,
-    items: projection.items,
-    stableItems: projection.stableItems,
-    activeItems: projection.activeItems,
-    turnDiffs: projection.turnDiffs,
     workspaceRoot: projection.workspaceRoot,
     disclosures: projection.disclosures,
     onDisclosureToggle: context.setDisclosureOpen,
@@ -136,9 +159,13 @@ export function messageStreamContextFromState(
 export function messageStreamStateProjection(state: ChatPanelMessageStreamShellState, vaultPath: string): MessageStreamStateProjection {
   const busy = chatTurnBusy(state);
   const items = messageStreamItems(state.messageStream);
+  const stableItems = messageStreamStableItems(state.messageStream);
+  const activeItems = messageStreamActiveItems(state.messageStream);
+  const workspaceRoot = state.activeThread.cwd ?? vaultPath;
   const rollbackCandidate = busy ? null : messageStreamRollbackCandidate(state.messageStream);
   const forkCandidates = busy ? [] : forkCandidatesFromItems(items);
   const implementPlanCandidate = implementPlanCandidateFromState(state);
+  const activeTurn = activeTurnId({ lifecycle: state.turn.lifecycle });
 
   return {
     activeThreadId: state.activeThread.id,
@@ -146,14 +173,25 @@ export function messageStreamStateProjection(state: ChatPanelMessageStreamShellS
     historyCursor: state.messageStream.historyCursor,
     loadingHistory: state.messageStream.loadingHistory,
     items,
-    stableItems: messageStreamStableItems(state.messageStream),
-    activeItems: messageStreamActiveItems(state.messageStream),
+    stableItems,
+    activeItems,
     turnDiffs: state.messageStream.turnDiffs,
-    workspaceRoot: state.activeThread.cwd ?? vaultPath,
+    workspaceRoot,
     disclosures: state.ui.disclosures,
     forkActionsItemId: state.ui.messageActions.forkActionsItemId,
     implementPlanCandidate,
     rollbackCandidate,
     forkCandidates,
+    viewBlocks: messageStreamViewBlocks({
+      activeThreadId: state.activeThread.id,
+      activeTurnId: activeTurn,
+      historyCursor: state.messageStream.historyCursor,
+      loadingHistory: state.messageStream.loadingHistory,
+      items,
+      stableItems,
+      activeItems,
+      workspaceRoot,
+      turnDiffs: state.messageStream.turnDiffs,
+    }),
   };
 }

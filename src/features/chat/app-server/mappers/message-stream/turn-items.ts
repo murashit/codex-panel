@@ -5,19 +5,19 @@ import type {
   MessageStreamFileMention,
   MessageStreamItem,
   MessageStreamPrimaryTarget,
-} from "./items";
-import type { MessageStreamItemProvenance } from "./provenance";
-import type { HistoricalTurn } from "../../../domain/threads/history";
-import type { FileUpdateChange } from "../../../app-server/protocol/file-change";
-import type { TurnItem } from "../../../app-server/protocol/turn";
-import { definedProp } from "../../../utils";
-import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../domain/threads/reference";
-import { turnUserItemText } from "../../../app-server/protocol/turn";
+} from "../../../domain/message-stream/model/items";
+import type { MessageStreamItemProvenance } from "../../../domain/message-stream/model/provenance";
+import type { HistoricalTurn } from "../../../../../domain/threads/history";
+import type { FileUpdateChange } from "../../../../../app-server/protocol/file-change";
+import type { TurnItem } from "../../../../../app-server/protocol/turn";
+import { definedProp } from "../../../../../utils";
+import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../../../domain/threads/reference";
+import { turnUserItemText } from "../../../../../app-server/protocol/turn";
 import { agentMessageStreamItem } from "./agent-items";
-import { fileMentionsFromInput } from "./file-mentions";
-import { normalizeProposedPlanMarkdown } from "./proposed-plan";
-import { userMessageDisplayText } from "./user-message-text";
-import { failedStatusLabel, jsonTargetLabel } from "./item-labels";
+import { fileMentionsFromInput } from "../../../domain/message-stream/format/file-mentions";
+import { normalizeProposedPlanMarkdown } from "../../../domain/message-stream/format/proposed-plan";
+import { userMessageDisplayText } from "../../../domain/message-stream/format/user-message-text";
+import { failedStatusLabel, jsonTargetLabel } from "../../../domain/message-stream/format/item-labels";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
 type AgentMessageItem = Extract<TurnItem, { type: "agentMessage" }>;

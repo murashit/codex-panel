@@ -9,7 +9,7 @@ import type { ThreadManagementActions } from "../threads/thread-management-actio
 import type { GoalActions } from "../threads/goal-actions";
 import type { HistoryController } from "../threads/history-controller";
 import type { ChatInboundController } from "../protocol/inbound/controller";
-import type { MessageStreamItem, MessageStreamNoticeSection } from "../message-stream/items";
+import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/model/items";
 import type { ChatMessageScrollIntentState } from "../ui/message-stream/scroll-intent-state";
 import type { ComposerMetaViewModel } from "../ui/composer";
 import type { ChatPanelComposerShellState } from "../ui/shell-state";

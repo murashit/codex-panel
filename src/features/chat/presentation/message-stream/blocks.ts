@@ -1,7 +1,11 @@
-import { activeAgentRunSummary } from "../agent-summary";
-import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../items";
-import { messageStreamIsCoordinationProgress, messageStreamIsTaskProgress, messageStreamSemanticClassifications } from "../semantics";
-import type { MessageStreamSemanticClassification } from "../semantics";
+import { activeAgentRunSummary } from "./agent-summary";
+import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../../domain/message-stream/model/items";
+import {
+  messageStreamIsCoordinationProgress,
+  messageStreamIsTaskProgress,
+  messageStreamSemanticClassifications,
+} from "../../domain/message-stream/semantics";
+import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics";
 import { messageStreamLayoutBlocks, type MessageStreamLayoutBlock } from "./layout";
 
 export interface MessageStreamPresentationBlockInput {
@@ -70,10 +74,6 @@ export function messageStreamPresentationBlocks(input: MessageStreamPresentation
   if (input.activeTurnId) blocks.push(...activeTurnLiveBlocks(input, input.activeTurnId));
 
   return blocks;
-}
-
-export function messageStreamPresentationHasEmptyBlock(blocks: readonly MessageStreamPresentationBlock[]): boolean {
-  return blocks.some((block) => block.kind === "empty");
 }
 
 function messageStreamBlockItemsEmpty(input: MessageStreamPresentationBlockInput): boolean {

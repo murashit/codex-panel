@@ -4,8 +4,8 @@ import {
   forkCandidatesFromItems,
   isForkCandidateItem,
   isRollbackCandidateItem,
-} from "../../../../src/features/chat/message-stream/selectors";
-import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
+} from "../../../../src/features/chat/domain/message-stream/queries/selectors";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/model/items";
 
 describe("message stream item selectors", () => {
   it("selects final assistant messages as fork candidates", () => {

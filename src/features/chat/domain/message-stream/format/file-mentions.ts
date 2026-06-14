@@ -1,5 +1,5 @@
-import type { CodexInputItem } from "../../../domain/chat/input";
-import type { MessageStreamFileMention } from "./items";
+import type { CodexInputItem } from "../../../../../domain/chat/input";
+import type { MessageStreamFileMention } from "../model/items";
 
 export function fileMentionsFromInput(input: readonly CodexInputItem[]): MessageStreamFileMention[] {
   const seen = new Set<string>();

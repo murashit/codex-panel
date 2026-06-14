@@ -1,4 +1,4 @@
-import type { ReferencedThreadMetadata } from "../../../domain/threads/reference";
+import type { ReferencedThreadMetadata } from "../../../../../domain/threads/reference";
 import type { MessageStreamItemProvenance } from "./provenance";
 
 export type MessageStreamItemKind =

@@ -1,19 +1,19 @@
 import { jsonPreview, truncate } from "../../../../utils";
-import { pathRelativeToRoot } from "../../message-stream/path-labels";
+import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
 import type {
   ApprovalResultMessageStreamItem,
   CommandMessageStreamItem,
   CommandMessageStreamTarget,
-  MessageStreamFileChange,
-  MessageStreamPrimaryTarget,
-  MessageStreamItem,
   ExecutionState,
   FileChangeMessageStreamItem,
   GoalMessageStreamItem,
   HookMessageStreamItem,
+  MessageStreamFileChange,
+  MessageStreamItem,
+  MessageStreamPrimaryTarget,
   ReviewResultMessageStreamItem,
   ToolCallMessageStreamItem,
-} from "../../message-stream/items";
+} from "../../domain/message-stream/model/items";
 
 export type ToolResultMessageStreamItem =
   | CommandMessageStreamItem

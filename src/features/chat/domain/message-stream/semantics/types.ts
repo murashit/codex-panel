@@ -1,5 +1,5 @@
-import type { ExecutionState, MessageStreamItem } from "../items";
-import type { MessageStreamItemProvenance } from "../provenance";
+import type { ExecutionState, MessageStreamItem } from "../model/items";
+import type { MessageStreamItemProvenance } from "../model/provenance";
 
 type MessageStreamTurnRole = "initiator" | "steer" | "detail" | "outcome";
 

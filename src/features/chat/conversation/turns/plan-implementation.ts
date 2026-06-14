@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { activeThreadId, canImplementPlan } from "../../state/selectors";
 import type { ChatStateStore } from "../../state/reducer";
-import type { MessageStreamItem } from "../../message-stream/items";
+import type { MessageStreamItem } from "../../domain/message-stream/model/items";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 

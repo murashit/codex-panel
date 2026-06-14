@@ -1,6 +1,6 @@
-import type { FileUpdateChange } from "../../../app-server/protocol/file-change";
-import type { MessageStreamItem, MessageStreamItemKind } from "./items";
-import { normalizeFileChanges } from "./from-turn-items";
+import type { FileUpdateChange } from "../../../../../app-server/protocol/file-change";
+import type { MessageStreamItem, MessageStreamItemKind } from "../model/items";
+import { normalizeFileChanges } from "../../../app-server/mappers/message-stream/turn-items";
 
 export const STREAMED_COMMAND_RUNNING_TEXT = "Command running";
 export const STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT = "File change inProgress";

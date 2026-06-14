@@ -3,7 +3,8 @@ import type { ComponentChild as UiNode } from "preact";
 import type { ChatDisclosureBucket, ChatDisclosureUiState, ChatTurnLifecycleState } from "../../state/reducer";
 import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
 import type { PendingRequestBlockActions } from "../../conversation/pending-requests/view-model";
-import type { MessageStreamItem } from "../../message-stream/items";
+import type { MessageStreamItem } from "../../domain/message-stream/model/items";
+import type { TextMessageStreamItem } from "../../presentation/message-stream/text-view";
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 
 export interface MessageStreamBlock {
@@ -11,7 +12,7 @@ export interface MessageStreamBlock {
   node: UiNode;
 }
 
-export type TextMessageStreamItem = Extract<MessageStreamItem, { kind: "message" | "system" | "userInputResult" }>;
+export type { TextMessageStreamItem };
 
 export interface TextItemDetailStateContext {
   disclosures: ChatDisclosureUiState;
@@ -41,15 +42,9 @@ export interface TextItemMetadataContext extends TextItemDetailStateContext {
   openTurnDiff?: (state: ChatTurnDiffViewState) => void;
 }
 
-interface MessageStreamLayoutContext {
+interface MessageStreamRenderContext {
   activeThreadId: string | null;
   turnLifecycle: ChatTurnLifecycleState;
-  historyCursor: string | null;
-  loadingHistory: boolean;
-  items: readonly MessageStreamItem[];
-  stableItems?: readonly MessageStreamItem[];
-  activeItems?: readonly MessageStreamItem[];
-  turnDiffs?: ReadonlyMap<string, string>;
   workspaceRoot?: string | null;
   loadOlderTurns: () => void;
   pendingRequests?: PendingRequestBlockContext;
@@ -57,7 +52,7 @@ interface MessageStreamLayoutContext {
 
 export interface TextItemContext extends TextItemContentContext, TextItemActionContext, TextItemMetadataContext {}
 
-export interface MessageStreamContext extends MessageStreamLayoutContext, TextItemContext {}
+export interface MessageStreamContext extends MessageStreamRenderContext, TextItemContext {}
 
 export interface PendingRequestBlockContext {
   signature: string;

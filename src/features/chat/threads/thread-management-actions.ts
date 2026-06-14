@@ -22,7 +22,7 @@ import {
   STATUS_ROLLBACK_FAILED,
   STATUS_ROLLBACK_STARTING,
 } from "./messages";
-import { messageStreamItemsFromTurns } from "../message-stream/from-turn-items";
+import { messageStreamItemsFromTurns } from "../app-server/mappers/message-stream/turn-items";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
 import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../state/reducer";
 import { resumedThreadActionFromActiveRuntime } from "./resume";

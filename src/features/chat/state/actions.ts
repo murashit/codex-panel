@@ -4,7 +4,7 @@ import { parseServiceTier, type ServiceTier } from "../../../domain/runtime/poli
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../runtime/state";
 import type { CollaborationMode } from "../runtime/pending-settings";
-import type { MessageStreamItem } from "../message-stream/items";
+import type { MessageStreamItem } from "../domain/message-stream/model/items";
 import type { PendingTurnStart } from "../conversation/turns/turn-state";
 
 export interface ActiveThreadResumedAction {

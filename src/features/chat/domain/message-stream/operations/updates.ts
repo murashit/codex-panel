@@ -1,17 +1,12 @@
-import { normalizeProposedPlanMarkdown } from "../message-stream/proposed-plan";
-import { isAssistantAuthoredMessage } from "../message-stream/selectors";
-import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "../message-stream/semantics";
+import { normalizeProposedPlanMarkdown } from "../format/proposed-plan";
+import { isAssistantAuthoredMessage } from "../queries/selectors";
+import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "../semantics";
 import {
   streamedItemOutputMessageStreamItem,
   streamedTextMessageStreamItem,
   streamedToolOutputMessageStreamItem,
-} from "../message-stream/streaming-items";
-import type {
-  AssistantAuthoredMessageStreamItem,
-  MessageStreamFileChange,
-  MessageStreamItem,
-  MessageStreamItemKind,
-} from "../message-stream/items";
+} from "../factories/streaming-items";
+import type { AssistantAuthoredMessageStreamItem, MessageStreamFileChange, MessageStreamItem, MessageStreamItemKind } from "../model/items";
 
 export function upsertMessageStreamItemById(items: readonly MessageStreamItem[], next: MessageStreamItem): MessageStreamItem[] {
   const index = items.findIndex((item) => item.id === next.id);

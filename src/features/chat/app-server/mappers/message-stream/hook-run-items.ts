@@ -1,5 +1,5 @@
-import { definedProp } from "../../../utils";
-import type { HookMessageStreamItem } from "./items";
+import { definedProp } from "../../../../../utils";
+import type { HookMessageStreamItem } from "../../../domain/message-stream/model/items";
 
 interface MessageStreamHookRun {
   id: string;

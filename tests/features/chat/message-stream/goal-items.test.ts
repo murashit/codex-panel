@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ThreadGoal } from "../../../../src/domain/threads/goal";
-import { goalChangeItem } from "../../../../src/features/chat/message-stream/goal-items";
+import { goalChangeItem } from "../../../../src/features/chat/domain/message-stream/factories/goal-items";
 
 describe("goal message stream items", () => {
   it("keeps goal event summaries compact while retaining the full objective in details", () => {

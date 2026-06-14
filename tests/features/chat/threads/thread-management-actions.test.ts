@@ -13,7 +13,7 @@ import {
   type ThreadManagementActions,
   type ThreadManagementActionsHost,
 } from "../../../../src/features/chat/threads/thread-management-actions";
-import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/model/items";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
@@ -298,7 +298,12 @@ describe("thread management actions", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    host.stateStore.dispatch({ type: "message-stream/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
+    host.stateStore.dispatch({
+      type: "message-stream/items-replaced",
+      items: turnItems(),
+      historyCursor: null,
+      loadingHistory: false,
+    });
     const controller = threadManagementActions(host);
 
     await controller.rollbackThread("source");
@@ -329,7 +334,12 @@ describe("thread management actions", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    host.stateStore.dispatch({ type: "message-stream/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
+    host.stateStore.dispatch({
+      type: "message-stream/items-replaced",
+      items: turnItems(),
+      historyCursor: null,
+      loadingHistory: false,
+    });
     const controller = threadManagementActions(host);
 
     const pendingRollback = controller.rollbackThread("source");

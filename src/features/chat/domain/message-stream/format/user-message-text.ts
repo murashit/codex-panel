@@ -1,4 +1,4 @@
-import type { CodexInput } from "../../../domain/chat/input";
+import type { CodexInput } from "../../../../../domain/chat/input";
 
 type TextRange = [number, number];
 

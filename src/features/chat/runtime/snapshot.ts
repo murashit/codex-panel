@@ -4,7 +4,7 @@ import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../domain/runtim
 import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../domain/runtime/policy";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { ActiveCollaborationMode, CollaborationMode, PendingRuntimeSetting, RequestedServiceTier } from "./pending-settings";
-import type { MessageStreamItem } from "../message-stream/items";
+import type { MessageStreamItem } from "../domain/message-stream/model/items";
 import { messageStreamItems } from "../state/message-stream";
 
 export interface RuntimeSnapshot {

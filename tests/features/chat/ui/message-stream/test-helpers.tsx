@@ -7,22 +7,43 @@ import type { PendingUserInput } from "../../../../../src/features/chat/protocol
 import { pendingRequestBlockSnapshotFromRequests } from "../../../../../src/features/chat/conversation/pending-requests/snapshot";
 import type { PendingRequestBlockActions } from "../../../../../src/features/chat/conversation/pending-requests/view-model";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
-import type { ChatDisclosureUiState, ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
+import { activeTurnId, type ChatDisclosureUiState, type ChatTurnLifecycleState } from "../../../../../src/features/chat/state/reducer";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type { MessageStreamBlock, MessageStreamContext } from "../../../../../src/features/chat/ui/message-stream/context";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
+import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(
   context: TestMessageStreamContext,
 ): [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>] {
-  const blocks = rawMessageStreamBlocks(normalizeMessageStreamContext(context));
+  const normalized = normalizeMessageStreamContext(context);
+  const viewBlocks = messageStreamViewBlocks({
+    activeThreadId: normalized.activeThreadId,
+    activeTurnId: activeTurnId({ lifecycle: normalized.turnLifecycle }),
+    historyCursor: context.historyCursor,
+    loadingHistory: context.loadingHistory,
+    items: context.items,
+    stableItems: context.stableItems,
+    activeItems: context.activeItems,
+    workspaceRoot: normalized.workspaceRoot,
+    turnDiffs: context.turnDiffs,
+  });
+  const blocks = rawMessageStreamBlocks(viewBlocks, normalized);
   if (blocks.length === 0) throw new Error("Expected at least one message stream block.");
   return blocks as [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>];
 }
 
 type TestMessageStreamContext = Omit<MessageStreamContext, "disclosures" | "forkActionsItemId"> &
-  Partial<Pick<MessageStreamContext, "disclosures" | "forkActionsItemId">>;
+  Partial<Pick<MessageStreamContext, "disclosures" | "forkActionsItemId">> & {
+    historyCursor: string | null;
+    loadingHistory: boolean;
+    items: readonly MessageStreamItem[];
+    stableItems?: readonly MessageStreamItem[];
+    activeItems?: readonly MessageStreamItem[];
+    turnDiffs?: ReadonlyMap<string, string>;
+  };
 
 export function emptyDisclosures(): ChatDisclosureUiState {
   return testDisclosures();

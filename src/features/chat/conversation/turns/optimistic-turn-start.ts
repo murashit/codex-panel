@@ -1,9 +1,9 @@
 import type { PendingTurnStart } from "../../state/reducer";
-import type { MessageStreamFileMention, MessageStreamItem, MessageStreamMessageItem } from "../../message-stream/items";
-import type { MessageStreamItemProvenance } from "../../message-stream/provenance";
-import { fileMentionsFromInput } from "../../message-stream/file-mentions";
-import { userMessageDisplayText } from "../../message-stream/user-message-text";
-import { attachHookRunsToTurn } from "../../state/message-stream-updates";
+import type { MessageStreamFileMention, MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/model/items";
+import type { MessageStreamItemProvenance } from "../../domain/message-stream/model/provenance";
+import { fileMentionsFromInput } from "../../domain/message-stream/format/file-mentions";
+import { userMessageDisplayText } from "../../domain/message-stream/format/user-message-text";
+import { attachHookRunsToTurn } from "../../domain/message-stream/operations/updates";
 import type { CodexInput } from "../../../../domain/chat/input";
 
 export interface LocalUserMessageParams {

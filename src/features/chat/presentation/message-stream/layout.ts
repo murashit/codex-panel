@@ -1,5 +1,5 @@
-import type { MessageStreamItem } from "../items";
-import { pathRelativeToRoot } from "../path-labels";
+import type { MessageStreamItem } from "../../domain/message-stream/model/items";
+import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
 import {
   messageStreamIsApprovalResult,
   messageStreamIsAssistantResponse,
@@ -19,8 +19,8 @@ import {
   messageStreamIsUserInputResult,
   messageStreamIsWorkspaceResult,
   messageStreamSemanticClassifications,
-} from "../semantics";
-import type { MessageStreamSemanticClassification } from "../semantics";
+} from "../../domain/message-stream/semantics";
+import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics";
 
 const STEERING_ACTIVITY_LABEL = "steer";
 

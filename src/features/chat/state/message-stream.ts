@@ -1,12 +1,12 @@
-import { upsertMessageStreamItemById } from "./message-stream-updates";
-import type { MessageStreamItem, MessageStreamMessageItem } from "../message-stream/items";
-import { normalizeProposedPlanMarkdown } from "../message-stream/proposed-plan";
-import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "../message-stream/semantics";
+import { upsertMessageStreamItemById } from "../domain/message-stream/operations/updates";
+import type { MessageStreamItem, MessageStreamMessageItem } from "../domain/message-stream/model/items";
+import { normalizeProposedPlanMarkdown } from "../domain/message-stream/format/proposed-plan";
+import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "../domain/message-stream/semantics";
 import {
   streamedItemOutputMessageStreamItem,
   streamedTextMessageStreamItem,
   streamedToolOutputMessageStreamItem,
-} from "../message-stream/streaming-items";
+} from "../domain/message-stream/factories/streaming-items";
 
 export interface ChatMessageStreamActiveSegment {
   turnId: string | null;

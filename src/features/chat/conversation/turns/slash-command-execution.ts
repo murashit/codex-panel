@@ -12,7 +12,7 @@ import {
   type SlashCommandName,
   type SlashCommandSubcommandDefinition,
 } from "../composer/slash-commands";
-import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../message-stream/items";
+import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/model/items";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../runtime/messages";
 import { currentThreadReferenceMessage } from "./messages";
 import {

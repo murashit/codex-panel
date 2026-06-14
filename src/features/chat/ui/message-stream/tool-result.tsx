@@ -1,27 +1,20 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import {
-  toolResultView,
-  type ToolResultDetailSection,
-  type ToolResultMessageStreamItem,
-  type ToolResultView,
-} from "./tool-result-view-model";
+import { type ToolResultDetailSection, type ToolResultView } from "../../presentation/message-stream/tool-result-view";
 import { renderRawDiffLines } from "../../../../shared/diff/render";
 import type { ChatDisclosureUiState } from "../../state/reducer";
 
 export interface ToolResultRenderContext {
-  workspaceRoot?: string | null;
   disclosures: ChatDisclosureUiState;
   onDisclosureToggle?: (bucket: "toolResults", id: string, open: boolean) => void;
 }
 
-export function toolResultNode(item: ToolResultMessageStreamItem, context: ToolResultRenderContext): UiNode {
-  return <ToolResult item={item} context={context} />;
+export function toolResultNode(view: ToolResultView, context: ToolResultRenderContext): UiNode {
+  return <ToolResult view={view} context={context} />;
 }
 
-function ToolResult({ item, context }: { item: ToolResultMessageStreamItem; context: ToolResultRenderContext }): UiNode {
-  const view = toolResultView(item, context.workspaceRoot);
+function ToolResult({ view, context }: { view: ToolResultView; context: ToolResultRenderContext }): UiNode {
   const open = context.disclosures.toolResults.has(view.detailsKey);
   const hasSummary = view.summary.trim().length > 0;
 

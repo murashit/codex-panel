@@ -6,7 +6,7 @@ import type { ChatAction, ChatStateStore } from "../../state/reducer";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
-import type { MessageStreamItem } from "../../message-stream/items";
+import type { MessageStreamItem } from "../../domain/message-stream/model/items";
 import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../../ui/shell-state";
 import type { PendingRequestBlockSnapshot } from "../../conversation/pending-requests/snapshot";
@@ -14,7 +14,7 @@ import type { PendingRequestBlockActions } from "../../conversation/pending-requ
 import type { ChatTurnDiffViewState } from "../../turn-diff/model";
 import {
   createMessageStreamSurfaceContext,
-  messageStreamContextFromState,
+  messageStreamSurfaceProjectionFromState,
   type ChatMessageStreamSurfaceContext,
 } from "./message-stream-projection";
 
@@ -97,8 +97,10 @@ export class MessageStreamPresenter {
   }
 
   private renderStateFor(state: ChatPanelMessageStreamShellState): MessageStreamViewportState {
+    const projection = messageStreamSurfaceProjectionFromState(state, this.messageStreamSurfaceContext());
+
     return {
-      blocks: messageStreamBlocks(messageStreamContextFromState(state, this.messageStreamSurfaceContext())),
+      blocks: messageStreamBlocks(projection.blocks, projection.context),
       consumeScrollIntent: this.options.scroll.consumeIntent,
       registerVirtualizer: this.options.scroll.registerVirtualizer,
     };

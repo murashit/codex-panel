@@ -8,25 +8,25 @@ import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState, type ChatAction, type ChatState } from "../../state/reducer";
-import { completeReasoningItems, upsertMessageStreamItemById } from "../../state/message-stream-updates";
+import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/operations/updates";
 import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
-} from "../../message-stream/from-turn-items";
-import { taskProgressMessageStreamItem } from "../../message-stream/task-progress";
-import type { MessageStreamItem, MessageStreamItemKind, MessageStreamMessageItem } from "../../message-stream/items";
-import { goalChangeItem } from "../../message-stream/goal-items";
-import { hookRunMessageStreamItem } from "../../message-stream/hook-run-items";
-import { createAutoReviewResultItem, createReviewResultItem } from "../../message-stream/review-result-items";
-import { createSystemItem } from "../../message-stream/system-items";
+} from "../../app-server/mappers/message-stream/turn-items";
+import { taskProgressMessageStreamItem } from "../../domain/message-stream/factories/task-progress";
+import type { MessageStreamItem, MessageStreamItemKind, MessageStreamMessageItem } from "../../domain/message-stream/model/items";
+import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
+import { hookRunMessageStreamItem } from "../../app-server/mappers/message-stream/hook-run-items";
+import { createAutoReviewResultItem, createReviewResultItem } from "../../app-server/mappers/message-stream/review-result-items";
+import { createSystemItem } from "../../domain/message-stream/factories/system-items";
 import {
   STREAMED_COMMAND_RUNNING_TEXT,
   STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
   STREAMED_MCP_PROGRESS_LABEL,
   streamingFileChangeMessageStreamItem,
-} from "../../message-stream/streaming-items";
-import { attachHookRunsToTurn } from "../../state/message-stream-updates";
+} from "../../domain/message-stream/factories/streaming-items";
+import { attachHookRunsToTurn } from "../../domain/message-stream/operations/updates";
 import { messageStreamItems } from "../../state/message-stream";
 import {
   routeServerNotification,

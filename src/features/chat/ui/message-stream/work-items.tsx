@@ -1,65 +1,39 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { agentActivityMetaLabel, agentMessagePreview, agentRunSummaryLabel } from "../../message-stream/agent-summary";
-import type {
-  AgentMessageStreamItem,
-  AgentRunSummary,
-  AgentRunSummaryAgent,
-  ContextCompactionMessageStreamItem,
-  MessageStreamItem,
-  ExecutionState,
-  ReasoningMessageStreamItem,
-  TaskProgressMessageStreamItem,
-} from "../../message-stream/items";
-import { activeTurnId, type ChatTurnLifecycleState } from "../../state/reducer";
+import type { ExecutionState, TaskProgressMessageStreamItem } from "../../domain/message-stream/model/items";
+import type { AgentRunSummaryView, MessageStreamWorkView } from "../../presentation/message-stream/work-view";
 import type { ChatDisclosureUiState } from "../../state/reducer";
 import { createWorkMessageClassName } from "./work-message";
-import { shortThreadId, truncate } from "../../../../utils";
-
-const AGENT_ROW_MESSAGE_PREVIEW_LIMIT = 120;
-const AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT = 96;
-
-export type WorkMessageStreamItem =
-  | TaskProgressMessageStreamItem
-  | AgentMessageStreamItem
-  | ReasoningMessageStreamItem
-  | ContextCompactionMessageStreamItem;
 
 export interface WorkItemContext {
-  turnLifecycle: ChatTurnLifecycleState;
-  items: readonly MessageStreamItem[];
-  activeItems?: readonly MessageStreamItem[];
   disclosures: ChatDisclosureUiState;
   onDisclosureToggle?: (bucket: "agentDetails", id: string, open: boolean) => void;
 }
 
-function workItemsActiveTurnId(context: Pick<WorkItemContext, "turnLifecycle">): string | null {
-  return activeTurnId({ lifecycle: context.turnLifecycle });
+export function agentRunSummaryNode(view: AgentRunSummaryView): UiNode {
+  return <AgentRunSummaryItem view={view} />;
 }
 
-export function agentRunSummaryNode(summary: AgentRunSummary): UiNode {
-  return <AgentRunSummaryItem summary={summary} />;
+export function workItemNode(view: MessageStreamWorkView, context: WorkItemContext): UiNode {
+  if (view.kind === "taskProgress") return <TaskProgressItem view={view} />;
+  if (view.kind === "agent") return <AgentItem view={view} context={context} />;
+  if (view.kind === "contextCompaction") return <ContextCompactionItem view={view} />;
+  return <ReasoningItem view={view} />;
 }
 
-export function workItemNode(item: WorkMessageStreamItem, context: WorkItemContext): UiNode {
-  if (item.kind === "taskProgress") return <TaskProgressItem item={item} />;
-  if (item.kind === "agent") return <AgentItem item={item} context={context} />;
-  if (item.kind === "contextCompaction") return <ContextCompactionItem item={item} context={context} />;
-  return <ReasoningItem item={item} context={context} />;
-}
-
-function AgentRunSummaryItem({ summary }: { summary: AgentRunSummary }): UiNode {
+function AgentRunSummaryItem({ view }: { view: AgentRunSummaryView }): UiNode {
   return (
-    <WorkMessage label="agents" className="codex-panel__agent-summary" state={summary.failed > 0 ? "failed" : "running"}>
-      <div className="codex-panel__tool-summary">{agentRunSummaryLabel(summary)}</div>
-      <AgentSummaryRows summary={summary} />
+    <WorkMessage label={view.label} className={view.className} state={view.state}>
+      <div className="codex-panel__tool-summary">{view.summary}</div>
+      <AgentSummaryRows view={view} />
     </WorkMessage>
   );
 }
 
-function TaskProgressItem({ item }: { item: TaskProgressMessageStreamItem }): UiNode {
+function TaskProgressItem({ view }: { view: Extract<MessageStreamWorkView, { kind: "taskProgress" }> }): UiNode {
+  const { item } = view;
   return (
-    <WorkMessage label="tasks" className="codex-panel__task-progress" state={item.executionState ?? null}>
+    <WorkMessage label={view.label} className={view.className} state={view.state}>
       {item.explanation ? <div className="codex-panel__tool-summary">{item.explanation}</div> : null}
       {item.steps.length === 0 ? (
         <div className="codex-panel__tool-summary">Plan updated</div>
@@ -83,24 +57,20 @@ function taskStatusMarker(status: TaskProgressMessageStreamItem["steps"][number]
   return "[ ]";
 }
 
-function ContextCompactionItem({ item, context }: { item: ContextCompactionMessageStreamItem; context: WorkItemContext }): UiNode {
-  const active = workItemsActiveTurnId(context) === item.turnId;
+function ContextCompactionItem({ view }: { view: Extract<MessageStreamWorkView, { kind: "contextCompaction" }> }): UiNode {
   return (
-    <WorkMessage label="context" className="codex-panel__context-compaction" state={active ? "running" : "completed"}>
-      <div className="codex-panel__tool-summary">{active ? "Compacting context..." : "Context compacted"}</div>
+    <WorkMessage label={view.label} className={view.className} state={view.state}>
+      <div className="codex-panel__tool-summary">{view.summary}</div>
     </WorkMessage>
   );
 }
 
-function AgentItem({ item, context }: { item: AgentMessageStreamItem; context: WorkItemContext }): UiNode {
+function AgentItem({ view, context }: { view: Extract<MessageStreamWorkView, { kind: "agent" }>; context: WorkItemContext }): UiNode {
+  const { item } = view;
   const detailsOpen = context.disclosures.agentDetails.has(item.id);
   return (
-    <WorkMessage
-      label="agent"
-      className={`codex-panel__agent-activity${detailsOpen ? " is-open" : ""}`}
-      state={item.executionState ?? null}
-    >
-      <div className="codex-panel__tool-summary codex-panel__agent-activity-summary">{agentSummaryText(item)}</div>
+    <WorkMessage label={view.label} className={`${view.className}${detailsOpen ? " is-open" : ""}`} state={view.state}>
+      <div className="codex-panel__tool-summary codex-panel__agent-activity-summary">{view.summary}</div>
       <details
         className="codex-panel__output codex-panel__agent-details"
         open={detailsOpen}
@@ -110,50 +80,44 @@ function AgentItem({ item, context }: { item: AgentMessageStreamItem; context: W
       >
         <summary tabIndex={-1}>Details</summary>
         <dl className="codex-panel__meta-grid">
-          <MetaPair name="tool" value={agentActivityMetaLabel(item.tool)} />
-          <MetaPair name="status" value={item.status} />
-          <MetaPair name="sender" value={item.senderThreadId} />
-          {item.receiverThreadIds.length > 0 ? <MetaPair name="target" value={item.receiverThreadIds.join(", ")} /> : null}
-          {item.model ? <MetaPair name="model" value={item.model} /> : null}
-          {item.reasoningEffort ? <MetaPair name="effort" value={item.reasoningEffort} /> : null}
+          {view.metaRows.map((row) => (
+            <MetaPair key={`${row.key}\n${row.value}`} name={row.key} value={row.value} />
+          ))}
         </dl>
-        {item.prompt ? (
+        {view.prompt ? (
           <section className="codex-panel__agent-detail-section">
             <div className="codex-panel__output-title">Prompt</div>
-            <pre>{item.prompt}</pre>
+            <pre>{view.prompt}</pre>
           </section>
         ) : null}
-        {item.agents.length > 0 ? (
+        {view.agentRows.length > 0 ? (
           <ul className="codex-panel__agent-list">
-            {item.agents.map((agent) => (
+            {view.agentRows.map((agent) => (
               <li key={agent.threadId} className="codex-panel__agent-row">
-                <span className="codex-panel__agent-thread">{shortThreadId(agent.threadId)}</span>
-                <span className="codex-panel__agent-status">{agentStatusLabel(agent.status, agent.message)}</span>
+                <span className="codex-panel__agent-thread">{agent.threadLabel}</span>
+                <span className="codex-panel__agent-status">{agent.status}</span>
               </li>
             ))}
           </ul>
         ) : null}
-        {item.agents.map((agent) =>
-          agent.message && isLongAgentMessage(agent.message) ? (
-            <section key={agent.threadId} className="codex-panel__agent-detail-section">
-              <div className="codex-panel__output-title">Agent output {shortThreadId(agent.threadId)}</div>
-              <pre>{agent.message}</pre>
-            </section>
-          ) : null,
-        )}
+        {view.expandedMessages.map((agent) => (
+          <section key={agent.threadId} className="codex-panel__agent-detail-section">
+            <div className="codex-panel__output-title">Agent output {agent.threadLabel}</div>
+            <pre>{agent.message}</pre>
+          </section>
+        ))}
       </details>
     </WorkMessage>
   );
 }
 
-function ReasoningItem({ item, context }: { item: ReasoningMessageStreamItem; context: WorkItemContext }): UiNode {
-  const active = isReasoningActive(item, context);
+function ReasoningItem({ view }: { view: Extract<MessageStreamWorkView, { kind: "reasoning" }> }): UiNode {
   return (
-    <div className={`codex-panel__reasoning${active ? " is-active" : ""}`}>
-      <div className="codex-panel__reasoning-role">{active ? "reasoning" : "thought"}</div>
+    <div className={`codex-panel__reasoning${view.active ? " is-active" : ""}`}>
+      <div className="codex-panel__reasoning-role">{view.label}</div>
       <div className="codex-panel__reasoning-content">
-        <span>{item.text || (active ? "Reasoning" : "Thought")}</span>
-        {active ? (
+        <span>{view.text}</span>
+        {view.active ? (
           <span className="codex-panel__reasoning-dots">
             <span>.</span>
             <span>.</span>
@@ -196,55 +160,22 @@ function MetaPair({ name, value }: { name: string; value: string }): UiNode {
   );
 }
 
-function AgentSummaryRows({ summary }: { summary: AgentRunSummary }): UiNode {
-  if (summary.agents.length === 0 && summary.additionalAgents === 0) return null;
+function AgentSummaryRows({ view }: { view: AgentRunSummaryView }): UiNode {
+  if (view.rows.length === 0 && view.additionalAgents === 0) return null;
   return (
     <ul className="codex-panel__agent-list codex-panel__agent-list--summary">
-      {summary.agents.map((agent) => (
+      {view.rows.map((agent) => (
         <li key={agent.threadId} className="codex-panel__agent-row">
-          <span className="codex-panel__agent-thread">{shortThreadId(agent.threadId)}</span>
-          <span className="codex-panel__agent-status">{agentSummaryStatusLabel(agent)}</span>
+          <span className="codex-panel__agent-thread">{agent.threadLabel}</span>
+          <span className="codex-panel__agent-status">{agent.status}</span>
         </li>
       ))}
-      {summary.additionalAgents > 0 ? (
+      {view.additionalAgents > 0 ? (
         <li className="codex-panel__agent-row codex-panel__agent-row--more">
           <span className="codex-panel__agent-thread" />
-          <span className="codex-panel__agent-status">+{String(summary.additionalAgents)} more</span>
+          <span className="codex-panel__agent-status">+{String(view.additionalAgents)} more</span>
         </li>
       ) : null}
     </ul>
   );
-}
-
-function agentSummaryText(item: AgentMessageStreamItem): string {
-  const target = item.receiverThreadIds.length === 0 ? "" : ` ${item.receiverThreadIds.map(shortThreadId).join(", ")}`;
-  const promptPreview = agentPromptPreview(item.prompt);
-  return `${agentActivityMetaLabel(item.tool)}${target}${promptPreview ? `: ${promptPreview}` : ""} (${item.status})`;
-}
-
-function agentPromptPreview(prompt: string | null): string | null {
-  if (!prompt) return null;
-  const normalized = prompt.trim().replace(/\s+/g, " ");
-  return normalized ? truncate(normalized, AGENT_ACTIVITY_PROMPT_PREVIEW_LIMIT) : null;
-}
-
-function agentStatusLabel(status: string, message: string | null): string {
-  const preview = agentMessagePreview(message, AGENT_ROW_MESSAGE_PREVIEW_LIMIT);
-  return preview ? `${status}: ${preview}` : status;
-}
-
-function agentSummaryStatusLabel(agent: AgentRunSummaryAgent): string {
-  return agent.messagePreview ? `${agent.status}: ${agent.messagePreview}` : agent.status;
-}
-
-function isLongAgentMessage(message: string): boolean {
-  return message.length > AGENT_ROW_MESSAGE_PREVIEW_LIMIT || message.includes("\n");
-}
-
-function isReasoningActive(item: ReasoningMessageStreamItem, context: WorkItemContext): boolean {
-  const activeTurn = workItemsActiveTurnId(context);
-  if (!activeTurn || item.turnId !== activeTurn) return false;
-  if (item.executionState === "completed") return false;
-  const latestActiveTurnItem = [...(context.activeItems ?? context.items)].reverse().find((candidate) => candidate.turnId === activeTurn);
-  return latestActiveTurnItem?.id === item.id;
 }

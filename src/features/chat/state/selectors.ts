@@ -8,8 +8,8 @@ import type {
   PendingTurnStart,
 } from "./reducer";
 import type { Thread } from "../../../domain/threads/model";
-import type { MessageStreamItem } from "../message-stream/items";
-import { latestImplementablePlanFromItems } from "../message-stream/selectors";
+import type { MessageStreamItem } from "../domain/message-stream/model/items";
+import { latestImplementablePlanFromItems } from "../domain/message-stream/queries/selectors";
 import { messageStreamItems, messageStreamIsEmpty } from "./message-stream";
 
 export interface SubmissionStateSnapshot {

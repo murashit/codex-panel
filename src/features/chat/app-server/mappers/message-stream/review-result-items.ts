@@ -1,6 +1,6 @@
-import type { MessageStreamAuditFact, MessageStreamItem, ExecutionState } from "./items";
-import { pathsRelativeToRoot } from "./path-labels";
-import { permissionRows } from "./permission-rows";
+import type { ExecutionState, MessageStreamAuditFact, MessageStreamItem } from "../../../domain/message-stream/model/items";
+import { pathsRelativeToRoot } from "../../../domain/message-stream/format/path-labels";
+import { permissionRows } from "../../../domain/message-stream/format/permission-rows";
 
 type MessageStreamExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;

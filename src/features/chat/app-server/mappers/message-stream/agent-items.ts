@@ -1,5 +1,5 @@
-import { definedProp } from "../../../utils";
-import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "./items";
+import { definedProp } from "../../../../../utils";
+import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "../../../domain/message-stream/model/items";
 
 type MessageStreamExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;

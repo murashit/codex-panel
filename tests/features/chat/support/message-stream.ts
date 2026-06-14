@@ -1,4 +1,4 @@
-import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/model/items";
 import { messageStreamItems, messageStreamWithItems } from "../../../../src/features/chat/state/message-stream";
 import type { ChatState } from "../../../../src/features/chat/state/reducer";
 

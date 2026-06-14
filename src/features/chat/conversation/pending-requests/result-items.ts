@@ -1,6 +1,6 @@
 import { approvalActionKind, type ApprovalAction, type PendingApproval } from "../../protocol/server-requests/approval";
 import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval-view";
-import type { MessageStreamItem } from "../../message-stream/items";
+import type { MessageStreamItem } from "../../domain/message-stream/model/items";
 import type { PendingUserInput } from "../../protocol/server-requests/user-input";
 import { definedProp } from "../../../../utils";
 

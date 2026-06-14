@@ -28,7 +28,7 @@ import {
 import type { RequestedServiceTier } from "../runtime/pending-settings";
 import type { RequestId } from "../../../app-server/connection/rpc-messages";
 import type { ComposerSuggestion } from "../conversation/composer/suggestions";
-import type { MessageStreamItem } from "../message-stream/items";
+import type { MessageStreamItem } from "../domain/message-stream/model/items";
 import type {
   ActiveThreadResumedAction,
   ActiveThreadRestoredPlaceholderAction,

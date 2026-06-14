@@ -1,5 +1,5 @@
 import { jsonPreview } from "../../../../utils";
-import { permissionRows, type MessageStreamPermissionProfile } from "../../message-stream/permission-rows";
+import { permissionRows, type MessageStreamPermissionProfile } from "../../domain/message-stream/format/permission-rows";
 import {
   approvalActionKind,
   type ApprovalAction,

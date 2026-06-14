@@ -1,4 +1,4 @@
-import type { MessageStreamItem, MessageStreamNoticeSection } from "./items";
+import type { MessageStreamItem, MessageStreamNoticeSection } from "../model/items";
 
 export function createSystemItem(id: string, text: string): MessageStreamItem {
   return {

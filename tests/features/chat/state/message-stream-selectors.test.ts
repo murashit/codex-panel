@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { MessageStreamItem } from "../../../../src/features/chat/message-stream/items";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/model/items";
 import {
   initialChatMessageStreamState,
   messageStreamRollbackCandidate,

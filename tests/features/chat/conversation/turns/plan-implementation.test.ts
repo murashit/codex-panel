@@ -7,7 +7,7 @@ import {
   createPlanImplementation,
   type PlanImplementationHost,
 } from "../../../../../src/features/chat/conversation/turns/plan-implementation";
-import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
 
 const planItem = (id: string): MessageStreamItem => ({
   id,

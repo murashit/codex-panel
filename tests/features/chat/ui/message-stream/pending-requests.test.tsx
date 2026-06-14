@@ -7,7 +7,7 @@ import { pendingApprovalViewModel } from "../../../../../src/features/chat/conve
 import type { PendingApproval } from "../../../../../src/features/chat/protocol/server-requests/approval";
 import type { PendingUserInput } from "../../../../../src/features/chat/protocol/server-requests/user-input";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
-import type { MessageStreamItem } from "../../../../../src/features/chat/message-stream/items";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/model/items";
 import { changeInputValue } from "../../../../support/dom";
 import "./setup";
 import {
