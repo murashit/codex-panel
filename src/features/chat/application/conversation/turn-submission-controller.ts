@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import { submissionStateSnapshot } from "../state/selectors";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../../domain/local-id";
 import { currentTurnNotSteerableMessage, STATUS_STEERED_CURRENT_TURN, STATUS_TURN_RUNNING } from "./messages";
 import {

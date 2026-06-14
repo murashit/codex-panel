@@ -1,5 +1,6 @@
 import { activeThreadId } from "../state/selectors";
-import type { ChatConnectionPhase, ChatStateStore } from "../state/reducer";
+import type { ChatConnectionPhase } from "../state/root-reducer";
+import type { ChatStateStore } from "../state/store";
 import { STATUS_RECONNECTING } from "./messages";
 
 export interface ChatReconnectActionsHost {

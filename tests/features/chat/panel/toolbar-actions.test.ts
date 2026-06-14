@@ -2,7 +2,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createChatPanelToolbarActions, createToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 

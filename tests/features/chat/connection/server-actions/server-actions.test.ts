@@ -9,7 +9,8 @@ import { createChatServerDiagnosticsActions } from "../../../../../src/features/
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/app-server/actions/metadata";
 import { createChatServerThreadActions } from "../../../../../src/features/chat/app-server/actions/threads";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import { createChatState, createChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
+import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { CatalogModel, CatalogSkillMetadata } from "../../../../../src/app-server/protocol/catalog";
 
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startThread"]>>;

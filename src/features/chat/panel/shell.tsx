@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
-import type { ChatStateStore } from "../application/state/reducer";
+import type { ChatStateStore } from "../application/state/store";
 import type { ChatPanelGoalSurface, ChatPanelToolbarSurface } from "./surface/model";
 import { ChatPanelToolbar } from "./surface/toolbar-projection";
 import type { ToolbarActions } from "../ui/toolbar";

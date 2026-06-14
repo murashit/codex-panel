@@ -14,7 +14,7 @@ import { compactReasoningEffortLabel } from "../../presentation/runtime/messages
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
-import type { ChatState } from "../../application/state/reducer";
+import type { ChatState } from "../../application/state/root-reducer";
 import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
 import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../shell-state";
 import { explicitThreadName } from "../../../../domain/threads/model";

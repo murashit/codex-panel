@@ -1,4 +1,4 @@
-import type { ChatState } from "../state/reducer";
+import type { ChatState } from "../state/root-reducer";
 import type { PendingRequestBlockState } from "./block";
 
 export function pendingRequestBlockState(state: ChatState): PendingRequestBlockState {

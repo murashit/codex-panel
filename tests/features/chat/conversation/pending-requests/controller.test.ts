@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
+import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { PendingRequestController } from "../../../../../src/features/chat/application/pending-requests/controller";
 import { toPendingUserInput } from "../../../../../src/features/chat/app-server/requests/user-input";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";

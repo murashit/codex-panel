@@ -1,4 +1,4 @@
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import { pendingRequestBlockState } from "./snapshot";
 import {

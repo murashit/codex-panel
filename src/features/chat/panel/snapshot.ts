@@ -1,5 +1,5 @@
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
-import type { ChatState } from "../application/state/reducer";
+import type { ChatState } from "../application/state/root-reducer";
 import type { MessageStreamItem } from "../domain/message-stream/items";
 import { latestProposedPlanFromItems } from "../domain/message-stream/selectors";
 import type { RestoredThreadState } from "../application/lifecycle";

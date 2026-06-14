@@ -1,5 +1,6 @@
 import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
-import type { ChatAction, ChatState, ChatStateStore } from "../application/state/reducer";
+import type { ChatAction, ChatState } from "../application/state/root-reducer";
+import type { ChatStateStore } from "../application/state/store";
 import type { ChatConnectionController } from "../application/connection/connection-controller";
 import type { ChatReconnectActions } from "../application/connection/reconnect-actions";
 import type { ThreadRenameEditorController } from "../application/threads/rename-editor-controller";

@@ -10,8 +10,8 @@ import {
   pendingTurnStart,
   type ChatAction,
   type ChatState,
-  type ChatStateStore,
-} from "../../../../../src/features/chat/application/state/reducer";
+} from "../../../../../src/features/chat/application/state/root-reducer";
+import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";

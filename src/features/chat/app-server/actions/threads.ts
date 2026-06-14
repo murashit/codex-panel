@@ -5,7 +5,7 @@ import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { serviceTierRequestForThreadStart } from "../../application/runtime/thread-settings-update";
 import { resumedThreadActionFromAppServerResponse } from "../../application/threads/resume";
 import type { ChatServerActionHost } from "./host";
-import type { ChatState } from "../../application/state/reducer";
+import type { ChatState } from "../../application/state/root-reducer";
 
 interface StartedThreadSummary {
   threadId: string;

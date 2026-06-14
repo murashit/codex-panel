@@ -3,7 +3,7 @@ import type { CodexInput } from "../../../../domain/chat/input";
 import type { ChatReconnectActions } from "../connection/reconnect-actions";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { GoalActions } from "../threads/goal-actions";
 import { createComposerSubmitActions, type ComposerSubmitActions } from "./composer-submit-actions";

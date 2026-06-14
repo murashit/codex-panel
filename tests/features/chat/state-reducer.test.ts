@@ -5,11 +5,11 @@ import {
   chatReducer,
   chatTurnBusy,
   createChatState,
-  createChatStateStore,
   pendingTurnStart,
   transitionChatTurnLifecycleState,
   type ChatState,
-} from "../../../src/features/chat/application/state/reducer";
+} from "../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../src/features/chat/application/state/store";
 import { messageStreamItems } from "../../../src/features/chat/application/state/message-stream";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { MessageStreamItem } from "../../../src/features/chat/domain/message-stream/items";

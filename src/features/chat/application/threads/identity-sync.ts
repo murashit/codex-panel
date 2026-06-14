@@ -1,6 +1,6 @@
 import type { RestorationController } from "./restoration-controller";
 import { activeThreadId, listedThreads } from "../state/selectors";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 
 export interface IdentitySyncHost {
   stateStore: ChatStateStore;

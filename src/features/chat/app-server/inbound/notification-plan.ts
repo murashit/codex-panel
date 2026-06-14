@@ -12,7 +12,7 @@ import {
   pendingTurnStart as pendingTurnStartForState,
   type ChatAction,
   type ChatState,
-} from "../../application/state/reducer";
+} from "../../application/state/root-reducer";
 import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/updates";
 import {
   messageStreamItemFromTurnItem,

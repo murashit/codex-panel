@@ -6,7 +6,8 @@ import { h } from "preact";
 
 import { ChatComposerController, type ChatComposerRenderActions } from "../../../../../src/features/chat/panel/composer-controller";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
-import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { installObsidianDomShims } from "../../../../support/dom";

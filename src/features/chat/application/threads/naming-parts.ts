@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 import type { PluginSettingsRef, ThreadSurfaceBroadcaster } from "../ports/chat-host";
 import { AutoTitleController } from "./auto-title-controller";
 import { ThreadRenameEditorController } from "./rename-editor-controller";

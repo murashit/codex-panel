@@ -2,7 +2,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { RestorationController } from "../../../../src/features/chat/application/threads/restoration-controller";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
 import { deferred } from "../../../support/async";

@@ -1,7 +1,8 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { TurnItem } from "../../../../app-server/protocol/turn";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
-import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
+import type { ChatAction, ChatState } from "../state/root-reducer";
+import type { ChatStateStore } from "../state/store";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
 import { messageStreamItems } from "../state/message-stream";
 

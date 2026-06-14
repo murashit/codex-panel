@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createIdentitySync } from "../../../../src/features/chat/application/threads/identity-sync";
 import type { RestorationController } from "../../../../src/features/chat/application/threads/restoration-controller";
 import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/application/lifecycle";

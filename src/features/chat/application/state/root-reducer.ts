@@ -37,7 +37,6 @@ import type {
   ClearDisconnectedConnectionStateAction,
   ClearLocalTurnAction,
   ConnectionInitializedAction,
-  DisclosureSetAction,
   ThreadListAppliedAction,
   MessageStreamItemAddedAction,
   TurnOptimisticStartedAction,
@@ -70,6 +69,17 @@ import {
   type PendingTurnStart,
 } from "../conversation/turn-state";
 import { STATUS_TURN_RUNNING, turnCompletedStatus } from "../conversation/messages";
+import {
+  clearAllRequestDisclosures,
+  clearResolvedRequestDisclosures,
+  cloneDisclosureUiState,
+  initialUiState,
+  isUiAction,
+  maybeClearGoalObjectiveExpansion,
+  reduceUiSlice,
+  type ChatUiState,
+  type UiAction,
+} from "./ui-state";
 
 export {
   activeTurnId,
@@ -80,6 +90,8 @@ export {
   type PendingTurnStart,
 } from "../conversation/turn-state";
 export type { ChatMessageStreamState } from "./message-stream";
+export type { ChatDisclosureBucket, ChatDisclosureUiState, ChatRenameGeneratingUiState, ChatRenameUiState } from "./ui-state";
+export { renameGenerationStillActive } from "./ui-state";
 
 export type ChatConnectionPhase =
   | { kind: "idle" }
@@ -120,49 +132,6 @@ interface ChatComposerState {
   suggestionsDismissedSignature: string | null;
 }
 
-export type ChatRenameUiState =
-  | { kind: "idle" }
-  | { kind: "editing"; threadId: string; draft: string }
-  | { kind: "generating"; threadId: string; draft: string; originalDraft: string; generationId: number };
-
-export type ChatRenameGeneratingUiState = Extract<ChatRenameUiState, { kind: "generating" }>;
-
-type ChatGoalEditorUiState =
-  | { kind: "closed" }
-  | { kind: "editing"; threadId: string | null; objectiveDraft: string; tokenBudgetDraft: number | null };
-
-interface ChatMessageActionsUiState {
-  forkActionsItemId: string | null;
-}
-
-export type ChatDisclosureBucket =
-  | "toolResults"
-  | "activityGroups"
-  | "agentDetails"
-  | "textDetails"
-  | "userMessageExpanded"
-  | "goalObjectiveExpanded"
-  | "approvalDetails";
-
-export interface ChatDisclosureUiState {
-  toolResults: ReadonlySet<string>;
-  activityGroups: ReadonlySet<string>;
-  agentDetails: ReadonlySet<string>;
-  textDetails: ReadonlySet<string>;
-  userMessageExpanded: ReadonlySet<string>;
-  goalObjectiveExpanded: ReadonlySet<string>;
-  approvalDetails: ReadonlySet<string>;
-}
-
-interface ChatUiState {
-  toolbarPanel: "history" | "chat-actions" | "status-panel" | null;
-  archiveConfirmThreadId: string | null;
-  rename: ChatRenameUiState;
-  goalEditor: ChatGoalEditorUiState;
-  messageActions: ChatMessageActionsUiState;
-  disclosures: ChatDisclosureUiState;
-}
-
 export interface ChatState {
   connection: ChatConnectionState;
   threadList: ChatThreadListState;
@@ -173,12 +142,6 @@ export interface ChatState {
   requests: ChatRequestState;
   composer: ChatComposerState;
   ui: ChatUiState;
-}
-
-export interface ChatStateStore {
-  getState(): ChatState;
-  dispatch(action: ChatAction): ChatState;
-  subscribe(listener: () => void): () => void;
 }
 
 type ConnectionAction =
@@ -254,26 +217,6 @@ type ComposerAction =
       dismissedSignature?: string | null;
     };
 
-type UiAction =
-  | {
-      type: "ui/panel-set";
-      panel: "history" | "chat-actions" | "status-panel" | null;
-      toggle?: boolean;
-    }
-  | { type: "ui/archive-confirm-set"; threadId: string | null }
-  | { type: "ui/rename-started"; threadId: string; draft: string }
-  | { type: "ui/rename-draft-updated"; threadId: string; draft: string }
-  | { type: "ui/rename-cancelled"; threadId: string }
-  | { type: "ui/rename-generation-started"; threadId: string; originalDraft: string; generationId: number }
-  | { type: "ui/rename-generation-succeeded"; generatingState: ChatRenameGeneratingUiState; draft: string }
-  | { type: "ui/rename-generation-finished"; threadId: string; generatingState: ChatRenameGeneratingUiState }
-  | { type: "ui/rename-cleared" }
-  | { type: "ui/goal-editor-started"; threadId: string | null; objective: string; tokenBudget: number | null }
-  | { type: "ui/goal-editor-draft-updated"; objective: string }
-  | { type: "ui/goal-editor-closed" }
-  | { type: "ui/message-fork-actions-set"; itemId: string | null }
-  | DisclosureSetAction;
-
 export type ChatAction = ChatTransitionAction | ChatSliceAction;
 
 interface RequestResolvedAction {
@@ -322,27 +265,6 @@ export function createChatState(): ChatState {
     requests: initialRequestState(),
     composer: initialComposerState(),
     ui: initialUiState(),
-  };
-}
-
-export function createChatStateStore(initialState: ChatState = createChatState()): ChatStateStore {
-  let current = cloneChatState(initialState);
-  const listeners = new Set<() => void>();
-  return {
-    getState: () => current,
-    dispatch(action) {
-      const next = chatReducer(current, action);
-      if (next === current) return current;
-      current = next;
-      for (const listener of listeners) listener();
-      return current;
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
   };
 }
 
@@ -582,7 +504,7 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
     requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
     messageStream: isMessageStreamAction(action) ? reduceMessageStreamSlice(state.messageStream, action) : state.messageStream,
     composer: reduceComposerSlice(state.composer, action),
-    ui: reduceUiSlice(state.ui, action),
+    ui: isUiAction(action) ? reduceUiSlice(state.ui, action) : state.ui,
   });
 }
 
@@ -681,50 +603,6 @@ function reduceComposerSlice(state: ChatComposerState, action: ChatSliceAction):
   }
 }
 
-function reduceUiSlice(state: ChatUiState, action: ChatSliceAction): ChatUiState {
-  switch (action.type) {
-    case "ui/panel-set":
-      return setPanelSlice(state, action.panel, action.toggle ?? false);
-    case "ui/archive-confirm-set":
-      return patchObject(state, { archiveConfirmThreadId: action.threadId });
-    case "ui/rename-started":
-      return patchObject(state, { rename: { kind: "editing", threadId: action.threadId, draft: action.draft } });
-    case "ui/rename-draft-updated":
-      return patchObject(state, { rename: renameUiStateUpdated(state.rename, action.threadId, action.draft) });
-    case "ui/rename-cancelled":
-      return patchObject(state, { rename: renameUiStateCancelled(state.rename, action.threadId) });
-    case "ui/rename-generation-started":
-      return patchObject(state, {
-        rename: renameUiGenerationStarted(state.rename, action.threadId, action.originalDraft, action.generationId),
-      });
-    case "ui/rename-generation-succeeded":
-      return patchObject(state, { rename: renameUiGenerationSucceeded(state.rename, action.generatingState, action.draft) });
-    case "ui/rename-generation-finished":
-      return patchObject(state, { rename: renameUiGenerationFinished(state.rename, action.threadId, action.generatingState) });
-    case "ui/rename-cleared":
-      return patchObject(state, { rename: initialRenameUiState() });
-    case "ui/goal-editor-started":
-      return patchObject(state, {
-        goalEditor: {
-          kind: "editing",
-          threadId: action.threadId,
-          objectiveDraft: action.objective,
-          tokenBudgetDraft: action.tokenBudget,
-        },
-      });
-    case "ui/goal-editor-draft-updated":
-      return patchObject(state, { goalEditor: goalEditorDraftUpdated(state.goalEditor, action.objective) });
-    case "ui/goal-editor-closed":
-      return patchObject(state, { goalEditor: initialGoalEditorUiState() });
-    case "ui/message-fork-actions-set":
-      return patchObject(state, { messageActions: { forkActionsItemId: action.itemId } });
-    case "ui/disclosure-set":
-      return setDisclosureSlice(state, action.bucket, action.id, action.open);
-    default:
-      return state;
-  }
-}
-
 function clearActiveTurnState(state: ChatState): ChatState {
   return patchChatState(state, {
     turn: {
@@ -817,18 +695,7 @@ function initialComposerState(): ChatComposerState {
   };
 }
 
-function initialUiState(): ChatUiState {
-  return {
-    toolbarPanel: null,
-    archiveConfirmThreadId: null,
-    rename: initialRenameUiState(),
-    goalEditor: initialGoalEditorUiState(),
-    messageActions: initialMessageActionsUiState(),
-    disclosures: initialDisclosureUiState(),
-  };
-}
-
-function cloneChatState(state: ChatState): ChatState {
+export function cloneChatState(state: ChatState): ChatState {
   return {
     connection: {
       ...state.connection,
@@ -884,188 +751,35 @@ function cloneActiveSegment(segment: ChatMessageStreamActiveSegment | null): Cha
 }
 
 function isMessageStreamAction(action: ChatSliceAction): action is MessageStreamAction {
-  return action.type.startsWith("message-stream/");
-}
-
-function setPanelSlice(state: ChatUiState, panel: "history" | "chat-actions" | "status-panel" | null, toggle: boolean): ChatUiState {
-  const nextPanel = toggle && state.toolbarPanel === panel ? null : panel;
-  return patchObject(state, { toolbarPanel: nextPanel });
-}
-
-function setDisclosureSlice(state: ChatUiState, bucket: ChatDisclosureBucket, id: string, open: boolean): ChatUiState {
-  const current = state.disclosures[bucket];
-  if (current.has(id) === open) return state;
-  const nextBucket = new Set(current);
-  if (open) {
-    nextBucket.add(id);
-  } else {
-    nextBucket.delete(id);
+  switch (action.type) {
+    case "message-stream/item-added":
+    case "message-stream/system-item-added":
+    case "message-stream/deduped-log-added":
+    case "message-stream/history-loading-set":
+    case "message-stream/items-replaced":
+    case "message-stream/item-upserted":
+    case "message-stream/reasoning-completed":
+    case "message-stream/assistant-delta-appended":
+    case "message-stream/plan-delta-appended":
+    case "message-stream/item-text-appended":
+    case "message-stream/tool-output-appended":
+    case "message-stream/item-output-appended":
+    case "message-stream/turn-diff-updated":
+      return true;
+    default:
+      return false;
   }
-  return patchObject(state, {
-    disclosures: {
-      ...state.disclosures,
-      [bucket]: nextBucket,
-    },
-  });
-}
-
-function initialRenameUiState(): ChatRenameUiState {
-  return { kind: "idle" };
-}
-
-function initialGoalEditorUiState(): ChatGoalEditorUiState {
-  return { kind: "closed" };
-}
-
-function initialMessageActionsUiState(): ChatMessageActionsUiState {
-  return { forkActionsItemId: null };
-}
-
-function initialDisclosureUiState(): ChatDisclosureUiState {
-  return {
-    toolResults: new Set(),
-    activityGroups: new Set(),
-    agentDetails: new Set(),
-    textDetails: new Set(),
-    userMessageExpanded: new Set(),
-    goalObjectiveExpanded: new Set(),
-    approvalDetails: new Set(),
-  };
-}
-
-function cloneDisclosureUiState(state: ChatDisclosureUiState): ChatDisclosureUiState {
-  return {
-    toolResults: new Set(state.toolResults),
-    activityGroups: new Set(state.activityGroups),
-    agentDetails: new Set(state.agentDetails),
-    textDetails: new Set(state.textDetails),
-    userMessageExpanded: new Set(state.userMessageExpanded),
-    goalObjectiveExpanded: new Set(state.goalObjectiveExpanded),
-    approvalDetails: new Set(state.approvalDetails),
-  };
-}
-
-function maybeClearGoalObjectiveExpansion(state: ChatUiState, currentGoal: ThreadGoal | null, nextGoal: ThreadGoal | null): ChatUiState {
-  if (goalObjectiveResetKey(currentGoal) === goalObjectiveResetKey(nextGoal)) return state;
-  if (state.disclosures.goalObjectiveExpanded.size === 0) return state;
-  return patchObject(state, {
-    disclosures: {
-      ...state.disclosures,
-      goalObjectiveExpanded: new Set(),
-    },
-  });
-}
-
-function goalObjectiveResetKey(goal: ThreadGoal | null): string {
-  if (!goal) return "";
-  return [goal.threadId, goal.objective, goal.status, String(goal.tokenBudget ?? "")].join("\u0000");
-}
-
-function goalEditorDraftUpdated(state: ChatGoalEditorUiState, objective: string): ChatGoalEditorUiState {
-  if (state.kind !== "editing") return state;
-  return { ...state, objectiveDraft: objective };
-}
-
-function renameUiStateUpdated(state: ChatRenameUiState, threadId: string, draft: string): ChatRenameUiState {
-  if (state.kind === "idle" || state.threadId !== threadId) return state;
-  return { ...state, draft };
-}
-
-function renameUiStateCancelled(state: ChatRenameUiState, threadId: string): ChatRenameUiState {
-  if (state.kind === "idle" || state.threadId !== threadId) return state;
-  return initialRenameUiState();
-}
-
-function renameUiGenerationStarted(
-  state: ChatRenameUiState,
-  threadId: string,
-  originalDraft: string,
-  generationId: number,
-): ChatRenameUiState {
-  if (state.kind !== "editing" || state.threadId !== threadId) return state;
-  return {
-    kind: "generating",
-    threadId,
-    draft: state.draft,
-    originalDraft,
-    generationId,
-  };
-}
-
-function renameUiGenerationSucceeded(
-  state: ChatRenameUiState,
-  generatingState: ChatRenameGeneratingUiState,
-  draft: string,
-): ChatRenameUiState {
-  if (!renameGenerationStillActive(state, generatingState) || state.draft !== generatingState.originalDraft) return state;
-  return { ...state, draft };
-}
-
-function renameUiGenerationFinished(
-  state: ChatRenameUiState,
-  threadId: string,
-  generatingState: ChatRenameGeneratingUiState,
-): ChatRenameUiState {
-  if (!renameGenerationStillActive(state, generatingState) || state.threadId !== threadId) return state;
-  return {
-    kind: "editing",
-    threadId: state.threadId,
-    draft: state.draft,
-  };
-}
-
-export function renameGenerationStillActive(
-  state: ChatRenameUiState,
-  generatingState: ChatRenameGeneratingUiState,
-): state is ChatRenameGeneratingUiState {
-  return (
-    state.kind === "generating" &&
-    state.threadId === generatingState.threadId &&
-    state.originalDraft === generatingState.originalDraft &&
-    state.generationId === generatingState.generationId
-  );
-}
-
-function clearAllRequestDisclosures(state: ChatUiState): ChatUiState {
-  if (state.disclosures.approvalDetails.size === 0) return state;
-  return patchObject(state, {
-    disclosures: {
-      ...state.disclosures,
-      approvalDetails: new Set(),
-    },
-  });
-}
-
-function clearResolvedRequestDisclosures(state: ChatUiState, requestId: PendingRequestId): ChatUiState {
-  const id = String(requestId);
-  const approvalDetails = filterStringSet(state.disclosures.approvalDetails, (key) => !key.startsWith(`${id}:`));
-  if (approvalDetails === state.disclosures.approvalDetails) return state;
-  return patchObject(state, {
-    disclosures: {
-      ...state.disclosures,
-      approvalDetails,
-    },
-  });
-}
-
-function filterStringSet(values: ReadonlySet<string>, keep: (value: string) => boolean): ReadonlySet<string> {
-  let next: Set<string> | null = null;
-  for (const value of values) {
-    if (keep(value)) {
-      next?.add(value);
-    } else if (next === null) {
-      next = new Set();
-      for (const kept of values) {
-        if (kept === value) break;
-        next.add(kept);
-      }
-    }
-  }
-  return next ?? values;
 }
 
 function isRequestAction(action: ChatSliceAction): action is RequestAction {
-  return action.type.startsWith("request/");
+  switch (action.type) {
+    case "request/approval-queued":
+    case "request/user-input-queued":
+    case "request/user-input-draft-set":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function setComposerSuggestionsSlice(

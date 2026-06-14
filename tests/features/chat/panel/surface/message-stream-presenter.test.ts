@@ -7,11 +7,10 @@ import { h } from "preact";
 import {
   chatReducer,
   createChatState,
-  createChatStateStore,
   type ChatAction,
   type ChatState,
-  type ChatStateStore,
-} from "../../../../../src/features/chat/application/state/reducer";
+} from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
   type ChatMessageStreamSurfaceContext,

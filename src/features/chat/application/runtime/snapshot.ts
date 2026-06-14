@@ -1,4 +1,4 @@
-import type { ChatState } from "../state/reducer";
+import type { ChatState } from "../state/root-reducer";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { messageStreamItems } from "../state/message-stream";

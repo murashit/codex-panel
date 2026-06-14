@@ -4,7 +4,8 @@ import type { ThreadConversationSummary } from "../../../../domain/threads/trans
 import type { CodexPanelSettings } from "../../../../settings/model";
 import { generateThreadTitleWithCodex } from "../../../thread-title/generation";
 import { threadTitleContextFromConversationSummary, type ThreadTitleContext } from "../../../thread-title/model";
-import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
+import type { ChatAction, ChatState } from "../state/root-reducer";
+import type { ChatStateStore } from "../state/store";
 import { messageStreamItems } from "../state/message-stream";
 import { threadTitleContextFromMessageStreamItems } from "./title-context";
 

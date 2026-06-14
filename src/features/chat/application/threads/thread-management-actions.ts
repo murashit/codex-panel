@@ -22,7 +22,8 @@ import {
 } from "./messages";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
-import { chatTurnBusy, type ChatAction, type ChatState, type ChatStateStore } from "../state/reducer";
+import { chatTurnBusy, type ChatAction, type ChatState } from "../state/root-reducer";
+import type { ChatStateStore } from "../state/store";
 import { resumedThreadActionFromActiveRuntime } from "./resume";
 
 export interface ThreadManagementActionsHost {

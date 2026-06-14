@@ -1,6 +1,6 @@
 import type { CodexPanelSettings } from "../../../../settings/model";
 import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
-import type { ChatStateStore } from "../../application/state/reducer";
+import type { ChatStateStore } from "../../application/state/store";
 import type { ChatConnectionController } from "../../application/connection/connection-controller";
 import type { ChatInboundController } from "../../app-server/inbound/controller";
 import type { ChatRuntimeSettingsActions } from "../../application/runtime/settings-actions";

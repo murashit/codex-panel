@@ -135,7 +135,7 @@ export type Turn = TurnRecord;
     const messages = await lintSource(
       "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatState } from "../../application/state/reducer";
+import type { ChatState } from "../../application/state/root-reducer";
 
 export function mutateState(current: ChatState): void {
   current.activeThread.id = "thread";
@@ -150,7 +150,7 @@ export function mutateState(current: ChatState): void {
     const messages = await lintSource(
       "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatStateStore } from "../../application/state/reducer";
+import type { ChatStateStore } from "../../application/state/store";
 
 export function mutateState(store: ChatStateStore): void {
   store.getState().requests.userInputDrafts.set("key", "value");
@@ -165,7 +165,7 @@ export function mutateState(store: ChatStateStore): void {
     const messages = await lintSource(
       "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatStateStore } from "../../application/state/reducer";
+import type { ChatStateStore } from "../../application/state/store";
 
 export function mutateState(store: ChatStateStore): void {
   const requests = store.getState().requests;
@@ -181,7 +181,7 @@ export function mutateState(store: ChatStateStore): void {
     const messages = await lintSource(
       "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatStateStore } from "../../application/state/reducer";
+import type { ChatStateStore } from "../../application/state/store";
 
 export function mutateState(store: ChatStateStore): void {
   const current = store.getState();
@@ -197,7 +197,7 @@ export function mutateState(store: ChatStateStore): void {
     const messages = await lintSource(
       "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatState } from "../../application/state/reducer";
+import type { ChatState } from "../../application/state/root-reducer";
 
 export function updateThreadId(state: ChatState, response: { threadId?: string }): string | null {
   let threadId = state.activeThread.id;
@@ -214,7 +214,7 @@ export function updateThreadId(state: ChatState, response: { threadId?: string }
     const messages = await lintSource(
       "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatState } from "../../application/state/reducer";
+import type { ChatState } from "../../application/state/root-reducer";
 
 export function replaceSnapshot(current: ChatState, next: ChatState): ChatState {
   current = next;
@@ -230,7 +230,7 @@ export function replaceSnapshot(current: ChatState, next: ChatState): ChatState 
     const messages = await lintSource(
       "src/features/chat/domain/runtime/effective.ts",
       `
-import type { ChatStateStore } from "../../application/state/reducer";
+import type { ChatStateStore } from "../../application/state/store";
 
 export function mutateState(store: ChatStateStore): void {
   const requests = store.getState().requests;
@@ -367,7 +367,7 @@ export function timestamp(): number {
     const messages = await lintSource(
       "src/features/chat/domain/message-stream/selectors.ts",
       `
-import type { ChatStateStore } from "../../application/state/reducer";
+import type { ChatStateStore } from "../../application/state/store";
 
 export type Store = ChatStateStore;
 `,

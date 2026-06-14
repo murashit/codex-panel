@@ -11,8 +11,8 @@ import {
   type ChatRenameGeneratingUiState,
   type ChatRenameUiState,
   type ChatState,
-  type ChatStateStore,
-} from "../state/reducer";
+} from "../state/root-reducer";
+import type { ChatStateStore } from "../state/store";
 import { messageStreamItems } from "../state/message-stream";
 import { renameConnectedThread } from "./thread-management-actions";
 import { firstThreadTitleContextFromMessageStreamItems } from "./title-context";

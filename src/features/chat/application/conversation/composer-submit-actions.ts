@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import { submissionStateSnapshot } from "../state/selectors";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 import { parseSlashCommand } from "../composer/suggestions";
 import type { SlashCommandExecutionResult } from "./slash-command-execution";
 import type { SlashCommandName } from "../composer/slash-commands";

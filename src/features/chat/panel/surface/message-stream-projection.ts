@@ -4,7 +4,7 @@ import {
   type ChatAction,
   type ChatDisclosureBucket,
   type ChatDisclosureUiState,
-} from "../../application/state/reducer";
+} from "../../application/state/root-reducer";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
 import { implementPlanCandidateFromState } from "../../application/state/selectors";

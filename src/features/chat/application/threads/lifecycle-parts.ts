@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 import type { PluginSettingsRef } from "../ports/chat-host";
 import type { GoalActions } from "./goal-actions";
 import { HistoryController } from "./history-controller";

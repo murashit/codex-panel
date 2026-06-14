@@ -1,6 +1,6 @@
 import type { App, Component } from "obsidian";
 import type { AppServerClient } from "../../../app-server/connection/client";
-import { type ChatStateStore } from "../application/state/reducer";
+import type { ChatStateStore } from "../application/state/store";
 import type { ChatReconnectActions } from "../application/connection/reconnect-actions";
 import { PendingRequestController } from "../application/pending-requests/controller";
 import type { ChatRuntimeSettingsActions } from "../application/runtime/settings-actions";

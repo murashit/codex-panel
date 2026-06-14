@@ -14,7 +14,7 @@ import type { SlashCommandName } from "../composer/slash-commands";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import { submissionStateSnapshot } from "../state/selectors";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 import { currentModel, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 

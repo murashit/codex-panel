@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState, createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";

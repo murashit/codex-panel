@@ -2,7 +2,8 @@ import type { RequestId, ServerNotification, ServerRequest } from "../../../../a
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { classifyAppServerLog } from "./app-server-logs";
-import { activeTurnId, type ChatAction, type ChatState, type ChatStateStore } from "../../application/state/reducer";
+import { activeTurnId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
+import type { ChatStateStore } from "../../application/state/store";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/message-stream/factories/system-items";
 import type { ApprovalAction, PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";

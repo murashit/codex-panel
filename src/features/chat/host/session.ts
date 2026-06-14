@@ -46,14 +46,8 @@ import { runtimeSnapshotForChatState, type RuntimeSnapshot } from "../applicatio
 import { chatPanelComposerProjection } from "../panel/surface/composer-projection";
 import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell";
-import {
-  chatTurnBusy,
-  createChatStateStore,
-  type ChatAction,
-  type ChatConnectionPhase,
-  type ChatState,
-  type ChatStateStore,
-} from "../application/state/reducer";
+import { chatTurnBusy, type ChatAction, type ChatConnectionPhase, type ChatState } from "../application/state/root-reducer";
+import { createChatStateStore, type ChatStateStore } from "../application/state/store";
 import type { GoalActions } from "../application/threads/goal-actions";
 import type { AutoTitleController } from "../application/threads/auto-title-controller";
 import type { HistoryController } from "../application/threads/history-controller";

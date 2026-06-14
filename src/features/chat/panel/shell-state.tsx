@@ -2,7 +2,7 @@ import { createContext } from "preact";
 import { useContext } from "preact/hooks";
 import { batch, signal, type Signal } from "@preact/signals";
 
-import type { ChatState } from "../application/state/reducer";
+import type { ChatState } from "../application/state/root-reducer";
 
 export interface ChatPanelShellState {
   connection: Signal<ChatState["connection"]>;

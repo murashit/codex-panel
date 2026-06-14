@@ -3,7 +3,7 @@ import type { ArchiveExportAdapter } from "../../../thread-export/archive-markdo
 import { createGoalActions } from "./goal-actions";
 import { createSelectionActions } from "./selection-actions";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
-import type { ChatStateStore } from "../state/reducer";
+import type { ChatStateStore } from "../state/store";
 import type { PluginSettingsRef, ThreadSurfaceBroadcaster, WorkspacePanels } from "../ports/chat-host";
 import { createThreadNamingParts } from "./naming-parts";
 import { createThreadManagementActions } from "./thread-management-actions";

@@ -1,7 +1,8 @@
 import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { ChatConnectionPhase, ChatStateStore } from "../state/reducer";
+import type { ChatConnectionPhase } from "../state/root-reducer";
+import type { ChatStateStore } from "../state/store";
 import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../lifecycle";
 import {
   missingCommandConnectionErrorMessage,

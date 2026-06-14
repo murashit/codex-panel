@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act } from "preact/test-utils";
 
-import { createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
 import type { ChatPanelComposerShellState, ChatPanelMessageStreamShellState } from "../../../../src/features/chat/panel/shell-state";

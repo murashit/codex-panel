@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import { createChatStateStore } from "../../../../src/features/chat/application/state/reducer";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { AutoTitleController } from "../../../../src/features/chat/application/threads/auto-title-controller";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";

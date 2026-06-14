@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import { createChatState, createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/reducer";
+import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { implementPlanCandidateFromState } from "../../../../../src/features/chat/application/state/selectors";
 import {
   createPlanImplementation,

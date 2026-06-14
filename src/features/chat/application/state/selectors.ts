@@ -1,4 +1,4 @@
-import { activeTurnId as selectActiveTurnId, chatTurnBusy, pendingTurnStart } from "./reducer";
+import { activeTurnId as selectActiveTurnId, chatTurnBusy, pendingTurnStart } from "./root-reducer";
 import type {
   ChatActiveThreadState,
   ChatRuntimeState,
@@ -6,7 +6,7 @@ import type {
   ChatMessageStreamState,
   ChatTurnState,
   PendingTurnStart,
-} from "./reducer";
+} from "./root-reducer";
 import type { Thread } from "../../../../domain/threads/model";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { latestImplementablePlanFromItems } from "../../domain/message-stream/selectors";

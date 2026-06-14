@@ -1,4 +1,4 @@
-import type { PendingTurnStart } from "../state/reducer";
+import type { PendingTurnStart } from "../state/root-reducer";
 import type { MessageStreamFileMention, MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
 import type { MessageStreamItemProvenance } from "../../domain/message-stream/provenance";
 import { fileMentionsFromInput } from "../../domain/message-stream/format/file-mentions";

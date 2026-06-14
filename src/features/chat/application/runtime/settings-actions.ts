@@ -18,7 +18,8 @@ import {
   modelOverrideMessage,
   reasoningEffortOverrideMessage,
 } from "./messages";
-import type { ChatAction, ChatState, ChatStateStore } from "../state/reducer";
+import type { ChatAction, ChatState } from "../state/root-reducer";
+import type { ChatStateStore } from "../state/store";
 
 interface ApplyPendingThreadSettingsResult {
   ok: boolean;

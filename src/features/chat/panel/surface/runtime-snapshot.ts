@@ -1,5 +1,5 @@
 import { messageStreamItems } from "../../application/state/message-stream";
-import type { ChatState } from "../../application/state/reducer";
+import type { ChatState } from "../../application/state/root-reducer";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
 
