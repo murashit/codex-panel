@@ -10,7 +10,7 @@ export interface ArchivedThreadSectionState {
   exportFolderTemplate: string;
   exportFilenameTemplate: string;
   exportTags: string;
-  threads: Thread[];
+  threads: readonly Thread[];
   loaded: boolean;
   loading: boolean;
   status: string;
@@ -22,9 +22,9 @@ export interface ArchivedThreadSectionState {
 }
 
 export interface HookSectionState {
-  hooks: HookItem[];
-  warnings: string[];
-  errors: string[];
+  hooks: readonly HookItem[];
+  warnings: readonly string[];
+  errors: readonly string[];
   loaded: boolean;
   loading: boolean;
   status: string;

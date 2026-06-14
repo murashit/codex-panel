@@ -23,32 +23,32 @@ interface PluginHostServices {
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
   readonly workspace: {
-    openThreadInNewView(threadId: string): Promise<unknown>;
-    focusThreadInOpenView(threadId: string): Promise<boolean>;
-    openThreadInCurrentView(threadId: string): Promise<void>;
-    openThreadInAvailableView(threadId: string): Promise<void>;
-    openNewPanel(): Promise<unknown>;
-    getOpenPanelSnapshots(): ReturnType<WorkspacePanelCoordinator["getOpenPanelSnapshots"]>;
-    openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
+    openThreadInNewView: (threadId: string) => Promise<unknown>;
+    focusThreadInOpenView: (threadId: string) => Promise<boolean>;
+    openThreadInCurrentView: (threadId: string) => Promise<void>;
+    openThreadInAvailableView: (threadId: string) => Promise<void>;
+    openNewPanel: () => Promise<unknown>;
+    getOpenPanelSnapshots: () => ReturnType<WorkspacePanelCoordinator["getOpenPanelSnapshots"]>;
+    openTurnDiff: (state: ChatTurnDiffViewState) => Promise<void>;
   };
   readonly threadSurfaces: {
     notifyThreadArchived: CodexThreadsHost["notifyThreadArchived"];
-    notifyThreadRenamed(threadId: string, name: string | null): void;
-    refreshOpenViews(): void;
-    refreshThreadsViewLiveState(): void;
-    refreshSharedThreadListFromOpenSurface(): void;
-    applyThreadListSnapshot(threads: readonly Thread[]): void;
-    publishAppServerMetadata(metadata: SharedServerMetadata): void;
-    publishModels(models: Parameters<CodexPanelSettingTabHost["publishModels"]>[0]): void;
+    notifyThreadRenamed: (threadId: string, name: string | null) => void;
+    refreshOpenViews: () => void;
+    refreshThreadsViewLiveState: () => void;
+    refreshSharedThreadListFromOpenSurface: () => void;
+    applyThreadListSnapshot: (threads: readonly Thread[]) => void;
+    publishAppServerMetadata: (metadata: SharedServerMetadata) => void;
+    publishModels: (models: Parameters<CodexPanelSettingTabHost["publishModels"]>[0]) => void;
   };
   readonly sharedCache: {
-    refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-    cachedThreadList(): readonly Thread[] | null;
-    cachedAppServerMetadata(): SharedServerMetadata | null;
-    cachedModels(): ReturnType<CodexPanelSettingTabHost["cachedModels"]>;
+    refreshThreadList: (fetchThreads: () => Promise<readonly Thread[]>) => Promise<readonly Thread[]>;
+    cachedThreadList: () => readonly Thread[] | null;
+    cachedAppServerMetadata: () => SharedServerMetadata | null;
+    cachedModels: () => ReturnType<CodexPanelSettingTabHost["cachedModels"]>;
   };
   readonly appServerIdentity: {
-    publishAppServerIdentity(userAgent: string | null): void;
+    publishAppServerIdentity: (userAgent: string | null) => void;
   };
 }
 

@@ -6,7 +6,9 @@ import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/pro
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
+import { SettingsDynamicDataController } from "../../src/settings/dynamic-data-controller";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
+import type { CodexPanelSettingTabHost } from "../../src/settings/tab";
 import type { Thread } from "../../src/domain/threads/model";
 import { archivedThreadDisplayTitle } from "../../src/settings/archived-thread-title";
 import { notices } from "../mocks/obsidian";
@@ -191,6 +193,49 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).not.toContain("Old");
   });
 
+  it("clears dynamic settings data when the Codex executable changes", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const oldClient = settingsClient({
+      models: [model("gpt-old")],
+      hooks: [hook({ key: "hook-old", command: "old hook", currentHash: "oldhash" })],
+      threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
+    });
+    const newClient = settingsClient({
+      models: [model("gpt-new")],
+      hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
+      threads: [appServerThread({ id: "thread-new", preview: "New archived" })],
+    });
+    withShortLivedAppServerClientMock
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(oldClient))
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(newClient));
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    await flushPromises();
+
+    expect(tab.containerEl.textContent).toContain("gpt-old");
+    expect(tab.containerEl.textContent).toContain("Old archived");
+
+    const codexInput = inputForSetting(tab, "Codex executable");
+    if (!codexInput) throw new Error("Missing Codex executable input");
+    codexInput.value = "/opt/codex";
+    codexInput.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
+    expect(tab.containerEl.textContent).not.toContain("gpt-old");
+    expect(tab.containerEl.textContent).not.toContain("Old archived");
+
+    clickButtonByLabel(tab, "Refresh Codex data");
+    await flushPromises();
+
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+    expect(withShortLivedAppServerClientMock.mock.calls[1]?.[0]).toBe("/opt/codex");
+    expect(tab.containerEl.textContent).toContain("gpt-new");
+    expect(tab.containerEl.textContent).toContain("New archived");
+  });
+
   it("ignores stale settings data refresh results after a newer refresh completes", async () => {
     const firstModels = deferred<{ data: CatalogModel[] }>();
     const firstClient = settingsClient({
@@ -208,23 +253,20 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(secondClient),
       );
-    const tab = newSettingsTab();
+    const controller = new SettingsDynamicDataController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
 
-    tab.display();
+    const firstRefresh = controller.refreshSettingsData();
     await flushPromises();
-    const secondRefresh = (tab as unknown as { refreshSettingsData(): Promise<void> }).refreshSettingsData();
-    await secondRefresh;
+    await controller.refreshSettingsData();
 
-    expect(tab.containerEl.textContent).toContain("gpt-new");
-    expect(tab.containerEl.textContent).toContain("New");
+    expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
+    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
 
     firstModels.resolve({ data: [model("gpt-old")] });
-    await flushPromises();
+    await firstRefresh;
 
-    expect(tab.containerEl.textContent).toContain("gpt-new");
-    expect(tab.containerEl.textContent).toContain("New");
-    expect(tab.containerEl.textContent).not.toContain("gpt-old");
-    expect(tab.containerEl.textContent).not.toContain("Old");
+    expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
+    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
   });
 
   it("ignores stale hook reload results after a newer dynamic operation completes", async () => {
@@ -234,6 +276,9 @@ describe("settings tab", () => {
     const initialClient = settingsClient({
       hooks: [hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" })],
     });
+    const trustClient = {
+      trustHook: vi.fn().mockResolvedValue({}),
+    };
     const staleClient = settingsClient();
     staleClient.listHooks.mockReturnValue(staleHooks.promise);
     const newerClient = settingsClient({
@@ -244,29 +289,31 @@ describe("settings tab", () => {
         operation(initialClient),
       )
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(trustClient),
+      )
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(staleClient),
       )
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(newerClient),
       );
-    const tab = newSettingsTab();
-    const actions = settingsTabPrivateActions(tab);
+    const controller = new SettingsDynamicDataController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
 
-    tab.display();
+    await controller.refreshSettingsData();
+    const initialHook = controller.snapshot().hooks[0];
+    if (!initialHook) throw new Error("Expected initial hook to load");
+    const staleReload = controller.trustHook(initialHook);
     await flushPromises();
-    const staleReload = actions.loadHooks();
-    await flushPromises();
-    await actions.refreshSettingsData();
+    await controller.refreshSettingsData();
 
-    expect(tab.containerEl.textContent).toContain("newhash");
+    expect(controller.snapshot().hooks.map((hook) => hook.currentHash)).toEqual(["newhash"]);
 
     staleHooks.resolve({
       data: [{ cwd: "/vault", hooks: [hook({ key: "hook-old", command: "old hook", currentHash: "oldhash" })], warnings: [], errors: [] }],
     });
     await staleReload;
 
-    expect(tab.containerEl.textContent).toContain("newhash");
-    expect(tab.containerEl.textContent).not.toContain("oldhash");
+    expect(controller.snapshot().hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
   });
 
   it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
@@ -291,23 +338,23 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(newerClient),
       );
-    const tab = newSettingsTab({ refreshSharedThreadListFromOpenSurface });
-    const actions = settingsTabPrivateActions(tab);
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshSharedThreadListFromOpenSurface }), {
+      display: vi.fn(),
+      notify: vi.fn(),
+    });
 
-    tab.display();
+    await controller.refreshSettingsData();
+    const restore = controller.restoreArchivedThread("thread-old");
     await flushPromises();
-    const restore = actions.restoreArchivedThread("thread-old");
-    await flushPromises();
-    await actions.refreshSettingsData();
+    await controller.refreshSettingsData();
 
-    expect(tab.containerEl.textContent).toContain("New archived");
+    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
 
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
 
     expect(refreshSharedThreadListFromOpenSurface).not.toHaveBeenCalled();
-    expect(tab.containerEl.textContent).toContain("New archived");
-    expect(tab.containerEl.textContent).not.toContain("Old archived");
+    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
   });
 
   it("uses cached models initially and publishes refreshed models", async () => {
@@ -513,43 +560,46 @@ function newSettingsTab(
     }>;
   } = {},
 ): CodexPanelSettingTab {
-  return new CodexPanelSettingTab(
-    {} as never,
-    {} as never,
-    {
-      settings: {
-        codexPath: "codex",
-        threadNamingModel: options.settings?.threadNamingModel ?? null,
-        threadNamingEffort: options.settings?.threadNamingEffort ?? null,
-        rewriteSelectionModel: options.settings?.rewriteSelectionModel ?? null,
-        rewriteSelectionEffort: options.settings?.rewriteSelectionEffort ?? null,
-        showToolbar: true,
-        sendShortcut: options.sendShortcut ?? "enter",
-        scrollThreadFromComposerEdges: false,
-        archiveExportEnabled: false,
-        archiveExportFolderTemplate: "Codex Archives",
-        archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
-        archiveExportTags: "",
-      },
-      vaultPath: "/vault",
-      saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
-      refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
-      refreshSharedThreadListFromOpenSurface: options.refreshSharedThreadListFromOpenSurface ?? vi.fn(),
-      cachedModels: vi.fn(() => options.cachedModels ?? []),
-      publishModels: options.publishModels ?? vi.fn(),
-    } as never,
-  );
+  return new CodexPanelSettingTab({} as never, {} as never, settingsTabHost(options));
 }
 
-function settingsTabPrivateActions(tab: CodexPanelSettingTab): {
-  loadHooks(): Promise<void>;
-  refreshSettingsData(): Promise<void>;
-  restoreArchivedThread(threadId: string): Promise<void>;
-} {
-  return tab as unknown as {
-    loadHooks(): Promise<void>;
-    refreshSettingsData(): Promise<void>;
-    restoreArchivedThread(threadId: string): Promise<void>;
+function settingsTabHost(
+  options: {
+    saveSettings?: () => Promise<void>;
+    sendShortcut?: "enter" | "mod-enter";
+    cachedModels?: ModelMetadata[];
+    publishModels?: (models: ModelMetadata[]) => void;
+    refreshOpenViews?: () => void;
+    refreshSharedThreadListFromOpenSurface?: () => void;
+    settings?: Partial<{
+      threadNamingModel: string | null;
+      threadNamingEffort: string | null;
+      rewriteSelectionModel: string | null;
+      rewriteSelectionEffort: string | null;
+    }>;
+  } = {},
+): CodexPanelSettingTabHost {
+  return {
+    settings: {
+      codexPath: "codex",
+      threadNamingModel: options.settings?.threadNamingModel ?? null,
+      threadNamingEffort: options.settings?.threadNamingEffort ?? null,
+      rewriteSelectionModel: options.settings?.rewriteSelectionModel ?? null,
+      rewriteSelectionEffort: options.settings?.rewriteSelectionEffort ?? null,
+      showToolbar: true,
+      sendShortcut: options.sendShortcut ?? "enter",
+      scrollThreadFromComposerEdges: false,
+      archiveExportEnabled: false,
+      archiveExportFolderTemplate: "Codex Archives",
+      archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
+      archiveExportTags: "",
+    },
+    vaultPath: "/vault",
+    saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
+    refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
+    refreshSharedThreadListFromOpenSurface: options.refreshSharedThreadListFromOpenSurface ?? vi.fn(),
+    cachedModels: vi.fn(() => options.cachedModels ?? []),
+    publishModels: options.publishModels ?? vi.fn(),
   };
 }
 
