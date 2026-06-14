@@ -8,7 +8,7 @@ import {
 } from "../../../../src/features/chat/threads/title-context";
 
 describe("chat thread title context", () => {
-  it("extracts title context from streamed display items when completed turn items are not loaded", () => {
+  it("extracts title context from streamed message stream items when completed turn items are not loaded", () => {
     expect(
       threadTitleContextFromMessageStreamItems("turn", [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "自動命名を直したい", turnId: "turn" },
@@ -86,7 +86,7 @@ describe("chat thread title context", () => {
     });
   });
 
-  it("finds the first visible display item title context", () => {
+  it("finds the first visible message stream item title context", () => {
     expect(
       firstThreadTitleContextFromMessageStreamItems([
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "表示済み履歴から命名したい", turnId: "visible" },

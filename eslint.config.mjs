@@ -711,7 +711,7 @@ export default defineConfig([
             {
               group: nonAppServerBannedAppServerProtocolImportPatterns,
               message:
-                "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. The turn display/history protocol remains the only feature-side exception.",
+                "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
             },
             {
               group: generatedAppServerSourceImportPatterns,

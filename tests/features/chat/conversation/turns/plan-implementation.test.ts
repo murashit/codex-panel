@@ -18,6 +18,15 @@ const planItem = (id: string): MessageStreamItem => ({
   messageState: "completed",
 });
 
+const streamingPlanItem = (id: string): MessageStreamItem => ({
+  id,
+  kind: "message",
+  role: "assistant",
+  text: "Plan",
+  messageKind: "proposedPlan",
+  messageState: "streaming",
+});
+
 function resumeThread(stateStore: ChatStateStore, items: readonly MessageStreamItem[]): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
@@ -69,6 +78,15 @@ describe("createPlanImplementation", () => {
     stateStore.dispatch({ type: "composer/draft-set", draft: "edit first" });
 
     expect(implementPlanCandidateFromState(stateStore.getState())).toBe(latest);
+  });
+
+  it("ignores streaming proposed plans until they are implementable turn outcomes", () => {
+    const stateStore = createChatStateStore(createChatState());
+    const completed = planItem("completed");
+    const streaming = streamingPlanItem("streaming");
+    resumeThread(stateStore, [completed, streaming]);
+
+    expect(implementPlanCandidateFromState(stateStore.getState())).toBe(completed);
   });
 
   it("switches out of plan mode and submits the implementation prompt", async () => {

@@ -9,6 +9,7 @@ import type {
 } from "./reducer";
 import type { Thread } from "../../../domain/threads/model";
 import type { MessageStreamItem } from "../message-stream/items";
+import { latestImplementablePlanFromItems } from "../message-stream/selectors";
 import { messageStreamItems, messageStreamIsEmpty } from "./message-stream";
 
 export interface SubmissionStateSnapshot {
@@ -32,7 +33,7 @@ export function listedThreads(state: ChatState): readonly Thread[] {
   return state.threadList.listedThreads;
 }
 
-export function displayItemsEmpty(state: ChatState): boolean {
+export function messageStreamItemsEmpty(state: ChatState): boolean {
   return messageStreamIsEmpty(state.messageStream);
 }
 
@@ -60,8 +61,5 @@ export function implementPlanCandidateFromState(state: {
   if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
     return null;
   }
-  return (
-    [...messageStreamItems(state.messageStream)].reverse().find((item) => item.kind === "message" && item.messageKind === "proposedPlan") ??
-    null
-  );
+  return latestImplementablePlanFromItems(messageStreamItems(state.messageStream));
 }

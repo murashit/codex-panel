@@ -109,8 +109,8 @@ export const convert = threadTokenUsageFromAppServerUsage;
     expect(messages).toContain("no-restricted-imports");
   });
 
-  it("allows turn protocol imports as the feature-side protocol exception", async () => {
-    const messages = await lintSource(
+  it("allows turn protocol imports at chat ingestion and message-stream conversion boundaries", async () => {
+    const conversionMessages = await lintSource(
       "src/features/chat/message-stream/from-turn-items.ts",
       `
 import type { TurnItem } from "../../../app-server/protocol/turn";
@@ -118,8 +118,17 @@ import type { TurnItem } from "../../../app-server/protocol/turn";
 export type Item = TurnItem;
 `,
     );
+    const ingestionMessages = await lintSource(
+      "src/features/chat/protocol/inbound/notification-plan.ts",
+      `
+import type { TurnRecord } from "../../../../app-server/protocol/turn";
 
-    expect(messages).not.toContain("no-restricted-imports");
+export type Turn = TurnRecord;
+`,
+    );
+
+    expect(conversionMessages).not.toContain("no-restricted-imports");
+    expect(ingestionMessages).not.toContain("no-restricted-imports");
   });
 
   it("reports direct ChatState alias mutation", async () => {

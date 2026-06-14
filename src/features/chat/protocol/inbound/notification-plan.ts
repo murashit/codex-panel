@@ -1,12 +1,8 @@
 import { activeThreadSettingsAppliedAction } from "../../state/actions";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
-import {
-  completedConversationSummaryFromTurnRecord,
-  type FileUpdateChange,
-  type TurnItem,
-  type TurnRecord,
-} from "../../../../app-server/protocol/turn";
+import type { FileUpdateChange } from "../../../../app-server/protocol/file-change";
+import { completedConversationSummaryFromTurnRecord, type TurnItem, type TurnRecord } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
@@ -491,13 +487,13 @@ function reconciledCompletedTurnItems(state: ChatState, turn: TurnRecord): reado
   const stateMessageStreamItems = items.map((item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item);
   let mergedTurnItems = stateMessageStreamItems
     .filter((item) => item.turnId === turn.id)
-    .filter((item) => !isOptimisticUserMessage(item, serverUserClientIds, serverUserFallbackTexts));
+    .filter((item) => !isReconciledOptimisticUserMessage(item, turn.id, serverUserClientIds, serverUserFallbackTexts));
   for (const item of turnItems) {
     mergedTurnItems = upsertMessageStreamItemById(mergedTurnItems, item);
   }
   const retainedItems = stateMessageStreamItems
     .filter((item) => item.turnId !== turn.id)
-    .filter((item) => !isOptimisticUserMessage(item, serverUserClientIds, serverUserFallbackTexts));
+    .filter((item) => !isReconciledOptimisticUserMessage(item, turn.id, serverUserClientIds, serverUserFallbackTexts));
   return [...retainedItems, ...mergedTurnItems];
 }
 
@@ -535,9 +531,24 @@ function serverUserMessageForOptimisticItem(
   return serverUserMessagesByClientId.get(item.id) ?? null;
 }
 
-function isOptimisticUserMessage(item: MessageStreamItem, serverUserClientIds: Set<string>, serverUserFallbackTexts: Set<string>): boolean {
+function isReconciledOptimisticUserMessage(
+  item: MessageStreamItem,
+  completedTurnId: string,
+  serverUserClientIds: Set<string>,
+  serverUserFallbackTexts: Set<string>,
+): boolean {
   if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return false;
-  return serverUserClientIds.has(item.id) || serverUserFallbackTexts.has(item.text);
+  return serverUserClientIds.has(item.id) || isFallbackOptimisticUserMessageForTurn(item, completedTurnId, serverUserFallbackTexts);
+}
+
+function isFallbackOptimisticUserMessageForTurn(
+  item: MessageStreamMessageItem & { role: "user" },
+  completedTurnId: string,
+  serverUserFallbackTexts: Set<string>,
+): boolean {
+  if (serverUserFallbackTexts.size === 0) return false;
+  if (item.turnId && item.turnId !== completedTurnId) return false;
+  return serverUserFallbackTexts.has(item.copyText ?? item.text);
 }
 
 function isLocalUserMessageId(id: string): boolean {

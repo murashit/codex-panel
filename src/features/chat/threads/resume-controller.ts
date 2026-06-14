@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ThreadTokenUsage } from "../../../domain/runtime/metrics";
-import { activeThreadId, canSwitchToThread, displayItemsEmpty, listedThreads } from "../state/selectors";
+import { activeThreadId, canSwitchToThread, listedThreads, messageStreamItemsEmpty } from "../state/selectors";
 import type { ChatStateStore } from "../state/reducer";
 import type { RestorationController } from "./restoration-controller";
 import { resumedThreadActionFromAppServerResponse } from "./resume";
@@ -53,7 +53,7 @@ export class ResumeController {
       if (this.isStale(resume)) return;
       await this.host.syncThreadGoal(response.thread.id);
       if (this.isStale(resume)) return;
-      const renderFallbackMessage = displayItemsEmpty(this.host.stateStore.getState());
+      const renderFallbackMessage = messageStreamItemsEmpty(this.host.stateStore.getState());
       if (renderFallbackMessage) {
         this.host.addSystemMessage(resumedThreadMessage(response.thread.id));
       }

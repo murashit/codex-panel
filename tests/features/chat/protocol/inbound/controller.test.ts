@@ -380,7 +380,7 @@ describe("ChatInboundController", () => {
       expect(chatStateMessageStreamItems(state)[0]?.turnId).toBeUndefined();
     });
 
-    it("keeps repeated hook runs with the same run id as separate display items", () => {
+    it("keeps repeated hook runs with the same run id as separate message stream items", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
       state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
@@ -1136,7 +1136,7 @@ describe("ChatInboundController", () => {
       expect(chatStateMessageStreamItems(state).some((item) => item.id === "local-user-1")).toBe(false);
     });
 
-    it("reconciles optimistic user echoes by client id before falling back to text only when client ids are absent", () => {
+    it("reconciles optimistic user echoes by client id before falling back to same-turn text only when client ids are absent", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
       state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
@@ -1193,6 +1193,14 @@ describe("ChatInboundController", () => {
           text: "fallback text",
           turnId: "turn-active",
         },
+        {
+          id: "local-user-other-turn",
+          kind: "message",
+          messageKind: "user",
+          role: "user",
+          text: "fallback text",
+          turnId: "turn-other",
+        },
       ]);
       const fallbackControllerWithoutClientId = controllerForState(fallbackStateWithoutClientId);
 
@@ -1220,9 +1228,12 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(fallbackStateWithoutClientId)).toEqual([
-        expect.objectContaining({ id: "server-u1", text: "fallback text" }),
-      ]);
+      expect(chatStateMessageStreamItems(fallbackStateWithoutClientId)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "server-u1", text: "fallback text" }),
+          expect.objectContaining({ id: "local-user-other-turn", text: "fallback text" }),
+        ]),
+      );
       expect(chatStateMessageStreamItems(fallbackStateWithoutClientId).some((item) => item.id === "local-user-without-client-id")).toBe(
         false,
       );

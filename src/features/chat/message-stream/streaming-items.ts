@@ -1,4 +1,4 @@
-import type { FileUpdateChange } from "../../../app-server/protocol/turn";
+import type { FileUpdateChange } from "../../../app-server/protocol/file-change";
 import type { MessageStreamItem, MessageStreamItemKind } from "./items";
 import { normalizeFileChanges } from "./from-turn-items";
 

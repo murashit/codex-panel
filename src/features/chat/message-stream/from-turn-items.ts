@@ -7,7 +7,8 @@ import type {
   MessageStreamPrimaryTarget,
 } from "./items";
 import type { HistoricalTurn } from "../../../domain/threads/history";
-import type { FileUpdateChange, TurnItem } from "../../../app-server/protocol/turn";
+import type { FileUpdateChange } from "../../../app-server/protocol/file-change";
+import type { TurnItem } from "../../../app-server/protocol/turn";
 import { definedProp } from "../../../utils";
 import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../domain/threads/reference";
 import { turnUserItemText } from "../../../app-server/protocol/turn";

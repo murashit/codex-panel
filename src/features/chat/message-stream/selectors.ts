@@ -20,6 +20,14 @@ export function forkCandidatesFromItems(items: readonly MessageStreamItem[]): re
   return [...turnOutcomeItemsByTurn.values()];
 }
 
+export function latestProposedPlanFromItems(items: readonly MessageStreamItem[]): MessageStreamItem | null {
+  return [...timelineItemsFromMessageStreamItems(items)].reverse().find((item) => item.semanticKind === "proposedPlan")?.streamItem ?? null;
+}
+
+export function latestImplementablePlanFromItems(items: readonly MessageStreamItem[]): MessageStreamItem | null {
+  return [...timelineItemsFromMessageStreamItems(items)].reverse().find((item) => item.actions.canImplementPlan)?.streamItem ?? null;
+}
+
 export function isAssistantAuthoredMessage(item: MessageStreamItem): item is AssistantAuthoredMessageStreamItem {
   return item.kind === "message" && (item.messageKind === "assistantResponse" || item.messageKind === "proposedPlan");
 }

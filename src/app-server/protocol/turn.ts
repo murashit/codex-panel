@@ -1,4 +1,3 @@
-import type { FileUpdateChange as GeneratedFileUpdateChange } from "../../generated/app-server/v2/FileUpdateChange";
 import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn as GeneratedTurnRecord } from "../../generated/app-server/v2/Turn";
 import type { UserInput } from "../../generated/app-server/v2/UserInput";
@@ -9,7 +8,6 @@ import {
   type ThreadTranscriptEntry,
 } from "../../domain/threads/transcript";
 
-export type FileUpdateChange = GeneratedFileUpdateChange;
 export type TurnItem = GeneratedTurnItem;
 export type TurnRecord = GeneratedTurnRecord;
 

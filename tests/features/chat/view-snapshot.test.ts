@@ -16,7 +16,7 @@ describe("chat view snapshots", () => {
       latestProposedPlanItem([
         { id: "first", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "plan", messageState: "completed" },
         { id: "user", kind: "message", messageKind: "user", role: "user", text: "ok" },
-        { id: "latest", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "plan", messageState: "completed" },
+        { id: "latest", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "plan", messageState: "streaming" },
       ])?.id,
     ).toBe("latest");
   });
