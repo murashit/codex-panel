@@ -41,17 +41,21 @@ export class AutoTitleController {
     const hadTurnsBeforeThisCompletion = this.activeThreadHadTurns;
     this.activeThreadHadTurns = true;
 
-    if (hadTurnsBeforeThisCompletion || !completedSummary) return;
+    if (hadTurnsBeforeThisCompletion) return;
     if (this.threadHasTitle(threadId)) return;
     if (this.attemptedThreadIds.has(threadId) || this.inFlightThreadIds.has(threadId)) return;
-    const context =
-      threadTitleContextFromConversationSummary(completedSummary) ??
-      threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(this.state.messageStream));
+    const context = this.titleContextForCompletedTurn(turnId, completedSummary);
     if (!context) return;
 
     this.attemptedThreadIds.add(threadId);
     this.inFlightThreadIds.add(threadId);
     void this.generateAndSetTitle(threadId, context);
+  }
+
+  private titleContextForCompletedTurn(turnId: string, completedSummary: ThreadConversationSummary | null): ThreadTitleContext | null {
+    const visibleContext = threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(this.state.messageStream));
+    if (visibleContext) return visibleContext;
+    return completedSummary ? threadTitleContextFromConversationSummary(completedSummary) : null;
   }
 
   private async generateAndSetTitle(threadId: string, context: ThreadTitleContext): Promise<void> {

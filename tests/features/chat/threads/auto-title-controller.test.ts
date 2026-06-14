@@ -8,6 +8,75 @@ import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
 describe("AutoTitleController", () => {
+  it("prefers visible turn items over completed turn summaries for active streamed turns", async () => {
+    const setThreadName = vi.fn().mockResolvedValue({});
+    const generateThreadTitle = vi.fn().mockResolvedValue("Visible context title");
+    const { controller, stateStore } = controllerFixture({
+      currentClient: () => fakeClient({ setThreadName }),
+      generateThreadTitle,
+    });
+    stateStore.dispatch({
+      type: "message-stream/items-replaced",
+      items: [
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Visible streamed request.", turnId: "turn" },
+        {
+          id: "a1",
+          kind: "message",
+          messageKind: "assistantResponse",
+          role: "assistant",
+          text: "Visible streamed response.",
+          messageState: "completed",
+          turnId: "turn",
+        },
+      ],
+    });
+
+    controller.maybeAutoTitleThread("thread", "turn", {
+      userText: "Completed payload request.",
+      assistantText: "Completed payload response.",
+    });
+    await flushPromises();
+
+    expect(generateThreadTitle).toHaveBeenCalledWith({
+      userRequest: "Visible streamed request.",
+      assistantResponse: "Visible streamed response.",
+    });
+    expect(setThreadName).toHaveBeenCalledWith("thread", "Visible context title");
+  });
+
+  it("uses visible turn items when completed turn summaries are unavailable", async () => {
+    const setThreadName = vi.fn().mockResolvedValue({});
+    const generateThreadTitle = vi.fn().mockResolvedValue("Visible context title");
+    const { controller, stateStore } = controllerFixture({
+      currentClient: () => fakeClient({ setThreadName }),
+      generateThreadTitle,
+    });
+    stateStore.dispatch({
+      type: "message-stream/items-replaced",
+      items: [
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Please diagnose auto naming.", turnId: "turn" },
+        {
+          id: "a1",
+          kind: "message",
+          messageKind: "assistantResponse",
+          role: "assistant",
+          text: "I found the regression.",
+          messageState: "completed",
+          turnId: "turn",
+        },
+      ],
+    });
+
+    controller.maybeAutoTitleThread("thread", "turn", null);
+    await flushPromises();
+
+    expect(generateThreadTitle).toHaveBeenCalledWith({
+      userRequest: "Please diagnose auto naming.",
+      assistantResponse: "I found the regression.",
+    });
+    expect(setThreadName).toHaveBeenCalledWith("thread", "Visible context title");
+  });
+
   it("does not apply a completed auto-title after the thread leaves the list", async () => {
     const generatedTitle = deferred<string | null>();
     const setThreadName = vi.fn().mockResolvedValue({});
