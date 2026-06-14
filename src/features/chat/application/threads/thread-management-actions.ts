@@ -4,7 +4,7 @@ import { inheritedForkThreadName, normalizeExplicitThreadName } from "../../../.
 import type { CodexPanelSettings } from "../../../../settings/model";
 import type { ArchiveExportAdapter } from "../../../thread-export/archive-markdown";
 import { exportArchivedThreadMarkdown } from "../../../thread-export/archive-markdown";
-import type { CodexChatHost } from "../ports/chat-host";
+import type { PluginSettingsRef, ThreadSurfaceBroadcaster, WorkspacePanels } from "../ports/chat-host";
 import {
   archivedSourceOpenForkFailedMessage,
   finishBeforeArchivingThreadsMessage,
@@ -58,7 +58,9 @@ export interface ThreadManagementActionsContext {
   obsidian: {
     archiveAdapter: () => ArchiveExportAdapter;
   };
-  plugin: CodexChatHost;
+  settingsRef: PluginSettingsRef;
+  workspace: Pick<WorkspacePanels, "openThreadInNewView">;
+  threadSurfaces: Pick<ThreadSurfaceBroadcaster, "notifyThreadArchived" | "notifyThreadRenamed" | "refreshSharedThreadListFromOpenSurface">;
   stateStore: ChatStateStore;
   client: {
     currentClient: () => AppServerClient | null;
@@ -92,11 +94,11 @@ type ConnectedRenameThreadHost = Pick<
 >;
 
 export function createThreadManagementActions(context: ThreadManagementActionsContext): ThreadManagementActions {
-  const { obsidian, plugin, stateStore, client, status, notify, thread, composer } = context;
+  const { obsidian, settingsRef, workspace, threadSurfaces, stateStore, client, status, notify, thread, composer } = context;
   const host: ThreadManagementActionsHost = {
     stateStore,
-    vaultPath: plugin.vaultPath,
-    settings: () => plugin.settings,
+    vaultPath: settingsRef.vaultPath,
+    settings: () => settingsRef.settings,
     archiveAdapter: obsidian.archiveAdapter,
     ensureConnected: client.ensureConnected,
     currentClient: client.currentClient,
@@ -104,16 +106,16 @@ export function createThreadManagementActions(context: ThreadManagementActionsCo
     showNotice: notify.showNotice,
     setStatus: status.set,
     setComposerText: composer.setText,
-    openThreadInNewView: (threadId) => plugin.openThreadInNewView(threadId),
+    openThreadInNewView: workspace.openThreadInNewView,
     openThreadInCurrentPanel: thread.selectThread,
-    notifyThreadArchived: plugin.notifyThreadArchived.bind(plugin),
+    notifyThreadArchived: threadSurfaces.notifyThreadArchived,
     notifyThreadRenamed: (threadId, name) => {
-      plugin.notifyThreadRenamed(threadId, name);
+      threadSurfaces.notifyThreadRenamed(threadId, name);
     },
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     refreshThreads: thread.refreshThreads,
     refreshSharedThreadListFromOpenSurface: () => {
-      plugin.refreshSharedThreadListFromOpenSurface();
+      threadSurfaces.refreshSharedThreadListFromOpenSurface();
     },
   };
 

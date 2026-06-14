@@ -1242,30 +1242,61 @@ async function flushAsyncTicks(): Promise<void> {
   }
 }
 
-function chatHost(overrides: Partial<CodexChatHost> = {}): CodexChatHost {
+interface ChatHostFixtureOverrides {
+  settings?: Partial<typeof DEFAULT_SETTINGS>;
+  vaultPath?: string;
+  openThreadInNewView?: CodexChatHost["workspace"]["openThreadInNewView"];
+  focusThreadInOpenView?: CodexChatHost["workspace"]["focusThreadInOpenView"];
+  openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
+  notifyThreadArchived?: CodexChatHost["threadSurfaces"]["notifyThreadArchived"];
+  notifyThreadRenamed?: CodexChatHost["threadSurfaces"]["notifyThreadRenamed"];
+  refreshSharedThreadListFromOpenSurface?: CodexChatHost["threadSurfaces"]["refreshSharedThreadListFromOpenSurface"];
+  refreshThreadsViewLiveState?: CodexChatHost["threadSurfaces"]["refreshThreadsViewLiveState"];
+  applyThreadListSnapshot?: CodexChatHost["threadSurfaces"]["applyThreadListSnapshot"];
+  publishAppServerMetadata?: CodexChatHost["threadSurfaces"]["publishAppServerMetadata"];
+  refreshThreadList?: CodexChatHost["sharedCache"]["refreshThreadList"];
+  cachedThreadList?: CodexChatHost["sharedCache"]["cachedThreadList"];
+  cachedAppServerMetadata?: CodexChatHost["sharedCache"]["cachedAppServerMetadata"];
+  publishAppServerIdentity?: CodexChatHost["appServerIdentity"]["publishAppServerIdentity"];
+}
+
+function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    codexPath: "codex",
+    sendShortcut: "enter" as const,
+    ...overrides.settings,
+  };
   return {
-    settings: {
-      ...DEFAULT_SETTINGS,
-      codexPath: "codex",
-      sendShortcut: "enter",
+    settingsRef: {
+      settings,
+      vaultPath: overrides.vaultPath ?? "/vault",
     },
-    vaultPath: "/vault",
-    openThreadInNewView: vi.fn(),
-    focusThreadInOpenView: vi.fn().mockResolvedValue(false),
-    openTurnDiff: vi.fn(),
-    notifyThreadArchived: vi.fn(),
-    notifyThreadRenamed: vi.fn(),
-    refreshSharedThreadListFromOpenSurface: vi.fn(),
-    refreshThreadsViewLiveState: vi.fn(),
-    applyThreadListSnapshot: vi.fn(),
-    refreshThreadList: vi.fn(
-      (fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>,
-    ) as CodexChatHost["refreshThreadList"],
-    cachedThreadList: vi.fn(() => null),
-    publishAppServerMetadata: vi.fn(),
-    publishAppServerIdentity: vi.fn(),
-    cachedAppServerMetadata: vi.fn(() => null),
-    ...overrides,
+    workspace: {
+      openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
+      focusThreadInOpenView: overrides.focusThreadInOpenView ?? vi.fn().mockResolvedValue(false),
+      openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
+    },
+    threadSurfaces: {
+      notifyThreadArchived: overrides.notifyThreadArchived ?? vi.fn(),
+      notifyThreadRenamed: overrides.notifyThreadRenamed ?? vi.fn(),
+      refreshSharedThreadListFromOpenSurface: overrides.refreshSharedThreadListFromOpenSurface ?? vi.fn(),
+      refreshThreadsViewLiveState: overrides.refreshThreadsViewLiveState ?? vi.fn(),
+      applyThreadListSnapshot: overrides.applyThreadListSnapshot ?? vi.fn(),
+      publishAppServerMetadata: overrides.publishAppServerMetadata ?? vi.fn(),
+    },
+    sharedCache: {
+      refreshThreadList:
+        overrides.refreshThreadList ??
+        (vi.fn(
+          (fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>,
+        ) as CodexChatHost["sharedCache"]["refreshThreadList"]),
+      cachedThreadList: overrides.cachedThreadList ?? vi.fn(() => null),
+      cachedAppServerMetadata: overrides.cachedAppServerMetadata ?? vi.fn(() => null),
+    },
+    appServerIdentity: {
+      publishAppServerIdentity: overrides.publishAppServerIdentity ?? vi.fn(),
+    },
   };
 }
 

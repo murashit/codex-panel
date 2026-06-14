@@ -4,7 +4,7 @@ import { createGoalActions } from "./goal-actions";
 import { createSelectionActions } from "./selection-actions";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../ports/chat-host";
+import type { PluginSettingsRef, ThreadSurfaceBroadcaster, WorkspacePanels } from "../ports/chat-host";
 import { createThreadNamingParts } from "./naming-parts";
 import { createThreadManagementActions } from "./thread-management-actions";
 import { createThreadLifecycleParts } from "./lifecycle-parts";
@@ -13,7 +13,9 @@ interface ThreadPartsContext {
   obsidian: {
     archiveAdapter: () => ArchiveExportAdapter;
   };
-  plugin: CodexChatHost;
+  settingsRef: PluginSettingsRef;
+  workspace: Pick<WorkspacePanels, "focusThreadInOpenView" | "openThreadInNewView">;
+  threadSurfaces: ThreadSurfaceBroadcaster;
   state: {
     stateStore: ChatStateStore;
   };
@@ -54,12 +56,27 @@ interface ThreadPartsContext {
 }
 
 export function createThreadParts(context: ThreadPartsContext) {
-  const { obsidian, plugin, state, thread, status, notify, liveState, scroll, client, composer, lifecycle } = context;
+  const {
+    obsidian,
+    settingsRef,
+    workspace,
+    threadSurfaces,
+    state,
+    thread,
+    status,
+    notify,
+    liveState,
+    scroll,
+    client,
+    composer,
+    lifecycle,
+  } = context;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
 
   const naming = createThreadNamingParts({
-    plugin,
+    settingsRef,
+    threadSurfaces,
     stateStore,
     client: {
       currentClient,
@@ -73,7 +90,9 @@ export function createThreadParts(context: ThreadPartsContext) {
 
   const managementActions = createThreadManagementActions({
     obsidian,
-    plugin,
+    settingsRef,
+    workspace,
+    threadSurfaces,
     stateStore,
     client: {
       currentClient,
@@ -99,7 +118,7 @@ export function createThreadParts(context: ThreadPartsContext) {
     refreshLiveState: liveState.refresh,
   });
   const threadLifecycle = createThreadLifecycleParts({
-    plugin,
+    settingsRef,
     stateStore,
     client: {
       currentClient,
@@ -134,7 +153,7 @@ export function createThreadParts(context: ThreadPartsContext) {
 }
 
 interface ThreadSelectionActionsContext {
-  plugin: CodexChatHost;
+  workspace: Pick<WorkspacePanels, "focusThreadInOpenView">;
   state: {
     stateStore: ChatStateStore;
   };
@@ -152,13 +171,13 @@ export function createThreadSelectionActions(
     closeForThreadSelection: () => void;
   },
 ) {
-  const { plugin, thread, status } = context;
+  const { workspace, thread, status } = context;
   const stateStore = context.state.stateStore;
 
   return createSelectionActions({
     stateStore,
     closeForThreadSelection: refs.closeForThreadSelection,
-    focusThreadInOpenView: (threadId) => plugin.focusThreadInOpenView(threadId),
+    focusThreadInOpenView: workspace.focusThreadInOpenView,
     resumeThread: thread.resumeThread,
     addSystemMessage: status.addSystemMessage,
   });

@@ -165,35 +165,42 @@ export default class CodexPanelPlugin extends Plugin {
 
   private chatHost(): CodexChatHost {
     return {
-      settings: this.settings,
-      vaultPath: this.vaultPath,
-      openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
-      focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
-      openTurnDiff: (state) => this.openTurnDiff(state),
-      notifyThreadArchived: (threadId) => {
-        this.threadSurfaces.notifyThreadArchived(threadId);
+      settingsRef: this,
+      workspace: {
+        openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
+        focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
+        openTurnDiff: (state) => this.openTurnDiff(state),
       },
-      notifyThreadRenamed: (threadId, name) => {
-        this.threadSurfaces.notifyThreadRenamed(threadId, name);
+      threadSurfaces: {
+        notifyThreadArchived: (threadId) => {
+          this.threadSurfaces.notifyThreadArchived(threadId);
+        },
+        notifyThreadRenamed: (threadId, name) => {
+          this.threadSurfaces.notifyThreadRenamed(threadId, name);
+        },
+        refreshThreadsViewLiveState: () => {
+          this.threadSurfaces.refreshThreadsViewLiveState();
+        },
+        refreshSharedThreadListFromOpenSurface: () => {
+          this.threadSurfaces.refreshSharedThreadListFromOpenSurface();
+        },
+        applyThreadListSnapshot: (threads) => {
+          this.applyThreadListSnapshot(threads);
+        },
+        publishAppServerMetadata: (metadata) => {
+          this.publishAppServerMetadata(metadata);
+        },
       },
-      refreshThreadsViewLiveState: () => {
-        this.threadSurfaces.refreshThreadsViewLiveState();
+      sharedCache: {
+        refreshThreadList: (fetchThreads) => this.refreshThreadList(fetchThreads),
+        cachedThreadList: () => this.cachedThreadList(),
+        cachedAppServerMetadata: () => this.sharedAppServerCache.cachedAppServerMetadata(this.sharedAppServerCacheContext()),
       },
-      refreshSharedThreadListFromOpenSurface: () => {
-        this.threadSurfaces.refreshSharedThreadListFromOpenSurface();
+      appServerIdentity: {
+        publishAppServerIdentity: (userAgent) => {
+          this.publishAppServerIdentity(userAgent);
+        },
       },
-      applyThreadListSnapshot: (threads) => {
-        this.applyThreadListSnapshot(threads);
-      },
-      refreshThreadList: (fetchThreads) => this.refreshThreadList(fetchThreads),
-      cachedThreadList: () => this.cachedThreadList(),
-      publishAppServerMetadata: (metadata) => {
-        this.publishAppServerMetadata(metadata);
-      },
-      publishAppServerIdentity: (userAgent) => {
-        this.publishAppServerIdentity(userAgent);
-      },
-      cachedAppServerMetadata: () => this.sharedAppServerCache.cachedAppServerMetadata(this.sharedAppServerCacheContext()),
     };
   }
 

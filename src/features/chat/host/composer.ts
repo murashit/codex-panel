@@ -5,14 +5,14 @@ import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effectiv
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { activeTurnId, type ChatStateStore } from "../application/state/reducer";
 import type { ChatPanelComposerShellState } from "../panel/shell-state";
-import type { CodexChatHost } from "../application/ports/chat-host";
+import type { PluginSettingsRef } from "../application/ports/chat-host";
 import type { ChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import { ChatComposerController } from "../panel/composer-controller";
 import type { ChatPanelComposerProjection } from "../panel/surface/model";
 
 export interface ConversationComposerContext {
   app: App;
-  plugin: CodexChatHost;
+  settingsRef: PluginSettingsRef;
   stateStore: ChatStateStore;
   viewId: string;
   surface: {
@@ -36,14 +36,14 @@ export function createConversationComposer(
   context: ConversationComposerContext,
   refs: ConversationComposerRefs,
 ): ConversationComposerParts {
-  const { app, plugin, stateStore, viewId, surface, liveState } = context;
+  const { app, settingsRef, stateStore, viewId, surface, liveState } = context;
   const scrollBridge = new MessageStreamScrollBridge();
   const controller = new ChatComposerController({
     app,
     stateStore,
     viewId,
-    sendShortcut: () => plugin.settings.sendShortcut,
-    scrollThreadFromComposerEdges: () => plugin.settings.scrollThreadFromComposerEdges,
+    sendShortcut: () => settingsRef.settings.sendShortcut,
+    scrollThreadFromComposerEdges: () => settingsRef.settings.scrollThreadFromComposerEdges,
     canInterrupt: (state) => {
       return state.turn.lifecycle.kind !== "idle" && Boolean(state.activeThread.id && activeTurnId(state));
     },

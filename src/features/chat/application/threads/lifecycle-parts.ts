@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/reducer";
-import type { CodexChatHost } from "../ports/chat-host";
+import type { PluginSettingsRef } from "../ports/chat-host";
 import type { GoalActions } from "./goal-actions";
 import { HistoryController } from "./history-controller";
 import { createIdentitySync } from "./identity-sync";
@@ -10,7 +10,7 @@ import { ResumeController } from "./resume-controller";
 import { RestorationController } from "./restoration-controller";
 
 export interface ThreadLifecyclePartsContext {
-  plugin: CodexChatHost;
+  settingsRef: PluginSettingsRef;
   stateStore: ChatStateStore;
   client: {
     currentClient: () => AppServerClient | null;
@@ -50,7 +50,7 @@ export interface ThreadLifecycleParts {
 }
 
 export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext): ThreadLifecycleParts {
-  const { plugin, stateStore, client, lifecycle, thread, status, liveState, scroll, goals, resetThreadTurnPresence } = context;
+  const { settingsRef, stateStore, client, lifecycle, thread, status, liveState, scroll, goals, resetThreadTurnPresence } = context;
   const { deferredTasks, resumeWork } = lifecycle;
   const history = new HistoryController({
     stateStore,
@@ -75,7 +75,7 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
   });
   const resume = new ResumeController({
     stateStore,
-    vaultPath: plugin.vaultPath,
+    vaultPath: settingsRef.vaultPath,
     resumeWork,
     history,
     restoration,

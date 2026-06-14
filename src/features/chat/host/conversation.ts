@@ -10,7 +10,7 @@ import type { HistoryController } from "../application/threads/history-controlle
 import type { ChatInboundController } from "../app-server/inbound/controller";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatPanelComposerShellState } from "../panel/shell-state";
-import type { CodexChatHost } from "../application/ports/chat-host";
+import type { PluginSettingsRef, WorkspacePanels } from "../application/ports/chat-host";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
 import type { ChatPanelComposerProjection } from "../panel/surface/model";
@@ -23,7 +23,8 @@ interface ConversationPartsContext {
     owner: Component;
     viewId: string;
   };
-  plugin: CodexChatHost;
+  settingsRef: PluginSettingsRef;
+  workspace: WorkspacePanels;
   state: {
     stateStore: ChatStateStore;
   };
@@ -78,7 +79,7 @@ export function createConversationParts(
     history: HistoryController;
   },
 ) {
-  const { plugin, state, surface, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
+  const { settingsRef, workspace, state, surface, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
   const { app, owner, viewId } = context.obsidian;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
@@ -86,7 +87,7 @@ export function createConversationParts(
   const composer = createConversationComposer(
     {
       app,
-      plugin,
+      settingsRef,
       stateStore,
       viewId,
       surface: {
@@ -112,7 +113,7 @@ export function createConversationParts(
 
   const turnActions = createConversationTurnActions(
     {
-      vaultPath: plugin.vaultPath,
+      vaultPath: settingsRef.vaultPath,
       stateStore,
       client: {
         currentClient,
@@ -150,7 +151,7 @@ export function createConversationParts(
       store: stateStore,
     },
     workspace: {
-      vaultPath: plugin.vaultPath,
+      vaultPath: settingsRef.vaultPath,
     },
     scroll: {
       consumeIntent: () => lifecycle.messageScrollIntent.consumeIntent(),
@@ -166,7 +167,7 @@ export function createConversationParts(
       rollbackThread: (threadId) => void refs.threadActions.rollbackThread(threadId),
       forkThreadFromTurn: (threadId, turnId, archiveSource) => void refs.threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
       implementPlan: (item: MessageStreamItem) => void turnActions.planImplementation.implement(item),
-      openTurnDiff: (state) => void plugin.openTurnDiff(state),
+      openTurnDiff: (state) => void workspace.openTurnDiff(state),
     },
     requests: {
       pendingSignature: surface.pendingRequestsSignature,

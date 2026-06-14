@@ -478,16 +478,16 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const plugin = await pluginWithLeaves([]);
     const host = chatHost(plugin);
 
-    host.publishAppServerIdentity("codex-cli/1.2.3");
-    await host.refreshThreadList(() => Promise.resolve([thread("versioned")]));
+    host.appServerIdentity.publishAppServerIdentity("codex-cli/1.2.3");
+    await host.sharedCache.refreshThreadList(() => Promise.resolve([thread("versioned")]));
 
     expect(
       sharedAppServerCache(plugin).cachedThreadList(sharedAppServerCacheContext(plugin, { appServerUserAgent: "codex-cli/1.2.3" })),
     ).toEqual([thread("versioned")]);
 
-    host.publishAppServerIdentity("codex-cli/9.9.9");
+    host.appServerIdentity.publishAppServerIdentity("codex-cli/9.9.9");
 
-    expect(host.cachedThreadList()).toBeNull();
+    expect(host.sharedCache.cachedThreadList()).toBeNull();
   });
 
   it("keeps the previous shared thread list when refresh fails", async () => {
@@ -616,24 +616,38 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
       },
       containerEl,
     } as never,
-    {
+    chatHostFixture(),
+  );
+}
+
+function chatHostFixture(): CodexChatHost {
+  return {
+    settingsRef: {
       settings: { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" },
       vaultPath: "/vault",
+    },
+    workspace: {
       openThreadInNewView: vi.fn(),
       focusThreadInOpenView: vi.fn(),
       openTurnDiff: vi.fn(),
+    },
+    threadSurfaces: {
       notifyThreadArchived: vi.fn(),
       notifyThreadRenamed: vi.fn(),
       refreshSharedThreadListFromOpenSurface: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
       applyThreadListSnapshot: vi.fn(),
+      publishAppServerMetadata: vi.fn(),
+    },
+    sharedCache: {
       refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
       cachedThreadList: vi.fn(() => null),
-      publishAppServerMetadata: vi.fn(),
-      publishAppServerIdentity: vi.fn(),
       cachedAppServerMetadata: vi.fn(() => null),
     },
-  );
+    appServerIdentity: {
+      publishAppServerIdentity: vi.fn(),
+    },
+  };
 }
 
 function thread(id: string): Thread {

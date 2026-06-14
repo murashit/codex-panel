@@ -340,8 +340,8 @@ export class ChatPanelSession {
   private createSessionParts(): ChatPanelSessionParts {
     const connectionHandlers = this.createConnectionHandlers();
     const connection = new ConnectionManager(
-      () => this.environment.plugin.settings.codexPath,
-      this.environment.plugin.vaultPath,
+      () => this.environment.plugin.settingsRef.settings.codexPath,
+      this.environment.plugin.settingsRef.vaultPath,
       connectionHandlers.handlers,
     );
     const connectionControllerRef = createChatPanelSessionDeferredRef<ChatConnectionController>("chat connection controller");
@@ -372,7 +372,9 @@ export class ChatPanelSession {
       obsidian: {
         archiveAdapter: this.environment.obsidian.archiveAdapter,
       },
-      plugin: this.environment.plugin,
+      settingsRef: this.environment.plugin.settingsRef,
+      workspace: this.environment.plugin.workspace,
+      threadSurfaces: this.environment.plugin.threadSurfaces,
       state: {
         stateStore: this.stateStore,
       },
@@ -427,7 +429,7 @@ export class ChatPanelSession {
     });
     const selection = createThreadSelectionActions(
       {
-        plugin: this.environment.plugin,
+        workspace: this.environment.plugin.workspace,
         state: {
           stateStore: this.stateStore,
         },
@@ -492,8 +494,8 @@ export class ChatPanelSession {
     );
     const surface = createChatPanelSurface(
       {
-        settings: this.environment.plugin.settings,
-        vaultPath: this.environment.plugin.vaultPath,
+        settings: this.environment.plugin.settingsRef.settings,
+        vaultPath: this.environment.plugin.settingsRef.vaultPath,
         stateStore: this.stateStore,
         restoredThreadPlaceholder: () => restoration.placeholder(),
       },
@@ -513,7 +515,8 @@ export class ChatPanelSession {
           owner: this.environment.obsidian.owner,
           viewId: this.environment.obsidian.viewId,
         },
-        plugin: this.environment.plugin,
+        settingsRef: this.environment.plugin.settingsRef,
+        workspace: this.environment.plugin.workspace,
         state: {
           stateStore: this.stateStore,
         },
@@ -623,28 +626,28 @@ export class ChatPanelSession {
   }): ChatPanelSessionServerParts {
     const serverMetadata = createChatServerMetadataActions({
       stateStore: this.stateStore,
-      vaultPath: this.environment.plugin.vaultPath,
+      vaultPath: this.environment.plugin.settingsRef.vaultPath,
       currentClient: sessionPorts.currentClient,
       publishAppServerMetadata: (metadata) => {
-        this.environment.plugin.publishAppServerMetadata(metadata);
+        this.environment.plugin.threadSurfaces.publishAppServerMetadata(metadata);
       },
     });
     const serverDiagnostics = createChatServerDiagnosticsActions({
       stateStore: this.stateStore,
-      vaultPath: this.environment.plugin.vaultPath,
+      vaultPath: this.environment.plugin.settingsRef.vaultPath,
       currentClient: sessionPorts.currentClient,
       publishAppServerMetadata: (metadata) => {
-        this.environment.plugin.publishAppServerMetadata(metadata);
+        this.environment.plugin.threadSurfaces.publishAppServerMetadata(metadata);
       },
       serverMetadataSnapshot: () => serverMetadata.serverMetadataSnapshot(),
     });
     const serverThreads = createChatServerThreadActions({
       stateStore: this.stateStore,
-      vaultPath: this.environment.plugin.vaultPath,
+      vaultPath: this.environment.plugin.settingsRef.vaultPath,
       currentClient: sessionPorts.currentClient,
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       publishThreadList: (threads) => {
-        this.environment.plugin.applyThreadListSnapshot(threads);
+        this.environment.plugin.threadSurfaces.applyThreadListSnapshot(threads);
       },
       syncThreadGoal: (threadId) => {
         void goals.syncThreadGoal(threadId);
@@ -667,8 +670,12 @@ export class ChatPanelSession {
       maybeNameThread: (threadId, turnId, completedSummary) => {
         autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
       },
-      notifyThreadArchived: this.environment.plugin.notifyThreadArchived.bind(this.environment.plugin),
-      notifyThreadRenamed: this.environment.plugin.notifyThreadRenamed.bind(this.environment.plugin),
+      notifyThreadArchived: (threadId) => {
+        this.environment.plugin.threadSurfaces.notifyThreadArchived(threadId);
+      },
+      notifyThreadRenamed: (threadId, name) => {
+        this.environment.plugin.threadSurfaces.notifyThreadRenamed(threadId, name);
+      },
       recordMcpStartupStatus: (name, status, message) => {
         serverDiagnostics.recordMcpStartupStatus(name, status, message);
       },
@@ -707,9 +714,9 @@ export class ChatPanelSession {
       setStatus: sideEffects.status.set,
       addSystemMessage: sideEffects.status.addSystemMessage,
       publishAppServerIdentity: (userAgent) => {
-        this.environment.plugin.publishAppServerIdentity(userAgent);
+        this.environment.plugin.appServerIdentity.publishAppServerIdentity(userAgent);
       },
-      configuredCommand: () => this.environment.plugin.settings.codexPath,
+      configuredCommand: () => this.environment.plugin.settingsRef.settings.codexPath,
       refreshLiveState: () => {
         this.refreshLiveState();
       },
@@ -783,9 +790,9 @@ export class ChatPanelSession {
   }
 
   private applyCachedAppServerState(): void {
-    const threads = this.environment.plugin.cachedThreadList();
+    const threads = this.environment.plugin.sharedCache.cachedThreadList();
     if (threads) this.parts.serverActions.threads.applyThreadList(threads);
-    const metadata = this.environment.plugin.cachedAppServerMetadata();
+    const metadata = this.environment.plugin.sharedCache.cachedAppServerMetadata();
     if (metadata) this.parts.serverActions.metadata.applyAppServerMetadata(metadata);
   }
 
@@ -794,7 +801,7 @@ export class ChatPanelSession {
     if (!root) return;
     renderChatPanelShell(root, {
       stateStore: this.stateStore,
-      showToolbar: this.environment.plugin.settings.showToolbar,
+      showToolbar: this.environment.plugin.settingsRef.settings.showToolbar,
       parts: {
         toolbar: {
           surface: this.parts.surface.toolbar,
@@ -828,7 +835,7 @@ export class ChatPanelSession {
   }
 
   private async loadSharedThreadList(): Promise<void> {
-    const threads = await this.environment.plugin.refreshThreadList(() => this.parts.serverActions.threads.loadThreadList());
+    const threads = await this.environment.plugin.sharedCache.refreshThreadList(() => this.parts.serverActions.threads.loadThreadList());
     this.parts.serverActions.threads.applyThreadList(threads);
   }
 
@@ -842,7 +849,7 @@ export class ChatPanelSession {
   }
 
   private refreshLiveState(): void {
-    this.environment.plugin.refreshThreadsViewLiveState();
+    this.environment.plugin.threadSurfaces.refreshThreadsViewLiveState();
   }
 
   private deferLiveStateRefresh(): void {
@@ -909,7 +916,7 @@ export class ChatPanelSession {
     return connectionDiagnosticsModel({
       state: this.state,
       connected: this.parts.connection.manager.isConnected(),
-      configuredCommand: this.environment.plugin.settings.codexPath,
+      configuredCommand: this.environment.plugin.settingsRef.settings.codexPath,
     }).map((section) => ({
       title: section.title,
       auditFacts: section.rows.map((row) => ({ key: row.label, value: row.value })),
