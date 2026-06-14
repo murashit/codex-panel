@@ -1,4 +1,4 @@
-import type { ThreadTitleContext } from "../../../thread-operations/title-model";
+import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import { truncate } from "../../../../utils";
 import { isCompletedTurnOutcomeMessage } from "../../domain/message-stream/selectors";
 import type { MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";

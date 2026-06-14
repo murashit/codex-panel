@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../src/app-server/connection/client";
-import { renameThreadOnAppServer, threadRenameFromValue } from "../../../src/features/thread-operations/rename";
+import type { AppServerClient } from "../../src/app-server/connection/client";
+import { renameThreadOnAppServer, threadRenameFromValue } from "../../src/app-server/services/thread-rename";
 
 describe("thread rename operation", () => {
   it("normalizes thread names before saving them", async () => {

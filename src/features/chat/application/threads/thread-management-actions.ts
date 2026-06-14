@@ -2,9 +2,9 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import { rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/services/threads";
 import { inheritedForkThreadName } from "../../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../../settings/model";
-import type { ArchiveExportAdapter } from "../../../thread-operations/archive-markdown";
-import { archiveThreadOnAppServer } from "../../../thread-operations/archive";
-import { renameThreadOnAppServer, threadRenameFromValue, type ThreadRename } from "../../../thread-operations/rename";
+import type { ArchiveExportAdapter } from "../../../../domain/threads/archive-markdown";
+import { archiveThreadOnAppServer } from "../../../../app-server/services/thread-archive";
+import { renameThreadOnAppServer, threadRenameFromValue, type ThreadRename } from "../../../../app-server/services/thread-rename";
 import {
   archivedSourceOpenForkFailedMessage,
   finishBeforeArchivingThreadsMessage,

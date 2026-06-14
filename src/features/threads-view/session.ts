@@ -6,11 +6,11 @@ import { listThreads, readCompletedConversationSummariesPage } from "../../app-s
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import { archiveThreadOnAppServer } from "../thread-operations/archive";
-import type { ArchiveExportAdapter } from "../thread-operations/archive-markdown";
-import { renameThreadOnAppServer, threadRenameFromValue } from "../thread-operations/rename";
-import { generateThreadTitleWithCodex } from "../thread-operations/title-generation";
-import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../thread-operations/title-model";
+import { archiveThreadOnAppServer } from "../../app-server/services/thread-archive";
+import type { ArchiveExportAdapter } from "../../domain/threads/archive-markdown";
+import { renameThreadOnAppServer, threadRenameFromValue } from "../../app-server/services/thread-rename";
+import { generateThreadTitleWithCodex } from "../../app-server/services/thread-title-generation";
+import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/title-generation-model";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
   completedThreadAutoNameState,

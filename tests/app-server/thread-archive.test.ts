@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../src/app-server/connection/client";
-import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
-import type { ArchiveExportAdapter } from "../../../src/features/thread-operations/archive-markdown";
-import { archiveThreadOnAppServer } from "../../../src/features/thread-operations/archive";
-import { DEFAULT_SETTINGS } from "../../../src/settings/model";
+import type { AppServerClient } from "../../src/app-server/connection/client";
+import type { ThreadRecord } from "../../src/app-server/protocol/thread";
+import type { ArchiveExportAdapter } from "../../src/domain/threads/archive-markdown";
+import { archiveThreadOnAppServer } from "../../src/app-server/services/thread-archive";
+import { DEFAULT_SETTINGS } from "../../src/settings/model";
 
 describe("thread archive operation", () => {
   it("exports markdown before archiving when requested", async () => {

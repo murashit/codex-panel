@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../app-server/connection/client";
+import type { AppServerClient } from "../connection/client";
 import { normalizeExplicitThreadName } from "../../domain/threads/model";
 
 export interface RenameThreadResult {

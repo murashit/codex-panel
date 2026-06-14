@@ -1,7 +1,7 @@
 import { shortThreadId } from "../../utils";
-import { getThreadTitle, type Thread } from "../../domain/threads/model";
-import { referencedThreadMetadataFromPrompt } from "../../domain/threads/reference";
-import type { ThreadTranscriptEntry } from "../../domain/threads/transcript";
+import { getThreadTitle, type Thread } from "./model";
+import { referencedThreadMetadataFromPrompt } from "./reference";
+import type { ThreadTranscriptEntry } from "./transcript";
 
 export interface ArchiveExportAdapter {
   exists(path: string): Promise<boolean>;

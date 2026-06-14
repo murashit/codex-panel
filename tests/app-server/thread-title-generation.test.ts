@@ -6,21 +6,21 @@ import type {
   AppServerClient,
   AppServerClientHandlers,
   AppServerStartStructuredTurnOptions,
-} from "../../../src/app-server/connection/client";
-import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
-import type { RequestId, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
-import type { ServerInitialization } from "../../../src/domain/server/initialization";
+} from "../../src/app-server/connection/client";
+import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
+import type { RequestId, ServerNotification } from "../../src/app-server/connection/rpc-messages";
+import type { ServerInitialization } from "../../src/domain/server/initialization";
 import {
   generateThreadTitleWithCodex,
   type ThreadTitleClient,
   type ThreadTitleClientFactory,
-} from "../../../src/features/thread-operations/title-generation";
+} from "../../src/app-server/services/thread-title-generation";
 import {
   findThreadTitleContext,
   threadTitleContextFromConversationSummary,
   threadTitleFromGeneratedText,
   threadTitlePrompt,
-} from "../../../src/features/thread-operations/title-model";
+} from "../../src/domain/threads/title-generation-model";
 
 type InitializeResponse = ServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;

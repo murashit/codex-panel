@@ -3,13 +3,13 @@ import { readCompletedConversationSummariesPage } from "../../../../app-server/s
 import { getThreadTitle } from "../../../../domain/threads/model";
 import type { Thread } from "../../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../../settings/model";
-import { threadRenameFromValue } from "../../../thread-operations/rename";
-import { generateThreadTitleWithCodex } from "../../../thread-operations/title-generation";
+import { threadRenameFromValue } from "../../../../app-server/services/thread-rename";
+import { generateThreadTitleWithCodex } from "../../../../app-server/services/thread-title-generation";
 import {
   findThreadTitleContext,
   THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE,
   type ThreadTitleContext,
-} from "../../../thread-operations/title-model";
+} from "../../../../domain/threads/title-generation-model";
 import {
   renameGenerationStillActive,
   type ChatAction,

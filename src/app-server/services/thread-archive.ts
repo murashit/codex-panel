@@ -1,10 +1,10 @@
-import type { AppServerClient } from "../../app-server/connection/client";
-import { readThreadForArchiveExport } from "../../app-server/services/threads";
-import type { CodexPanelSettings } from "../../settings/model";
-import { exportArchivedThreadMarkdown, type ArchiveExportAdapter } from "./archive-markdown";
+import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
+import type { AppServerClient } from "../connection/client";
+import { exportArchivedThreadMarkdown } from "../../domain/threads/archive-markdown";
+import { readThreadForArchiveExport } from "./threads";
 
 export interface ArchiveThreadOptions {
-  settings: CodexPanelSettings;
+  settings: ArchiveExportSettings;
   vaultPath: string;
   archiveAdapter: () => ArchiveExportAdapter;
   saveMarkdown: boolean;

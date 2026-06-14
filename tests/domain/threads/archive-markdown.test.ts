@@ -4,7 +4,7 @@ import {
   exportArchivedThreadMarkdown,
   type ArchiveExportAdapter,
   type ArchiveExportSettings,
-} from "../../../src/features/thread-operations/archive-markdown";
+} from "../../../src/domain/threads/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
 import { referencedThreadPromptBundle } from "../../../src/domain/threads/reference";
 import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";

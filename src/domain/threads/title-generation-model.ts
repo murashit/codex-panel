@@ -1,4 +1,4 @@
-import type { ThreadConversationSummary } from "../../domain/threads/transcript";
+import type { ThreadConversationSummary } from "./transcript";
 import { truncate } from "../../utils";
 
 const MAX_CONTEXT_CHARS = 4_000;
