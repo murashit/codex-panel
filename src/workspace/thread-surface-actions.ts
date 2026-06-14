@@ -10,7 +10,6 @@ import type { WorkspacePanelCoordinator } from "./panel-coordinator";
 export interface ThreadSurfaceActionsOptions {
   app: App;
   panels: WorkspacePanelCoordinator;
-  refreshThreadSurfaces: () => void;
 }
 
 export interface ThreadSurfaceActions {
@@ -30,6 +29,17 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
       .getLeavesOfType(VIEW_TYPE_CODEX_THREADS)
       .flatMap((leaf) => (leaf.view instanceof CodexThreadsView ? [leaf.view] : []));
 
+  const refreshSharedThreadListFromOpenSurface = (): void => {
+    const chatView = options.panels.panelViews().find((view) => view.openPanelSnapshot().connected);
+    if (chatView) {
+      void chatView.refreshSharedThreadList();
+      return;
+    }
+
+    const threadsView = threadsViews().at(0);
+    if (threadsView) void threadsView.refresh();
+  };
+
   return {
     refreshOpenViews(): void {
       for (const view of options.panels.panelViews()) {
@@ -37,16 +47,7 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
       }
     },
 
-    refreshSharedThreadListFromOpenSurface(): void {
-      const chatView = options.panels.panelViews().find((view) => view.openPanelSnapshot().connected);
-      if (chatView) {
-        void chatView.refreshSharedThreadList();
-        return;
-      }
-
-      const threadsView = threadsViews().at(0);
-      if (threadsView) void threadsView.refresh();
-    },
+    refreshSharedThreadListFromOpenSurface,
 
     applyThreadListSnapshot(threads: readonly Thread[]): void {
       for (const view of options.panels.panelViews()) {
@@ -83,14 +84,14 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
       for (const leaf of leavesToClose) {
         leaf.detach();
       }
-      options.refreshThreadSurfaces();
+      refreshSharedThreadListFromOpenSurface();
     },
 
     notifyThreadRenamed(threadId: string, name: string | null): void {
       for (const view of options.panels.panelViews()) {
         view.notifyThreadRenamed(threadId, name);
       }
-      options.refreshThreadSurfaces();
+      refreshSharedThreadListFromOpenSurface();
     },
   };
 }

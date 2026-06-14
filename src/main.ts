@@ -31,9 +31,6 @@ export default class CodexPanelPlugin extends Plugin {
   private readonly threadSurfaces = createThreadSurfaceActions({
     app: this.app,
     panels: this.panels,
-    refreshThreadSurfaces: () => {
-      this.threadSurfaces.refreshSharedThreadListFromOpenSurface();
-    },
   });
 
   override async onload(): Promise<void> {

@@ -25,7 +25,6 @@ describe("createThreadSurfaceActions", () => {
           },
         ],
       } as never,
-      refreshThreadSurfaces: vi.fn(),
     });
 
     threadSurfaces.refreshSharedThreadListFromOpenSurface();
@@ -58,7 +57,6 @@ describe("createThreadSurfaceActions", () => {
           },
         ],
       } as never,
-      refreshThreadSurfaces: vi.fn(),
     });
 
     threadSurfaces.refreshSharedThreadListFromOpenSurface();
