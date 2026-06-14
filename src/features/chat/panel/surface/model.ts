@@ -43,25 +43,6 @@ export interface ChatPanelComposerProjection {
   meta: ChatPanelComposerMeta;
 }
 
-interface ChatPanelToolbarActions {
-  startNewThread: () => void;
-  toggleChatActions: () => void;
-  compactConversation: () => void;
-  setGoal: () => void;
-  toggleHistory: () => void;
-  toggleStatusPanel: () => void;
-  connect: () => void;
-  refreshStatus: () => void;
-  resumeThread: (threadId: string) => void;
-  startArchiveThread: (threadId: string) => void;
-  archiveThread: (threadId: string, saveMarkdown: boolean) => void;
-  startRenameThread: (threadId: string) => void;
-  updateRenameDraft: (threadId: string, value: string) => void;
-  saveRenameThread: (threadId: string, value: string) => void;
-  cancelRenameThread: (threadId: string) => void;
-  autoNameThread: (threadId: string) => void;
-}
-
 interface ChatPanelGoalActions {
   saveObjective: (objective: string, tokenBudget: number | null) => Promise<void>;
   setStatus: (threadId: string, status: "active" | "paused") => Promise<unknown>;
@@ -81,9 +62,6 @@ export interface ChatPanelToolbarSurface {
     vaultPath: () => string;
     configuredCommand: () => string;
     archiveExportEnabled: () => boolean;
-  };
-  actions: {
-    toolbar: ChatPanelToolbarActions;
   };
 }
 

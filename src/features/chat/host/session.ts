@@ -35,8 +35,7 @@ import {
   type RestoredThreadState,
 } from "../application/lifecycle";
 import { applyChatViewState } from "../panel/view-state";
-import { closeChatView, openChatView, type ChatViewLifecycleHost } from "../panel/view-lifecycle";
-import { createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
+import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import { connectionDiagnosticsModel } from "../panel/surface/toolbar-projection";
 import { openPanelTurnLifecycle } from "../panel/snapshot";
 import { ChatInboundController } from "../app-server/inbound/controller";
@@ -46,7 +45,7 @@ import { createChatRuntimeSettingsActions } from "../application/runtime/setting
 import { runtimeSnapshotForChatState, type RuntimeSnapshot } from "../application/runtime/snapshot";
 import { chatPanelComposerProjection } from "../panel/surface/composer-projection";
 import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
-import { renderChatPanelShell } from "../panel/shell";
+import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell";
 import {
   chatTurnBusy,
   createChatStateStore,
@@ -68,6 +67,7 @@ import type { MessageStreamPresenter } from "../panel/surface/message-stream-pre
 import { pendingRequestsSignature } from "../domain/pending-requests/signatures";
 import { createChatPanelSurface } from "../panel/surface/create-surface";
 import type { ChatPanelSurface } from "../panel/surface/model";
+import type { ToolbarActions } from "../ui/toolbar";
 
 export interface ChatPanelEnvironment {
   obsidian: {
@@ -107,6 +107,7 @@ interface ChatPanelSessionParts {
   };
   toolbar: {
     panels: ToolbarPanelActions;
+    actions: ToolbarActions;
   };
   composer: {
     controller: ChatComposerController;
@@ -290,11 +291,33 @@ export class ChatPanelSession {
   }
 
   open(): void {
-    openChatView(this.lifecycleHost());
+    this.opened = true;
+    this.closing = false;
+    this.parts.composer.controller.registerNoteIndexInvalidation((eventRef) => {
+      this.environment.obsidian.registerEvent(eventRef);
+    });
+    this.environment.obsidian.registerPointerDown((event) => {
+      this.closeToolbarPanelOnOutsidePointer(event);
+    });
+    this.applyCachedAppServerState();
+    this.mountOrRepairShell();
+    this.scheduleWarmup();
+    this.parts.thread.restoration.scheduleHydration();
   }
 
   close(): void {
-    closeChatView(this.lifecycleHost());
+    this.opened = false;
+    this.closing = true;
+    this.connectionWork.invalidate();
+    this.invalidateResumeWork();
+    this.deferredTasks.clearAll();
+    const panelRoot = this.environment.view.panelRoot();
+    this.parts.render.messageStreamPresenter.dispose();
+    this.parts.composer.controller.dispose();
+    unmountChatPanelShell(panelRoot);
+    this.parts.connection.manager.disconnect();
+    this.refreshLiveState();
+    this.deferLiveStateRefresh();
   }
 
   setComposerText(text: string): void {
@@ -452,24 +475,33 @@ export class ChatPanelSession {
     connectionHandlers.attach({ inbound: inboundController, connectionController });
     const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
 
+    const toolbarActions = createChatPanelToolbarActions(
+      {
+        stateStore: this.stateStore,
+        startNewThread: () => this.startNewThread(),
+      },
+      {
+        connectionController,
+        reconnectActions,
+        inboundController,
+        threadActions,
+        toolbarPanels,
+        rename,
+        selection,
+      },
+    );
     const surface = createChatPanelSurface(
       {
         settings: this.environment.plugin.settings,
         vaultPath: this.environment.plugin.vaultPath,
         stateStore: this.stateStore,
         restoredThreadPlaceholder: () => restoration.placeholder(),
-        startNewThread: () => this.startNewThread(),
       },
       {
         connection,
         connectionController,
-        reconnectActions,
         inboundController,
         threadStarter: serverThreads,
-        threadActions,
-        toolbarPanels,
-        rename,
-        selection,
         runtimeSettings,
         goals,
       },
@@ -563,6 +595,7 @@ export class ChatPanelSession {
       },
       toolbar: {
         panels: toolbarPanels,
+        actions: toolbarActions,
       },
       composer: {
         controller: composerController,
@@ -749,75 +782,11 @@ export class ChatPanelSession {
     };
   }
 
-  private lifecycleHost(): ChatViewLifecycleHost {
-    return {
-      lifecycle: {
-        setOpened: (opened) => {
-          this.opened = opened;
-        },
-        setClosing: (closing) => {
-          this.closing = closing;
-        },
-        invalidateConnectionWork: () => {
-          this.connectionWork.invalidate();
-        },
-        invalidateResumeWork: () => {
-          this.invalidateResumeWork();
-        },
-        clearDeferredTasks: () => {
-          this.deferredTasks.clearAll();
-        },
-        scheduleDeferredAppServerWarmup: () => {
-          this.scheduleWarmup();
-        },
-        scheduleDeferredRestoredThreadHydration: () => {
-          this.parts.thread.restoration.scheduleHydration();
-        },
-      },
-      events: {
-        registerEvent: this.environment.obsidian.registerEvent,
-        registerComposerNoteIndexInvalidation: (register) => {
-          this.parts.composer.controller.registerNoteIndexInvalidation(register);
-        },
-        registerPointerDown: this.environment.obsidian.registerPointerDown,
-        closeToolbarPanelOnOutsidePointer: (event) => {
-          this.closeToolbarPanelOnOutsidePointer(event);
-        },
-      },
-      render: {
-        panelRoot: this.environment.view.panelRoot,
-        mountOrRepairShell: () => {
-          this.mountOrRepairShell();
-        },
-      },
-      sharedState: {
-        applyCachedAppServerState: () => {
-          const threads = this.environment.plugin.cachedThreadList();
-          if (threads) this.parts.serverActions.threads.applyThreadList(threads);
-          const metadata = this.environment.plugin.cachedAppServerMetadata();
-          if (metadata) this.parts.serverActions.metadata.applyAppServerMetadata(metadata);
-        },
-      },
-      resources: {
-        disposeMessages: () => {
-          this.parts.render.messageStreamPresenter.dispose();
-        },
-        disposeComposer: () => {
-          this.parts.composer.controller.dispose();
-        },
-        disconnect: () => {
-          this.parts.connection.manager.disconnect();
-        },
-      },
-      liveState: {
-        refresh: () => {
-          this.refreshLiveState();
-        },
-        deferRefresh: () => {
-          this.deferLiveStateRefresh();
-        },
-      },
-    };
+  private applyCachedAppServerState(): void {
+    const threads = this.environment.plugin.cachedThreadList();
+    if (threads) this.parts.serverActions.threads.applyThreadList(threads);
+    const metadata = this.environment.plugin.cachedAppServerMetadata();
+    if (metadata) this.parts.serverActions.metadata.applyAppServerMetadata(metadata);
   }
 
   private mountOrRepairShell(): void {
@@ -827,7 +796,10 @@ export class ChatPanelSession {
       stateStore: this.stateStore,
       showToolbar: this.environment.plugin.settings.showToolbar,
       parts: {
-        toolbar: this.parts.surface.toolbar,
+        toolbar: {
+          surface: this.parts.surface.toolbar,
+          actions: this.parts.toolbar.actions,
+        },
         goal: this.parts.surface.goal,
         messageStream: this.parts.render.messageStreamPresenter,
         composer: {

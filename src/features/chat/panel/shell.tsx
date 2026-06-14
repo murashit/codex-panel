@@ -3,13 +3,17 @@ import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
 import type { ChatStateStore } from "../application/state/reducer";
 import type { ChatPanelGoalSurface, ChatPanelToolbarSurface } from "./surface/model";
 import { ChatPanelToolbar } from "./surface/toolbar-projection";
+import type { ToolbarActions } from "../ui/toolbar";
 import { ChatPanelGoal } from "./surface/goal-projection";
 import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "./surface/message-stream-presenter";
 import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerController } from "./surface/composer-projection";
 import { ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState, type ChatPanelShellState } from "./shell-state";
 
 export interface ChatPanelShellParts {
-  toolbar: ChatPanelToolbarSurface;
+  toolbar: {
+    surface: ChatPanelToolbarSurface;
+    actions: ToolbarActions;
+  };
   goal: ChatPanelGoalSurface;
   messageStream: ChatPanelMessageStreamPresenter;
   composer: {
@@ -105,7 +109,7 @@ function ChatPanelShell({ showToolbar, parts, shellState }: ChatPanelShellProps 
     <ChatPanelShellStateContext.Provider value={shellState}>
       {showToolbar ? (
         <div className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
-          <ChatPanelToolbar surface={parts.toolbar} />
+          <ChatPanelToolbar surface={parts.toolbar.surface} actions={parts.toolbar.actions} />
         </div>
       ) : null}
       <div className="codex-panel__body" data-codex-panel-shell-region="body">

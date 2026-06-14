@@ -50,7 +50,7 @@ describe("chat toolbar archive confirmation state", () => {
   });
 });
 
-function toolbarSurface(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelToolbarSurface {
+function toolbarSurface(_store: ReturnType<typeof createChatStateStore>, _toolbarActions: ToolbarPanelActions): ChatPanelToolbarSurface {
   return {
     state: {
       connected: () => false,
@@ -61,8 +61,15 @@ function toolbarSurface(store: ReturnType<typeof createChatStateStore>, toolbarA
       configuredCommand: () => "codex",
       archiveExportEnabled: () => true,
     },
-    actions: {
-      toolbar: {
+  };
+}
+
+function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelShellParts {
+  const surface = surfaceFixture(store, toolbarActions);
+  return {
+    toolbar: {
+      surface: surface.toolbar,
+      actions: {
         startNewThread: vi.fn(),
         toggleChatActions: vi.fn(),
         compactConversation: vi.fn(),
@@ -83,13 +90,6 @@ function toolbarSurface(store: ReturnType<typeof createChatStateStore>, toolbarA
         autoNameThread: vi.fn(),
       },
     },
-  };
-}
-
-function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelShellParts {
-  const surface = surfaceFixture(store, toolbarActions);
-  return {
-    toolbar: surface.toolbar,
     goal: surface.goal,
     messageStream: {
       renderState: () => ({

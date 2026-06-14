@@ -1,5 +1,12 @@
 import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
 import type { ChatAction, ChatState, ChatStateStore } from "../application/state/reducer";
+import type { ChatConnectionController } from "../application/connection/connection-controller";
+import type { ChatReconnectActions } from "../application/connection/reconnect-actions";
+import type { ThreadRenameEditorController } from "../application/threads/rename-editor-controller";
+import type { SelectionActions } from "../application/threads/selection-actions";
+import type { ChatInboundController } from "../app-server/inbound/controller";
+import { noActiveThreadToCompactMessage } from "../application/threads/messages";
+import type { ToolbarActions } from "../ui/toolbar";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
@@ -16,6 +23,21 @@ export interface ToolbarPanelActions {
   startArchive(threadId: string): void;
   archiveThread(threadId: string, saveMarkdown: boolean): Promise<void>;
   closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void;
+}
+
+export interface ChatPanelToolbarActionsHost {
+  stateStore: ChatStateStore;
+  startNewThread: () => Promise<void>;
+}
+
+export interface ChatPanelToolbarActionDependencies {
+  connectionController: ChatConnectionController;
+  reconnectActions: ChatReconnectActions;
+  inboundController: ChatInboundController;
+  threadActions: ThreadManagementActions;
+  toolbarPanels: ToolbarPanelActions;
+  rename: ThreadRenameEditorController;
+  selection: SelectionActions;
 }
 
 interface ToolbarOutsidePointerContext {
@@ -101,6 +123,78 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
       close();
     },
   };
+}
+
+export function createChatPanelToolbarActions(host: ChatPanelToolbarActionsHost, deps: ChatPanelToolbarActionDependencies): ToolbarActions {
+  return {
+    startNewThread: () => {
+      void host.startNewThread();
+    },
+    toggleChatActions: () => {
+      deps.toolbarPanels.toggleChatActions();
+    },
+    compactConversation: () => {
+      void compactConversation(host.stateStore.getState(), deps);
+    },
+    setGoal: () => {
+      host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
+      const goal = host.stateStore.getState().activeThread.goal;
+      host.stateStore.dispatch({
+        type: "ui/goal-editor-started",
+        threadId: goal?.threadId ?? null,
+        objective: goal?.objective ?? "",
+        tokenBudget: goal?.tokenBudget ?? null,
+      });
+    },
+    toggleHistory: () => {
+      deps.toolbarPanels.toggleHistory();
+    },
+    toggleStatusPanel: () => {
+      deps.toolbarPanels.toggleStatus();
+    },
+    connect: () => {
+      void deps.reconnectActions.reconnectPanel();
+    },
+    refreshStatus: () => {
+      void deps.connectionController.refreshStatusPanel();
+    },
+    resumeThread: (threadId) => {
+      void deps.selection.selectThreadFromToolbar(threadId);
+    },
+    startArchiveThread: (threadId) => {
+      deps.toolbarPanels.startArchive(threadId);
+    },
+    archiveThread: (threadId, saveMarkdown) => {
+      void deps.toolbarPanels.archiveThread(threadId, saveMarkdown);
+    },
+    startRenameThread: (threadId) => {
+      deps.rename.start(threadId);
+    },
+    updateRenameDraft: (threadId, value) => {
+      deps.rename.updateDraft(threadId, value);
+    },
+    saveRenameThread: (threadId, value) => {
+      void deps.rename.save(threadId, value);
+    },
+    cancelRenameThread: (threadId) => {
+      deps.rename.cancel(threadId);
+    },
+    autoNameThread: (threadId) => {
+      void deps.rename.autoNameDraft(threadId);
+    },
+  };
+}
+
+async function compactConversation(
+  state: ReturnType<ChatStateStore["getState"]>,
+  deps: Pick<ChatPanelToolbarActionDependencies, "inboundController" | "threadActions">,
+): Promise<void> {
+  const threadId = state.activeThread.id;
+  if (!threadId) {
+    deps.inboundController.addSystemMessage(noActiveThreadToCompactMessage());
+    return;
+  }
+  await deps.threadActions.compactThread(threadId);
 }
 
 function isToolbarElement(target: EventTarget | null, viewWindow: ToolbarDomWindow | null): target is Element {

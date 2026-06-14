@@ -2,36 +2,24 @@ import type { CodexPanelSettings } from "../../../../settings/model";
 import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
 import type { ChatStateStore } from "../../application/state/reducer";
 import type { ChatConnectionController } from "../../application/connection/connection-controller";
-import type { ChatReconnectActions } from "../../application/connection/reconnect-actions";
 import type { ChatInboundController } from "../../app-server/inbound/controller";
-import type { ThreadManagementActions } from "../../application/threads/thread-management-actions";
-import type { ToolbarPanelActions } from "../toolbar-actions";
-import type { ThreadRenameEditorController } from "../../application/threads/rename-editor-controller";
-import type { SelectionActions } from "../../application/threads/selection-actions";
 import type { ChatRuntimeSettingsActions } from "../../application/runtime/settings-actions";
 import type { GoalActions } from "../../application/threads/goal-actions";
 import type { RestoredThreadTitleSnapshot, ChatPanelSurface } from "./model";
 import { createChatPanelGoalSurface } from "./goal-surface";
-import { createChatPanelToolbarSurface } from "./toolbar-surface";
 
 export interface ChatPanelSurfaceHost {
   settings: CodexPanelSettings;
   vaultPath: string;
   stateStore: ChatStateStore;
   restoredThreadPlaceholder: () => RestoredThreadTitleSnapshot | null;
-  startNewThread: () => Promise<void>;
 }
 
 export interface ChatPanelSurfaceDependencies {
   connection: ConnectionManager;
   connectionController: ChatConnectionController;
-  reconnectActions: ChatReconnectActions;
   inboundController: ChatInboundController;
   threadStarter: ChatPanelThreadStarter;
-  threadActions: ThreadManagementActions;
-  toolbarPanels: ToolbarPanelActions;
-  rename: ThreadRenameEditorController;
-  selection: SelectionActions;
   runtimeSettings: ChatRuntimeSettingsActions;
   goals: GoalActions;
 }
@@ -42,24 +30,17 @@ interface ChatPanelThreadStarter {
 
 export function createChatPanelSurface(host: ChatPanelSurfaceHost, deps: ChatPanelSurfaceDependencies): ChatPanelSurface {
   return {
-    toolbar: createChatPanelToolbarSurface(
-      {
-        settings: host.settings,
-        vaultPath: host.vaultPath,
-        stateStore: host.stateStore,
-        startNewThread: host.startNewThread,
+    toolbar: {
+      state: {
+        connected: () => deps.connection.isConnected(),
+        nowMs: () => Date.now(),
       },
-      {
-        connection: deps.connection,
-        connectionController: deps.connectionController,
-        reconnectActions: deps.reconnectActions,
-        inboundController: deps.inboundController,
-        threadActions: deps.threadActions,
-        toolbarPanels: deps.toolbarPanels,
-        rename: deps.rename,
-        selection: deps.selection,
+      settings: {
+        vaultPath: () => host.vaultPath,
+        configuredCommand: () => host.settings.codexPath,
+        archiveExportEnabled: () => host.settings.archiveExportEnabled,
       },
-    ),
+    },
     goal: createChatPanelGoalSurface(
       {
         settings: host.settings,

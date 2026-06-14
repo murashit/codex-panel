@@ -8,7 +8,7 @@ import { connectionDiagnosticSections } from "../../application/connection/diagn
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../application/state/reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../shell-state";
-import { Toolbar, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
+import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
 import type { ChatPanelToolbarSurface } from "./model";
 import { runtimeSnapshotForToolbarShellState } from "./runtime-snapshot";
 
@@ -53,9 +53,9 @@ function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, state: Chat
   });
 }
 
-export function ChatPanelToolbar({ surface }: { surface: ChatPanelToolbarSurface }): UiNode {
+export function ChatPanelToolbar({ surface, actions }: { surface: ChatPanelToolbarSurface; actions: ToolbarActions }): UiNode {
   const state = toolbarStateFromShellState(useChatPanelShellState());
-  return h(Toolbar, { model: chatPanelToolbarViewModel(surface, state), actions: surface.actions.toolbar });
+  return h(Toolbar, { model: chatPanelToolbarViewModel(surface, state), actions });
 }
 
 export function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewModel {

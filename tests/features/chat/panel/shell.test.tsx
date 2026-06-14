@@ -395,7 +395,10 @@ function trackedShellParts(): TestShellParts {
   }));
   return {
     parts: {
-      toolbar: surface.toolbar,
+      toolbar: {
+        surface: surface.toolbar,
+        actions: toolbarActionsFixture(),
+      },
       goal: surface.goal,
       messageStream: {
         renderState: messageStreamRenderState,
@@ -427,26 +430,6 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): Cha
         configuredCommand: () => "codex",
         archiveExportEnabled: () => true,
       },
-      actions: {
-        toolbar: {
-          startNewThread: vi.fn(),
-          toggleChatActions: vi.fn(),
-          compactConversation: vi.fn(),
-          setGoal: vi.fn(),
-          toggleHistory: vi.fn(),
-          toggleStatusPanel: vi.fn(),
-          connect: vi.fn(),
-          refreshStatus: vi.fn(),
-          resumeThread: vi.fn(),
-          startArchiveThread: vi.fn(),
-          archiveThread: vi.fn(),
-          startRenameThread: vi.fn(),
-          updateRenameDraft: vi.fn(),
-          saveRenameThread: vi.fn(),
-          cancelRenameThread: vi.fn(),
-          autoNameThread: vi.fn(),
-        },
-      },
     },
     goal: {
       settings: { sendShortcut: () => "enter" },
@@ -470,6 +453,27 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): Cha
         resetReasoningEffortToConfig: async () => undefined,
       },
     },
+  };
+}
+
+function toolbarActionsFixture(): ChatPanelShellParts["toolbar"]["actions"] {
+  return {
+    startNewThread: vi.fn(),
+    toggleChatActions: vi.fn(),
+    compactConversation: vi.fn(),
+    setGoal: vi.fn(),
+    toggleHistory: vi.fn(),
+    toggleStatusPanel: vi.fn(),
+    connect: vi.fn(),
+    refreshStatus: vi.fn(),
+    resumeThread: vi.fn(),
+    startArchiveThread: vi.fn(),
+    archiveThread: vi.fn(),
+    startRenameThread: vi.fn(),
+    updateRenameDraft: vi.fn(),
+    saveRenameThread: vi.fn(),
+    cancelRenameThread: vi.fn(),
+    autoNameThread: vi.fn(),
   };
 }
 
