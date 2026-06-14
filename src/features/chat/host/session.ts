@@ -7,7 +7,7 @@ import type { Thread } from "../../../domain/threads/model";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
-import type { ArchiveExportAdapter } from "../../thread-export/archive-markdown";
+import type { ArchiveExportAdapter } from "../../thread-operations/archive-markdown";
 import type { CodexChatHost } from "../application/ports/chat-host";
 import { scheduleAppServerWarmup } from "../application/connection/app-server-warmup";
 import { ChatConnectionController } from "../application/connection/connection-controller";

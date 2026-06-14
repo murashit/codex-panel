@@ -9,7 +9,7 @@ import { listModelMetadata } from "../../app-server/services/catalog";
 import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../../app-server/protocol/turn";
 import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
 import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/runtime/overrides";
-import { threadTitleFromGeneratedText, threadTitlePrompt, type ThreadTitleContext } from "./model";
+import { threadTitleFromGeneratedText, threadTitlePrompt, type ThreadTitleContext } from "./title-model";
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
 const THREAD_TITLE_TIMEOUT_MS = 60_000;

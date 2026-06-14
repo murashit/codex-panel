@@ -1,10 +1,15 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { readCompletedConversationSummariesPage } from "../../../../app-server/services/threads";
-import { getThreadTitle, normalizeExplicitThreadName } from "../../../../domain/threads/model";
+import { getThreadTitle } from "../../../../domain/threads/model";
 import type { Thread } from "../../../../domain/threads/model";
 import type { CodexPanelSettings } from "../../../../settings/model";
-import { generateThreadTitleWithCodex } from "../../../thread-title/generation";
-import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE, type ThreadTitleContext } from "../../../thread-title/model";
+import { threadRenameFromValue } from "../../../thread-operations/rename";
+import { generateThreadTitleWithCodex } from "../../../thread-operations/title-generation";
+import {
+  findThreadTitleContext,
+  THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE,
+  type ThreadTitleContext,
+} from "../../../thread-operations/title-model";
 import {
   renameGenerationStillActive,
   type ChatAction,
@@ -79,8 +84,8 @@ export class ThreadRenameEditorController {
   async save(threadId: string, value: string): Promise<void> {
     if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId || this.renameState.kind === "generating") return;
     const editingState = this.renameState;
-    const title = normalizeExplicitThreadName(value);
-    if (!title) {
+    const rename = threadRenameFromValue(value);
+    if (!rename) {
       this.cancel(threadId);
       return;
     }
@@ -90,7 +95,7 @@ export class ThreadRenameEditorController {
     const client = this.host.currentClient();
     if (!client) return;
 
-    if (await renameConnectedThread(this.host, threadId, title)) {
+    if (await renameConnectedThread(this.host, threadId, rename)) {
       if (this.renameState === editingState) this.clear();
     }
   }

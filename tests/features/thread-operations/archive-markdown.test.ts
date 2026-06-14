@@ -6,7 +6,7 @@ import {
   normalizeExportedMarkdownLinks,
   normalizedArchiveTags,
   type ArchiveExportAdapter,
-} from "../../../src/features/thread-export/archive-markdown";
+} from "../../../src/features/thread-operations/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
 import { referencedThreadPrompt } from "../../../src/domain/threads/reference";
 import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";

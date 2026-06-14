@@ -2,8 +2,9 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { CodexPanelSettings } from "../../../../settings/model";
-import { generateThreadTitleWithCodex } from "../../../thread-title/generation";
-import { threadTitleContextFromConversationSummary, type ThreadTitleContext } from "../../../thread-title/model";
+import { renameThreadOnAppServer, threadRenameFromValue } from "../../../thread-operations/rename";
+import { generateThreadTitleWithCodex } from "../../../thread-operations/title-generation";
+import { threadTitleContextFromConversationSummary, type ThreadTitleContext } from "../../../thread-operations/title-model";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { messageStreamItems } from "../state/message-stream";
@@ -62,16 +63,18 @@ export class AutoTitleController {
     try {
       const title = await this.generateTitle(context);
       if (!title || !this.threadCanReceiveGeneratedTitle(threadId)) return;
+      const rename = threadRenameFromValue(title);
+      if (!rename) return;
 
       const client = this.host.currentClient();
       if (!client) return;
-      await client.setThreadName(threadId, title);
+      const result = await renameThreadOnAppServer(client, threadId, rename);
       if (!this.threadCanReceiveGeneratedTitle(threadId)) return;
       this.dispatch({
         type: "thread-list/applied",
-        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: title } : thread)),
+        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: result.name } : thread)),
       });
-      this.host.notifyThreadRenamed(threadId, title);
+      this.host.notifyThreadRenamed(threadId, result.name);
     } catch {
       // Auto-title is best-effort metadata. Leave the thread preview untouched on failure.
     } finally {

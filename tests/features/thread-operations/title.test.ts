@@ -18,14 +18,14 @@ import {
   validatedThreadTitleRuntimeOverride,
   type ThreadTitleClient,
   type ThreadTitleClientFactory,
-} from "../../../src/features/thread-title/generation";
+} from "../../../src/features/thread-operations/title-generation";
 import {
   findThreadTitleContext,
   normalizeGeneratedThreadTitle,
   threadTitleContextFromConversationSummary,
   threadTitleFromGeneratedText,
   threadTitlePrompt,
-} from "../../../src/features/thread-title/model";
+} from "../../../src/features/thread-operations/title-model";
 
 type InitializeResponse = ServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;

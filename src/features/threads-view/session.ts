@@ -2,14 +2,15 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/connection/client";
 import { ConnectionManager, StaleConnectionError } from "../../app-server/connection/connection-manager";
-import { listThreads, readCompletedConversationSummariesPage, readThreadForArchiveExport } from "../../app-server/services/threads";
-import { normalizeExplicitThreadName } from "../../domain/threads/model";
+import { listThreads, readCompletedConversationSummariesPage } from "../../app-server/services/threads";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import { exportArchivedThreadMarkdown, type ArchiveExportAdapter } from "../thread-export/archive-markdown";
-import { generateThreadTitleWithCodex } from "../thread-title/generation";
-import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../thread-title/model";
+import { archiveThreadOnAppServer } from "../thread-operations/archive";
+import type { ArchiveExportAdapter } from "../thread-operations/archive-markdown";
+import { renameThreadOnAppServer, threadRenameFromValue } from "../thread-operations/rename";
+import { generateThreadTitleWithCodex } from "../thread-operations/title-generation";
+import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../thread-operations/title-model";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
   completedThreadAutoNameState,
@@ -292,8 +293,8 @@ export class CodexThreadsSession {
   private async saveRename(threadId: string, value: string): Promise<void> {
     const editingState = this.renameStates.get(threadId);
     if (!editingState || editingState.kind === "generating") return;
-    const name = normalizeExplicitThreadName(value);
-    if (!name) {
+    const rename = threadRenameFromValue(value);
+    if (!rename) {
       this.cancelRename(threadId);
       return;
     }
@@ -301,9 +302,9 @@ export class CodexThreadsSession {
       await this.ensureConnected();
       if (this.renameStates.get(threadId) !== editingState) return;
       if (!this.client) return;
-      await this.client.setThreadName(threadId, name);
+      const result = await renameThreadOnAppServer(this.client, threadId, rename);
       this.renameStates.delete(threadId);
-      this.host.notifyThreadRenamed(threadId, name);
+      this.host.notifyThreadRenamed(threadId, result.name);
     } catch (error) {
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();
@@ -363,15 +364,15 @@ export class CodexThreadsSession {
     try {
       await this.ensureConnected();
       if (!this.client) return;
-      if (saveMarkdown) {
-        const result = await exportArchivedThreadMarkdown(
-          await readThreadForArchiveExport(this.client, threadId),
-          { ...this.host.settings, vaultPath: this.host.vaultPath },
-          this.environment.archiveAdapter(),
-        );
-        new Notice(`Saved archived thread to ${result.path}.`);
+      const result = await archiveThreadOnAppServer(this.client, threadId, {
+        settings: this.host.settings,
+        vaultPath: this.host.vaultPath,
+        archiveAdapter: () => this.environment.archiveAdapter(),
+        saveMarkdown,
+      });
+      if (result.exportedPath) {
+        new Notice(`Saved archived thread to ${result.exportedPath}.`);
       }
-      await this.client.archiveThread(threadId);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
       this.host.notifyThreadArchived(threadId, { closeOpenPanels: true });
